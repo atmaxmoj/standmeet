@@ -1,6 +1,6 @@
 // account.go — /api/admin/account/* + GET /me: the owner's own account.
 //
-// Capability comes from the outbound convergence point (shared plumbing in dispatch.go).
+// Ability comes from the outbound convergence point (shared plumbing in dispatch.go).
 // Changing email / changing password / generating a recovery phrase all carry credentials —
 // a deliberate single-facade decision: admin only, MCP never carries raw credentials.
 //
@@ -18,7 +18,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// AccountDeps — capability source for the admin account handlers.
+// AccountDeps — op source for the admin account handlers.
 type AccountDeps struct {
 	Face *dispatcher.Face
 }

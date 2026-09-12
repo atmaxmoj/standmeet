@@ -28,7 +28,7 @@ exist yet). Nothing is left un-tracked.
 | A1 | dashboard fake sparkline | ✅ `dashboard-corpus-pulse.spec.ts` | wire real `series` |
 | A2 | résumé match/100 ignores JD | ✅ `resume-match-gauge.spec.ts` | JD-aware score or drop the claim |
 | A3 | dashboard "shortlist" = hardcoded 0 | ⏸ deferred | tracked as check 2 in the dashboard item; needs a shortlist source |
-| A4 | fake connector state → wrong hints | ✅ `marketplace-needs-connector.spec.ts` | read real connector state + carry `needs` |
+| A4 | fake connector state → wrong hints | ✅ `marketplace-needs-supplier.spec.ts` | read real connector state + carry `needs` |
 | A5 | dead heat i18n copy | — cleanup | delete unused `skills.intro/heatEmpty` keys |
 | B1–B5 | stale "mock/not-wired" comments | — no-test | correct the comments (a comment can't be tested) |
 | B6 | "updates-available banner" false feature | — no-test | delete the claim (folds into D1 merge) |

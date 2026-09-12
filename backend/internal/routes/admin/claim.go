@@ -23,26 +23,26 @@ import (
 
 // Handlers holds the dependencies the admin handlers need.
 type Handlers struct {
-	AccessRequests    AccessRequestsDeps
-	APIKeysAdmin      APIKeysAdminDeps
-	Obsidian          ObsidianDeps
-	WritingsAdmin     WritingsAdminDeps
-	Conversations     ConversationsDeps
-	CodesAdmin        CodesDeps
-	CapabilitiesAdmin CapabilityAdminDeps
-	Claim             owner.ClaimDeps
-	RolesAdmin        RolesAdminDeps
-	Corpus            CorpusDeps
-	Auth              AuthDeps
-	KeypairsAdmin     KeypairsAdminDeps
-	SkillsAdmin       SkillsAdminDeps
-	MicrositesAdmin   MicrositesDeps
-	MarketplaceAdmin  MarketplaceAdminDeps
-	MCPServersAdmin   MCPServersAdminDeps
-	BYOAI             BYOAIDeps
-	AccountAdmin      AccountDeps
-	Recovery          owner.RecoveryDeps
-	EmailChange       owner.EmailChangeDeps
+	AccessRequests   AccessRequestsDeps
+	APIKeysAdmin     APIKeysAdminDeps
+	Obsidian         ObsidianDeps
+	WritingsAdmin    WritingsAdminDeps
+	Conversations    ConversationsDeps
+	CodesAdmin       CodesDeps
+	BlocksAdmin      BlockAdminDeps
+	Claim            owner.ClaimDeps
+	RolesAdmin       RolesAdminDeps
+	Corpus           CorpusDeps
+	Auth             AuthDeps
+	KeypairsAdmin    KeypairsAdminDeps
+	SkillsAdmin      SkillsAdminDeps
+	MicrositesAdmin  MicrositesDeps
+	MarketplaceAdmin MarketplaceAdminDeps
+	MCPServersAdmin  MCPServersAdminDeps
+	BYOAI            BYOAIDeps
+	AccountAdmin     AccountDeps
+	Recovery         owner.RecoveryDeps
+	EmailChange      owner.EmailChangeDeps
 	// SeedPlugins — lets each plugin seed its own builtins after claim.
 	//
 	// Injected by the **assembly root**: that's where the plugin registry lives, and this
@@ -67,13 +67,9 @@ type Handlers struct {
 	Log             *slog.Logger
 	IPBansAdmin     IPBansAdminDeps
 	MonitorAdmin    MonitorAdminDeps
-	ConnectorsAdmin ConnectorsAdminDeps
 	InstanceAdmin   InstanceAdminDeps // Observation facade: system / usage / stats.*
 	AppearanceAdmin AppearanceAdminDeps
-	// CapabilityConfigAdmin — the generic capability-config facade (replaces a
-	// hand-written route set per capability).
-	CapabilityConfigAdmin CapabilityConfigAdminDeps
-	SecureCookie          bool
+	SecureCookie    bool
 }
 
 // The mounting of the no-login-required routes lives in mount_unauthed.go — that's a
@@ -117,9 +113,14 @@ func (h *Handlers) MountAuthed(r chi.Router, credGuard func(http.Handler) http.H
 	h.MountWritings(r)
 	h.MountObsidian(r)
 	h.MountMarketplace(r)
-	h.MountConnectors(r)
-	h.MountCapabilities(r)
-	h.MountCapabilityConfig(r)
+	// One block screen, where there were three. `frontend.md`: a supplier panel, a
+	// block panel and a per-block config route were three views of one thing the
+	// owner thinks of as "my plugins".
+	h.MountBlocks(r)
+	// The connection half of the same screen: credential form, OAuth dance,
+	// activate / disconnect. Under /suppliers — `frontend.md` merges the panels,
+	// not the wire, so these stay their own routes and their own op names.
+	h.MountSuppliers(r)
 	h.MountIPBans(r)
 	h.MountMonitor(r)
 	h.MountInstance(r)

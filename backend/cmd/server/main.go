@@ -17,8 +17,7 @@ import (
 	"time"
 	_ "time/tzdata"
 
-	"github.com/atmaxmoj/standmeet/cmd/server/axiscap"
-	"github.com/atmaxmoj/standmeet/cmd/server/axisconn"
+	"github.com/atmaxmoj/standmeet/cmd/server/blockwire"
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
 	"github.com/atmaxmoj/standmeet/cmd/server/port"
 	"github.com/atmaxmoj/standmeet/cmd/server/wire"
@@ -132,17 +131,17 @@ func wireAndServe(
 		setupTokenHolder: setupTokenHolder,
 		storageClient:    storageClient,
 	})
-	// Implements marketplace-search's "which connectors is this card still missing":
-	// holds &rt, fetches the capability + dependency registries only when invoked,
+	// Implements marketplace-search's "which seams is this card still missing":
+	// holds &rt, fetches the block + dependency registries only when invoked,
 	// since neither is complete until registerAgentSkills runs (F-F-4).
-	rt.ConnectorNeeds = &connectorNeeds{rt: &rt}
-	// must precede buildPluginRegistry: owner-MCP caps capture the connector dispatcher there.
-	axisconn.EnsureConnectorSlots(&rt)
-	// Provisions each capability's isolated storage once; the outbound convergence
+	rt.SeamNeeds = &seamNeeds{rt: &rt}
+	// must precede buildPluginRegistry: owner-MCP blocks capture the dispatcher there.
+	blockwire.EnsureBlockDispatch(&rt)
+	// Provisions each block's isolated storage once; the outbound convergence
 	// point (fields on the code), the inbound one (sandbox reads/writes), and the
 	// usage gate all draw from this same storage.
-	axiscap.CapabilityStorageInit(ctx, &rt)
-	rt.PluginRegistry = buildPluginRegistry(&rt)
+	blockwire.BlockStorageInit(ctx, &rt)
+	rt.JobsModule = buildJobsModule(&rt)
 	// One outbound convergence point: MCP face and admin face must project from
 	// **the same** declaration, or there's no basis for parity between them.
 	rt.Dispatch = wire.BuildDispatcher(&rt)
@@ -318,7 +317,10 @@ func serve(ctx context.Context, rt *deps.Runtime, addr string, stop context.Canc
 		IdleTimeout:       httpIdleTimeout,
 	}
 
-	rt.Log.Info("plugins enabled", "names", rt.PluginRegistry.Names())
+	// Which blocks this build shipped with, in the startup log. It used to read the
+	// in-process plugin registry, which had exactly one member; the honest answer is
+	// the block declarations, and it is the same list an owner sees in the panel.
+	rt.Log.Info("blocks loaded", "ids", builtinBlockIDs())
 
 	go func() {
 		// Version goes in the startup log so "which build produced this log" is

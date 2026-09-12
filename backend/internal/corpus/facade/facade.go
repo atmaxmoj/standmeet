@@ -24,8 +24,8 @@
 //     by repo)
 //   - corpus map / tree / crosslink / index (Meili) / writings CRUD / assets / note nav and
 //     other application flows
-//   - sentiment / subjectivity (#135 leftover capability still awaiting externalization,
+//   - sentiment / subjectivity (#135 leftover ability still awaiting externalization,
 //     kept in usecase for now)
 //
-// New capability: implement it in the matching sub-package, then add one forwarding line here.
+// New ability: implement it in the matching sub-package, then add one forwarding line here.
 package corpus

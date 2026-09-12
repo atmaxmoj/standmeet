@@ -1,6 +1,6 @@
 // roles.go — /api/admin/roles CRUD.
 //
-// Capability comes from the outbound convergence point (shared plumbing in dispatch.go);
+// Ability comes from the outbound convergence point (shared plumbing in dispatch.go);
 // this facade only decides the REST shape: create returns 201, everything else returns
 // 200, the resource id goes in the path, everything else goes in the body.
 //
@@ -18,7 +18,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// RolesAdminDeps — capability source for the admin roles handlers.
+// RolesAdminDeps — op source for the admin roles handlers.
 type RolesAdminDeps struct {
 	Face *dispatcher.Face
 }

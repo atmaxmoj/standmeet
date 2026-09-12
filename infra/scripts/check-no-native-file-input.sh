@@ -5,7 +5,7 @@
 # Why this gate exists (UX-81): `<input type="file">` draws its own
 # `Choose File / No file chosen`. Its look is decided by the **operating
 # system** — nothing to do with the cream-paper + vermillion + mono
-# language. In the connector modal it's the one control in the whole window
+# language. In the supplier modal it's the one control in the whole window
 # that was never designed, sitting right next to buttons that were.
 #
 # The real cost showed up later: after fixing that one spot, the same thing

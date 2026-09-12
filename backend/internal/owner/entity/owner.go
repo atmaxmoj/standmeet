@@ -38,7 +38,7 @@ type Owner struct {
 
 // Settings —— the owner aggregate's "config facet", separate from
 // identity. Three independent setting groups: AI / BYOAI / Domain; future
-// additions like connector / SEO config also belong here.
+// additions like supplier / SEO config also belong here.
 //
 // This is a value object of the Owner aggregate (not its own aggregate
 // root), and travels with Owner across the transaction boundary — saving

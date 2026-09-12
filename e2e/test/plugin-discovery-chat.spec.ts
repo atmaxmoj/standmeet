@@ -1,6 +1,6 @@
 // plugin-discovery-chat.spec.ts —— C4: a plugin declared at deploy time gets discovered by
 // core and called by the AI inside visitor chat. This is the end-to-end proof that "core
-// discovers a capability that isn't hardcoded (not MustRegister) and wasn't registered by
+// discovers a block that isn't hardcoded (not MustRegister) and wasn't registered by
 // the owner at runtime".
 //
 // Difference from external-mcp-tools.spec.ts: that test has the **owner** register via
@@ -47,7 +47,7 @@ test.describe('platform-declared plugin discovered + used in visitor chat (no ow
     });
     const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
     // Key point: the role grants the platform plugin id 'echoer' (granted_skills →
-    // role.AllowedTools). The owner never registers any MCP server — the plugin capability
+    // role.AllowedTools). The owner never registers any MCP server — the plugin block
     // comes from deployment config, not from the owner.
     const issued = await issueCodeWithSkills(request, csrf, {
       label: 'plug', granted_skills: [PLUGIN_ID],

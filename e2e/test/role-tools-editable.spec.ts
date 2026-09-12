@@ -13,7 +13,7 @@
 //
 // This is the other two lists sharing the same bug as F-A-11: that one had the corpus
 // grant list locking up after creation, fixed by RoleCorpusConfig (inline edit on the
-// card -> a full PUT). The backend side was never missing the capability:
+// card -> a full PUT). The backend side was never missing the block:
 // usecase/roles.go's Update has always accepted corpus_uris + skill_ids +
 // mcp_server_ids, with syncRoleJoins syncing all three join tables together. What's
 // missing is only the face for it — so tool-roles-mcp.spec.ts, which drives the API

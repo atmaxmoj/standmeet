@@ -4,7 +4,7 @@
 // is the H.9.a smoke test: it only verifies the plain-text path (no tool call) → text
 // frames + done(end_turn); the auth-failure path; the invalid-body path.
 //
-// Increments like the tool stream / capability_state delta / throbber label /
+// Increments like the tool stream / block_state delta / throbber label /
 // summarization are left to dedicated specs in H.9.b / H.11 / H.9b.
 
 import { test, expect } from '@/fixtures/test';
@@ -201,7 +201,7 @@ async function assertToolEvents(request: APIRequestContext): Promise<void> {
   const startedData = started?.data as { name?: string; progress_label?: string };
   expect(startedData?.name).toBe('corpus_search');
   // H.11: progress_label comes from the backend's BindingTool.ProgressLabel
-  // (corpus_search registers as "searching corpus" in the capability registry).
+  // (corpus_search registers as "searching corpus" in the block registry).
   expect(startedData?.progress_label).toBe('searching corpus');
   const completed = sse.events.find((e) => e.type === 'tool_completed');
   expect(completed, 'tool_completed frame present').toBeDefined();

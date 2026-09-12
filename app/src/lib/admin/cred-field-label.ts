@@ -7,13 +7,13 @@
 // still has exactly one home, and both render sites go through it,
 // [[lesson-not-swept-to-neighbours]]).
 //
-// Field names are derived by the backend from each connector's own declaration,
+// Field names are derived by the backend from each supplier’s own declaration,
 // so an arbitrary/unknown key can arrive. For those there is no message: fall
 // back to the raw key with underscores turned into spaces (`from_address` →
 // `from address`) — never render a raw error string.
 //
 // Why this is its own file: **credential fields are rendered in two places**
-// (`CredField` on the connector card, `PlainField` in the assemble form), and
+// (`CredField` on the supplier card, `PlainField` in the assemble form), and
 // they have different responsibilities (one handles scopes/readonly, the
 // other only handles key-value), so merging them would drop something
 // ([[duplicate-carries-a-unique-job]]). But "how does a key become a label"

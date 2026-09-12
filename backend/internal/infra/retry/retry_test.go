@@ -1,4 +1,4 @@
-// retry_test.go -- unit tests for the generic retry infra (connector-deps-tests.md
+// retry_test.go -- unit tests for the generic retry infra (supplier-deps-tests.md
 // §5 retry-infra). Backoff durations are recorded via an injected fake sleep, never a
 // real sleep; the clock is injected too (via retry.WithClock), for determinism.
 

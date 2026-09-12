@@ -33,7 +33,7 @@ const FULL_VAULT = [
 
 async function titles(request: APIRequestContext): Promise<string[]> {
   const rows = await adminGenreList(request, OWNER, 'wiki');
-  return rows.map((r) => r.title);
+  return rows.map((r) => r.title ?? '');
 }
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });

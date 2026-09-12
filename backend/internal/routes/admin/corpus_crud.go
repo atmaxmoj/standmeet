@@ -9,7 +9,7 @@
 //   POST   /corpus/{genre}/{id}/promote  — promote one step (genre names the **source**)
 //   POST   /corpus/{genre}/{id}/assets   — attach an asset (image / attachment / hero image)
 //
-// All capability is taken through the convergence point; this layer only carries the
+// All ability is taken through the convergence point; this layer only carries the
 // REST shape: delete returns 204 (the frontend is written against this contract),
 // everything else returns 200.
 

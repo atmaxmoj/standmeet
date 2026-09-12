@@ -13,9 +13,9 @@
 # reason, in the file, where the next person reads it.
 #
 # **Scans the whole backend, not just config.go** (F-C-49). It used to read `config.go` alone while
-# its first line claimed "every knob the product READS". `CONNECTOR_EGRESS_ALLOW` is read in
-# `axisconn/register.go` and passed by the dev compose only — so on a shipped prod stack a connector
-# could never reach a self-hosted service, and this gate reported green the whole time. It was
+# its first line claimed "every knob the product READS". `SUPPLIER_EGRESS_ALLOW` is read in
+# `blockwire/supplier_register.go` and passed by the dev compose only — so on a shipped prod stack
+# a supplier could never reach a self-hosted service, and this gate reported green the whole time. It was
 # telling the truth about what it looked at, which reads as the truth about the tree.
 #
 # Self-test: `check-knobs-reachable-test.sh` plants an unreachable knob in config.go AND outside it,

@@ -22,7 +22,7 @@ func facades() facadeSet {
 	}
 }
 
-// TestConform_OmissionIsCaught —— the core proof: a capability wired to admin but NOT mcp goes RED;
+// TestConform_OmissionIsCaught —— the core proof: a block wired to admin but NOT mcp goes RED;
 // adding the mcp binding goes GREEN. This is "omission is now impossible", mechanically.
 func TestConform_OmissionIsCaught(t *testing.T) {
 	t.Parallel()
@@ -76,14 +76,14 @@ func TestConform_ExceptSkipsIncapableFacade(t *testing.T) {
 	fs := facades()
 	manifest := []fp.Op{
 		{
-			ID: "connector.oauth_connect", Kind: fp.Action,
+			ID: "supplier.oauth_connect", Kind: fp.Action,
 			Reach: fp.OwnerAction().Except(fp.Browser),
 		},
 	}
 	// mcp lacks nothing but the Browser class it can't carry → op not required there; admin has it.
 	vs := fp.Conform(manifest, []fp.Exposure{
 		{Facade: fs.mcp, Exposed: map[string]bool{}},
-		{Facade: fs.admin, Exposed: map[string]bool{"connector.oauth_connect": true}},
+		{Facade: fs.admin, Exposed: map[string]bool{"supplier.oauth_connect": true}},
 	})
 	require.Empty(t, vs, "browser-bound op only on browser-capable facades\n%s", fp.Report(vs))
 
@@ -140,7 +140,7 @@ func TestConform_OwnerReachNeverRequiredOnOutward(t *testing.T) {
 
 // TestConform_OwnerOpOnOutwardFacadeIsLeak —— the leak wall: an owner-plane op ACTUALLY exposed on
 // an outward facade is a hard violation (Kind "leak"), not merely "not required". This is the guard
-// the whole direction axis exists for: admin capabilities can never render outward.
+// the whole direction axis exists for: admin ops can never render outward.
 func TestConform_OwnerOpOnOutwardFacadeIsLeak(t *testing.T) {
 	t.Parallel()
 	ow := outwardFacades()

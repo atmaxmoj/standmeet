@@ -187,6 +187,10 @@ function flushRedis(): void {
   execSync(`docker exec ${REDIS_CONTAINER} redis-cli FLUSHALL`, { stdio: 'inherit' });
 }
 
+// A failing reset is already loud, and that was checked rather than assumed: `psql -c` exits 1
+// on a SQL error (with or without ON_ERROR_STOP — that flag is for multi-statement scripts), and
+// execSync throws on a non-zero exit. So a TRUNCATE naming a relation that no longer exists
+// stops the run instead of quietly leaving dirty state for every spec after it.
 function runPsql(sql: string): void {
   execSync(
     `docker exec ${DB_CONTAINER} psql -U standmeet -d standmeet -c "${sql}"`,

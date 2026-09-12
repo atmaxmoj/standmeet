@@ -3,7 +3,7 @@
 //
 // Pulled out of role_snapshot.go: the snapshot is "the role state frozen for a session",
 // while the waypoint merge rule (role (+) code) is a separate topic, unrelated to the
-// corpus/skill/capability freeze logic.
+// corpus/skill/block freeze logic.
 
 package entity
 

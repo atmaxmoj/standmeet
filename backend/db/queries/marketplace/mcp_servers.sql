@@ -18,7 +18,7 @@ WHERE id = $1 AND owner_id = $2;
 DELETE FROM mcp_servers
 WHERE id = $1 AND owner_id = $2;
 
--- GrantMCPServerDep —— owner explicitly authorizes this server to use a connector dependency (dep name).
+-- GrantMCPServerDep —— owner explicitly authorizes this server to use a supplier dependency (dep name).
 -- Idempotent: if already in granted_deps, do not append again.
 -- name: GrantMCPServerDep :exec
 UPDATE mcp_servers

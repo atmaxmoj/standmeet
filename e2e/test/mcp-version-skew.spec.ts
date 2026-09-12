@@ -35,7 +35,7 @@ const OWNER = {
 
 const INIT = JSON.stringify({
   jsonrpc: '2.0', id: 1, method: 'initialize',
-  params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'skew-e2e', version: '0' } },
+  params: { protocolVersion: '2024-11-05', blocks: {}, clientInfo: { name: 'skew-e2e', version: '0' } },
 });
 
 // buildClient — rebuild the real bin stamped with `version` via STANDMEET_VERSION (the fix: the

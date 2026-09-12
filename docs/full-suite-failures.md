@@ -51,8 +51,31 @@ audit under REAL_VAULT still surfaces it).
 
 **My monitor-privacy commits: zero red causally attributable** (5 flakes no-banner + green on isolation;
 the 2 real reds are pre-existing infra/content). Committed code effectively green pending Batch A + B.
+# Full-suite failures — round 2026-09-11a (branch `plugin-model`, vocabulary conformance)
 
----
+**Running: 1785 tests, 1 worker.** Log: `scratchpad/e2e-run2.log`.
+
+This round follows the conformance rename (the implementation now spells the design's words:
+block / fiber / seam / supplier / bundle). `make lint` is green end to end, and two cross-checks
+lint cannot do both pass: all **678** testids the specs reference exist in the app, and all **139**
+op ids the specs call exist in the backend.
+
+### Round 0 — the suite could not start, twice over
+
+Both reds were in boot, not in a test, and both are the rename's own damage. Recorded here because
+neither would have been found by lint, and one of them had already shipped as a silent outage.
+
+| # | red | root cause | fix |
+|---|---|---|---|
+| 0-A | `backend is unhealthy` → `dev-up` Error | `backend/blocks/google-calendar/binding.yaml` still keyed `category:` while the Go struct had been renamed to read `seam:`. Valid YAML, parsed fine, field came back `""`. **Boot logged one ERROR and carried on** — the instance would come up healthy with no calendar and booking dead in prod. | data file re-keyed to `seam:`; `DepRegistry` now **panics** when a *shipped* supplier will not assemble (owner uploads still log-and-continue via `registerUploadedSuppliers`, so one bad paste cannot brick an instance); new `TestShippedSuppliersAssemble` runs the real `supplierManifests()` + `assembleSupplier` over every shipped block — **proved RED** on the planted `category:` key |
+| 0-B | `panic: dispatcher: facade "admin" missing op "blocks.uninstall"` | `blocks.uninstall` was declared with `OwnerAction()` reach but never routed. Diagnosing it showed it was a **duplicate**: `blockOps.Delete` already branches on `ownerInstalled` and uninstalls — and `blocks.uninstall` reached `Assembly.Uninstall` directly, **skipping the built-in refusal** `Delete` applies. | op deleted rather than routed; `blocks.delete`'s description corrected (it claimed to delete only skill rows); `norm-outward-toolset` golden updated with the reason |
+
+**The shape worth keeping:** a rename is checked by the compiler on the struct side and by a string
+key on the data side. The compiler half moves; the string half goes to the zero value in silence.
+`git grep` for the *old* word finds it — the guard is now `TestShippedSuppliersAssemble`, which
+does not restate the manifest shape and so cannot drift the same way.
+
+### Round 1 — stopped at test 349 of 1785, on purpose
 
 # Full-suite failures — round 2026-09-11 · RUN 1 (branch `worktree-resume-sot-batch`)
 
@@ -201,3 +224,210 @@ every spec that reads the moved surface, not just the new one.
   0-rows path a truncate-mid-build produces) → RED 500 → fix → GREEN 404 REPEAT=5. Caveat: a real bug
   found on that path is not proof it caused the flake — still re-run the e2e; live-follow was host-load,
   the mark-built 500 a separate real defect.)
+Four reds in, one of them said the round was not worth finishing:
+
+```
+chat-book-token-refresh · 248ms
+ERROR:  relation "owner_suppliers" does not exist
+UPDATE owner_suppliers SET token_expires_at = … WHERE supplier_id = 'google-calendar'
+```
+
+**The blanket `connector → supplier` substitution over `e2e/` rewrote SQL identifiers.** The specs
+carry raw SQL to manufacture preconditions no API can create (an expired token, a revoked grant);
+those statements named `owner_connectors` / `connector_id`, and the substitution turned them into
+`owner_suppliers` / `supplier_id` — **a name that exists nowhere**, because the migration renamed
+that table to `block_connections` / `block_id`.
+
+13 spec files were guaranteed red for this one reason, spread across the remaining 1400 tests.
+Finishing the round would have spent three hours rediscovering a defect already fully diagnosed, and
+the rule against editing specs mid-suite meant it could not be fixed without ending the round anyway.
+So: end it, fix the class, restart.
+
+**The worst one was not red.** `skill-tool-grants-editable.spec.ts` reads the supplier rows the API
+returns, and the substitution renamed the *field it reads* from `block_id` to `supplier_id` — which
+the API never sends. Line 95 is
+
+```ts
+expect(after.find((r) => r.supplier_id === id), 'a disconnected supplier is not offered')
+```
+
+`find` on a field that is always `undefined` always returns `undefined`, so the assertion passes
+**whatever the product does** ([[negated-assertion-passes-while-absent]]). A blanket rename can turn
+a guard into a tautology, and that failure is invisible in a red count.
+
+**What was checked after fixing, so the class is closed rather than the instance:** every SQL
+relation named in `e2e/` against `schema.sql` + migrations; every `block_*`/`supplier_*` identifier
+in the specs against the product tree (one hit, `supplier_deps_met`, is prose in a comment); every
+`/api/...` path against the routes; and `mock-stack/`'s emitted data (still spelled the old way
+*internally*, but what goes on the wire — `tz-booking`, `calendar` — never carried the renamed word).
+
+The other three reds carried into the next round: `admin-corpus-constellation:49`
+(`browser.newContext: …has been closed`, 4ms — harness), `admin-listings-dedup:27` (auto-fetch fired
+0 times, 20s predicate), `agent-widget-inherits-from-code:152` (the dock button never renders;
+`resolveDockButtons` drops a button whose block is absent from the session's states, and
+`summarize_conversation` is `acl:always` so it should never be absent). The round ran at **load
+30.31** with two full stacks up, so the first is likely the machine and the last two are not.
+
+---
+
+# Full-suite failures — round 2026-09-10c (branch `plugin-model`, block model complete)
+
+**1734 passed · 24 failed · 3.1h.** The first round on this branch that ran to completion.
+
+- Suite log: `scratchpad/full3.log`
+- Failure artifacts: `e2e/test-results-archive/20260911T003848Z/playwright` (24 dirs, one
+  `error-context.md` each). **Diagnose from here.** The live `test-results/playwright` is overwritten
+  by the next targeted run — that already cost one artifact this round.
+- Machine: load **37** throughout.
+
+**No pre-existing exemption. Every red goes green.**
+
+> ### The round had a 22-minute backend outage in it
+>
+> `docker inspect` on the backend container: **`Created 23:59:29`, `StartedAt 00:21:31`** — while the
+> app container beside it was created at `21:32`, when the run began. The backend was *replaced*
+> two and a half hours into a three-hour run and took twenty-two minutes to come back, and
+> `RestartCount` is 0, so this was a new container rather than a crash — something outside this run
+> issued a `compose up` against this project.
+>
+> Nothing in the suite log records it: no `Recreated`, no `unhealthy`. The only trace is the archived
+> `backend.log`, which **begins with schema migrations at 00:21** — a log that starts with a boot
+> three hours into the round is the receipt.
+>
+> Every test in that window fails, and none of those failures is about this branch. The counts below
+> are therefore an upper bound on real defects, not a measurement of them — which is exactly why
+> Batch A is settled by a rerun on a healthy stack rather than by reading each red.
+
+---
+
+## Batch A — the machine was carrying three full stacks | 19
+
+Nine `"beforeAll" hook timeout of 30000ms`, five `apiRequestContext.post: Timeout 10000ms`, three
+`Test timeout of 30000ms`, two `locator.click/waitFor` timeouts. Every one of them is a clock
+expiring, not a claim failing.
+
+```
+account-email-change-needs-confirmation   account-email-change-without-mail-supplier
+supplier-send-confirmation-tool          corpus-addressing
+corpus-writing-retrieval-acl              dock-buttons · dock-buttons-admin · dock-buttons-visitor ×2
+document-render · document-render-benchmark (beforeAll)
+draft-composer-backend · draft-discard · draft-puck-data-persist · draft-puck-dirty
+draft-puck-field-edit                     external-mcp-sse-transport
+quota-warn-lockdown                       real-third-party-mcp-network
+```
+
+**Root cause (counted, not guessed).** `docker ps` during the round: **43 standmeet containers
+running — three complete stacks.**
+
+| project | containers | whose |
+|---|---|---|
+| `standmeet-wt-plugin-model` | 14 | this worktree — needed |
+| `standmeet-wt-resume-sot` | 14 | another worktree |
+| `standmeet-dev` | 15 | the main checkout |
+
+plus the `lucerna-local` neighbour the machine-witness reports. Load 37 on a machine sized for one
+stack. Nothing in this batch is a product defect and nothing in it is specific to this branch — the
+same specs pass in targeted runs on the same images.
+
+**What the two 10s `post` timeouts additionally show**, from the backend log rather than inference:
+
+```
+POST /api/v1/sessions   typical 0.3–3s,  slowest 13098ms
+POST /api/admin/login   typical <1s,     slowest 14040ms
+```
+
+`playwright.config.ts` sets `actionTimeout: 10_000` and Playwright applies it to API requests too, so
+the harness gave up before the product did — the visitor's own budget for opening a session is 15s
+(`AssembleVisitorBundle`, written after a real incident at 13.9s). `issueSession` now carries an
+explicit 25s, taken from the product's contract rather than from how slow the machine happened to be.
+Not raised globally: `actionTimeout` also governs clicks and fills, and lifting it there would double
+how long every genuinely missing element takes to report across ~1750 tests.
+
+**Status: rerunning at load 21.** A batch whose root cause is the host cannot be closed by editing
+code; it is closed by the rerun being green, and that is the only thing a rerun is allowed to settle
+here — the root cause was established by counting containers first.
+
+---
+
+## Batch B — five reds that are not clocks | 5
+
+### B1 · `job-fetch-multi-source` — one bad source still zeroes the others
+
+```
+Error: the good source (GoodBoard) returned nothing because BadToken failed
+expect(received).toBeGreaterThan(expected)   Expected: > 0   Received: 0
+```
+
+The spec's own preamble says this must be red on the old code, and it is red now. The invariant —
+*"a single source failure doesn't block the others"* — is the one `[[names-that-lie]]` was written
+about: the comment above `return nil, ferr` declares the opposite of what the code does. **Not yet
+traced to a cause in this round.** It did not appear in round 2026-09-10a's 226, so either it is new
+or it was masked; that is the first thing to establish.
+
+### B2 · `microsite-editor-live-follow` — the preview never follows
+
+```
+Locator: microsite-staging-frame › [data-sm="headline"]
+Expected: "LIVE-EDIT-ONE"   Received: "INITIAL"   Timeout: 300000ms
+```
+
+Five minutes, not a clock that was too tight. Either the builder never picked the edit up or the
+preview never re-read it. The builder container shows `Up 12 hours` with no health check, and it is
+shared by three stacks — so contention is a *candidate*, not the finding. This one failed in round
+2026-09-10a as well and passed the consolidated re-run in between, which is the signature of
+something intermittent rather than absent ([[two-samples-of-a-flake-look-like-a-rule]] — the third
+observation has to be able to come out negative).
+
+### B3 · `account-edit` — the success toast never appears
+
+```
+Locator: getByTestId('toast-success').filter({ hasText: 'alice+rotated@example.com' })
+Expected: visible   Timeout: 5000ms   element(s) not found
+```
+
+An expect-timeout at 5s, so it sits on the line between Batch A and here. Filed here deliberately:
+the toast is the product's receipt for a save, and "the save was slow" and "the save reported
+nothing" are different failures with the same appearance. It is in Batch A's rerun; if it stays red
+on a quiet machine it is a receipt that does not fire.
+
+### B4 · `document-render-benchmark` — 14159ms against a <8000ms budget
+
+A render-time budget, measured under load 37. Same host cause as Batch A, but it is an assertion on
+elapsed time rather than a timeout, so it is listed where it can be seen: **a performance budget is
+not meaningful on a machine running three stacks**, and a green here at load 37 would have been the
+surprising result.
+
+### B5 · `resume-pdf-render` — pdf.js API and worker disagree
+
+```
+UnknownErrorException: The API version "5.4.296" does not match the Worker version "6.2.108".
+```
+
+A genuine dependency defect and the only red in the round that has nothing to do with this branch or
+this host: the pdf.js main bundle and its worker are two different major versions. Pinning them to
+one version is the fix; this will not go green on a rerun.
+
+---
+
+## What the previous rounds established
+
+**2026-09-10a — the cap/conn merge, 226 red → 0.** Five dropped edges, each a line or a file the old
+two-tree layout carried for free: the `STANDMEET_HOST_SOCKET` injection (~150 tests — every sandboxed
+block lost its way back to the host), the owner's `diag_connector` port, `InvokeByID` resolving by
+seam instead of by the id it was given, two unchecked nil seam handles, and supplier blocks
+registering as visitor capabilities. None failed at boot; every one presented as a feature quietly
+not working.
+
+**2026-09-10b — the block model itself.** 13 specs green; impact-radius regression 731/2, both of
+those real defects I had introduced and both fixed: an installed block that reported `deletable:true`
+while delete refused it, and the process-wide registry leaking one owner's blocks into another's list.
+
+## 收尾规则
+
+1. Batch by root cause, not by finding.
+2. Diagnose from the **archive**. Do not re-run to diagnose. A rerun may only settle a batch whose
+   root cause is already established by other evidence (Batch A: the container count).
+3. One image build per batch — a batch that touches only the harness needs none.
+4. A batch is done when `make test-only SPEC=… REPEAT=5` is all green. Never judge from one pass.
+5. Full re-run once, after every batch is REPEAT=5 green — and **nothing is edited while it runs.**
+   Broken twice on this branch; both times it cost a whole round.

@@ -1,11 +1,11 @@
 // McpAppCard —— Phase F: sandboxed rendering of the ui:// card an externalized
-// MCP app capability ships with itself.
+// MCP app block ships with itself.
 //
-// An externalized capability's server (e.g. ask_visitor) serves its own
-// ui:// HTML card (read into CapabilityState.extra.ui.html at assembly
+// An externalized block’s server (e.g. ask_visitor) serves its own
+// ui:// HTML card (read into BlockState.extra.ui.html at assembly
 // time). This component drops it into a sandboxed iframe (allow-scripts, no
 // same-origin → can't reach the parent page's cookies/DOM); the protocol
-// lives in use-mcp-app-card. The capability shipping its own rendering makes
+// lives in use-mcp-app-card. The block shipping its own rendering makes
 // it truly self-contained, replacing the hardcoded AskVisitorCard.
 
 'use client';

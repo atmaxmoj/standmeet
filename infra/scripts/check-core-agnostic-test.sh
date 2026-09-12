@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # check-core-agnostic-test.sh —— self-test for check-core-agnostic (the ratchet must actually bite).
 #
-# Plants a NEW kernel file naming a concrete capability ("calendar") — a leak the ratchet has never
+# Plants a NEW kernel file naming a concrete block ("calendar") — a leak the ratchet has never
 # seen (new filename → not in baseline). Asserts the guard goes RED, then GREEN once removed. This
 # proves the "even if the AI forgets, the structure catches it" property is real, not aspirational.
 
@@ -27,9 +27,9 @@ if ! "$CHECK" >/dev/null 2>&1; then
   fail=1
 fi
 
-# 2) plant one fresh kernel leak per leaf capability. A guard only sees the tokens it lists, so
-#    "it caught calendar" says nothing about the rest —— every capability that ships gets its own
-#    probe here, and adding a capability without adding its word to TOKENS shows up as a MISS.
+# 2) plant one fresh kernel leak per leaf block. A guard only sees the tokens it lists, so
+#    "it caught calendar" says nothing about the rest —— every block that ships gets its own
+#    probe here, and adding a block without adding its word to TOKENS shows up as a MISS.
 probe_leak() { # <name> <expression the plant returns>
   cat > "$PROBE" <<EOF
 package $PROBE_PKG

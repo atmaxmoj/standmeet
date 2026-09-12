@@ -82,7 +82,7 @@ type RoleInit struct {
 	// role scope; the access domain no longer even knows its name.
 	//
 	// RequireGhostEvidence stays — it governs whether ghost guidance needs evidence, and
-	// that is this domain's own rule, not owned by any one capability.
+	// that is this domain's own rule, not owned by any one block.
 	// RequireGhostEvidence —— F-A-10 per-role switch.
 	RequireGhostEvidence bool
 	// GasMetered —— whether this role carries a gas meter.
@@ -305,7 +305,7 @@ var InvitedRoleCorpusURIs = []string{
 // A `HiringRole*` used to live here — the one job loop needed. It does not belong in the
 // kernel: `hiring` is that plugin's concept, not a kernel-level access tier, and the glob
 // it carries (where a recruiter's CV read is) only the plugin can define. It now lives in
-// `internal/owner/jobs/jobs_seed.go`, seeded through capabilities.OwnerSeeder. Note that
+// `internal/owner/jobs/jobs_seed.go`, seeded through the host's SeedPlugins hook. Note that
 // `check-core-agnostic`'s CORE_DIRS **does not cover this package**, so that leak stayed
 // green under lint.
 

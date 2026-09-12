@@ -24,7 +24,7 @@ async function mcpInit(request: APIRequestContext, authHeader: string): Promise<
     data: {
       jsonrpc: '2.0', id: 1, method: 'initialize',
       params: {
-        protocolVersion: '2024-11-05', capabilities: {},
+        protocolVersion: '2024-11-05', blocks: {},
         clientInfo: { name: 'sigv1-replay-spec', version: '1' },
       },
     },

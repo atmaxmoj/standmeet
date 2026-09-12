@@ -57,7 +57,7 @@ export function BYOAIPanel({ hook }: Props) {
   // but `✗ ERR provider does not expose a model list; type model id manually` appears in
   // the **bottom-right corner of the viewport** — attention is on the button, nobody looks
   // there. Everywhere else in this product a rejection is **pinned under the control that
-  // failed** (the `/gate` code error, the SSRF rejection in the connectors modal sits right
+  // failed** (the `/gate` code error, the SSRF rejection in the suppliers modal sits right
   // under the URL field, and the F-G-6 comment in this same file makes the same point).
   // This spot broke that convention, and picked the easiest-to-miss alternative.
   const [modelError, setModelError] = useState<string | null>(null);

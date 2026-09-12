@@ -1,37 +1,37 @@
 // RoleDockConfig —— #109/#110 chat dock button config on the role card. Two fixed button
-// slots (= two chat positions); each slot = capability dropdown (label passes through the
+// slots (= two chat positions); each slot = block dropdown (label passes through the
 // MCP title) + trigger-phrase input. Save → updateRole writes dock_buttons back in full,
-// frozen into subsequent sessions. An empty slot (no capability chosen) is dropped on save.
+// frozen into subsequent sessions. An empty slot (no block chosen) is dropped on save.
 
 import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useState } from 'react';
 
 import { SelectField } from '@/components/atoms/SelectField';
-import { useCapabilities, type CapabilityRow } from '@/lib/admin/use-capabilities';
+import { useBlocks, type BlockRow } from '@/lib/admin/use-blocks';
 import {
   roleUpdatePayload, useRoles, type DockButtonConfig, type RoleView,
 } from '@/lib/admin/use-roles';
 import { useAction } from '@/lib/ui/use-action';
 
-type Slot = { capability_id: string; trigger: string };
+type Slot = { block_id: string; trigger: string };
 
 // DOCK_INELIGIBLE —— a dock button is a **visitor action** (clicking it sends the trigger
-// as a visitor message); grounding / agent-internal capabilities are not actions a visitor
+// as a visitor message); grounding / agent-internal blocks are not actions a visitor
 // can "do", so they must never show up in the dock dropdown (F-A-8). `corpus.retrieval` is
 // the agent's own retrieval tool — turning it into a button would rebuild the CorpusSearchBox
 // that F-A-2 removed (violates the "a chat, not a page, never quote corpus verbatim" thesis).
 // Filtering at the **dropdown source** makes this violation structurally unclickable, not
-// merely unclicked. New grounding capabilities should be added here.
+// merely unclicked. New grounding blocks should be added here.
 const DOCK_INELIGIBLE = new Set(['corpus.retrieval']);
 
 export function RoleDockConfig({ role }: { role: RoleView }) {
   const t = useTranslations('adminAccess');
-  const caps = useCapabilities();
+  const blocks = useBlocks();
   const roles = useRoles();
   const run = useAction();
-  // No other component on /admin/roles loads the capability list; the dropdown depends on this.
-  const ensureCaps = caps.ensureLoaded;
-  useEffect(() => { void ensureCaps(); }, [ensureCaps]);
+  // No other component on /admin/roles loads the block list; the dropdown depends on this.
+  const ensureBlocks = blocks.ensureLoaded;
+  useEffect(() => { void ensureBlocks(); }, [ensureBlocks]);
   const [slots, setSlots] = useState<Slot[]>(() => seedSlots(role.dock_buttons));
   const setSlot = useCallback((i: number, patch: Partial<Slot>) => {
     setSlots((s) => s.map((x, j) => (j === i ? { ...x, ...patch } : x)));
@@ -45,7 +45,7 @@ export function RoleDockConfig({ role }: { role: RoleView }) {
     ),
     [role, roles, run, slots, t],
   );
-  const options = caps.rows.filter((r) => r.title && !DOCK_INELIGIBLE.has(r.id));
+  const options = blocks.rows.filter((r) => r.title && !DOCK_INELIGIBLE.has(r.id));
   return (
     <div className="mt-2 grid grid-cols-[90px_minmax(0,1fr)] gap-x-3 gap-y-2 items-start">
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-faint) pt-1.5">
@@ -69,7 +69,7 @@ function DockSlotRow({
 }: {
   idx: number;
   slot: Slot;
-  options: readonly CapabilityRow[];
+  options: readonly BlockRow[];
   onSlot: (i: number, patch: Partial<Slot>) => void;
 }) {
   const t = useTranslations('adminAccess');
@@ -84,8 +84,8 @@ function DockSlotRow({
       <SelectField
         className="w-full"
         mono
-        value={slot.capability_id}
-        onChange={(e) => onSlot(idx, { capability_id: e.target.value })}
+        value={slot.block_id}
+        onChange={(e) => onSlot(idx, { block_id: e.target.value })}
         testid={`role-dock-cap-${idx}`}
       >
         <option value="">{t('common.noneDash')}</option>
@@ -128,15 +128,15 @@ function seedSlots(buttons: readonly DockButtonConfig[] | undefined): Slot[] {
 
 function slotFrom(b: DockButtonConfig | undefined): Slot {
   return b
-    ? { capability_id: b.capability_id, trigger: b.trigger }
-    : { capability_id: '', trigger: '' };
+    ? { block_id: b.block_id, trigger: b.trigger }
+    : { block_id: '', trigger: '' };
 }
 
-// slotsToButtons —— keep only slots with a capability chosen (empty slots dropped).
+// slotsToButtons —— keep only slots with a block chosen (empty slots dropped).
 // Non-empty trigger validation is the backend's job.
 function slotsToButtons(slots: readonly Slot[]): DockButtonConfig[] {
   return slots
-    .filter((s) => s.capability_id !== '')
-    .map((s) => ({ capability_id: s.capability_id, trigger: s.trigger }));
+    .filter((s) => s.block_id !== '')
+    .map((s) => ({ block_id: s.block_id, trigger: s.trigger }));
 }
 

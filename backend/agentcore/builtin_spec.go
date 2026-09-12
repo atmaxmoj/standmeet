@@ -7,7 +7,7 @@
 // old tier, so eval was testing a configuration that doesn't exist in the
 // product — and it stayed green forever.
 //
-// There is one declaration: backend/capabilities/<id>/manifest.yaml,
+// There is one declaration: backend/blocks/<id>/manifest.yaml,
 // embedded via go:embed into the binary — prod and eval read the same bytes.
 
 package agentcore
@@ -15,26 +15,26 @@ package agentcore
 import (
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/capabilities"
-	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpplugin"
+	"github.com/atmaxmoj/standmeet/blocks"
+	"github.com/atmaxmoj/standmeet/internal/plugin"
 )
 
-// BuiltinManifest — fetches a builtin capability's declaration by id.
+// BuiltinManifest — fetches a built-in block's declaration by id.
 // Not found → error (a misspelled id should surface immediately).
-func BuiltinManifest(id string) (mcpplugin.Manifest, error) {
-	all, err := capabilities.Load()
+func BuiltinManifest(id string) (plugin.Manifest, error) {
+	all, err := plugin.Load(blocks.FS)
 	if err != nil {
-		return mcpplugin.Manifest{}, fmt.Errorf("load builtin manifests: %w", err)
+		return plugin.Manifest{}, fmt.Errorf("load builtin manifests: %w", err)
 	}
 	for i := range all {
 		if all[i].ID == id {
 			return all[i], nil
 		}
 	}
-	return mcpplugin.Manifest{}, fmt.Errorf("no builtin capability %q", id)
+	return plugin.Manifest{}, fmt.Errorf("no builtin block %q", id)
 }
 
-// BuiltinPluginSpec — a builtin capability's manifest → an eval PluginSpec.
+// BuiltinPluginSpec — a builtin block's manifest → an eval PluginSpec.
 //
 // command is the plugin binary **built on this machine** (the /plugin/xxx path
 // in the manifest is prod's in-sandbox path); sock is the mini-host's socket.
@@ -48,7 +48,7 @@ func BuiltinPluginSpec(id, command, sock string) (PluginSpec, error) {
 	spec := PluginSpec{
 		ID: m.ID, Command: command,
 		RawToolNames: m.RawToolNames,
-		ACLAlways:    m.ACL == mcpplugin.ACLAlways,
+		ACLAlways:    m.ACL == plugin.ACLAlways,
 	}
 	if m.Transport.Sandbox != nil {
 		spec.HostOps = m.Transport.Sandbox.HostOps

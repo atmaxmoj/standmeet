@@ -1,4 +1,4 @@
-// Command retrieval —— the externalized corpus.retrieval capability as a sandboxed
+// Command retrieval —— the externalized corpus.retrieval block as a sandboxed
 // stdio MCP server (origin=builtin). It owns NO data: it reads the trusted session
 // context off each tool-call `_meta` (planted by the host — owner id + the frozen
 // corpus-ACL scope) and forwards the call to the host's narrow "corpus_search" /
@@ -7,7 +7,7 @@
 // retriever (DB search/read/tree-nav + ACL); this plugin is just the agent-facing
 // tools + their schemas.
 //
-// The result wire is unchanged from the old in-process capability, so citations
+// The result wire is unchanged from the old in-process block, so citations
 // (which the inference layer derives from the corpus_read result {id,genre}) and
 // the frontend keep working untouched.
 package main
@@ -25,7 +25,7 @@ import (
 )
 
 // socketEnv —— the host socket path injected by the host. Same name across
-// all capabilities (see the identically-named constant in booker).
+// all blocks (see the identically-named constant in booker).
 const socketEnv = "STANDMEET_HOST_SOCKET"
 
 func main() {
@@ -52,7 +52,7 @@ func main() {
 }
 
 // progressLabel —— set the throbber label the host surfaces while the tool runs
-// (preserves the in-process capability's per-tool labels through the _meta sidechannel).
+// (preserves the in-process block’s per-tool labels through the _meta sidechannel).
 func progressLabel(t mcpgo.Tool, label string) mcpgo.Tool {
 	t.Meta = mcpgo.NewMetaFromMap(map[string]any{"progress_label": label})
 	return t

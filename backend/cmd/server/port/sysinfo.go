@@ -233,7 +233,7 @@ func (p *SysInfoProvider) healthChecks(ctx context.Context) []stats.HealthCheck 
 // indefinitely not knowing a retrieval method is missing.
 //
 // OK=false is correct here: this isn't "an optional feature not turned on", it's
-// **a capability that exists by design and is currently unavailable**.
+// **something that exists by design and is currently unavailable**.
 func searchCheck(ctx context.Context, s *search.Client) stats.HealthCheck {
 	if s == nil {
 		return stats.HealthCheck{

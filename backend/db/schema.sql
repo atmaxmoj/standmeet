@@ -320,7 +320,7 @@ CREATE INDEX note_refs_owner_dst_idx ON note_refs(owner_id, dst_id);
 -- corpus_permissions：path-glob ACL，first-match-wins by order ascending，
 --                     default deny。空列表 → 全允许 (无 ACL = 允许全部)。
 --                     形状：[{"action": "allow"|"deny", "path_pattern": "...", "order": n}]。
--- access_codes —— 访客访问码。A.3-IAM 起所有 ACL / capability gating 都从
+-- access_codes —— 访客访问码。A.3-IAM 起所有 ACL / block gating 都从
 -- assumed_role_id 指向的 Role 推断（[[role_snapshot]] 在 session issue 时
 -- freeze）；不再有 corpus_permissions / granted_skills / code_skills /
 -- code_mcp_servers 这些散落字段。#135:per-code 预约配额也不在这——booker 能力
@@ -353,6 +353,11 @@ CREATE TABLE access_codes (
     -- 两个面板都读它，谁也不存第二份。SET NULL —— 页删了码退回默认落地，而不是跟着消失。
     -- 外键在 microsites 建完之后补（这张表在它前面，内联写就是前向引用，新卷上直接失败）。
     microsite_id            uuid,
+    -- bundle_id —— 这张码带的是哪一捆 block。NULL = 照旧走 role ACL + per-code denials，
+    -- 所以从没组过 bundle 的实例行为一字不变。装配时**实时读**这一捆的成员：码不拿快照，
+    -- owner 从捆里拿掉一块，正在跑的会话立刻就调不到了（block-model.md：不排空、不超时）。
+    -- 外键补在 bundles 建完之后（那张表在这张后面）。
+    bundle_id               uuid,
     -- limit_per_period —— 可再生的速率闸：{amount, unit:'turns'|'gas', period_seconds}。
     -- NULL = 不限。max_turns_per_session 是**每场**（访客开新会话就重置）、gas 是**总量**
     -- （花完手动续）；这一个是**每周期自动回满**的桶，按码共享（跟哪个访客/会话无关）。
@@ -408,7 +413,7 @@ CREATE TABLE skills (
 
 CREATE UNIQUE INDEX skills_owner_name_uniq ON skills(owner_id, name);
 
--- code_skills / code_mcp_servers 在 A.3-IAM-5 删除。访客 capability gating
+-- code_skills / code_mcp_servers 在 A.3-IAM-5 删除。访客 block gating
 -- 从 access_codes.assumed_role_id 指向的 Role 推断；role_skills /
 -- role_mcp_servers 才是真 source of truth。
 
@@ -424,7 +429,7 @@ CREATE TABLE mcp_servers (
     url                     text          NOT NULL,
     auth_header_name        text          NOT NULL DEFAULT '',
     auth_header_value_enc   bytea         NOT NULL DEFAULT '\x'::bytea,
-    -- granted_deps —— owner 显式授权这个 ext-mcp server 可接的 connector 依赖名
+    -- granted_deps —— owner 显式授权这个 ext-mcp server 可接的 supplier 依赖名
     -- （"calendar" / "smtp"…）。ext-mcp 是最低信任（别人写的进程，owner 只是注册了
     -- URL），其工具即便声明 Requires:[calendar] 且 calendar 已连，默认也**不**注入句柄
     -- （连接器句柄带 owner 权限，自动给任意注册 server 等于把 owner 账号借出去）。owner
@@ -454,7 +459,7 @@ CREATE TABLE prompts (
 CREATE UNIQUE INDEX prompts_owner_name_uniq ON prompts(owner_id, name);
 
 -- roles —— owner-scoped visitor 身份原型。one-stop config：persona (Prompt) +
--- 可见 corpus (URI globs via role_corpus_uris) + 解锁的 capability (Skills via
+-- 可见 corpus (URI globs via role_corpus_uris) + 解锁的 block (Skills via
 -- role_skills + MCP servers via role_mcp_servers)。每张 access_code 挂一个
 -- assumed_role_id；session start 时拍 RoleSnapshot 进 session_data，跟 role
 -- 解耦（owner 改 role 不影响 in-flight session）。
@@ -472,7 +477,7 @@ CREATE TABLE roles (
     greeting     text          NOT NULL DEFAULT '',
     prompt_id    uuid          REFERENCES prompts(id) ON DELETE SET NULL,
     is_builtin   boolean       NOT NULL DEFAULT false,
-    -- dock_buttons —— #109/#110 这个 role 的 ≤2 个 chat dock 按钮：[{capability_id, trigger}]。
+    -- dock_buttons —— #109/#110 这个 role 的 ≤2 个 chat dock 按钮：[{block_id, trigger}]。
     -- 访客点按钮 = 发触发词（快捷方式）。冻进 RoleSnapshot；title 解析 + code-deny 过滤在会话装配层。
     dock_buttons jsonb         NOT NULL DEFAULT '[]'::jsonb,
     -- require_ghost_evidence —— F-A-10: 开则「内容型引导 ghost」只提有 evidence_refs 的 waypoint;
@@ -811,7 +816,7 @@ CREATE TABLE microsite_builds (
 
 -- A microsite's own persistence namespace is NOT a table here. Each page gets its OWN Postgres
 -- schema (page_<id>) with a generic records(collection, doc jsonb) table — the capstore pattern
--- (internal/capabilities/capstore, KindMicrosite), same isolation as a plugin: physical schema
+-- (internal/plugin/blockstore, KindMicrosite), same isolation as a plugin: physical schema
 -- separation (not a shared table keyed by id), created on page create, DROP SCHEMA CASCADE on page
 -- delete. See internal/owner/usecase/microsite_store.go. The only microsite_store trace in core is the
 -- microsites.store_writable flag above (whether visitors may write it — security model C).
@@ -945,32 +950,36 @@ CREATE INDEX applications_owner_idx ON applications(owner_id);
 CREATE UNIQUE INDEX applications_access_code_uniq ON applications(access_code_id);
 
 -- owner_calendar_connectors RETIRED (#155/#190) — the pre-#155 gcal-specific OAuth table was
--- superseded by the generic owner_connectors table below; its repo (CalendarRepo) is deleted.
+-- superseded by the generic block_connections table below; its repo (CalendarRepo) is deleted.
 -- Kept out of fresh installs; existing volumes keep the empty table (harmless).
 
 -- owner_mail_connectors RETIRED (#190) —— 它是 #155 之前 mail 专属的凭据表,已被下面通用的
--- owner_connectors 取代。它的 repo (MailRepo) 和那套邮箱 OTP 验证在本轮删除:
--- **发信早就走通用连接器**(组装根把内核的中性 OutboundSender 接到注册器的
+-- block_connections 取代。它的 repo (MailRepo) 和那套邮箱 OTP 验证在本轮删除:
+-- **发信早就走通用 supplier**(组装根把内核的中性 OutboundSender 接到注册器的
 -- Invoke("mail","send",json) 上),这张表和它的 OTP 列**零读写方**,是死存储。
 -- 不进新装;既有 volume 里留着空表(无害)。
 
--- owner_connectors —— #155 统一连接器**连接状态**表（替代 owner_calendar_connectors +
--- owner_mail_connectors；归一化：任意 kind / 任意品类的连接器一张表）。这里只存「这个 owner
--- 连了哪些连接器、凭据/token 是什么、连没连、哪个是品类槽的 active」——连接器的**定义**
--- (spec+binding / protocol)不在这：内置来自仓库里的 bundled manifest 文件、上传的另存。
+-- block_connections —— 一个 block 跟外面那一头的**连接状态**：owner 连了哪些 block、
+-- 凭据/token 是什么、连没连、哪一个是这条 seam 当前生效的那个。
+--
+-- block 的**定义**不在这：内置的来自 blocks/<id>/manifest.yaml，owner 装的在
+-- installed_blocks。这张表只管「连接」这一件事。
 --
 -- credentials_enc —— 加密 JSON，按 kind 解：openapi oauth2 {client_id,client_secret} /
 --                    openapi apiKey {key} / protocol smtp {host,port,username,password,
---                    from_address,from_name,tls}。凭据只在 connector 层解密，永不进 usecases。
+--                    from_address,from_name,tls}。凭据只在这一层解密，永不进 usecases。
 -- token_enc       —— 加密 JSON {access_token,refresh_token}（仅 openapi oauth2）。
 -- token_expires_at—— 服务端据此判断是否 refresh；NULL = 还没拿到 token（存了 creds 未授权）。
 -- connected_at    —— 非空 = 已连/已验（oauth 走完 dance / protocol 验证通过）。
--- active          —— 一个品类槽同时只一个 active 连接器（§9 槽位规则）；owner 显式 activate。
-CREATE TABLE owner_connectors (
+-- active          —— 一条 seam 同时只有一个供给者生效；owner 显式 activate。
+CREATE TABLE block_connections (
     id               uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id         uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
-    connector_id     text          NOT NULL,
-    category         text          NOT NULL,
+    -- block_id —— 这一行连的是哪个 block（manifest 声明的 id）。
+    block_id         text          NOT NULL,
+    -- seam —— 这个 block 供给哪条 seam（manifest 的 `provides`）。消费者只认这个名字，
+    -- 永远不认供给者：`calendar.book` 写 `requires: [calendar]`，从不写 Google。
+    seam             text          NOT NULL,
     kind             text          NOT NULL,
     credentials_enc  bytea         NOT NULL DEFAULT '\x'::bytea,
     token_enc        bytea         NOT NULL DEFAULT '\x'::bytea,
@@ -978,27 +987,28 @@ CREATE TABLE owner_connectors (
     scopes           jsonb         NOT NULL DEFAULT '[]'::jsonb,
     connected_at     timestamptz,
     active           boolean       NOT NULL DEFAULT false,
-    -- uploaded (openapi) connectors carry their own spec + JSONata binding (built-ins leave these
-    -- empty — their manifest comes from go:embed data). auth_scheme = owner-picked securityScheme.
+    -- an owner-uploaded openapi block carries its own spec + JSONata binding (a built-in leaves
+    -- these empty — its manifest comes from go:embed data). auth_scheme = owner-picked
+    -- securityScheme.
     spec             bytea         NOT NULL DEFAULT '\x'::bytea,
     binding          bytea         NOT NULL DEFAULT '\x'::bytea,
     auth_scheme      text          NOT NULL DEFAULT '',
-    -- protocol (caldav/smtp/…) for kind=protocol connectors owner-created in the UI (no spec).
+    -- protocol (caldav/smtp/…) for kind=protocol blocks the owner created in the UI (no spec).
     protocol         text          NOT NULL DEFAULT '',
-    -- expose this openapi connector's raw operations as per-session agent tools (§3 agent 路).
+    -- expose this openapi block's raw operations as per-session agent tools (§3 agent 路).
     expose_as_agent_tools boolean   NOT NULL DEFAULT false,
     -- title —— the vendor's own name for this API (info.title), taken once at assemble time.
-    -- Uploaded connectors that bind no category contract have an empty `category`, so the list
-    -- had nothing to render and two of them read identically (F-C-56). Derived, not owner-typed:
-    -- the product already parsed and displayed this string during ingest. Built-ins leave it empty
-    -- (their name is the category).
+    -- An uploaded block that supplies no seam has an empty `seam`, so the list had nothing to
+    -- render and two of them read identically (F-C-56). Derived, not owner-typed: the product
+    -- already parsed and displayed this string during ingest. A built-in leaves it empty — its
+    -- name IS the seam.
     title            text          NOT NULL DEFAULT '',
     created_at       timestamptz   NOT NULL DEFAULT now(),
     updated_at       timestamptz   NOT NULL DEFAULT now()
 );
 
-CREATE UNIQUE INDEX owner_connectors_owner_connector_uniq
-    ON owner_connectors(owner_id, connector_id);
+CREATE UNIQUE INDEX block_connections_owner_block_uniq
+    ON block_connections(owner_id, block_id);
 
 -- owner_booking_policy —— singleton-per-owner availability constraints
 -- the agent must satisfy before placing a calendar.book event. Checked
@@ -1022,32 +1032,36 @@ CREATE UNIQUE INDEX owner_connectors_owner_connector_uniq
 -- in booker's isolated capstore (mcp_calendar_book schema). Kept out of fresh installs; existing
 -- volumes keep the empty tables (harmless).
 
--- capability_settings —— Phase H / P.6+P.7: per-(owner, capability) 的 owner-enable
--- 开关。只存「被 owner 显式关掉」的偏好；没有行 = 默认开（builtin 出厂即可见）。
--- capability_id 是 registry 的 dotted ID（corpus.retrieval / calendar.book / …）或
--- owner-origin entry 的 ID。enabled=false 时该 capability 的 tool 不进访客 session
--- （owner_enabled 闸，对 builtin 也生效；builtin 可关不可删，P.7）。
--- (owner_id, capability_id) 唯一 → upsert 安全（并发 toggle 不串）。
-CREATE TABLE capability_settings (
-    owner_id      uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
-    capability_id text          NOT NULL,
-    enabled       boolean       NOT NULL DEFAULT true,
-    updated_at    timestamptz   NOT NULL DEFAULT now(),
-    PRIMARY KEY (owner_id, capability_id)
+-- block_enabled —— owner 的**总开关**，per (owner, block)。只存「被 owner 显式关掉」
+-- 这件事；没有行 = 开着（内置出厂即可见）。
+--
+-- 这是**跟授权不同的一个问题**，两者必须分得开：不在 bundle 里 = 根本不存在（访客发现
+-- 不了）；在 bundle 里但被关掉 = 看得见、`enabled=false`、说得出原因。设计早期把两者并
+-- 成一个，结果「装了但关着」这个状态整个丢了。
+--
+-- 它还是**实时**的：`block-disable-while-attached` 证明这一闸会咬住正在跑的会话，
+-- 而 role 快照不会。
+-- (owner_id, block_id) 唯一 → upsert 安全（并发 toggle 不串）。
+CREATE TABLE block_enabled (
+    owner_id   uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    block_id   text          NOT NULL,
+    enabled    boolean       NOT NULL DEFAULT true,
+    updated_at timestamptz   NOT NULL DEFAULT now(),
+    PRIMARY KEY (owner_id, block_id)
 );
 
--- code_capability_denials / code_skill_denials —— ACL hierarchy 的 code 层
--- (docs/design/capability-acl-hierarchy.md)。纯 AND·code-deny：code 从所选 role
+-- code_block_denials / code_skill_denials —— ACL hierarchy 的 code 层
+-- (docs/design/block-acl-hierarchy.md)。纯 AND·code-deny：code 从所选 role
 -- 授的集合里**再砍**(只减不加)。presence=deny，无 state 列；无行=完全继承 role
 -- (向后兼容，老 code 零 deny)。issue 时跟 role grant 相减(ResolveACL)再冻进
--- RoleSnapshot。capability_id 是 registry id(非表，无 FK，同 capability_settings)；
+-- RoleSnapshot。block_id 是 registry id(非表，无 FK，同 block_enabled)；
 -- skill_id 是 skills 行(有 FK)。
--- code_corpus_denials —— corpus 准入的 **per-code 收窄层**（ACL 三层的第三类；capability/skill 已有，
+-- code_corpus_denials —— corpus 准入的 **per-code 收窄层**（ACL 三层的第三类；block/skill 已有，
 -- corpus 之前缺席）。role 授的是「这个受众」能读的正列表；一张码可以再减 ——「这次邀约」不该看的。
 --
--- 纯减法，跟 capability/skill 的 deny 集同构：readable = role 的 glob 命中 AND 没被本码的 deny 命中。
+-- 纯减法，跟 block/skill 的 deny 集同构：readable = role 的 glob 命中 AND 没被本码的 deny 命中。
 -- 只减不加（code 开不了 role 没给的），所以是集合交、**无序**，不引入 first-match-wins 的顺序敏感
--- （capability-acl-hierarchy A.2 当初 defer 的正是那个；而 A.4 已把整层定成纯 AND）。
+-- （block-acl-hierarchy A.2 当初 defer 的正是那个；而 A.4 已把整层定成纯 AND）。
 --
 -- 单位是 glob 而非 note id：跟 role 的正列表同一种语言，owner 写 `subjectivity://cv` 就少一条，
 -- 写 `subjectivity://**` 就把整个 genre 从这张码上收回。
@@ -1057,10 +1071,10 @@ CREATE TABLE code_corpus_denials (
     PRIMARY KEY (code_id, uri_pattern)
 );
 
-CREATE TABLE code_capability_denials (
-    code_id       uuid NOT NULL REFERENCES access_codes(id) ON DELETE CASCADE,
-    capability_id text NOT NULL,
-    PRIMARY KEY (code_id, capability_id)
+CREATE TABLE code_block_denials (
+    code_id  uuid NOT NULL REFERENCES access_codes(id) ON DELETE CASCADE,
+    block_id text NOT NULL,
+    PRIMARY KEY (code_id, block_id)
 );
 
 CREATE TABLE code_skill_denials (
@@ -1191,7 +1205,7 @@ CREATE UNIQUE INDEX banned_ips_owner_ip_uniq ON banned_ips(owner_id, ip);
 
 -- mcp_app_state —— MCP App（ui:// 沙箱卡）的跨刷新状态。卡是「能跨刷新存活的小应用」，
 -- 经 host 对自己 mcp 那一格做增删改查。挂在 session 背后的耐久身份 member 上，按能力
--- （=mcp，capreg capability id，如 calendar.book / corpus.retrieval）分格；mcp_id 由后端
+-- （=mcp，registry block id，如 calendar.book / corpus.retrieval）分格；mcp_id 由后端
 -- 从 tool 派生（绝不收客户端值）→ 同 mcp 跨 session 隔离、同 session 跨 mcp 隔离。value
 -- 是 app 自定义 jsonb（booked 卡存 {event_id: {cancelled:true}}）。member 删（会员清理）
 -- 级联清掉其全部 app state。单 owner v1 仍带 owner_id，多租户免费继承。
@@ -1208,7 +1222,7 @@ CREATE TABLE mcp_app_state (
 -- ─────────────────────────────────────────────────────────────────────────────
 -- API-key facade (facade-directions.md) —— the outward, non-agentic, role-scoped
 -- programmatic surface. An api_key is "a code minus the brain and the gas": it
--- assumes a role exactly like an access_code, but its holder calls capabilities as
+-- assumes a role exactly like an access_code, but its holder calls blocks as
 -- HTTP endpoints (no LLM, no turn/session quota) — bounded only by rate limiting.
 -- Deliberately PARALLEL to access_codes (+ its denial tables), not a refactor of
 -- the settled codes infra.
@@ -1216,10 +1230,10 @@ CREATE TABLE mcp_app_state (
 
 -- api_keys —— one issued programmatic key. secret_hash is sha256 of the full
 -- `smk_…` secret (shown once at mint; never stored raw). prefix is the display
--- stub. assumed_role_id NOT NULL (same as codes) scopes corpus + capabilities.
+-- stub. assumed_role_id NOT NULL (same as codes) scopes corpus + blocks.
 -- rate_limit_rpm NULL = instance default. #135: no booking quota lives here —
 -- api-key sessions carry no access code, so the booker quota gate (keyed by
--- code) never applied to them; booking config is the booker capability's own.
+-- code) never applied to them; booking config is the booker block’s own.
 CREATE TABLE api_keys (
     id              uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id        uuid        NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
@@ -1238,13 +1252,13 @@ CREATE TABLE api_keys (
 CREATE UNIQUE INDEX api_keys_secret_hash_idx ON api_keys(secret_hash);
 CREATE INDEX api_keys_owner_idx ON api_keys(owner_id);
 
--- api_key_capability_denials / api_key_skill_denials —— per-key deny rows, mirror
--- of code_capability_denials / code_skill_denials: pure subtraction from the
+-- api_key_block_denials / api_key_skill_denials —— per-key deny rows, mirror
+-- of code_block_denials / code_skill_denials: pure subtraction from the
 -- assumed role's grant.
-CREATE TABLE api_key_capability_denials (
-    key_id        uuid NOT NULL REFERENCES api_keys(id) ON DELETE CASCADE,
-    capability_id text NOT NULL,
-    PRIMARY KEY (key_id, capability_id)
+CREATE TABLE api_key_block_denials (
+    key_id   uuid NOT NULL REFERENCES api_keys(id) ON DELETE CASCADE,
+    block_id text NOT NULL,
+    PRIMARY KEY (key_id, block_id)
 );
 
 CREATE TABLE api_key_skill_denials (
@@ -1255,13 +1269,83 @@ CREATE TABLE api_key_skill_denials (
 
 CREATE INDEX api_key_skill_denials_skill_idx ON api_key_skill_denials(skill_id);
 
--- api_open_capabilities —— the candidacy ("open") gate. A capability is an API
+-- api_open_blocks —— the candidacy ("open") gate. A block is an API
 -- candidate only once the owner opens it here; opening exposes nothing by itself
 -- (a key whose role grants it must also exist). Runtime owner data, distinct from
 -- the dev-time KnownAPIGaps ratchet (which tracks renderer completeness).
-CREATE TABLE api_open_capabilities (
-    owner_id      uuid        NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
-    capability_id text        NOT NULL,
-    opened_at     timestamptz NOT NULL DEFAULT now(),
-    PRIMARY KEY (owner_id, capability_id)
+CREATE TABLE api_open_blocks (
+    owner_id  uuid        NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    block_id  text        NOT NULL,
+    opened_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (owner_id, block_id)
 );
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Blocks and bundles (2026-09-10-blocks-and-bundles.sql)
+--
+-- `docs/design/plugin/frontend.md` §3: "what can this code do" stops being
+-- `global ∧ role ∧ ¬code-deny` evaluated over three screens and becomes a list
+-- the owner reads off one. A code with no bundle behaves exactly as before, which
+-- is what lets both models stand side by side while the panels are rewritten.
+-- ─────────────────────────────────────────────────────────────────────────────
+
+-- installed_blocks —— a block the owner pasted in, as data. The manifest is stored
+-- verbatim rather than exploded into columns: it is the block's own declaration,
+-- the loader already reads that shape, and a second column-shaped copy is only a
+-- place for the two to disagree.
+CREATE TABLE installed_blocks (
+    id          uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id    uuid        NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    block_id    text        NOT NULL,
+    title       text        NOT NULL DEFAULT '',
+    manifest    text        NOT NULL,
+    created_at  timestamptz NOT NULL DEFAULT now(),
+    updated_at  timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (owner_id, block_id)
+);
+
+-- bundles —— a named set of blocks; the thing a code points at.
+CREATE TABLE bundles (
+    id          uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id    uuid        NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    name        text        NOT NULL,
+    created_at  timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (owner_id, name)
+);
+
+-- bundle_blocks —— membership by block id, not by foreign key: a member may be a
+-- built-in (which has no row anywhere — it ships in the image) or an installed one,
+-- and a foreign key could only express the second.
+CREATE TABLE bundle_blocks (
+    bundle_id   uuid        NOT NULL REFERENCES bundles(id) ON DELETE CASCADE,
+    block_id    text        NOT NULL,
+    added_at    timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (bundle_id, block_id)
+);
+
+-- block_failures —— the owner's half of "failure has three faces". Persistent by
+-- construction: a toast that appears if the owner happens to be looking is not a
+-- diagnosis. One row per (bundle, block), overwritten on each new failure, so the
+-- panel reads the CURRENT state rather than a log the owner must scroll. `stderr`
+-- is what the child said before it died.
+-- 按 (owner, block) 而不是 (bundle, block)：**失败是这一块本身的属性**。同一块可以在好几捆
+-- 里，按捆存就要写好几行说同一件事，然后它们各自过期。捆的健康是「我的成员里哪些失败了」，
+-- 一次 join 就答得出来。
+CREATE TABLE block_failures (
+    owner_id    uuid        NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    block_id    text        NOT NULL,
+    title       text        NOT NULL DEFAULT '',
+    stderr      text        NOT NULL DEFAULT '',
+    failed_at   timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (owner_id, block_id)
+);
+
+CREATE INDEX bundle_blocks_block_idx ON bundle_blocks (block_id);
+
+-- access_codes.bundle_id 的外键：bundles 在 access_codes 之后建，约束补在这里。
+-- SET NULL —— 删掉一捆不该连带删掉已经发出去的码：拿着码的访客退回 role，
+-- owner 在面板上看得见这件事发生过。
+ALTER TABLE access_codes
+    ADD CONSTRAINT access_codes_bundle_id_fkey
+    FOREIGN KEY (bundle_id) REFERENCES bundles(id) ON DELETE SET NULL;
+CREATE INDEX access_codes_bundle_idx ON access_codes(bundle_id);

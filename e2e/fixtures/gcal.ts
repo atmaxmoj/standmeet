@@ -1,4 +1,4 @@
-// gcal.ts —— Google Calendar connector + booking-policy helpers.
+// gcal.ts —— Google Calendar supplier + booking-policy helpers.
 //
 // API surface used by the gcal-booking specs. Backend implementations
 // land in tasks 25-28; until then specs that call these get expected
@@ -23,7 +23,7 @@ export interface GCalCredentials {
   scopes?: readonly string[];
 }
 
-/** The two scopes the calendar connector can ask for. A grant that carries only
+/** The two scopes the calendar supplier can ask for. A grant that carries only
  *  READ can list slots and can never write an event — the split F-B-8 is about. */
 export const GCAL_SCOPE_READ = 'https://www.googleapis.com/auth/calendar.readonly';
 export const GCAL_SCOPE_WRITE = 'https://www.googleapis.com/auth/calendar.events';
@@ -39,7 +39,7 @@ export async function saveGCalCredentials(
   request: APIRequestContext, csrf: string, creds: GCalCredentials,
 ): Promise<void> {
   const res = await request.post(
-    `${BACKEND}/api/admin/connectors/google-calendar/credentials`,
+    `${BACKEND}/api/admin/suppliers/google-calendar/credentials`,
     { data: creds, headers: { 'X-Csrftoken': csrf } },
   );
   if (res.status() !== 200) {
@@ -55,7 +55,7 @@ export interface GCalStatus {
 }
 
 export async function getGCalStatus(request: APIRequestContext): Promise<GCalStatus> {
-  const res = await request.get(`${BACKEND}/api/admin/connectors/google-calendar/status`);
+  const res = await request.get(`${BACKEND}/api/admin/suppliers/google-calendar/status`);
   if (res.status() !== 200) {
     throw new Error(`gcal status: ${res.status()}`);
   }
@@ -64,13 +64,13 @@ export async function getGCalStatus(request: APIRequestContext): Promise<GCalSta
 
 // grantedScopes —— the scopes this connection **actually granted**, read from the
 // same place the card reads (`granted_scopes`, built by F-C-33). Not the same as
-// `GCalStatus.scopes`: that's which scopes this connector **supports**, this is
+// `GCalStatus.scopes`: that's which scopes this supplier **supports**, this is
 // which it **obtained** this time.
 export async function grantedScopes(
-  request: APIRequestContext, connectorID = 'google-calendar',
+  request: APIRequestContext, supplierID = 'google-calendar',
 ): Promise<string[]> {
   const res = await request.get(
-    `${BACKEND}/api/admin/connectors/${connectorID}/credential-form`,
+    `${BACKEND}/api/admin/suppliers/${supplierID}/credential-form`,
   );
   if (res.status() !== 200) throw new Error(`credential-form: ${res.status()}`);
   const body = await res.json() as { granted_scopes?: string[] };
@@ -86,7 +86,7 @@ export async function initGCalOAuth(
   request: APIRequestContext, csrf: string,
 ): Promise<OAuthInitResult> {
   const res = await request.post(
-    `${BACKEND}/api/admin/connectors/google-calendar/connect`,
+    `${BACKEND}/api/admin/suppliers/google-calendar/connect`,
     { headers: { 'X-Csrftoken': csrf } },
   );
   if (res.status() !== 200) throw new Error(`gcal connect: ${res.status()}`);
@@ -94,12 +94,12 @@ export async function initGCalOAuth(
 }
 
 // activateGCal —— occupy the calendar category slot (§9: booking resolves the
-// active connector).
+// active supplier).
 export async function activateGCal(
   request: APIRequestContext, csrf: string,
 ): Promise<void> {
   const res = await request.post(
-    `${BACKEND}/api/admin/connectors/google-calendar/activate`,
+    `${BACKEND}/api/admin/suppliers/google-calendar/activate`,
     { headers: { 'X-Csrftoken': csrf } },
   );
   if (res.status() !== 200) throw new Error(`gcal activate: ${res.status()}`);
@@ -109,7 +109,7 @@ export async function disconnectGCal(
   request: APIRequestContext, csrf: string,
 ): Promise<void> {
   const res = await request.post(
-    `${BACKEND}/api/admin/connectors/google-calendar/disconnect`,
+    `${BACKEND}/api/admin/suppliers/google-calendar/disconnect`,
     { headers: { 'X-Csrftoken': csrf } },
   );
   if (res.status() !== 200) throw new Error(`gcal disconnect: ${res.status()}`);
@@ -126,11 +126,11 @@ export interface BookingPolicy {
   timezone: string;
 }
 
-// The booking policy is config that the booker capability **declares itself** (the
-// manifest's Config); the panel reads/writes it via the generic capability-config
-// endpoint —— the backend no longer has a per-capability-name route like
+// The booking policy is config that the booker block **declares itself** (the
+// manifest's Config); the panel reads/writes it via the generic block-config
+// endpoint —— the backend no longer has a per-block-name route like
 // /booking-policy. timezone isn't part of it: that's the owner's profile (another
-// capability would also use it to interpret "what time"), so it goes via account.
+// block would also use it to interpret "what time"), so it goes via account.
 const BOOKER = 'calendar.book';
 
 interface ConfigField { key: string; value: unknown }
@@ -139,7 +139,7 @@ export async function getBookingPolicy(
   request: APIRequestContext,
 ): Promise<BookingPolicy> {
   const res = await request.get(
-    `${BACKEND}/api/admin/capabilities/${BOOKER}/config`);
+    `${BACKEND}/api/admin/blocks/${BOOKER}/config`);
   if (res.status() !== 200) throw new Error(`policy get: ${res.status()}`);
   const body = await res.json() as { fields: ConfigField[] };
   const out: Record<string, unknown> = {};
@@ -170,7 +170,7 @@ export async function patchBookingPolicyStatus(
   }
   if (Object.keys(fields).length === 0) return 200;
   const res = await request.patch(
-    `${BACKEND}/api/admin/capabilities/${BOOKER}/config`,
+    `${BACKEND}/api/admin/blocks/${BOOKER}/config`,
     { data: { values: fields }, headers: { 'X-Csrftoken': csrf } },
   );
   return res.status();
@@ -194,7 +194,7 @@ export async function setMockBusy(
 
 /** Make the mock OAuth token endpoint reject the next refresh with
  *  invalid_grant — simulates the owner revoking calendar access at Google.
- *  The backend should map this to a revoked connector and degrade
+ *  The backend should map this to a revoked supplier and degrade
  *  gracefully (Phase B: friendly error, not a crash). */
 export async function revokeMockGCalToken(request: APIRequestContext): Promise<void> {
   const res = await request.post(`${MOCK}/__mock/gcal/revoke`);

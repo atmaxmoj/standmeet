@@ -20,7 +20,7 @@
       "url": "/wiki/cybernetics/engineering/recursive-harness/safe-recursion-theorem",
       "settle": ["[data-testid=\"wiki-body\"] .katex", 30000], "wait": 2000 },
     { "name": "cr-24-mermaid-settle-uicards",
-      "url": "/wiki/software/project/standmeet/architecture/key-designs/capabilities/ui-cards",
+      "url": "/wiki/software/project/standmeet/architecture/key-designs/blocks/ui-cards",
       "settle": ["[data-testid=\"mermaid-svg\"] svg", 30000], "wait": 2000 }
   ]
 }

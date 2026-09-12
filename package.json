@@ -6,5 +6,13 @@
   "packageManager": "pnpm@9.15.0",
   "engines": {
     "node": ">=20.0.0"
+  },
+  "overridesWhy": {
+    "pdfjs-dist": "ONE copy, or the reader and its worker disagree at runtime. e2e reads PDFs two ways: pdf-parse (text) pulled 5.4.296, pdf-to-img (raster) pulled 6.2.108. pdf.js loads its worker by path at runtime, so with two copies installed the API resolved to one major and the worker to the other — 'The API version \"5.4.296\" does not match the Worker version \"6.2.108\"'. Neither library asked for a wrong version; the defect is that the pair was allowed to differ. Pinned to 6.2.108, which pdf-to-img requires. Keys here mirror pnpm.overrides — pnpm parses every key in that block as a package selector, so the reason cannot live inside it."
+  },
+  "pnpm": {
+    "overrides": {
+      "pdfjs-dist": "6.2.108"
+    }
   }
 }

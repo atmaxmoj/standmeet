@@ -4,9 +4,52 @@
 // defaults to binding the owner's public role. For ACL tests, pair with
 // fixtures/roles.ts to create a role first, then pass assumed_role_id.
 
-import type { APIRequestContext } from '@playwright/test';
+import { expect } from '@playwright/test';
+import type { APIRequestContext, Page } from '@playwright/test';
+
+import { gotoAdminSection } from '@/fixtures/navigate';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
+
+/** Issue a code bound to `bundle` by clicking through the codes panel, and read the
+ *  code off the screen.
+ *
+ *  A visitor enters with a code, and the code is what carries the bundle — so a block
+ *  test needs one before it can have a session at all. This goes through the panel
+ *  rather than POSTing, because a spec that mutates through an API stays green on an
+ *  instance where the owner has no way to do the thing at all. */
+export async function issueCodeForBundleViaUI(
+  adminPage: Page, bundle: string,
+): Promise<string> {
+  // A fresh code string per call. A code is globally unique, so deriving it from the
+  // bundle name alone means the second call in a file silently fails to issue and the
+  // spec goes on holding a code from the first — which then fails somewhere else,
+  // looking like an isolation bug rather than a duplicate.
+  issued += 1;
+  const code = `${bundle.toUpperCase()}-${String(issued).padStart(3, '0')}`;
+  await gotoAdminSection(adminPage, 'codes');
+  await adminPage.getByRole('button', { name: /new code/i }).click();
+  await adminPage.getByTestId('code-input').fill(code);
+  await adminPage.getByTestId('code-label').fill(bundle);
+  await adminPage.getByTestId('code-bundle-select').selectOption(bundle);
+  await adminPage.getByTestId('code-create').click();
+
+  // Assert the card landed rather than returning the string we typed: the code opens a
+  // visitor session next, and a spec holding a code the panel never issued fails two
+  // steps later with an unrelated-looking error.
+  const card = adminPage.getByTestId(`code-card-${code}`);
+  await expect(card, 'the panel issued the code').toBeVisible({ timeout: 10_000 });
+  // The BINDING, checked where it was made. `toContainText(bundle)` would not do it:
+  // the label is the bundle name too, so that assertion passes on a code carrying no
+  // bundle at all — and the failure then surfaces as a missing expander three steps
+  // away. This reads the control that only exists once a bundle is really attached.
+  await expect(card.getByTestId('code-expand'),
+    'the issued code carries the bundle that was picked').toBeVisible({ timeout: 10_000 });
+  return code;
+}
+
+// issued —— how many codes this worker has issued, for unique code strings.
+let issued = 0;
 
 export interface CreateCodeInput {
   code: string;

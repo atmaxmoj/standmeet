@@ -1,14 +1,14 @@
 // admin-gcal-authorize-ui.spec.ts —— F-B-2 regression guard.
 //
-// Real-env verification found "Authorize on Google" in CalendarConnectorPanel
-// POSTed to /api/admin/connectors/google-calendar/init → 404 (the backend
+// Real-env verification found "Authorize on Google" in CalendarSupplierPanel
+// POSTed to /api/admin/suppliers/google-calendar/init → 404 (the backend
 // serves no /init route; the OAuth-start endpoint is /connect). Google
 // Calendar could not be connected from the UI at all.
 //
 // Why CI missed it: the API-level gcal fixtures (initGCalOAuth) POST directly
-// to the correct /connect endpoint, and connector-assemble-from-ui clicks the
+// to the correct /connect endpoint, and supplier-assemble-from-ui clicks the
 // *generic* catalog card's Connect (also /connect). No spec ever clicked the
-// dedicated CalendarConnectorPanel's Authorize button, so its /init path 404'd
+// dedicated CalendarSupplierPanel's Authorize button, so its /init path 404'd
 // unnoticed. This drives the ACTUAL button and asserts it hits /connect.
 
 import { test, expect } from '@/fixtures/test';
@@ -43,13 +43,13 @@ test.describe('admin · GCal Authorize button hits the real connect endpoint (F-
 
   test('clicking "Authorize on Google" POSTs /connect (not a 404 /init)',
     async ({ adminPage: page }) => {
-      await page.getByTestId('admin-nav-connectors').click();
+      await page.getByTestId('admin-nav-suppliers').click();
       const authorize = page.getByTestId('gcal-authorize');
       await expect(authorize).toBeVisible({ timeout: 10_000 });
       // The button must POST the real OAuth-start endpoint and get 200. On the
       // old code it POSTed /init → 404 and this waitForResponse would time out.
       const connect = page.waitForResponse(
-        (r) => r.url().includes('/api/admin/connectors/google-calendar/connect')
+        (r) => r.url().includes('/api/admin/suppliers/google-calendar/connect')
           && r.request().method() === 'POST',
         { timeout: 15_000 });
       await authorize.click();

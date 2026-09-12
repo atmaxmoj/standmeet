@@ -4,9 +4,9 @@
 // unmarshal → usecase → marshal, with the side effect persisted.
 //
 // Coverage: ip_bans.{add,remove} · domains.{add,remove} · codes.{add_denial,remove_denial,
-// list_denials} · account.set_full_name · byoai.set · capability_config.{set,get} · page.{put,
+// list_denials} · account.set_full_name · byoai.set · block_config.{set,get} · page.{put,
 // set_public_url} · corpus_get_entry (write raw_dump, then read it back) ·
-// capabilities.{set_enabled,delete}
+// blocks.{set_enabled,delete}
 
 import { test, expect } from '@/fixtures/test';
 
@@ -80,15 +80,15 @@ async function checkDomains(r: APIRequestContext): Promise<void> {
 
 async function checkCodeDenials(r: APIRequestContext): Promise<void> {
   await callTool(r, token, sid, 'codes.add_denial',
-    { code_id: codeID, kind: 'capability', target_id: 'calendar.book' });
-  const denials = await callTool<{ capability_ids: string[] }>(
+    { code_id: codeID, kind: 'block', target_id: 'calendar.book' });
+  const denials = await callTool<{ block_ids: string[] }>(
     r, token, sid, 'codes.list_denials', { code_id: codeID });
-  expect(denials.capability_ids, 'denial added').toContain('calendar.book');
+  expect(denials.block_ids, 'denial added').toContain('calendar.book');
   await callTool(r, token, sid, 'codes.remove_denial',
-    { code_id: codeID, kind: 'capability', target_id: 'calendar.book' });
-  const after = await callTool<{ capability_ids: string[] }>(
+    { code_id: codeID, kind: 'block', target_id: 'calendar.book' });
+  const after = await callTool<{ block_ids: string[] }>(
     r, token, sid, 'codes.list_denials', { code_id: codeID });
-  expect(after.capability_ids, 'denial removed').not.toContain('calendar.book');
+  expect(after.block_ids, 'denial removed').not.toContain('calendar.book');
 }
 
 async function checkAccountAndByoai(r: APIRequestContext): Promise<void> {
@@ -118,23 +118,23 @@ async function checkAccountAndByoai(r: APIRequestContext): Promise<void> {
   expect(settings.ai, 'ai slice comes back whole').toHaveProperty('model');
 }
 
-// The booking policy is configuration that the booker capability **declares for
-// itself**, read and written through the generic capability_config surface — there
+// The booking policy is configuration that the booker block **declares for
+// itself**, read and written through the generic block_config surface — there
 // is no longer a booking.get_policy / booking.set_policy tool hardcoded to one
-// capability's name. Both the value and its default come from the declaration, and
+// block's name. Both the value and its default come from the declaration, and
 // the sandbox reads the same one through capconfig.get (previously the host and the
 // sandbox each held their own copy, which drifted apart).
-async function checkCapabilityConfig(r: APIRequestContext): Promise<void> {
+async function checkBlockConfig(r: APIRequestContext): Promise<void> {
   const BOOKER = 'calendar.book';
-  const listed = await callTool<{ capabilities: string[] }>(
-    r, token, sid, 'capability_config.list', {});
-  expect(listed.capabilities, 'booker declares settings').toContain(BOOKER);
+  const listed = await callTool<{ blocks: string[] }>(
+    r, token, sid, 'block_config.list', {});
+  expect(listed.blocks, 'booker declares settings').toContain(BOOKER);
 
-  await callTool(r, token, sid, 'capability_config.set', {
-    capability_id: BOOKER, values: { working_hours_start: '10:00' },
+  await callTool(r, token, sid, 'block_config.set', {
+    block_id: BOOKER, values: { working_hours_start: '10:00' },
   });
   const cfg = await callTool<{ fields: { key: string; value: unknown; overridden: boolean }[] }>(
-    r, token, sid, 'capability_config.get', { capability_id: BOOKER });
+    r, token, sid, 'block_config.get', { block_id: BOOKER });
   const start = cfg.fields.find((f) => f.key === 'working_hours_start')!;
   expect(start.value, 'config reflects the write').toBe('10:00');
   expect(start.overridden, 'and is marked as owner-set').toBe(true);
@@ -164,15 +164,15 @@ async function checkCorpusGet(r: APIRequestContext): Promise<void> {
   expect(entry.body, 'body matches the dump').toContain('distributed systems');
 }
 
-async function checkCapabilities(r: APIRequestContext): Promise<void> {
-  // The payload is {"capabilities": [...]} (the envelope admin already sends, and
+async function checkBlocks(r: APIRequestContext): Promise<void> {
+  // The payload is {"blocks": [...]} (the envelope admin already sends, and
   // now that the convergence has taken over, both facades share it).
-  // Only rows with kind=capability are toggled here: connector rows are locked in
+  // Only rows with kind=block are toggled here: supplier rows are locked in
   // the frontend, and skill rows go through the skill's own toggle.
-  const caps = await listCapabilities(r);
-  const target = caps.find((c) => c.enabled && c.kind === 'capability')!;
-  await callTool(r, token, sid, 'capabilities.set_enabled', { id: target.id, enabled: false });
-  const after = await listCapabilities(r);
+  const caps = await listBlocks(r);
+  const target = caps.find((c) => c.enabled && c.kind === 'block')!;
+  await callTool(r, token, sid, 'blocks.set_enabled', { id: target.id, enabled: false });
+  const after = await listBlocks(r);
   expect(after.find((c) => c.id === target.id)?.enabled, 'cap now disabled').toBe(false);
 
   // skill_create now returns **the complete skill** (the same shape on both
@@ -185,16 +185,16 @@ async function checkCapabilities(r: APIRequestContext): Promise<void> {
   // convergence has taken over, both facades share it (before the migration MCP
   // returned its own {id, deleted}).
   const del = await callTool<{ ok: boolean }>(
-    r, token, sid, 'capabilities.delete', { id: skill.id });
-  expect(del.ok, 'owner skill deleted via capabilities.delete').toBe(true);
+    r, token, sid, 'blocks.delete', { id: skill.id });
+  expect(del.ok, 'owner skill deleted via blocks.delete').toBe(true);
 }
 
-interface CapabilityRow { id: string; kind: string; enabled: boolean }
+interface BlockRow { id: string; kind: string; enabled: boolean }
 
-async function listCapabilities(r: APIRequestContext): Promise<CapabilityRow[]> {
-  const body = await callTool<{ capabilities: CapabilityRow[] }>(
-    r, token, sid, 'capabilities.list', {});
-  return body.capabilities;
+async function listBlocks(r: APIRequestContext): Promise<BlockRow[]> {
+  const body = await callTool<{ blocks: BlockRow[] }>(
+    r, token, sid, 'blocks.list', {});
+  return body.blocks;
 }
 
 test.describe('facade-parity · 新增 owner-MCP 写工具 roundtrip 守护', () => {
@@ -206,12 +206,12 @@ test.describe('facade-parity · 新增 owner-MCP 写工具 roundtrip 守护', ()
     ({ playwright }) => run(playwright, checkCodeDenials));
   test('account.set_full_name reflects in me; byoai.set persists',
     ({ playwright }) => run(playwright, checkAccountAndByoai));
-  test('capability_config: declared defaults + owner overrides',
-    ({ playwright }) => run(playwright, checkCapabilityConfig));
+  test('block_config: declared defaults + owner overrides',
+    ({ playwright }) => run(playwright, checkBlockConfig));
   test('page.set_public_url persists',
     ({ playwright }) => run(playwright, checkPage));
   test('corpus_get_entry returns a dumped raw entry',
     ({ playwright }) => run(playwright, checkCorpusGet));
-  test('capabilities.set_enabled toggles; capabilities.delete removes an owner skill',
-    ({ playwright }) => run(playwright, checkCapabilities));
+  test('blocks.set_enabled toggles; blocks.delete removes an owner skill',
+    ({ playwright }) => run(playwright, checkBlocks));
 });

@@ -1,13 +1,13 @@
 // Package facadeparity —— the enforcement gate from docs/design/facade-parity.md.
 //
-// One manifest of owner capabilities is the single source of truth. Every outgoing facade (owner
+// One manifest of owner blocks is the single source of truth. Every outgoing facade (owner
 // client MCP, admin HTTP, the visitor-agent tools, future IM/SDK) is checked against it: a
-// capability a facade is SUPPOSED to serve but doesn't → a conformance violation, surfaced as a
-// boot assertion + test failure. Omission stops being silent; leaving a capability off a facade
+// block a facade is SUPPOSED to serve but doesn't → a conformance violation, surfaced as a
+// boot assertion + test failure. Omission stops being silent; leaving a block off a facade
 // becomes an explicit, reasoned OptOut or it doesn't ship.
 //
-// This file holds the facade-agnostic vocabulary: Reach (a capability's intent, declared by CLASS
-// not by today's facade names), Op, and Facade (a projection with a capability profile). The
+// This file holds the facade-agnostic vocabulary: Reach (a block's intent, declared by CLASS
+// not by today's facade names), Op, and Facade (a projection with a block profile). The
 // cartesian conformance check lives in parity_conform.go; the concrete manifest + real-facade
 // enumerations wire in on top, so a new facade is one descriptor, not a refactor.
 package facadeparity
@@ -25,7 +25,7 @@ const (
 	Action
 )
 
-// FacadeClass —— a coarse capability class a facade may or may not carry. Reach is declared against
+// FacadeClass —— a coarse block class a facade may or may not carry. Reach is declared against
 // these, never against concrete facade names, so a facade added later is bound automatically.
 type FacadeClass int
 
@@ -48,8 +48,8 @@ const (
 	reachOnly
 )
 
-// Reach —— a capability op's exposure INTENT: its plane, its side (read/action) or an Only pin, and
-// the capability classes it needs (except narrows away facades that can't carry them).
+// Reach —— a block op's exposure INTENT: its plane, its side (read/action) or an Only pin, and
+// the block classes it needs (except narrows away facades that can't carry them).
 type Reach struct {
 	reason string
 	except []FacadeClass
@@ -80,7 +80,7 @@ func Only(reason string, facades ...string) Reach {
 // Plane —— the op's trust plane, consulted by the leak check in Conform.
 func (r Reach) Plane() Plane { return r.plane }
 
-// Except —— narrow a base reach by capability class, e.g. OwnerAction().Except(Browser).
+// Except —— narrow a base reach by block class, e.g. OwnerAction().Except(Browser).
 func (r Reach) Except(classes ...FacadeClass) Reach {
 	r.except = append(append([]FacadeClass{}, r.except...), classes...)
 	return r
@@ -91,7 +91,7 @@ func (r Reach) Reason() string { return r.reason }
 
 // Op / Invoke are defined in op.go.
 
-// Facade —— an outgoing surface: a name, the trust plane it faces, the capability classes it CAN
+// Facade —— an outgoing surface: a name, the trust plane it faces, the block classes it CAN
 // carry (its profile), and whether it serves reads and/or actions.
 type Facade struct {
 	Name       string

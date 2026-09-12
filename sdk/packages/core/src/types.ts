@@ -132,7 +132,7 @@ export interface PublicSessionMember {
   readonly last_seen: string;
 }
 
-export interface PublicSessionCapability {
+export interface PublicSessionBlock {
   readonly id: string;
   readonly enabled: boolean;
   // title —— passes through the MCP tool's human-readable display name
@@ -143,11 +143,11 @@ export interface PublicSessionCapability {
 }
 
 // PublicSessionDockButton —— #109/#110's renderable chat dock button:
-// capability id + display name + trigger phrase. The owner configures it on
+// block id + display name + trigger phrase. The owner configures it on
 // the role, already filtered for code-deny. Visitor clicking it = sending
 // the trigger as their own message.
 export interface PublicSessionDockButton {
-  readonly capability_id: string;
+  readonly block_id: string;
   readonly title: string;
   readonly trigger: string;
 }
@@ -199,7 +199,7 @@ export interface PublicSessionResponse {
   // D-2 / D-5: pi-pivot fields. Used by pi-agent-core to assemble the system
   // prompt + tool registry. Old callers don't read these fields; optional
   // for compatibility.
-  readonly capabilities?: readonly PublicSessionCapability[];
+  readonly blocks?: readonly PublicSessionBlock[];
   readonly tool_specs?: readonly PublicSessionToolSpec[];
   readonly system_prompt_part_ids?: readonly string[];
   readonly system_prompt_persona?: string;
@@ -211,7 +211,7 @@ export interface PublicSessionResponse {
   // #109/#110: up to 2 chat dock buttons the owner configured on the role
   // (frozen, filtered for code-deny).
   readonly dock_buttons?: readonly PublicSessionDockButton[];
-  // #122: whether the owner has a mail connector configured. The frontend
+  // #122: whether the owner has a mail supplier configured. The frontend
   // uses this to decide whether the booking-confirmation card should show
   // the "send confirmation email" section (unconfigured → the whole
   // confirmation card doesn't render, since the owner can't send mail at all).

@@ -4,7 +4,7 @@
 - **Surface:** `/admin/api-mcp` — the register form for external servers and the owner's own keypair rows — and visitor chat where the tools appear namespaced to the server.
 - **Real dep:** A real remote MCP server that StandMeet did not write, reachable over streamable HTTP and gated by a **static header** — the register form stores one header name and value, so anything OAuth-gated cannot be driven through it at all. Keep the token in the verify-creds file.
 - **Exclusive:** none
-- **Backing e2e:** `admin-mcp-servers` · `external-mcp-tools` · `external-mcp-auth-header` · `tool-endpoint-ext-mcp` · `connector-ext-mcp-no-dep` · `tool-roles-mcp`.
+- **Backing e2e:** `admin-mcp-servers` · `external-mcp-tools` · `external-mcp-auth-header` · `tool-endpoint-ext-mcp` · `supplier-ext-mcp-no-dep` · `tool-roles-mcp`.
 
 ## Checks
 
@@ -21,7 +21,7 @@
 ### 3 — A remote server gets no connector dependencies for free
 - **Steps:** Register a server whose tool declares a dependency on a connector. Call it without granting that dependency. Then grant it and call again.
 - **Expected:** Ungranted, the call is refused at the gate with a friendly message. Granted, it dispatches. The lowest-trust loader never inherits deps.
-- **Backing test:** `connector-ext-mcp-no-dep.spec.ts`
+- **Backing test:** `supplier-ext-mcp-no-dep.spec.ts`
 
 ### 4 — The owner's token really reaches the upstream, both ways ⭐
 - **Steps:** Register a real bearer-gated server with the correct token. Enter chat and dispatch one of its tools. Then change the token to a wrong value, or revoke it upstream, and enter again.

@@ -1,5 +1,5 @@
-// prompt.go —— the summarize capability's OWN report prompt + transcript→prompt assembly. This is
-// capability logic and lives in the sandbox (not the host): the host only runs the LLM on it via the
+// prompt.go —— the summarize block’s OWN report prompt + transcript→prompt assembly. This is
+// block logic and lives in the sandbox (not the host): the host only runs the LLM on it via the
 // generic inference.generate reach-back verb.
 
 package main

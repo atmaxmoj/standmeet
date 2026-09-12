@@ -1,5 +1,5 @@
 // aad_test.go — AAD binding (owner-scoped) for at-rest ciphertext. Persisted
-// credentials (connector creds / owner LLM key / gcal token) must bind to
+// credentials (supplier creds / owner LLM key / gcal token) must bind to
 // owner_id: when an attacker who can write to the DB moves owner A's
 // ciphertext into owner B's row, decrypt must fail (AAD mismatch) — never a
 // silent swap.

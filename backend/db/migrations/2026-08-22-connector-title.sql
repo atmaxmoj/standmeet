@@ -14,4 +14,18 @@
 --
 -- 存量行留空串：它们的名字还是按老规矩从 category 来，不假装知道一个没记过的事实。
 
-ALTER TABLE owner_connectors ADD COLUMN IF NOT EXISTS title text NOT NULL DEFAULT '';
+-- `IF EXISTS` on the TABLE, added 2026-09-11 — without it a **fresh install cannot boot.**
+--
+-- Migrations replay from an empty ledger on a new volume, but `schema.sql` is always CURRENT.
+-- `2026-09-11-block-vocabulary.sql` renamed this table to `block_connections`, so on a fresh
+-- volume schema.sql creates the new name, this line then runs against a table that was never
+-- there, and `Migrate` returns fatal. The column guard did not help: it guards the column, and
+-- what was missing was the relation.
+--
+-- On an instance that predates the rename this still does exactly what it always did. On one
+-- created after it, it is a no-op — `block_connections` already has `title`, from schema.sql.
+--
+-- The general rule this is an instance of: **a migration naming a table that a later migration
+-- renames must tolerate the table being absent**, because fresh installs replay it against the
+-- renamed schema.
+ALTER TABLE IF EXISTS owner_connectors ADD COLUMN IF NOT EXISTS title text NOT NULL DEFAULT '';

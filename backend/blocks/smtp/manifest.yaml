@@ -1,0 +1,28 @@
+id: smtp
+title: SMTP
+provides: mail
+
+transport:
+  kind: protocol
+  protocol: smtp
+
+# owner_ops —— the owner-side operations this supplier exposes itself. Sending a
+# test email is the **mail supplier's** business, so it's declared here rather
+# than living in the generic supplier registry (that layer shouldn't know about mail).
+# op refers to the operation on the seam contract; the host wires the implementation to it.
+owner_tools:
+  - name: suppliers.mail_test_send
+    tool: mail.test_send
+    description: >-
+      Send a test email through the active mail supplier. Reports the mail kind
+      that served it (proves the mailer is kind-agnostic).
+    input_schema: |
+      {
+        "type":"object",
+        "properties":{
+          "to":{"type":"string","description":"Recipient address."},
+          "subject":{"type":"string","description":"Message subject."},
+          "text":{"type":"string","description":"Message body (plain text)."}
+        },
+        "required":["to"]
+      }

@@ -23,7 +23,7 @@ type ownerOut struct {
 	Handle    string `json:"handle"`
 	FullName  string `json:"full_name"`
 	PublicURL string `json:"public_url"`
-	// Timezone —— IANA timezone name. It's the owner's profile, not any one capability's
+	// Timezone —— IANA timezone name. It's the owner's profile, not any one block's
 	// setting.
 	Timezone string `json:"timezone"`
 	// PendingEmail —— a new email that's been requested but not yet confirmed. Empty =
@@ -119,16 +119,16 @@ func changePassword(deps usecase.AccountDeps) fp.Invoke {
 }
 
 // generateRecovery —— a delivery failure is an **external dependency** problem (the mail
-// connector isn't set up), and that message can go straight to the owner, not an internal
+// supplier isn't set up), and that message can go straight to the owner, not an internal
 // error. Replying {"sent":true} says "it went out", not "it was stored".
 func generateRecovery(deps usecase.RecoveryDeps) fp.Invoke {
 	return func(ctx context.Context, ownerID string, _ json.RawMessage) (json.RawMessage, error) {
 		if err := usecase.GenerateRecovery(ctx, &deps, ownerID); err != nil {
 			// The name is relayed by the assembly root via Proxy: this message names
-			// whatever the connector is called on the panel.
+			// whatever the supplier is called on the panel.
 			return nil, fp.Coded(fp.Upstream(
 				"couldn't send the recovery phrase — connect and verify a "+
-					deps.Proxy.ChannelName()+" connector first",
+					deps.Proxy.ChannelName()+" supplier first",
 			),
 				"recovery_send_failed")
 		}

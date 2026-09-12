@@ -2,7 +2,7 @@
 
 - **Module:** The no-code visitor's entry surface. Code entry validates and redeems, the BYOAI panel accepts a key, request-access submits, and the identity picker resolves who the visitor is exactly once.
 - **Surface:** `/gate`, plus the identity-picker modal.
-- **Real dep:** A running instance. The downstream legs need real services and live in [[chat-byoai]], [[access-codes]] and [[mail-connector]].
+- **Real dep:** A running instance. The downstream legs need real services and live in [[chat-byoai]], [[access-codes]] and [[mail-supplier]].
 - **Exclusive:** none
 - **Backing e2e:** `gate-code-ux` · `gate-request-access` · `gate-byoai-ux` · `chat-welcome`.
 
@@ -30,7 +30,7 @@
 
 ### 5 — Request-access submits and confirms
 - **Steps:** As a no-code visitor, fill request-access with a real address. Submit.
-- **Expected:** The form confirms. The approval and email legs belong to [[access-codes]] and [[mail-connector]].
+- **Expected:** The form confirms. The approval and email legs belong to [[access-codes]] and [[mail-supplier]].
 - **Backing test:** `gate-request-access.spec.ts`
 
 ### 6 — The identity picker appears once and stays gone

@@ -5,12 +5,12 @@
 // managed object itself** (the owner connects in from their own Claude Code / Desktop
 // to manage StandMeet: manage codes, edit the corpus, configure roles, and so on;
 // Shape=owner_only). This is StandMeet's **as-MCP-server direction**, and is **not** a
-// capability loaded into the agent — **this round of normalization does not touch
+// block loaded into the agent — **this round of normalization does not touch
 // it**.
 //
-// This is locked down here to prove "normalization only touches inward capabilities,
+// This is locked down here to prove "normalization only touches inward blocks,
 // and never accidentally hits this batch of outward handles".
-// Inward capabilities live in norm-inward-capabilities.spec.ts — don't mix the two.
+// Inward blocks live in norm-inward-blocks.spec.ts — don't mix the two.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -20,11 +20,11 @@ import { resetInstance } from '@/fixtures/instance';
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
 interface Cap { id: string; shape: string; origin: string }
-interface RegistryListResp { capabilities: Cap[] }
+interface RegistryListResp { blocks: Cap[] }
 
 // GOLDEN (outward) — all owner_only, untouched by this round, origin all builtin.
 // Note: jobs/resume/applications also belong here — they're owner-facing
-// self-managed MCP, the same category as codes/seo, not inward capabilities.
+// self-managed MCP, the same category as codes/seo, not inward blocks.
 //
 // **This golden list will shrink as ownercore gets dissolved.** An owner's
 // self-managed tools were never meant to register into capreg in the first place
@@ -35,14 +35,14 @@ interface RegistryListResp { capabilities: Cap[] }
 // boundary assertion: capreg should have **no** owner_only entries at all.
 //
 // Already moved (-> dispatcher): ip_bans, domains, access_requests, skills,
-// marketplace, prompts, mcp_servers, roles, capabilities, instance, appearance,
+// marketplace, prompts, mcp_servers, roles, blocks, instance, appearance,
 // account/me, byoai + ai_provider, seo, page, microsite, chat,
-// corpus.subjectivity, api_keys, connectors (the generic registry belongs to the
-// connector axis; mail_test_send belongs to the smtp connector's own manifest), and
+// corpus.subjectivity, api_keys, suppliers (the generic registry belongs to the
+// supplier axis; mail_test_send belongs to the smtp supplier's own manifest), and
 // the four corpus operations (genre collapsed from three tool sets into one
 // parameter, filling in the four cells MCP used to be missing along the way).
-// booking's policy goes a step further: it's the booker externalized capability's
-// own configuration, going through the generic capability_config surface.
+// booking's policy goes a step further: it's the booker externalized block's
+// own configuration, going through the generic block_config surface.
 //
 // writings was moved too (ownercore was deleted along with it). The reason it was
 // originally kept here said "a byte stream can't fit into a JSON op", and that
@@ -68,7 +68,7 @@ test.describe('能力归一化 · 【对外】自管理 MCP handles 黄金快照
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
       const outward = (await fetchRegistry(request))
-        .capabilities.filter((c) => c.shape === 'owner_only');
+        .blocks.filter((c) => c.shape === 'owner_only');
       expect(outward).toEqual(GOLDEN_OUTWARD);
       await request.dispose();
     });

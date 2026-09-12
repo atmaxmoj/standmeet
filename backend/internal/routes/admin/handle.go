@@ -1,6 +1,6 @@
 // handle.go — PATCH /api/admin/handle: the owner changes their URL handle.
 //
-// Capability comes from the outbound convergence point; the old handle automatically
+// Ability comes from the outbound convergence point; the old handle automatically
 // landing in handle_aliases is the domain's business (old links still resolve).
 
 package admin
@@ -11,7 +11,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// HandleDeps — capability source for the admin handle endpoint.
+// HandleDeps — op source for the admin handle endpoint.
 type HandleDeps struct {
 	Face *dispatcher.Face
 }

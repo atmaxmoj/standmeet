@@ -48,7 +48,7 @@ test.describe('admin external MCP servers CRUD', () => {
   //
   // The product **already knows** both facts — session assembly really dials the server
   // and lists its tools (that's where `ext_<name>_*` comes from) — it just never says so
-  // on this page. Same shape as F-C-16: the calendar connector card used to say only
+  // on this page. Same shape as F-C-16: the calendar supplier card used to say only
   // `connected` too, with no way to ask further; the fix there was a **read-only probe**.
   // This copies that precedent.
   //

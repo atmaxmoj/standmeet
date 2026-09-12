@@ -46,12 +46,12 @@ type LaunchInput struct {
 	ConversationID       string
 	CodeID               string
 	SystemPromptOverride string
-	// GrantedCapabilities — which capabilities (capability id) this run's role has granted.
+	// GrantedBlocks — which blocks (block id) this run's role has granted.
 	//
-	// acl=always capabilities (ask_visitor / retrieval) don't consult this; acl=role_granted
+	// acl=always blocks (ask_visitor / retrieval) don't consult this; acl=role_granted
 	// ones (booker / third-party servers) **must** appear here to be exposed — the exact
 	// same gate as prod: no grant from the role, no tool. So the assertion "an ungranted
 	// run structurally lacks the tool" is testing the real gate in eval, not "this run
 	// just happened not to mount it".
-	GrantedCapabilities []string
+	GrantedBlocks []string
 }

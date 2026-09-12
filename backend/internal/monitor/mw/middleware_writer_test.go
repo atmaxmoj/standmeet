@@ -1,4 +1,4 @@
-// middleware_writer_test.go —— the recorder must hand on the writer capabilities it does not use.
+// middleware_writer_test.go —— the recorder must hand on the writer features it does not use.
 //
 // Record wraps EVERY public route, `POST /api/v1/agent/turn` (the visitor chat SSE) included.
 // The wrapper embeds the http.ResponseWriter interface, which promotes three methods and drops
@@ -19,7 +19,7 @@ import (
 )
 
 // flushableWriter —— a ResponseWriter that counts flushes and accepts a write deadline, i.e. the
-// capabilities a real *http.response has and the recorder must not swallow.
+// features a real *http.response has and the recorder must not swallow.
 type flushableWriter struct {
 	http.ResponseWriter
 

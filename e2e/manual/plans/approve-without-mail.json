@@ -4,10 +4,10 @@
   "acceptDialogs": true,
   "shots": [
     { "name": "ac-23-requests-with-mail", "url": "/admin/requests", "wait": 4000 },
-    { "name": "ac-24-mail-disconnected", "url": "/admin/connectors",
+    { "name": "ac-24-mail-disconnected", "url": "/admin/suppliers",
       "steps": [
         { "wait": 4500 },
-        { "click": "[data-testid=\"connector-row-smtp\"] [data-testid=\"connector-disconnect-button\"]" },
+        { "click": "[data-testid=\"supplier-row-smtp\"] [data-testid=\"supplier-disconnect-button\"]" },
         { "wait": 3500 }
       ],
       "wait": 1200 },

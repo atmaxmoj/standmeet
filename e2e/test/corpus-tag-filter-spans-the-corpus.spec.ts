@@ -151,7 +151,7 @@ test.describe('corpus · tag filter spans the corpus, not one page', () => {
   // F-L-23 fixed the grid half; the tree half **silently became a no-op** in that same
   // change.
   //
-  // The criterion doesn't pin "the tree must be filterable" (that's a new capability): it
+  // The criterion doesn't pin "the tree must be filterable" (that's a new block): it
   // pins **the screen must not lie** -- once a tag is selected, what's shown must actually
   // be the answer for that tag. The product satisfies this by switching to the grid.
   test('picking a tag in tree view does not leave an unfiltered tree under a lit chip',

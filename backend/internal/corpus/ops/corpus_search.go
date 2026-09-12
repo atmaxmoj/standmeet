@@ -8,7 +8,7 @@
 //
 // Meanwhile **the visitor side has always had search** (the answer header prints
 // `SEARCHED 2 · READ 2`), and the full-text search underneath, `repo.*.Search`, has always been
-// there too. What was missing was never the capability — it was that the owner side was never
+// there too. What was missing was never the ability — it was that the owner side was never
 // wired to it.
 //
 // Semantics: full-text keyword search within one genre, returning **the same row shape** as

@@ -50,7 +50,7 @@ export function GateClient(
           <BYOAIPanel hook={hook} />
           <WhatsBehind />
           {/* The whole request-access block only shows when the owner can deliver codes
-              (a connected mail connector) — don't let visitors fill a form that can't send. */}
+              (a connected mail supplier) — don't let visitors fill a form that can't send. */}
           {canDeliverCodes ? <RequestPanel handle={handle} hook={hook} /> : null}
           {/* A page-level error line used to live here. It was the only error surface when the
               three doors shared one piece of state, but it sat far from each door and spoke for

@@ -1,10 +1,10 @@
-// check-routes-via-dispatcher —— faces may only get capability through the
+// check-routes-via-dispatcher —— faces may only get operations through the
 // outbound convergence point.
 //
 // # Rule
 //
 // A file under internal/routes **other than the convergence point itself** may
-// not import any domain's facade (internal/<domain>/facade). Any capability a
+// not import any domain's facade (internal/<domain>/facade). Any operation a
 // face needs must first be declared as an Op on the convergence point, and the
 // face gets it through Face.
 //
@@ -18,16 +18,16 @@
 // calls could only move to the one place that could see both sides (the assembly
 // root), so every resource ended up re-declaring the domain's existing
 // input/output params on the convergence point, plus a block of "copy A into B"
-// plumbing. **Capability that belonged inside got pushed outside by this very gate.**
+// plumbing. **Work that belonged inside got pushed outside by this very gate.**
 //
 // # Why
 //
 // The outbound convergence point can guarantee parity and be the single place
-// policy applies, only if **no other path can reach the capability**. The moment
-// one handler can still import corpus/facade and call it directly, the capability
+// policy applies, only if **no other path can reach the operation**. The moment
+// one handler can still import corpus/facade and call it directly, the operation
 // it serves was never registered at the convergence point: the MCP face doesn't
 // know it exists, Conform can't check its absence either — the convergence point
-// degrades into "some capability just happens to live there", and the guarantee
+// degrades into "some ops just happen to live there", and the guarantee
 // falls apart entirely.
 //
 // Route shape, method, path, param binding, and status codes are still written by
@@ -60,11 +60,11 @@ import (
 const scanRoot = "./internal/routes"
 
 // convergences —— the two convergence points themselves. They are not faces, they
-// are the points where a face (or a sandboxed capability) gets capability from, so
+// are the points where a face (or a sandboxed block) gets operations from, so
 // they are not covered by this rule.
 //
-//	outbound  internal/routes/dispatcher —— faces get capability from here
-//	inbound   internal/routes/hostdesk   —— capabilities inside the sandbox come
+//	outbound  internal/routes/dispatcher —— faces get operations from here
+//	inbound   internal/routes/hostdesk   —— blocks inside the sandbox come
 //	                                         back here to ask the host for things
 //
 // The lesson from "I got this wrong once, early on" above applies equally to both
@@ -111,13 +111,21 @@ var baseline = map[string]bool{
 	// and pagination are views unique to the panel (a lazy-load layer / a keyset page),
 	// and don't have a matching op yet.
 	"internal/routes/admin/writings_tree.go":         true,
-	"internal/routes/capload/api_key_toolset.go":     true,
-	"internal/routes/capload/capreg_ext_mcp.go":      true,
-	"internal/routes/capload/capreg_ext_mcp_deps.go": true,
-	"internal/routes/capload/capreg_mcp_app.go":      true,
-	"internal/routes/capload/capreg_register.go":     true,
-	"internal/routes/capload/capreg_skill_runner.go": true,
-	"internal/routes/mcphandle/server.go":            true,
+	// The block-vocabulary rename renamed this package and some of its files; the rows
+	// below are the same debt under new names. One sibling row is gone because that file
+	// left routes/ entirely — the mount machinery lives in internal/plugin/mount now,
+	// outside this gate's scope.
+	//
+	// The two ext_mcp rows came BACK: producing that fiber needs domain data (the owner's
+	// registered MCP servers), so it could not stay in the substrate — check-domain-acyclic
+	// caught the cycle conversation -> plugin -> conversation — and it returned to routes/.
+	// Same files, same debt, the names they had as capreg_ext_mcp*.go: not new.
+	"internal/routes/blockload/api_key_toolset.go":     true,
+	"internal/routes/blockload/ext_mcp.go":             true,
+	"internal/routes/blockload/ext_mcp_deps.go":        true,
+	"internal/routes/blockload/register_mechanisms.go": true,
+	"internal/routes/blockload/skill_runner.go":        true,
+	"internal/routes/mcphandle/server.go":              true,
 	"internal/routes/pubapi/dispatch.go":             true,
 	"internal/routes/pubapi/pubapi.go":               true,
 	"internal/routes/public/access_requests.go":      true,
@@ -167,7 +175,7 @@ func main() {
 
 	if len(fresh) > 0 {
 		fmt.Println("check-routes-via-dispatcher: a face reached a domain directly, bypassing the outbound convergence point.")
-		fmt.Println("declare the capability as a dispatcher Op and let the face get it through Face (route shape still hand-written):")
+		fmt.Println("declare the operation as a dispatcher Op and let the face get it through Face (route shape still hand-written):")
 		fmt.Println()
 		for _, f := range fresh {
 			fmt.Println("  " + f)
@@ -181,7 +189,7 @@ func main() {
 			stale++
 		}
 	}
-	fmt.Printf("check-routes-via-dispatcher: faces reach capability only through the "+
+	fmt.Printf("check-routes-via-dispatcher: faces reach operations only through the "+
 		"dispatcher (%d baselined files left to migrate", len(baseline)-stale)
 	if stale > 0 {
 		fmt.Printf(", %d already clean — delete them from the baseline", stale)

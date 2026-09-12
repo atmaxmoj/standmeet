@@ -6,7 +6,7 @@
 // that passes verification unlocks it. But `TurnstileWidget` is mounted nowhere in the
 // repo except `LoginForm.tsx` (**the owner's login page**). So a visitor who fumbles the
 // code ten times gets locked out for 15 minutes with no way out on screen: the
-// capability exists on the backend, the face was never built (same family as
+// block exists on the backend, the face was never built (same family as
 // F-D-9 / F-N-4).
 //
 // **This can only be driven with captcha genuinely turned on**: the widget only renders

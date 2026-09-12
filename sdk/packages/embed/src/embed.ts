@@ -67,7 +67,7 @@ const SHELL_CSS = `
     font-family: var(--sm-serif); font-size: 16.5px; line-height: 1.62;
     color: var(--sm-ink); margin: 0 0 22px; white-space: pre-wrap;
   }
-  /* An answer with no text yet = still thinking. Pure CSS, adds no new event or capability
+  /* An answer with no text yet = still thinking. Pure CSS, adds no new event or ability
      (progress indication belongs to the Result column). */
   [data-role="assistant"]:empty::after {
     content: '…'; color: var(--sm-muted); font-family: var(--sm-mono);
@@ -272,7 +272,7 @@ function turnFailureText(e: unknown): string {
 // This used to do `textContent +=` directly, so `**like this**` and backticks printed
 // literally to the visitor — syntax meant for the model leaking in front of a human
 // (same class as F-R-7's `[[wikilink]]`). The product's own visitor page renders this
-// correctly, the embed didn't: another case of "one capability, two surfaces, only one
+// correctly, the embed didn't: another case of "one ability, two surfaces, only one
 // of them implemented."
 function applyEventToBlock(block: HTMLDivElement, ev: SSEEvent): void {
   if (ev.kind === 'token') {
@@ -293,7 +293,7 @@ function applyEventToBlock(block: HTMLDivElement, ev: SSEEvent): void {
 // *"error: Something went wrong on my end…"* — a perfectly good sentence with a technical
 // prefix we glued onto it ourselves, on a widget embedded on **someone else's site**. The
 // `catch` path twelve lines up was already fixed (`turnFailureText`, the F-O-5 change), the
-// stream-event path never caught up: one capability, two surfaces, only one got fixed.
+// stream-event path never caught up: one ability, two surfaces, only one got fixed.
 //
 // So: **use the backend's human-facing sentence as-is**; only fall back ourselves when it
 // didn't send one (`client.ts` defaults to `'error'`). Technical detail goes to console,

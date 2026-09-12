@@ -463,7 +463,7 @@ input:focus, textarea:focus, select:focus { outline: none; }
 /* `.provider-pick` used to live here —— a set of styles dedicated to the gate's BYOAI
    provider dropdown, with `is-on` as a near-black fill. Its only caller has since moved to
    SelectField (UX-36 / UX-47), so these rules went dead along with it.
-   No tool flags dead CSS —— knip can't see stylesheets —— so relocating a capability means
+   No tool flags dead CSS —— knip can't see stylesheets —— so relocating a block means
    its edges have to be **manually** carried along too (see
    [[move-the-capability-move-its-edges]]). */
 

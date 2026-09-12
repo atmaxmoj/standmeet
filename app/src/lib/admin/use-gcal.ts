@@ -1,7 +1,7 @@
-// use-gcal —— state + actions for /admin/connectors Calendar panel.
+// use-gcal —— state + actions for the /admin/suppliers Calendar panel.
 //
 // Three blocks of state:
-//   1. connector status (has_credentials / connected / scopes)
+//   1. supplier status (has_credentials / connected / scopes)
 //   2. booking policy (working hours / weekdays / lead time / timezone)
 //   3. credentials form (client_id / client_secret, saved on blur)
 //
@@ -28,7 +28,7 @@ export type GCalStatus = z.infer<typeof GCalStatusSchema>;
 export const gcalStatusStore = createResourceStore<GCalStatus>({
   name: 'gcal-status',
   fetcher: () => adminAPI.get(
-    '/connectors/google-calendar/status', GCalStatusSchema,
+    '/suppliers/google-calendar/status', GCalStatusSchema,
   ),
 });
 
@@ -53,15 +53,15 @@ export const BookingPolicySchema = z.object({
 });
 export type BookingPolicy = z.infer<typeof BookingPolicySchema>;
 
-// The booking policy is config that the booker capability **declares for
-// itself**, read and written through the generic capability-config endpoint;
-// the backend no longer has a /booking-policy hardcoded to this capability's
+// The booking policy is config that the booker block **declares for
+// itself**, read and written through the generic block-config endpoint;
+// the backend no longer has a /booking-policy hardcoded to this block’s
 // name. timezone is not part of it — that belongs to the owner's profile
-// (another capability would also use it to interpret "what time"), and goes
+// (another block would also use it to interpret "what time"), and goes
 // through /me + /account/timezone.
-const BOOKER_CAP = 'calendar.book';
+const BOOKER_BLOCK = 'calendar.book';
 
-const CapConfigSchema = z.object({
+const BlockConfigSchema = z.object({
   fields: z.array(z.object({ key: z.string(), value: z.unknown() })),
 });
 
@@ -69,7 +69,7 @@ const MeTimezoneSchema = z.object({ owner: z.object({ timezone: z.string() }) })
 
 async function fetchPolicy(): Promise<BookingPolicy> {
   const [cfg, me] = await Promise.all([
-    adminAPI.get(`/capabilities/${BOOKER_CAP}/config`, CapConfigSchema),
+    adminAPI.get(`/blocks/${BOOKER_BLOCK}/config`, BlockConfigSchema),
     adminAPI.get('/me', MeTimezoneSchema),
   ]);
   const byKey: Record<string, unknown> = {};
@@ -132,13 +132,13 @@ async function refresh(): Promise<void> {
 async function saveCredentials(
   clientID: string, clientSecret: string,
 ): Promise<void> {
-  await adminAPI.postVoid('/connectors/google-calendar/credentials', {
+  await adminAPI.postVoid('/suppliers/google-calendar/credentials', {
     client_id: clientID, client_secret: clientSecret,
   });
   await gcalStatusStore.getState().refresh();
 }
 
-// Mirrors the backend `connectInitResp` from POST /connectors/{id}/connect:
+// Mirrors the backend `connectInitResp` from POST /suppliers/{id}/connect:
 // auth_url + state are present for the OAuth dance; `connected` may already
 // be true (creds re-exchanged) and `auth_url` omitted, so both are optional.
 const InitResultSchema = z.object({
@@ -149,10 +149,10 @@ const InitResultSchema = z.object({
 });
 
 async function authorize(): Promise<void> {
-  // The generic connector Connect endpoint returns the provider consent URL.
+  // The generic supplier Connect endpoint returns the provider consent URL.
   // (There is no `/init` route — that path 404s; the backend serves `/connect`.)
   const init = await adminAPI.post(
-    '/connectors/google-calendar/connect', {}, InitResultSchema,
+    '/suppliers/google-calendar/connect', {}, InitResultSchema,
   );
   // open consent in a new tab; on success Google redirects to the
   // callback URL which finishes the exchange server-side.
@@ -170,7 +170,7 @@ async function pollUntilConnected(maxAttempts: number): Promise<void> {
 }
 
 async function disconnect(): Promise<void> {
-  await adminAPI.postVoid('/connectors/google-calendar/disconnect', {});
+  await adminAPI.postVoid('/suppliers/google-calendar/disconnect', {});
   await gcalStatusStore.getState().refresh();
 }
 
@@ -180,7 +180,7 @@ async function savePolicy(patch: Partial<BookingPolicy>): Promise<void> {
     await adminAPI.patchVoid('/account/timezone', { timezone });
   }
   if (Object.keys(fields).length > 0) {
-    await adminAPI.patchVoid(`/capabilities/${BOOKER_CAP}/config`, { values: fields });
+    await adminAPI.patchVoid(`/blocks/${BOOKER_BLOCK}/config`, { values: fields });
   }
   await policyStore.getState().refresh();
 }

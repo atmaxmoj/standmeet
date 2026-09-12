@@ -29,7 +29,7 @@ const timeFmt = time.RFC3339
 
 // WritingsAdminDeps — dependencies for the admin writings handlers.
 //
-// Face provides every capability that goes through the convergence point (list / save /
+// Face provides every op that goes through the convergence point (list / save /
 // publish / delete). WritingsTx has exactly one remaining use: resolving asset addresses
 // for the tree / page view routes — so it lives alongside that debt in this file, rather
 // than staying in writings.go and making that file look like it still touches the domain.

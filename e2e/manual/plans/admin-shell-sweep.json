@@ -20,7 +20,7 @@
     { "name": "sw-16-drafts", "url": "/admin/drafts", "wait": 3000 },
     { "name": "sw-17-applications", "url": "/admin/applications", "wait": 3000 },
     { "name": "sw-18-skills", "url": "/admin/skills", "wait": 3500 },
-    { "name": "sw-19-connectors", "url": "/admin/connectors", "wait": 3500 },
+    { "name": "sw-19-suppliers", "url": "/admin/suppliers", "wait": 3500 },
     { "name": "sw-20-api-mcp", "url": "/admin/api-mcp", "wait": 3500 },
     { "name": "sw-21-obsidian", "url": "/admin/obsidian", "wait": 3000 },
     { "name": "sw-22-page", "url": "/admin/page", "wait": 3500 },

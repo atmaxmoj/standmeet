@@ -1,12 +1,12 @@
 // codes.go — resource codes: invitation codes the owner issues.
 //
 // A code is an entry point for one visitor identity: it points at a role (persona + corpus
-// scope + capabilities), then layers on the code's own quotas (how many people, turns per
+// scope + blocks), then layers on the code's own quotas (how many people, turns per
 // session), per-code ACL narrowing (see codes_acl.go), ghost-steering destinations
 // (waypoints), and whether it forces cited evidence.
 //
-// Another capability that wants to store its own config on a code (booker's booking quota was
-// the first) goes through the CodeExtras seam — this domain does not know those capabilities,
+// Another block that wants to store its own config on a code (booker's booking quota was
+// the first) goes through the CodeExtras seam — this domain does not know those blocks,
 // see extras.go.
 
 package ops
@@ -15,7 +15,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/access/entity"
 	"github.com/atmaxmoj/standmeet/internal/access/usecase"
@@ -24,7 +23,7 @@ import (
 )
 
 // CodesDeps — what the codes resource needs: the code's own use cases, the ACL-facet use
-// cases, and the fields other capabilities occupy on a code.
+// cases, and the fields other blocks occupy on a code.
 type CodesDeps struct {
 	Extras CodeExtras
 	Codes  usecase.CodesDeps
@@ -51,7 +50,7 @@ func codeCoreOps(d CodesDeps) []fp.Op {
 		{
 			ID: "codes.create",
 			Description: "Issue an access code against a role. The role decides persona, " +
-				"corpus scope and capabilities; the code adds its own quotas.",
+				"corpus scope and blocks; the code adds its own quotas.",
 			InputSchema: withExtraFields(codeCreateSchema, extras.Fields()),
 			Kind:        fp.Action,
 			Reach:       fp.OwnerAction(),
@@ -112,6 +111,12 @@ var (
 		"required":["code_id"]
 	}`)
 
+	// codeCreateSchema — a JSON string cannot be wrapped (a literal newline inside one is
+	// invalid JSON), so each description has to fit on its line. The `bundle` field's full
+	// story does not: a bundle is read LIVE at assembly, so editing it moves every code
+	// already bound to it, and a block removed from it is gone from an open session on the
+	// next turn. That is the whole point of the bundle gate; the field's own description
+	// says "read live" and this comment says what it buys.
 	codeCreateSchema = json.RawMessage(`{
 		"type":"object",
 		"properties":{
@@ -128,7 +133,9 @@ var (
 			"max_turns_per_session":{"type":"integer","description":"Turn cap per session."},
 			"expires_at":{"type":"string","description":"RFC3339 expiry; empty = never."},
 			"provider_id":{"type":"string",
-				"description":"Inference provider. Omit to inherit the role's, then the default."}
+				"description":"Inference provider. Omit to inherit the role's, then the default."},
+			"bundle":{"type":"string",
+				"description":"Bundle this code carries, read live. Omit to use the role's grant."}
 		},
 		"required":[]
 	}`)
@@ -166,91 +173,16 @@ var (
 	}`)
 )
 
-// codeRow — outbound payload shape (identical on every facade).
-//
-// require_ghost_evidence and prompt_id are also here: before normalization the MCP shape was
-// missing these two, so the owner couldn't tell from Claude Code whether a code forced cited
-// evidence.
-type codeRow struct {
-	ExpiresAt            *string `json:"expires_at,omitempty"`
-	MaxMembers           *int32  `json:"max_members,omitempty"`
-	MaxTurnsPerSession   *int32  `json:"max_turns_per_session,omitempty"`
-	RequireGhostEvidence *bool   `json:"require_ghost_evidence"`
-	PromptID             *string `json:"prompt_id,omitempty"`
-	CreatedAt            string  `json:"created_at"`
-	ID                   string  `json:"id"`
-	Code                 string  `json:"code"`
-	Label                string  `json:"label"`
-	Status               string  `json:"status"`
-	AssumedRoleID        string  `json:"assumed_role_id"`
-	// ProviderID — empty = this code didn't specify one, inherits the role's then falls back
-	// to default. **Must be sent outbound**: a field the owner can write but not see means the
-	// panel can only guess next time it opens.
-	ProviderID string `json:"provider_id"`
-	// MicrositeSlug — which page this code opens. **Empty string = opens the default visitor
-	// chat**, not "failed to answer". The page side can see the code, this side can see the
-	// page — a binding visible only one way, and people forget they made it.
-	MicrositeSlug string   `json:"microsite_slug"`
-	Ghosts        []string `json:"ghosts"`
-	// MemberCount — how many people have claimed it so far. **Sending the cap alone isn't
-	// enough**: with only the cap, a full code and a brand-new code look identical in the
-	// panel, while the visitor side is already blocked by member_quota_reached (F-D-2). The
-	// visitor header always renders "1 / 5 names", but the owner side had no way to get this
-	// number.
-	MemberCount int32 `json:"member_count"`
-}
-
-func toCodeRow(c *entity.Code, memberCount int32) codeRow {
-	return codeRow{
-		ID: c.ID, Code: c.Code, Label: c.Label, Status: c.Status,
-		AssumedRoleID: c.AssumedRoleID, ProviderID: c.ProviderID,
-		Ghosts:     nonNilStrings(c.Ghosts),
-		MaxMembers: c.MaxMembers, MaxTurnsPerSession: c.MaxTurnsPerSession,
-		RequireGhostEvidence: c.RequireGhostEvidence, PromptID: c.PromptID,
-		CreatedAt:     c.CreatedAt.UTC().Format(time.RFC3339),
-		ExpiresAt:     formatOptionalTime(c.ExpiresAt),
-		MicrositeSlug: c.MicrositeSlug,
-		MemberCount:   memberCount,
-	}
-}
-
-// marshalCode — a code + its used quota + the fields other capabilities put on it.
-//
-// memberCount is counted by the caller and passed in: on a write path (issue / update quota /
-// update ghost) the code was just touched, so counting once there is accurate; the list path
-// counts once per code. Failing to count isn't fatal — see countMembers below.
-func marshalCode(
-	ctx context.Context, extras CodeExtras, c *entity.Code, memberCount int32,
-) (json.RawMessage, error) {
-	row, err := json.Marshal(toCodeRow(c, memberCount))
-	if err != nil {
-		return nil, fp.OpErr("encode code", err)
-	}
-	return withExtraValues(row, extras.Read(ctx, c.ID)), nil
-}
-
-// countMembers — how many people have joined on this code. Returns 0 rather than failing the
-// whole request when the count can't be read: not being able to read one code's usage
-// shouldn't stop the owner from opening the code list. 0 shows as "0 / N", which beats a full
-// page error, but that also means it **must not** be used to decide "this code is empty" —
-// whether a code is full is always decided by the backend's issue-time check
-// (member_quota_reached).
-func countMembers(ctx context.Context, deps usecase.CodesDeps, codeID string) int32 {
-	n, err := deps.Codes.CountMembers(ctx, codeID)
-	if err != nil {
-		return 0
-	}
-	return n
-}
-
 func listCodes(deps usecase.CodesDeps, extras CodeExtras) fp.Invoke {
 	return func(ctx context.Context, ownerID string, _ json.RawMessage) (json.RawMessage, error) {
 		rows, err := deps.Codes.ListByOwner(ctx, ownerID)
 		if err != nil {
 			return nil, codeErr(err)
 		}
+		bundles := bundleNamesOrNone(ctx, deps, ownerID)
 		out := make([]json.RawMessage, 0, len(rows))
 		for i := range rows {
+			rows[i].Bundle = bundles[rows[i].ID]
 			one, merr := marshalCode(ctx, extras, &rows[i], countMembers(ctx, deps, rows[i].ID))
 			if merr != nil {
 				return nil, merr
@@ -261,14 +193,22 @@ func listCodes(deps usecase.CodesDeps, extras CodeExtras) fp.Invoke {
 	}
 }
 
-// codeMemberOut — one visitor who has claimed this code. Shape matches what both facades
-// already send (display_name / is_anonymous).
-type codeMemberOut struct {
-	LastSeenAt  *string `json:"last_seen_at,omitempty"`
-	ID          string  `json:"id"`
-	DisplayName string  `json:"display_name"`
-	Email       string  `json:"email,omitempty"`
-	IsAnonymous bool    `json:"is_anonymous"`
+// bundleNamesOrNone — every code's bundle name in one read, or an empty table.
+//
+// Not fatal if it fails: the list is the owner's way in to everything else on a code, and
+// losing the whole screen because one decorating column could not be read is a worse answer
+// than a screen that shows no bundle.
+func bundleNamesOrNone(
+	ctx context.Context, deps usecase.CodesDeps, ownerID string,
+) map[string]string {
+	bundles, err := deps.Codes.BundleNames(ctx, ownerID)
+	if err != nil {
+		if deps.Log != nil {
+			deps.Log.Warn("codes list: bundle names", "err", err)
+		}
+		return map[string]string{}
+	}
+	return bundles
 }
 
 func listCodeMembers(deps usecase.CodesDeps) fp.Invoke {
@@ -330,6 +270,6 @@ var codeErrClasses = []struct {
 		return fp.Coded(fp.Conflict("code already exists"), "code_taken")
 	}},
 	{entity.ErrDenialKindUnknown, func() error {
-		return fp.BadInput("kind must be capability, skill or corpus")
+		return fp.BadInput("kind must be block, skill or corpus")
 	}},
 }

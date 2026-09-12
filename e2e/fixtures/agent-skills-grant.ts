@@ -21,7 +21,7 @@ export interface IssueCodeInput {
   // The field is named notify_owner —— it's a key declared by **calendar.book
   // itself** in its manifest's role_config, no longer a column on the kernel
   // roles table (that column was called notify_owner_on_booking and is retired).
-  // A role's input schema grows from each capability's declaration, so the name
+  // A role's input schema grows from each block's declaration, so the name
   // filled in here must match the manifest.
   notify_owner?: boolean;
 }
@@ -117,13 +117,13 @@ async function postCode(
 
 // ─── tool-spec inspection (dev/test only endpoint) ──────────────
 
-interface VisitorCapabilitiesResp {
+interface VisitorBlocksResp {
   tool_specs: readonly { name: string }[];
 }
 
 /** Assert calendar_book is (or isn't) in the assembled tool spec for
  *  a session. Hits /internal/diag/session (operator diag endpoint).
- *  Tool name is snake_case since D-3 (URL ↔ LLM spec 1:1). Capability
+ *  Tool name is snake_case since D-3 (URL ↔ LLM spec 1:1). Block
  *  ID stays dotted ("calendar.book") — that's a separate concern. */
 export async function expectCalendarBookExposed(
   request: APIRequestContext, sessionToken: string, exposed: boolean,
@@ -132,8 +132,8 @@ export async function expectCalendarBookExposed(
     `${BACKEND}/internal/diag/session`,
     { headers: { 'X-Session-Token': sessionToken } },
   );
-  if (res.status() !== 200) throw new Error(`visitor-capabilities: ${res.status()}`);
-  const body = await res.json() as VisitorCapabilitiesResp;
+  if (res.status() !== 200) throw new Error(`visitor-blocks: ${res.status()}`);
+  const body = await res.json() as VisitorBlocksResp;
   const names = body.tool_specs.map((t) => t.name);
   const has = names.includes('calendar_book');
   if (has !== exposed) {

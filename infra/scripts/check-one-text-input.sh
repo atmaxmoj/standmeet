@@ -3,7 +3,7 @@
 # `.sm-field-input`.
 #
 # Why this gate exists (UX-59): the same kind of control grew two looks in this product —
-# connector credentials, connector op params, and the two SEO fields are **fully boxed**
+# supplier credentials, supplier op params, and the two SEO fields are **fully boxed**
 # (border on all four sides + rounded corners + padding), while the codes new-code modal,
 # the resume composer, gate, and the AI provider panel use **underline** inputs. The owner
 # hits a different standard every other screen.

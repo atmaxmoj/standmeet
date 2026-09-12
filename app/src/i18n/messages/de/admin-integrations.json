@@ -1,4 +1,32 @@
 {
+  "blocks": {
+    "installKicker": "installieren",
+    "installHeading": "block hinzufügen",
+    "installIntro": "Fügen Sie das Manifest eines Blocks ein. Es nennt den Namen, wen der Block bedient, wie er startet und welche Einstellungen er braucht.",
+    "installPlaceholder": "id: acme.widget\ntitle: Acme Widget\nversion: \"1\"\nshape: visitor_only",
+    "install": "installieren",
+    "installedToast": "Block installiert",
+    "bundlesKicker": "zusammenstellen",
+    "bundlesHeading": "bündel",
+    "bundlesIntro": "Ein Bündel ist ein benannter Satz von Blöcken. Ein Code darauf darf genau diese nutzen — live bearbeitet, ein entfernter Block ist auch in offenen Sitzungen sofort weg.",
+    "bundleNamePlaceholder": "recruiter",
+    "create": "anlegen",
+    "bundleCreatedToast": "Bündel angelegt",
+    "remove": "entfernen",
+    "removedToast": "Entfernt",
+    "addBlock": "+ {id}",
+    "addedToast": "Hinzugefügt",
+    "grantNet": "net(erlaubt)",
+    "blocksFailed": "{count, plural, one {# Block fehlgeschlagen} other {# Blöcke fehlgeschlagen}}",
+    "settings": "einstellungen",
+    "save": "speichern",
+    "savedToast": "Gespeichert",
+    "close": "schließen",
+    "codeBundleLabel": "bündel · was dieser Code nutzen darf",
+    "codeBundleNone": "kein Bündel — die Rolle entscheidet",
+    "codeBundle": "bündel · {name}",
+    "blockOff": "· aus"
+  },
   "credField": {
     "host": "Host",
     "port": "Port",
@@ -100,19 +128,19 @@
     "keyId": "schlüssel id",
     "deletedToast": "Schlüssel gelöscht"
   },
-  "connectors": {
-    "intro": "Connectors lassen den Agent externe Services erreichen — Calendar und Mail sind unten live, und Sie können Ihren eigenen (OpenAPI / Protokoll) Connector hochladen um mehr hinzuzufügen.",
-    "catalogError": "Die Connector-Katalog konnte nicht geladen werden — neu laden und erneut versuchen.",
-    "overwritePrompt": "Ein <mono>{category}</mono> Connector existiert bereits. Überschreiben?",
+  "suppliers": {
+    "intro": "Suppliers lassen den Agent externe Services erreichen — Calendar und Mail sind unten live, und Sie können Ihren eigenen (OpenAPI / Protokoll) Supplier hochladen um mehr hinzuzufügen.",
+    "catalogError": "Der Supplier-Katalog konnte nicht geladen werden — neu laden und erneut versuchen.",
+    "overwritePrompt": "Ein <mono>{seam}</mono> Supplier existiert bereits. Überschreiben?",
     "overwrite": "Überschreiben",
-    "add": "+ connector hinzufügen",
+    "add": "+ supplier hinzufügen",
     "builtinHeading": "Bereit zum Verbinden",
     "builtinCount": "{count} verfügbar",
-    "uploadedHeading": "Connectors, die Sie hochgeladen haben",
+    "uploadedHeading": "Suppliers, die Sie hochgeladen haben",
     "uploadedCount": "{count} installiert",
     "kicker": "integrationen",
     "count": "kalender · mail live · eigene hochladen",
-    "removedToast": "Connector entfernt"
+    "removedToast": "Supplier entfernt"
   },
   "calendar": {
     "heading": "Google Kalender",
@@ -134,32 +162,32 @@
     "leadDays": "mindestens tage im voraus",
     "bufferMin": "pufferminuten (um bestehende Termine)"
   },
-  "capabilities": {
+  "blockPanel": {
     "kicker": "verfügbarkeit",
-    "heading": "möglichkeiten",
-    "intro": "Schalten Sie eine Möglichkeit aus und ihre Tools verschwinden aus jeder Visitor-Sitzung. Integrierte Möglichkeiten können deaktiviert, aber nicht gelöscht werden; nur die, die Sie verfasst haben, können entfernt werden.",
-    "empty": "keine fähigkeiten registriert.",
+    "heading": "blöcke",
+    "intro": "Schalten Sie einen Block aus und seine Tools verschwinden aus jeder Visitor-Sitzung. Integrierte Blöcke können deaktiviert, aber nicht gelöscht werden; nur die, die Sie verfasst haben, können entfernt werden.",
+    "empty": "keine blöcke registriert.",
     "loading": "wird geladen…",
-    "removeTitle": "fähigkeit entfernen",
-    "removedToast": "Fähigkeit entfernt"
+    "removeTitle": "block entfernen",
+    "removedToast": "Block entfernt"
   },
-  "connectorCard": {
+  "supplierCard": {
     "disconnect": "Trennen",
     "statusConnecting": "verbinden…",
     "statusConnected": "verbunden",
     "statusNotConnected": "nicht verbunden"
   },
-  "connectorOp": {
+  "supplierOp": {
     "run": "Ausführen",
     "running": "Läuft…",
-    "sent": "Akzeptiert vom {kind} Connector — überprüfen Sie den Posteingang um es anzubestätigen.",
+    "sent": "Akzeptiert vom {kind} Supplier — überprüfen Sie den Posteingang um es anzubestätigen.",
     "unreachable": "Konnte Ihre Instanz nicht erreichen — prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
-    "failedNoReason": "Es funktionierte nicht, und der Connector gab keinen Grund — prüfen Sie die Server-Protokolle."
+    "failedNoReason": "Es funktionierte nicht, und der Supplier gab keinen Grund — prüfen Sie die Server-Protokolle."
   },
-  "connectorList": {
-    "loadError": "Konnte Ihre Connectors nicht laden — neu laden und erneut versuchen.",
+  "supplierList": {
+    "loadError": "Konnte Ihre Suppliers nicht laden — neu laden und erneut versuchen.",
     "delete": "Löschen",
-    "removeAria": "connector entfernen"
+    "removeAria": "supplier entfernen"
   },
   "skills": {
     "new": "+ neuer skill",

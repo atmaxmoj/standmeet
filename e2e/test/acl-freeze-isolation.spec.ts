@@ -11,16 +11,16 @@
 //     deny is a set (multiple denials).
 //
 // RED until: code-deny lands (§C frozen/reissue, all of §D); acl-global-live-mid-session
-// reuses the existing capability-disable-while-attached live gate, likely already green
+// reuses the existing block-disable-while-attached live gate, likely already green
 // (global-layer regression lock).
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
 
 import { expectCalendarBookExposed } from '@/fixtures/agent-skills-grant';
-import { setCapabilityEnabled, sessionToolNames } from '@/fixtures/capabilities';
+import { setBlockEnabled, sessionToolNames } from '@/fixtures/blocks';
 import {
-  setCodeCapabilityDenial, listCodeDenialsStatus, setCodeCorpusDenials,
+  setCodeBlockDenial, listCodeDenialsStatus, setCodeCorpusDenials,
 } from '@/fixtures/code-denials';
 import { createSkill } from '@/fixtures/admin-mutations';
 import { createCode } from '@/fixtures/codes';
@@ -55,7 +55,7 @@ test.describe('ACL §C/§D · freeze-vs-live + per-code isolation', () => {
   let seed: BaseSeed;
   test.beforeAll(async ({ playwright }) => { seed = await seedOwnerGCalConnected(playwright); });
   test.afterAll(async () => { await teardownSeed(seed); });
-  test.afterEach(async () => { await setCapabilityEnabled(seed.request, seed.csrf, CAP, true); });
+  test.afterEach(async () => { await setBlockEnabled(seed.request, seed.csrf, CAP, true); });
 
   test('acl-code-frozen-at-issue · deny after issue does NOT affect the running session', async () => {
     const role = await roleGrantingBook(seed.request, seed.csrf);
@@ -63,7 +63,7 @@ test.describe('ACL §C/§D · freeze-vs-live + per-code isolation', () => {
     const v = await issueSession(seed.request, { handle: OWNER.handle, mode: 'code', code: code.code, visitor_name: 'frozen' });
     await expectCalendarBookExposed(seed.request, v.session_token, true);
     // mutate code deny AFTER issue → frozen snapshot must not re-read it.
-    expect(await setCodeCapabilityDenial(seed.request, seed.csrf, code.id, CAP)).toBe(201);
+    expect(await setCodeBlockDenial(seed.request, seed.csrf, code.id, CAP)).toBe(201);
     await expectCalendarBookExposed(seed.request, v.session_token, true);
   });
 
@@ -72,7 +72,7 @@ test.describe('ACL §C/§D · freeze-vs-live + per-code isolation', () => {
     const code = await codeOnRole(seed.request, seed.csrf, role);
     const before = await issueSession(seed.request, { handle: OWNER.handle, mode: 'code', code: code.code, visitor_name: 'before' });
     await expectCalendarBookExposed(seed.request, before.session_token, true);
-    expect(await setCodeCapabilityDenial(seed.request, seed.csrf, code.id, CAP)).toBe(201);
+    expect(await setCodeBlockDenial(seed.request, seed.csrf, code.id, CAP)).toBe(201);
     const after = await issueSession(seed.request, { handle: OWNER.handle, mode: 'code', code: code.code, visitor_name: 'after' });
     await expectCalendarBookExposed(seed.request, after.session_token, false);
     // and the earlier session is still frozen-exposed (re-assert isolation of freeze).
@@ -84,7 +84,7 @@ test.describe('ACL §C/§D · freeze-vs-live + per-code isolation', () => {
     const code = await codeOnRole(seed.request, seed.csrf, role);
     const v = await issueSession(seed.request, { handle: OWNER.handle, mode: 'code', code: code.code, visitor_name: 'live' });
     await expectCalendarBookExposed(seed.request, v.session_token, true);
-    expect(await setCapabilityEnabled(seed.request, seed.csrf, CAP, false)).toBe(200);
+    expect(await setBlockEnabled(seed.request, seed.csrf, CAP, false)).toBe(200);
     await expectCalendarBookExposed(seed.request, v.session_token, false); // live, mid-session
   });
 
@@ -92,7 +92,7 @@ test.describe('ACL §C/§D · freeze-vs-live + per-code isolation', () => {
     const role = await roleGrantingBook(seed.request, seed.csrf);
     const code1 = await codeOnRole(seed.request, seed.csrf, role);
     const code2 = await codeOnRole(seed.request, seed.csrf, role);
-    expect(await setCodeCapabilityDenial(seed.request, seed.csrf, code1.id, CAP)).toBe(201);
+    expect(await setCodeBlockDenial(seed.request, seed.csrf, code1.id, CAP)).toBe(201);
     const v1 = await issueSession(seed.request, { handle: OWNER.handle, mode: 'code', code: code1.code, visitor_name: 'iso1' });
     const v2 = await issueSession(seed.request, { handle: OWNER.handle, mode: 'code', code: code2.code, visitor_name: 'iso2' });
     await expectCalendarBookExposed(seed.request, v1.session_token, false); // denied
@@ -102,8 +102,8 @@ test.describe('ACL §C/§D · freeze-vs-live + per-code isolation', () => {
   test('acl-code-multi-deny · one code denies two caps → both gone', async () => {
     const role = await roleGrantingBook(seed.request, seed.csrf);
     const code = await codeOnRole(seed.request, seed.csrf, role);
-    expect(await setCodeCapabilityDenial(seed.request, seed.csrf, code.id, CAP)).toBe(201);
-    expect(await setCodeCapabilityDenial(seed.request, seed.csrf, code.id, 'corpus.retrieval')).toBe(201);
+    expect(await setCodeBlockDenial(seed.request, seed.csrf, code.id, CAP)).toBe(201);
+    expect(await setCodeBlockDenial(seed.request, seed.csrf, code.id, 'corpus.retrieval')).toBe(201);
     const v = await issueSession(seed.request, { handle: OWNER.handle, mode: 'code', code: code.code, visitor_name: 'multi' });
     const tools = await sessionToolNames(seed.request, v.session_token);
     expect(tools).not.toContain('calendar_book');
@@ -120,7 +120,7 @@ test.describe('ACL §C/§D · freeze-vs-live + per-code isolation', () => {
     async () => {
       const foreign = '00000000-0000-0000-0000-000000000000';
 
-      const write = await setCodeCapabilityDenial(seed.request, seed.csrf, foreign, CAP);
+      const write = await setCodeBlockDenial(seed.request, seed.csrf, foreign, CAP);
       expect([403, 404], `write denial: got ${write}`).toContain(write);
 
       const read = await listCodeDenialsStatus(seed.request, seed.csrf, foreign);

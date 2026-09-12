@@ -9,13 +9,13 @@
 // Why it lives here: when #135 externalized booker, it deleted the host-side
 // booking_owner_notify.go, and the commit message noted its own gap: "owner-notify
 // (#130) not yet re-homed into the sandbox" — so this feature just dropped, and two
-// e2e specs stayed red ever since. A capability's own state belongs to the capability:
-// the switch already lives in booker's own capstore (the role snapshot's switch comes
+// e2e specs stayed red ever since. A block’s own state belongs to the block:
+// the switch already lives in booker's own blockstore (the role snapshot's switch comes
 // through via `_meta`), the recipient comes from owner.meta, and sending goes through
-// connector.invoke("mail","send") — the same path as the confirmation email, so the
+// supplier.invoke("mail","send") — the same path as the confirmation email, so the
 // kernel doesn't need to learn "booking notify" as a new concept.
 //
-// **best-effort**: switch off / no mail connector configured / send failure all just
+// **best-effort**: switch off / no mail supplier configured / send failure all just
 // mean no notification — they must never fail the booking itself (the booking is
 // already persisted and the calendar event already created; rolling that back over a
 // notification email would be backwards).
@@ -56,7 +56,7 @@ func sendOwnerNotify(s session, b *bookingDoc) error {
 	if merr != nil {
 		return merr
 	}
-	return gwConnectorInvokeBackground(s.OwnerID, "mail", "send", payload)
+	return gwSupplierInvokeBackground(s.OwnerID, "mail", "send", payload)
 }
 
 // buildOwnerNotifyEmail —— owner's-eye view: who, when, and what got booked. Time renders

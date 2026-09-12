@@ -1,6 +1,6 @@
 // b4-owner-cap-me.spec.ts — the contract for the owner tool `me`.
 //
-// It has moved twice: first from `AddTool` in server.go into a capreg capability (at that point
+// It has moved twice: first from `AddTool` in server.go into a capreg block (at that point
 // this spec asserted that `owner.me` existed in the registry), then from capreg into the outbound
 // convergence point (now the owner domain declares it itself). The two assertions for that
 // **intermediate shape** have since been deleted — they were guarding the traces of the move, not
@@ -30,8 +30,8 @@ const OWNER = {
 const CODE = 'B4-001';
 
 interface VisitorCap { id: string }
-interface VisitorCapabilitiesResp {
-  capabilities: VisitorCap[];
+interface VisitorBlocksResp {
+  blocks: VisitorCap[];
   tool_specs: Array<{ name: string }>;
 }
 // me returns {owner, settings} (the panel's GET /me has always used this envelope; the MCP
@@ -70,8 +70,8 @@ test.describe('owner `me` over MCP', () => {
         { headers: { 'X-Session-Token': sess.session_token } },
       );
       if (res.status() !== 200) throw new Error(`visitor-caps: ${res.status()}`);
-      const body = await res.json() as VisitorCapabilitiesResp;
-      expect(body.capabilities.find((c) => c.id === 'owner.me')).toBeUndefined();
+      const body = await res.json() as VisitorBlocksResp;
+      expect(body.blocks.find((c) => c.id === 'owner.me')).toBeUndefined();
       expect(body.tool_specs.find((t) => t.name === 'me')).toBeUndefined();
       await request.dispose();
     });

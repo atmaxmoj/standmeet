@@ -2,7 +2,7 @@
 // plaintext key (AES-GCM encrypted before it hits disk), plus the built-in preset list
 // (fills the dropdown + default endpoint/model).
 //
-// Capability comes from the outbound convergence point (shared plumbing in dispatch.go).
+// Ability comes from the outbound convergence point (shared plumbing in dispatch.go).
 // The response has no key — the type on the convergence side never has this field at all,
 // so no facade can leak it; it's not this file remembering not to write it.
 //
@@ -17,7 +17,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// AIProviderDeps — capability source for the admin ai-provider route.
+// AIProviderDeps — op source for the admin ai-provider route.
 type AIProviderDeps struct {
 	Face *dispatcher.Face
 }

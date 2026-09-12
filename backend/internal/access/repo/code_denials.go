@@ -1,4 +1,4 @@
-// code_denials.go —— reads and writes the code-level ACL denies (capability-acl-hierarchy.md).
+// code_denials.go —— reads and writes the code-level ACL denies (block-acl-hierarchy.md).
 // Pure deny sparse tables; the handler checks the code belongs to this owner first, so this
 // layer only reads/writes by code_id.
 
@@ -12,7 +12,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
-// CodeDenialRepo —— CRUD for code_capability_denials / code_skill_denials.
+// CodeDenialRepo —— CRUD for code_block_denials / code_skill_denials.
 type CodeDenialRepo struct {
 	pool *pgstore.Pool
 }
@@ -20,16 +20,16 @@ type CodeDenialRepo struct {
 // NewCodeDenialRepo constructs a CodeDenialRepo.
 func NewCodeDenialRepo(pool *pgstore.Pool) *CodeDenialRepo { return &CodeDenialRepo{pool: pool} }
 
-// ListCapabilities —— the set of capability ids this code denies (no rows =
+// ListBlocks —— the set of block ids this code denies (no rows =
 // fully inherits the role).
-func (r *CodeDenialRepo) ListCapabilities(ctx context.Context, codeID string) ([]string, error) {
+func (r *CodeDenialRepo) ListBlocks(ctx context.Context, codeID string) ([]string, error) {
 	id, err := pgstore.ParseUUID(codeID)
 	if err != nil {
 		return nil, fmt.Errorf(errParseCodeIDPrefix, err)
 	}
-	ids, qerr := db.New(r.pool).ListCodeCapabilityDenials(ctx, id)
+	ids, qerr := db.New(r.pool).ListCodeBlockDenials(ctx, id)
 	if qerr != nil {
-		return nil, fmt.Errorf("list code capability denials: %w", qerr)
+		return nil, fmt.Errorf("list code block denials: %w", qerr)
 	}
 	return ids, nil
 }
@@ -47,31 +47,31 @@ func (r *CodeDenialRepo) ListSkills(ctx context.Context, codeID string) ([]strin
 	return pgstore.UUIDStrings(rows), nil
 }
 
-// AddCapability —— denies one capability (idempotent, PK conflict does DO NOTHING).
-func (r *CodeDenialRepo) AddCapability(ctx context.Context, codeID, capabilityID string) error {
+// AddBlock —— denies one block (idempotent, PK conflict does DO NOTHING).
+func (r *CodeDenialRepo) AddBlock(ctx context.Context, codeID, blockID string) error {
 	id, err := pgstore.ParseUUID(codeID)
 	if err != nil {
 		return fmt.Errorf(errParseCodeIDPrefix, err)
 	}
-	if aerr := db.New(r.pool).AddCodeCapabilityDenial(ctx, db.AddCodeCapabilityDenialParams{
-		CodeID: id, CapabilityID: capabilityID,
+	if aerr := db.New(r.pool).AddCodeBlockDenial(ctx, db.AddCodeBlockDenialParams{
+		CodeID: id, BlockID: blockID,
 	}); aerr != nil {
-		return fmt.Errorf("add code capability denial: %w", aerr)
+		return fmt.Errorf("add code block denial: %w", aerr)
 	}
 	return nil
 }
 
-// DeleteCapability —— revokes one capability deny (idempotent, no error even
+// DeleteBlock —— revokes one block deny (idempotent, no error even
 // with zero rows).
-func (r *CodeDenialRepo) DeleteCapability(ctx context.Context, codeID, capabilityID string) error {
+func (r *CodeDenialRepo) DeleteBlock(ctx context.Context, codeID, blockID string) error {
 	id, err := pgstore.ParseUUID(codeID)
 	if err != nil {
 		return fmt.Errorf(errParseCodeIDPrefix, err)
 	}
-	if derr := db.New(r.pool).DeleteCodeCapabilityDenial(ctx, db.DeleteCodeCapabilityDenialParams{
-		CodeID: id, CapabilityID: capabilityID,
+	if derr := db.New(r.pool).DeleteCodeBlockDenial(ctx, db.DeleteCodeBlockDenialParams{
+		CodeID: id, BlockID: blockID,
 	}); derr != nil {
-		return fmt.Errorf("delete code capability denial: %w", derr)
+		return fmt.Errorf("delete code block denial: %w", derr)
 	}
 	return nil
 }
@@ -114,7 +114,7 @@ func (r *CodeDenialRepo) DeleteSkill(ctx context.Context, codeID, skillID string
 
 // ListCorpusURIs —— the set of corpus URI globs this code revokes (no rows =
 // fully inherits the role's allow-list).
-// The third of the ACL's three tiers: capability/skill are deny-sets of discrete
+// The third of the ACL's three tiers: block/skill are deny-sets of discrete
 // ids, corpus is a deny-set of globs — both are pure subtraction.
 func (r *CodeDenialRepo) ListCorpusURIs(ctx context.Context, codeID string) ([]string, error) {
 	id, err := pgstore.ParseUUID(codeID)

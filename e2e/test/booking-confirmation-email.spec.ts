@@ -2,7 +2,7 @@
 // the booked card where the confirmation/invite email goes. **Real e2e: browser -> sandboxed
 // iframe card -> mcp-ui:tool -> send_confirmation tool -> backend -> owner SMTP (Mailpit)**.
 //
-// After the refactor (connector deps, §2 + D-4): the confirmation widget is no longer a
+// After the refactor (supplier deps, §2 + D-4): the confirmation widget is no longer a
 // React card + REST, it now lives inside the `mcp-app-card-calendar_book` sandboxed
 // iframe; clicking "use profile / other address / skip" makes the card post
 // `mcp-ui:tool` -> the host dispatches the `send_confirmation` tool with session context.
@@ -29,7 +29,7 @@ import { test, expect } from '@/fixtures/test';
 import type { Browser, FrameLocator, Page } from '@playwright/test';
 
 import {
-  configureMailConnector, clearMailpit, waitForMailEnvelopeTo,
+  configureMailSupplier, clearMailpit, waitForMailEnvelopeTo,
   countMailpitMessages, MAIL_FROM,
 } from '@/fixtures/mail';
 import {
@@ -46,7 +46,7 @@ test.describe('booking · send-confirmation email (#122 — deterministic, no AI
     seed = await seedCodeVisitorOnConnectedOwner(playwright, {
       granted_skills: ['calendar.book'], max_bookings: 9,
     });
-    await configureMailConnector(seed.request, OWNER.email, OWNER.password);
+    await configureMailSupplier(seed.request, OWNER.email, OWNER.password);
     await clearMailpit(seed.request);
   });
   test.afterAll(async () => { await teardownSeed(seed); });
@@ -76,7 +76,7 @@ async function quoteFlow(browser: Browser, seed: CodedSeed): Promise<void> {
   await expect(prompt).toBeVisible({ timeout: 10_000 });
   await frame.getByTestId('booking-email-use-profile').click();
 
-  // Observable side effect = the send_confirmation tool, via the connector proxy, really
+  // Observable side effect = the send_confirmation tool, via the supplier proxy, really
   // sent one email to the session email address.
   const mail = await waitForMailEnvelopeTo(seed.request, 'dana.profile@example.com');
   expect(mail.from).toBe(MAIL_FROM);
@@ -169,16 +169,16 @@ async function skipFlow(browser: Browser, seed: CodedSeed): Promise<void> {
   await ctx.close();
 }
 
-// owner has no mail connector configured -> the whole confirmation widget doesn't render
+// owner has no mail supplier configured -> the whole confirmation widget doesn't render
 // (the owner literally can't send email). After the refactor this is backstopped by the
-// connector dependency gate: send_confirmation's booker capability Requires smtp, and the
+// supplier dependency gate: send_confirmation's booker block Requires smtp, and the
 // confirmation widget doesn't enter the card when unconnected — the booked card still
 // shows as booked as usual, but there's no email-prompt inside the iframe.
-test.describe('booking · no mail connector → no confirmation card (#122)', () => {
+test.describe('booking · no mail supplier → no confirmation card (#122)', () => {
   let seed: CodedSeed;
   test.beforeAll(async ({ playwright }) => {
-    // Note: configureMailConnector is deliberately not called — the owner has no
-    // send-mail capability.
+    // Note: configureMailSupplier is deliberately not called — the owner has no
+    // send-mail block.
     seed = await seedCodeVisitorOnConnectedOwner(playwright, {
       granted_skills: ['calendar.book'],
     });

@@ -2,7 +2,7 @@
 # doc-context-test.sh —— #36 positional awareness / anaphora resolution, a real-LLM
 # **quality** case (human-judged).
 #
-# This is the kind="human" class of eval from capabilities.py: run against a real LLM,
+# This is the kind="human" class of eval from blocks.py: run against a real LLM,
 # lay out the full answer plus the model's tool decisions (with args), and pair it
 # with a "LOOK FOR" section for a person/judge to read and score — **no deterministic
 # grep bar** (real LLM output is nondeterministic, so a hard PASS/FAIL would be wrong).

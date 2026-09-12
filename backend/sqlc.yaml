@@ -78,11 +78,11 @@ sql:
             nullable: true
   - engine: postgresql
     schema: db/schema.sql
-    queries: db/queries/connector
+    queries: db/queries/credentials
     gen:
       go:
         package: db
-        out: internal/connector/db
+        out: internal/plugin/credentials/db
         sql_package: pgx/v5
         emit_json_tags: false
         emit_db_tags: false

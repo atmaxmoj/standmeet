@@ -1,6 +1,6 @@
 // slots.go —— list_slots 流程 + slot 算法,港自旧核心 usecases/calendar_list_slots.go。
-// #135:算法住在沙箱;外部只留两处走固定词表 —— policy 从 booker 自己的 capstore 取、
-// freebusy 经 connector.invoke("calendar","free_busy") 拿。纯枚举/过滤不碰外部。
+// #135:算法住在沙箱;外部只留两处走固定词表 —— policy 从 booker 自己的 blockstore 取、
+// freebusy 经 supplier.invoke("calendar","free_busy") 拿。纯枚举/过滤不碰外部。
 
 package main
 
@@ -15,7 +15,7 @@ const (
 	maxSlotsReturned   = 50
 )
 
-// busyInterval —— 一个忙时段(connector.invoke free_busy 的响应形状)。
+// busyInterval —— 一个忙时段(supplier.invoke free_busy 的响应形状)。
 type busyInterval struct {
 	Start time.Time `json:"start"`
 	End   time.Time `json:"end"`
@@ -41,7 +41,7 @@ type listSlotsInput struct {
 // 以前这里自带 defaultBookingPolicy(),host 侧也有一份,两份已经飘了
 // (host 说工作到 18:00、缓冲 15 分钟,这儿按 17:00、缓冲 0)。
 func loadPolicy(ownerID string) (bookingPolicy, error) {
-	values, err := gwCapConfig(ownerID)
+	values, err := gwBlockConfig(ownerID)
 	if err != nil {
 		return bookingPolicy{}, err
 	}
@@ -56,13 +56,13 @@ func loadPolicy(ownerID string) (bookingPolicy, error) {
 	return p, nil
 }
 
-// gwFreeBusy —— 经 connector.invoke 拿 owner 主日历在 [from,until] 的忙时段。
+// gwFreeBusy —— 经 supplier.invoke 拿 owner 主日历在 [from,until] 的忙时段。
 func gwFreeBusy(ownerID string, from, until time.Time) ([]busyInterval, error) {
 	args, merr := json.Marshal(map[string]time.Time{"time_min": from, "time_max": until})
 	if merr != nil {
 		return nil, fmt.Errorf("marshal free_busy args: %w", merr)
 	}
-	resp, err := gwConnectorInvoke(ownerID, "calendar", "free_busy", args)
+	resp, err := gwSupplierInvoke(ownerID, "calendar", "free_busy", args)
 	if err != nil {
 		return nil, err
 	}

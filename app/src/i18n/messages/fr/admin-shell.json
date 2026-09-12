@@ -63,47 +63,47 @@
     "withdraw": "retirer",
     "logUpdate": "enregistrer la mise à jour"
   },
-  "connectorAdd": {
-    "catalogCount": "ajouter un connecteur · {n} dans le catalogue",
+  "supplierAdd": {
+    "catalogCount": "ajouter un fournisseur · {n} dans le catalogue",
     "tagline": "Étendre la surface du corpus.",
     "close": "fermer ✕",
     "installed": "installé",
     "builtIn": "intégré"
   },
-  "connectorConfig": {
+  "supplierConfig": {
     "oauthHint": "ouvre le fournisseur OAuth dans un nouvel onglet",
     "choose": "choisir…",
     "backToCatalog": "← retour au catalogue",
     "connect": "connecter →"
   },
-  "connectorCard": {
-    "credsStored": "Les identifiants sont enregistrés pour ce connecteur. Ils ne sont jamais affichés à nouveau — laissez les champs vides pour les conserver, ou tapez de nouveaux pour les remplacer.",
+  "supplierCard": {
+    "credsStored": "Les identifiants sont enregistrés pour ce fournisseur. Ils ne sont jamais affichés à nouveau — laissez les champs vides pour les conserver, ou tapez de nouveaux pour les remplacer.",
     "scopeShortfall": "Connecté, mais cette subvention ne peut pas faire tout ce qui est demandé — les actions nécessitant {scopes} ne fonctionneront pas. Cochez-le ci-dessus et connectez-vous à nouveau."
   },
-  "connectorCred": {
+  "supplierCred": {
     "authentication": "authentification",
     "apiKeyHint": "Envoyé dans le {where} comme <code>{name}</code>.",
     "discoveryHint": "Découverte : <code>{url}</code>",
-    "needsDance": "Ce schéma a besoin d'une étape d'autorisation. Assemblez le connecteur d'abord — le bouton Connecter vit sur sa carte.",
+    "needsDance": "Ce schéma a besoin d'une étape d'autorisation. Assemblez le fournisseur d'abord — le bouton Connecter vit sur sa carte.",
     "scopes": "portées"
   },
-  "protocolConnector": {
+  "protocolSupplier": {
     "testConnection": "Tester la connexion →"
   },
   "specIngest": {
     "heading": "coller une spécification OpenAPI",
-    "blurb": "N'importe quelle spécification OpenAPI 3.0 (JSON ou YAML). Nous dérivons le formulaire d'identifiant + la catégorie.",
+    "blurb": "N'importe quelle spécification OpenAPI 3.0 (JSON ou YAML). Nous dérivons le formulaire d’identifiant + le seam.",
     "useThisSpec": "vérifier cette spécification",
     "uploadSpec": "télécharger un fichier",
     "bindingLabel": "binding — optionnel",
-    "bindingHint": "Mappage JSONata (YAML) mappant les opérations de cette API sur un contrat de catégorie, afin que l'agent puisse l'utiliser comme calendrier, expéditeur, etc. Laissez-le vide pour exposer les opérations brutes à la place.",
+    "bindingHint": "Mappage JSONata (YAML) mappant les opérations de cette API sur un contrat de seam, afin que l'agent puisse l'utiliser comme calendrier, expéditeur, etc. Laissez-le vide pour exposer les opérations brutes à la place.",
     "orFetchFromUrl": "…ou récupérer depuis une URL",
     "fetch": "récupérer",
-    "candidate": "candidat connecteur",
+    "candidate": "candidat fournisseur",
     "baseUrlLabel": "URL de base — uniquement si la spécification ne déclare pas de serveurs",
-    "assemble": "assembler le connecteur →",
+    "assemble": "assembler le fournisseur →",
     "exposeLabel": "Laissez l'IA d'un visiteur appeler directement ces opérations. Chaque opération dans la spécification devient un outil qu'elle peut utiliser, sujet aux subventions par code. Laissez ceci désactivé si vous avez fourni un binding.",
-    "needsBindingOrExpose": "Cela assemblerait un connecteur que rien ne peut appeler. Fournissez un binding pour remplir une catégorie, ou cochez la case ci-dessus pour ouvrir les opérations à l'IA d'un visiteur."
+    "needsBindingOrExpose": "Cela assemblerait un fournisseur que rien ne peut appeler. Fournissez un binding pour remplir un seam, ou cochez la case ci-dessus pour ouvrir les opérations à l'IA d'un visiteur."
   },
   "composer": {
     "save": "enregistrer",
@@ -257,7 +257,7 @@
     "recoveryDetailReady": "pas encore définie",
     "recoveryDetailNeedsMail": "nécessite un e-mail vérifié",
     "recoveryNoteReady": "Génère une phrase de récupération et vous l'envoie par e-mail. Usage unique — elle est consommée dès que vous vous connectez avec.",
-    "recoveryNoteNeedsMail": "Vérifiez d'abord l'e-mail (SMTP) sous Connectors — la phrase de récupération vous est envoyée par e-mail."
+    "recoveryNoteNeedsMail": "Vérifiez d'abord l'e-mail (SMTP) sous Fournisseurs — la phrase de récupération vous est envoyée par e-mail."
   },
   "monitor": {
     "collection": "collecte du trafic",

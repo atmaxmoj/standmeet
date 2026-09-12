@@ -89,7 +89,7 @@ test.describe('owner publishes custom React page; visitor lands on it', () => {
   //
   // "the button must not exist" and "the button must exist and work" are the same rule
   // seen in two different worlds; keeping the old assertion around would turn it into a
-  // blocker against the correct product once the capability was added.
+  // blocker against the correct product once the block was added.
   test('the authoring affordance exists and is wired (F-N-1, in the world where it works)',
     async ({ adminPage: page }) => {
       // The editor lives at its own route now (/admin/edit/<slug>); /admin/edit/new starts a
@@ -177,7 +177,7 @@ test.describe('owner publishes custom React page; visitor lands on it', () => {
       }, { message: 'a page taken down in the panel stops serving' }).toBeGreaterThanOrEqual(400);
     });
 
-  // The mini-IDE's defining capability — multi-file build (see helper for the why).
+  // The mini-IDE's defining block — multi-file build (see helper for the why).
   test('a page spans multiple source files — add one, App imports it, the build renders both',
     ({ adminPage: page }) => multiFileBuildSpansBoth(page));
 
@@ -261,8 +261,18 @@ async function fillSource(page: Page, source: string): Promise<void> {
 }
 
 async function expectServed(page: Page, slug: string, marker: string): Promise<void> {
-  const served = await page.request.get(`/api/v1/microsites/${slug}`);
-  expect(served.status(), `/p/${slug} is serving`).toBe(200);
+  // Poll, because **built is not live**: the panel promotes to live in a request of its
+  // own, after the build finishes, so `microsite-build-status` reading "built" is one
+  // step early. Sampling once lost that race by 4ms in a real run —
+  //   15:38:30.498  GET  /api/v1/microsites/withdrawn        → 404
+  //   15:38:30.502  POST /api/admin/microsites/withdrawn/live → 200
+  // — and the red read as "publishing never went live", which is a different and much
+  // more alarming claim. The assertion is unchanged: a page that never serves never
+  // satisfies the poll.
+  await expect
+    .poll(async () => (await page.request.get(`/api/v1/microsites/${slug}`)).status(),
+      { message: `/p/${slug} is serving`, timeout: 30_000 })
+    .toBe(200);
   const assets = await page.request.get(`/p/${slug}`);
   expect(await assets.text(), `the live page carries ${marker}`).toContain('<div id="root">');
   await openReader(page, `/p/${slug}`);

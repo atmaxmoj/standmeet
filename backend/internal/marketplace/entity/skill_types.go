@@ -37,7 +37,7 @@ const (
 //   - AllowedTools: nil = this skill's SKILL.md was never read (the SkillsMP source doesn't
 //     fetch body text during search); [] = it was read, and it declares no tools.
 //   - Needs: nil = can't answer (body wasn't read, or this instance can't parse it); [] =
-//     answerable, and it needs no connectors.
+//     answerable, and it needs no suppliers.
 //
 // Collapsing the two into one empty slice prints "unknown" as "no problem" — the `needs`
 // field used to be exactly this permanently-empty (F-F-4).

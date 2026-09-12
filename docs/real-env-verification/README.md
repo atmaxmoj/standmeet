@@ -19,9 +19,9 @@ One doc per **module** (a functional unit + the surface it owns). Grouped by pro
 
 **Booking** — [calendar-connect](items/calendar-connect.md) · [booking-slots](items/booking-slots.md) · [booking-book](items/booking-book.md) · [booking-email](items/booking-email.md)
 
-**Mail** — [mail-connector](items/mail-connector.md)
+**Mail** — [mail-supplier](items/mail-supplier.md)
 
-**Connectors** — [connector-assembly](items/connector-assembly.md) · [connector-security](items/connector-security.md)
+**Connectors** — [supplier-assembly](items/supplier-assembly.md) · [supplier-security](items/supplier-security.md)
 
 **Corpus / vault** — [vault-sync](items/vault-sync.md) · [vault-links](items/vault-links.md) · [corpus-render](items/corpus-render.md) · [corpus-media](items/corpus-media.md) · [corpus-raw](items/corpus-raw.md) · [corpus-subjectivity-admin](items/corpus-subjectivity-admin.md) · [corpus-search](items/corpus-search.md)
 

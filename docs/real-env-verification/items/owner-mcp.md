@@ -23,7 +23,7 @@
 ### 3 — Key minting and facade opening work from a real host
 - **Steps:** Through the real client, mint an API key. Open a facade capability with it. Dispatch a call over real corpus content.
 - **Expected:** A real key is issued, the capability opens, and the call returns real rows scoped to the key.
-- **Backing test:** `api-key-facade.spec.ts` · `owner-mcp-parity-connectors.spec.ts`
+- **Backing test:** `api-key-facade.spec.ts` · `owner-mcp-parity-suppliers.spec.ts`
 
 ### 4 — A note written through MCP grounds the very next answer ⭐
 - **Steps:** Add a note through the real client containing a distinctive fact. Immediately ask a visitor question that only that note answers. Read the answer and its citations.

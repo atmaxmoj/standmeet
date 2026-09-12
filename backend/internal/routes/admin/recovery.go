@@ -37,7 +37,7 @@ var recoverErrCases = []apierr.Case{
 }
 
 // generateRecovery — authed: generates a recovery phrase (only the hash is stored) +
-// emails the plaintext to the owner. No mail connector configured → Send fails → 502
+// emails the plaintext to the owner. No mail supplier configured → Send fails → 502
 // (guides them to configure one).
 
 // recover — public (login-guard'd): a matching {email, phrase} → issues an owner session

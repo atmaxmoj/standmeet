@@ -70,7 +70,7 @@ async function initialize(
     data: {
       jsonrpc: '2.0', id: 1, method: 'initialize',
       params: {
-        protocolVersion: '2025-03-26', capabilities: {},
+        protocolVersion: '2025-03-26', blocks: {},
         clientInfo: { name: 'e2e', version: '0.0.0' },
       },
     },

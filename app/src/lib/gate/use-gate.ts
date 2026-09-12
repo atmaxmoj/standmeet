@@ -36,8 +36,8 @@ import { z } from 'zod';
 
 import { safeJsonString } from '@/lib/api/typed-json';
 
-// Cap state + tool spec also persisted (was missing before — D-5 pivot
-// regression where reuseStored returned partial state without capabilities,
+// Block state + tool spec also persisted (was missing before — D-5 pivot
+// regression where reuseStored returned partial state without block states,
 // pi-agent saw current()=[] and sent tools:[] to /inference/stream,
 // breaking all visitor tool calls in prod).
 const ToolSpecSchema = z.object({
@@ -52,12 +52,12 @@ const ToolSpecSchema = z.object({
   // localStorage → chat reuse) gets it stripped by zod.
   ui_html: z.string().optional(),
 });
-const CapStateSchema = z.object({
+const BlockStateSchema = z.object({
   id: z.string(),
   enabled: z.boolean(),
   quota_remaining: z.number().optional(),
   policy_summary: z.string().optional(),
-  // extra —— extra state for the capability (#134: an externalized MCP
+  // extra —— extra state for the block (#134: an externalized MCP
   // app's ui:// card html / resource_uri hangs under ui). Must be kept —
   // Zod strips unknown keys by default, and missing this would make
   // reuseStored drop the sandbox card's html, so the frontend can't render
@@ -67,7 +67,7 @@ const CapStateSchema = z.object({
 // DockButtonSchema —— #109/#110 dock button persistence: on a second entry
 // with a reused session, the buttons are still there.
 const DockButtonSchema = z.object({
-  capability_id: z.string(),
+  block_id: z.string(),
   title: z.string(),
   trigger: z.string(),
 });
@@ -85,7 +85,7 @@ const StoredVisitorSessionSchema = z.object({
   // same reason as microsite_slug: all three landing paths (name picker, /gate
   // submit, re-open) read it from the one stored session, so none drifts.
   slug: z.string().default(''),
-  capabilities: z.array(CapStateSchema).optional(),
+  blocks: z.array(BlockStateSchema).optional(),
   tool_specs: z.array(ToolSpecSchema).optional(),
   system_prompt_part_ids: z.array(z.string()).optional(),
   system_prompt_persona: z.string().optional(),
@@ -108,7 +108,7 @@ export function persistSession(sess: PublicSessionResponse, byoai: boolean): voi
     byoai,
     microsite_slug: sess.microsite_slug ?? '',
     slug: sess.slug ?? '',
-    capabilities: sess.capabilities ? [...sess.capabilities] : undefined,
+    blocks: sess.blocks ? [...sess.blocks] : undefined,
     tool_specs: sess.tool_specs ? [...sess.tool_specs] : undefined,
     system_prompt_part_ids: sess.system_prompt_part_ids
       ? [...sess.system_prompt_part_ids] : undefined,

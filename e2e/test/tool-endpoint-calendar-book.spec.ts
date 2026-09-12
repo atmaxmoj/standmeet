@@ -1,8 +1,8 @@
 // tool-endpoint-calendar-book.spec.ts —— visitor calls calendar_book directly
-// via the per-tool HTTP endpoint. All three gating layers — connector /
+// via the per-tool HTTP endpoint. All three gating layers — supplier /
 // quota / skill grant — are settled in Registry.AssembleVisitor: gating fails
-// → 404 capability_not_enabled; gating passes → 200 + ok:true +
-// capability_state (quota_remaining reflects bookings still available, the
+// → 404 block_not_enabled; gating passes → 200 + ok:true +
+// block_state (quota_remaining reflects bookings still available, the
 // frontend zustand store syncs immediately).
 
 import { test, expect } from '@/fixtures/test';
@@ -13,7 +13,7 @@ import {
   OWNER, type CodedSeed, type BaseSeed,
 } from '@/fixtures/gcal-setup';
 import { issueCodeWithSkills } from '@/fixtures/agent-skills-grant';
-import { issueSession, type VisitorSession, type SessionCapability } from '@/fixtures/visitor';
+import { issueSession, type VisitorSession, type SessionBlock } from '@/fixtures/visitor';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
@@ -21,7 +21,7 @@ interface ToolResp {
   ok: boolean;
   reason?: string;
   result?: { ok?: boolean; event_id?: string; conflict?: string };
-  capability_state?: SessionCapability[];
+  block_state?: SessionBlock[];
 }
 
 async function callBook(
@@ -46,7 +46,7 @@ function future(days: number, hour: number): string {
   return d.toISOString();
 }
 
-function findCalendarCap(caps: SessionCapability[] | undefined): SessionCapability | undefined {
+function findCalendarCap(caps: SessionBlock[] | undefined): SessionBlock | undefined {
   return caps?.find(c => c.id === 'calendar.book');
 }
 
@@ -60,7 +60,7 @@ test.describe('tool endpoint · calendar_book happy + gating + quota cascade', (
   });
   test.afterAll(async () => { await teardownSeed(seed); });
 
-  test('connector + granted skill + quota available → 200 + ok:true + capability_state',
+  test('supplier + granted skill + quota available → 200 + ok:true + block_state',
     async () => {
       const { status, body } = await callBook(seed.request, seed.visitor, {
         topic: 'Recruiter intro',
@@ -71,13 +71,13 @@ test.describe('tool endpoint · calendar_book happy + gating + quota cascade', (
       expect(body.ok, 'endpoint envelope ok').toBe(true);
       expect(body.result?.ok, 'tool result ok').toBe(true);
       expect(body.result?.event_id, 'event_id returned').toBeTruthy();
-      const cap = findCalendarCap(body.capability_state);
+      const cap = findCalendarCap(body.block_state);
       expect(cap, 'calendar.book still exposed after 1 of 2 bookings').toBeDefined();
       expect(cap?.enabled).toBe(true);
       expect(cap?.quota_remaining).toBe(1);
     });
 
-  test('second booking exhausts quota → next call returns 404 + cap absent in capability_state',
+  test('second booking exhausts quota → next call returns 404 + cap absent in block_state',
     async () => {
       // burn 2nd booking
       const second = await callBook(seed.request, seed.visitor, {
@@ -95,13 +95,13 @@ test.describe('tool endpoint · calendar_book happy + gating + quota cascade', (
         preferred_times: [future(9, 16)],
       });
       expect(third.status).toBe(404);
-      expect(third.body.reason).toBe('capability_not_enabled');
-      expect(findCalendarCap(third.body.capability_state),
+      expect(third.body.reason).toBe('block_not_enabled');
+      expect(findCalendarCap(third.body.block_state),
         'cap absent in fresh state').toBeUndefined();
     });
 });
 
-test.describe('tool endpoint · calendar_book hidden when connector not OAuthed', () => {
+test.describe('tool endpoint · calendar_book hidden when supplier not OAuthed', () => {
   let seed: BaseSeed;
   let visitor: VisitorSession;
   test.beforeAll(async ({ playwright }) => {
@@ -124,7 +124,7 @@ test.describe('tool endpoint · calendar_book hidden when connector not OAuthed'
         preferred_times: [future(7, 14)],
       });
       expect(status).toBe(404);
-      expect(body.reason).toBe('capability_not_enabled');
+      expect(body.reason).toBe('block_not_enabled');
     });
 });
 
@@ -148,8 +148,8 @@ test.describe('tool endpoint · calendar_book hidden when role lacks the skill',
         preferred_times: [future(7, 14)],
       });
       expect(status).toBe(404);
-      expect(body.reason).toBe('capability_not_enabled');
-      expect(findCalendarCap(body.capability_state),
+      expect(body.reason).toBe('block_not_enabled');
+      expect(findCalendarCap(body.block_state),
         'cap not visible when role lacks grant').toBeUndefined();
     });
 });

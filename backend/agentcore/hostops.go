@@ -16,11 +16,11 @@ import (
 
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 
-	"github.com/atmaxmoj/standmeet/internal/capabilities/capsocket"
+	"github.com/atmaxmoj/standmeet/internal/infra/hostsocket"
 )
 
-// HostSocketEnv —— the env var the host puts a capability's socket path in. ONE name for every
-// capability: each plugin used to invent its own (RETRIEVAL_SOCKET, BOOKER_SOCKET, …), so the same
+// HostSocketEnv —— the env var the host puts a block's socket path in. ONE name for every
+// block: each plugin used to invent its own (RETRIEVAL_SOCKET, BOOKER_SOCKET, …), so the same
 // fact had four names and prod had to author the path four times. Prod derives it from the plugin
 // id; the mini-host points it at a temp socket. Exported so eval PluginSpecs cannot drift from it.
 const HostSocketEnv = "STANDMEET_HOST_SOCKET"
@@ -30,11 +30,11 @@ const HostSocketEnv = "STANDMEET_HOST_SOCKET"
 // sockPath. Returns a stop func; call it (defer) when the launch ends.
 func StartRetrievalSocket(ctx context.Context, d Driver, sockPath string) (func() error, error) {
 	ops := corpus.CorpusHostOps(driverCorpusLister{driver: d})
-	handlers := make(map[string]capsocket.Handler, len(ops))
+	handlers := make(map[string]hostsocket.Handler, len(ops))
 	for i := range ops {
-		handlers[ops[i].Name] = capsocket.Handler(ops[i].Invoke)
+		handlers[ops[i].Name] = hostsocket.Handler(ops[i].Invoke)
 	}
-	srv, err := capsocket.ListenWith(ctx, sockPath, handlers, slog.Default())
+	srv, err := hostsocket.ListenWith(ctx, sockPath, handlers, slog.Default())
 	if err != nil {
 		return nil, fmt.Errorf("retrieval socket listen: %w", err)
 	}

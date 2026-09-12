@@ -13,7 +13,7 @@ const paramEmbedID = "embed_id"
 // MountEmbeds mounts the /embeds subrouter (the caller is already inside the /embeds
 // prefix).
 //
-// Reuses CodesAdmin.Face: every owner capability dispatches through **the same**
+// Reuses CodesAdmin.Face: every owner op dispatches through **the same**
 // dispatcher (wire.AdminFace(Dispatch)); this Face routes by op id, so "embeds.*" and
 // "codes.*" go through the same convergence point. It doesn't get its own separate dep
 // field because that would just be a second reference to the same value.

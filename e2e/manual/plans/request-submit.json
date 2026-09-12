@@ -14,7 +14,7 @@
         { "wait": 300 },
         { "type": ["[data-testid=\"request-email\"]", "sijie.wang.lark+approve@gmail.com"] },
         { "wait": 300 },
-        { "type": ["[data-testid=\"request-message\"]", "Driving access-codes check 4: approve must be refused while no mail connector can deliver."] },
+        { "type": ["[data-testid=\"request-message\"]", "Driving access-codes check 4: approve must be refused while no mail supplier can deliver."] },
         { "wait": 400 },
         { "click": "[data-testid=\"request-submit\"]" },
         { "wait": 4000 }

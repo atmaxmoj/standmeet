@@ -1,7 +1,7 @@
 // admin-allowed-domains.spec.ts -- owner-maintained custom-domain allowlist for
 // on-demand TLS (GET/POST/DELETE /api/admin/allowed-domains).
 //
-// This batch of routes gets its capability from the **outbound convergence point**
+// This batch of routes gets its block from the **outbound convergence point**
 // (backend/internal/routes/dispatcher): the domain exports a plain function, the
 // convergence point declares the op, and the admin facade only owns the REST shape.
 // So this spec guards two things at once:

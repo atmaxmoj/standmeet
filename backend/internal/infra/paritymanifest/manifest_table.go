@@ -2,7 +2,7 @@ package paritymanifest
 
 import fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 
-// Manifest —— the canonical owner-capability set. One Entry per operation; MCP/Admin list the live
+// Manifest —— the canonical owner-block set. One Entry per operation; MCP/Admin list the live
 // primitives that realize it. Reach declares INTENT: OwnerAction/OwnerRead must be on both owner
 // facades; Only(reason,…) is a written, single-surface decision. Where an OwnerAction/Read op names
 // an MCP tool the registry doesn't yet expose, conformance is RED until that tool ships — that RED
@@ -11,7 +11,7 @@ import fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 func Manifest() []Entry {
 	return concat(
 		accountEntries(), corpusEntries(), codesEntries(), rolesPromptsSkills(),
-		connectorsMCPServers(), contentEntries(), settingsEntries(), governanceEntries(),
+		suppliersMCPServers(), contentEntries(), settingsEntries(), governanceEntries(),
 		observabilityEntries(), micrositeEntries(), apiKeyEntries(),
 	)
 }
@@ -24,17 +24,17 @@ func concat(groups ...[]Entry) []Entry {
 	return out
 }
 
-// session / keypairs —— the account capability itself has moved into the outbound convergence
+// session / keypairs —— the account block itself has moved into the outbound convergence
 // point (dispatcher.Account); what's left is the browser session lifecycle and the credential
 // bootstrap face, which were always admin-only.
 func accountEntries() []Entry {
 	return []Entry{
 		{
-			Op:    act("session.logout", fp.Only("browser session lifecycle, not a driveable capability", FacadeAdmin)),
+			Op:    act("session.logout", fp.Only("browser session lifecycle, not a driveable block", FacadeAdmin)),
 			Admin: []string{"POST /api/admin/me/logout"},
 		},
 		{
-			Op:    read("session.csrf", fp.Only("browser CSRF bootstrap, not a capability", FacadeAdmin)),
+			Op:    read("session.csrf", fp.Only("browser CSRF bootstrap, not a block", FacadeAdmin)),
 			Admin: []string{"GET /api/admin/csrf"},
 		},
 		{

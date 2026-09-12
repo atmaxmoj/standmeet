@@ -5,7 +5,6 @@ import "github.com/atmaxmoj/standmeet/internal/marketplace/usecase"
 // Types (implemented by: usecase).
 type (
 	Client             = usecase.Client
-	ConnectorNeeds     = usecase.ConnectorNeeds
 	CreateMCPServerReq = usecase.CreateMCPServerReq
 	CreateSkillReq     = usecase.CreateSkillReq
 	InstallSkillDeps   = usecase.InstallSkillDeps
@@ -13,6 +12,7 @@ type (
 	MCPProbeResult     = usecase.MCPProbeResult
 	MCPServerProber    = usecase.MCPServerProber
 	MCPServersDeps     = usecase.MCPServersDeps
+	SeamNeeds          = usecase.SeamNeeds
 	SearchDeps         = usecase.SearchDeps
 	SearchParams       = usecase.SearchParams
 	SkillsDeps         = usecase.SkillsDeps

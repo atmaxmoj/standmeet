@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# check-instructions-name-sure-tools —— **a capability's session-independent instructions must never name a tool that might not be present.**
+# check-instructions-name-sure-tools —— **a block s session-independent instructions must never name a tool that might not be present.**
 #
 # Why this gate exists (F-B-10):
 # A tool in a manifest that carries `requires` is **conditional** — when the owner has granted
@@ -35,7 +35,10 @@ fail=0
 # `- name:` would also pull in the unconditional ones, which would flag every set of
 # instructions as red and get this gate turned off ([[gate-scope-forces-architecture]]).
 conditional_tools() {
-  for m in backend/capabilities/*/manifest.yaml; do
+  # One tree: `backend/blocks/<id>/manifest.yaml`. This used to read `backend/capabilities/`,
+  # and when the two trees merged the glob matched nothing — the gate had nothing to look for
+  # and only its own self-test said so ([[gate-can-go-blind]]).
+  for m in backend/blocks/*/manifest.yaml; do
     [ -f "$m" ] || continue
     awk '
       /^[[:space:]]*-[[:space:]]*name:[[:space:]]*/ {

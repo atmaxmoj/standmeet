@@ -2,7 +2,7 @@
 //
 // Self-service recovery for a forgotten password: while logged in, the owner generates a
 // high-entropy recovery phrase -> only its hash is stored -> the plaintext is emailed to
-// the owner's address (via the configured mail connector; the SMTP credential never
+// the owner's address (via the configured mail supplier; the SMTP credential never
 // leaves the vault). When locked out: the public /recover endpoint accepts
 // {email, phrase}, matches it against the hash -> issues an owner session directly (log
 // in and change the password). Single-use — spent once, then invalid. The public
@@ -17,7 +17,7 @@ import type { APIRequestContext } from '@playwright/test';
 import { claim, login as loginAPI, navigateToOwnerLogin } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import {
-  configureMailConnector, clearMailpit, waitForMailEnvelopeTo,
+  configureMailSupplier, clearMailpit, waitForMailEnvelopeTo,
 } from '@/fixtures/mail';
 
 const OWNER = {
@@ -65,7 +65,7 @@ test.beforeAll(async ({ playwright }) => {
     email: OWNER.email, password: OWNER.password,
     handle: OWNER.handle, fullName: OWNER.fullName,
   });
-  await configureMailConnector(request, OWNER.email, OWNER.password);
+  await configureMailSupplier(request, OWNER.email, OWNER.password);
   await request.dispose();
 });
 

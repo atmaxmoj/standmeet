@@ -3,10 +3,11 @@
 // to an internal/private address, pinning the validated IP into the dial so DNS can't be rebound to
 // an internal host between check and connect (TOCTOU). Opt in via Options.BlockInternalEgress.
 //
-// NOTE: mirrors internal/connector/egress.go's guard (which additionally layers a hostname
-// allow-list for owner-uploaded connector specs). The block-internal core is identical; a future
+// NOTE: mirrors internal/infra/egress's guard (which additionally layers a hostname
+// allow-list for owner-uploaded supplier specs). The block-internal core is identical; a future
 // pass could unify them here so there is a single SSRF implementation. Kept minimal + shared-home
-// (httpx) so callers that can't import connector (arch: pluginownercore) still get the guard.
+// (httpx) so callers that can't import the supplier layer (arch: pluginownercore) still get the
+// guard.
 
 package httpx
 
@@ -33,7 +34,7 @@ var lookupIPAddr = net.DefaultResolver.LookupIPAddr
 // egressAllowHosts —— hostnames explicitly permitted despite resolving to an internal address
 // (EGRESS_ALLOW_HOSTS, comma-separated). EMPTY in prod (block everything internal); e2e/dev lists
 // the mock service names (e.g. llm-gateway) so a BYOAI endpoint pointed at the in-cluster mock is
-// allowed while real loopback/link-local targets stay blocked. Mirrors connector egress allow-list.
+// allowed while real loopback/link-local targets stay blocked. Mirrors supplier egress allow-list.
 var egressAllowHosts = parseEgressAllow(os.Getenv("EGRESS_ALLOW_HOSTS"))
 
 func parseEgressAllow(s string) map[string]bool {
@@ -51,7 +52,7 @@ func isAllowedHost(host string) bool {
 }
 
 // isInternalIP —— loopback / RFC1918 private / link-local / unspecified. (Same predicate as the
-// connector egress guard.)
+// supplier egress guard.)
 func isInternalIP(ip net.IP) bool {
 	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() ||
 		ip.IsLinkLocalMulticast() || ip.IsUnspecified()

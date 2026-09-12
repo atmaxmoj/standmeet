@@ -15,7 +15,7 @@ import (
 // canned string, mirroring backend agentskills.funcTool. The eval-harness
 // registers these so the agentic loop can run a full tool round-trip
 // (tool_started → InvokableRun → tool_completed → follow-up turn) without
-// the real capability bindings + DB the prod route assembles.
+// the real block bindings + DB the prod route assembles.
 //
 // The LLM (here the scripted llm-gateway) decides WHEN to call and with what
 // args; the canned tool just echoes a fixture result, so the transcript shows

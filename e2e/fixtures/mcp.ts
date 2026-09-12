@@ -99,7 +99,7 @@ export async function initMCP(request: APIRequestContext, bearer: string): Promi
     jsonrpc: '2.0', id: 1, method: 'initialize',
     params: {
       protocolVersion: '2024-11-05',
-      capabilities: {},
+      blocks: {},
       clientInfo: { name: 'e2e', version: '1' },
     },
   }, bearer);

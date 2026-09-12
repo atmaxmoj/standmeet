@@ -1,4 +1,4 @@
-// Package paritymanifest —— the CONCRETE owner-capability manifest (the single source of truth) +
+// Package paritymanifest —— the CONCRETE owner-block manifest (the single source of truth) +
 // the adapters that check the real facades against it. The facade-agnostic mechanism lives in
 // internal/facadeparity; this package fills it with the actual owner operations, mapping each
 // to the real primitives that realize it (owner-MCP tool names, admin route "METHOD /path").
@@ -31,8 +31,8 @@ type Entry struct {
 	Admin []string
 	Op    fp.Op
 	// Plugin —— this op's owner-MCP tool is served by the **plugin axis** (an externalized,
-	// sandboxed capability declaring it in manifest.OwnerTools), not by an in-process ownercore
-	// capability. The op is still live on the MCP facade, so it is not a gap; it simply is not in
+	// sandboxed block declaring it in manifest.OwnerTools), not by an in-process ownercore
+	// block. The op is still live on the MCP facade, so it is not a gap; it simply is not in
 	// ownercore's registry, which is all the ownercore-scoped ratchet can see.
 	//
 	// This is a claim, not an escape hatch: TestParityPluginClaimsAreReal (cmd/server, where the

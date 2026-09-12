@@ -11,7 +11,7 @@ set -eu
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 INFRA="$ROOT/backend/internal/infra"
 BASELINE="$ROOT/backend/.infra-domain-baseline"
-DOMAINS='corpus|conversation|connector|access|owner|security|marketplace|stats'
+DOMAINS='corpus|conversation|access|owner|security|marketplace|stats'
 
 # goFiles —— NOT `grep --include`: the image lint runs on alpine, whose BusyBox grep does not know
 # that flag. It exits 2 with no output, and "found nothing" reads exactly like "tree is clean" —

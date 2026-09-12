@@ -1,6 +1,6 @@
 package paritymanifest
 
-// KnownMCPGaps —— the paydown worklist: owner capabilities the admin API exposes that are NOT yet
+// KnownMCPGaps —— the paydown worklist: owner ops the admin API exposes that are NOT yet
 // mirrored to the owner-MCP facade (per each op's declared Reach). This is NOT a list of
 // intentional
 // asymmetries — those are Only(...) in the manifest with a written reason. These are genuine gaps
@@ -12,7 +12,7 @@ package paritymanifest
 //   - filling a gap (adding the MCP tool) → delete its line here → test stays GREEN.
 //
 // The invariant: this list only ever SHRINKS. It is now EMPTY — every admin-exposed owner
-// capability has an owner-MCP twin (facade parity fully paid down, 56→0). Any future admin route
+// op has an owner-MCP twin (facade parity fully paid down, 56→0). Any future admin route
 // without an MCP twin will re-grow MCPMissing and turn the ratchet RED until it too is mirrored.
 func KnownMCPGaps() []string {
 	return []string{}

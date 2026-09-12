@@ -27,7 +27,7 @@ import { claim, login } from '@/fixtures/admin';
 import { requestRecovery, changeAccountEmail } from '@/fixtures/admin-mutations';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import {
-  clearMailpit, configureMailConnector, confirmLinkIn, followMailedLink,
+  clearMailpit, configureMailSupplier, confirmLinkIn, followMailedLink,
   recoveryPhraseIn, waitForMailTo,
 } from '@/fixtures/mail';
 
@@ -98,9 +98,9 @@ test.describe('owner email · normalized at the entrance, not at one use site', 
   test('recovery finds the same owner through the clean form of a dirty-claimed email',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
-      await configureMailConnector(request, CLEAN, PASSWORD);
+      await configureMailSupplier(request, CLEAN, PASSWORD);
       await clearMailpit(request);
-      // Fetch csrf **after** configureMailConnector: it logs in itself internally,
+      // Fetch csrf **after** configureMailSupplier: it logs in itself internally,
       // which swaps out the session, invalidating a token fetched earlier (403).
       const { csrf } = await login(request, CLEAN, PASSWORD);
 
@@ -124,7 +124,7 @@ test.describe('owner email · normalized at the entrance, not at one use site', 
   //
   // An earlier version of this test directly asserted "the clean form logs in right
   // after the change", which relied on something never written down: this instance
-  // has no mail connector. The previous test case configured one, so the change
+  // has no mail supplier. The previous test case configured one, so the change
   // instead walked into the pending path — the identity never actually changed, and
   // the assertion went red right away — red for the right symptom, but for a reason
   // with nothing to do with normalization. Now the whole path is walked to
@@ -133,7 +133,7 @@ test.describe('owner email · normalized at the entrance, not at one use site', 
   test('the normalization lives at the one chokepoint, including the pending path',
     async ({ page, playwright }) => {
       const request = await playwright.request.newContext();
-      await configureMailConnector(request, CLEAN, PASSWORD);
+      await configureMailSupplier(request, CLEAN, PASSWORD);
       await clearMailpit(request);
       const { csrf } = await login(request, CLEAN, PASSWORD);
 

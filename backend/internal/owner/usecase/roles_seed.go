@@ -44,7 +44,7 @@ func SeedPublicRole(
 	// belong in this function. A plugin's own seeding belongs where it's assembled,
 	// solely because that's where the seeder lives (the same lesson recorded in the
 	// PeriodicWorker comment). It now lives in `internal/owner/jobs/jobs_seed.go`,
-	// invoked by the host at the same moment via capabilities.OwnerSeeder.
+	// invoked by the host at the same moment via the host's SeedPlugins hook.
 	return nil
 }
 

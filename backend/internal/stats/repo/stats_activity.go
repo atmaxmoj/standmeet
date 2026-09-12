@@ -5,11 +5,11 @@
 // query to the shared dbq for this.
 //
 // #135: booking events used to come from code_bookings, but booking has fully moved to
-// booker's isolated capstore (code_bookings is retired). The activity layer shouldn't
-// couple back to booker's capstore schema — so the booking branch is dropped here for now
+// booker's isolated blockstore (code_bookings is retired). The activity layer shouldn't
+// couple back to booker's blockstore schema — so the booking branch is dropped here for now
 // (it was already 0 rows against the now-empty code_bookings, so behavior is unchanged).
 // Restoring booking events in the feed belongs to an injected booking-activity source
-// (assembly root wired to capstore) — that's a separate feature pass.
+// (assembly root wired to blockstore) — that's a separate feature pass.
 
 package repo
 

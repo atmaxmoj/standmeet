@@ -7,7 +7,7 @@
 // (`docs/design/facade-directions.md:202-206`: admin HTTP's `/api/admin/api-keys` CRUD +
 // revoke, plus admin's api section) — this half was simply missing.
 //
-// Capability comes from the outbound convergence point (shared plumbing in dispatch.go);
+// Ability comes from the outbound convergence point (shared plumbing in dispatch.go);
 // this facade only decides the REST shape: the resource id goes in the path, everything
 // else goes in the body. Minting carries the **plaintext secret** exactly once —
 // afterward only the prefix survives in the list.
@@ -20,7 +20,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// APIKeysAdminDeps — capability source for the admin api-keys handlers.
+// APIKeysAdminDeps — op source for the admin api-keys handlers.
 type APIKeysAdminDeps struct {
 	Face *dispatcher.Face
 }

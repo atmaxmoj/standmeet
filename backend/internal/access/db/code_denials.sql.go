@@ -11,25 +11,25 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const addCodeCapabilityDenial = `-- name: AddCodeCapabilityDenial :exec
+const addCodeBlockDenial = `-- name: AddCodeBlockDenial :exec
 
-INSERT INTO code_capability_denials (code_id, capability_id)
+INSERT INTO code_block_denials (code_id, block_id)
 VALUES ($1, $2)
-ON CONFLICT (code_id, capability_id) DO NOTHING
+ON CONFLICT (code_id, block_id) DO NOTHING
 `
 
-type AddCodeCapabilityDenialParams struct {
-	CodeID       pgtype.UUID
-	CapabilityID string
+type AddCodeBlockDenialParams struct {
+	CodeID  pgtype.UUID
+	BlockID string
 }
 
-// code_denials -- the code layer of the ACL hierarchy (capability-acl-hierarchy.md).
+// code_denials -- the code layer of the ACL hierarchy (block-acl-hierarchy.md).
 // A pure-deny sparse table: presence=deny, no state; no rows=fully inherit the role. Owner-scope is
 // handled by the handler first calling GetByID to verify the code belongs to this owner; here we
 // read/write by code_id only.
-// Idempotent: re-denying the same (code,cap) hits the PK conflict -> no error, no double write.
-func (q *Queries) AddCodeCapabilityDenial(ctx context.Context, arg AddCodeCapabilityDenialParams) error {
-	_, err := q.db.Exec(ctx, addCodeCapabilityDenial, arg.CodeID, arg.CapabilityID)
+// Idempotent: re-denying the same (code,block) hits the PK conflict -> no error, no double write.
+func (q *Queries) AddCodeBlockDenial(ctx context.Context, arg AddCodeBlockDenialParams) error {
+	_, err := q.db.Exec(ctx, addCodeBlockDenial, arg.CodeID, arg.BlockID)
 	return err
 }
 
@@ -49,17 +49,17 @@ func (q *Queries) AddCodeSkillDenial(ctx context.Context, arg AddCodeSkillDenial
 	return err
 }
 
-const deleteCodeCapabilityDenial = `-- name: DeleteCodeCapabilityDenial :exec
-DELETE FROM code_capability_denials WHERE code_id = $1 AND capability_id = $2
+const deleteCodeBlockDenial = `-- name: DeleteCodeBlockDenial :exec
+DELETE FROM code_block_denials WHERE code_id = $1 AND block_id = $2
 `
 
-type DeleteCodeCapabilityDenialParams struct {
-	CodeID       pgtype.UUID
-	CapabilityID string
+type DeleteCodeBlockDenialParams struct {
+	CodeID  pgtype.UUID
+	BlockID string
 }
 
-func (q *Queries) DeleteCodeCapabilityDenial(ctx context.Context, arg DeleteCodeCapabilityDenialParams) error {
-	_, err := q.db.Exec(ctx, deleteCodeCapabilityDenial, arg.CodeID, arg.CapabilityID)
+func (q *Queries) DeleteCodeBlockDenial(ctx context.Context, arg DeleteCodeBlockDenialParams) error {
+	_, err := q.db.Exec(ctx, deleteCodeBlockDenial, arg.CodeID, arg.BlockID)
 	return err
 }
 
@@ -77,23 +77,23 @@ func (q *Queries) DeleteCodeSkillDenial(ctx context.Context, arg DeleteCodeSkill
 	return err
 }
 
-const listCodeCapabilityDenials = `-- name: ListCodeCapabilityDenials :many
-SELECT capability_id FROM code_capability_denials WHERE code_id = $1
+const listCodeBlockDenials = `-- name: ListCodeBlockDenials :many
+SELECT block_id FROM code_block_denials WHERE code_id = $1
 `
 
-func (q *Queries) ListCodeCapabilityDenials(ctx context.Context, codeID pgtype.UUID) ([]string, error) {
-	rows, err := q.db.Query(ctx, listCodeCapabilityDenials, codeID)
+func (q *Queries) ListCodeBlockDenials(ctx context.Context, codeID pgtype.UUID) ([]string, error) {
+	rows, err := q.db.Query(ctx, listCodeBlockDenials, codeID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	var items []string
 	for rows.Next() {
-		var capability_id string
-		if err := rows.Scan(&capability_id); err != nil {
+		var block_id string
+		if err := rows.Scan(&block_id); err != nil {
 			return nil, err
 		}
-		items = append(items, capability_id)
+		items = append(items, block_id)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

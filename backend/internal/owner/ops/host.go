@@ -1,4 +1,4 @@
-// host.go —— what this domain exposes to **sandboxed capabilities** (inbound direction).
+// host.go —— what this domain exposes to **sandboxed blocks** (inbound direction).
 //
 // Just one thing: reading the owner's **whitelisted** fields. Anything not whitelisted is
 // refused — a sandbox can ask "what timezone is the owner in", it can't scoop up the whole

@@ -5,6 +5,8 @@ import { CodeCorpusConfig } from '@/components/admin/sections/codes/CodeCorpusCo
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 
+import { CodeBundleBlock } from '@/components/admin/sections/codes/CodeBundleBlock';
+
 import { ChangeCodeBtn } from '@/components/admin/sections/codes/CodeChangeControl';
 
 import { Btn } from '@/components/admin/atoms/Btn';
@@ -53,6 +55,7 @@ export function CodeCard({ code, onEdit, onPreview, onShowQR, onRevoke }: Props)
       <div className="mt-5">
         <CodeCardBody code={code} onShowQR={onShowQR} />
       </div>
+      <CodeBundleBlock code={code} />
       <CodeCorpusConfig codeID={code.id} codeLabel={code.code} />
       <CodeCardFooter code={code} link={link} />
     </article>

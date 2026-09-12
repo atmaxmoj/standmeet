@@ -2,7 +2,7 @@
 // conversation's most recent booking → checks ownership (owner+code) → idempotency (a confirmations
 // marker, one send per booking) → picks the recipient (passthrough / falls back to the session
 // email) → renders the confirmation (text + HTML + schema.org JSON-LD) → sends via
-// connector.invoke("mail","send"). The recipient is pinned to a host-side value (session email / the
+// supplier.invoke("mail","send"). The recipient is pinned to a host-side value (session email / the
 // address on the card), the LLM never touches it.
 
 package main
@@ -46,7 +46,7 @@ func doSendConfirmation(s session, rawArgs json.RawMessage) string {
 
 func resolveConfirmBooking(s session) (bookingDoc, string) {
 	filter, _ := json.Marshal(map[string]string{"conversation_id": s.ConversationID})
-	recs, err := gwCapstoreQuery(bookingsColl, filter)
+	recs, err := gwBlockstoreQuery(bookingsColl, filter)
 	if err != nil {
 		return bookingDoc{}, bookErr("send_failed", "couldn't reach the booking — please try again later")
 	}
@@ -83,7 +83,7 @@ func deliverConfirmation(s session, b *bookingDoc, to, tz string) string {
 	marker, _ := json.Marshal(confirmationMarker{
 		GoogleEventID: b.GoogleEventID, ConversationID: b.ConversationID,
 	})
-	if _, ierr := gwCapstoreInsert(confirmationsColl, marker); ierr != nil {
+	if _, ierr := gwBlockstoreInsert(confirmationsColl, marker); ierr != nil {
 		return bookErr("send_failed", "couldn't send the confirmation right now — please try again later")
 	}
 	if serr := sendConfirmationMail(s.OwnerID, b, to, tz); serr != "" {
@@ -95,7 +95,7 @@ func deliverConfirmation(s session, b *bookingDoc, to, tz string) string {
 
 func confirmationSent(eventID string) (bool, error) {
 	filter, _ := json.Marshal(map[string]string{"google_event_id": eventID})
-	n, err := gwCapstoreCount(confirmationsColl, filter)
+	n, err := gwBlockstoreCount(confirmationsColl, filter)
 	if err != nil {
 		return false, err
 	}
@@ -104,17 +104,17 @@ func confirmationSent(eventID string) (bool, error) {
 
 func releaseConfirmation(eventID string) {
 	filter, _ := json.Marshal(map[string]string{"google_event_id": eventID})
-	_, _ = gwCapstoreDelete(confirmationsColl, filter)
+	_, _ = gwBlockstoreDelete(confirmationsColl, filter)
 }
 
-// sendConfirmationMail —— renders the mail + sends via the mail connector. Returns errWire (empty = success).
+// sendConfirmationMail —— renders the mail + sends via the mail supplier. Returns errWire (empty = success).
 func sendConfirmationMail(ownerID string, b *bookingDoc, to, tz string) string {
 	ownerName, _ := gwOwnerMeta(ownerID, "full_name")
 	ownerTZ, _ := gwOwnerMeta(ownerID, "timezone")
 	msg := buildConfirmationEmail(b, ownerName, tz, ownerTZ)
 	msg["to"] = to
 	payload, _ := json.Marshal(msg)
-	if _, err := gwConnectorInvoke(ownerID, "mail", "send", payload); err != nil {
+	if _, err := gwSupplierInvoke(ownerID, "mail", "send", payload); err != nil {
 		return mailSendErr(err)
 	}
 	return ""

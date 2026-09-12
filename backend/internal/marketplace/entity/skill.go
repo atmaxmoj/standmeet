@@ -1,4 +1,4 @@
-// skill.go —— owner-curated AI persona/capability packs. Design derives from legacy
+// skill.go —— owner-curated AI persona/skill packs. Design derives from legacy
 // standmeet-server/backend/domain/iam/entities.py:Skill +
 // gateway/src/runtime/skill-tools.ts.
 //

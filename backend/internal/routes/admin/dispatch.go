@@ -1,14 +1,14 @@
 // dispatch.go — the shared plumbing the admin facade uses to wire a route from the
 // outbound convergence point.
 //
-// The division of labor is fixed: **capability** comes from the convergence point
+// The division of labor is fixed: **ability** comes from the convergence point
 // (declared once, MCP's facade takes the same copy), **protocol shape** stays on this
 // facade — the path, the method, whether a parameter goes in body or path, whether a
 // success returns 200 with a payload or 204 empty, how an error translates to a status
 // code: all of that is still hand-written as before. The convergence point knows nothing
 // about any of this; it only gives a function of "JSON in → JSON out / error".
 //
-// So writing a new admin route stays the same, only where the capability comes from
+// So writing a new admin route stays the same, only where the ability comes from
 // changes: instead of importing the domain's facade directly (check-routes-via-dispatcher
 // blocks that), it's face.MustOp("resource.op").
 
@@ -156,6 +156,24 @@ func urlParamArgs(name string) argsFrom {
 	}
 }
 
+// twoURLParams moves two path parameters into their slots in the args JSON.
+//
+// Needed because a bundle membership is addressed by both ends — /bundles/{id}/blocks/
+// {blockID} — and that is not an accident of routing: "this block, in this bundle" is
+// the unit the owner activates and deactivates, and neither half identifies it alone.
+func twoURLParams(first, second string) argsFrom {
+	return func(r *http.Request) (json.RawMessage, error) {
+		out, err := json.Marshal(map[string]string{
+			first:  chi.URLParam(r, first),
+			second: chi.URLParam(r, second),
+		})
+		if err != nil {
+			return nil, dispatcher.BadInput("invalid path parameter")
+		}
+		return out, nil
+	}
+}
+
 // jsonOK — 200 + writes the convergence point's payload out verbatim (never decode and
 // re-encode it: re-encoding would just build a second copy of the shape).
 func jsonOK(log logger, w http.ResponseWriter, body json.RawMessage) {
@@ -197,7 +215,7 @@ func noContent(_ logger, w http.ResponseWriter, _ json.RawMessage) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// dispatchOp takes capability from the Face → calls it → translates the result. Failing
+// dispatchOp takes the op from the Face → calls it → translates the result. Failing
 // to find the op panics while mounting routes (MustOp), instead of silently missing a
 // route at runtime.
 func (h *Handlers) dispatchOp(

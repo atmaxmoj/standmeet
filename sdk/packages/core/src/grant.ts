@@ -63,7 +63,7 @@ export function hasVisitorGrant(): boolean {
 // AdoptedDockButton —— one of the code's configured chat dock buttons, as stored in the session
 // blob the gate wrote. Shape mirrors the backend PublicSessionDockButton.
 export interface AdoptedDockButton {
-  readonly capability_id: string;
+  readonly block_id: string;
   readonly title: string;
   readonly trigger: string;
 }
@@ -83,7 +83,7 @@ export function adoptedDockButtons(): readonly AdoptedDockButton[] {
 function isDockButton(x: unknown): x is AdoptedDockButton {
   if (typeof x !== 'object' || x === null) return false;
   const r = x as Record<string, unknown>;
-  return typeof r['capability_id'] === 'string'
+  return typeof r['block_id'] === 'string'
     && typeof r['title'] === 'string'
     && typeof r['trigger'] === 'string';
 }

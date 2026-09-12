@@ -1,7 +1,7 @@
 // b5-owner-only-isolation.spec.ts —— Phase B-5: verifies that every owner-only
-// capability (owner.me / seo.bundle / and the jobs / resume / applications /
+// block (owner.me / seo.bundle / and the jobs / resume / applications /
 // microsite ones migrated in later) is absent from a visitor session's
-// capability map and tool_specs.
+// block map and tool_specs.
 //
 // The existing registry-invariants spec already covers the visitor_only ↔ no
 // owner MCP side. This spec hardens the reverse direction: enumerate every
@@ -9,7 +9,7 @@
 // sure none of them leaked to the visitor side.
 
 import { test, expect } from '@/fixtures/test';
-import type { APIRequestContext } from '@playwright/test';
+import type { APIRequestContext, PlaywrightWorkerArgs } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
@@ -27,17 +27,20 @@ const OWNER = {
 
 const CODE = 'B5-001';
 
-type PW = Parameters<Parameters<typeof test>[1]>[0]['playwright'];
+// PW —— the `playwright` worker fixture, taken from Playwright's own worker-args type.
+// Deriving it from `typeof test` instead resolves against the overload whose second
+// parameter is TestDetails, and the whole file then types as `never`.
+type PW = PlaywrightWorkerArgs['playwright'];
 
 interface RegCap { id: string; shape: string }
-interface RegistryListResp { capabilities: RegCap[] }
+interface RegistryListResp { blocks: RegCap[] }
 interface VisitorCap { id: string }
-interface VisitorCapabilitiesResp {
-  capabilities: VisitorCap[];
+interface VisitorBlocksResp {
+  blocks: VisitorCap[];
   tool_specs: Array<{ name: string }>;
 }
 
-test.describe('Phase B-5 owner-only capability isolation', () => {
+test.describe('Phase B-5 owner-only block isolation', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();
@@ -64,18 +67,18 @@ test.describe('Phase B-5 owner-only capability isolation', () => {
   test('the whole owner tool surface is disjoint from the visitor tool surface',
     ownerSurfaceStaysOwnerSide);
 
-  test('none of the owner-only capability IDs appear in a visitor session',
+  test('none of the owner-only block IDs appear in a visitor session',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
       const ownerOnlyIDs = await fetchOwnerOnlyIDs(request);
       const sess = await issueSession(request, {
         handle: OWNER.handle, code: CODE, visitor_name: 'V',
       });
-      const body = await fetchVisitorCapabilities(request, sess.session_token);
-      const visitorCapIDs = new Set(body.capabilities.map((c) => c.id));
+      const body = await fetchVisitorBlocks(request, sess.session_token);
+      const visitorCapIDs = new Set(body.blocks.map((c) => c.id));
       for (const id of ownerOnlyIDs) {
         expect(visitorCapIDs.has(id),
-          `owner-only ${id} must not appear in visitor capability map`).toBe(false);
+          `owner-only ${id} must not appear in visitor block map`).toBe(false);
       }
       await request.dispose();
     });
@@ -98,7 +101,7 @@ async function ownerSurfaceStaysOwnerSide(
   const sess = await issueSession(request, {
     handle: OWNER.handle, code: CODE, visitor_name: 'V',
   });
-  const body = await fetchVisitorCapabilities(request, sess.session_token);
+  const body = await fetchVisitorBlocks(request, sess.session_token);
   const visitorTools = new Set(body.tool_specs.map((t) => t.name));
   for (const name of ownerTools) {
     expect(visitorTools.has(name),
@@ -111,18 +114,18 @@ async function fetchOwnerOnlyIDs(request: APIRequestContext): Promise<string[]> 
   const res = await request.get(`${BACKEND}/internal/diag/registry`);
   if (res.status() !== 200) throw new Error(`registry-list: ${res.status()}`);
   const body = await res.json() as RegistryListResp;
-  return body.capabilities.filter((c) => c.shape === 'owner_only').map((c) => c.id);
+  return body.blocks.filter((c) => c.shape === 'owner_only').map((c) => c.id);
 }
 
-async function fetchVisitorCapabilities(
+async function fetchVisitorBlocks(
   request: APIRequestContext, sessionToken: string,
-): Promise<VisitorCapabilitiesResp> {
+): Promise<VisitorBlocksResp> {
   const res = await request.get(
     `${BACKEND}/internal/diag/session`,
     { headers: { 'X-Session-Token': sessionToken } },
   );
   if (res.status() !== 200) {
-    throw new Error(`visitor-capabilities: ${res.status()} ${await res.text()}`);
+    throw new Error(`visitor-blocks: ${res.status()} ${await res.text()}`);
   }
-  return await res.json() as VisitorCapabilitiesResp;
+  return await res.json() as VisitorBlocksResp;
 }

@@ -21,6 +21,13 @@ export interface VaultFile {
   body: Uint8Array | string;
 }
 
+// vaultText —— a VaultFile body as text. A vault carries both markdown and binary
+// attachments, so the body type is a union; the roundtrip specs compare text and
+// need the one narrowing in one place rather than a decoder per call site.
+export function vaultText(body: Uint8Array | string): string {
+  return typeof body === 'string' ? body : new TextDecoder().decode(body);
+}
+
 export interface UploadResult {
   created: number; updated: number; skipped: number; deleted: number; errors: string[];
 }

@@ -35,10 +35,10 @@ type MCPServersDeps struct {
 // composition root: it holds both the unsealer (`dialableMCPServers` in
 // `cmd/server/unseal.go`) and the dial + list calls (`mcpclient.Dial` + `ListTools`) —
 // assembling a session takes that same path; here we're just letting the owner
-// **actively ask once**, the same shape as the connector's read-only probe (F-C-16).
+// **actively ask once**, the same shape as the supplier's read-only probe (F-C-16).
 //
 // When no implementation is wired (nil), `mcp_server_check` says plainly that this instance
-// lacks the capability, instead of pretending it probed.
+// lacks the ability, instead of pretending it probed.
 type MCPServerProber interface {
 	Probe(ctx context.Context, ownerID, serverID string) (MCPProbeResult, error)
 }
@@ -204,9 +204,9 @@ func DeleteMCPServer(
 }
 
 // GrantMCPServerDep —— the owner explicitly authorizes this ext-mcp server to receive a
-// connector dependency (a dep name). ext-mcp carries the lowest trust: a tool's declared
+// seam dependency (a dep name). ext-mcp carries the lowest trust: a tool's declared
 // Requires is not injected by default; the grant is written to server.GrantedDeps, and the
-// assembly-time gate (capreg_ext_mcp_deps.go) admits it based on that plus `connected`.
+// assembly-time gate (mount/ext_mcp_deps.go) admits it based on that plus `connected`.
 // Validates the server belongs to the owner first. Idempotent.
 func GrantMCPServerDep(
 	ctx context.Context, deps MCPServersDeps, ownerID, serverID, dep string,

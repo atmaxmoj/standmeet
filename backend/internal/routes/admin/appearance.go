@@ -5,7 +5,7 @@
 // All three owner-CSS facades (admin UI / MCP / vault sync) write to the same place
 // (owners.custom_css).
 //
-// Capability comes from the outbound convergence point (shared plumbing in dispatch.go).
+// Ability comes from the outbound convergence point (shared plumbing in dispatch.go).
 // PUT now also returns a payload — the CSS **as it landed after storage**, so the caller
 // sees what actually took effect instead of just echoing what it sent.
 
@@ -17,7 +17,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// AppearanceAdminDeps — capability source for the admin appearance handlers.
+// AppearanceAdminDeps — op source for the admin appearance handlers.
 type AppearanceAdminDeps struct {
 	Face *dispatcher.Face
 }

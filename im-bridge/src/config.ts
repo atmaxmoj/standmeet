@@ -2,9 +2,9 @@
 //
 // Why: the token is an owner credential, the same class of thing as the mail / calendar
 // credentials — those all get filled in through the admin UI and land encrypted in
-// `owner_connectors`. Sticking the IM token in an env var separately would give this one
+// `block_connections`. Sticking the IM token in an env var separately would give this one
 // credential a second home: the owner would have to go edit a file and restart a
-// container, right after they just edited every other connector in the UI
+// container, right after they just edited every other supplier in the UI
 // ([[a fact belongs to the party that produces it]]).
 //
 // So compose only carries **wiring** (the backend address), never a setting.
@@ -48,7 +48,7 @@ export async function waitForToken(
     if (cfg.telegramToken !== '') return cfg.telegramToken;
     if (!said) {
       opts.log?.('im-bridge: no chat platform configured yet — waiting. ' +
-        'Connect one under /admin/connectors.');
+        'Connect one under /admin/suppliers.');
       said = true; // Say it once: repeating the same line every 15 seconds would make the log unreadable
     }
     await new Promise((r) => setTimeout(r, every));

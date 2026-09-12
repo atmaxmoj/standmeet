@@ -1,4 +1,4 @@
-// embeds.go — owner capabilities for embed widget config (list / create / update / delete).
+// embeds.go — owner ops for embed widget config (list / create / update / delete).
 // An embed points at a code; the origin allowlist lives on the embed (embed plan 2026-09-01).
 
 package ops
@@ -13,7 +13,7 @@ import (
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 )
 
-// EmbedsDeps — the data source for embed capabilities.
+// EmbedsDeps — the data source for embed ops.
 type EmbedsDeps struct {
 	Embeds *repo.EmbedRepo
 }

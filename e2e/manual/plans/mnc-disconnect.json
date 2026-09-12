@@ -1,11 +1,11 @@
 {
-  "_why": "marketplace-needs-connector check 1 ⭐ 状态② —— 把日历真断开（DISCONNECT 保留凭据），再回市场看那张卡。判据：现在必须说 needs calendar。",
-  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/marketplace-needs-connector/shots",
+  "_why": "marketplace-needs-supplier check 1 ⭐ 状态② —— 把日历真断开（DISCONNECT 保留凭据），再回市场看那张卡。判据：现在必须说 needs calendar。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/marketplace-needs-supplier/shots",
   "viewport": [1280, 1100],
   "shots": [
     {
       "name": "mnc-11-calendar-disconnected",
-      "url": "/admin/connectors",
+      "url": "/admin/suppliers",
       "steps": [
         { "wait": 4000 },
         { "click": "[data-testid=\"gcal-disconnect\"]" },

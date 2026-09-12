@@ -74,7 +74,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     -o /out/standmeet \
     ./cmd/server
 
-# Builtin capability plugins (mcp-servers/*) → static binaries at /srv/plugins.
+# Builtin block plugins (mcp-servers/*) → static binaries at /srv/plugins.
 # These are PRODUCT artifacts (retrieval / booker / summarize / ask_visitor /
 # mail-sender), each its own Go module, loaded at runtime by the bwrap
 # sandbox_stdio path (ro-bind /srv/plugins/<name>, exec /plugin/<name>). Dev
@@ -128,7 +128,7 @@ RUN addgroup --system --gid 1001 standmeet && \
 COPY --from=builder --chown=standmeet:standmeet /out/standmeet /app/standmeet
 COPY --from=builder --chown=standmeet:standmeet /app/backend/entrypoint.sh /app/entrypoint.sh
 RUN mkdir -p /srv && chown standmeet:standmeet /srv
-# Bake the builtin capability plugins so the bwrap sandbox finds them at /srv/plugins/<name>.
+# Bake the builtin block plugins so the bwrap sandbox finds them at /srv/plugins/<name>.
 COPY --from=builder --chown=standmeet:standmeet /srv/plugins /srv/plugins
 # Bundle the geoip database (default path matches monitor_geoip.go's geoDefaultPath), so the monitor
 # resolves visitor country/city from the IP even when no CDN header carried one.

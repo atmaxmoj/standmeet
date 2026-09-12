@@ -1,4 +1,32 @@
 {
+  "blocks": {
+    "installKicker": "安装",
+    "installHeading": "添加一个 block",
+    "installIntro": "把 block 的 manifest 贴进来。它写明这个 block 叫什么、面向谁、怎么启动、要哪些设置。",
+    "installPlaceholder": "id: acme.widget\ntitle: Acme Widget\nversion: \"1\"\nshape: visitor_only",
+    "install": "安装",
+    "installedToast": "block 已安装",
+    "bundlesKicker": "组装",
+    "bundlesHeading": "捆",
+    "bundlesIntro": "一捆就是一组有名字的 block。一张码指向它，就正好能用这些——实时生效，从捆里拿掉一块，正在开着的会话立刻就调不到了。",
+    "bundleNamePlaceholder": "recruiter",
+    "create": "新建",
+    "bundleCreatedToast": "已新建一捆",
+    "remove": "移除",
+    "removedToast": "已移除",
+    "addBlock": "+ {id}",
+    "addedToast": "已加入",
+    "grantNet": "net(允许)",
+    "blocksFailed": "{count} 个 block 启动失败",
+    "settings": "设置",
+    "save": "保存",
+    "savedToast": "已保存",
+    "close": "关闭",
+    "codeBundleLabel": "捆 · 这张码能用什么",
+    "codeBundleNone": "不绑捆——按 role 的授权",
+    "codeBundle": "捆 · {name}",
+    "blockOff": "· 已关"
+  },
   "credField": {
     "host": "主机",
     "port": "端口",
@@ -100,19 +128,19 @@
     "keyId": "密钥 id",
     "deletedToast": "已删除密钥"
   },
-  "connectors": {
-    "intro": "连接器让 agent 触达外部服务——日历和邮件已在下方就绪，你也可上传自己的（OpenAPI / 协议）连接器来添加更多。",
-    "catalogError": "无法加载连接器目录——请刷新后重试。",
-    "overwritePrompt": "已存在一个 <mono>{category}</mono> 连接器。要覆盖它吗？",
+  "suppliers": {
+    "intro": "supplier 让 agent 触达外部服务——日历和邮件已在下方就绪，你也可上传自己的（OpenAPI / 协议）supplier 来添加更多。",
+    "catalogError": "无法加载 supplier 目录——请刷新后重试。",
+    "overwritePrompt": "已存在一个 <mono>{seam}</mono> supplier。要覆盖它吗？",
     "overwrite": "覆盖",
-    "add": "+ 添加连接器",
+    "add": "+ 添加 supplier",
     "builtinHeading": "可连接",
     "builtinCount": "{count} 个可用",
-    "uploadedHeading": "你上传的连接器",
+    "uploadedHeading": "你上传的 supplier",
     "uploadedCount": "已安装 {count} 个",
     "kicker": "集成",
     "count": "日历 · 邮件已上线 · 可上传自定义",
-    "removedToast": "已移除连接器"
+    "removedToast": "已移除 supplier"
   },
   "calendar": {
     "heading": "Google 日历",
@@ -134,32 +162,32 @@
     "leadDays": "最少提前天数",
     "bufferMin": "缓冲分钟数（现有事件前后）"
   },
-  "capabilities": {
+  "blockPanel": {
     "kicker": "可用性",
-    "heading": "能力",
-    "intro": "关闭一项能力，它的工具就从每个访客会话中消失。内置能力可停用但不可删除；只有你自己创作的能力才能移除。",
-    "empty": "尚未注册任何能力。",
+    "heading": "block",
+    "intro": "关掉一个 block，它的工具就从每个访客会话中消失。内置 block 可停用但不可删除；只有你自己写的才能移除。",
+    "empty": "尚未注册任何 block。",
     "loading": "加载中…",
-    "removeTitle": "移除能力",
-    "removedToast": "已移除能力"
+    "removeTitle": "移除 block",
+    "removedToast": "已移除 block"
   },
-  "connectorCard": {
+  "supplierCard": {
     "disconnect": "断开连接",
     "statusConnecting": "连接中…",
     "statusConnected": "已连接",
     "statusNotConnected": "未连接"
   },
-  "connectorOp": {
+  "supplierOp": {
     "run": "运行",
     "running": "运行中…",
-    "sent": "已被 {kind} 连接器接受——请查看收件箱确认送达。",
+    "sent": "已被 {kind} supplier 接受——请查看收件箱确认送达。",
     "unreachable": "无法触达你的实例——请检查网络后重试。",
-    "failedNoReason": "没有成功，且连接器未给出原因——请查看服务器日志。"
+    "failedNoReason": "没有成功，且 supplier 未给出原因——请查看服务器日志。"
   },
-  "connectorList": {
-    "loadError": "无法加载你的连接器——请刷新后重试。",
+  "supplierList": {
+    "loadError": "无法加载你的 supplier——请刷新后重试。",
     "delete": "删除",
-    "removeAria": "移除连接器"
+    "removeAria": "移除 supplier"
   },
   "skills": {
     "new": "+ 新建技能",

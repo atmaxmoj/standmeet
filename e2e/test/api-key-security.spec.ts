@@ -42,7 +42,7 @@ async function setup(playwright: Playwright): Promise<void> {
   const mint = await callTool<MintResp>(request, token, sid, 'api_keys.create',
     { label: 'good', assumed_role_id: roleID });
   goodKey = mint.secret;
-  await callTool(request, token, sid, 'api.open', { capability_id: 'corpus.retrieval' });
+  await callTool(request, token, sid, 'api.open', { block_id: 'corpus.retrieval' });
   await request.dispose();
 }
 

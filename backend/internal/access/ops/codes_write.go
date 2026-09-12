@@ -42,9 +42,59 @@ func createCode(deps usecase.CodesDeps, extras CodeExtras) fp.Invoke {
 		if err != nil {
 			return nil, codeErr(err)
 		}
+		if berr := bindBundle(ctx, deps, ownerID, &code, raw); berr != nil {
+			return nil, berr
+		}
 		extras.Write(ctx, code.ID, raw)
 		return marshalCode(ctx, extras, &code, countMembers(ctx, deps, code.ID))
 	}
+}
+
+// bundleArgs — the one field this file reads out of the create body on its own.
+type bundleArgs struct {
+	Bundle string `json:"bundle"`
+}
+
+// bindBundle — bind the freshly issued code to the bundle the owner picked.
+//
+// A second step rather than a column on CreateCodeInput, because the two answer to
+// different owners: issuing is the access domain's, and which blocks a code carries is
+// the plugin substrate's. Threading a bundle name through the create path would put the
+// plugin model's vocabulary inside the code entity's constructor.
+//
+// A name that does not resolve is an ERROR, not a silent skip. The owner picked
+// "recruiter" and pressed issue; handing back a code that quietly carries the role's
+// whole grant instead is the failure mode with teeth — they would believe they narrowed
+// it. The code is already written by then, so the error names what did not happen.
+func bindBundle(
+	ctx context.Context, deps usecase.CodesDeps, ownerID string,
+	code *entity.Code, raw json.RawMessage,
+) error {
+	want := bundleNameIn(raw)
+	if want == "" {
+		return nil
+	}
+	name, berr := deps.Codes.SetBundle(ctx, ownerID, code.ID, want)
+	if berr != nil {
+		return fp.BadInput("no bundle called " + want +
+			" — the code was issued but carries no bundle")
+	}
+	code.Bundle = name
+	return nil
+}
+
+// bundleNameIn — the bundle the caller named, or "" for "named none".
+//
+// A decode failure is the same fact as naming none: these are the same bytes the caller
+// already decoded into the create args, so the only way this fails is a shape that carried no
+// `bundle` field at all. Saying that here, once, keeps the caller free of an
+// `err != nil || …` that reads as if a real error were being dropped.
+func bundleNameIn(raw json.RawMessage) string {
+	var in bundleArgs
+	if err := json.Unmarshal(raw, &in); err != nil {
+		return ""
+	}
+	return in.Bundle
 }
 
 // decodeCodeCreate — decode args. Leaving code empty or assumed_role_id empty are both valid:

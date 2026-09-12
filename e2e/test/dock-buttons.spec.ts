@@ -1,5 +1,5 @@
 // dock-buttons.spec.ts — #109/#110 per-role chat dock buttons: the owner configures ≤2
-// { capability + trigger phrase } pairs on a role, they get frozen into the session, the
+// { block + trigger phrase } pairs on a role, they get frozen into the session, the
 // visitor's chat renders them as buttons, and clicking one sends the trigger phrase as
 // the visitor's message.
 //
@@ -8,7 +8,7 @@
 //     role / cap has a title)
 //   C freeze (frozen into RoleSnapshot; changing it after the owner starts a session
 //     doesn't affect the session already running)
-//   D session payload + ACL filtering (a code-denied capability's button does not
+//   D session payload + ACL filtering (a code-denied block's button does not
 //     appear; a disabled one still appears, pending frontend greying-out)
 // Visitor clicks (E), admin UI (F), and MCP parity (B) each get their own separate spec.
 
@@ -18,9 +18,9 @@ import type { APIRequestContext } from '@playwright/test';
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { updateRole } from '@/fixtures/admin-mutations';
-import { setCodeCapabilityDenial } from '@/fixtures/code-denials';
+import { setCodeBlockDenial } from '@/fixtures/code-denials';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { configureMailConnector } from '@/fixtures/mail';
+import { configureMailSupplier } from '@/fixtures/mail';
 import {
   createRole, getRoleByName, type DockButtonConfig, type RoleView,
 } from '@/fixtures/roles';
@@ -33,8 +33,8 @@ const OWNER = {
   handle: 'dockbuttons', fullName: 'Dock Buttons Owner',
 };
 
-const CAP_SUMMARIZE = 'summarize_conversation';
-const CAP_RETRIEVAL = 'corpus.retrieval';
+const BLOCK_SUMMARIZE = 'summarize_conversation';
+const BLOCK_RETRIEVAL = 'corpus.retrieval';
 const TRIGGER_SUMMARIZE = 'Summarize our conversation so far';
 const TRIGGER_RETRIEVAL = 'What have we covered?';
 
@@ -51,9 +51,9 @@ test.beforeAll(async ({ playwright }) => {
     email: OWNER.email, password: OWNER.password,
     handle: OWNER.handle, fullName: OWNER.fullName,
   });
-  // Connect the mail connector first, so `mail.send` actually **registers on this
+  // Connect the mail supplier first, so `mail.send` actually **registers on this
   // instance** (it `requires: smtp`, and stays entirely hidden if unconnected). A5
-  // needs exactly the distinction between "this capability doesn't exist" and "it
+  // needs exactly the distinction between "this block doesn't exist" and "it
   // exists but this role doesn't have it": without connecting it, the second case gets
   // rejected for the first case's reason, red for no traceable reason
   // ([[red-in-the-wrong-place]]).
@@ -61,7 +61,7 @@ test.beforeAll(async ({ playwright }) => {
   // **Must come before the login below**: that login itself logs in again and swaps out
   // this context's CSRF — done the other way around, every write request in this whole
   // spec returns 403, looking like the dock's validation is entirely broken.
-  await configureMailConnector(request, OWNER.email, OWNER.password);
+  await configureMailSupplier(request, OWNER.email, OWNER.password);
   const auth = await loginAPI(request, OWNER.email, OWNER.password);
   csrf = auth.csrf;
 });
@@ -108,21 +108,21 @@ test.describe('dock buttons · A — config storage + validation', () => {
     const role = await createRole(request, csrf, {
       name: 'a1-two-buttons', corpus_uris: ['wiki://**'],
       dock_buttons: [
-        { capability_id: CAP_SUMMARIZE, trigger: TRIGGER_SUMMARIZE },
-        { capability_id: CAP_RETRIEVAL, trigger: TRIGGER_RETRIEVAL },
+        { block_id: BLOCK_SUMMARIZE, trigger: TRIGGER_SUMMARIZE },
+        { block_id: BLOCK_RETRIEVAL, trigger: TRIGGER_RETRIEVAL },
       ],
     });
     expect(role.dock_buttons).toHaveLength(2);
     expect(role.dock_buttons?.[0]).toMatchObject(
-      { capability_id: CAP_SUMMARIZE, trigger: TRIGGER_SUMMARIZE });
+      { block_id: BLOCK_SUMMARIZE, trigger: TRIGGER_SUMMARIZE });
   });
 
   test('A2 more than 2 dock buttons → rejected', async () => {
     const res = await postRole(request, {
       name: 'a2-three', dock_buttons: [
-        { capability_id: CAP_SUMMARIZE, trigger: 't1' },
-        { capability_id: CAP_RETRIEVAL, trigger: 't2' },
-        { capability_id: CAP_SUMMARIZE, trigger: 't3' },
+        { block_id: BLOCK_SUMMARIZE, trigger: 't1' },
+        { block_id: BLOCK_RETRIEVAL, trigger: 't2' },
+        { block_id: BLOCK_SUMMARIZE, trigger: 't3' },
       ],
     });
     expect(res.status(), 'at most two dock buttons').toBe(400);
@@ -131,38 +131,38 @@ test.describe('dock buttons · A — config storage + validation', () => {
   test('A3 empty trigger → rejected', async () => {
     const res = await postRole(request, {
       name: 'a3-empty-trigger',
-      dock_buttons: [{ capability_id: CAP_SUMMARIZE, trigger: '   ' }],
+      dock_buttons: [{ block_id: BLOCK_SUMMARIZE, trigger: '   ' }],
     });
     expect(res.status(), 'a dock button needs a trigger phrase').toBe(400);
   });
 
-  // A4's name says "a capability the role doesn't have", but it actually sends
-  // `no-such-capability` — the case where it **doesn't exist at all**. Two distinct
+  // A4's name says "a block the role doesn't have", but it actually sends
+  // `no-such-block` — the case where it **doesn't exist at all**. Two distinct
   // cases were covered by one name, so the "exists, but this role can't reach it" half
   // was never tested — and F-D-13 slipped through exactly that half. Renamed to what it
   // actually tests; the other half is A5's job.
-  test('A4 capability that does not exist at all → rejected', async () => {
+  test('A4 block that does not exist at all → rejected', async () => {
     const res = await postRole(request, {
       name: 'a4-nonexistent', corpus_uris: [],
-      dock_buttons: [{ capability_id: 'no-such-capability', trigger: 'x' }],
+      dock_buttons: [{ block_id: 'no-such-block', trigger: 'x' }],
     });
-    expect(res.status(), 'cannot dock a capability nobody registered').toBe(400);
+    expect(res.status(), 'cannot dock a block nobody registered').toBe(400);
   });
 
   // A5 — F-D-13. `mail.send` **is registered** on this instance (beforeAll connected
-  // the mail connector), but it carries `acl: role_granted`, and this role's skill
+  // the mail supplier), but it carries `acl: role_granted`, and this role's skill
   // list is empty → sessions on this role can never reach it.
   // This is exactly what happens in prod: the backend **accepts** this button, both
   // buttons appear on the card, but only one shows up for the visitor, and neither side
   // says a word about it. Validation at bind time reads
-  // `AgentSkills.VisitorCapabilityIDs()` (registered instance-wide), while rendering
-  // reads the capability set this session actually has — both sets are called valid,
+  // `AgentSkills.VisitorBlockIDs()` (registered instance-wide), while rendering
+  // reads the block set this session actually has — both sets are called valid,
   // and this button is exactly their difference.
-  test('A5 capability registered on the instance but not granted by this role → rejected',
+  test('A5 block registered on the instance but not granted by this role → rejected',
     async () => {
       const res = await postRole(request, {
         name: 'a5-ungranted-but-real', corpus_uris: ['wiki://**'],
-        dock_buttons: [{ capability_id: 'mail.send', trigger: 'email the owner about this' }],
+        dock_buttons: [{ block_id: 'mail.send', trigger: 'email the owner about this' }],
       });
       expect(
         res.status(),
@@ -174,7 +174,7 @@ test.describe('dock buttons · A — config storage + validation', () => {
   test('A6 clear dock buttons → roleView empty', async () => {
     const role = await createRole(request, csrf, {
       name: 'a6-clearable', corpus_uris: ['wiki://**'],
-      dock_buttons: [{ capability_id: CAP_SUMMARIZE, trigger: TRIGGER_SUMMARIZE }],
+      dock_buttons: [{ block_id: BLOCK_SUMMARIZE, trigger: TRIGGER_SUMMARIZE }],
     });
     // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: A6 asserts this PUT returns 200 and the roleView it returns has empty dock_buttons
     const res = await request.put(`${BACKEND}/api/admin/roles/${role.id}`, {
@@ -196,7 +196,7 @@ test.describe('dock buttons · C — freeze into the session snapshot', () => {
     async () => {
       const role = await createRole(request, csrf, {
         name: 'c2-frozen', corpus_uris: ['wiki://**'],
-        dock_buttons: [{ capability_id: CAP_SUMMARIZE, trigger: TRIGGER_SUMMARIZE }],
+        dock_buttons: [{ block_id: BLOCK_SUMMARIZE, trigger: TRIGGER_SUMMARIZE }],
       });
       const code = await createCode(request, csrf, {
         code: 'DOCK-FREEZE', label: 'freeze', assumed_role_id: role.id,
@@ -225,7 +225,7 @@ test.describe('dock buttons · D — session payload + ACL filtering', () => {
     async () => {
       const role = await createRole(request, csrf, {
         name: 'd1-payload', corpus_uris: ['wiki://**'],
-        dock_buttons: [{ capability_id: CAP_SUMMARIZE, trigger: TRIGGER_SUMMARIZE }],
+        dock_buttons: [{ block_id: BLOCK_SUMMARIZE, trigger: TRIGGER_SUMMARIZE }],
       });
       const code = await createCode(request, csrf, {
         code: 'DOCK-D1', label: 'd1', assumed_role_id: role.id,
@@ -234,42 +234,42 @@ test.describe('dock buttons · D — session payload + ACL filtering', () => {
         handle: OWNER.handle, mode: 'code', code: code.code, visitor_name: 'V',
       });
       const btn = sess.dock_buttons?.[0];
-      expect(btn?.capability_id).toBe(CAP_SUMMARIZE);
+      expect(btn?.block_id).toBe(BLOCK_SUMMARIZE);
       expect(btn?.trigger).toBe(TRIGGER_SUMMARIZE);
       // The label passes through the MCP title: non-empty, and not falling back to
       // the id (no fallback).
       expect(btn?.title, 'title present').toBeTruthy();
-      expect(btn?.title).not.toBe(CAP_SUMMARIZE);
+      expect(btn?.title).not.toBe(BLOCK_SUMMARIZE);
     });
 
-  test('D2 code denies a capability → its dock button is absent from the payload',
+  test('D2 code denies a block → its dock button is absent from the payload',
     async () => {
       const role = await createRole(request, csrf, {
         name: 'd2-deny', corpus_uris: ['wiki://**'],
         dock_buttons: [
-          { capability_id: CAP_SUMMARIZE, trigger: TRIGGER_SUMMARIZE },
-          { capability_id: CAP_RETRIEVAL, trigger: TRIGGER_RETRIEVAL },
+          { block_id: BLOCK_SUMMARIZE, trigger: TRIGGER_SUMMARIZE },
+          { block_id: BLOCK_RETRIEVAL, trigger: TRIGGER_RETRIEVAL },
         ],
       });
       const code = await createCode(request, csrf, {
         code: 'DOCK-D2', label: 'd2', assumed_role_id: role.id,
       });
       // code deny corpus.retrieval → its button must NOT render (source-level removal, not greyed).
-      expect(await setCodeCapabilityDenial(request, csrf, code.id, CAP_RETRIEVAL)).toBe(201);
+      expect(await setCodeBlockDenial(request, csrf, code.id, BLOCK_RETRIEVAL)).toBe(201);
       const sess = await issueSession(request, {
         handle: OWNER.handle, mode: 'code', code: code.code, visitor_name: 'V',
       });
-      const ids = (sess.dock_buttons ?? []).map((b) => b.capability_id);
-      expect(ids, 'denied cap button gone').not.toContain(CAP_RETRIEVAL);
-      expect(ids, 'granted cap button stays').toContain(CAP_SUMMARIZE);
+      const ids = (sess.dock_buttons ?? []).map((b) => b.block_id);
+      expect(ids, 'denied cap button gone').not.toContain(BLOCK_RETRIEVAL);
+      expect(ids, 'granted cap button stays').toContain(BLOCK_SUMMARIZE);
     });
 
-  test('D3 capability present but disabled → button stays in payload with enabled=false (front-end greys it)',
+  test('D3 block present but disabled → button stays in payload with enabled=false (front-end greys it)',
     async () => {
       // empty corpus_uris → corpus.retrieval is visible-but-disabled (enabled=false), not denied.
       const role = await createRole(request, csrf, {
         name: 'd3-disabled', corpus_uris: [],
-        dock_buttons: [{ capability_id: CAP_RETRIEVAL, trigger: TRIGGER_RETRIEVAL }],
+        dock_buttons: [{ block_id: BLOCK_RETRIEVAL, trigger: TRIGGER_RETRIEVAL }],
       });
       const code = await createCode(request, csrf, {
         code: 'DOCK-D3', label: 'd3', assumed_role_id: role.id,
@@ -278,10 +278,10 @@ test.describe('dock buttons · D — session payload + ACL filtering', () => {
         handle: OWNER.handle, mode: 'code', code: code.code, visitor_name: 'V',
       });
       // button present (not denied, just disabled)…
-      const ids = (sess.dock_buttons ?? []).map((b) => b.capability_id);
-      expect(ids, 'disabled cap button still shown').toContain(CAP_RETRIEVAL);
-      // …and its capability state is disabled → front-end greys it.
-      const cap = (sess.capabilities ?? []).find((c) => c.id === CAP_RETRIEVAL);
+      const ids = (sess.dock_buttons ?? []).map((b) => b.block_id);
+      expect(ids, 'disabled cap button still shown').toContain(BLOCK_RETRIEVAL);
+      // …and its block state is disabled → front-end greys it.
+      const cap = (sess.blocks ?? []).find((c) => c.id === BLOCK_RETRIEVAL);
       expect(cap?.enabled, 'empty-corpus retrieval is disabled').toBe(false);
     });
 
@@ -297,9 +297,9 @@ test.describe('dock buttons · D — session payload + ACL filtering', () => {
 async function d4PublicPublicity(request: APIRequestContext): Promise<void> {
   const publicRow = await getRoleByName(request, 'public');
   const status = await putRoleWithDock(request, publicRow,
-    [{ capability_id: CAP_SUMMARIZE, trigger: TRIGGER_SUMMARIZE }]);
+    [{ block_id: BLOCK_SUMMARIZE, trigger: TRIGGER_SUMMARIZE }]);
   expect(status).toBe(200);
   const sess = await issueSession(request, { handle: OWNER.handle, mode: 'public' });
-  const ids = (sess.dock_buttons ?? []).map((b) => b.capability_id);
-  expect(ids, 'public/BYOAI tier inherits publicRow dock buttons').toContain(CAP_SUMMARIZE);
+  const ids = (sess.dock_buttons ?? []).map((b) => b.block_id);
+  expect(ids, 'public/BYOAI tier inherits publicRow dock buttons').toContain(BLOCK_SUMMARIZE);
 }

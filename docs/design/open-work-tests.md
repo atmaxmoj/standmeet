@@ -1,7 +1,7 @@
 # Open work — how the tests get written
 
 **Status:** design (2026-08-06). Companion to `open-work-multi-provider-gas-grep-i18n.md`, in the
-`*-tests.md` convention this repo already uses (`job-loop-tests.md`, `connector-deps-tests.md`).
+`*-tests.md` convention this repo already uses (`job-loop-tests.md`, `supplier-deps-tests.md`).
 That document lists *what* is asserted; this one is about *how each assertion is made able to fail*,
 which surface it drives, and what the harness has to grow first.
 

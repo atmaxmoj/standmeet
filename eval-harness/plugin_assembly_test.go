@@ -4,7 +4,7 @@
 // build its binary for the host, hand it to the EvalDriver as a PluginSpec, and assert
 // the agent dials it over plain stdio (NO bwrap — bwrap is only prod's isolation) and
 // assembles its ask_visitor tool. This is the registerDiscoveredPlugins half the eval
-// used to skip; with it, eval discovers the same capabilities prod does.
+// used to skip; with it, eval discovers the same blocks prod does.
 
 package main
 

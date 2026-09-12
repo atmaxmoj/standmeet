@@ -7,7 +7,7 @@
 # incremental development.
 
 .PHONY: lint secrets secrets-image release-build release-assert-stripped release-assert-multiarch release-assert-version release-push release-gc release-repro release-repro-logs release-repro-down backend-lint backend-test plugin-test backend-no-mock app-lint sdk-lint e2e-lint env-lint updater-e2e im-bridge-lint im-bridge-test im-bridge-up im-bridge-logs
-.PHONY: deps stack stack-init stack-ready stack-test stack-retire dev dev-up dev-rebuild dev-down prod-up prod-down prod-logs build clean test test-fresh test-only test-red test-captcha test-boundary mobile-shots mobile-shots-asis archive-failures sdk-build builder-vendor dev-rebuild-builder app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-capabilities eval-owner-mcp verify-round schema-drift i18n-keys
+.PHONY: deps stack stack-init stack-ready stack-test stack-retire dev dev-up dev-rebuild dev-down prod-up prod-down prod-logs build clean test test-fresh test-only test-red test-captcha test-boundary mobile-shots mobile-shots-asis archive-failures sdk-build builder-vendor dev-rebuild-builder app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-blocks eval-owner-mcp verify-round schema-drift i18n-keys
 
 # ── per-checkout dev stack ──────────────────────────────────────
 # One machine, N checkouts, N stacks. Without this every worktree drives the SAME
@@ -184,7 +184,7 @@ plugin-test:
 #   5. test-only package imports (name-INDEPENDENT: testing/testify/httptest leaking into prod)
 # check-no-mock-test.sh is the checker's own self-test: plants a neutrally-named testify-import
 # violation and asserts it gets caught.
-# check-core-agnostic-test.sh likewise self-tests the #135 zero-capability core ratchet: plants a
+# check-core-agnostic-test.sh likewise self-tests the #135 zero-block core ratchet: plants a
 # calendar leak and asserts it gets caught.
 # (The ratchet itself, check-core-agnostic, already runs in backend's fast lint chain; this runs
 # only its self-test.)
@@ -262,7 +262,7 @@ im-bridge-test:
 	fi
 
 # im-bridge-up —— starts the IM bridge. **No environment variables needed**: the bot token is
-# the connector credential the owner configured in admin; the bridge fetches it from the
+# the supplier credential the owner configured in admin; the bridge fetches it from the
 # internal API on startup. Without it configured, it just idles.
 im-bridge-up:
 	@docker compose -p $(PROD_PROJECT) -f docker-compose.prod.yml up -d --build im-bridge
@@ -504,7 +504,7 @@ prod-start-svc:
 #
 # Why `prod-start-svc` isn't enough: `stop` + `start` restart the **same container**, whose
 # environment variables are fixed at creation time — editing `.env` and starting again still
-# reads the old values. connector-security check 3 (what a connector should say after
+# reads the old values. supplier-security check 3 (what a supplier should say after
 # INSTANCE_SECRET is rotated) needs exactly "come back up with a new secret", while `prod-up`
 # would rebuild the whole stack, image included.
 #
@@ -545,7 +545,7 @@ verify-proxy-down:
 	@UPSTREAM_BASE_URL=unused docker compose -p standmeet-verify \
 		-f docker-compose.verify.yml down
 
-# verify-caldav-up —— brings up a **real** CalDAV server (Radicale) for connector-assembly check 5.
+# verify-caldav-up —— brings up a **real** CalDAV server (Radicale) for supplier-assembly check 5.
 #
 # Why not our stand-in: that check's Mock gap names exactly four missing things — the stand-in
 # has no auth, doesn't understand the REPORT filter, doesn't expand recurrence rules, and answers
@@ -734,7 +734,7 @@ eval-creds:
 # booking spec FORCES the call through scriptMockToolCall, so the thing that failed — the model's
 # own decision to call the tool — is not on trial there. This drives the REAL model through the
 # REAL prod loop with the REAL booker plugin (canned calendar behind it) and asserts one thing:
-# if the answer says a meeting is booked, the capability store must hold that booking.
+# if the answer says a meeting is booked, the block store must hold that booking.
 # Probabilistic, so drive rounds: EVAL_ROUNDS=20 make eval-booking-fabrication.
 eval-booking-fabrication: eval-creds
 	@$(EVAL_ENV) cd eval-harness && go test -run TestBookingFabricationLive -count=1 -v -timeout 1800s ./...
@@ -847,18 +847,18 @@ eval-summary:
 	@cd eval-harness && go build -o eval-harness-bin . && \
 	  python3 summary.py
 
-# eval-capabilities —— the standing agentic-capability suite. The assert class (was
+# eval-blocks —— the standing agentic-block suite. The assert class (was
 # booking/skill/mcp actually called; deny is structurally absent; did a privacy canary leak;
 # is there a ghost hint) is a hard PASS/FAIL; the human class (grounding/honesty/ambiguity/
 # prompt injection/ghost quality/booking failure) finishes leaving a transcript + a "LOOK FOR"
 # note for a human/judge to read. The mcp case auto-starts mock-stack/mcp; if it can't come up,
 # it SKIPs (never silently).
 # **Needs a real LLM** (eval-harness/.env DeepSeek key).
-#   make eval-capabilities
-#   EVAL_CASES=booking,skill,mcp make eval-capabilities   # subset
-eval-capabilities:
+#   make eval-blocks
+#   EVAL_CASES=booking,skill,mcp make eval-blocks   # subset
+eval-blocks:
 	@cd eval-harness && go build -o eval-harness-bin . && \
-	  python3 capabilities.py
+	  python3 blocks.py
 
 # eval-owner-mcp —— drives the agent against the OWNER-side MCP server (the inbound/ingest
 # half, the counterpart of the visitor's outbound side). Goes through the real

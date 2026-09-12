@@ -9,7 +9,7 @@ import (
 var ErrAPIKeyNotFound = errors.New("api key not found")
 
 // APIKey —— an issued programmatic credential (facade-directions.md). Assumes a role exactly like
-// an access code; its holder calls capabilities as HTTP endpoints (no LLM, no gas), rate-limited.
+// an access code; its holder calls blocks as HTTP endpoints (no LLM, no gas), rate-limited.
 // SecretHash is the sha256 of the full `smk_…` secret; the raw secret is shown once at mint and
 // never persisted.
 type APIKey struct {

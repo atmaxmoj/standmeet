@@ -1,13 +1,13 @@
 {
-  "_why": "marketplace-needs-connector check 1 ⭐ 状态③ —— 把日历真连回来（凭据还在，走一次 OAuth 同意），再回市场看那张卡：提示必须消失。用 owner 那份已经登着 Google 的 profile —— 同意页是点一下，不是输密码。",
+  "_why": "marketplace-needs-supplier check 1 ⭐ 状态③ —— 把日历真连回来（凭据还在，走一次 OAuth 同意），再回市场看那张卡：提示必须消失。用 owner 那份已经登着 Google 的 profile —— 同意页是点一下，不是输密码。",
   "_profile_note": "原 profile 被正在跑的那个 Chrome 占着，所以用一份只带会话文件的副本（Cookies / Login Data / Preferences），不动用户那份。",
   "profile": "/private/tmp/claude-501/-Users-wangsijie-Develop-projects-standmeet-new/41762946-b034-4941-b633-a02e218a6621/scratchpad/gcal-profile",
-  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/marketplace-needs-connector/shots",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/marketplace-needs-supplier/shots",
   "viewport": [1280, 1000],
   "shots": [
     {
       "name": "mnc-13-oauth-screen",
-      "url": "/admin/connectors",
+      "url": "/admin/suppliers",
       "steps": [
         { "wait": 5000 },
         { "click": "[data-testid=\"gcal-authorize\"]" },

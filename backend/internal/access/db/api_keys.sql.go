@@ -11,20 +11,20 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const addAPIKeyCapabilityDenial = `-- name: AddAPIKeyCapabilityDenial :exec
+const addAPIKeyBlockDenial = `-- name: AddAPIKeyBlockDenial :exec
 
-INSERT INTO api_key_capability_denials (key_id, capability_id)
+INSERT INTO api_key_block_denials (key_id, block_id)
 VALUES ($1, $2) ON CONFLICT DO NOTHING
 `
 
-type AddAPIKeyCapabilityDenialParams struct {
-	KeyID        pgtype.UUID
-	CapabilityID string
+type AddAPIKeyBlockDenialParams struct {
+	KeyID   pgtype.UUID
+	BlockID string
 }
 
 // ───── per-key denials (mirror code denials) ─────
-func (q *Queries) AddAPIKeyCapabilityDenial(ctx context.Context, arg AddAPIKeyCapabilityDenialParams) error {
-	_, err := q.db.Exec(ctx, addAPIKeyCapabilityDenial, arg.KeyID, arg.CapabilityID)
+func (q *Queries) AddAPIKeyBlockDenial(ctx context.Context, arg AddAPIKeyBlockDenialParams) error {
+	_, err := q.db.Exec(ctx, addAPIKeyBlockDenial, arg.KeyID, arg.BlockID)
 	return err
 }
 
@@ -43,17 +43,17 @@ func (q *Queries) AddAPIKeySkillDenial(ctx context.Context, arg AddAPIKeySkillDe
 	return err
 }
 
-const closeAPICapability = `-- name: CloseAPICapability :exec
-DELETE FROM api_open_capabilities WHERE owner_id = $1 AND capability_id = $2
+const closeAPIBlock = `-- name: CloseAPIBlock :exec
+DELETE FROM api_open_blocks WHERE owner_id = $1 AND block_id = $2
 `
 
-type CloseAPICapabilityParams struct {
-	OwnerID      pgtype.UUID
-	CapabilityID string
+type CloseAPIBlockParams struct {
+	OwnerID pgtype.UUID
+	BlockID string
 }
 
-func (q *Queries) CloseAPICapability(ctx context.Context, arg CloseAPICapabilityParams) error {
-	_, err := q.db.Exec(ctx, closeAPICapability, arg.OwnerID, arg.CapabilityID)
+func (q *Queries) CloseAPIBlock(ctx context.Context, arg CloseAPIBlockParams) error {
+	_, err := q.db.Exec(ctx, closeAPIBlock, arg.OwnerID, arg.BlockID)
 	return err
 }
 
@@ -105,17 +105,17 @@ func (q *Queries) CreateAPIKey(ctx context.Context, arg CreateAPIKeyParams) (Api
 	return i, err
 }
 
-const deleteAPIKeyCapabilityDenial = `-- name: DeleteAPIKeyCapabilityDenial :exec
-DELETE FROM api_key_capability_denials WHERE key_id = $1 AND capability_id = $2
+const deleteAPIKeyBlockDenial = `-- name: DeleteAPIKeyBlockDenial :exec
+DELETE FROM api_key_block_denials WHERE key_id = $1 AND block_id = $2
 `
 
-type DeleteAPIKeyCapabilityDenialParams struct {
-	KeyID        pgtype.UUID
-	CapabilityID string
+type DeleteAPIKeyBlockDenialParams struct {
+	KeyID   pgtype.UUID
+	BlockID string
 }
 
-func (q *Queries) DeleteAPIKeyCapabilityDenial(ctx context.Context, arg DeleteAPIKeyCapabilityDenialParams) error {
-	_, err := q.db.Exec(ctx, deleteAPIKeyCapabilityDenial, arg.KeyID, arg.CapabilityID)
+func (q *Queries) DeleteAPIKeyBlockDenial(ctx context.Context, arg DeleteAPIKeyBlockDenialParams) error {
+	_, err := q.db.Exec(ctx, deleteAPIKeyBlockDenial, arg.KeyID, arg.BlockID)
 	return err
 }
 
@@ -190,23 +190,23 @@ func (q *Queries) GetAPIKeyBySecretHash(ctx context.Context, secretHash []byte) 
 	return i, err
 }
 
-const listAPIKeyCapabilityDenials = `-- name: ListAPIKeyCapabilityDenials :many
-SELECT capability_id FROM api_key_capability_denials WHERE key_id = $1
+const listAPIKeyBlockDenials = `-- name: ListAPIKeyBlockDenials :many
+SELECT block_id FROM api_key_block_denials WHERE key_id = $1
 `
 
-func (q *Queries) ListAPIKeyCapabilityDenials(ctx context.Context, keyID pgtype.UUID) ([]string, error) {
-	rows, err := q.db.Query(ctx, listAPIKeyCapabilityDenials, keyID)
+func (q *Queries) ListAPIKeyBlockDenials(ctx context.Context, keyID pgtype.UUID) ([]string, error) {
+	rows, err := q.db.Query(ctx, listAPIKeyBlockDenials, keyID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	var items []string
 	for rows.Next() {
-		var capability_id string
-		if err := rows.Scan(&capability_id); err != nil {
+		var block_id string
+		if err := rows.Scan(&block_id); err != nil {
 			return nil, err
 		}
-		items = append(items, capability_id)
+		items = append(items, block_id)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -276,24 +276,24 @@ func (q *Queries) ListAPIKeysByOwner(ctx context.Context, ownerID pgtype.UUID) (
 	return items, nil
 }
 
-const listAPIOpenCapabilities = `-- name: ListAPIOpenCapabilities :many
-SELECT capability_id FROM api_open_capabilities
-WHERE owner_id = $1 ORDER BY capability_id
+const listAPIOpenBlocks = `-- name: ListAPIOpenBlocks :many
+SELECT block_id FROM api_open_blocks
+WHERE owner_id = $1 ORDER BY block_id
 `
 
-func (q *Queries) ListAPIOpenCapabilities(ctx context.Context, ownerID pgtype.UUID) ([]string, error) {
-	rows, err := q.db.Query(ctx, listAPIOpenCapabilities, ownerID)
+func (q *Queries) ListAPIOpenBlocks(ctx context.Context, ownerID pgtype.UUID) ([]string, error) {
+	rows, err := q.db.Query(ctx, listAPIOpenBlocks, ownerID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	var items []string
 	for rows.Next() {
-		var capability_id string
-		if err := rows.Scan(&capability_id); err != nil {
+		var block_id string
+		if err := rows.Scan(&block_id); err != nil {
 			return nil, err
 		}
-		items = append(items, capability_id)
+		items = append(items, block_id)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -301,20 +301,20 @@ func (q *Queries) ListAPIOpenCapabilities(ctx context.Context, ownerID pgtype.UU
 	return items, nil
 }
 
-const openAPICapability = `-- name: OpenAPICapability :exec
+const openAPIBlock = `-- name: OpenAPIBlock :exec
 
-INSERT INTO api_open_capabilities (owner_id, capability_id)
+INSERT INTO api_open_blocks (owner_id, block_id)
 VALUES ($1, $2) ON CONFLICT DO NOTHING
 `
 
-type OpenAPICapabilityParams struct {
-	OwnerID      pgtype.UUID
-	CapabilityID string
+type OpenAPIBlockParams struct {
+	OwnerID pgtype.UUID
+	BlockID string
 }
 
 // ───── candidacy ("open") gate ─────
-func (q *Queries) OpenAPICapability(ctx context.Context, arg OpenAPICapabilityParams) error {
-	_, err := q.db.Exec(ctx, openAPICapability, arg.OwnerID, arg.CapabilityID)
+func (q *Queries) OpenAPIBlock(ctx context.Context, arg OpenAPIBlockParams) error {
+	_, err := q.db.Exec(ctx, openAPIBlock, arg.OwnerID, arg.BlockID)
 	return err
 }
 

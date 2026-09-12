@@ -1,6 +1,6 @@
-// mail.ts —— mail-connector setup + Mailpit assertions for the access-code loop.
+// mail.ts —— mail-supplier setup + Mailpit assertions for the access-code loop.
 //
-// configureMailConnector points the owner's SMTP at the in-network Mailpit
+// configureMailSupplier points the owner's SMTP at the in-network Mailpit
 // catcher and verifies it (POST credentials + /test) so owner.can_deliver_codes
 // flips true — a precondition for the gate's request-access block to show and
 // for admin approve→issue→email to work. The waitForMailTo / clearMailpit
@@ -63,17 +63,17 @@ export interface MailEnvelope {
   html: string;
 }
 
-// MAIL_FROM —— the connector's from_address (the sender). Tests asserting the
+// MAIL_FROM —— the supplier's from_address (the sender). Tests asserting the
 // booking-confirmation sender (#122) import it.
 export const MAIL_FROM = 'noreply@standmeet.test';
 
-// SMTP_ID —— the id of the built-in SMTP protocol connector (category=mail, kind=protocol).
+// SMTP_ID —— the id of the built-in SMTP protocol supplier (category=mail, kind=protocol).
 const SMTP_ID = 'smtp';
 
 // SMTP_FROM_NAME —— the sender display name (part of the credentials).
 const SMTP_FROM_NAME = 'StandMeet';
 
-// smtpCreds —— the fixed credential form for the SMTP connector (port stored as a
+// smtpCreds —— the fixed credential form for the SMTP supplier (port stored as a
 // string, matching the backend's smtpForm).
 function smtpCreds(over: Partial<Record<string, string>> = {}): Record<string, string> {
   return {
@@ -85,7 +85,7 @@ function smtpCreds(over: Partial<Record<string, string>> = {}): Record<string, s
 export async function saveMailCreds(
   request: APIRequestContext, csrf: string, over: Partial<Record<string, string>> = {},
 ): Promise<void> {
-  const res = await request.post(`${BACKEND}/api/admin/connectors/${SMTP_ID}/credentials`, {
+  const res = await request.post(`${BACKEND}/api/admin/suppliers/${SMTP_ID}/credentials`, {
     headers: { 'X-Csrftoken': csrf },
     data: smtpCreds(over),
   });
@@ -95,7 +95,7 @@ export async function saveMailCreds(
 // connectMail —— the protocol connection test (really dials the SMTP handshake);
 // passing → connected.
 export async function connectMail(request: APIRequestContext, csrf: string): Promise<number> {
-  const res = await request.post(`${BACKEND}/api/admin/connectors/${SMTP_ID}/connect`, {
+  const res = await request.post(`${BACKEND}/api/admin/suppliers/${SMTP_ID}/connect`, {
     headers: { 'X-Csrftoken': csrf },
   });
   return res.status();
@@ -105,31 +105,31 @@ export async function connectMail(request: APIRequestContext, csrf: string): Pro
 // like the panel.
 //
 // The panel's `setField` only writes the changed keys into the request body
-// (`use-connector-card.ts`), so when the owner changes one port, what goes up is a
+// (`use-supplier-card.ts`), so when the owner changes one port, what goes up is a
 // single key `{"port":"587"}`. `saveMailCreds` always sends all seven fields, and
 // therefore **can't drive** "what happens to the keys you didn't give" —— which is
 // exactly the owner's real action shape (F-C-35).
 export async function saveMailCredsPartial(
   request: APIRequestContext, csrf: string, fields: Record<string, string>,
 ): Promise<void> {
-  const res = await request.post(`${BACKEND}/api/admin/connectors/${SMTP_ID}/credentials`, {
+  const res = await request.post(`${BACKEND}/api/admin/suppliers/${SMTP_ID}/credentials`, {
     headers: { 'X-Csrftoken': csrf },
     data: fields,
   });
   if (res.status() !== 200) throw new Error(`mail credentials (partial) failed: ${res.status()}`);
 }
 
-// MailConnectorStatus —— the two facts the panel badge reads (GET, read-only).
-export interface MailConnectorStatus {
+// MailSupplierStatus —— the two facts the panel badge reads (GET, read-only).
+export interface MailSupplierStatus {
   connected: boolean;
   hasCredentials: boolean;
 }
 
-// mailConnectorStatus —— the source of the card's "connected / not connected" badge.
-export async function mailConnectorStatus(
+// mailSupplierStatus —— the source of the card's "connected / not connected" badge.
+export async function mailSupplierStatus(
   request: APIRequestContext,
-): Promise<MailConnectorStatus> {
-  const res = await request.get(`${BACKEND}/api/admin/connectors/${SMTP_ID}/status`);
+): Promise<MailSupplierStatus> {
+  const res = await request.get(`${BACKEND}/api/admin/suppliers/${SMTP_ID}/status`);
   if (res.status() !== 200) throw new Error(`mail status: ${res.status()}`);
   const body = await res.json() as { connected?: boolean; has_credentials?: boolean };
   return { connected: body.connected === true, hasCredentials: body.has_credentials === true };
@@ -152,7 +152,7 @@ export interface ConnectOutcome {
 export async function connectMailOutcome(
   request: APIRequestContext, csrf: string,
 ): Promise<ConnectOutcome> {
-  const res = await request.post(`${BACKEND}/api/admin/connectors/${SMTP_ID}/connect`, {
+  const res = await request.post(`${BACKEND}/api/admin/suppliers/${SMTP_ID}/connect`, {
     headers: { 'X-Csrftoken': csrf },
   });
   if (res.status() !== 200) throw new Error(`mail connect: ${res.status()}`);
@@ -160,17 +160,17 @@ export async function connectMailOutcome(
   return { connected: body.connected === true, error: body.error ?? '' };
 }
 
-// activateMail —— occupy the mail category slot (§9: sending resolves the active connector).
+// activateMail —— occupy the mail category slot (§9: sending resolves the active supplier).
 async function activateMail(request: APIRequestContext, csrf: string): Promise<void> {
-  const res = await request.post(`${BACKEND}/api/admin/connectors/${SMTP_ID}/activate`, {
+  const res = await request.post(`${BACKEND}/api/admin/suppliers/${SMTP_ID}/activate`, {
     headers: { 'X-Csrftoken': csrf },
   });
   if (res.status() !== 200) throw new Error(`mail activate failed: ${res.status()}`);
 }
 
-// configureMailConnector —— save creds → connect(test) → activate, leaving the
-// mail connector connected + owning the mail slot (so can_deliver_codes flips true).
-export async function configureMailConnector(
+// configureMailSupplier —— save creds → connect(test) → activate, leaving the
+// mail supplier connected + owning the mail slot (so can_deliver_codes flips true).
+export async function configureMailSupplier(
   request: APIRequestContext, email: string, password?: string,
 ): Promise<void> {
   const { csrf } = await login(request, email, password);

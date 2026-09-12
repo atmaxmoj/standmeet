@@ -1,4 +1,32 @@
 {
+  "blocks": {
+    "installKicker": "instalar",
+    "installHeading": "añadir un bloque",
+    "installIntro": "Pega el manifiesto de un bloque. Dice cómo se llama, a quién sirve, cómo arrancarlo y qué ajustes necesita.",
+    "installPlaceholder": "id: acme.widget\ntitle: Acme Widget\nversion: \"1\"\nshape: visitor_only",
+    "install": "instalar",
+    "installedToast": "Bloque instalado",
+    "bundlesKicker": "ensamblar",
+    "bundlesHeading": "paquetes",
+    "bundlesIntro": "Un paquete es un conjunto de bloques con nombre. Un código apuntado a él puede usar exactamente estos — se edita en vivo, así que quitar un bloque llega a las sesiones ya abiertas.",
+    "bundleNamePlaceholder": "recruiter",
+    "create": "crear",
+    "bundleCreatedToast": "Paquete creado",
+    "remove": "quitar",
+    "removedToast": "Quitado",
+    "addBlock": "+ {id}",
+    "addedToast": "Añadido",
+    "grantNet": "net(permitido)",
+    "blocksFailed": "{count, plural, one {# bloque falló} other {# bloques fallaron}}",
+    "settings": "ajustes",
+    "save": "guardar",
+    "savedToast": "Guardado",
+    "close": "cerrar",
+    "codeBundleLabel": "paquete · qué puede usar este código",
+    "codeBundleNone": "sin paquete — usar lo que concede el rol",
+    "codeBundle": "paquete · {name}",
+    "blockOff": "· apagado"
+  },
   "credField": {
     "host": "Host",
     "port": "Puerto",
@@ -100,19 +128,19 @@
     "keyId": "id de clave",
     "deletedToast": "Clave eliminada"
   },
-  "connectors": {
-    "intro": "Los conectores permiten que el agente llegue a servicios externos — Calendario y Correo están en vivo a continuación, y puede cargar su propio conector (OpenAPI / protocolo) para agregar más.",
-    "catalogError": "No se pudo cargar el catálogo de conectores — recargue e intente de nuevo.",
-    "overwritePrompt": "Un conector <mono>{category}</mono> ya existe. ¿Sobrescribir?",
+  "suppliers": {
+    "intro": "Los proveedores permiten que el agente llegue a servicios externos — Calendario y Correo están en vivo a continuación, y puede cargar su propio proveedor (OpenAPI / protocolo) para agregar más.",
+    "catalogError": "No se pudo cargar el catálogo de proveedores — recargue e intente de nuevo.",
+    "overwritePrompt": "Un proveedor <mono>{seam}</mono> ya existe. ¿Sobrescribir?",
     "overwrite": "Sobrescribir",
-    "add": "+ agregar conector",
+    "add": "+ agregar proveedor",
     "builtinHeading": "Listo para conectar",
     "builtinCount": "{count} disponible",
-    "uploadedHeading": "Conectores que cargó",
+    "uploadedHeading": "Proveedores que cargó",
     "uploadedCount": "{count} instalado",
     "kicker": "integraciones",
     "count": "calendario · correo activo · sube el tuyo",
-    "removedToast": "Conector eliminado"
+    "removedToast": "Proveedor eliminado"
   },
   "calendar": {
     "heading": "Calendario de Google",
@@ -134,32 +162,32 @@
     "leadDays": "días mínimos de antelación",
     "bufferMin": "minutos de margen (alrededor de eventos existentes)"
   },
-  "capabilities": {
+  "blockPanel": {
     "kicker": "disponibilidad",
-    "heading": "capacidades",
-    "intro": "Desactive una capacidad y sus herramientas desaparecen de todas las sesiones de visitantes. Las capacidades integradas se pueden deshabilitar pero no eliminar; solo las que ha escrito se pueden quitar.",
-    "empty": "no hay capacidades registradas.",
+    "heading": "bloques",
+    "intro": "Desactive un bloque y sus herramientas desaparecen de todas las sesiones de visitantes. Los bloques integrados se pueden deshabilitar pero no eliminar; solo los que ha escrito se pueden quitar.",
+    "empty": "no hay bloques registrados.",
     "loading": "cargando…",
-    "removeTitle": "eliminar capacidad",
-    "removedToast": "Capacidad eliminada"
+    "removeTitle": "eliminar bloque",
+    "removedToast": "Bloque eliminado"
   },
-  "connectorCard": {
+  "supplierCard": {
     "disconnect": "Desconectar",
     "statusConnecting": "conectando…",
     "statusConnected": "conectado",
     "statusNotConnected": "no conectado"
   },
-  "connectorOp": {
+  "supplierOp": {
     "run": "Ejecutar",
     "running": "Ejecutando…",
-    "sent": "Aceptado por el conector {kind} — verifique la bandeja de entrada para confirmar que llegó.",
+    "sent": "Aceptado por el proveedor {kind} — verifique la bandeja de entrada para confirmar que llegó.",
     "unreachable": "No se pudo alcanzar su instancia — verifique su conexión e intente de nuevo.",
-    "failedNoReason": "No funcionó y el conector no dio razón — verifique los registros del servidor."
+    "failedNoReason": "No funcionó y el proveedor no dio razón — verifique los registros del servidor."
   },
-  "connectorList": {
-    "loadError": "No se pudieron cargar sus conectores — recargue e intente de nuevo.",
+  "supplierList": {
+    "loadError": "No se pudieron cargar sus proveedores — recargue e intente de nuevo.",
     "delete": "Eliminar",
-    "removeAria": "eliminar conector"
+    "removeAria": "eliminar proveedor"
   },
   "skills": {
     "new": "+ habilidad nueva",

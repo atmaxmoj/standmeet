@@ -22,6 +22,7 @@ type AccessCode struct {
 	RequireGhostEvidence *bool
 	ProviderID           pgtype.UUID
 	MicrositeID          pgtype.UUID
+	BundleID             pgtype.UUID
 	LimitPerPeriod       []byte
 	Slug                 string
 	CreatedAt            pgtype.Timestamptz
@@ -55,9 +56,9 @@ type ApiKey struct {
 	CreatedAt     pgtype.Timestamptz
 }
 
-type ApiKeyCapabilityDenial struct {
-	KeyID        pgtype.UUID
-	CapabilityID string
+type ApiKeyBlockDenial struct {
+	KeyID   pgtype.UUID
+	BlockID string
 }
 
 type ApiKeySkillDenial struct {
@@ -65,10 +66,10 @@ type ApiKeySkillDenial struct {
 	SkillID pgtype.UUID
 }
 
-type ApiOpenCapability struct {
-	OwnerID      pgtype.UUID
-	CapabilityID string
-	OpenedAt     pgtype.Timestamptz
+type ApiOpenBlock struct {
+	OwnerID  pgtype.UUID
+	BlockID  string
+	OpenedAt pgtype.Timestamptz
 }
 
 type Application struct {
@@ -110,11 +111,54 @@ type BannedIp struct {
 	CreatedAt pgtype.Timestamptz
 }
 
-type CapabilitySetting struct {
-	OwnerID      pgtype.UUID
-	CapabilityID string
-	Enabled      bool
-	UpdatedAt    pgtype.Timestamptz
+type BlockConnection struct {
+	ID                 pgtype.UUID
+	OwnerID            pgtype.UUID
+	BlockID            string
+	Seam               string
+	Kind               string
+	CredentialsEnc     []byte
+	TokenEnc           []byte
+	TokenExpiresAt     pgtype.Timestamptz
+	Scopes             []byte
+	ConnectedAt        pgtype.Timestamptz
+	Active             bool
+	Spec               []byte
+	Binding            []byte
+	AuthScheme         string
+	Protocol           string
+	ExposeAsAgentTools bool
+	Title              string
+	CreatedAt          pgtype.Timestamptz
+	UpdatedAt          pgtype.Timestamptz
+}
+
+type BlockEnabled struct {
+	OwnerID   pgtype.UUID
+	BlockID   string
+	Enabled   bool
+	UpdatedAt pgtype.Timestamptz
+}
+
+type BlockFailure struct {
+	OwnerID  pgtype.UUID
+	BlockID  string
+	Title    string
+	Stderr   string
+	FailedAt pgtype.Timestamptz
+}
+
+type Bundle struct {
+	ID        pgtype.UUID
+	OwnerID   pgtype.UUID
+	Name      string
+	CreatedAt pgtype.Timestamptz
+}
+
+type BundleBlock struct {
+	BundleID pgtype.UUID
+	BlockID  string
+	AddedAt  pgtype.Timestamptz
 }
 
 type ChatReport struct {
@@ -125,9 +169,9 @@ type ChatReport struct {
 	CreatedAt      pgtype.Timestamptz
 }
 
-type CodeCapabilityDenial struct {
-	CodeID       pgtype.UUID
-	CapabilityID string
+type CodeBlockDenial struct {
+	CodeID  pgtype.UUID
+	BlockID string
 }
 
 type CodeCorpusDenial struct {
@@ -255,6 +299,16 @@ type InferenceUsage struct {
 	ProviderID   pgtype.UUID
 	Metered      bool
 	CreatedAt    pgtype.Timestamptz
+}
+
+type InstalledBlock struct {
+	ID        pgtype.UUID
+	OwnerID   pgtype.UUID
+	BlockID   string
+	Title     string
+	Manifest  string
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
 }
 
 type InstanceSetting struct {
@@ -385,28 +439,6 @@ type Owner struct {
 	LastVaultImportSkipped int32
 	LastVaultImportDeleted int32
 	CreatedAt              pgtype.Timestamptz
-}
-
-type OwnerConnector struct {
-	ID                 pgtype.UUID
-	OwnerID            pgtype.UUID
-	ConnectorID        string
-	Category           string
-	Kind               string
-	CredentialsEnc     []byte
-	TokenEnc           []byte
-	TokenExpiresAt     pgtype.Timestamptz
-	Scopes             []byte
-	ConnectedAt        pgtype.Timestamptz
-	Active             bool
-	Spec               []byte
-	Binding            []byte
-	AuthScheme         string
-	Protocol           string
-	ExposeAsAgentTools bool
-	Title              string
-	CreatedAt          pgtype.Timestamptz
-	UpdatedAt          pgtype.Timestamptz
 }
 
 type OwnerKeypair struct {

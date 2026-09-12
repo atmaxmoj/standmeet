@@ -17,7 +17,7 @@ package inference
 // Warning: System is **assembled by the client**: `/sessions` hands down a part id + persona,
 // the browser fetches the text and assembles it before sending it back. Which means it reflects
 // the world **as of the moment the session was sent**. Facts that only became true mid-session
-// (quota ran out, a connector went offline) can't get into this field — those go through
+// (quota ran out, a supplier went offline) can't get into this field — those go through
 // `AgentTurnInput.SessionNotes` instead (F-B-14).
 //
 // ConversationID —— the persisted chat ID (returned by issueSession); used by backend-internal

@@ -147,7 +147,7 @@ type UpdateSkillInput struct {
 //
 // This path used to **exist only at the sqlc layer, with zero callers** — so the
 // design doc's promise that "prompt or allowed-tools can be edited after install"
-// never had anywhere to land in the product, and an owner-supplied connector could
+// never had anywhere to land in the product, and an owner-supplied supplier could
 // only be invoked via a skill that declared its operation name (F-C-57).
 func (r *SkillRepo) Update(ctx context.Context, in *UpdateSkillInput) (entity.Skill, error) {
 	args, perr := parseOwnerAndSkillID(in.OwnerID, in.SkillID)

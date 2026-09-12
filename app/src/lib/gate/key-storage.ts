@@ -13,7 +13,7 @@
 // said "Couldn't check that just now. Try again." — retrying ten thousand
 // times changes nothing. So the check moved to **before the door**.
 //
-// What's being tested is **the capability itself** (whether `crypto.subtle`
+// What's being tested is **the ability itself** (whether `crypto.subtle`
 // exists), not the `isSecureContext` flag: if that's what's actually used,
 // that's what should be asked. The two are equivalent in browsers today,
 // and if they ever diverge, the error still points at the thing that

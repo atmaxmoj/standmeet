@@ -1,6 +1,6 @@
 package main
 
-// instructions —— the booker capability's system-prompt fragment, served via MCP
+// instructions —— the booker block’s system-prompt fragment, served via MCP
 // `instructions` (self-contained: the prompt ships with the plugin, not in core).
 //
 // The timezone paragraph moved here from the kernel's always-on datetime context
@@ -10,8 +10,8 @@ package main
 // timezone before proposing times" — so a visitor with nothing but corpus access
 // carried a scheduling instruction for a tool they could not see. The kernel now states
 // only facts (the current time, which zone it is in, and the visitor's zone when known);
-// what to *do* about those zones is this capability's business, and it appears only when
-// this capability is granted.
+// what to *do* about those zones is this block’s business, and it appears only when
+// this block is granted.
 const instructions = `This is the owner's calendar. **Your tools decide what you can offer** — read the tool list you were given and offer only what is on it. Some of these tools are only present when the owner's calendar grant allows that action, so a tool that is absent is not one to promise, apologise for, or ask the visitor to wait for; simply do not raise it. Never tell the visitor you will do something you have no tool for.
 
 1. **calendar_list_slots** — search a time window and get back the free [start, end] slots that pass the owner's booking policy. Pass ` + "`from_rfc3339`" + `, ` + "`until_rfc3339`" + `, and ` + "`duration_min`" + `. Use this *before* offering times so you propose ones the owner actually has free.
@@ -29,7 +29,7 @@ When the visitor's preferred time isn't free: don't keep hunting blindly. List t
 //
 // calendar_book declares the booked-confirmation card: time + GCal link + cancel
 // button + "send confirmation email?" widget. Cancel / send dispatch via mcp-ui:tool
-// (calendar_cancel / send_confirmation), the host runs the connector-backed op and
+// (calendar_cancel / send_confirmation), the host runs the supplier-backed op and
 // posts mcp-ui:tool-result back so the card flips to cancelled / sent.
 const (
 	slotsCardURI   = "ui://booker/slots-card.html"
@@ -179,7 +179,7 @@ const slotsCardHTML = `<!doctype html><html><head><meta charset="utf-8">
 // calendar_book succeeds. Receives the book result {ok,event_id,html_link,start,end} via
 // mcp-ui:data and renders: time + GCal link + cancel button + a "send confirmation email?"
 // widget. Cancel / send dispatch via mcp-ui:tool to the host (calendar_cancel /
-// send_confirmation); the host runs the connector-backed op and posts mcp-ui:tool-result
+// send_confirmation); the host runs the supplier-backed op and posts mcp-ui:tool-result
 // back, and the card flips to cancelled / sent on that. Credentials stay in the host the
 // whole time; the card is offline and only ever sends protocol messages.
 const bookedCardHTML = `<!doctype html><html><head><meta charset="utf-8">
@@ -209,7 +209,7 @@ const bookedCardHTML = `<!doctype html><html><head><meta charset="utf-8">
     button below it, even though the two consequences differ by an order of magnitude: one
     sends an email, the other gives back a slot of time that was already held. Every
     destructive/undo action elsewhere in the product looks like this (the corpus row's
-    DELETE, the connector card's DISCONNECT): don't compete on weight, use vermillion to
+    DELETE, the supplier card’s DISCONNECT): don't compete on weight, use vermillion to
     mark it as that class of action.
     Note: this comment lives inside a Go raw-string backtick literal — no backticks allowed
     in it, and avoid characters like × too. */
@@ -374,7 +374,7 @@ const bookedCardHTML = `<!doctype html><html><head><meta charset="utf-8">
    };
    var crow=el("div","row"); crow.appendChild(cancel); root.appendChild(crow);
    // The confirmation-email widget only enters the card when the owner has a usable mail
-   // connector (can_email): don't offer the entry point if it can't send.
+   // supplier (can_email): don't offer the entry point if it can't send.
    if(d.can_email){ root.appendChild(emailPrompt(d)); }
    // restore: cross-refresh state for this card (the host injects mcp-ui:data.state) — if
    // this booking is flagged cancelled, land directly on the cancelled terminal state: no

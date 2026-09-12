@@ -9,7 +9,7 @@
 // switches — meaning the owner **couldn't change, and couldn't see**, a safety-relevant
 // per-role switch like require_ghost_evidence from Claude Code. Now there's only one shape.
 //
-// A capability's own per-role settings (calendar.book's notify_owner) aren't part of this
+// A block's own per-role settings (calendar.book's notify_owner) aren't part of this
 // domain's shape; they're merged in through the Extras seam — this domain doesn't even know
 // their names.
 //
@@ -27,23 +27,23 @@ import (
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 )
 
-// RolesDeps — role use cases + "which capabilities may be mounted on dock buttons".
+// RolesDeps — role use cases + "which blocks may be mounted on dock buttons".
 //
-// ValidCapabilityIDs is **lazy**: the capability registry isn't complete until every plugin is
+// ValidBlockIDs is **lazy**: the block registry isn't complete until every plugin is
 // installed, and the convergence point is built before that. Storing a function rather than a
-// snapshot avoids dock buttons getting an empty table of valid capabilities.
+// snapshot avoids dock buttons getting an empty table of valid blocks.
 //
 // **It answers scoped to the skill list being written this time**: an `acl: role_granted`
-// capability only shows up in the session once this role's skills actually grant it. This used
-// to ask "which visitor capabilities does this instance register", which was broader than the
-// session side — a capability in the gap between the two would be accepted on the backend but
+// block only shows up in the session once this role's skills actually grant it. This used
+// to ask "which visitor blocks does this instance register", which was broader than the
+// session side — a block in the gap between the two would be accepted on the backend but
 // never shown to the visitor, and neither side would say anything about it (F-D-13).
 type RolesDeps struct {
-	Roles              usecase.RolesDeps
-	ValidCapabilityIDs func(ctx context.Context, ownerID string, skillIDs []string) []string
-	// Extras — the fields each capability occupies on a role (calendar.book's notify_owner
-	// was the first). access doesn't know any capability, only this seam. nil = no
-	// capability has declared per-role config.
+	Roles         usecase.RolesDeps
+	ValidBlockIDs func(ctx context.Context, ownerID string, skillIDs []string) []string
+	// Extras — the fields each block occupies on a role (calendar.book's notify_owner
+	// was the first). access doesn't know any block, only this seam. nil = no
+	// block has declared per-role config.
 	Extras RoleExtras
 }
 
@@ -102,8 +102,8 @@ func Roles(d RolesDeps) []fp.Op {
 		{
 			ID: "roles.set_dock_buttons",
 			Description: "Set a role's chat dock buttons (#109/#110): at most two " +
-				"{capability_id, trigger}. Clicking a button sends its trigger phrase as the " +
-				"visitor's message. capability_id must be a visitor-facing capability this " +
+				"{block_id, trigger}. Clicking a button sends its trigger phrase as the " +
+				"visitor's message. block_id must be a visitor-facing block this " +
 				"instance exposes; trigger must be non-empty.",
 			InputSchema: dockButtonsSchema,
 			Kind:        fp.Action,
@@ -134,8 +134,8 @@ var (
 			"buttons":{"type":"array","maxItems":2,
 				"description":"Up to two dock buttons.",
 				"items":{"type":"object",
-					"properties":{"capability_id":{"type":"string"},"trigger":{"type":"string"}},
-					"required":["capability_id","trigger"]}}
+					"properties":{"block_id":{"type":"string"},"trigger":{"type":"string"}},
+					"required":["block_id","trigger"]}}
 		},
 		"required":["role_id","buttons"]
 	}`)
@@ -161,7 +161,7 @@ func roleWriteSchema(required string) json.RawMessage {
 			"waypoints":{"type":"array","items":{"type":"object"},
 				"description":"Ghost-steering destinations for this role."},
 			"dock_buttons":{"type":"array","maxItems":2,"items":{"type":"object"},
-				"description":"Up to two chat dock buttons {capability_id, trigger}."},
+				"description":"Up to two chat dock buttons {block_id, trigger}."},
 			"require_ghost_evidence":{"type":"boolean",
 				"description":"Require cited evidence before the AI answers on this role."},
 			"provider_id":{"type":"string",
@@ -196,9 +196,9 @@ type roleOut struct {
 }
 
 // marshalRole — outbound payload = this domain's shape + the values of the fields each
-// capability puts on this role.
+// block puts on this role.
 //
-// The same thing as marshalCode, on a different subject. A capability's values are **merged
+// The same thing as marshalCode, on a different subject. A block's values are **merged
 // in**, not fields of this struct — access doesn't know their names, so they can't appear on
 // roleOut. notify_owner_on_booking used to sit right there, and had grown all the way into the
 // kernel's roles table.
@@ -313,14 +313,14 @@ func setRoleDockButtons(d RolesDeps) fp.Invoke {
 	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
 		var in dockButtonsArgs
 		if err := json.Unmarshal(raw, &in); err != nil {
-			return nil, fp.BadInput("dock_buttons must be an array of {capability_id, trigger}")
+			return nil, fp.BadInput("dock_buttons must be an array of {block_id, trigger}")
 		}
 		if err := fp.RequireArgs([2]string{"role_id", in.RoleID}); err != nil {
 			return nil, err
 		}
 		rl, err := usecase.SetRoleDockButtons(ctx, d.Roles, &usecase.SetDockButtonsInput{
 			OwnerID: ownerID, RoleID: in.RoleID, Buttons: nonNilDockButtons(in.Buttons),
-			DockableCapabilityIDs: d.ValidCapabilityIDs,
+			DockableBlockIDs: d.ValidBlockIDs,
 		})
 		if err != nil {
 			return nil, roleErr(err)

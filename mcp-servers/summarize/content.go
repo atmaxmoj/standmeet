@@ -1,8 +1,8 @@
 package main
 
-// instructions —— the summarize capability's system-prompt fragment, served via
+// instructions —— the summarize block’s system-prompt fragment, served via
 // MCP `instructions` (self-contained: the prompt ships with the plugin, not in
-// core). Mirrors the former prompts/capabilities/summarize_conversation.md.
+// core). Mirrors the former prompts/blocks/summarize_conversation.md.
 const instructions = `You can generate a polished HTML report summarizing the conversation — but ONLY when the visitor explicitly asks for one (a "summary", "recap", "write-up", "report", "something I can share with my team", etc.).
 
 Tool: **summarize_conversation**

@@ -1,4 +1,4 @@
-// bridge.go —— P.13: adapts ANY agentcore.Driver onto the real internal capability
+// bridge.go —— P.13: adapts ANY agentcore.Driver onto the real internal block
 // ports (sandbox.Runner / SkillGetter / MCPServerGetter / inference.Resolver). Each
 // adapter holds a Driver and DELEGATES — it carries no canned data of its own, so
 // these are the shared prod+eval bridge, NOT fixtures (check-no-mock stays green).
@@ -10,8 +10,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/atmaxmoj/standmeet/internal/capabilities/sandbox"
 	"github.com/atmaxmoj/standmeet/internal/conversation/inference"
+	"github.com/atmaxmoj/standmeet/internal/infra/sandbox"
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 )
 

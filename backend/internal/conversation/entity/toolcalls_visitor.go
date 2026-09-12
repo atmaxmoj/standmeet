@@ -24,8 +24,8 @@ package entity
 import "encoding/json"
 
 // corpusToolPrefix -- the name prefix for the retrieval family of tools. corpus is a
-// kernel-owned concept (not an externalized capability), so this layer is allowed to
-// know about it; knowing about specific capabilities like booker / mail would be overreach.
+// kernel-owned concept (not an externalized block), so this layer is allowed to
+// know about it; knowing about specific blocks like booker / mail would be overreach.
 const corpusToolPrefix = "corpus_"
 
 // VisitorToolCalls -- the persisted tool_calls JSON, mapped to the subset that's safe

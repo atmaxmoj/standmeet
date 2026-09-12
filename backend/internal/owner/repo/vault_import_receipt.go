@@ -10,7 +10,7 @@
 // `never fetched` for every row.
 //
 // This is its own file instead of living in owners.go: it's a read/write
-// pair belonging **to the capability itself**, not part of owner settings.
+// pair belonging **to the block itself**, not part of owner settings.
 
 package repo
 

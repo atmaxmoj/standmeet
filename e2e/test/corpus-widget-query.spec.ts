@@ -1,7 +1,7 @@
 // corpus-widget-query.spec.ts —— the SDK CorpusWidget query language actually shapes what renders on a
 // real page: `query="sort:title limit:2"` sorts alphabetically and caps to 2. parseCorpusQuery /
 // applyCorpusQuery are unit-tested, but the audit found no e2e rendered CorpusWidget WITH a query prop
-// over real data — the widget's own e2e never passes `query` ([[test-covers-capability-not-face]]).
+// over real data — the widget's own e2e never passes `query` ([[test-covers-block-not-face]]).
 //
 // Positive + falsifiable: three published entries (Zeta / Alpha / Mango, created in that non-alpha
 // order); the query must render exactly Alpha then Mango (the two alphabetically-first). Count 2 +

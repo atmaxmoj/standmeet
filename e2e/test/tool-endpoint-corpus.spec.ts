@@ -7,11 +7,11 @@
 // Invariants:
 //   - URL: POST /api/v1/sessions/{conv_id}/tools/{tool_name}
 //   - Auth: Bearer session_token
-//   - Happy path: returns {ok:true, result, capability_state}
-//   - Error, capability disabled: 404 + {ok:false, reason:"capability_not_enabled"}
+//   - Happy path: returns {ok:true, result, block_state}
+//   - Error, block disabled: 404 + {ok:false, reason:"block_not_enabled"}
 //   - Error, bad token: 401
 //   - Error, invalid args: 200 + tool envelope (the executor translates it itself)
-//   - Invariant: the capability_state field is always returned (kept in sync
+//   - Invariant: the block_state field is always returned (kept in sync
 //     with the frontend's zustand store)
 
 import { test, expect } from '@/fixtures/test';
@@ -24,7 +24,7 @@ import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
 import { createRole } from '@/fixtures/roles';
 import { issueSession } from '@/fixtures/visitor';
-import type { SessionCapability, VisitorSession } from '@/fixtures/visitor';
+import type { SessionBlock, VisitorSession } from '@/fixtures/visitor';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
@@ -47,7 +47,7 @@ interface ToolResp {
   ok: boolean;
   reason?: string;
   result?: unknown;
-  capability_state?: SessionCapability[];
+  block_state?: SessionBlock[];
 }
 
 async function setupCorpusToolOwner(playwright: Playwright): Promise<void> {
@@ -133,14 +133,14 @@ test.describe('tool endpoint · corpus_search / corpus_read / corpus_list', () =
     await setupCorpusToolOwner(playwright);
   });
 
-  test('corpus_search happy path → 200 + result array + capability_state',
+  test('corpus_search happy path → 200 + result array + block_state',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
       await assertCorpusSearchHappy(request);
       await request.dispose();
     });
 
-  test('corpus_list happy path → 200 + result + capability_state',
+  test('corpus_list happy path → 200 + result + block_state',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
       await assertCorpusListHappy(request);
@@ -179,7 +179,7 @@ test.describe('tool endpoint · corpus_search / corpus_read / corpus_list', () =
       await request.dispose();
     });
 
-  test('unknown tool name → 404 + {ok:false, reason:"capability_not_enabled"}',
+  test('unknown tool name → 404 + {ok:false, reason:"block_not_enabled"}',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
       const sess = await freshSession(request, CODE_FULL);
@@ -188,7 +188,7 @@ test.describe('tool endpoint · corpus_search / corpus_read / corpus_list', () =
       );
       expect(status).toBe(404);
       expect(body.ok).toBe(false);
-      expect(body.reason).toBe('capability_not_enabled');
+      expect(body.reason).toBe('block_not_enabled');
       await request.dispose();
     });
 
@@ -221,8 +221,8 @@ async function assertCorpusSearchHappy(request: APIRequestContext): Promise<void
   );
   expect(status).toBe(200);
   expect(body.ok).toBe(true);
-  expect(body.capability_state, 'always returns fresh cap state').toBeDefined();
-  expect(Array.isArray(body.capability_state)).toBe(true);
+  expect(body.block_state, 'always returns fresh cap state').toBeDefined();
+  expect(Array.isArray(body.block_state)).toBe(true);
 }
 
 async function assertCorpusListHappy(request: APIRequestContext): Promise<void> {
@@ -239,7 +239,7 @@ async function assertEmptyRoleSearchOk(request: APIRequestContext): Promise<void
   const { status, body } = await callTool(
     request, sess, 'corpus_search', { query: 'anything' },
   );
-  // The role has the corpus.retrieval capability but enabled=false (no
+  // The role has the corpus.retrieval block but enabled=false (no
   // corpus_uris); the tool is still exposed (by B-2's design: let the LLM
   // call it; the ACL denial returns empty).
   expect(status).toBe(200);

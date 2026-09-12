@@ -1,5 +1,5 @@
 // gateway.go —— the sandbox-side reach-back client. #135 constrained-reachback: booker's business logic
-// lives in this sandbox, and anything outside its reach (calendar connector / its own isolated storage /
+// lives in this sandbox, and anything outside its reach (calendar supplier / its own isolated storage /
 // owner metadata) is reached only through the **fixed vocabulary** of host ops, over the socket bound
 // into the sandbox. It can only call these ops, and cannot add a new one.
 //
@@ -64,33 +64,33 @@ func gwCall(op string, fields map[string]any) (json.RawMessage, error) {
 	return json.RawMessage(resp), nil
 }
 
-// gwConnectorInvoke —— calls one verb on the owner's active connector (calendar/mail) by name.
-func gwConnectorInvoke(
-	ownerID, category, verb string, args json.RawMessage,
+// gwSupplierInvoke —— calls one verb on the owner's active supplier (calendar/mail) by name.
+func gwSupplierInvoke(
+	ownerID, seam, verb string, args json.RawMessage,
 ) (json.RawMessage, error) {
-	return gwCall("connector.invoke", map[string]any{
-		"owner_id": ownerID, "category": category, "verb": verb, "args": args,
+	return gwCall("supplier.invoke", map[string]any{
+		"owner_id": ownerID, "seam": seam, "verb": verb, "args": args,
 	})
 }
 
-// gwConnectorInvokeBackground —— hands off to the host to run in the background (with retries), without
+// gwSupplierInvokeBackground —— hands off to the host to run in the background (with retries), without
 // waiting for the result. Used for calls where "the result shouldn't block the caller": a booking
 // confirmation notice. **Cannot** be replaced by spawning a goroutine in this process —— the sandbox
 // only lives for this one turn; the process may be reclaimed the moment the tool call returns, and a
 // retry backoff that hasn't fired yet would just die.
-func gwConnectorInvokeBackground(
-	ownerID, category, verb string, args json.RawMessage,
+func gwSupplierInvokeBackground(
+	ownerID, seam, verb string, args json.RawMessage,
 ) error {
-	_, err := gwCall("connector.invoke", map[string]any{
-		"owner_id": ownerID, "category": category, "verb": verb, "args": args,
+	_, err := gwCall("supplier.invoke", map[string]any{
+		"owner_id": ownerID, "seam": seam, "verb": verb, "args": args,
 		"background": true,
 	})
 	return err
 }
 
-// gwCapstoreInsert —— inserts a document into this cap's isolated storage, returns the record id.
-func gwCapstoreInsert(collection string, doc json.RawMessage) (string, error) {
-	resp, err := gwCall("capstore.insert", map[string]any{
+// gwBlockstoreInsert —— inserts a document into this cap's isolated storage, returns the record id.
+func gwBlockstoreInsert(collection string, doc json.RawMessage) (string, error) {
+	resp, err := gwCall("blockstore.insert", map[string]any{
 		"collection": collection, "doc": doc,
 	})
 	if err != nil {
@@ -100,12 +100,12 @@ func gwCapstoreInsert(collection string, doc json.RawMessage) (string, error) {
 		ID string `json:"id"`
 	}
 	if uerr := json.Unmarshal(resp, &r); uerr != nil {
-		return "", fmt.Errorf("capstore.insert decode: %w", uerr)
+		return "", fmt.Errorf("blockstore.insert decode: %w", uerr)
 	}
 	return r.ID, nil
 }
 
-// gwCapstoreClaim —— claims a key; only one caller gets it (the host guarantees this via a primary-key
+// gwBlockstoreClaim —— claims a key; only one caller gets it (the host guarantees this via a primary-key
 // conflict).
 //
 // Booking is "check busy times first → then insert"; when a second request squeezes into that window,
@@ -113,8 +113,8 @@ func gwCapstoreInsert(collection string, doc json.RawMessage) (string, error) {
 // produced two side-by-side meetings on the real calendar (F-B-15). The claim covers exactly that window.
 // Failing to claim isn't an error: losing the race to someone else is a normal outcome, and the caller
 // answers with a different message based on it.
-func gwCapstoreClaim(collection, key string, ttlSeconds int) bool {
-	resp, err := gwCall("capstore.claim", map[string]any{
+func gwBlockstoreClaim(collection, key string, ttlSeconds int) bool {
+	resp, err := gwCall("blockstore.claim", map[string]any{
 		"collection": collection, "key": key, "ttl_seconds": ttlSeconds,
 	})
 	if err != nil {
@@ -132,14 +132,14 @@ func gwCapstoreClaim(collection, key string, ttlSeconds int) bool {
 	return r.Claimed
 }
 
-// gwCapstoreRelease —— releases the slot this caller claimed (done, or failed). Not releasing is fine too; the TTL expires it.
-func gwCapstoreRelease(collection, key string) {
-	_, _ = gwCall("capstore.release", map[string]any{"collection": collection, "key": key})
+// gwBlockstoreRelease —— releases the slot this caller claimed (done, or failed). Not releasing is fine too; the TTL expires it.
+func gwBlockstoreRelease(collection, key string) {
+	_, _ = gwCall("blockstore.release", map[string]any{"collection": collection, "key": key})
 }
 
-// gwCapstoreQuery —— fetches documents in this cap's collection whose doc matches the filter.
-func gwCapstoreQuery(collection string, filter json.RawMessage) ([]json.RawMessage, error) {
-	resp, err := gwCall("capstore.query", map[string]any{
+// gwBlockstoreQuery —— fetches documents in this cap's collection whose doc matches the filter.
+func gwBlockstoreQuery(collection string, filter json.RawMessage) ([]json.RawMessage, error) {
+	resp, err := gwCall("blockstore.query", map[string]any{
 		"collection": collection, "filter": filter,
 	})
 	if err != nil {
@@ -149,14 +149,14 @@ func gwCapstoreQuery(collection string, filter json.RawMessage) ([]json.RawMessa
 		Records []json.RawMessage `json:"records"`
 	}
 	if uerr := json.Unmarshal(resp, &r); uerr != nil {
-		return nil, fmt.Errorf("capstore.query decode: %w", uerr)
+		return nil, fmt.Errorf("blockstore.query decode: %w", uerr)
 	}
 	return r.Records, nil
 }
 
-// gwCapstoreCount —— counts documents in this cap's collection matching the filter (a quota gate).
-func gwCapstoreCount(collection string, filter json.RawMessage) (int64, error) {
-	resp, err := gwCall("capstore.count", map[string]any{
+// gwBlockstoreCount —— counts documents in this cap's collection matching the filter (a quota gate).
+func gwBlockstoreCount(collection string, filter json.RawMessage) (int64, error) {
+	resp, err := gwCall("blockstore.count", map[string]any{
 		"collection": collection, "filter": filter,
 	})
 	if err != nil {
@@ -166,14 +166,14 @@ func gwCapstoreCount(collection string, filter json.RawMessage) (int64, error) {
 		Count int64 `json:"count"`
 	}
 	if uerr := json.Unmarshal(resp, &r); uerr != nil {
-		return 0, fmt.Errorf("capstore.count decode: %w", uerr)
+		return 0, fmt.Errorf("blockstore.count decode: %w", uerr)
 	}
 	return r.Count, nil
 }
 
-// gwCapstoreDelete —— deletes records in this cap's collection matching the filter, returns the deleted row count.
-func gwCapstoreDelete(collection string, filter json.RawMessage) (int64, error) {
-	resp, err := gwCall("capstore.delete", map[string]any{
+// gwBlockstoreDelete —— deletes records in this cap's collection matching the filter, returns the deleted row count.
+func gwBlockstoreDelete(collection string, filter json.RawMessage) (int64, error) {
+	resp, err := gwCall("blockstore.delete", map[string]any{
 		"collection": collection, "filter": filter,
 	})
 	if err != nil {
@@ -183,7 +183,7 @@ func gwCapstoreDelete(collection string, filter json.RawMessage) (int64, error) 
 		Deleted int64 `json:"deleted"`
 	}
 	if uerr := json.Unmarshal(resp, &r); uerr != nil {
-		return 0, fmt.Errorf("capstore.delete decode: %w", uerr)
+		return 0, fmt.Errorf("blockstore.delete decode: %w", uerr)
 	}
 	return r.Deleted, nil
 }
@@ -205,23 +205,23 @@ func gwOwnerMeta(ownerID, field string) (string, error) {
 	return r.Value, nil
 }
 
-// gwCapConfig —— asks the host for **this capability's own configuration**.
+// gwBlockConfig —— asks the host for **this block’s own configuration**.
 //
-// Why not query that document from capstore directly: **the defaults live in the declaration** (the
+// Why not query that document from blockstore directly: **the defaults live in the declaration** (the
 // host's manifest ConfigField), and the sandbox can't see the declaration. Querying storage directly
 // would read nothing when the owner never set a value, forcing us to write a second copy of the
 // defaults here —— that's exactly the root cause of host/sandbox policy drifting apart before (the host
 // said 18:00 with a 15-minute buffer, this side used 17:00 with a 0-minute buffer).
 //
 // What this op returns is **the final value, already backfilled from the declaration**; use it as-is.
-func gwCapConfig(ownerID string) (map[string]json.RawMessage, error) {
-	resp, err := gwCall("capconfig.get", map[string]any{"owner_id": ownerID})
+func gwBlockConfig(ownerID string) (map[string]json.RawMessage, error) {
+	resp, err := gwCall("blockconfig.get", map[string]any{"owner_id": ownerID})
 	if err != nil {
 		return nil, err
 	}
 	var out map[string]json.RawMessage
 	if uerr := json.Unmarshal(resp, &out); uerr != nil {
-		return nil, fmt.Errorf("capconfig decode: %w", uerr)
+		return nil, fmt.Errorf("blockconfig decode: %w", uerr)
 	}
 	return out, nil
 }
@@ -232,9 +232,9 @@ type capRecord struct {
 	Doc json.RawMessage `json:"doc"`
 }
 
-// gwCapstoreQueryRecords —— a query that includes the id. Canceling a booking by id first requires being able to see the id.
-func gwCapstoreQueryRecords(collection string, filter json.RawMessage) ([]capRecord, error) {
-	resp, err := gwCall("capstore.query_records", map[string]any{
+// gwBlockstoreQueryRecords —— a query that includes the id. Canceling a booking by id first requires being able to see the id.
+func gwBlockstoreQueryRecords(collection string, filter json.RawMessage) ([]capRecord, error) {
+	resp, err := gwCall("blockstore.query_records", map[string]any{
 		"collection": collection, "filter": filter,
 	})
 	if err != nil {
@@ -244,14 +244,14 @@ func gwCapstoreQueryRecords(collection string, filter json.RawMessage) ([]capRec
 		Records []capRecord `json:"records"`
 	}
 	if uerr := json.Unmarshal(resp, &out); uerr != nil {
-		return nil, fmt.Errorf("capstore query_records decode: %w", uerr)
+		return nil, fmt.Errorf("blockstore query_records decode: %w", uerr)
 	}
 	return out.Records, nil
 }
 
-// gwCapstoreDeleteByID —— deletes one of our own records by its record id.
-func gwCapstoreDeleteByID(collection, recordID string) (int64, error) {
-	resp, err := gwCall("capstore.delete_by_id", map[string]any{
+// gwBlockstoreDeleteByID —— deletes one of our own records by its record id.
+func gwBlockstoreDeleteByID(collection, recordID string) (int64, error) {
+	resp, err := gwCall("blockstore.delete_by_id", map[string]any{
 		"collection": collection, "record_id": recordID,
 	})
 	if err != nil {
@@ -261,7 +261,7 @@ func gwCapstoreDeleteByID(collection, recordID string) (int64, error) {
 		Deleted int64 `json:"deleted"`
 	}
 	if uerr := json.Unmarshal(resp, &out); uerr != nil {
-		return 0, fmt.Errorf("capstore delete_by_id decode: %w", uerr)
+		return 0, fmt.Errorf("blockstore delete_by_id decode: %w", uerr)
 	}
 	return out.Deleted, nil
 }

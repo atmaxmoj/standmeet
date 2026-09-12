@@ -14,7 +14,7 @@ import {
 } from '@/lib/api/public';
 import { readBYOAIVaultMeta } from '@/lib/gate/byoai-vault';
 import { loadStoredSession } from '@/lib/gate/use-gate';
-import { useCapabilityStore } from '@/lib/visitor/capability-store';
+import { useBlockStore } from '@/lib/visitor/block-store';
 import { useDockButtonsStore } from '@/lib/visitor/dock-buttons-store';
 import { useGhostsStore } from '@/lib/visitor/ghosts-store';
 import { useToolSpecsStore } from '@/lib/visitor/tool-specs-store';
@@ -79,7 +79,7 @@ export async function ensureSession(
   const issued = await issueFresh(deps);
   const sess = toPageSession(issued);
   ref.current = sess;
-  useCapabilityStore.getState().setStates(extractCapabilities(issued));
+  useBlockStore.getState().setStates(extractBlocks(issued));
   // G-8: tool_specs feed the throbber-label registry, components read
   // progress_label
   useToolSpecsStore.getState().setSpecs(issued.tool_specs ?? []);
@@ -94,7 +94,7 @@ export async function ensureSession(
 }
 
 // IssuedSessionWithExtras —— sdk-core's PublicSessionResponse already
-// includes capabilities? / tool_specs? / system_prompt_part_ids?; aliased
+// includes blocks? / tool_specs? / system_prompt_part_ids?; aliased
 // here so this file needs fewer imports.
 type IssuedSessionWithExtras = PublicSessionResponse;
 
@@ -107,10 +107,10 @@ function toPageSession(issued: IssuedSessionWithExtras): PageSession {
   };
 }
 
-function extractCapabilities(issued: IssuedSessionWithExtras): readonly {
+function extractBlocks(issued: IssuedSessionWithExtras): readonly {
   id: string; enabled: boolean; quota_remaining?: number; policy_summary?: string;
 }[] {
-  return issued.capabilities ?? [];
+  return issued.blocks ?? [];
 }
 
 async function issueFresh(deps: SessionDeps): Promise<PublicSessionResponse> {
@@ -121,16 +121,16 @@ async function issueFresh(deps: SessionDeps): Promise<PublicSessionResponse> {
 }
 
 // reuseStored —— rebuild PublicSessionResponse from the persisted blob.
-// G-1 fix: persist + restore capabilities + tool_specs (D-5 lost them).
+// G-1 fix: persist + restore blocks + tool_specs (D-5 lost them).
 type StoredFull = Pick<PublicSessionResponse,
-  'session_token' | 'conversation_id' | 'capabilities' | 'tool_specs' |
+  'session_token' | 'conversation_id' | 'blocks' | 'tool_specs' |
   'system_prompt_part_ids' | 'system_prompt_persona' | 'ghosts' | 'dock_buttons'>;
 
 function reuseStored(stored: StoredFull): PublicSessionResponse {
   return {
     session_token: stored.session_token,
     conversation_id: stored.conversation_id,
-    capabilities: stored.capabilities,
+    blocks: stored.blocks,
     tool_specs: stored.tool_specs,
     system_prompt_part_ids: stored.system_prompt_part_ids,
     system_prompt_persona: stored.system_prompt_persona,

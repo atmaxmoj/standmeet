@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # check-hostops-via-desk self-test: a gate that cannot go red is not a gate.
 #
-# Plants BOTH escapes the gate exists to stop — the composition root opening its own capability
+# Plants BOTH escapes the gate exists to stop — the composition root opening its own host
 # socket, and the composition root minting its own host op — and asserts each one is caught.
 
 set -euo pipefail
@@ -19,12 +19,12 @@ package main
 
 // plantedSelfTestSocket —— planted by check-hostops-via-desk-test.sh; removed again.
 func plantedSelfTestSocket() string {
-	return "capsocket.ListenWith"
+	return "hostsocket.ListenWith"
 }
 GO
 
 if bash "$HERE/check-hostops-via-desk.sh" >/dev/null 2>&1; then
-  echo "check-hostops-via-desk: SELF-TEST FAILED — the root opening its own capability socket passed."
+  echo "check-hostops-via-desk: SELF-TEST FAILED — the root opening its own host socket passed."
   exit 1
 fi
 

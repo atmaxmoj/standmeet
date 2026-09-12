@@ -1,13 +1,13 @@
 // AgentWidget —— the agent entry, and the ONE that inherits from the access code.
 //
-// Two states, decided structurally (never a per-capability choice in this file):
+// Two states, decided structurally (never a per-block choice in this file):
 //   • No grant  → an ask box that hands off to /gate (carrying the question). A codeless visitor
 //                 can't chat inline — the corpus is gated — so this is a click-through to /gate.
 //   • Has grant → the code's agent, inline. It ADOPTS the stored session (useChatSession does this
 //                 for us), so corpus scope + persona + quota + accounting all come from the code
 //                 with nothing to wire; and it renders the code's dock buttons straight from the
 //                 stored blob (adoptedDockButtons) — whatever the owner configured on the role
-//                 shows up, so a NEW capability inherits with no change here.
+//                 shows up, so a NEW block inherits with no change here.
 //
 // The parity that "the embedded agent inherits everything the non-embedded one grants" is enforced
 // by a test, not asserted by this widget (embedded-agent-inherits-structurally).
@@ -126,10 +126,10 @@ function InlineAgent(): React.ReactElement {
         <div data-testid="agent-widget-dock" className="flex flex-wrap gap-2 mb-4">
           {dock.map((b) => (
             <button
-              key={b.capability_id}
+              key={b.block_id}
               type="button"
               onClick={() => send(b.trigger)}
-              data-testid={`agent-widget-dock-${b.capability_id}`}
+              data-testid={`agent-widget-dock-${b.block_id}`}
               className="mono text-[11px] tracking-[0.06em] border border-(--color-rule) hover:border-(--color-accent) hover:text-(--color-accent) transition-colors rounded-[3px] px-3 py-1.5"
             >
               {b.title}

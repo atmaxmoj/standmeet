@@ -12,7 +12,7 @@ import (
 
 func TestClassifyRendersDisplayError(t *testing.T) {
 	t.Parallel()
-	msg := "This connector is built-in and can’t be edited."
+	msg := "This supplier is built-in and can’t be edited."
 	env := apierr.Classify(apierr.Display(http.StatusConflict, "builtin_readonly", msg), nil)
 	if env.Status != http.StatusConflict || env.Code != "builtin_readonly" {
 		t.Fatalf("display error not rendered: %+v", env)
@@ -26,7 +26,7 @@ func TestClassifyUnwrapsWrappedDisplayError(t *testing.T) {
 	t.Parallel()
 	// A mid-layer fmt.Errorf("...: %w", de) must not bury the display info — errors.As unwraps.
 	de := apierr.Display(http.StatusBadRequest, "bad_spec", "The spec is invalid.")
-	env := apierr.Classify(fmt.Errorf("save connector: %w", de), nil)
+	env := apierr.Classify(fmt.Errorf("save supplier: %w", de), nil)
 	if env.Status != http.StatusBadRequest || env.Code != "bad_spec" {
 		t.Fatalf("wrapped display error not rendered: %+v", env)
 	}

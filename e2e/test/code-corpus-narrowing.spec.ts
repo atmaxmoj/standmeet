@@ -1,5 +1,5 @@
 // code-corpus-narrowing.spec.ts -- the **code layer** of the corpus class among the three
-// ACL classes (capability/skill have had it for a while; corpus was previously missing).
+// ACL classes (block/skill have had it for a while; corpus was previously missing).
 //
 // The owner's scenario, verbatim: a CV is not public, then gets targeted access via role
 // and code -- a recruiter's code can see it, other codes cannot. The role grants the

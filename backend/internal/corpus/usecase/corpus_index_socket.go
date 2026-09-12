@@ -58,7 +58,7 @@ func newPGLister(deps *IndexDeps) *pgCorpusLister {
 	}
 }
 
-// CorpusHostOps — the corpus-reading ops this domain exposes to sandboxed capabilities,
+// CorpusHostOps — the corpus-reading ops this domain exposes to sandboxed blocks,
 // backed by any Lister. Prod injects a pgCorpusLister via CorpusHostOpsFor; agentcore's eval
 // mini-host injects a Driver-backed in-memory lister, so a consumer assembles without ever
 // touching postgres. Names stay canonical (corpus_search, not corpus.search) — these are

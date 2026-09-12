@@ -35,7 +35,7 @@ import {
   execSQL, findSetupToken, querySQL, resetInstance, restartBackend,
 } from '@/fixtures/instance';
 import { changeAccountEmail } from '@/fixtures/admin-mutations';
-import { configureMailConnector } from '@/fixtures/mail';
+import { configureMailSupplier } from '@/fixtures/mail';
 import { callTool, initMCP } from '@/fixtures/mcp';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
@@ -90,11 +90,11 @@ async function loginStatus(
 async function seedInstance(request: APIRequestContext): Promise<void> {
   resetInstance();
   await claim(request, findSetupToken(), OWNER);
-  // Configure the mail connector: **the new columns are only used on the
+  // Configure the mail supplier: **the new columns are only used on the
   // pending-confirmation path**. Without it, changing the email goes through a
   // direct swap and never touches the three new columns even once — and then
   // "the new feature works" would be a claim nothing actually verified.
-  await configureMailConnector(request, OWNER.email, OWNER.password);
+  await configureMailSupplier(request, OWNER.email, OWNER.password);
   // Seed a writing: the replay-backfill test needs to assert "the color the owner
   // picked wasn't wiped out", and a freshly reset instance has none — that test
   // would skip itself, becoming an assertion that can never fail

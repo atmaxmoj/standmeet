@@ -50,7 +50,10 @@ describe('bot token 从实例取', () => {
     // The "not configured yet" notice is said only once — repeating the same line
     // every 15 seconds would make the log unreadable.
     expect(logs, 'the waiting notice is said once, not on every poll').toHaveLength(1);
-    expect(logs[0]).toMatch(/admin\/connectors/);
+    // The notice must send the owner to a page that EXISTS. It said /admin/connectors,
+    // which is the pre-rename name — that route is gone, so the one line the bridge ever
+    // prints was pointing at a 404 ([[vocabulary-must-not-diverge]]).
+    expect(logs[0]).toMatch(/admin\/suppliers/);
   });
 
   it('内部口暂时挂了也接着等，不把桥拖死', async () => {

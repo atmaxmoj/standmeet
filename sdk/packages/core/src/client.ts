@@ -414,7 +414,7 @@ function parseErrJSON(s: string): (ErrEnvelope & { error?: ErrEnvelope }) | null
 
 // composeSystem —— this session's system prompt: first fetches the fixed
 // fragments segment by segment via `system_prompt_part_ids` (visitor-header
-// + one segment per capability), then appends this session's **dynamic**
+// + one segment per block), then appends this session's **dynamic**
 // persona segment after them (role persona + this code's own prompt + the
 // granted skill list). Order matters: persona is what the owner wrote for
 // this audience, layered on top of the general instructions —— identical to
@@ -432,7 +432,7 @@ async function composeSystem(
   const parts: string[] = [];
   for (const id of session.system_prompt_part_ids ?? []) {
     // Encode one path **segment** at a time: an id looks like
-    // `capabilities/corpus.retrieval`, and encoding the whole string would
+    // `blocks/corpus.retrieval`, and encoding the whole string would
     // turn the slash into %2F, missing the route match → 404 → this segment
     // silently dropped, and the model misses a whole block of instructions.
     const path = id.split('/').map(encodeURIComponent).join('/');

@@ -1,4 +1,32 @@
 {
+  "blocks": {
+    "installKicker": "install",
+    "installHeading": "add a block",
+    "installIntro": "Paste a block's manifest. It says what the block is called, who it faces, how to start it, and what settings it wants.",
+    "installPlaceholder": "id: acme.widget\ntitle: Acme Widget\nversion: \"1\"\nshape: visitor_only",
+    "install": "install",
+    "installedToast": "Block installed",
+    "bundlesKicker": "assemble",
+    "bundlesHeading": "bundles",
+    "bundlesIntro": "A bundle is a named set of blocks. Point a code at one and it can use exactly these — edited live, so taking a block out reaches sessions already open.",
+    "bundleNamePlaceholder": "recruiter",
+    "create": "create",
+    "bundleCreatedToast": "Bundle created",
+    "remove": "remove",
+    "removedToast": "Removed",
+    "addBlock": "+ {id}",
+    "addedToast": "Added",
+    "grantNet": "net(allowed)",
+    "blocksFailed": "{count, plural, one {# block failed} other {# blocks failed}}",
+    "settings": "settings",
+    "save": "save",
+    "savedToast": "Saved",
+    "close": "close",
+    "codeBundleLabel": "bundle · what this code can use",
+    "codeBundleNone": "no bundle — use the role's grant",
+    "codeBundle": "bundle · {name}",
+    "blockOff": "· off"
+  },
   "credField": {
     "host": "host",
     "port": "port",
@@ -100,19 +128,19 @@
     "keyId": "key id",
     "deletedToast": "Key deleted"
   },
-  "connectors": {
-    "intro": "Connectors let the agent reach external services — Calendar and Mail are live below, and you can upload your own (OpenAPI / protocol) connector to add more.",
-    "catalogError": "Couldn’t load the connector catalog — reload and retry.",
-    "overwritePrompt": "A <mono>{category}</mono> connector already exists. Overwrite it?",
+  "suppliers": {
+    "intro": "Suppliers let the agent reach external services — Calendar and Mail are live below, and you can upload your own (OpenAPI / protocol) supplier to add more.",
+    "catalogError": "Couldn’t load the supplier catalog — reload and retry.",
+    "overwritePrompt": "A <mono>{seam}</mono> supplier already exists. Overwrite it?",
     "overwrite": "Overwrite",
-    "add": "+ add connector",
+    "add": "+ add supplier",
     "builtinHeading": "Ready to connect",
     "builtinCount": "{count} available",
-    "uploadedHeading": "Connectors you uploaded",
+    "uploadedHeading": "Suppliers you uploaded",
     "uploadedCount": "{count} installed",
     "kicker": "integrations",
     "count": "calendar · mail live · upload your own",
-    "removedToast": "Connector removed"
+    "removedToast": "Supplier removed"
   },
   "calendar": {
     "heading": "Google Calendar",
@@ -134,32 +162,32 @@
     "leadDays": "min days in advance",
     "bufferMin": "buffer min (around existing events)"
   },
-  "capabilities": {
+  "blockPanel": {
     "kicker": "availability",
-    "heading": "capabilities",
-    "intro": "Turn a capability off and its tools vanish from every visitor session. Built-in capabilities can be disabled but not deleted; only the ones you authored can be removed.",
-    "empty": "no capabilities registered.",
+    "heading": "blocks",
+    "intro": "Turn a block off and its tools vanish from every visitor session. Built-in blocks can be disabled but not deleted; only the ones you authored can be removed.",
+    "empty": "no blocks registered.",
     "loading": "loading…",
-    "removeTitle": "remove capability",
-    "removedToast": "Capability removed"
+    "removeTitle": "remove block",
+    "removedToast": "Block removed"
   },
-  "connectorCard": {
+  "supplierCard": {
     "disconnect": "Disconnect",
     "statusConnecting": "connecting…",
     "statusConnected": "connected",
     "statusNotConnected": "not connected"
   },
-  "connectorOp": {
+  "supplierOp": {
     "run": "Run",
     "running": "Running…",
-    "sent": "Accepted by the {kind} connector — check the inbox to confirm it arrived.",
+    "sent": "Accepted by the {kind} supplier — check the inbox to confirm it arrived.",
     "unreachable": "Couldn’t reach your instance — check your connection and retry.",
-    "failedNoReason": "It didn’t work, and the connector gave no reason — check the server logs."
+    "failedNoReason": "It didn’t work, and the supplier gave no reason — check the server logs."
   },
-  "connectorList": {
-    "loadError": "Couldn’t load your connectors — reload and retry.",
+  "supplierList": {
+    "loadError": "Couldn’t load your suppliers — reload and retry.",
     "delete": "Delete",
-    "removeAria": "remove connector"
+    "removeAria": "remove supplier"
   },
   "skills": {
     "new": "+ new skill",

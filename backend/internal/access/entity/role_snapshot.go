@@ -22,15 +22,15 @@ import (
 // RoleSnapshot — the Role state frozen at session start. All fields are immutable;
 // constructed only through NewRoleSnapshot, slice containers are defensively cloned.
 type RoleSnapshot struct {
-	// capConfig —— frozen per-capability, per-role config: capability id -> JSON config.
+	// blockConfig —— frozen per-block, per-role config: block id -> JSON config.
 	// This domain knows none of the keys. Used to be a notifyOwnerOnBooking bool — a
 	// business switch grown onto the kernel snapshot, even a roles-table column — while
 	// mcpclient's own comment said "the host neither sends nor knows what booking notify
 	// is". Name and fact were fighting each other.
-	// Frozen because capconfig is live storage the owner can change anytime; a visitor's
+	// Frozen because blockconfig is live storage the owner can change anytime; a visitor's
 	// session must run on the config as it stood at entry — same reasoning as freezing the
 	// corpus allowlist and waypoints. (Listed first: fieldalignment, not importance.)
-	capConfig      map[string]json.RawMessage
+	blockConfig    map[string]json.RawMessage
 	frozenAt       time.Time
 	roleID         string
 	roleName       string
@@ -43,12 +43,12 @@ type RoleSnapshot struct {
 	corpusURIs   []string
 	skillPrompts []string
 	allowedTools []string
-	// deniedCapabilities —— code-tier ACL: capability ids this code explicitly denies.
+	// deniedBlocks —— code-tier ACL: block ids this code explicitly denies.
 	// Orthogonal to allowedTools: exposure gate is baseGrant (ACL=always, or allowedTools
 	// contains it) AND NOT denied. Stored separately (not subtracted from allowedTools)
-	// since an ACL=always capability (retrieval/ask_visitor) never enters allowedTools —
+	// since an ACL=always block (retrieval/ask_visitor) never enters allowedTools —
 	// nothing to subtract; it can only be blocked at the gate.
-	deniedCapabilities []string
+	deniedBlocks []string
 	// deniedCorpusURIs —— corpus tier of the three-tier ACL: globs this code takes back
 	// from the role's positive list. Orthogonal to corpusURIs (not removed from it): glob
 	// subtraction can't remove a list entry (`subjectivity://cv` can't subtract from
@@ -72,10 +72,10 @@ type RoleSnapshot struct {
 
 // RoleSnapshotInit —— input for NewRoleSnapshot.
 type RoleSnapshotInit struct {
-	// CapConfig —— each capability's config on this role (capability id -> JSON object).
-	// Read once from capconfig's role scope at the moment of freezing. This domain does
+	// BlockConfig —— each block's config on this role (block id -> JSON object).
+	// Read once from blockconfig's role scope at the moment of freezing. This domain does
 	// not interpret any of the keys inside.
-	CapConfig      map[string]json.RawMessage
+	BlockConfig    map[string]json.RawMessage
 	FrozenAt       time.Time
 	RoleID         string
 	RoleName       string
@@ -86,7 +86,7 @@ type RoleSnapshotInit struct {
 	CorpusURIs           []string
 	SkillPrompts         []string
 	AllowedTools         []string
-	DeniedCapabilities   []string
+	DeniedBlocks         []string
 	DeniedCorpusURIs     []string
 	SkillIDs             []string
 	MCPServerIDs         []string
@@ -109,7 +109,7 @@ func NewRoleSnapshot(i *RoleSnapshotInit) RoleSnapshot {
 		corpusURIs:           cloneStrings(i.CorpusURIs),
 		skillPrompts:         cloneStrings(i.SkillPrompts),
 		allowedTools:         cloneStrings(i.AllowedTools),
-		deniedCapabilities:   cloneStrings(i.DeniedCapabilities),
+		deniedBlocks:         cloneStrings(i.DeniedBlocks),
 		deniedCorpusURIs:     cloneStrings(i.DeniedCorpusURIs),
 		skillIDs:             cloneStrings(i.SkillIDs),
 		mcpServerIDs:         cloneStrings(i.MCPServerIDs),
@@ -118,14 +118,14 @@ func NewRoleSnapshot(i *RoleSnapshotInit) RoleSnapshot {
 		requireGhostEvidence: i.RequireGhostEvidence,
 		providerID:           i.ProviderID,
 		gasMetered:           i.GasMetered,
-		capConfig:            cloneCapConfig(i.CapConfig),
+		blockConfig:          cloneBlockConfig(i.BlockConfig),
 	}
 }
 
-// cloneCapConfig —— defensive copy. nil -> an empty map: "this role has no capability
+// cloneBlockConfig —— defensive copy. nil -> an empty map: "this role has no block
 // config" and "the config went missing" must be the same safe answer, not a nil that can
 // crash the caller.
-func cloneCapConfig(in map[string]json.RawMessage) map[string]json.RawMessage {
+func cloneBlockConfig(in map[string]json.RawMessage) map[string]json.RawMessage {
 	out := make(map[string]json.RawMessage, len(in))
 	for k, v := range in {
 		out[k] = slices.Clone(v)
@@ -143,11 +143,11 @@ func (s *RoleSnapshot) ProviderID() string { return s.providerID }
 // GasMetered —— the frozen gas-meter switch.
 func (s *RoleSnapshot) GasMetered() bool { return s.gasMetered }
 
-// CapConfig —— the frozen per-capability, per-role config (defensive copy). The assembly
-// layer hands each capability its slice via the tool-call's `_meta`; the sandboxed plugin
+// BlockConfig —— the frozen per-block, per-role config (defensive copy). The assembly
+// layer hands each block its slice via the tool-call's `_meta`; the sandboxed plugin
 // reads its own share. This domain does not interpret any of the keys.
-func (s *RoleSnapshot) CapConfig() map[string]json.RawMessage {
-	return cloneCapConfig(s.capConfig)
+func (s *RoleSnapshot) BlockConfig() map[string]json.RawMessage {
+	return cloneBlockConfig(s.blockConfig)
 }
 
 // Waypoints —— the frozen guidance destinations (defensive copy, evidence_refs cloned too).
@@ -190,24 +190,24 @@ func (s *RoleSnapshot) SkillPrompts() []string { return slices.Clone(s.skillProm
 // copy).
 func (s *RoleSnapshot) AllowedTools() []string { return slices.Clone(s.allowedTools) }
 
-// DeniedCapabilities —— capability ids the code tier explicitly denies (defensive copy).
-// The capability-exposure gate uses it to block a capability that passed baseGrant
+// DeniedBlocks —— block ids the code tier explicitly denies (defensive copy).
+// The block-exposure gate uses it to block one that passed baseGrant
 // (including an ACL=always one).
-func (s *RoleSnapshot) DeniedCapabilities() []string { return slices.Clone(s.deniedCapabilities) }
+func (s *RoleSnapshot) DeniedBlocks() []string { return slices.Clone(s.deniedBlocks) }
 
-// AllowsCapability —— capability-exposure verdict for the frozen part of the three-tier ACL
+// AllowsBlock —— block-exposure verdict for the frozen part of the three-tier ACL
 // (the live gate is computed elsewhere): baseGrant (aclAlways, or allowedTools contains it)
-// AND not code-denied. Truth anchor for the three-tier ACL (capability-acl-hierarchy.md §3):
+// AND not code-denied. Truth anchor for the three-tier ACL (block-acl-hierarchy.md §3):
 // a code can only subtract; even ACL=always can be denied (never in allowedTools, so only
 // stoppable at the gate).
-func (s *RoleSnapshot) AllowsCapability(capID string, aclAlways bool) bool {
-	if slices.Contains(s.deniedCapabilities, capID) {
+func (s *RoleSnapshot) AllowsBlock(blockID string, aclAlways bool) bool {
+	if slices.Contains(s.deniedBlocks, blockID) {
 		return false
 	}
-	return aclAlways || slices.Contains(s.allowedTools, capID)
+	return aclAlways || slices.Contains(s.allowedTools, blockID)
 }
 
-// SkillIDs —— the snapshotted skill id list, used for capability gating at agent invoke time.
+// SkillIDs —— the snapshotted skill id list, used for block gating at agent invoke time.
 func (s *RoleSnapshot) SkillIDs() []string { return slices.Clone(s.skillIDs) }
 
 // MCPServerIDs —— the snapshotted MCP server id list, used for mcp client wiring.
@@ -257,14 +257,14 @@ func (s *RoleSnapshot) MarshalJSON() ([]byte, error) {
 		CorpusURIs:           s.corpusURIs,
 		SkillPrompts:         s.skillPrompts,
 		AllowedTools:         s.allowedTools,
-		DeniedCapabilities:   s.deniedCapabilities,
+		DeniedBlocks:         s.deniedBlocks,
 		DeniedCorpusURIs:     s.deniedCorpusURIs,
 		SkillIDs:             s.skillIDs,
 		MCPServerIDs:         s.mcpServerIDs,
 		DockButtons:          s.dockButtons,
 		Waypoints:            s.waypoints,
 		RequireGhostEvidence: s.requireGhostEvidence,
-		CapConfig:            s.capConfig,
+		BlockConfig:          s.blockConfig,
 		ProviderID:           s.providerID,
 		GasMetered:           s.gasMetered,
 	})
@@ -289,14 +289,14 @@ func (s *RoleSnapshot) UnmarshalJSON(data []byte) error {
 		CorpusURIs:           w.CorpusURIs,
 		SkillPrompts:         w.SkillPrompts,
 		AllowedTools:         w.AllowedTools,
-		DeniedCapabilities:   w.DeniedCapabilities,
+		DeniedBlocks:         w.DeniedBlocks,
 		DeniedCorpusURIs:     w.DeniedCorpusURIs,
 		SkillIDs:             w.SkillIDs,
 		MCPServerIDs:         w.MCPServerIDs,
 		DockButtons:          w.DockButtons,
 		Waypoints:            w.Waypoints,
 		RequireGhostEvidence: w.RequireGhostEvidence,
-		CapConfig:            w.CapConfig,
+		BlockConfig:          w.BlockConfig,
 		ProviderID:           w.ProviderID,
 		GasMetered:           w.GasMetered,
 	})
@@ -306,26 +306,26 @@ func (s *RoleSnapshot) UnmarshalJSON(data []byte) error {
 // roleSnapshotWire —— the JSON sidecar. Field order follows fieldalignment: time first
 // (time.Time = 24B with monotonic clock), string in the middle, slice last.
 type roleSnapshotWire struct {
-	// CapConfig —— frozen per-capability, per-role config. Must survive the round trip:
-	// miss it and a capability gets an empty config after one JSON round trip — "empty"
+	// BlockConfig —— frozen per-block, per-role config. Must survive the round trip:
+	// miss it and a block gets an empty config after one JSON round trip — "empty"
 	// looks identical to "never turned on", so an enabled switch would silently turn off.
-	CapConfig      map[string]json.RawMessage `json:"capability_config,omitempty"`
+	BlockConfig    map[string]json.RawMessage `json:"block_config,omitempty"`
 	FrozenAt       time.Time                  `json:"frozen_at"`
 	RoleID         string                     `json:"role_id"`
 	RoleName       string                     `json:"role_name"`
 	PromptBody     string                     `json:"prompt_body,omitempty"`
 	CodePromptBody string                     `json:"code_prompt_body,omitempty"`
 	// ProviderID —— the frozen role provider (empty = owner default).
-	ProviderID         string             `json:"provider_id,omitempty"`
-	CorpusURIs         []string           `json:"corpus_uris,omitempty"`
-	SkillPrompts       []string           `json:"skill_prompts,omitempty"`
-	AllowedTools       []string           `json:"allowed_tools,omitempty"`
-	DeniedCapabilities []string           `json:"denied_capabilities,omitempty"`
-	DeniedCorpusURIs   []string           `json:"denied_corpus_uris,omitempty"`
-	SkillIDs           []string           `json:"skill_ids,omitempty"`
-	MCPServerIDs       []string           `json:"mcp_server_ids,omitempty"`
-	DockButtons        []DockButtonConfig `json:"dock_buttons,omitempty"`
-	Waypoints          []Waypoint         `json:"waypoints,omitempty"`
+	ProviderID       string             `json:"provider_id,omitempty"`
+	CorpusURIs       []string           `json:"corpus_uris,omitempty"`
+	SkillPrompts     []string           `json:"skill_prompts,omitempty"`
+	AllowedTools     []string           `json:"allowed_tools,omitempty"`
+	DeniedBlocks     []string           `json:"denied_blocks,omitempty"`
+	DeniedCorpusURIs []string           `json:"denied_corpus_uris,omitempty"`
+	SkillIDs         []string           `json:"skill_ids,omitempty"`
+	MCPServerIDs     []string           `json:"mcp_server_ids,omitempty"`
+	DockButtons      []DockButtonConfig `json:"dock_buttons,omitempty"`
+	Waypoints        []Waypoint         `json:"waypoints,omitempty"`
 	// Boolean role config must survive the round trip too: the wire form used to miss them,
 	// so a snapshot silently reverted to false after one JSON round trip — looked frozen but
 	// was lost (F-A-10's require_ghost_evidence hit this exact bug).

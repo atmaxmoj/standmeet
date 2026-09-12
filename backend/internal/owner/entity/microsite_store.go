@@ -8,7 +8,7 @@ import (
 // MicrositeDocument — one stored document in a microsite's persistence namespace, paired with its
 // record id. The store is NoSQL: a document is opaque JSON the page defines; the id is a stable
 // handle the owner's management view uses to delete one row. Each page's documents live in the
-// page's OWN Postgres schema (page_<id>, the capstore pattern) — physical isolation, not a shared
+// page's OWN Postgres schema (page_<id>, the blockstore pattern) — physical isolation, not a shared
 // table keyed by id, dropped with the page.
 type MicrositeDocument struct {
 	ID         string

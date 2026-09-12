@@ -1,4 +1,4 @@
-// Command booker —— the externalized calendar.book capability as a sandboxed
+// Command booker —— the externalized calendar.book block as a sandboxed
 // stdio MCP server (origin=builtin). It owns NO data: it reads the trusted
 // session context off each tool-call `_meta` (planted by the host) and forwards
 // the call to the host's narrow "book" / "list_slots" ops over a bind-mounted
@@ -10,7 +10,7 @@
 // name/email, the role) rides the MCP-native `_meta` sidechannel — protocol data
 // the host attaches, never the LLM-controlled `arguments` (so a prompt-injected
 // owner/code is impossible). The result wire ({ok,...}) is unchanged from the old
-// in-process capability, so the frontend cards render identically.
+// in-process block, so the frontend cards render identically.
 package main
 
 import (
@@ -21,7 +21,7 @@ import (
 	"net"
 	"os"
 
-	// time/tzdata embeds the IANA timezone database in the binary. This capability evaluates
+	// time/tzdata embeds the IANA timezone database in the binary. This block evaluates
 	// booking policy against the owner's named zone (e.g. America/Toronto), and it runs as a
 	// static CGO_ENABLED=0 binary inside a bubblewrap sandbox with no /usr/share/zoneinfo — so
 	// without this, LoadLocation fails, every candidate slot is rejected, and list_slots returns
@@ -278,7 +278,7 @@ func listSlotsTool() mcpgo.Tool {
 
 // session —— the trusted context the host plants on the tool-call `_meta`. 只带通用身份
 // (owner/code/conversation/role/visitor);booking 专属配置(quota / policy / notify)都在
-// booker 自己的 capstore,按这些 id 读 —— 核心 session 一个 booking 字段都不带。
+// booker 自己的 blockstore,按这些 id 读 —— 核心 session 一个 booking 字段都不带。
 type session struct {
 	OwnerID string
 	// SubjectID / SubjectKind —— 这一场以谁的身份在跑:一张邀请码,或一把对外 API key。
@@ -289,9 +289,9 @@ type session struct {
 	VisitorName    string
 	VisitorEmail   string
 	RoleID         string
-	// NotifyOwner —— 约成后给 owner 发通知信。**这是本能力自己的配置**:manifest 的
+	// NotifyOwner —— 约成后给 owner 发通知信。**这是本 block 自己的配置**:manifest 的
 	// role_config 声明了 notify_owner,owner 在 role 上填,host 冻进 role snapshot,再经
-	// `_meta.capability_config` 原样递给我们。
+	// `_meta.block_config` 原样递给我们。
 	//
 	// 以前它是 `_meta.notify_owner` —— 一个 host 认识的键,背后是内核 roles 表上一列
 	// notify_owner_on_booking。host 那边的注释写着"既不发也不知道 booking notify 是什么",
@@ -299,10 +299,10 @@ type session struct {
 	NotifyOwner bool
 }
 
-// capConfigOf —— `_meta.capability_config`:本能力自己那份 per-role 配置。
+// blockConfigOf —— `_meta.block_config`:本 block 自己那份 per-role 配置。
 // 缺失 / 类型不符 → 空表(不是错):没设过就走各字段的默认值。
-func capConfigOf(raw map[string]any) map[string]any {
-	cfg, ok := raw["capability_config"].(map[string]any)
+func blockConfigOf(raw map[string]any) map[string]any {
+	cfg, ok := raw["block_config"].(map[string]any)
 	if !ok {
 		return map[string]any{}
 	}
@@ -332,7 +332,7 @@ func sessionFromMeta(req mcpgo.CallToolRequest) session {
 		VisitorName:    str(raw, "visitor_name"),
 		VisitorEmail:   str(raw, "visitor_email"),
 		RoleID:         str(raw, "role_id"),
-		NotifyOwner:    boolOf(capConfigOf(raw), "notify_owner"),
+		NotifyOwner:    boolOf(blockConfigOf(raw), "notify_owner"),
 	}
 }
 
@@ -343,10 +343,10 @@ func str(m map[string]any, k string) string {
 	return ""
 }
 
-// localHandler —— run a sandbox capability fn: pull the trusted session off `_meta`
+// localHandler —— run a sandbox block fn: pull the trusted session off `_meta`
 // (host-planted, never LLM-controlled) + the raw tool arguments, return its wire
-// JSON straight through. The capability logic runs HERE in the sandbox; it reaches
-// the calendar connector / its own storage / owner meta only via the fixed
+// JSON straight through. The block logic runs HERE in the sandbox; it reaches
+// the calendar supplier / its own storage / owner meta only via the fixed
 // reach-back vocabulary (gateway.go), never a host op it defines itself.
 func localHandler(fn func(session, json.RawMessage) string) server.ToolHandlerFunc {
 	return func(_ context.Context, req mcpgo.CallToolRequest) (*mcpgo.CallToolResult, error) {

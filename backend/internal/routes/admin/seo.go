@@ -1,7 +1,7 @@
 // seo.go — /api/admin/seo/*: the facade this instance shows to search engines and share
 // cards.
 //
-// Capability comes from the outbound convergence point (shared plumbing in dispatch.go);
+// Ability comes from the outbound convergence point (shared plumbing in dispatch.go);
 // this facade only decides the REST shape: settings at /seo, counts at /seo/stats, a
 // single entry through /corpus/{genre}/{id}/seo (genre and id in the path).
 //
@@ -18,7 +18,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// SEOAdminDeps — capability source for the admin SEO handlers.
+// SEOAdminDeps — op source for the admin SEO handlers.
 type SEOAdminDeps struct {
 	Face *dispatcher.Face
 }

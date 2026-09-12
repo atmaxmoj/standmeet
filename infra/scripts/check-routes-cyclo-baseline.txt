@@ -2,21 +2,24 @@
 # still above cyclo 3. Shrink-only: fix one, delete its line. Never add a line.
 #
 # Identity is "<package> <function>" (line numbers drift with unrelated edits).
-capload (*APIToolset).Close
-capload (*extMCPBundle).absorb
-capload (*mcpAppCapability).VisitorBinding
-capload (*mcpAppCapability).ownerToolHandler
-capload (*openapiAgentToolsCapability).VisitorBinding
-capload RegisterDiscoveredPluginsHooked
-capload dialAndList
-capload extToolDepsAllowed
-capload loadMCPServersForRole
-capload loadSkillsForBinding
-capload makeSkillRunScript
-capload overlayCapState
-capload renderSkillScriptsSection
-capload toolRequires
-capload toolUIHTML
-capload wantsWorkspace
-capload wrapMCPAppTools
-mcphandle runCapabilityHandler
+#
+# The block-vocabulary rename renamed the package (capload → blockload) and some of
+# the functions in it, so the surviving rows were rewritten to their new names — the
+# same functions, not new debt. Most capload rows are gone because they left routes/
+# with the loading machinery that moved to internal/plugin/mount; they are out of this
+# gate's scope now, not split.
+#
+# The four ext-mcp rows came BACK. Producing that fiber needs domain data (the owner's
+# registered MCP servers), so the file could not stay in the substrate — check-domain-acyclic
+# caught the cycle conversation -> plugin -> conversation — and it returned to routes/.
+# Same four functions, same debt, same names they had as capload rows: not new.
+blockload (*APIToolset).Close
+blockload (*extMCPBundle).absorb
+blockload (*openapiAgentToolsFiber).VisitorBinding
+blockload extToolDepsAllowed
+blockload loadMCPServersForRole
+blockload loadSkillsForBinding
+blockload makeSkillRunScript
+blockload renderSkillScriptsSection
+blockload toolRequires
+mcphandle runBlockHandler

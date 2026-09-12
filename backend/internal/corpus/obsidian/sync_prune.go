@@ -17,7 +17,7 @@ import "context"
 //
 //   - Authoritative: this IS the whole vault. A note absent from the upload was deleted from the
 //     vault, so it is pruned. The owner's directory-picker "import vault" is authoritative.
-//   - !Authoritative (partial — the zero value): a subset, e.g. an incremental/connector feed.
+//   - !Authoritative (partial — the zero value): a subset, e.g. an incremental/supplier feed.
 //     Absence carries no information, so NOTHING is deleted; otherwise one partial push would wipe
 //     the corpus. Defaulting to partial means a caller who never thought about this cannot destroy
 //     data by omission.

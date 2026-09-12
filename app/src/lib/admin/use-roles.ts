@@ -10,9 +10,9 @@ import { adminAPI } from '@/lib/api/admin';
 import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
-// DockButtonConfig —— #109/#110 config for one chat dock button: which capability it's attached to + the trigger phrase it sends on click.
+// DockButtonConfig —— #109/#110 config for one chat dock button: which block it's attached to + the trigger phrase it sends on click.
 export const DockButtonConfigSchema = z.object({
-  capability_id: z.string(),
+  block_id: z.string(),
   trigger: z.string(),
 });
 export type DockButtonConfig = z.infer<typeof DockButtonConfigSchema>;

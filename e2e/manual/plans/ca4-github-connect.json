@@ -1,15 +1,15 @@
 {
-  "_why": "connector-assembly check 4 —— 装出来的 GitHub 连接器在「CONNECTORS YOU UPLOADED」里。填真 token 点 CONNECT，看它是不是真连上。（它的行 testid 是 `connector-row-` —— 后面本该跟品类，而这条连接器没有品类契约，名字也就空了；单记一条 finding。）",
-  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/connector-assembly/shots",
+  "_why": "supplier-assembly check 4 —— 装出来的 GitHub 连接器在「SUPPLIERS YOU UPLOADED」里。填真 token 点 CONNECT，看它是不是真连上。（它的行 testid 是 `supplier-row-` —— 后面本该跟品类，而这条连接器没有品类契约，名字也就空了；单记一条 finding。）",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/supplier-assembly/shots",
   "viewport": [1280, 1000],
   "shots": [
     {
       "name": "ca-76-github-connected",
-      "url": "/admin/connectors",
+      "url": "/admin/suppliers",
       "steps": [
         { "wait": 4000 },
-        { "typeSecret": ["[data-testid=\"connector-row-\"] [data-testid=\"connector-field-token\"]", "GITHUB_TOKEN"] },
-        { "click": "[data-testid=\"connector-row-\"] [data-testid=\"connector-connect-button\"]" },
+        { "typeSecret": ["[data-testid=\"supplier-row-\"] [data-testid=\"supplier-field-token\"]", "GITHUB_TOKEN"] },
+        { "click": "[data-testid=\"supplier-row-\"] [data-testid=\"supplier-connect-button\"]" },
         { "wait": 6000 }
       ],
       "wait": 1000,

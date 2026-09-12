@@ -14,7 +14,7 @@
 // a line from here.
 //
 // Decorators (auth/quota/audit/dangerous-op) are all mounted here uniformly: every facet can
-// only obtain a capability through the dispatcher, so policy has a single application point —
+// only obtain a block through the dispatcher, so policy has a single application point —
 // no endpoint can forget to add it.
 
 package wire
@@ -24,16 +24,14 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/atmaxmoj/standmeet/cmd/server/axiscap"
-	"github.com/atmaxmoj/standmeet/cmd/server/axisconn"
+	"github.com/atmaxmoj/standmeet/cmd/server/blockwire"
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
 	"github.com/atmaxmoj/standmeet/cmd/server/port"
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
-	"github.com/atmaxmoj/standmeet/internal/connector"
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
+	"github.com/atmaxmoj/standmeet/internal/corpus/integration"
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
-	"github.com/atmaxmoj/standmeet/internal/infra/paritymanifest"
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
@@ -94,8 +92,8 @@ func BuildDispatcher(d *deps.Runtime) *dispatcher.Dispatcher {
 		// Installing a marketplace skill fetches the remote SKILL.md + lands it as one's own.
 		Marketplace: marketplace.InstallSkillDeps{
 			Marketplace: d.MarketplaceClient, Skills: d.SkillRepo,
-			// Connectors — answers the "which connectors are still missing" line (F-F-4).
-			Connectors: d.ConnectorNeeds,
+			// Seams — answers the "which seams are still missing" line (F-F-4).
+			Seams: d.SeamNeeds,
 		},
 		Page:           pageDepsOf(d),
 		SEO:            seoDepsOf(d),
@@ -114,22 +112,32 @@ func BuildDispatcher(d *deps.Runtime) *dispatcher.Dispatcher {
 			System: port.NewSysInfoProvider(d), UpgradeSources: d.Upgrade,
 		},
 	})
-	// The two resources belonging to the two plugin axes themselves: they have no domain
-	// to belong to (they read the capability registry and connector slots), so their
-	// declaration also lives on this side — see axiscap/ops.go / axiscap/config.go.
-	return dispatcher.New(append(
-		resources,
-		axiscap.CapabilityResource(d),
-		axiscap.CapabilityConfigResource(d),
-		axisconn.ConnectorResource(d),
-	)...)
+	return dispatcher.New(append(resources, blockModelResources(d)...)...)
+}
+
+// blockModelResources — the resources belonging to the block model itself.
+//
+// They have no domain to belong to (they read the block registry and the seam slots), so their
+// declaration lives on this side — see blockwire/. Split out of BuildDispatcher rather than
+// inlined: that function is one long deps literal, and these four are a different category of
+// thing, which is what the comment was already saying in prose.
+func blockModelResources(d *deps.Runtime) []dispatcher.Resource {
+	return []dispatcher.Resource{
+		blockwire.BlockConfigResource(d),
+		blockwire.SupplierResource(d),
+		// Installing a block and grouping blocks into a bundle: the owner's half of
+		// "adding a block costs no code" and the additive replacement for the
+		// subtractive ACL (frontend.md §1, §3).
+		blockwire.BlockResource(d),
+		blockwire.BundleResource(d),
+	}
 }
 
 // obsidianIngestOf — the vault-sync port for the obsidian.import op, built from the runtime repos.
 // It reuses adminroutes.ObsidianDeps (the same SyncIngester the admin multipart route uses), so the
 // MCP op and the admin route ingest through one code path; only the transport differs (JSON files
-// here, multipart there). The dispatcher may not import connector, so this adapts the connector
-// types to the corpus domain's VaultIngest port.
+// here, multipart there). The dispatcher may not import the ingest layer, so this adapts
+// corpus/integration's sync types to the corpus domain's VaultIngest port.
 func obsidianIngestOf(d *deps.Runtime) corpus.VaultIngest {
 	assets := corpus.AssetsDeps{Repo: d.AssetRepo, Storage: d.StorageClient}
 	od := adminroutes.ObsidianDeps{
@@ -150,11 +158,11 @@ func obsidianIngestOf(d *deps.Runtime) corpus.VaultIngest {
 	return func(
 		ctx context.Context, ownerID string, files []corpus.VaultFile, authoritative bool,
 	) (corpus.VaultSyncResult, error) {
-		sf := make([]connector.SyncFile, len(files))
+		sf := make([]integration.SyncFile, len(files))
 		for i := range files {
-			sf[i] = connector.SyncFile{RelPath: files[i].Path, Body: []byte(files[i].Content)}
+			sf[i] = integration.SyncFile{RelPath: files[i].Path, Body: []byte(files[i].Content)}
 		}
-		res, err := od.Ingest(ctx, ownerID, sf, connector.SyncOpts{Authoritative: authoritative})
+		res, err := od.Ingest(ctx, ownerID, sf, integration.SyncOpts{Authoritative: authoritative})
 		if err != nil {
 			return corpus.VaultSyncResult{}, fmt.Errorf("obsidian ingest: %w", err)
 		}
@@ -207,16 +215,16 @@ func accessRequestDepsOf(d *deps.Runtime) owner.OpsAccessRequests {
 	}
 }
 
-// apiKeyDepsOf — which capabilities can be opened to the API facet is knowledge of the
-// capability axis, so it's injected from this side.
+// apiKeyDepsOf — which blocks can be opened to the API facet is knowledge of the
+// block registry, so it's injected from this side.
 func apiKeyDepsOf(d *deps.Runtime) access.OpsAPIKeys {
 	return access.OpsAPIKeys{
 		Keys: d.APIKeyRepo, Roles: d.RoleRepo,
-		// The fields each capability occupies on this key (max_bookings...). Same
+		// The fields each block occupies on this key (max_bookings...). Same
 		// declaration, same mechanism as the code side, only the mount point changes —
 		// without it, a quota attached to a key would have nowhere to be set (F-B-11).
-		Extras:        axiscap.KeyFieldSurface(d),
-		APICandidates: paritymanifest.APICandidateCapabilities,
+		Extras:        blockwire.KeyFieldSurface(d),
+		APICandidates: blockwire.APICandidateBlocks,
 	}
 }
 
@@ -235,38 +243,38 @@ func conversationDepsOf(d *deps.Runtime) conversation.OpsConversations {
 	}
 }
 
-// roleDepsOf — ValidCapabilityIDs stores a **closure**: the capability registry isn't
+// roleDepsOf — ValidBlockIDs stores a **closure**: the block registry isn't
 // complete until registerAgentSkills finishes running, and the dispatcher is built before
 // that. Storing a snapshot instead would leave the dock button with an empty table of valid
-// capabilities.
+// blocks.
 func roleDepsOf(d *deps.Runtime) access.OpsRoles {
 	return access.OpsRoles{
 		Roles: access.RolesDeps{
 			Roles: d.RoleRepo,
 			Refs:  port.NewRoleRefValidator(d),
 		},
-		ValidCapabilityIDs: dockableCapabilitiesOf(d),
-		// The fields each capability occupies on a role (calendar.book's notify_owner is
+		ValidBlockIDs: dockableBlocksOf(d),
+		// The fields each block occupies on a role (calendar.book's notify_owner is
 		// the first one), composed into one generic facet per the manifest's RoleConfig
 		// declaration — same mechanism as the code side, only the mount point changes.
-		Extras: axiscap.RoleFieldSurface(d),
+		Extras: blockwire.RoleFieldSurface(d),
 	}
 }
 
-// dockableCapabilitiesOf — "given a role's set of skills, which capabilities can be mounted
+// dockableBlocksOf — "given a role's set of skills, which blocks can be mounted
 // on the dock".
 //
 // The two things are joined here because **only the root can see both at once**: the
-// capability registry knows which are `acl: always` and which need authorization; the skill
+// block registry knows which are `acl: always` and which need authorization; the skill
 // library knows which tools these skills grant. The domain side only declares "give me a
 // function that can answer this question".
 //
 // When reading skills fails, **fall back to recognizing only the unconditionally exposed
 // ones** (the strictest option), rather than letting the whole table through: the lenient
 // side is exactly the F-D-13 pathology — accepting a button the visitor can never see.
-func dockableCapabilitiesOf(d *deps.Runtime) func(context.Context, string, []string) []string {
+func dockableBlocksOf(d *deps.Runtime) func(context.Context, string, []string) []string {
 	return func(ctx context.Context, ownerID string, skillIDs []string) []string {
-		return d.AgentSkills.DockableCapabilityIDs(roleAllowedTools(ctx, d, ownerID, skillIDs))
+		return d.AgentSkills.DockableBlockIDs(roleAllowedTools(ctx, d, ownerID, skillIDs))
 	}
 }
 
@@ -299,10 +307,10 @@ func codeDepsOf(d *deps.Runtime) access.OpsCodes {
 		ACL: access.CodeACLDeps{
 			Codes: d.CodeRepo, Denials: d.CodeDenialRepo, Roles: d.RoleRepo,
 		},
-		// The fields each capability occupies on a code (booker's max_bookings is the
+		// The fields each block occupies on a code (booker's max_bookings is the
 		// first one), composed into one generic facet per the manifest's CodeConfig
 		// declaration — see wire_code_config.go.
-		Extras: axiscap.CodeFieldSurface(d),
+		Extras: blockwire.CodeFieldSurface(d),
 	}
 }
 

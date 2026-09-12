@@ -128,7 +128,7 @@ async function dockPickerExcludesRetrieval({ adminPage }: { adminPage: Page }): 
   await gotoAdminSection(adminPage, 'roles');
   const select = adminPage.getByTestId('role-dock-cap-0').first();
   await expect(select).toBeVisible({ timeout: 10_000 });
-  // wait for capabilities to populate the dropdown (a real visitor-action cap shows up)…
+  // wait for blocks to populate the dropdown (a real visitor-action cap shows up)…
   await expect(select.locator('option[value="summarize_conversation"]'))
     .toHaveCount(1, { timeout: 10_000 });
   // …then the grounding tool must be absent — never offerable as a visitor dock button.

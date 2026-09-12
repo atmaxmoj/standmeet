@@ -1,6 +1,6 @@
 // dock-buttons-mcp.spec.ts — #109/#110 B: the owner-side local MCP tool
 // `roles.set_dock_buttons` shares the same server-side state and the same validation
-// as the admin UI (#118 capability parity: the owner's Claude can configure dock
+// as the admin UI (#118 block parity: the owner's Claude can configure dock
 // buttons too).
 
 import { test, expect } from '@/fixtures/test';
@@ -15,7 +15,7 @@ const OWNER = {
   email: 'dock-mcp@example.com', password: 'correct-horse-battery-staple',
   handle: 'dockmcp', fullName: 'Dock MCP Owner',
 };
-const CAP_SUMMARIZE = 'summarize_conversation';
+const BLOCK_SUMMARIZE = 'summarize_conversation';
 const CAP_RETRIEVAL = 'corpus.retrieval';
 const TOOL = 'roles.set_dock_buttons';
 
@@ -48,14 +48,14 @@ test.describe('dock buttons · B — owner MCP tool ↔ admin parity', () => {
       await callTool(request, token, sid, TOOL, {
         role_id: roleID,
         buttons: [
-          { capability_id: CAP_SUMMARIZE, trigger: 'Summarize please' },
-          { capability_id: CAP_RETRIEVAL, trigger: 'What have we covered?' },
+          { block_id: BLOCK_SUMMARIZE, trigger: 'Summarize please' },
+          { block_id: CAP_RETRIEVAL, trigger: 'What have we covered?' },
         ],
       });
       const role = await getRoleByName(request, 'mcp-role');
       expect(role.dock_buttons).toHaveLength(2);
       expect(role.dock_buttons?.[0]).toMatchObject(
-        { capability_id: CAP_SUMMARIZE, trigger: 'Summarize please' });
+        { block_id: BLOCK_SUMMARIZE, trigger: 'Summarize please' });
     });
 
   test('B2 the same validation applies over MCP (>2 rejected — server state unchanged)',
@@ -63,15 +63,15 @@ test.describe('dock buttons · B — owner MCP tool ↔ admin parity', () => {
       // first put a known-good single button
       await callTool(request, token, sid, TOOL, {
         role_id: roleID,
-        buttons: [{ capability_id: CAP_SUMMARIZE, trigger: 'ok' }],
+        buttons: [{ block_id: BLOCK_SUMMARIZE, trigger: 'ok' }],
       });
       // then an invalid 3-button set — must be rejected, leaving the good state intact
       await callTool(request, token, sid, TOOL, {
         role_id: roleID,
         buttons: [
-          { capability_id: CAP_SUMMARIZE, trigger: 'a' },
-          { capability_id: CAP_RETRIEVAL, trigger: 'b' },
-          { capability_id: CAP_SUMMARIZE, trigger: 'c' },
+          { block_id: BLOCK_SUMMARIZE, trigger: 'a' },
+          { block_id: CAP_RETRIEVAL, trigger: 'b' },
+          { block_id: BLOCK_SUMMARIZE, trigger: 'c' },
         ],
       }).catch(() => undefined); // tool error may surface as a throw; either way state must not change
       const role = await getRoleByName(request, 'mcp-role');

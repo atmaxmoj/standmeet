@@ -24,7 +24,7 @@ import {
   applicationsCommit, resumeDraft, sampleResumeContent, type CommittedApplication,
 } from '@/fixtures/resume';
 import { issueSession } from '@/fixtures/visitor';
-import { sessionToolNames } from '@/fixtures/capabilities';
+import { sessionToolNames } from '@/fixtures/blocks';
 import { scriptMockToolCall, sendAndDrain } from '@/fixtures/mock-llm-script';
 
 const OWNER = {

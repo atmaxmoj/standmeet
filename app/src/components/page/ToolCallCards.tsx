@@ -114,7 +114,7 @@ interface CardCtx {
 // NON_SANDBOX_CARDS —— fallback rendering for when a tool doesn't ship its
 // own ui:// card (looked up by kind, avoiding an if-chain in the
 // presentation layer). dump (skill_*/ext_*) → GenericDumpCard: the generic
-// debug fallback for any "no card" tool (not a hardcoded per-capability
+// debug fallback for any "no card" tool (not a hardcoded per-block
 // card; externalized tools that ship their own card go sandboxed instead).
 // The booked card has already been externalized into the booker plugin's
 // ui:// sandboxed card, so there's no hardcoded React card for it anymore.
@@ -127,7 +127,7 @@ const NON_SANDBOX_CARDS: Record<
 
 function ToolCallCard(ctx: CardCtx) {
   // Tool ships its own ui:// card → render sandboxed (per-tool, the
-  // capability contains its own rendering); otherwise fall back.
+  // block contains its own rendering); otherwise fall back.
   const byName = useToolSpecsStore((s) => s.byName);
   const uiHtml = uiHtmlForTool(byName, ctx.call.name);
   return uiHtml !== ''
@@ -155,7 +155,7 @@ function nonSandboxCard(ctx: CardCtx) {
 // read buried underneath.
 //
 // The retrieval family already collapses to one line (`RetrievalSummary`),
-// and capabilities that ship their own card go sandboxed — **this fallback
+// and blocks that ship their own card go sandboxed — **this fallback
 // was the only thing still dumping the raw payload.** So it collapses too:
 // by default it leaves just one line saying which tool ran, and the owner
 // can expand it to see the payload if they want — a fallback shouldn't turn

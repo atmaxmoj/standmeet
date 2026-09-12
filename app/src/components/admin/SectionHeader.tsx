@@ -70,7 +70,7 @@ function SectionTitleLine({ title, count }: { title: string; count?: ReactNode }
 }
 
 // The count **gets its own line** on narrow screens. Running inline after the 32px serif title,
-// something like `connectors · calendar · mail live · upload your own` would scatter into three
+// something like `suppliers · calendar · mail live · upload your own` would scatter into three
 // or four ragged lines, reading as if the title itself had broken. Given a full line of its own,
 // it's metadata that reads as one line.
 function SectionCount({ count }: { count?: ReactNode }) {

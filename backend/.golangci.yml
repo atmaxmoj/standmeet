@@ -72,7 +72,7 @@ linters:
   # commit history for the v1 → v2 fix.
   settings:
     gomoddirectives:
-      # The externalized inward-capability modules live in-repo (mcp-servers/*)
+      # The externalized inward-block modules live in-repo (mcp-servers/*)
       # and are linked in-process via a local replace — a standard monorepo
       # pattern here (go.work didn't resolve cleanly in the backend subdir).
       # Allow local (filesystem) replaces for that.
@@ -128,33 +128,42 @@ linters:
     # by Kind, the same shape. These interfaces "returning an interface" is by design,
     # not laziness — the same factory pattern as Provider/Runner.
     #
-    # CalendarProxy / MailProxy are the connector's "category contract" — consumers
-    # (booker/mailer) program against it provider-agnostically, and the slot dispatcher
-    # returns the impl for the owner's currently active connector. A multi-method
+    # CalendarProxy / MailProxy are the supplier layer's "seam contract" — consumers
+    # (booker/mailer) program against it provider-agnostically, and the dispatcher
+    # returns the impl for the owner's currently active supplier. A multi-method
     # consumer contract returning an interface is the essence of normalization (any
     # provider fills the same contract), not laziness.
+    #
+    # Every path below moved with the block-vocabulary rename. They are the same types
+    # under new addresses, not a widened allow-list.
     ireturn:
       allow:
         - error
         - empty
         - anon
         - stdlib
+        # generic — a type parameter IS the caller's concrete type, chosen at the call site.
+        # `seamAs[CalendarProxy]` returns a CalendarProxy; there is no widening and nothing
+        # hidden. Writing the two seams out longhand instead is how the third one ends up
+        # subtly different from the first two, which is the drift this helper exists to stop.
+        - generic
         - github.com/atmaxmoj/standmeet/internal/conversation/inference.Provider
-        - github.com/atmaxmoj/standmeet/internal/capabilities/sandbox.Runner
-        - github.com/atmaxmoj/standmeet/internal/connector/contract.CalendarProxy
-        - github.com/atmaxmoj/standmeet/internal/connector/contract.MailProxy
+        - github.com/atmaxmoj/standmeet/internal/infra/sandbox.Runner
+        - github.com/atmaxmoj/standmeet/internal/plugin/adapters.CalendarProxy
+        - github.com/atmaxmoj/standmeet/internal/plugin/adapters.MailProxy
         - github.com/atmaxmoj/standmeet/internal/corpus/entity.Document
-        - github.com/atmaxmoj/standmeet/internal/connector.Integration
-        # J.3: the jobs plugin's Capability factory has the same shape as the main mcp
-        # package (NewXxx → capreg.Capability); external code registers via the
-        # Capability interface without coupling to the impl type.
-        - github.com/atmaxmoj/standmeet/internal/capabilities/capreg.Capability
-        # connector refactor: the named-dependency / connector registries resolve by name
-        # back to an "element interface" — the same shape as Document/Integration's
-        # registry-lookup (DepRegistry.Lookup / connector.Hub.Resolve return a by-design
-        # interface, and the consumer type-asserts to the capability interface).
-        - github.com/atmaxmoj/standmeet/internal/capabilities/capreg.DepProvider
-        - github.com/atmaxmoj/standmeet/internal/connector.Connector
+        - github.com/atmaxmoj/standmeet/internal/corpus/integration.Integration
+        - github.com/atmaxmoj/standmeet/internal/corpus/integration.Source
+        # J.3: the jobs plugin's Fiber factory has the same shape as the main mcp
+        # package (NewXxx → registry.Fiber); external code registers via the
+        # Fiber interface without coupling to the impl type.
+        - github.com/atmaxmoj/standmeet/internal/plugin/registry.Fiber
+        # the named-dependency / supplier registries resolve by name back to an "element
+        # interface" — the same shape as Document/Integration's registry-lookup
+        # (DepRegistry.Lookup / Suppliers.Lookup return a by-design interface, and the
+        # consumer type-asserts to the seam interface).
+        - github.com/atmaxmoj/standmeet/internal/plugin/registry.DepProvider
+        - github.com/atmaxmoj/standmeet/internal/plugin/adapters.Supplier
         # the security facade's captcha factory: returns a turnstile / noop concrete impl
         # by cfg, exposing only the Verifier interface — the same driver-selection factory
         # pattern as inference.Provider.
@@ -286,6 +295,37 @@ linters:
       # apply to a facade's generic forwarding.
       - path: internal/[a-z0-9]+/facade/
         linters: [forbidigo]
+      # An EXTERNAL test package (`package foo_test`) reaches the package under test across a
+      # package boundary by construction, so wrapcheck sees every call into it as "external" and
+      # asks the test to wrap the error. A test does not wrap: it asserts on the error, or it fails.
+      # Scoped to _test.go so production callers keep their wrapcheck budget.
+      - path: _test\.go$
+        linters: [wrapcheck]
+      # internal/plugin/effect is the port of arXiv:2608.25512 (docs/design/plugin/effects.md).
+      # It is currently a CONTRACT: every method panics, and 119 properties behind the
+      # Two rules do not apply to it, each for a reason that is a design decision rather than an
+      # omission.
+      #
+      # 1. unused-parameter / unused-receiver. Every body is `panic(notImplemented)`, so of course
+      #    nothing reads the parameters. Renaming them to `_` would delete the signature's
+      #    documentation, which is the package's entire present value — `Target(n Name)` says what
+      #    it takes; `Target(_ Name)` says nothing. REMOVE THIS ROW when the package is implemented;
+      #    at that point an unused parameter is a real finding again.
+      - path: internal/plugin/effect/
+        text: "unused-(parameter|receiver)"
+      # 2. fieldalignment. The structs are laid out in the PAPER's field order — Definition 49's
+      #    fiber is ⟨d, p, e, π, σ, τ, θ⟩ and Definition 81's entry likewise — so that each reads
+      #    against the definition it ports. A few bytes of padding on types that exist in the tens,
+      #    not the millions, is the right side of that trade.
+      - path: internal/plugin/effect/
+        text: "fieldalignment"
+      # 2. forbidigo's `any` ban. Definition 29 gives each key its own value type V_k, so the
+      #    coeffect table is heterogeneous BY CONSTRUCTION and an observer runs operations over a
+      #    value whose type it does not know. This is the same shape the pgx boundary is exempt for:
+      #    a generic container at the edge of the type system, not `any` standing in for a type
+      #    somebody could not be bothered to write.
+      - path: internal/plugin/effect/
+        linters: [forbidigo]
       # A domain's guts (entity/repo/usecase) have package names that happen to be the
       # common local-variable names from before the split (repo/entity). Domain-internal
       # code naming "this repo" as repo is clear; the shadow here is a pre-existing product
@@ -310,14 +350,14 @@ linters:
       # the class from the faces that switch on it.
       - path: internal/[a-z0-9]+/ops/
         linters: [wrapcheck]
-      # The two plugin axes declare their own resources in the composition root
-      # (cmd/server/axiscap, cmd/server/axisconn) — same job as a domain's ops
-      # package, same reason.
-      - path: cmd/server/axis(cap|conn)/
+      # Blocks and the seams they use declare their own resources in the composition root
+      # (cmd/server/blockwire) — same job as a domain's ops package, same reason. This was
+      # cmd/server/axis(cap|conn)/ before the two axes became one.
+      - path: cmd/server/blockwire/
         linters: [wrapcheck]
-      # pagestore_adapter.go backs the page-store interface with capstore in the composition
-      # root — same job as axiscap: it hands the domain a bound store, and wrapping capstore's
-      # errors here would only add a composition-root frame the domain never reads.
+      # pagestore_adapter.go backs the page-store interface with blockstore in the composition
+      # root — same job as blockwire: it hands the domain a bound store, and wrapping the
+      # store's errors here would only add a composition-root frame the domain never reads.
       - path: cmd/server/micrositestore_adapter\.go
         linters: [wrapcheck]
       # boot_wireup_pages.go's mapMicrositeStoreErr classifies the store's sentinels into display
@@ -362,7 +402,7 @@ linters:
         linters: [testpackage]
       # mailer's buildMessage (RFC822 rendering + header-injection stripping) is
       # unexported and worth white-box unit-testing; exempt testpackage as with inference.
-      - path: internal/mailer/
+      - path: internal/infra/mailer/
         linters: [testpackage]
       # marketplace's parseSkillMD (SKILL.md frontmatter parsing) is unexported and
       # white-box unit-tested; exempt testpackage as above.
@@ -376,12 +416,10 @@ linters:
       # time logic worth white-box unit-testing; exempt testpackage as above.
       - path: internal/stats/ops/
         linters: [testpackage]
-      # dockerstat talks to the Docker Engine API over a UNIX SOCKET: the URL's scheme and
-      # host are ignored (the transport dials the socket), so http is correct — there is no
-      # TLS on a unix socket. Exempt just that one revive rule here.
-      - path: internal/infra/dockerstat/
-        linters: [revive]
-        text: unsecure-url-scheme
+      # (The dockerstat unsecure-url-scheme exemption is gone with its subject: that reader
+      # talked to the Docker Engine API over a unix socket, and selfstat replaced it with a
+      # cgroup read that makes no HTTP request at all. An exemption whose code no longer
+      # exists is one more rule nobody re-checks.)
       # tools/ are build-time lint tools (archcheck: the internal/ import-graph gate), not
       # server business code: their output medium is stdout/exit code (not slog), and graph
       # algorithms (DFS cycle-finding / layering / directory walks) are naturally branchy.
@@ -390,25 +428,37 @@ linters:
       # gosec G703 is a "walking your own repo's directories" false-positive.
       - path: tools/
         linters: [cyclop, gocognit, gosec]
-      # capabilities/capload's capability-loading glue (toolCallBudget /
-      # newMCPAppCapability, etc.) is unexported and worth white-box unit-testing; exempt
-      # testpackage as with usecases.
-      - path: internal/routes/capload/
+      # blockload's block-loading glue (toolCallBudget / the ext-mcp bundle, etc.) is
+      # unexported and worth white-box unit-testing; exempt testpackage as with usecases.
+      - path: internal/routes/blockload/
         linters: [testpackage]
-      # connector/openapi is #155's generic execution core: a schemaless-JSON boundary (any
+      # mount is the other half of that glue — turning a manifest into a fiber (dial, tool
+      # wrap, state, gates) — and its internals are unexported for the same reason. These
+      # tests were under internal/routes/capload before the block-vocabulary rename split
+      # loading from mounting; the exemption follows them.
+      - path: internal/plugin/mount/
+        linters: [testpackage]
+      # infra/openapi is #155's generic execution core: a schemaless-JSON boundary (any
       # SaaS's request/response is arbitrary JSON), so `any` is legitimate here — exempt
       # forbidigo as at the MCP/postgres boundaries; its pure logic (ParseSpec/ParseBinding/
       # bidirectional JSONata shape normalization) is worth backend-internal white-box UT, so
       # exempt testpackage.
-      - path: internal/connector/openapi/
+      - path: internal/infra/openapi/
         linters: [testpackage, forbidigo, nilnil, paralleltest]
-      # connector egress's safeDialAddr (SSRF TOCTOU: dial the pin-verified IP) is
+      # egress's safeDialAddr (SSRF TOCTOU: dial the pin-verified IP) is
       # unexported, and its white-box UT injects a fake resolver (swapping the package-global
       # lookupIPAddr) to verify pin/rebind → which naturally conflicts with paralleltest
       # (parallel runs would race that global). Exempt testpackage + paralleltest.
-      - path: internal/connector/
+      - path: internal/infra/egress/
         linters: [testpackage, paralleltest]
-      # httpx's safeInternalDialAddr (the same SSRF pin/rebind guard as connector egress, for
+      # The supplier layer: the openapi/protocol assemblers and the seam dispatcher. It sits on
+      # the same schemaless-JSON boundary as infra/openapi (a supplier's args and response are
+      # arbitrary JSON), and its unexported internals (auth injection, the oauth refresher, the
+      # seam lookup) are worth white-box UT. These were the supplier packages before the
+      # block-vocabulary rename; the exemption follows the code rather than the old address.
+      - path: internal/plugin/adapters/
+        linters: [testpackage, paralleltest, forbidigo, nilnil]
+      # httpx's safeInternalDialAddr (the same SSRF pin/rebind guard as supplier egress, for
       # allow-list-free inline-fetch) is an unexported white-box UT that injects a fake
       # lookupIPAddr → exempt testpackage + paralleltest.
       - path: internal/infra/httpx/
@@ -418,10 +468,8 @@ linters:
       # already uses t.Parallel, so paralleltest is not involved).
       - path: internal/routes/public/
         linters: [testpackage]
-      # domain's compileGlob cache / cmd/server's pingCheck are both unexported white-box UTs;
-      # exempt as above.
-      - path: internal/domain/
-        linters: [testpackage, paralleltest]
+      # (internal/domain is dissolved; its compileGlob-cache exemption lives on as the
+      # access/entity row directly below, which is where that test went.)
       # path_acl's compileGlobCached cache is an unexported white-box UT (moved into access
       # along with the role cluster).
       - path: internal/access/entity/path_acl_cache_test.go
@@ -462,7 +510,7 @@ linters:
       - path: internal/owner/jobs/fetch/
         linters: [testpackage]
       # sweep TOCTOU test uses unexported Manager fields + stillStale → in-package white-box.
-      - path: internal/capabilities/sandboxws/
+      - path: internal/infra/sandboxws/
         linters: [testpackage]
       # monitor/mw's statusRecorder is the unexported ResponseWriter wrapper Record puts on every
       # public route; the test asserts it still forwards Flush + the write deadline (losing them
@@ -506,14 +554,14 @@ linters:
       # mcpclient is the MCP vendor boundary layer. A tool's `_meta` is arbitrary schemaless
       # JSON per the MCP spec (mcp-go's AdditionalFields is map[string]any), so exempt as a
       # protocol contract; mcpclient only passes it through, never interprets it.
-      - path: internal/capabilities/mcpclient/
+      - path: internal/infra/mcpclient/
         linters: [forbidigo]
-      # capsocket is the built-in host↔sandbox unix-socket transport boundary layer. The
+      # hostsocket is the built-in host↔sandbox unix-socket transport boundary layer. The
       # wire is schemaless line-JSON (dynamic per op), the same nature as mcpclient, so
       # exempt bare any likewise.
-      - path: internal/capabilities/capsocket/
+      - path: internal/infra/hostsocket/
         linters: [forbidigo]
-      # J.3: the jobs plugin's MCP capabilities have the same shape as internal/mcp, the
+      # J.3: the jobs plugin’s MCP ops have the same shape as internal/mcp, the
       # same schemaless protocol contract (map[string]any payload).
       - path: internal/owner/jobs/jobsmcp/
         linters: [forbidigo]
@@ -524,9 +572,9 @@ linters:
         linters: [revive, funlen]
       # mcputil: the shared owner-MCP result marshaller. Generic JSON wrapping naturally
       # takes an `any` payload (json.Marshal is just any), the same schemaless protocol
-      # boundary as mcphandle/mcpclient/capsocket, so exempt likewise — keeping capreg's own
-      # any-ban strict.
-      - path: internal/capabilities/mcputil/
+      # boundary as mcphandle/mcpclient/hostsocket, so exempt likewise — keeping the
+      # registry's own any-ban strict.
+      - path: internal/infra/mcputil/
         linters: [forbidigo]
 
 formatters:

@@ -22,7 +22,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// MonitorAdminDeps — capability source for the traffic reads: the convergence point's admin
+// MonitorAdminDeps — op source for the traffic reads: the convergence point's admin
 // Face. No repository here, on purpose.
 type MonitorAdminDeps struct {
 	Face *dispatcher.Face

@@ -1,4 +1,4 @@
-// Command ask-visitor —— the externalized ask_visitor capability as a sandboxed
+// Command ask-visitor —— the externalized ask_visitor block as a sandboxed
 // stdio MCP server (origin=builtin). It owns everything it needs and depends on
 // nothing in the core: the ask_visitor tool (echoes the LLM's structured question
 // back), its system-prompt fragment (MCP `instructions`), ReturnDirectly (the

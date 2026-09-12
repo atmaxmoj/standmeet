@@ -51,7 +51,7 @@ const VisitorSessionSchema = z.object({
   memberCount: z.number(),
   // #122: email is the visitor email typed on entry (may be empty); it
   // decides whether the booking card's "cc me" button shows (empty → no cc,
-  // relay-only). ownerCanDeliver = the owner has a working mail connector
+  // relay-only). ownerCanDeliver = the owner has a working mail supplier
   // configured (otherwise the whole confirmation card doesn't render). Old
   // localStorage blobs lack these two fields → fall back to the default.
   email: z.string().default(''),

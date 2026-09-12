@@ -21,8 +21,8 @@ import (
 //     freezes it into a [[role_snapshot]]. If the owner does not pick one explicitly, the
 //     usecase defaults to public.
 //
-// #135: per-code booking quota is not in the kernel — the booker capability owns it
-// (its own capstore), the kernel does not know about it.
+// #135: per-code booking quota is not in the kernel — the booker block owns it
+// (its own blockstore), the kernel does not know about it.
 type Code struct {
 	CreatedAt            time.Time
 	ExpiresAt            *time.Time
@@ -40,9 +40,15 @@ type Code struct {
 	AssumedRoleID        string
 	InlinePrompt         string
 	MicrositeSlug        string
-	ProviderID           string
-	ID                   string
-	Ghosts               []string
+	// Bundle —— the name of the bundle this code carries, or "".
+	//
+	// The NAME rather than the id: this field exists so the owner can read "what can
+	// this code do" off one screen, and a uuid answers nothing. Empty means the code
+	// falls back to its role's grant, which is every code issued before bundles existed.
+	Bundle     string
+	ProviderID string
+	ID         string
+	Ghosts     []string
 }
 
 // PeriodLimit — how much a code may spend per period (a refillable rate gate).
@@ -137,8 +143,8 @@ var ErrMemberQuotaReached = errors.New("member quota reached for code")
 // went stale).
 var ErrMemberNotFound = errors.New("code member not found")
 
-// ErrDenialKindUnknown — a denial's kind is none of capability / skill / corpus.
-var ErrDenialKindUnknown = errors.New("denial kind must be capability, skill or corpus")
+// ErrDenialKindUnknown — a denial's kind is none of block / skill / corpus.
+var ErrDenialKindUnknown = errors.New("denial kind must be block, skill or corpus")
 
 // ErrTurnQuotaReached — this session has used up its max_turns_per_session.
 var ErrTurnQuotaReached = errors.New("turn quota reached for session")

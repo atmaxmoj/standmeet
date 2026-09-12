@@ -3,7 +3,7 @@ package main
 import "encoding/json"
 
 // instructions —— the ask_visitor system-prompt fragment, owned by this server
-// (declared via MCP `instructions`, surfaced by the core as the capability's
+// (declared via MCP `instructions`, surfaced by the core as the block’s
 // SystemPromptFragment). Moved verbatim from the former core prompts file.
 const instructions = `You can ask the visitor a structured question when their intent is unclear, rather than guessing. The visitor will see a widget (radio buttons, multi-select, or yes/no) and pick — their selection comes back as the next visitor message.
 

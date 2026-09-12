@@ -131,7 +131,7 @@
     }
   },
   "requests": {
-    "deliveryHint": "Aucun canal de sortie vérifié — configurez-en un sous Connecteurs pour que l'approbation d'une demande puisse émettre un code et l'envoyer. D'ici là, vous ne pouvez marquer les demandes comme répondues/fermées que manuellement.",
+    "deliveryHint": "Aucun canal de sortie vérifié — configurez-en un sous Fournisseurs pour que l'approbation d'une demande puisse émettre un code et l'envoyer. D'ici là, vous ne pouvez marquer les demandes comme répondues/fermées que manuellement.",
     "intro": "Soumissions du chemin « sans code » de la porte. Marquez comme répondu une fois que vous avez émis un code ou répondu par écrit ; fermez pour archiver. Le propriétaire lit chacune personnellement — c'est l'intérêt.",
     "empty": "Aucune demande {filter}.",
     "issued": "émis {code} — envoyé par email au demandeur",

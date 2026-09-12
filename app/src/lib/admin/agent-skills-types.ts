@@ -22,7 +22,7 @@ export interface MarketSkillView {
   category: SkillCategory;
   blurb: string;
   source_url: string;
-  // needs —— connector names this skill uses that the owner hasn't connected
+  // needs —— supplier names this skill uses that the owner hasn't connected
   // yet. **null is itself a value**: the server couldn't answer (it hasn't
   // read this skill's SKILL.md). [] means "answered, nothing missing". Neither
   // case shows a prompt on the card, but don't merge them into one type —

@@ -27,7 +27,7 @@ type ProvidersDeps struct {
 	// ModelLister —— asks a given provider which models it offers (F-R-11). A port,
 	// not a repository: the key is stored encrypted and this side never decrypts it;
 	// the implementation lives at the assembly root. nil = this instance lacks the
-	// capability, and that's stated rather than pretending the question was asked.
+	// ability, and that's stated rather than pretending the question was asked.
 	ModelLister usecase.ProviderModelLister
 }
 

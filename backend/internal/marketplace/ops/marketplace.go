@@ -114,7 +114,7 @@ type marketSkillOut struct {
 	Description string `json:"description"`
 	SourceURL   string `json:"source_url"`
 	Source      string `json:"source"`
-	// Needs — connectors this owner has **not connected yet**, sitting behind
+	// Needs — seams this owner has **not supplied yet**, sitting behind
 	// the tools this skill wants to use.
 	//   null = can't answer (its body was never read, or this instance can't
 	//          parse it) — the card says nothing;
@@ -139,7 +139,7 @@ func searchMarketplace(deps usecase.InstallSkillDeps) fp.Invoke {
 			return nil, perr
 		}
 		items := usecase.SearchMarketplace(ctx,
-			usecase.SearchDeps{Client: deps.Marketplace, Connectors: deps.Connectors},
+			usecase.SearchDeps{Client: deps.Marketplace, Seams: deps.Seams},
 			usecase.SearchParams{
 				Query: in.Query, Source: in.Source, OwnerID: ownerID,
 				Limit: in.Limit, Offset: in.Offset,

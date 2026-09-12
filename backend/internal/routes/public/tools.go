@@ -2,20 +2,20 @@
 //
 // URL: POST /api/v1/sessions/{conv_id}/tools/{tool_name}
 // Auth: Bearer visitor session token (shared with /messages)
-// Body: raw JSON tool args (passed through unchanged to the capability binding's
+// Body: raw JSON tool args (passed through unchanged to the block binding's
 // Execute)
 //
 // Behavior:
 //   1. auth → get session data
 //   2. assemble bindings through Registry.AssembleVisitor (same-source gating as the
 //      chat path)
-//   3. look up the binding by tool name; not found → 404 capability_not_enabled
-//   4. execute the tool; returns {ok:true, result, capability_state} or a tool error
-//      envelope; capability_state is always returned so the frontend zustand store
+//   3. look up the binding by tool name; not found → 404 block_not_enabled
+//   4. execute the tool; returns {ok:true, result, block_state} or a tool error
+//      envelope; block_state is always returned so the frontend zustand store
 //      stays in sync (a quota-cascade scenario: quota runs out mid-tool, and the
 //      frontend needs to see enabled=false right away)
 //
-// Shares its capability-assembly code with the chat path → identical behavior; the
+// Shares its block-assembly code with the chat path → identical behavior; the
 // frontend pi-agent-core's ToolDispatcher port implementation is just fetching this
 // endpoint.
 
@@ -33,8 +33,8 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
-	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
+	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
 )
 
 // methodQuery —— HTTP QUERY (RFC 10008): a safe/idempotent query that carries a body.
@@ -46,7 +46,7 @@ const methodQuery = "QUERY"
 // isQueryOnMutating —— a QUERY hitting a state-changing (non-read-only) tool → refused
 // (405). QUERY's semantics promise safe/idempotent, so a state-changing tool can only
 // go through POST.
-func isQueryOnMutating(method string, t *capreg.BindingTool) bool {
+func isQueryOnMutating(method string, t *registry.BindingTool) bool {
 	return method == methodQuery && !t.ReadOnly
 }
 
@@ -89,7 +89,7 @@ func logSlowAssemble(log *slog.Logger, tool string, took time.Duration) {
 	}
 	log.Warn("visitor tool assemble slow",
 		"tool", tool, "ms", took.Milliseconds(),
-		"note", "capability assembly (sandbox start) — the visitor is staring at a dead button")
+		"note", "block assembly (sandbox start) — the visitor is staring at a dead button")
 }
 
 type toolDispatchArgs struct {
@@ -106,16 +106,16 @@ func runToolDispatch(
 	ctx context.Context, h *Handlers, w http.ResponseWriter, args *toolDispatchArgs,
 ) {
 	in := assembleInputFromSession(args.Data, args.ConvID)
-	// This assembly step has to spin capabilities up (sandbox container / bwrap
+	// This assembly step has to spin blocks up (sandbox container / bwrap
 	// namespace). **It's the most expensive part of this path**, and how expensive
 	// depends on the machine's load at that moment: ~1s when idle, seen as high as 19s
 	// under load — meanwhile the visitor clicked "send confirmation email" and the UI
 	// gave them no feedback for ten-plus seconds, so they think it failed and click
 	// again.
 	//
-	// ForTool: this path only ever needs one tool, so it only dials the capability
-	// that might provide it (see capreg's registry_tool_dispatch.go). It used to dial
-	// every capability once, then dial them all again when returning state after
+	// ForTool: this path only ever needs one tool, so it only dials the block
+	// that might provide it (see the registry's tool-dispatch path). It used to dial
+	// every block once, then dial them all again when returning state after
 	// execution — 2N sandboxes per click.
 	//
 	// The per-segment timing stays here because the last time this was investigated
@@ -129,17 +129,17 @@ func runToolDispatch(
 	tool, found := findBindingTool(bindings, args.ToolName)
 	if !found {
 		writeToolErr(h.Log, w, toolErr{
-			Status: http.StatusNotFound, Reason: "capability_not_enabled",
-			Detail:   "tool not exposed in this session",
-			CapState: h.Visitor.AgentSkills.VisitorStates(ctx, in),
+			Status: http.StatusNotFound, Reason: "block_not_enabled",
+			Detail:      "tool not exposed in this session",
+			BlockStates: h.Visitor.AgentSkills.VisitorStates(ctx, in),
 		})
 		return
 	}
 	if isQueryOnMutating(args.Method, tool) {
 		writeToolErr(h.Log, w, toolErr{
 			Status: http.StatusMethodNotAllowed, Reason: "method_not_allowed",
-			Detail:   "QUERY is only for read-only tools; use POST",
-			CapState: h.Visitor.AgentSkills.VisitorStates(ctx, in),
+			Detail:      "QUERY is only for read-only tools; use POST",
+			BlockStates: h.Visitor.AgentSkills.VisitorStates(ctx, in),
 		})
 		return
 	}
@@ -150,8 +150,8 @@ func runToolDispatch(
 }
 
 type executeArgs struct {
-	In       *capreg.AssembleInput
-	Tool     *capreg.BindingTool
+	In       *registry.AssembleInput
+	Tool     *registry.BindingTool
 	ToolName string
 	// ConvID —— which conversation this call happens inside. Needed so "what the
 	// visitor did on the card" can be written back into that conversation (F-B-9) —
@@ -164,19 +164,19 @@ func executeAndRespond(
 	ctx context.Context, h *Handlers, w http.ResponseWriter, args executeArgs,
 ) {
 	out, execErr := args.Tool.Tool.InvokableRun(ctx, string(args.Body))
-	capState := h.Visitor.AgentSkills.VisitorStates(ctx, args.In)
+	blockStates := h.Visitor.AgentSkills.VisitorStates(ctx, args.In)
 	if execErr != nil {
 		// Raw executor error → log (ops); client sees a static detail so no
 		// executor/provider internals leak into the visitor's browser.
 		h.Log.Warn("tool dispatch exec", "tool", args.ToolName, "err", execErr)
 		writeToolErr(h.Log, w, toolErr{
 			Status: http.StatusInternalServerError, Reason: "tool_error",
-			Detail: "tool execution failed", CapState: capState,
+			Detail: "tool execution failed", BlockStates: blockStates,
 		})
 		return
 	}
 	recordCardEvent(ctx, h, args, out)
-	writeToolOK(h.Log, w, out, capState)
+	writeToolOK(h.Log, w, out, blockStates)
 }
 
 // recordCardEvent —— writes **this call dispatched from a card** back into this
@@ -211,11 +211,11 @@ func recordCardEvent(
 }
 
 // findBindingTool —— walks bindings looking for a tool matching name. Only the first
-// same-named match is taken (the design assumes capability registration order never
+// same-named match is taken (the design assumes block registration order never
 // collides on name).
 func findBindingTool(
-	bindings []*capreg.Binding, name string,
-) (*capreg.BindingTool, bool) {
+	bindings []*registry.Binding, name string,
+) (*registry.BindingTool, bool) {
 	for _, b := range bindings {
 		if t, ok := findToolInBinding(b, name); ok {
 			return t, true
@@ -225,8 +225,8 @@ func findBindingTool(
 }
 
 func findToolInBinding(
-	b *capreg.Binding, name string,
-) (*capreg.BindingTool, bool) {
+	b *registry.Binding, name string,
+) (*registry.BindingTool, bool) {
 	for i := range b.Tools {
 		if b.Tools[i].Name == name {
 			return &b.Tools[i], true
@@ -237,7 +237,7 @@ func findToolInBinding(
 
 // closeBindings —— releases the binding resources assembly produced (ext-mcp sessions
 // etc). Same close pattern as the chat path; deferred once at the top of the handler.
-func closeBindings(bindings []*capreg.Binding) {
+func closeBindings(bindings []*registry.Binding) {
 	for _, b := range bindings {
 		if b.Close != nil {
 			b.Close()
@@ -246,26 +246,26 @@ func closeBindings(bindings []*capreg.Binding) {
 }
 
 type toolOKResp struct {
-	Result          json.RawMessage          `json:"result"`
-	CapabilityState []capreg.CapabilityState `json:"capability_state"`
-	OK              bool                     `json:"ok"`
+	Result     json.RawMessage       `json:"result"`
+	BlockState []registry.FiberState `json:"block_state"`
+	OK         bool                  `json:"ok"`
 }
 
 type toolErrResp struct {
-	Reason          string                   `json:"reason"`
-	Detail          string                   `json:"detail,omitempty"`
-	CapabilityState []capreg.CapabilityState `json:"capability_state,omitempty"`
-	OK              bool                     `json:"ok"`
+	Reason     string                `json:"reason"`
+	Detail     string                `json:"detail,omitempty"`
+	BlockState []registry.FiberState `json:"block_state,omitempty"`
+	OK         bool                  `json:"ok"`
 }
 
 func writeToolOK(
 	log *slog.Logger, w http.ResponseWriter,
-	executorOut string, capState []capreg.CapabilityState,
+	executorOut string, blockStates []registry.FiberState,
 ) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	resp := toolOKResp{
-		OK: true, Result: rawOrQuoted(executorOut), CapabilityState: capState,
+		OK: true, Result: rawOrQuoted(executorOut), BlockState: blockStates,
 	}
 	if err := json.NewEncoder(w).Encode(&resp); err != nil {
 		log.Error("tool dispatch encode ok", "err", err)
@@ -273,10 +273,10 @@ func writeToolOK(
 }
 
 type toolErr struct {
-	Reason   string
-	Detail   string
-	CapState []capreg.CapabilityState
-	Status   int
+	Reason      string
+	Detail      string
+	BlockStates []registry.FiberState
+	Status      int
 }
 
 func writeToolErr(
@@ -285,7 +285,7 @@ func writeToolErr(
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(e.Status)
 	resp := toolErrResp{
-		OK: false, Reason: e.Reason, Detail: e.Detail, CapabilityState: e.CapState,
+		OK: false, Reason: e.Reason, Detail: e.Detail, BlockState: e.BlockStates,
 	}
 	if err := json.NewEncoder(w).Encode(&resp); err != nil {
 		log.Error("tool dispatch encode err", "err", err)

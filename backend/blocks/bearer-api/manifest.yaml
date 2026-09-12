@@ -1,0 +1,8 @@
+id: bearer-api
+title: Bearer API
+provides: api
+
+transport:
+  kind: openapi
+  auth_scheme: bearer
+  spec: spec.yaml

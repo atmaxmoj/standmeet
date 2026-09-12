@@ -11,11 +11,6 @@ import (
 	"github.com/atmaxmoj/standmeet/cmd/server/config"
 	"github.com/atmaxmoj/standmeet/cmd/server/port"
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
-	"github.com/atmaxmoj/standmeet/internal/capabilities"
-	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
-	"github.com/atmaxmoj/standmeet/internal/capabilities/capstore"
-	"github.com/atmaxmoj/standmeet/internal/capabilities/sandbox"
-	"github.com/atmaxmoj/standmeet/internal/connector"
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	"github.com/atmaxmoj/standmeet/internal/conversation/inference"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
@@ -23,6 +18,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/buildnotify"
 	"github.com/atmaxmoj/standmeet/internal/infra/gotenberg"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
+	"github.com/atmaxmoj/standmeet/internal/infra/sandbox"
 	"github.com/atmaxmoj/standmeet/internal/infra/session"
 	"github.com/atmaxmoj/standmeet/internal/infra/storage"
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
@@ -33,6 +29,10 @@ import (
 	jobfetch "github.com/atmaxmoj/standmeet/internal/owner/jobs/fetch"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/printsess"
+	"github.com/atmaxmoj/standmeet/internal/plugin/assembly"
+	"github.com/atmaxmoj/standmeet/internal/plugin/blockstore"
+	"github.com/atmaxmoj/standmeet/internal/plugin/credentials"
+	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
 	security "github.com/atmaxmoj/standmeet/internal/security/facade"
 	stats "github.com/atmaxmoj/standmeet/internal/stats/facade"
@@ -71,14 +71,15 @@ type repoSet struct {
 	noteHero       *corpus.NoteHeroRepo
 	writing        *corpus.WritingRepo
 	writingRef     *corpus.WritingRefRepo
-	capability     *access.CapabilityRepo
+	blockEnable    *access.BlockEnableRepo
 	ghost          *conversation.GhostRepo
 	chatReport     *conversation.ChatReportRepo
 	inferenceUsage *stats.InferenceUsageRepo
 	bannedIP       *security.BannedIPRepo
 	apiKey         *access.APIKeyRepo
 	appState       *conversation.AppStateRepo
-	connector      *connector.Repo
+	credentials    *credentials.Repo
+	assembly       *assembly.Repo
 }
 
 func newRepos(db *pgstore.Pool, sessionKey string) *repoSet {
@@ -113,14 +114,15 @@ func newRepos(db *pgstore.Pool, sessionKey string) *repoSet {
 		noteHero:       corpus.NewNoteHeroRepo(db),
 		writing:        corpus.NewWritingRepo(db),
 		writingRef:     corpus.NewWritingRefRepo(db),
-		capability:     access.NewCapabilityRepo(db),
+		blockEnable:    access.NewBlockEnableRepo(db),
 		ghost:          conversation.NewGhostRepo(db),
 		chatReport:     conversation.NewChatReportRepo(db),
 		inferenceUsage: stats.NewInferenceUsageRepo(db),
 		bannedIP:       security.NewBannedIPRepo(db),
 		apiKey:         access.NewAPIKeyRepo(db),
 		appState:       conversation.NewAppStateRepo(db),
-		connector:      connector.NewRepo(db),
+		credentials:    credentials.NewRepo(db),
+		assembly:       assembly.NewRepo(db),
 	}
 }
 
@@ -173,15 +175,15 @@ func assembleRuntimeDeps(
 		MarketplaceClient: marketplace.NewFromEnv(
 			cfg.MarketplaceGitHubBaseURL, cfg.MarketplaceSkillsMPBaseURL,
 		),
-		AgentSkills: capreg.NewRegistry(),
+		AgentSkills: registry.NewRegistry(),
 		Upgrade:     upgradeSources(cfg),
 		// The two probes built here: unsealer reachable only from deps.go's composition root.
 		MCPProber:      &mcpServerProbe{servers: &dialableMCPServers{repo: repos.mcpServer}},
 		ProviderModels: &providerModelLister{owners: repos.owner},
-		// CapStores filled per capability by wireCapabilityStorage; MicrositeDocs is the
+		// BlockStores filled per block by BlockStorageInit; MicrositeDocs is the
 		// doc schema; pluginRegistry is backfilled by wirePluginRegistry.
-		CapStores:     map[string]*capstore.Store{},
-		MicrositeDocs: newMicrositeDocStore(capstore.New(c.db)),
+		BlockStores:   map[string]*blockstore.Store{},
+		MicrositeDocs: newMicrositeDocStore(blockstore.New(c.db)),
 		SearchClient:  searchClient,
 		CorpusIndexer: corpusIndexer,
 	}
@@ -205,10 +207,12 @@ func setRuntimeRepos(rt *deps.Runtime, repos *repoSet) {
 	rt.ApplicationRepo, rt.SkillRepo = repos.application, repos.skill
 	rt.MCPServerRepo, rt.PromptRepo, rt.RoleRepo = repos.mcpServer, repos.prompt, repos.role
 	rt.WritingRepo, rt.WritingRefRepo = repos.writing, repos.writingRef
-	rt.AssetRepo, rt.NoteHeroRepo, rt.CapabilityRepo = repos.asset, repos.noteHero, repos.capability
+	rt.AssetRepo, rt.NoteHeroRepo = repos.asset, repos.noteHero
+	rt.BlockEnableRepo = repos.blockEnable
 	rt.GhostRepo, rt.ChatReportRepo = repos.ghost, repos.chatReport
 	rt.InferenceUsageRepo, rt.BannedIPRepo = repos.inferenceUsage, repos.bannedIP
-	rt.APIKeyRepo, rt.AppStateRepo, rt.ConnectorRepo = repos.apiKey, repos.appState, repos.connector
+	rt.APIKeyRepo, rt.AppStateRepo, rt.Credentials = repos.apiKey, repos.appState, repos.credentials
+	rt.Assembly = repos.assembly
 }
 
 // buildPluginRegistry —— registers every outbound plugin currently enabled. From phase J
@@ -220,8 +224,7 @@ func setRuntimeRepos(rt *deps.Runtime, repos *repoSet) {
 // *jobsuc.JobsDeps / ResumeDeps / ApplicationsDeps etc.; those Deps fields are only
 // complete after assembleRuntimeDeps finishes, so this function is called once more,
 // after assemble.
-func buildPluginRegistry(d *deps.Runtime) *capabilities.Registry {
-	reg := capabilities.NewRegistry()
+func buildJobsModule(d *deps.Runtime) *pluginjobs.Plugin {
 	jobsDeps := jobsuc.JobsDeps{
 		Sources: d.JobSourceRepo, Cache: d.JobCachePool, Registry: d.JobFetchRegistry,
 	}
@@ -234,7 +237,7 @@ func buildPluginRegistry(d *deps.Runtime) *capabilities.Registry {
 		// CodeRepo satisfies the narrow jobsuc.CodeLookup read).
 		Codes: d.CodeRepo,
 	}
-	reg.Register(pluginjobs.New(&pluginjobs.Deps{
+	return pluginjobs.New(&pluginjobs.Deps{
 		Jobs:         &jobsDeps,
 		Resume:       &resumeDeps,
 		Applications: &appsDeps,
@@ -251,11 +254,17 @@ func buildPluginRegistry(d *deps.Runtime) *capabilities.Registry {
 			SeedDefaults: d.SeedDefaultSources,
 		},
 		Log: d.Log,
-	}))
+	})
 	// There used to be a line here for ownercore — the package that wrapped every
-	// owner-MCP capability, a cross-domain grab-bag. Its last operation (writing long-form)
+	// owner-MCP op, a cross-domain grab-bag. Its last operation (writing long-form)
 	// has moved back into the corpus domain, and the whole package was deleted.
-	return reg
+	//
+	// And there used to be a registry around this one call. That registry held
+	// five interfaces — Plugin, BlockRegistrar, AdminRouter, PeriodicWorker,
+	// OwnerSeeder — for exactly ONE implementation, this module. A registry with a single
+	// member is not a plugin system, it is a longer way to write a variable, and it made
+	// the star topology look like a design. The composition root now holds the module and
+	// calls it by name, which is what it was doing anyway.
 }
 
 // buildPDFRenderer —— gotenberg.Client adapter when both GOTENBERG_URL and

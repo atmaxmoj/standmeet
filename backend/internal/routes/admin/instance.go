@@ -7,9 +7,9 @@
 //	GET /stats/activity    Monitor: ActivityTicker
 //	GET /stats/jobs        Monitor: background jobs
 //
-// Capability comes from the outbound convergence point (shared plumbing in dispatch.go).
+// Ability comes from the outbound convergence point (shared plumbing in dispatch.go).
 // The paths are a historical shape (system and stats/* use different prefixes) and stay
-// unchanged — the frontend is written against them; only where the capability comes from
+// unchanged — the frontend is written against them; only where the ability comes from
 // changes.
 
 package admin
@@ -20,7 +20,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// InstanceAdminDeps — capability source for admin's observability facade.
+// InstanceAdminDeps — op source for admin's observability facade.
 type InstanceAdminDeps struct {
 	Face *dispatcher.Face
 }

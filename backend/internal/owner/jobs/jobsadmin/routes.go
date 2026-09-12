@@ -8,7 +8,7 @@
 // outbound job-hunting chain out into a plugin, and the routes moved into
 // their own package too, to keep Handlers from bloating (G-1.5 smell E).
 //
-// Editing / deleting a draft goes through MCP capabilities (resume.*) — see
+// Editing / deleting a draft goes through MCP ops (resume.*) — see
 // plugins/jobs/jobsmcp/.
 //
 // **Both surfaces grew a commit path** (F-E-9). This used to say "only

@@ -27,7 +27,7 @@ type Props = Omit<SelectHTMLAttributes<HTMLSelectElement>, 'className'> & {
   /** Classes that land on the shell (layout box): width, flex behavior. */
   className?: string;
   /**
-   * Monospace. Use for machine-read values (table rows, capability ids);
+   * Monospace. Use for machine-read values (table rows, block ids);
    * human-written titles use the default serif.
    */
   mono?: boolean;
@@ -36,7 +36,7 @@ type Props = Omit<SelectHTMLAttributes<HTMLSelectElement>, 'className'> & {
    * bans data-testid on components, because **it might land nowhere**. Here the
    * component guarantees it lands on the real `<select>`, so the rule's intent holds,
    * while the rule still applies normally to other components (see
-   * [[move-the-capability-move-its-edges]]: when a capability moves house, its edges —
+   * [[move-the-capability-move-its-edges]]: when a block moves house, its edges —
    * test hooks, lint exemptions — don't automatically follow).
    */
   testid?: string;

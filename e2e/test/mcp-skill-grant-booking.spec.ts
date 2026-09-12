@@ -1,5 +1,5 @@
 // mcp-skill-grant-booking.spec.ts —— MCP↔HTTP parity: granting a built-in
-// capability (calendar.book) through the MCP skill_create tool's allowed_tools.
+// block (calendar.book) through the MCP skill_create tool's allowed_tools.
 //
 // The entire gcal booking suite grants access through the HTTP admin API (POST
 // /api/admin/skills/ with allowed_tools). But MCP skill_create — the path seed_persona.py and

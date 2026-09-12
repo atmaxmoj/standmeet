@@ -52,7 +52,7 @@ test.describe.serial('F-B-12 · a booking made through a key can name its guest'
     });
     const token = await createAPIToken(seed.request, seed.csrf, 'api-key-invitee');
     const sid = await initMCP(seed.request, token);
-    await callTool(seed.request, token, sid, 'api.open', { capability_id: 'calendar.book' });
+    await callTool(seed.request, token, sid, 'api.open', { block_id: 'calendar.book' });
     const mint = await callTool<MintResp>(seed.request, token, sid, 'api_keys.create', {
       label: 'invitee-key', assumed_role_id: code.assumed_role_id,
     });

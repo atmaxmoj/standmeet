@@ -1,0 +1,30 @@
+id: mail.send
+title: Email the owner
+version: "1"
+shape: visitor_only
+acl: role_granted
+raw_tool_names: true
+# Hard-depends on the mail seam: nothing supplying it → this block is hidden entirely.
+#
+# This used to say `smtp` — a supplier's id, not a seam — because "smtp" was not a
+# manifest name at all: it was hand-written into the composition root and registered
+# against the mail slot. So this block was welded to one supplier while its own
+# comment said "the mail category". A second mail supplier could not have served it.
+requires:
+  - mail
+
+# visitor_tools — see the note in calendar.book.
+visitor_tools:
+  - send_email
+
+transport:
+  kind: sandbox_stdio
+  command: /plugin/mail-sender
+  sandbox:
+    plugin_dir: /srv/plugins/mail-sender
+    # Sending itself goes through the supplier (seam contract — the plugin
+    # doesn't know whether the other side is SMTP or some SaaS);
+    # reading the owner's name/email goes through owner.meta.
+    host_ops:
+      - supplier.invoke
+      - owner.meta

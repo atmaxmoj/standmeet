@@ -68,7 +68,7 @@ test.describe('admin · booking policy edit', () => {
   // policy.timezone is still empty.
   test('nothing saved yet → the picker says so, and the panel names what is used meanwhile',
     async ({ adminPage }) => {
-      await gotoAdminSection(adminPage, 'connectors');
+      await gotoAdminSection(adminPage, 'suppliers');
       const select = adminPage.getByTestId('gcal-timezone');
       await expect(select).toBeVisible({ timeout: 10_000 });
 
@@ -93,7 +93,7 @@ test.describe('admin · booking policy edit', () => {
   // picking one in the UI persists. seed owner is alice (= default adminPage creds).
   test('owner picks a timezone from the dropdown → persists',
     async ({ adminPage }) => {
-      await gotoAdminSection(adminPage, 'connectors');
+      await gotoAdminSection(adminPage, 'suppliers');
       const select = adminPage.getByTestId('gcal-timezone');
       await expect(select).toBeVisible({ timeout: 10_000 });
       await select.selectOption('Asia/Tokyo'); // option value is the IANA name

@@ -34,18 +34,18 @@ type RolesDeps struct {
 // on Update, empty on Create.
 type RoleWriteInput struct {
 	PromptID *string // 0..1; nil = no prompt mounted
-	// DockableCapabilityIDs — "given this role's skill list, which capabilities can
+	// DockableBlockIDs — "given this role's skill list, which blocks can
 	// the dock hold". A **function**, not a fixed list: an `acl: role_granted`
-	// capability only counts if this write's SkillIDs actually grant it. A fixed
-	// list would ask "which capabilities does this instance register" instead —
+	// block only counts if this write's SkillIDs actually grant it. A fixed
+	// list would ask "which blocks does this instance register" instead —
 	// broader than the session side — letting the admin panel offer a button the
 	// visitor could never see (F-D-13). nil = skip validation (caller guarantees it).
-	DockableCapabilityIDs func(ctx context.Context, ownerID string, skillIDs []string) []string
-	OwnerID               string
-	RoleID                string // filled only on Update
-	Name                  string
-	Description           string
-	Greeting              string
+	DockableBlockIDs func(ctx context.Context, ownerID string, skillIDs []string) []string
+	OwnerID          string
+	RoleID           string // filled only on Update
+	Name             string
+	Description      string
+	Greeting         string
 	// ProviderID — which provider this role uses (empty = owner's default). The
 	// one on the code overrides this.
 	ProviderID           string

@@ -61,7 +61,7 @@ const HANDLERS: Record<string, (c: Ctx) => void> = {
   // tool → the card sends a named tool (calendar_cancel /
   // send_confirmation), the host dispatches it with the visitor's session,
   // and posts the result back to the card. A sandboxed card has no network
-  // — every connector call goes through the host (credentials never enter
+  // — every supplier call goes through the host (credentials never enter
   // the card).
   'mcp-ui:tool': (c) => { void runCardTool(c); },
   // state-set → the card writes a key into **its own mcp slot** (mcp is

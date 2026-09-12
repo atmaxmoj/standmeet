@@ -1,6 +1,6 @@
 // conversations.go — /api/admin/conversations/* + /api/admin/ghosts/telemetry.
 //
-// Capability comes from the outbound convergence point (shared plumbing in dispatch.go);
+// Ability comes from the outbound convergence point (shared plumbing in dispatch.go);
 // this facade only decides the REST shape: the list at /conversations, a single
 // transcript at /conversations/{id}, telemetry at /ghosts/telemetry.
 //
@@ -16,7 +16,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// ConversationsDeps — capability source for the admin conversations handlers.
+// ConversationsDeps — op source for the admin conversations handlers.
 type ConversationsDeps struct {
 	Face *dispatcher.Face
 }

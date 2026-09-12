@@ -94,7 +94,7 @@ const PublicPromptDescription = "Plain helpful proxy. No persona overlay."
 
 // The `hiring` prompt the job loop needs used to live here. It belongs to
 // that plugin, not the kernel — it now lives in
-// internal/owner/jobs/jobs_seed.go, seeded via capabilities.OwnerSeeder.
+// internal/owner/jobs/jobs_seed.go, seeded via the host's SeedPlugins hook.
 
 // ErrPromptNotFound —— prompt id doesn't exist or doesn't belong to this
 // owner.

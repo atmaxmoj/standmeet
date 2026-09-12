@@ -4,7 +4,7 @@
 // Issuing the code is core business (AccessCode is the product's own thing); **how it gets
 // delivered is not**. Delivery goes only through `OutboundSender` — one recipient, one title
 // line, one body. This package therefore never knows whether the other side is email, IM,
-// or something else, nor which connector the owner has configured.
+// or something else, nor which supplier the owner has configured.
 
 package usecase
 

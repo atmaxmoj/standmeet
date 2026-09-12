@@ -12,7 +12,7 @@
 // from the backend, not from something the client happened to still remember."
 //
 // The criterion still lands in the one place that's actually observable: the message sent to
-// the model ([[test-covers-capability-not-face]]).
+// the model ([[test-covers-block-not-face]]).
 
 import { test, expect } from '@/fixtures/test';
 import type { FrameLocator, Page } from '@playwright/test';

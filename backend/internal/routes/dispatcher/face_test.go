@@ -43,7 +43,7 @@ func TestGeneratedFaceIsCompleteByConstruction(t *testing.T) {
 	require.Empty(t, d.Conform())
 }
 
-// TestVerifiedFaceMissingAnOpIsCaught -- a verified face (admin HTTP) pulls capabilities
+// TestVerifiedFaceMissingAnOpIsCaught -- a verified face (admin HTTP) pulls ops
 // one by one. Miss wiring one and it was never registered against the convergence point ->
 // Conform reports missing.
 //
@@ -115,7 +115,7 @@ func TestDuplicateOpIDPanics(t *testing.T) {
 }
 
 // TestDecoratorWrapsEveryFaceAlike -- decorators hang on the convergence point, so every
-// capability a face gets has already passed through the same chain. Bypassing it means
+// op a face gets has already passed through the same chain. Bypassing it means
 // bypassing the convergence point -- and that path is blocked by a structural gate.
 func TestDecoratorWrapsEveryFaceAlike(t *testing.T) {
 	t.Parallel()

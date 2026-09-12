@@ -1,7 +1,7 @@
 // dispatch.go —— discovery (GET /tools) + per-tool dispatch (POST/QUERY /tools/{name}). The toolset
 // (grant ∩ opened ∩ whitelist) is already frozen into context by the assemble middleware, so these
 // handlers stay presentation-only. Not-granted / not-opened / not-whitelisted are indistinguishable
-// (all "capability_not_enabled") so the gate that failed never leaks.
+// (all "block_not_enabled") so the gate that failed never leaks.
 
 package pubapi
 
@@ -14,7 +14,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
-	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
+	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
 )
 
 // toolView / toolsResp —— discovery response.
@@ -68,11 +68,11 @@ func (h *Handlers) dispatch(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) writeMissingTool(w http.ResponseWriter, r *http.Request, name string) {
 	if h.quotaSpent(r, name) {
 		h.writeErr(w, http.StatusTooManyRequests, "quota_exhausted",
-			"this key has used its allowance for that capability — "+
+			"this key has used its allowance for that block — "+
 				"the owner sets it on the key")
 		return
 	}
-	h.writeErr(w, http.StatusNotFound, "capability_not_enabled",
+	h.writeErr(w, http.StatusNotFound, "block_not_enabled",
 		"tool not available to this key")
 }
 
@@ -84,18 +84,18 @@ func (h *Handlers) quotaSpent(r *http.Request, name string) bool {
 		return false
 	}
 	return errors.Is(h.d.AgentSkills.HiddenReasonForTool(r.Context(), ts.Input, name),
-		capreg.ErrQuotaExhausted)
+		registry.ErrQuotaExhausted)
 }
 
 // queryOnMutating —— a QUERY request against a state-changing tool (QUERY is read-only only).
-func queryOnMutating(method string, tool *capreg.BindingTool) bool {
+func queryOnMutating(method string, tool *registry.BindingTool) bool {
 	return method == methodQuery && !tool.ReadOnly
 }
 
 // runTool —— read the body, execute, respond. Executor errors are logged and returned as a static
 // tool_error (no provider internals reach the caller). last_used_at is bumped best-effort.
 func (h *Handlers) runTool(
-	w http.ResponseWriter, r *http.Request, key *access.APIKey, tool *capreg.BindingTool,
+	w http.ResponseWriter, r *http.Request, key *access.APIKey, tool *registry.BindingTool,
 ) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxAPIBodyBytes)
 	body, berr := io.ReadAll(r.Body)
@@ -128,7 +128,7 @@ func (h *Handlers) writeToolResult(w http.ResponseWriter, out string) {
 	}
 }
 
-func findTool(tools []*capreg.BindingTool, name string) *capreg.BindingTool {
+func findTool(tools []*registry.BindingTool, name string) *registry.BindingTool {
 	for _, t := range tools {
 		if t.Name == name {
 			return t

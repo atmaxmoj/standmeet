@@ -74,7 +74,7 @@ async function expectQuotaUpdate(
   expect(updated.max_members).toBe(3);
 }
 
-// expectCodeFieldRoundTrip — a field a capability owns on a code (booker's max_bookings is
+// expectCodeFieldRoundTrip — a field a block owns on a code (booker's max_bookings is
 // the first one) is declared through CodeConfig: whatever gets written must read back
 // unchanged.
 //
@@ -98,7 +98,7 @@ async function expectCodeFieldRoundTrip(
   );
   const mine = rows.find((r) => r.id === created.id);
   expect(mine, 'the created code is listed').toBeTruthy();
-  expect(mine?.max_bookings, 'the capability field came back on the row').toBe(7);
+  expect(mine?.max_bookings, 'the block field came back on the row').toBe(7);
 }
 
 test.describe('Phase E-13 codes create / update_quotas via MCP', () => {
@@ -144,7 +144,7 @@ test.describe('Phase E-13 codes create / update_quotas via MCP', () => {
       await request.dispose();
     });
 
-  test('a capability field declared on the code round-trips: set → read back',
+  test('a block field declared on the code round-trips: set → read back',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
       await expectCodeFieldRoundTrip(request, apiToken, sid, roleID);

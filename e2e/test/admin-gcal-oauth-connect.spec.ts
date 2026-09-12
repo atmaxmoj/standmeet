@@ -39,9 +39,9 @@ test.describe('admin · GCal OAuth · paste credentials → Authorize → Connec
     const res = await seed.request.get(auth_url);
     expect(res.status()).toBe(200);
     const status = await getGCalStatus(seed.request);
-    // #162 externalized gcal as a generic connector: the status is the uniform
-    // connector shape (connected/has_credentials), no gcal-specific calendar_id/
-    // scopes. The meaningful outcome — the oauth dance completes and the connector
+    // #162 externalized gcal as a generic supplier: the status is the uniform
+    // supplier shape (connected/has_credentials), no gcal-specific calendar_id/
+    // scopes. The meaningful outcome — the oauth dance completes and the supplier
     // flips to connected — still holds and is what we assert.
     expect(status.connected).toBe(true);
   });

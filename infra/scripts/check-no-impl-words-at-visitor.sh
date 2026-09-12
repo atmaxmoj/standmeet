@@ -11,7 +11,7 @@
 #
 # **The human-readable name was already there, it just never followed through to the
 # visitor's path** ([[move-the-capability-move-its-edges]]). So the fix isn't "add
-# another progress_label field for someone to fill in" — the next capability will
+# another progress_label field for someone to fill in" — the next block will
 # forget it just the same — it's making the fallback fall back to the Title, which
 # is **already required, already reviewed by the owner**.
 #
@@ -28,14 +28,16 @@ set -eu
 # production point.
 #
 # Resolve the path relative to **repo root**, not cwd: this gate runs both from
-# root (make lint) and from backend/ (backend/Makefile's connector-boundary).
+# root (make lint) and from backend/ (backend/Makefile's supplier-boundary).
 # The first version hard-coded a relative path and couldn't find the file when
 # run from backend/ — and it correctly reported "the rule has no subject" and
-# exited 2, **it did not report green**.
+# exited 2, **it did not report green**. It did the same when the block-vocabulary
+# rename moved the file out of internal/capabilities/mcpplugin, which is how the
+# stale path below got found rather than silently skipped.
 # A gate that can't find its subject must blow up, never pass silently
 # (see [[assertion-that-cannot-fail]]).
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-TARGET="$ROOT/backend/internal/capabilities/mcpplugin/progress_label.go"
+TARGET="$ROOT/backend/internal/plugin/progress_label.go"
 
 # IMPL_WORDS —— words only someone who wrote this system would say. Fine on the
 # owner side (they're configuring this stuff); **not fine on the visitor side**.
@@ -51,7 +53,7 @@ fail=0
 #
 # The check must look only at **line content**, never the filename together with
 # it: the first version glued `FILENAME:FNR:line` together and grepped that, and
-# this file lives under `internal/capabilities/mcpplugin/` — **the path itself
+# this file lives under `internal/plugin/` — **the path itself
 # contains "plugin"** — so every line matched, including the correct
 # `return "working"`, which also went red.
 # It's easier to get the match target wrong than the match rule

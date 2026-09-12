@@ -9,7 +9,7 @@
 // of unrelated results, with no error anywhere.
 //
 // This is grounded in a real observation: in the full suite,
-// `marketplace-needs-connector` went red twice (18s), and passed at 7.9s running
+// `marketplace-needs-supplier` went red twice (18s), and passed at 7.9s running
 // alone. The failure snapshot showed `tz-booking` in the search box while the grid
 // showed Algorithmic Art / Brand Guidelines / …
 //
@@ -24,7 +24,7 @@ import type { Page } from '@playwright/test';
 import { seedOwnerLoggedIn, teardownSeed, OWNER, type BaseSeed } from '@/fixtures/gcal-setup';
 import { gotoAdminSection } from '@/fixtures/navigate';
 
-// The "needs a connector" skill (appended to the mock marketplace catalog); used as
+// The "needs a supplier" skill (appended to the mock marketplace catalog); used as
 // the search target.
 const TARGET = 'tz-booking';
 // Every card in the grid. **Don't guess a neighboring card's id** — guess wrong and

@@ -25,7 +25,7 @@ type MCPServerConfig struct {
 	URL                string
 	AuthHeaderName     string
 	AuthHeaderValueEnc []byte
-	// GrantedDeps —— connector dependency names ("calendar"/"smtp"…) the owner explicitly
+	// GrantedDeps —— supplier dependency names ("calendar"/"smtp"…) the owner explicitly
 	// authorized this ext-mcp server to reach. ext-mcp gets least trust: a tool's declared
 	// Requires does not inject a handle by default; only a dep listed here — owner's explicit
 	// consent — gets resolved and exposed. Empty = deny everything by default.

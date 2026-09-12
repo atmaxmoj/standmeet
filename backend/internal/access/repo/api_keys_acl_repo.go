@@ -13,15 +13,15 @@ import (
 
 // ───── per-key denials (mirror CodeDenialRepo) ─────
 
-// ListCapabilityDenials —— capability ids denied on this key.
-func (r *APIKeyRepo) ListCapabilityDenials(ctx context.Context, keyID string) ([]string, error) {
+// ListBlockDenials —— block ids denied on this key.
+func (r *APIKeyRepo) ListBlockDenials(ctx context.Context, keyID string) ([]string, error) {
 	keyUUID, err := pgstore.ParseUUID(keyID)
 	if err != nil {
 		return nil, fmt.Errorf(errParseKeyIDPrefix, err)
 	}
-	ids, qerr := db.New(r.pool).ListAPIKeyCapabilityDenials(ctx, keyUUID)
+	ids, qerr := db.New(r.pool).ListAPIKeyBlockDenials(ctx, keyUUID)
 	if qerr != nil {
-		return nil, fmt.Errorf("list api key capability denials: %w", qerr)
+		return nil, fmt.Errorf("list api key block denials: %w", qerr)
 	}
 	return ids, nil
 }
@@ -39,30 +39,30 @@ func (r *APIKeyRepo) ListSkillDenials(ctx context.Context, keyID string) ([]stri
 	return pgstore.UUIDStrings(rows), nil
 }
 
-// AddCapabilityDenial —— deny a capability on this key (idempotent).
-func (r *APIKeyRepo) AddCapabilityDenial(ctx context.Context, keyID, capabilityID string) error {
+// AddBlockDenial —— deny a block on this key (idempotent).
+func (r *APIKeyRepo) AddBlockDenial(ctx context.Context, keyID, blockID string) error {
 	keyUUID, err := pgstore.ParseUUID(keyID)
 	if err != nil {
 		return fmt.Errorf(errParseKeyIDPrefix, err)
 	}
-	if qerr := db.New(r.pool).AddAPIKeyCapabilityDenial(ctx, db.AddAPIKeyCapabilityDenialParams{
-		KeyID: keyUUID, CapabilityID: capabilityID,
+	if qerr := db.New(r.pool).AddAPIKeyBlockDenial(ctx, db.AddAPIKeyBlockDenialParams{
+		KeyID: keyUUID, BlockID: blockID,
 	}); qerr != nil {
-		return fmt.Errorf("add api key capability denial: %w", qerr)
+		return fmt.Errorf("add api key block denial: %w", qerr)
 	}
 	return nil
 }
 
-// DeleteCapabilityDenial —— lift a capability denial (idempotent).
-func (r *APIKeyRepo) DeleteCapabilityDenial(ctx context.Context, keyID, capabilityID string) error {
+// DeleteBlockDenial —— lift a block denial (idempotent).
+func (r *APIKeyRepo) DeleteBlockDenial(ctx context.Context, keyID, blockID string) error {
 	keyUUID, err := pgstore.ParseUUID(keyID)
 	if err != nil {
 		return fmt.Errorf(errParseKeyIDPrefix, err)
 	}
-	if qerr := db.New(r.pool).DeleteAPIKeyCapabilityDenial(
-		ctx, db.DeleteAPIKeyCapabilityDenialParams{KeyID: keyUUID, CapabilityID: capabilityID},
+	if qerr := db.New(r.pool).DeleteAPIKeyBlockDenial(
+		ctx, db.DeleteAPIKeyBlockDenialParams{KeyID: keyUUID, BlockID: blockID},
 	); qerr != nil {
-		return fmt.Errorf("delete api key capability denial: %w", qerr)
+		return fmt.Errorf("delete api key block denial: %w", qerr)
 	}
 	return nil
 }
@@ -105,44 +105,44 @@ func (r *APIKeyRepo) DeleteSkillDenial(ctx context.Context, keyID, skillID strin
 
 // ───── candidacy ("open") gate ─────
 
-// OpenCapability —— mark a capability as an API candidate for this owner (idempotent).
-func (r *APIKeyRepo) OpenCapability(ctx context.Context, ownerID, capabilityID string) error {
+// OpenBlock —— mark a block as an API candidate for this owner (idempotent).
+func (r *APIKeyRepo) OpenBlock(ctx context.Context, ownerID, blockID string) error {
 	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
 		return fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	if qerr := db.New(r.pool).OpenAPICapability(ctx, db.OpenAPICapabilityParams{
-		OwnerID: ownerUUID, CapabilityID: capabilityID,
+	if qerr := db.New(r.pool).OpenAPIBlock(ctx, db.OpenAPIBlockParams{
+		OwnerID: ownerUUID, BlockID: blockID,
 	}); qerr != nil {
-		return fmt.Errorf("open api capability: %w", qerr)
+		return fmt.Errorf("open api block: %w", qerr)
 	}
 	return nil
 }
 
-// CloseCapability —— withdraw an API candidate (idempotent). Keys whose role grants it stop
+// CloseBlock —— withdraw an API candidate (idempotent). Keys whose role grants it stop
 // reaching it immediately.
-func (r *APIKeyRepo) CloseCapability(ctx context.Context, ownerID, capabilityID string) error {
+func (r *APIKeyRepo) CloseBlock(ctx context.Context, ownerID, blockID string) error {
 	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
 		return fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	if qerr := db.New(r.pool).CloseAPICapability(ctx, db.CloseAPICapabilityParams{
-		OwnerID: ownerUUID, CapabilityID: capabilityID,
+	if qerr := db.New(r.pool).CloseAPIBlock(ctx, db.CloseAPIBlockParams{
+		OwnerID: ownerUUID, BlockID: blockID,
 	}); qerr != nil {
-		return fmt.Errorf("close api capability: %w", qerr)
+		return fmt.Errorf("close api block: %w", qerr)
 	}
 	return nil
 }
 
-// ListOpenCapabilities —— the owner's opened (candidate) capability ids.
-func (r *APIKeyRepo) ListOpenCapabilities(ctx context.Context, ownerID string) ([]string, error) {
+// ListOpenBlocks —— the owner's opened (candidate) block ids.
+func (r *APIKeyRepo) ListOpenBlocks(ctx context.Context, ownerID string) ([]string, error) {
 	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	ids, qerr := db.New(r.pool).ListAPIOpenCapabilities(ctx, ownerUUID)
+	ids, qerr := db.New(r.pool).ListAPIOpenBlocks(ctx, ownerUUID)
 	if qerr != nil {
-		return nil, fmt.Errorf("list api open capabilities: %w", qerr)
+		return nil, fmt.Errorf("list api open blocks: %w", qerr)
 	}
 	return ids, nil
 }

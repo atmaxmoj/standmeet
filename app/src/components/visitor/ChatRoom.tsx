@@ -8,7 +8,7 @@ import { useEffect, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 
 import { composerPlaceholder, pickGhost } from '@/lib/visitor/ghost-text';
-import { useCapabilityStore } from '@/lib/visitor/capability-store';
+import { useBlockStore } from '@/lib/visitor/block-store';
 import { useDockButtonsStore } from '@/lib/visitor/dock-buttons-store';
 import { dispatchComposerKey, useAutoGrowTextarea } from '@/lib/visitor/composer-keys';
 import { composeMessage, useComposerAttachments } from '@/lib/visitor/composer-attachments';
@@ -399,20 +399,20 @@ function StarterChip({ q, last, onPick, pending }: { q: string; last: boolean; o
 // ≤2 shortcut buttons the owner configures on a role. Clicking = send the
 // owner-written "trigger phrase" as a visitor message (the same path as
 // typing, the same path the owner uses to invoke it in their own UI — the
-// button is just a shortcut). ACL disables the capability → grayed out.
+// button is just a shortcut). ACL disables the block → grayed out.
 
 function DockButtons({ onPick, pending }: { onPick: (q: string) => void; pending: boolean }) {
   const buttons = useDockButtonsStore((s) => s.buttons);
-  const caps = useCapabilityStore((s) => s.states);
+  const states = useBlockStore((s) => s.states);
   return buttons.length === 0 ? null : (
     <div className="flex flex-wrap gap-2 mb-3" data-testid="dock-buttons">
       {buttons.map((b) => (
         <DockButton
-          key={b.capability_id}
-          capabilityId={b.capability_id}
+          key={b.block_id}
+          blockId={b.block_id}
           title={b.title}
           trigger={b.trigger}
-          state={capState(caps, b.capability_id)}
+          state={blockState(states, b.block_id)}
           onPick={onPick}
           pending={pending}
         />
@@ -421,15 +421,15 @@ function DockButtons({ onPick, pending }: { onPick: (q: string) => void; pending
   );
 }
 
-type DockCapState = { enabled: boolean; reason: string };
+type DockBlockState = { enabled: boolean; reason: string };
 
 function DockButton({
-  capabilityId, title, trigger, state, onPick, pending,
+  blockId, title, trigger, state, onPick, pending,
 }: {
-  capabilityId: string;
+  blockId: string;
   title: string;
   trigger: string;
-  state: DockCapState;
+  state: DockBlockState;
   onPick: (q: string) => void;
   pending: boolean;
 }) {
@@ -438,7 +438,7 @@ function DockButton({
       type="button"
       disabled={pending || !state.enabled}
       onClick={() => onPick(trigger)}
-      data-testid={`dock-button-${capabilityId}`}
+      data-testid={`dock-button-${blockId}`}
       title={state.enabled ? undefined : state.reason}
       className="mono text-[11px] tracking-[0.06em] px-3 py-1.5 border border-(--color-rule) text-(--color-ink) hover:border-(--color-ink) disabled:opacity-40 disabled:cursor-not-allowed"
     >
@@ -447,13 +447,13 @@ function DockButton({
   );
 }
 
-// capState —— read a capability's enabled/disabled reason from the
-// capability store. Not found (this session lacks the capability) → disabled.
-function capState(
-  caps: readonly { id: string; enabled: boolean; policy_summary?: string }[],
+// blockState —— read a block's enabled/disabled reason from the
+// block store. Not found (this session lacks the block) → disabled.
+function blockState(
+  states: readonly { id: string; enabled: boolean; policy_summary?: string }[],
   id: string,
-): DockCapState {
-  const c = caps.find((x) => x.id === id);
+): DockBlockState {
+  const c = states.find((x) => x.id === id);
   return c
     ? { enabled: c.enabled, reason: c.policy_summary ?? 'unavailable right now' }
     : { enabled: false, reason: 'unavailable right now' };

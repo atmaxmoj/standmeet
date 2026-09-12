@@ -7,7 +7,7 @@
 // single typo removed both the key and the spare key at once — and since the session is keyed by
 // ownerID, nothing feels wrong until the session expires.
 //
-// Judgment criterion (assert the good outcome, not "no red text"): once the mail connector is
+// Judgment criterion (assert the good outcome, not "no red text"): once the mail supplier is
 // configured, changing the email must **only produce a confirmation message**; identity **must
 // not move yet** — the old email must still be able to log in until confirmed. That is the real
 // meaning of "not locked out". Asserting "a success toast appeared" is not enough: that is a
@@ -22,7 +22,7 @@ import type { APIRequestContext } from '@playwright/test';
 import { claim, login } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import {
-  clearMailpit, configureMailConnector, confirmLinkIn, followMailedLink, waitForMailTo,
+  clearMailpit, configureMailSupplier, confirmLinkIn, followMailedLink, waitForMailTo,
 } from '@/fixtures/mail';
 import { gotoAdminSection } from '@/fixtures/navigate';
 
@@ -65,12 +65,12 @@ test.describe('account · a new email must prove it is reachable before it becom
       email: OWNER.email, password: OWNER.password,
       handle: OWNER.handle, fullName: OWNER.fullName,
     });
-    await configureMailConnector(request, OWNER.email, OWNER.password);
+    await configureMailSupplier(request, OWNER.email, OWNER.password);
     await clearMailpit(request);
     await request.dispose();
   });
 
-  test('with a verified mail connector: the change is pending until the new address confirms it',
+  test('with a verified mail supplier: the change is pending until the new address confirms it',
     async ({ adminPage: page, playwright }) => {
       await gotoAdminSection(page, 'account');
       await page.waitForURL('**/admin/account', { timeout: 5_000 });
@@ -111,7 +111,7 @@ test.describe('account · a new email must prove it is reachable before it becom
 
       // ⑤ Take the real path — open the link from the mail in a browser, don't hit the
       // API directly.
-      //    "test covers capability, not face": hitting only the API would still pass
+      //    "test covers block, not face": hitting only the API would still pass
       //    green even if the link page didn't exist at all.
       await followMailedLink(page, link);
       await expect(page.getByTestId('email-confirmed')).toBeVisible({ timeout: 10_000 });

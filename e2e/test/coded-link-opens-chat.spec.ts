@@ -15,7 +15,7 @@
 // why the existing guards are all green: `code-intro-greeting.spec.ts:52` drives `?code=` but its fixture is canonical uppercase;
 // `applications-commit-qr-works.spec.ts`'s comment says it proves "QR can open chat", but it actually POSTs directly to
 // `/api/v1/sessions` —— the backend accepts lowercase, and that **browser front door** was never driven
-// ([[test-covers-capability-not-face]]).
+// ([[test-covers-block-not-face]]).
 //
 // so what this pins is **the face**: a visitor takes the product's own link and opens it in a browser.
 

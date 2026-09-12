@@ -11,7 +11,7 @@
 // **the reader path was never wired up**.
 //
 // **Why the wiki side is fine**: `corpus-i18n-reader.spec.ts` covers the wiki reader,
-// but the writings reader has never had a corresponding test. One capability got wired
+// but the writings reader has never had a corresponding test. One block got wired
 // up halfway, and nothing was guarding the other half.
 //
 // The assertion uses the **inverse** of `.not.toContainText`: it reads the text first,

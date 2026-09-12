@@ -63,47 +63,47 @@
     "withdraw": "撤回",
     "logUpdate": "记录更新"
   },
-  "connectorAdd": {
-    "catalogCount": "添加连接器 · 目录中 {n} 个",
-    "tagline": "扩展语料库的能力面。",
+  "supplierAdd": {
+    "catalogCount": "添加 supplier · 目录中 {n} 个",
+    "tagline": "扩展语料库的触达面。",
     "close": "关闭 ✕",
     "installed": "已安装",
     "builtIn": "内置"
   },
-  "connectorConfig": {
+  "supplierConfig": {
     "oauthHint": "在新标签页打开服务商 OAuth",
     "choose": "选择…",
     "backToCatalog": "← 返回目录",
     "connect": "连接 →"
   },
-  "connectorCard": {
-    "credsStored": "此连接器的凭据已保存。它们不会再次显示——留空字段以保留，或输入新的以替换。",
+  "supplierCard": {
+    "credsStored": "此 supplier 的凭据已保存。它们不会再次显示——留空字段以保留，或输入新的以替换。",
     "scopeShortfall": "已连接，但这份授权无法完成所要求的一切——需要 {scopes} 的操作将无法运行。请在上方勾选它并重新连接。"
   },
-  "connectorCred": {
+  "supplierCred": {
     "authentication": "认证",
     "apiKeyHint": "在 {where} 中作为 <code>{name}</code> 发送。",
     "discoveryHint": "发现：<code>{url}</code>",
-    "needsDance": "此方案需要一个授权步骤。请先组装连接器——连接按钮在它的卡片上。",
+    "needsDance": "此方案需要一个授权步骤。请先组装 supplier——连接按钮在它的卡片上。",
     "scopes": "范围"
   },
-  "protocolConnector": {
+  "protocolSupplier": {
     "testConnection": "测试连接 →"
   },
   "specIngest": {
     "heading": "粘贴一份 OpenAPI 规范",
-    "blurb": "任意 OpenAPI 3.0 规范（JSON 或 YAML）。我们从中推导出凭据表单 + 分类。",
+    "blurb": "任意 OpenAPI 3.0 规范（JSON 或 YAML）。我们从中推导出凭据表单 + seam。",
     "useThisSpec": "检查此规范",
     "uploadSpec": "上传文件",
     "bindingLabel": "绑定——可选",
-    "bindingHint": "用 JSONata（YAML）把此 API 的操作映射到某个分类契约上，让 agent 可把它当作日历、邮件发送器等使用。留空则改为暴露原始操作。",
+    "bindingHint": "用 JSONata（YAML）把此 API 的操作映射到某个 seam 契约上，让 agent 可把它当作日历、邮件发送器等使用。留空则改为暴露原始操作。",
     "orFetchFromUrl": "…或从 URL 获取",
     "fetch": "获取",
-    "candidate": "候选连接器",
+    "candidate": "候选 supplier",
     "baseUrlLabel": "base URL——仅当规范未声明 servers 时",
-    "assemble": "组装连接器 →",
+    "assemble": "组装 supplier →",
     "exposeLabel": "让访客的 AI 直接调用这些操作。规范中每个操作都成为它可用的工具，受逐访问码授权约束。若你提供了绑定，请关闭此项。",
-    "needsBindingOrExpose": "这会组装出一个没人能调用的连接器。请提供一个绑定来填充某个分类，或勾选上方的框把操作开放给访客的 AI。"
+    "needsBindingOrExpose": "这会组装出一个没人能调用的 supplier。请提供一个绑定来填充某个 seam，或勾选上方的框把操作开放给访客的 AI。"
   },
   "composer": {
     "save": "保存",
@@ -257,7 +257,7 @@
     "recoveryDetailReady": "尚未设置",
     "recoveryDetailNeedsMail": "需要已验证的邮箱",
     "recoveryNoteReady": "生成一段恢复口令并通过邮件发给你。一次性使用——用它登录后即失效。",
-    "recoveryNoteNeedsMail": "请先在 Connectors 中验证邮箱（SMTP）——恢复口令将通过邮件发给你。"
+    "recoveryNoteNeedsMail": "请先在 Suppliers 中验证邮箱（SMTP）——恢复口令将通过邮件发给你。"
   },
   "monitor": {
     "collection": "流量采集",

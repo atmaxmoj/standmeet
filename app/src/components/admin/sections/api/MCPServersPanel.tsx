@@ -4,7 +4,7 @@
 // roles. The `/mcp-servers` backend is fully real; auth value is encrypted
 // at rest.
 //
-// Same visual language as the connector panel (crosshair card + mono
+// Same visual language as the supplier panel (crosshair card + mono
 // kicker).
 //
 // Each row also carries a **read-only probe** (check): ask that server

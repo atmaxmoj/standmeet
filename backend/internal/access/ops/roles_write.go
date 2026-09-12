@@ -81,7 +81,7 @@ func writeRole(
 		if err != nil {
 			return nil, roleErr(err)
 		}
-		// Each capability's own fields: the whole raw input gets handed over for them to
+		// Each block's own fields: the whole raw input gets handed over for them to
 		// pick from. A write failure doesn't roll back the role — the role is already
 		// built, its settings can be changed later (a failure there is logged at that
 		// layer).
@@ -182,13 +182,13 @@ func toRoleWriteInput(d RolesDeps, ownerID string, in *roleWriteArgs) *usecase.R
 		MCPServerIDs: nonNilStrings(in.MCPServerIDs),
 		Waypoints:    nonNilWaypoints(in.Waypoints),
 		DockButtons:  nonNilDockButtons(in.DockButtons),
-		// Which capabilities may be mounted on dock buttons is answered by the capability
+		// Which blocks may be mounted on dock buttons is answered by the block
 		// registry — asked fresh on every write, and **asked scoped to this role's
-		// skills** (an `acl: role_granted` capability only counts once its skill grants it).
-		DockableCapabilityIDs: d.ValidCapabilityIDs,
-		RequireGhostEvidence:  boolOr(in.RequireGhostEvidence, false),
-		ProviderID:            in.ProviderID,
-		GasMetered:            boolOr(in.GasMetered, false),
+		// skills** (an `acl: role_granted` block only counts once its skill grants it).
+		DockableBlockIDs:     d.ValidBlockIDs,
+		RequireGhostEvidence: boolOr(in.RequireGhostEvidence, false),
+		ProviderID:           in.ProviderID,
+		GasMetered:           boolOr(in.GasMetered, false),
 	}
 }
 
@@ -230,13 +230,13 @@ var roleErrClasses = []struct {
 		return fp.BadInput("dock button needs a trigger")
 	}},
 	// Both cases share this one message, and it's true for both: either the id is
-	// misspelled, or this capability needs the role's skill to grant it and this role
-	// hasn't granted it. The previous version said "unknown dock capability" — false
-	// for the second case (that capability is installed fine on the instance), and the
+	// misspelled, or this block needs the role's skill to grant it and this role
+	// hasn't granted it. The previous version said "unknown dock block" — false
+	// for the second case (that block is installed fine on the instance), and the
 	// owner would go hunting for a typo that doesn't exist (F-D-13).
-	{entity.ErrUnknownDockCapability, func() error {
+	{entity.ErrUnknownDockBlock, func() error {
 		return fp.BadInput(
-			"this role can't show that capability — check the id, or grant it to the role's skills",
+			"this role can't show that block — check the id, or grant it to the role's skills",
 		)
 	}},
 	{usecase.ErrRefPromptNotFound, func() error {

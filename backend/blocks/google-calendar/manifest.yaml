@@ -1,0 +1,42 @@
+id: google-calendar
+# title —— what the owner is told to connect. Declared here because the host must not hold
+# a table of display names for blocks whose identities it is not supposed to know.
+title: Google Calendar
+
+# provides —— the seam this block supplies. `calendar.book` says `requires: [calendar]`
+# and never names Google; swapping in a CalDAV block that also provides `calendar`
+# leaves every consumer untouched. This used to be spelled `category`, one word for
+# the supply side and another for the demand side of the same name.
+provides: calendar
+
+transport:
+  kind: openapi
+  auth_scheme: oauth2
+  spec: spec.yaml
+  binding: binding.yaml
+
+# owner_ops —— the owner-side operations this supplier exposes on its own.
+#
+# "Is it still working" matters more for calendar than elsewhere: OAuth authorization can be
+# revoked on the provider side, refresh tokens can be rotated out, and the "connected" badge
+# on the card checks nothing —— so a break stays invisible until a visitor tries to book a
+# meeting and it blows up (F-C-16).
+#
+# Uses free/busy instead of creating an event: read-only, leaves nothing on the owner's
+# calendar, and one successful call proves the whole chain at once —— the credential is real,
+# the token is valid or **was transparently refreshed**, the granted scope is enough, and the
+# account is reachable.
+owner_tools:
+  - name: suppliers.calendar_check
+    tool: calendar.check
+    description: >-
+      Ask the connected calendar what it is busy with over the next few days.
+      Read-only — it books nothing. Proves the credential still works and the
+      token still refreshes.
+    input_schema: |
+      {
+        "type":"object",
+        "properties":{
+          "days":{"type":"integer","description":"How many days ahead to look (default 7)."}
+        }
+      }

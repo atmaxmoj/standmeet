@@ -91,7 +91,7 @@ export function useIssuePendingCode(): IssuePending {
       );
       persistSession(sess, false);
       // F-A-20: this in-page re-issue (switch-name picker) must reseed ALL the ephemeral chat stores
-      // from the just-persisted session — dock buttons / tool specs / capabilities, not only ghosts.
+      // from the just-persisted session — dock buttons / tool specs / blocks, not only ghosts.
       // Gate-entry masked the bug because it ends in a navigation (mount → seedEphemeralStores); the
       // in-page switch does not, so without this the new session's dock stayed empty until a reload.
       seedEphemeralStores();

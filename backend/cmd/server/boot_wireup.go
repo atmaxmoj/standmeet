@@ -6,16 +6,15 @@ package main
 import (
 	"context"
 
-	"github.com/atmaxmoj/standmeet/cmd/server/axiscap"
-	"github.com/atmaxmoj/standmeet/cmd/server/axisconn"
+	"github.com/atmaxmoj/standmeet/cmd/server/blockwire"
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
 	"github.com/atmaxmoj/standmeet/cmd/server/port"
 	"github.com/atmaxmoj/standmeet/cmd/server/wire"
-	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
-	"github.com/atmaxmoj/standmeet/internal/routes/capload"
+	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
+	"github.com/atmaxmoj/standmeet/internal/routes/blockload"
 
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
@@ -60,9 +59,9 @@ func buildServerDeps(d *deps.Runtime) *Deps {
 		PrintSession: sysroutes.PrintSessionDeps{Log: d.Log, Store: d.PrintStore},
 		DiagRegistry: sysroutes.DiagRegistryDeps{Registry: d.AgentSkills, Log: d.Log},
 		DiagSession:  buildDiagSessionDeps(d),
-		DiagConnector: sysroutes.DiagConnectorDeps{
-			Invoke:    diagCategoryInvoke(d),
-			AgentCall: d.ConnectorSlots.AgentCall,
+		DiagSupplier: sysroutes.DiagSupplierDeps{
+			Invoke:    diagSeamInvoke(d),
+			AgentCall: diagAgentCall(d),
 			Log:       d.Log,
 		},
 		DiagSandbox: sysroutes.DiagSandboxDeps{
@@ -71,7 +70,7 @@ func buildServerDeps(d *deps.Runtime) *Deps {
 		MCP:             buildMCPDeps(d),
 		CaptchaVerifier: d.CaptchaVerifier,
 		CaptchaEnabled:  d.CaptchaEnabled,
-		PluginRegistry:  d.PluginRegistry,
+		JobsModule:      d.JobsModule,
 		BannedIPs:       d.BannedIPRepo, Dispatch: d.Dispatch,
 		Monitor:        buildMonitor(d),
 		FaviconHandler: buildFaviconHandler(d),
@@ -112,6 +111,7 @@ func buildAdminDeps(d *deps.Runtime) AdminDeps {
 		AIProvider: owner.AIProviderDeps{
 			Owners: d.OwnerRepo, Providers: port.InferenceProviders{},
 		},
+		Blocks:     blocksAdminDeps(d),
 		Microsites: owner.MicrositeDeps{Pages: d.MicrositeRepo, Builds: d.MicrositeBuildRepo},
 		Skills:     marketplace.SkillsDeps{Skills: d.SkillRepo, Codes: d.CodeRepo},
 		Prompts:    owner.PromptsDeps{Prompts: d.PromptRepo},
@@ -134,7 +134,6 @@ func buildAdminDeps(d *deps.Runtime) AdminDeps {
 		Drafts:       d.ResumeDraftRepo,
 		Applications: d.ApplicationRepo,
 		Marketplace:  marketplace.SearchDeps{Client: d.MarketplaceClient},
-		Connectors:   connectorsAdminDeps(d),
 		ApproveRequests: owner.ApproveRequestDeps{
 			Reqs: d.AccessRequestRepo, Codes: d.CodeRepo, Roles: d.RoleRepo,
 			Owners: d.OwnerRepo, Proxy: port.OutboundSender(d),
@@ -144,7 +143,7 @@ func buildAdminDeps(d *deps.Runtime) AdminDeps {
 	}
 }
 
-// buildDiagSessionDeps —— deps for /internal/diag/session. Each capability's own closure
+// buildDiagSessionDeps —— deps for /internal/diag/session. Each block's own closure
 // holds its deps; this struct only carries the session store + registry.
 func buildDiagSessionDeps(d *deps.Runtime) sysroutes.DiagSessionDeps {
 	return sysroutes.DiagSessionDeps{
@@ -156,27 +155,27 @@ func buildDiagSessionDeps(d *deps.Runtime) sysroutes.DiagSessionDeps {
 	}
 }
 
-// registerAgentSkills —— registers every visitor- and owner-side builtin capability into
+// registerAgentSkills —— registers every visitor- and owner-side builtin block into
 // d.agentSkills. Shares repo references with build*Deps; called once during run(), and
-// the capability closures hold these deps unchanged for the rest of the server's run.
+// the block closures hold these deps unchanged for the rest of the server's run.
 func registerAgentSkills(ctx context.Context, d *deps.Runtime) {
-	axiscap.SandboxWorkspaces(d)
-	// The connector-name dependency registry is built and set in one place: the ext-mcp
+	blockwire.SandboxWorkspaces(d)
+	// The seam-name dependency registry is built and set in one place: the ext-mcp
 	// dep-grant gate (a tool's _meta.requires passes on grant+connected) and
 	// registerDiscoveredPlugins's Requires check share this same instance.
-	depReg := axisconn.DepRegistry(ctx, d)
+	depReg := blockwire.DepRegistry(ctx, d)
 	d.AgentSkills.SetDepRegistry(depReg)
 	// Also mounted on Runtime: outbound convergence assembles before this, and the
 	// marketplace-search path only fetches it when actually invoked.
 	d.DepRegistry = depReg
 	skills := buildVisitorSkillsDeps(d)
 	skills.DepConnected = depReg
-	capload.RegisterVisitorSkills(d.AgentSkills, &skills, d.ChatRepo)
-	// Plugins register their own capabilities into the same capreg.Registry (duplicate
-	// IDs backstopped by a panic in capreg). The old owner-MCP bundle is off this path:
+	blockload.RegisterVisitorSkills(d.AgentSkills, &skills, d.ChatRepo)
+	// Plugins register their own blocks into the same registry.Registry (duplicate
+	// IDs backstopped by a panic there). The old owner-MCP bundle is off this path:
 	// each op is now declared by its own domain, projected onto MCP via convergence.
-	d.PluginRegistry.RegisterAllCapabilities(d.AgentSkills)
-	// Inbound convergence point: each capability orders by name from its own manifest,
+	d.JobsModule.RegisterBlocks(d.AgentSkills)
+	// Inbound convergence point: each block orders by name from its own manifest,
 	// dispatched here. Replaces four hand-written gateways (summarize / booker /
 	// mail-sender / retrieval), each of which stood up its own socket and verbs.
 	wire.HostDesk(ctx, d, &skills)
@@ -184,31 +183,41 @@ func registerAgentSkills(ctx context.Context, d *deps.Runtime) {
 	// Builtin roles must be backfilled for pre-existing owners too: the new `invited`
 	// role is the default profile for issuing codes, so an old instance missing it can't.
 	wire.BuiltinRoles(ctx, d)
-	hooks := map[string]capload.CapHooks{
-		"corpus.retrieval": {Fragment: capload.CorpusScopeVisible},
-	}
-	// The usage gate mounts per each capability's Quota declaration (gate and
+	// Gated by what a block declares it calls (host_ops: corpus_*), not by its id — the
+	// composition root does not hold a list of which blocks ship.
+	hooks := blockwire.CorpusScopeHooks(blockload.CorpusScopeVisible)
+	// The usage gate mounts per each block's Quota declaration (gate and
 	// remaining-balance figure share one count).
-	axiscap.CapabilityQuotaHooks(d, hooks)
-	axiscap.RegisterDiscoveredPlugins(d, depReg, hooks)
-	axiscap.CapabilityEnableGate(d)
+	blockwire.BlockQuotaHooks(d, hooks)
+	// The dial-error hook this installs records WHY a block vanished, on a context detached
+	// from whichever assembly was running. See blockwire.recordBlockFailure.
+	//nolint:contextcheck // detached on purpose
+	blockwire.RegisterDiscoveredPlugins(d, depReg, hooks)
+	blockwire.BlockEnableGate(d)
+	// The other gate, and the one that answers first: a code carrying a bundle is
+	// granted the bundle's contents, read live at every assembly.
+	blockwire.BundleGate(d)
+	// Blocks the owner installed come back after a restart, through the same mount as
+	// the paste that first installed them. A block that worked until the process died
+	// is worse than one that never worked: the owner has no reason to look.
+	restoreOwnerBlocks(ctx, d)
 	// Periodic jobs: declared all over, scheduled from one place. Last on purpose —
 	// declarations complete only once every plugin has registered.
 	wire.PeriodicJobs(ctx, d)
 }
 
-// buildVisitorSkillsDeps —— #131: raw capability registration needs, drawn from here by
+// buildVisitorSkillsDeps —— #131: raw block registration needs, drawn from here by
 // RegisterVisitorSkills. Only used by registerAgentSkills, never enters Handlers.
 func buildVisitorSkillsDeps(d *deps.Runtime) conversation.VisitorSkillsDeps {
 	return conversation.VisitorSkillsDeps{
 		Wiki: d.WikiRepo, Output: d.OutputRepo, Writings: d.WritingRepo,
-		Skills:          d.SkillRepo,
-		Sandbox:         d.SandboxRunner,
-		MCPServers:      &dialableMCPServers{repo: d.MCPServerRepo},
-		Reports:         d.ChatReportRepo,
-		Resolver:        d.ProviderResolver,
-		AgentConnectors: axisconn.NewAgentConnectorSource(d),
-		Resumes:         port.ResumesByCode(d),
+		Skills:             d.SkillRepo,
+		Sandbox:            d.SandboxRunner,
+		MCPServers:         &dialableMCPServers{repo: d.MCPServerRepo},
+		Reports:            d.ChatReportRepo,
+		Resolver:           d.ProviderResolver,
+		AgentToolSuppliers: blockwire.NewAgentToolSuppliers(d),
+		Resumes:            port.ResumesByCode(d),
 	}
 }
 
@@ -227,8 +236,8 @@ func newVisitorSessionDeps(d *deps.Runtime) conversation.VisitorSessionDeps {
 		Output:      d.OutputRepo,
 		AgentSkills: d.AgentSkills,
 		CodeDenials: d.CodeDenialRepo,
-		// Freezing the role snapshot reads each capability's config for this role, in the domain.
-		RoleCapConfig: axiscap.RoleCapConfig(d),
+		// Freezing the role snapshot reads each block's config for this role, in the domain.
+		RoleBlockConfig: blockwire.RoleBlockConfig(d),
 		// Fuel gauge (#7): tank in the owner domain, usage in stats — asks "how much is left".
 		Gas: port.OwnerGas{Providers: owner.ProvidersUseDeps{
 			Owners: d.OwnerRepo, Spend: d.InferenceUsageRepo,
@@ -258,8 +267,30 @@ func buildPubAPIDeps(d *deps.Runtime) *pubapi.Handlers {
 	})
 }
 
+// restoreOwnerBlocks — re-mount this instance's installed blocks at startup.
+//
+// Silent when the instance is not claimed yet, which is the ordinary state of a fresh
+// deployment: there is no owner, so there is nothing installed, and logging an error for
+// it would put a red line in every first boot.
+func restoreOwnerBlocks(ctx context.Context, d *deps.Runtime) {
+	ownerID, err := port.NewSoleOwnerLookup(d).SoleOwnerID(ctx)
+	if err != nil || ownerID == "" {
+		return
+	}
+	blockwire.RestoreInstalledBlocks(ctx, d, ownerID)
+}
+
+// blocksAdminDeps — the owner's plugin screen. Every op goes through the outbound
+// convergence point; Svc is only for the browser-specific legs that never had an op
+// (the OAuth redirect pair, the plaintext credential form).
+func blocksAdminDeps(d *deps.Runtime) adminroutes.BlockAdminDeps {
+	return adminroutes.BlockAdminDeps{
+		Svc: blockwire.NewService(d), Face: wire.AdminFace(d.Dispatch),
+	}
+}
+
 func buildMCPDeps(d *deps.Runtime) mcphandle.Deps {
-	// Tools: capreg (capability axis) + dispatcher (outbound convergence; MCP is one
+	// Tools: the block registry + dispatcher (outbound convergence; MCP is one
 	// projection). Never overlap: the former ships with plugins, the latter with domains.
 	return mcphandle.Deps{
 		AgentSkills: d.AgentSkills,
@@ -267,13 +298,5 @@ func buildMCPDeps(d *deps.Runtime) mcphandle.Deps {
 		Keypairs:    port.KeypairDeps(d),
 		Version:     port.AppVersion(),
 		Log:         d.Log,
-	}
-}
-
-// connectorsAdminDeps —— admin connectors panel deps: capabilities draw from convergence;
-// orchestration keeps only browser bits (OAuth redirects, credential forms) direct.
-func connectorsAdminDeps(d *deps.Runtime) adminroutes.ConnectorsAdminDeps {
-	return adminroutes.ConnectorsAdminDeps{
-		Svc: axisconn.NewService(d), Face: wire.AdminFace(d.Dispatch),
 	}
 }

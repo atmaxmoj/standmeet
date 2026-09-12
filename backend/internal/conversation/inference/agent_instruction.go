@@ -1,4 +1,4 @@
-// agent_instruction.go —— composer for the generic instruction: layers **capability-agnostic**
+// agent_instruction.go —— composer for the generic instruction: layers **block-agnostic**
 // context — which doc the visitor is currently viewing / the current time plus owner & visitor
 // timezone / a digest of this member's other conversations — onto every ChatModelAgent turn's
 // instruction.
@@ -31,7 +31,7 @@ func instructionWithDoc(system string, doc *AgentDocContext) string {
 }
 
 // instructionWithDateTime —— injects "the current date/time + owner's timezone + visitor's
-// timezone" as **generic** context on every turn's instruction (capability-agnostic). Skills /
+// timezone" as **generic** context on every turn's instruction (block-agnostic). Skills /
 // résumé / experience are all time-sensitive: the agent must know "today" to correctly answer
 // "recent" / "N years of experience" questions, and to anchor a yearless relative date like
 // "June 18th" to the future rather than some past year (observed in practice: the model
@@ -43,9 +43,9 @@ func instructionWithDoc(system string, doc *AgentDocContext) string {
 // "ask the visitor's timezone before proposing a time" — so a visitor granted only corpus
 // access got a scheduling instruction dropped into their system prompt out of nowhere, despite
 // not even being able to see a scheduling tool. How to convert, when to ask back, whether to
-// show both — that is the business of **the capability that actually schedules**: it says so in
-// its own MCP instructions, which only appear once that capability is granted
-// (mcp-servers/booker/content.go). The kernel doesn't know whether that capability exists, so it
+// show both — that is the business of **the block that actually schedules**: it says so in
+// its own MCP instructions, which only appear once that block is granted
+// (mcp-servers/booker/content.go). The kernel doesn't know whether that block exists, so it
 // must not speak on its behalf.
 func instructionWithDateTime(system string, now time.Time, ownerTZ, visitorTZ string) string {
 	loc, label := time.UTC, "UTC"
@@ -65,8 +65,8 @@ func instructionWithDateTime(system string, now time.Time, ownerTZ, visitorTZ st
 
 // visitorTZClause —— which timezone the visitor is in **is a fact, not an instruction**: state
 // it when known, say nothing when not. Whether to ask back when unknown, or show both sides
-// after converting, depends on whether this turn has a scheduling capability — that's for the
-// capability itself to say.
+// after converting, depends on whether this turn has a scheduling block — that's for the
+// block itself to say.
 func visitorTZClause(visitorTZ, ownerLabel string) string {
 	if visitorTZ == "" {
 		return ""
@@ -82,7 +82,7 @@ func visitorTZClause(visitorTZ, ownerLabel string) string {
 //
 // Why this can't just live in the system prompt: the visitor-side prompt is fixed **at the time
 // the message is sent** (the client assembles it by part id and sends it back as-is). Anything
-// that becomes true mid-session — quota ran out, a connector went offline — has no way in
+// that becomes true mid-session — quota ran out, a supplier went offline — has no way in
 // through that path. So in a quota-exhausted session the model still sees a system prompt
 // saying "you can book meetings" while the tool is no longer in its hands, and the most natural
 // way for it to reconcile that evidence is to doubt its own recent output: in F-B-14 it reported

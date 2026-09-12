@@ -91,7 +91,7 @@ func writingDataField(r *http.Request) (json.RawMessage, error) {
 // Only does two things: fills in the URL's writing_id, and renames `cover_image_ref` to
 // the op's `cover_image_asset_id`. **Every other field passes through verbatim** —
 // copying it field by field would just build a second shape at this layer, and that's
-// exactly how the same capability starts growing two different forms on two facades.
+// exactly how the same op starts growing two different forms on two facades.
 //
 // That rename is itself a small debt: the panel's field is called ref (it can be a
 // `pending-<id>` placeholder), the op's is called asset_id. Same thing, two names —

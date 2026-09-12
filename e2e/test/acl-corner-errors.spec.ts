@@ -1,8 +1,8 @@
-// acl-corner-errors.spec.ts —— §F（corner）+ §E（error stream）of capability-acl-hierarchy-tests.md.
+// acl-corner-errors.spec.ts —— §F（corner）+ §E（error stream）of block-acl-hierarchy-tests.md.
 //
 // §F: code-deny only narrows authorization, never touches existence/connection/quota. Under
 // pure AND·deny, the "code reverse-allow" corners (old F1/F2/F3/F7) no longer exist. F4
-// (deny-noop-when-role-ungranted) = A4, already covered by acl-capability-matrix
+// (deny-noop-when-role-ungranted) = A4, already covered by acl-block-matrix
 // (acl-cap-code-deny-noop), not repeated here.
 // §E: bad values / duplicates / revoke / read-back / auth on the deny write endpoint.
 //
@@ -12,10 +12,10 @@
 import { test, expect } from '@/fixtures/test';
 
 import { issueCodeWithSkills, expectCalendarBookExposed } from '@/fixtures/agent-skills-grant';
-import { sessionToolNames } from '@/fixtures/capabilities';
+import { sessionToolNames } from '@/fixtures/blocks';
 import { revokeCode } from '@/fixtures/codes';
 import {
-  setCodeCapabilityDenial, clearCodeCapabilityDenial, listCodeDenials, postCodeCapabilityDenialRaw,
+  setCodeBlockDenial, clearCodeBlockDenial, listCodeDenials, postCodeBlockDenialRaw,
 } from '@/fixtures/code-denials';
 import { OWNER, seedOwnerGCalConnected, teardownSeed, type BaseSeed } from '@/fixtures/gcal-setup';
 import { issueSession, issueSessionStatus } from '@/fixtures/visitor';
@@ -33,7 +33,7 @@ test.describe('ACL §F/§E · corner cases + error stream', () => {
   test('acl-code-deny-owner-only-noop · deny an owner-only cap → no visitor effect, no crash (F5)', async () => {
     const code = await issueCodeWithSkills(seed.request, seed.csrf, { granted_skills: [CAP] });
     // 'seo' is owner-only (not on the visitor plane) → denying it is meaningless but must not crash.
-    expect(await setCodeCapabilityDenial(seed.request, seed.csrf, code.id, 'seo')).toBeLessThan(300);
+    expect(await setCodeBlockDenial(seed.request, seed.csrf, code.id, 'seo')).toBeLessThan(300);
     const v = await issueSession(seed.request, { handle: OWNER.handle, mode: 'code', code: code.code, visitor_name: 'f5' });
     await expectCalendarBookExposed(seed.request, v.session_token, true); // visitor plane unaffected
   });
@@ -49,7 +49,7 @@ test.describe('ACL §F/§E · corner cases + error stream', () => {
 
   test('acl-deny-unknown-capid · deny a non-existent cap id → written, zero effect, no crash', async () => {
     const code = await issueCodeWithSkills(seed.request, seed.csrf, { granted_skills: [CAP] });
-    expect(await setCodeCapabilityDenial(seed.request, seed.csrf, code.id, 'no.such.capability')).toBe(201);
+    expect(await setCodeBlockDenial(seed.request, seed.csrf, code.id, 'no.such.block')).toBe(201);
     const v = await issueSession(seed.request, { handle: OWNER.handle, mode: 'code', code: code.code, visitor_name: 'eUnknown' });
     await expectCalendarBookExposed(seed.request, v.session_token, true); // granted cap unaffected
   });
@@ -57,7 +57,7 @@ test.describe('ACL §F/§E · corner cases + error stream', () => {
   test('acl-deny-on-revoked-code · revoked code → session 401, deny is moot', async () => {
     const { request } = seed; // independent APIRequestContext; bare variable dodges the "writes go through the UI" rule
     const code = await issueCodeWithSkills(request, seed.csrf, { granted_skills: [CAP] });
-    await setCodeCapabilityDenial(request, seed.csrf, code.id, CAP);
+    await setCodeBlockDenial(request, seed.csrf, code.id, CAP);
     await revokeCode(request, seed.csrf, code.id);
     const status = await issueSessionStatus(seed.request, { handle: OWNER.handle, mode: 'code', code: code.code, visitor_name: 'eRevoked' });
     expect(status).toBe(401);
@@ -68,41 +68,41 @@ test.describe('ACL §F/§E · corner cases + error stream', () => {
     const code = await issueCodeWithSkills(request, seed.csrf, { granted_skills: [CAP] });
     // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: deny write without CSRF must be rejected 403
     const res = await request.post(
-      `${BACKEND}/api/admin/codes/${code.id}/denials/capability`,
-      { data: { capability_id: CAP } }, // no X-Csrftoken
+      `${BACKEND}/api/admin/codes/${code.id}/denials/block`,
+      { data: { block_id: CAP } }, // no X-Csrftoken
     );
     expect(res.status()).toBe(403);
   });
 
-  test('acl-deny-malformed-body · POST missing capability_id → 400', async () => {
+  test('acl-deny-malformed-body · POST missing block_id → 400', async () => {
     const code = await issueCodeWithSkills(seed.request, seed.csrf, { granted_skills: [CAP] });
-    expect(await postCodeCapabilityDenialRaw(seed.request, seed.csrf, code.id, {})).toBe(400);
+    expect(await postCodeBlockDenialRaw(seed.request, seed.csrf, code.id, {})).toBe(400);
   });
 
   test('acl-deny-duplicate-idempotent · deny same (code,cap) twice → idempotent, single row', async () => {
     const code = await issueCodeWithSkills(seed.request, seed.csrf, { granted_skills: [CAP] });
-    expect(await setCodeCapabilityDenial(seed.request, seed.csrf, code.id, CAP)).toBe(201);
-    expect(await setCodeCapabilityDenial(seed.request, seed.csrf, code.id, CAP)).toBeLessThan(300);
+    expect(await setCodeBlockDenial(seed.request, seed.csrf, code.id, CAP)).toBe(201);
+    expect(await setCodeBlockDenial(seed.request, seed.csrf, code.id, CAP)).toBeLessThan(300);
     const denials = await listCodeDenials(seed.request, seed.csrf, code.id);
-    expect(denials.capability_ids.filter((id) => id === CAP)).toHaveLength(1);
+    expect(denials.block_ids.filter((id) => id === CAP)).toHaveLength(1);
   });
 
-  test('acl-deny-undo-reissue · deny → clear → reissue → capability back', async () => {
+  test('acl-deny-undo-reissue · deny → clear → reissue → block back', async () => {
     const code = await issueCodeWithSkills(seed.request, seed.csrf, { granted_skills: [CAP] });
-    expect(await setCodeCapabilityDenial(seed.request, seed.csrf, code.id, CAP)).toBe(201);
+    expect(await setCodeBlockDenial(seed.request, seed.csrf, code.id, CAP)).toBe(201);
     // 200 + the updated list, same shape as POST. Used to be 204 (no body): the panel would
     // have to re-fetch after every edit, and had to guess at "what did it become".
-    expect(await clearCodeCapabilityDenial(seed.request, seed.csrf, code.id, CAP)).toBe(200);
+    expect(await clearCodeBlockDenial(seed.request, seed.csrf, code.id, CAP)).toBe(200);
     const left = await listCodeDenials(seed.request, seed.csrf, code.id);
-    expect(left.capability_ids, 'the denial is really gone, not just a 200').not.toContain(CAP);
+    expect(left.block_ids, 'the denial is really gone, not just a 200').not.toContain(CAP);
     const v = await issueSession(seed.request, { handle: OWNER.handle, mode: 'code', code: code.code, visitor_name: 'eUndo' });
     await expectCalendarBookExposed(seed.request, v.session_token, true);
   });
 
   test('acl-deny-readback · write deny → GET denials returns it', async () => {
     const code = await issueCodeWithSkills(seed.request, seed.csrf, { granted_skills: [CAP] });
-    await setCodeCapabilityDenial(seed.request, seed.csrf, code.id, CAP);
+    await setCodeBlockDenial(seed.request, seed.csrf, code.id, CAP);
     const denials = await listCodeDenials(seed.request, seed.csrf, code.id);
-    expect(denials.capability_ids).toContain(CAP);
+    expect(denials.block_ids).toContain(CAP);
   });
 });

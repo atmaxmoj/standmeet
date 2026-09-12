@@ -254,7 +254,7 @@ async function rawMCPInitWithAuth(
   return await rawMCPCall(request, authHeader, {
     jsonrpc: '2.0', id: 1, method: 'initialize',
     params: {
-      protocolVersion: '2024-11-05', capabilities: {},
+      protocolVersion: '2024-11-05', blocks: {},
       clientInfo: { name: 'c1-spec', version: '1' },
     },
   }, undefined);

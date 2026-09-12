@@ -9,7 +9,7 @@ import { test, expect } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';
 
 import { claim } from '@/fixtures/admin';
-import { configureMailConnector } from '@/fixtures/mail';
+import { configureMailSupplier } from '@/fixtures/mail';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 
 const OWNER = {
@@ -72,7 +72,7 @@ async function initOwner(playwright: Playwright): Promise<void> {
     handle: OWNER.handle, fullName: OWNER.fullName,
   });
   // gate's request-access block only renders when the owner has a verified
-  // mail connector (can actually email back a code) — set one up via Mailpit.
-  await configureMailConnector(request, OWNER.email, OWNER.password);
+  // mail supplier (can actually email back a code) — set one up via Mailpit.
+  await configureMailSupplier(request, OWNER.email, OWNER.password);
   await request.dispose();
 }

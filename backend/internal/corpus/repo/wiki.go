@@ -12,9 +12,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/corpus/db"
 	"github.com/atmaxmoj/standmeet/internal/corpus/entity"
+	"github.com/atmaxmoj/standmeet/internal/corpus/integration"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
@@ -259,7 +259,7 @@ func toDomainWiki(w *db.CorpusNote) entity.Wiki {
 		Published:    w.Published,
 		CreatedAt:    w.CreatedAt.Time,
 		UpdatedAt:    w.UpdatedAt.Time,
-		Integrations: connector.NewIntegrations(),
+		Integrations: integration.NewIntegrations(),
 	}
 	if w.ParentID.Valid {
 		s := pgstore.FormatUUID(w.ParentID)

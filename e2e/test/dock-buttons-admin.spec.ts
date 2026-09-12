@@ -1,8 +1,8 @@
 // dock-buttons-admin.spec.ts — #109/#110 F: the admin UI where an owner configures
 // dock buttons on a role card.
 //
-// Two fixed button slots (= two chat positions). Each slot = a capability dropdown
-// (options = that role's capabilities, labeled by MCP title) + a trigger-phrase
+// Two fixed button slots (= two chat positions). Each slot = a block dropdown
+// (options = that role's blocks, labeled by MCP title) + a trigger-phrase
 // input + a "trigger phrase" help caption (against confusion). Save → frozen into
 // subsequent sessions.
 
@@ -19,7 +19,7 @@ const OWNER = {
   email: 'dock-admin@example.com', password: 'correct-horse-battery-staple',
   handle: 'dockadmin', fullName: 'Dock Admin Owner',
 };
-const CAP_SUMMARIZE = 'summarize_conversation';
+const BLOCK_SUMMARIZE = 'summarize_conversation';
 const TRIGGER = 'Summarize our conversation so far';
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
@@ -46,22 +46,22 @@ test.describe('dock buttons · F — admin role-card config UI', () => {
     async ({ adminPage }) => {
       await openRoles(adminPage);
       const row = adminPage.getByTestId('role-row-greeter');
-      await row.getByTestId('role-dock-cap-0').selectOption(CAP_SUMMARIZE);
+      await row.getByTestId('role-dock-cap-0').selectOption(BLOCK_SUMMARIZE);
       await row.getByTestId('role-dock-trigger-0').fill(TRIGGER);
       await row.getByTestId('role-dock-save').click();
       await expectSuccessToast(adminPage, /dock/i);
       await adminPage.reload();
       await openRoles(adminPage);
       const back = adminPage.getByTestId('role-row-greeter');
-      await expect(back.getByTestId('role-dock-cap-0')).toHaveValue(CAP_SUMMARIZE);
+      await expect(back.getByTestId('role-dock-cap-0')).toHaveValue(BLOCK_SUMMARIZE);
       await expect(back.getByTestId('role-dock-trigger-0')).toHaveValue(TRIGGER);
     });
 
-  test('F3 a slot with a capability but an empty trigger → save rejected → error toast',
+  test('F3 a slot with a block but an empty trigger → save rejected → error toast',
     async ({ adminPage }) => {
       await openRoles(adminPage);
       const row = adminPage.getByTestId('role-row-recruiter');
-      await row.getByTestId('role-dock-cap-0').selectOption(CAP_SUMMARIZE);
+      await row.getByTestId('role-dock-cap-0').selectOption(BLOCK_SUMMARIZE);
       await row.getByTestId('role-dock-trigger-0').fill('');
       await row.getByTestId('role-dock-save').click();
       await expectErrorToast(adminPage, /trigger|触发词/i);

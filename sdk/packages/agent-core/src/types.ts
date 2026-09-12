@@ -1,7 +1,7 @@
 // types.ts —— shared agent core types, kept stable across hosts so any
 // TurnStreamer / EventObserver impl knows the contract.
 
-export interface CapabilityState {
+export interface BlockState {
   readonly id: string;
   readonly enabled: boolean;
   // title —— passthrough of the MCP tool's human-readable display name
@@ -21,7 +21,7 @@ export interface ToolResult {
   readonly result?: unknown;
   readonly reason?: string;
   readonly detail?: string;
-  readonly capability_state?: readonly CapabilityState[];
+  readonly block_state?: readonly BlockState[];
 }
 
 // Conversation message —— pi unified shape, mirrors eino schema.Message
@@ -104,7 +104,7 @@ export type AgentEvent =
   | { readonly type: 'llm_chunk'; readonly text: string }
   | { readonly type: 'tool_started'; readonly name: string; readonly args: unknown; readonly progressLabel?: string }
   | { readonly type: 'tool_completed'; readonly result: ToolResult }
-  | { readonly type: 'capability_state_changed'; readonly states: readonly CapabilityState[] }
+  | { readonly type: 'block_state_changed'; readonly states: readonly BlockState[] }
   | { readonly type: 'ghost_received'; readonly text: string; readonly targetWaypoint?: string; readonly ghostId?: string }
   | { readonly type: 'retrying'; readonly attempt: number }
   | { readonly type: 'iteration_completed'; readonly iter: number }

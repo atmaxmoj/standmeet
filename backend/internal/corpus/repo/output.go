@@ -13,9 +13,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/corpus/db"
 	"github.com/atmaxmoj/standmeet/internal/corpus/entity"
+	"github.com/atmaxmoj/standmeet/internal/corpus/integration"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
@@ -243,7 +243,7 @@ func toDomainOutput(o *db.CorpusNote) entity.Output {
 		Published:     o.Published,
 		CreatedAt:     o.CreatedAt.Time,
 		UpdatedAt:     o.UpdatedAt.Time,
-		Integrations:  connector.NewIntegrations(),
+		Integrations:  integration.NewIntegrations(),
 	}
 	if o.ParentID.Valid {
 		s := pgstore.FormatUUID(o.ParentID)

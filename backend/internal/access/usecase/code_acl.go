@@ -1,7 +1,7 @@
 // code_acl.go — narrowing a single code's permissions: three kinds of denial + the
 // steering destinations.
 //
-// There are three kinds of denial (capability / skill / corpus URI); they're three
+// There are three kinds of denial (block / skill / corpus URI); they're three
 // dimensions of the same thing: subtracting one more layer from the scope the role
 // grants. The three land on two repo method families (a discrete-id family and a
 // whole-glob-list family), dispatched by kind; the corpus kind's read-modify-write,
@@ -24,9 +24,9 @@ import (
 
 // The three denial kinds — every face uses the same vocabulary.
 const (
-	DenialKindCapability = "capability"
-	DenialKindSkill      = "skill"
-	DenialKindCorpus     = "corpus"
+	DenialKindBlock  = "block"
+	DenialKindSkill  = "skill"
+	DenialKindCorpus = "corpus"
 )
 
 // CodeACLDeps — repos needed by this group of permission-narrowing use cases. Roles
@@ -44,7 +44,7 @@ type CodeACLDeps struct {
 // the positive list: the owner needs to judge "what can this code still see", and
 // that can't be seen from the revocation list alone.
 type CodeDenials struct {
-	CapabilityIDs []string
+	BlockIDs      []string
 	SkillIDs      []string
 	CorpusURIs    []string
 	CorpusGranted []string
@@ -55,7 +55,7 @@ type CodeDenials struct {
 	CorpusPublishedOnly bool
 }
 
-// CodeDenialRef — add/remove one denial. Kind is capability / skill / corpus.
+// CodeDenialRef — add/remove one denial. Kind is block / skill / corpus.
 type CodeDenialRef struct {
 	OwnerID  string
 	CodeID   string
@@ -77,7 +77,7 @@ func ListCodeDenials(
 // listDenials — the raw read of all three denial kinds. Paths where ownership was
 // already confirmed use this, without re-querying the code.
 func listDenials(ctx context.Context, d CodeACLDeps, codeID string) (CodeDenials, error) {
-	caps, cerr := d.Denials.ListCapabilities(ctx, codeID)
+	blocks, cerr := d.Denials.ListBlocks(ctx, codeID)
 	if cerr != nil {
 		return CodeDenials{}, fmt.Errorf("list code denials: %w", cerr)
 	}
@@ -91,7 +91,7 @@ func listDenials(ctx context.Context, d CodeACLDeps, codeID string) (CodeDenials
 	}
 	granted, publishedOnly := grantedCorpus(ctx, d, codeID)
 	return CodeDenials{
-		CapabilityIDs: caps, SkillIDs: skills, CorpusURIs: uris,
+		BlockIDs: blocks, SkillIDs: skills, CorpusURIs: uris,
 		CorpusGranted: granted, CorpusPublishedOnly: publishedOnly,
 	}, nil
 }
@@ -152,17 +152,17 @@ type denialWrite func(ctx context.Context, codeID, target string) error
 
 func denialAdders(d CodeACLDeps) map[string]denialWrite {
 	return map[string]denialWrite{
-		DenialKindCapability: d.Denials.AddCapability,
-		DenialKindSkill:      d.Denials.AddSkill,
-		DenialKindCorpus:     addCorpusURI(d),
+		DenialKindBlock:  d.Denials.AddBlock,
+		DenialKindSkill:  d.Denials.AddSkill,
+		DenialKindCorpus: addCorpusURI(d),
 	}
 }
 
 func denialRemovers(d CodeACLDeps) map[string]denialWrite {
 	return map[string]denialWrite{
-		DenialKindCapability: d.Denials.DeleteCapability,
-		DenialKindSkill:      d.Denials.DeleteSkill,
-		DenialKindCorpus:     removeCorpusURI(d),
+		DenialKindBlock:  d.Denials.DeleteBlock,
+		DenialKindSkill:  d.Denials.DeleteSkill,
+		DenialKindCorpus: removeCorpusURI(d),
 	}
 }
 

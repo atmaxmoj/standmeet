@@ -19,7 +19,7 @@
 // **What this asserts is "must not stay silent", not "must hit."** The
 // repo's second retrieval path (`corpus_grep`, literal/regex, never-miss)
 // already states up front that it covers "Chinese bigrams that cross
-// tokenizer boundaries" — the capability already exists. The same file's
+// tokenizer boundaries" — the block already exists. The same file's
 // line 12 states the design intent: the two paths must **stay distinct**;
 // merging them just leaves the agent guessing blind. So the fix isn't having
 // corpus_search secretly do grep's job — it's that when its own tokenizer
@@ -228,6 +228,6 @@ async function seedOwner(playwright: Playwright): Promise<void> {
     name: 'cjk-role', description: 'cjk search spec',
     corpus_uris: ['wiki://**', 'output://**'],
   });
-  await createCode(request, csrf, { code: CODE, label: 'cjk', role_id: role.id });
+  await createCode(request, csrf, { code: CODE, label: 'cjk', assumed_role_id: role.id });
   await request.dispose();
 }

@@ -69,7 +69,7 @@ test.describe('Phase E-14c calendar.list_slots via MCP', () => {
   // Bad args must be REJECTED with a stated reason — never treated as "no availability", which
   // is what an empty slot list would look like to the owner.
   //
-  // The rejection now arrives as the capability's structured error payload
+  // The rejection now arrives as the block's structured error payload
   // ({ok:false, error:'invalid_args', detail}) rather than the MCP isError flag. That is a
   // deliberate consequence of externalizing the tool: the sandboxed booker uses one error
   // convention for all its tools (its result wire is what the visitor cards render, and an

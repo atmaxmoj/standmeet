@@ -30,8 +30,8 @@ import (
 	mcpgo "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 
-	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
+	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
 )
 
 // visitorMCPPath —— the mount point. The owner's face is `/mcp`; this is its outward twin.
@@ -45,10 +45,10 @@ type visitorMCPKey struct{}
 
 // visitorMCPSession —— the visitor session behind one MCP connection. Stores the
 // already-assembled input, not the raw session row: this face doesn't need to know the
-// session shape, it just hands input to capability assembly — one less domain type
+// session shape, it just hands input to block assembly — one less domain type
 // crossing in, one less place to change when the domain does.
 type visitorMCPSession struct {
-	In     *capreg.AssembleInput
+	In     *registry.AssembleInput
 	ConvID string
 }
 
@@ -179,7 +179,7 @@ func (h *Handlers) registerVisitorTools(srv *server.MCPServer, names []string) {
 	}
 }
 
-// visitorToolSchema —— the input shape is owned by the capability itself; this layer
+// visitorToolSchema —— the input shape is owned by the block itself; this layer
 // never restates it (a second source of truth). Real validation lives with the tool.
 func visitorToolSchema() json.RawMessage {
 	return json.RawMessage(`{"type":"object","additionalProperties":true}`)
@@ -248,7 +248,7 @@ func (h *Handlers) runVisitorTool(name string) server.ToolHandlerFunc {
 // a transport error: throwing it as transport error in MCP would make the client think
 // the connection broke, when really just this call was refused (quota/admission/bad args).
 func runVisitorToolCall(
-	ctx context.Context, tool *capreg.BindingTool, req *mcpgo.CallToolRequest,
+	ctx context.Context, tool *registry.BindingTool, req *mcpgo.CallToolRequest,
 ) *mcpgo.CallToolResult {
 	body, merr := json.Marshal(req.GetArguments())
 	if merr != nil {

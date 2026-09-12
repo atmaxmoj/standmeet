@@ -16,7 +16,6 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
-	"github.com/atmaxmoj/standmeet/internal/capabilities"
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	"github.com/atmaxmoj/standmeet/internal/infra/clientaddr"
@@ -26,6 +25,7 @@ import (
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 	monitormw "github.com/atmaxmoj/standmeet/internal/monitor/mw"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
+	pluginjobs "github.com/atmaxmoj/standmeet/internal/owner/jobs"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc"
 	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
@@ -64,17 +64,17 @@ type Deps struct {
 	PrintSession           sysroutes.PrintSessionDeps
 	DiagRegistry           sysroutes.DiagRegistryDeps
 	DiagSession            sysroutes.DiagSessionDeps
-	DiagConnector          sysroutes.DiagConnectorDeps
 	DiagSandbox            sysroutes.DiagSandboxDeps
+	DiagSupplier           sysroutes.DiagSupplierDeps
 	// PluginRegistry —— J.5: outbound plugins register their full admin REST hook set in one
 	// shot. mountAdmin calls MountAllAdminRoutes inside the WithOwner+RequireCSRF group.
-	PluginRegistry *capabilities.Registry
+	JobsModule *pluginjobs.Plugin
 	// BannedIPs —— banned-IP repo used by the public BanGuard (enforcement, not an owner cap).
 	BannedIPs *security.BannedIPRepo
 	// Monitor —— visitor-traffic recording. Mounted as ONE middleware on the public router;
 	// no handler calls it and no domain imports it (docs/design/monitor.md §0).
 	Monitor monitormw.Config
-	// Dispatch —— the outbound convergence point. Admin-side capabilities can only be wired
+	// Dispatch —— the outbound convergence point. Admin-side blocks can only be wired
 	// from here (route shapes are still hand-written as usual).
 	Dispatch *dispatcher.Dispatcher
 	// PubAPI —— the API-key facade (/api/pub/v1); api-key auth in its own middleware.
@@ -87,6 +87,9 @@ type Deps struct {
 }
 
 // AdminDeps packages up, on its own, the business deps the admin sub-router needs.
+//
+// Field order follows pointer width — enforced by govet fieldalignment — which is why the
+// two pointer-free members sit at the end rather than beside what they belong to.
 type AdminDeps struct {
 	Corpus          corpus.Deps
 	ApproveRequests owner.ApproveRequestDeps
@@ -101,12 +104,11 @@ type AdminDeps struct {
 	AIProvider      owner.AIProviderDeps
 	Roles           access.RolesDeps
 	Login           owner.LoginDeps
-	Connectors      adminroutes.ConnectorsAdminDeps
 	Assets          corpus.AssetsDeps
 	Skills          marketplace.SkillsDeps
-	Prompts         owner.PromptsDeps
+	Blocks          adminroutes.BlockAdminDeps
 	Owners          *owner.Repo
-	AccountAdmin    owner.AccountDeps
+	Drafts          *jobsuc.ResumeDraftRepo
 	PublicURLAdmin  owner.PublicURLDeps
 	Writings        corpus.WritingsDeps
 	WritingRefs     *corpus.WritingRefRepo
@@ -114,11 +116,12 @@ type AdminDeps struct {
 	Codes           *access.CodeRepo
 	CodeDenials     *access.CodeDenialRepo
 	Sessions        *session.OwnerSessionStore
-	Drafts          *jobsuc.ResumeDraftRepo
+	AccountAdmin    owner.AccountDeps
 	Applications    *jobsuc.ApplicationRepo
 	HandleAdmin     owner.HandleDeps
 	BYOAI           owner.BYOAIDeps
 	Ghosts          conversation.GhostDeps
+	Prompts         owner.PromptsDeps
 	Microsites      owner.MicrositeDeps
 	SecureCookie    bool
 }
@@ -160,7 +163,7 @@ func New(deps *Deps) http.Handler {
 
 // assertDispatcherConformance —— once every face is mounted, checks each op's Reach against
 // what each face actually projects. Any shortfall means **this process does not get to stay
-// alive**: a face missing a capability raises no request error, it just quietly doesn't
+// alive**: a face missing a block raises no request error, it just quietly doesn't
 // exist, and that's only found once someone tries to use it, by when it's already live.
 // Failing at startup is the only shape that catches it before it ships. This also replaces
 // the old hand-written cross-reference table, which only got reconciled when someone ran
@@ -171,7 +174,7 @@ func assertDispatcherConformance(deps *Deps) {
 	}
 	if report := deps.Dispatch.ConformReport(); report != "" {
 		panic("dispatcher: a face does not match the outbound convergence point — " +
-			"some capability is not projected onto a face it is owed on:\n" + report)
+			"some block is not projected onto a face it is owed on:\n" + report)
 	}
 }
 
@@ -199,13 +202,16 @@ func mountAdmin(r chi.Router, deps *Deps) {
 			r.Use(authmw.WithOwner(deps.Admin.Sessions))
 			r.Use(authmw.RequireCSRF)
 			adminH.MountAuthed(r, authmw.CredentialGuard(deps.Redis))
-			// Connector diag (owner-authed; only reachable with a session cookie
+			// Supplier diag (owner-authed; only reachable with a session cookie
 			// scoped to path=/api/admin).
-			sysroutes.MountDiagConnector(r, deps.DiagConnector)
 			// #147 sandbox admin panel (owner-authed; reuses the diag handler,
 			// path /api/admin/sandbox/*).
+			// Block diag: hit one block directly by id, bypassing the active seam
+			// slot, so the owner can prove the binding they just uploaded works
+			// before any visitor depends on it.
+			sysroutes.MountDiagSupplier(r, deps.DiagSupplier)
 			sysroutes.MountAdminSandbox(r, deps.DiagSandbox)
-			deps.PluginRegistry.MountAllAdminRoutes(r)
+			deps.JobsModule.MountAdminRoutes(r)
 		})
 	})
 }
@@ -271,7 +277,7 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		EmailChange:    deps.Admin.EmailChange, // see depcheck for the cost of missing it
 		// Homepage is NOT materialized at claim now: an unedited instance serves DefaultHome
 		// via the visitor fallback (current code), so no stored starter freezes (Q1). nil = skip.
-		SeedPlugins:     deps.PluginRegistry.SeedAllOwners,
+		SeedPlugins:     deps.JobsModule.SeedOwner,
 		InstallHomepage: nil,
 		AIProviderAdmin: adminroutes.AIProviderDeps{Face: wire.AdminFace(deps.Dispatch)},
 		ProvidersAdmin:  adminroutes.ProvidersAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
@@ -292,18 +298,17 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 			},
 			Tree: deps.Admin.Writings.Writings,
 		},
-		Obsidian:          obsidianDeps(deps),
-		MarketplaceAdmin:  adminroutes.MarketplaceAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
-		ConnectorsAdmin:   deps.Admin.Connectors,
-		CapabilitiesAdmin: adminroutes.CapabilityAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
-		IPBansAdmin:       adminroutes.IPBansAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
-		MonitorAdmin:      adminroutes.MonitorAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
-		InstanceAdmin:     adminroutes.InstanceAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
-		AppearanceAdmin:   adminroutes.AppearanceAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
-		CapabilityConfigAdmin: adminroutes.CapabilityConfigAdminDeps{
-			Face: wire.AdminFace(deps.Dispatch),
-		},
-		Log:          deps.Log,
-		SecureCookie: deps.Admin.SecureCookie,
+		Obsidian:         obsidianDeps(deps),
+		MarketplaceAdmin: adminroutes.MarketplaceAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
+		// One block screen where there were three: the supplier panel, the
+		// block panel and the per-block config route were three views of
+		// what the owner calls "my plugins".
+		BlocksAdmin:     deps.Admin.Blocks,
+		IPBansAdmin:     adminroutes.IPBansAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
+		MonitorAdmin:    adminroutes.MonitorAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
+		InstanceAdmin:   adminroutes.InstanceAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
+		AppearanceAdmin: adminroutes.AppearanceAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
+		Log:             deps.Log,
+		SecureCookie:    deps.Admin.SecureCookie,
 	}
 }

@@ -1,5 +1,5 @@
 // helpers.go — small utilities shared by admin handlers: the generic 500 envelope + JSON
-// output. Used to live in tokens.go / calendar_connector.go (both deleted); moved out
+// output. Used to live in tokens.go / calendar_supplier.go (both deleted); moved out
 // into its own file.
 
 package admin

@@ -5,8 +5,8 @@ import (
 	"log/slog"
 	"testing"
 
-	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmcp"
+	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
 )
 
 // TestJobsMCPSchemasAreValidJSON — the InputSchema of all three owner-MCP tool sets
@@ -18,24 +18,24 @@ func TestJobsMCPSchemasAreValidJSON(t *testing.T) {
 	t.Parallel()
 
 	log := slog.Default()
-	caps := []capreg.Capability{
-		jobsmcp.NewJobsCapability(nil, log),
-		jobsmcp.NewResumeCapability(nil, log),
-		jobsmcp.NewApplicationsCapability(nil, log),
+	fibers := []registry.Fiber{
+		jobsmcp.NewJobsFiber(nil, log),
+		jobsmcp.NewResumeFiber(nil, log),
+		jobsmcp.NewApplicationsFiber(nil, log),
 	}
-	for _, c := range caps {
+	for _, c := range fibers {
 		assertSchemasValid(t, c)
 	}
 }
 
-func assertSchemasValid(t *testing.T, c capreg.Capability) {
+func assertSchemasValid(t *testing.T, c registry.Fiber) {
 	t.Helper()
 	for _, b := range c.OwnerMCPBindings() {
 		if len(b.InputSchema) == 0 {
 			continue
 		}
 		if !json.Valid(b.InputSchema) {
-			t.Errorf("tool %q (cap %s) has INVALID InputSchema JSON:\n%s",
+			t.Errorf("tool %q (block %s) has INVALID InputSchema JSON:\n%s",
 				b.Name, c.ID(), string(b.InputSchema))
 		}
 	}

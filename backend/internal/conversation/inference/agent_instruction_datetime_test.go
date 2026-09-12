@@ -1,22 +1,22 @@
 // agent_instruction_datetime_test.go —— the generic instruction **must not name any specific
-// capability**.
+// block**.
 //
 // What the kernel assembles here is "the current time, owner's timezone, visitor's timezone" —
-// added on every turn, regardless of which capabilities the visitor was granted. It used to keep
+// added on every turn, regardless of which blocks the visitor was granted. It used to keep
 // saying "the owner's **calendar** runs in this timezone" and "before proposing or
-// **scheduling** times": so a visitor never granted the booking capability still had a
+// **scheduling** times": so a visitor never granted the booking block still had a
 // scheduling instruction sitting in their system prompt. That was the last entry left on the
 // check-core-agnostic baseline (conversation/inference/agent_instruction.go<TAB>calendar).
 //
 // The timezone context itself is generic (résumé, experience, "recent" all need to anchor to
 // today) — what had to move out is **that instruction sentence**: how to convert, when to ask
-// back, whether to show both, that's the business of the capability that actually schedules, said
+// back, whether to show both, that's the business of the block that actually schedules, said
 // in its own instructions.
 //
 // The two assertion groups below are a pair, neither optional on its own:
 //   - it says what it should (the date, the owner's timezone, anchoring "today", stating the
 //     visitor's timezone as a fact)
-//   - it doesn't say what it shouldn't (any specific capability word)
+//   - it doesn't say what it shouldn't (any specific block word)
 // With only the second group, deleting the whole section would also pass — that would be a test
 // that lets itself off the hook.
 
@@ -43,23 +43,23 @@ func dtNow() time.Time {
 	return time.Date(dtYear, time.August, dtDay, dtHour, dtMinute, 0, 0, time.UTC)
 }
 
-// Words naming specific capabilities. The kernel's section here must contain none of them —
+// Words naming specific blocks. The kernel's section here must contain none of them —
 // it doesn't know what the visitor was granted.
-var capabilityWords = []string{
+var blockWords = []string{
 	"calendar", "schedul", "booking", "book a", "meeting", "appointment",
 }
 
-func TestInstructionWithDateTime_NamesNoCapability(t *testing.T) {
+func TestInstructionWithDateTime_NamesNoBlock(t *testing.T) {
 	t.Parallel()
 	now := dtNow()
 	for _, visitorTZ := range []string{"", "Europe/Berlin", ownerTZ} {
 		got := instructionWithDateTime(dtPersona, now, ownerTZ, visitorTZ)
 		lower := strings.ToLower(got)
-		for _, w := range capabilityWords {
+		for _, w := range blockWords {
 			if strings.Contains(lower, w) {
-				t.Errorf("visitor_tz=%q: the always-on datetime context names a capability (%q). "+
+				t.Errorf("visitor_tz=%q: the always-on datetime context names a block (%q). "+
 					"A visitor who was never granted booking still carries this in their "+
-					"system prompt; how to convert and when to ask belongs to the capability "+
+					"system prompt; how to convert and when to ask belongs to the block "+
 					"that schedules.\n--- instruction ---\n%s", visitorTZ, w, got)
 			}
 		}
@@ -85,7 +85,7 @@ func TestInstructionWithDateTime_StillAnchorsNow(t *testing.T) {
 }
 
 // The visitor's timezone is a **fact**, not an instruction: state it when known, say nothing when
-// not (whether to ask back over it is the scheduling capability's call).
+// not (whether to ask back over it is the scheduling block's call).
 func TestVisitorTZClause_StatesAFactOrNothing(t *testing.T) {
 	t.Parallel()
 	if got := visitorTZClause("", ownerTZ); got != "" {

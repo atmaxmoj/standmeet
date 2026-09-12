@@ -1,5 +1,5 @@
 {
-  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/mail-connector/shots",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/mail-supplier/shots",
   "viewport": [1280, 1600],
   "login": false,
   "shots": [
@@ -17,7 +17,7 @@
         { "wait": 300 },
         { "typeSecret": ["[data-testid=\"request-email\"]", "GMAIL_SMTP_USER"] },
         { "wait": 300 },
-        { "type": ["[data-testid=\"request-message\"]", "Driving access-codes check 3 / mail-connector check 1: approve this and I read the code out of the real inbox."] },
+        { "type": ["[data-testid=\"request-message\"]", "Driving access-codes check 3 / mail-supplier check 1: approve this and I read the code out of the real inbox."] },
         { "wait": 500 },
         { "click": "[data-testid=\"request-submit\"]" },
         { "wait": 5000 }

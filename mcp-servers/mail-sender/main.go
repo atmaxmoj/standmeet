@@ -1,8 +1,8 @@
-// Command mail-sender —— the externalized mail.send capability as a sandboxed stdio MCP server
+// Command mail-sender —— the externalized mail.send block as a sandboxed stdio MCP server
 // (origin=builtin). Owns NO data/credentials: it reads the trusted session context off each
 // tool-call `_meta` (planted by the host) and forwards the call to the host's "send" op over a
 // bind-mounted unix socket (STANDMEET_HOST_SOCKET), staying fully network-isolated. The host runs the
-// real MailContract.Send through the active mail connector (openapi SaaS or SMTP — the plugin can't
+// real MailContract.Send through the active mail supplier (openapi SaaS or SMTP — the plugin can't
 // tell). Mirrors the booker plugin's shape; the result wire ({ok,...}) is the agent-facing result.
 package main
 
@@ -18,12 +18,12 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
-// socketEnv —— the host socket path the host injects. Same name across all capabilities
+// socketEnv —— the host socket path the host injects. Same name across all blocks
 // (see the identically-named constant in booker).
 const socketEnv = "STANDMEET_HOST_SOCKET"
 
 const instructions = `You can send an email on the owner's behalf through their configured mail ` +
-	`connector. Use send_email only when the visitor has clearly asked you to email them (or the ` +
+	`supplier. Use send_email only when the visitor has clearly asked you to email them (or the ` +
 	`owner) something concrete — a summary, a link, a follow-up. Gather the subject and body first; ` +
 	`the recipient defaults to the email the visitor gave when they arrived unless they name another.`
 
@@ -41,7 +41,7 @@ func main() {
 
 func sendEmailTool() mcpgo.Tool {
 	t := mcpgo.NewToolWithRawSchema("send_email",
-		"Send an email through the owner's mail connector. Provide subject and body; recipient "+
+		"Send an email through the owner’s mail supplier. Provide subject and body; recipient "+
 			"defaults to the visitor's session email unless they give a different address.",
 		json.RawMessage(`{
 			"type":"object",
@@ -89,8 +89,8 @@ type sendEmailArgs struct {
 
 // sendEmailHandler —— D-4 recipient hard-control done sandbox-side (to = args.recipient, else the
 // visitor's session email — never an LLM-chosen arbitrary address), then reach back through the
-// FIXED-vocabulary op connector.invoke("mail","send"). No bespoke host op: the host just runs the
-// active mail connector's send verb. Result wire ({ok:true} / folded error) is the agent result.
+// FIXED-vocabulary op supplier.invoke("mail","send"). No bespoke host op: the host just runs the
+// active mail supplier's send verb. Result wire ({ok:true} / folded error) is the agent result.
 func sendEmailHandler(_ context.Context, req mcpgo.CallToolRequest) (*mcpgo.CallToolResult, error) {
 	s := sessionFromMeta(req)
 	raw, merr := json.Marshal(req.GetArguments())
@@ -111,7 +111,7 @@ func sendEmailHandler(_ context.Context, req mcpgo.CallToolRequest) (*mcpgo.Call
 	if aerr != nil {
 		return toolErr(aerr), nil
 	}
-	resp, err := gwConnectorInvoke(s.OwnerID, "mail", "send", sendArgs)
+	resp, err := gwSupplierInvoke(s.OwnerID, "mail", "send", sendArgs)
 	if err != nil {
 		return toolErr(err), nil
 	}

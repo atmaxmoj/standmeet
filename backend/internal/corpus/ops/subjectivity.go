@@ -40,7 +40,7 @@ func Subjectivity(deps usecase.Deps) []fp.Op {
 			"title and the tree. Private unless show_as_source says otherwise.",
 		InputSchema: subjectivitySchema,
 		Kind:        fp.Action,
-		// **This is a historical alias, not a capability restriction.**
+		// **This is a historical alias, not a restriction on what the op can do.**
 		//
 		// Its old rationale said "the self-model is worked out in
 		// conversation, not typed into a form" — that was a preference
@@ -52,7 +52,7 @@ func Subjectivity(deps usecase.Deps) []fp.Op {
 		// This id stays because the owner's AI already calls it by this
 		// name (CLAUDE.md says so too). The panel needs no second path,
 		// so this only projects to mcp — the difference is in the
-		// **name**, not the capability.
+		// **name**, not what the op does.
 		Reach: fp.Only(
 			"a historical tool name the owner's AI already calls; the panel writes this genre "+
 				"through corpus.create / corpus.update like every other genre", "mcp",

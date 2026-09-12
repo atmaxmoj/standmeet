@@ -131,7 +131,7 @@
     }
   },
   "requests": {
-    "deliveryHint": "Sin canal de salida verificado — configure uno en Conectores para que la aprobación de una solicitud pueda emitir un código y enviarlo. Hasta entonces solo puede marcar solicitudes respondidas/cerradas a mano.",
+    "deliveryHint": "Sin canal de salida verificado — configure uno en Proveedores para que la aprobación de una solicitud pueda emitir un código y enviarlo. Hasta entonces solo puede marcar solicitudes respondidas/cerradas a mano.",
     "intro": "Presentaciones desde la ruta 'sin código' de la compuerta. Marcar respondido una vez que haya emitido un código o respondido; cerrar para archivar. El propietario lee cada uno personalmente — ese es el punto.",
     "empty": "Sin {filter}solicitudes.",
     "issued": "emitido {code} — enviado por correo al solicitante",

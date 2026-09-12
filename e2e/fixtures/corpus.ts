@@ -140,9 +140,9 @@ export async function seedPublicWiki(
   request: APIRequestContext,
   apiToken: string,
   sessionId: string,
-  opts: { body: string; title: string; tags?: string[] },
+  opts: { body: string; title: string; tags?: string[]; path?: string },
 ): Promise<{ rawID: string; wikiID: string }> {
   return seedWiki(request, apiToken, sessionId, {
-    body: opts.body, title: opts.title,
+    body: opts.body, title: opts.title, path: opts.path,
   });
 }

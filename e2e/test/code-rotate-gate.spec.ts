@@ -1,7 +1,7 @@
 // code-rotate-gate.spec.ts —— a rotated code, verified at the REAL /gate front door: the NEW string
 // opens a session, the OLD (rotated-away) string is refused. code-rotation.spec proves this at the
 // API (issueSession); the audit found the BROWSER front door — the thing a leaked-code holder or a
-// recruiter actually uses — was never driven for the rotation case ([[test-covers-capability-not-face]]).
+// recruiter actually uses — was never driven for the rotation case ([[test-covers-block-not-face]]).
 
 import { test, expect } from '@/fixtures/test';
 

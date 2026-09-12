@@ -17,8 +17,8 @@ import (
 func TestValidateDockButtons_AcceptsUpToTwo(t *testing.T) {
 	t.Parallel()
 	err := entity.ValidateDockButtons([]entity.DockButtonConfig{
-		{CapabilityID: "summarize_conversation", Trigger: "Summarize this"},
-		{CapabilityID: "corpus.retrieval", Trigger: "What have we covered?"},
+		{BlockID: "summarize_conversation", Trigger: "Summarize this"},
+		{BlockID: "corpus.retrieval", Trigger: "What have we covered?"},
 	})
 	if err != nil {
 		t.Fatalf("two dock buttons must be accepted, got %v", err)
@@ -28,9 +28,9 @@ func TestValidateDockButtons_AcceptsUpToTwo(t *testing.T) {
 func TestValidateDockButtons_RejectsMoreThanTwo(t *testing.T) {
 	t.Parallel()
 	err := entity.ValidateDockButtons([]entity.DockButtonConfig{
-		{CapabilityID: "a", Trigger: "1"},
-		{CapabilityID: "b", Trigger: "2"},
-		{CapabilityID: "c", Trigger: "3"},
+		{BlockID: "a", Trigger: "1"},
+		{BlockID: "b", Trigger: "2"},
+		{BlockID: "c", Trigger: "3"},
 	})
 	if err == nil {
 		t.Fatal("more than two dock buttons must be rejected")
@@ -40,7 +40,7 @@ func TestValidateDockButtons_RejectsMoreThanTwo(t *testing.T) {
 func TestValidateDockButtons_RejectsEmptyTrigger(t *testing.T) {
 	t.Parallel()
 	err := entity.ValidateDockButtons([]entity.DockButtonConfig{
-		{CapabilityID: "summarize_conversation", Trigger: "   "},
+		{BlockID: "summarize_conversation", Trigger: "   "},
 	})
 	if err == nil {
 		t.Fatal("a dock button with a blank trigger must be rejected")
@@ -57,7 +57,7 @@ func TestValidateDockButtons_EmptyIsFine(t *testing.T) {
 func TestRoleSnapshot_FreezesDockButtons(t *testing.T) {
 	t.Parallel()
 	cfg := []entity.DockButtonConfig{
-		{CapabilityID: "summarize_conversation", Trigger: "Summarize this"},
+		{BlockID: "summarize_conversation", Trigger: "Summarize this"},
 	}
 	snap := entity.NewRoleSnapshot(&entity.RoleSnapshotInit{
 		RoleID: "r1", DockButtons: cfg,
@@ -66,7 +66,7 @@ func TestRoleSnapshot_FreezesDockButtons(t *testing.T) {
 	if len(got) != 1 {
 		t.Fatalf("frozen dock buttons len = %d, want 1", len(got))
 	}
-	if got[0].CapabilityID != "summarize_conversation" || got[0].Trigger != "Summarize this" {
+	if got[0].BlockID != "summarize_conversation" || got[0].Trigger != "Summarize this" {
 		t.Fatalf("frozen dock button mismatch: %+v", got[0])
 	}
 	// defensive clone: mutating the source must not touch the frozen snapshot.

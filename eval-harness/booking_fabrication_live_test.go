@@ -16,7 +16,7 @@
 // The invariant is deliberately narrow and text-independent on the tool side:
 //
 //	if the answer tells the visitor a meeting is booked, a booking must exist in the
-//	capability's own store for this turn.
+//	block’s own store for this turn.
 //
 // It does not care whether the model booked, refused, or asked a question — only that speech and
 // state agree. Repeat it: this is a probabilistic failure, so a single green means little. Drive
@@ -56,7 +56,7 @@ func TestBookingFabricationLive_SpeechMatchesState(t *testing.T) {
 	t.Logf("F-A-37 live: %d/%d rounds fabricated a booking", fabricated, rounds)
 	if fabricated > 0 {
 		t.Fatalf("F-A-37 reproduced: %d of %d turns told the visitor a meeting was booked while "+
-			"the capability store held no booking for it", fabricated, rounds)
+			"the block store held no booking for it", fabricated, rounds)
 	}
 }
 

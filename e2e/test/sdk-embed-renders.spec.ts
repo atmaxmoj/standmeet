@@ -4,7 +4,7 @@
 //
 // Drives against the **build artifact** (`sdk/packages/embed/dist/embed.global.js`,
 // `sdk-build` must run before `make app-build`), not a class in source — that file is
-// exactly what other people drop into their own site ([[test-covers-capability-not-face]]).
+// exactly what other people drop into their own site ([[test-covers-block-not-face]]).
 //
 // The cross-origin dimension is not covered by this guard: it needs a second origin, and is
 // driven manually (trajectory/sdk-embed). The two things guarded here are both origin-agnostic.
@@ -59,7 +59,7 @@ test.describe('F-O-6 / F-O-5 · 交付出去的那个 widget', () => {
     const answer = page.locator('standmeet-chat [data-role="assistant"]').last();
     await expect(answer, '答案到了').toContainText('Sijie Wang', { timeout: 25_000 });
     // **Narrow the assertion to just the paragraph our sentence is in**: the mock echoes the
-    // system prompt back into the answer, and it already contains bold capability names
+    // system prompt back into the answer, and it already contains bold block names
     // (`ask_visitor` etc.) — taking `toHaveText` on the whole block would collide with those,
     // which is mock noise, not product behavior.
     const para = answer.locator('.para').filter({ hasText: 'Sijie Wang' });
@@ -100,7 +100,7 @@ test.describe('F-O-6 / F-O-5 · 交付出去的那个 widget', () => {
   //
   // The `catch` path was already fixed (`turnFailureText`, from the F-O-5 pass), but the
   // line in `applyEventToBlock` handling `kind === 'error'` still reads
-  // `error: ${ev.message}` — twelve lines apart in the same file, one capability with two
+  // `error: ${ev.message}` — twelve lines apart in the same file, one block with two
   // faces, only one face got fixed. And this path isn't dead code: a dead provider / quota
   // exceeded / inference failure all make the backend send `event: error`, which the client
   // parses into `{kind, code, message}` (`core/src/client.ts:294`). At that moment, **on

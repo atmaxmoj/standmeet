@@ -38,7 +38,7 @@ export type {
   LanguageOption,
   OutputLandingView,
   PublicSessionResponse,
-  PublicSessionCapability,
+  PublicSessionBlock,
   PublicSessionToolSpec,
   PublicSessionDockButton,
   SSEEvent,

@@ -8,7 +8,7 @@
 // The browser stores it into `PageSession.persona` -- a typed, persisted, restorable field
 // -- **and then nowhere in the entire repo ever reads it**. This turn's system prompt is
 // assembled by `composeSystemPrompt()`, which only iterates `systemPromptPartIDs`
-// (visitor-header + one section per capability, with no persona section); the backend
+// (visitor-header + one section per block, with no persona section); the backend
 // doesn't fill the gap either -- `agent_loop.go`'s Instruction uses whatever `req.System`
 // the browser sent, verbatim.
 //

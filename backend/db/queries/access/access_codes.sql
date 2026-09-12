@@ -1,6 +1,6 @@
 -- name: CreateAccessCode :one
 -- A.3-IAM-5: every code must carry an assumed_role_id. Legacy fields like
--- corpus_permissions / granted_skills are dropped in commit 5; ACL / capability
+-- corpus_permissions / granted_skills are dropped in commit 5; ACL / block
 -- gating is all inferred from the role.
 INSERT INTO access_codes (
     owner_id, code, label, purpose, ghosts,

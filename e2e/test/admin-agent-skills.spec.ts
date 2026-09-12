@@ -73,7 +73,7 @@ test.describe('admin /agent-skills · real installed + marketplace install', () 
 
   // The catalog size **must never be a literal**. This used to hard-code
   // `20 = 17 github + 3 skillsmp`, but there are more than two sources:
-  // the job-board mock appends `tz-booking` to the catalog (the "needs a connector"
+  // the job-board mock appends `tz-booking` to the catalog (the "needs a supplier"
   // skill, F-F-4). Once that's added, this line is permanently red across the whole
   // suite as `Expected 20 / Received 21` — and it reads exactly like "pagination
   // dropped an item".

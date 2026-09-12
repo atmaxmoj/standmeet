@@ -1,11 +1,11 @@
 // prompts-fragment-api.spec.ts —— GET /api/v1/prompts/{id} is how the frontend
-// (the pi agent loop) fetches NON-capability system prompt fragment text
+// (the pi agent loop) fetches NON-block system prompt fragment text
 // (visitor-header, etc.).
 //
-// After the normalization (#144), the four leaf capabilities' prompt fragments
+// After the normalization (#144), the four leaf blocks' prompt fragments
 // moved out to their respective plugin's MCP `instructions` alongside the
-// capability itself, and are **no longer** served by the
-// /api/v1/prompts/{id} endpoint (capabilities/* all 404 now). They're still
+// block itself, and are **no longer** served by the
+// /api/v1/prompts/{id} endpoint (blocks/* all 404 now). They're still
 // stitched into system_prompt_full via the mcp-app adapter's
 // SystemPromptFragment — so the corpus fragment is still present in full
 // (when a corpus scope exists), just sourced from plugin instructions instead
@@ -13,8 +13,8 @@
 // rather than fetching expected values from the endpoint.
 //
 // Verification approach:
-//   1. GET /api/v1/prompts/visitor-header returns md text (non-capability fragments are still on the endpoint)
-//   2. capabilities/* have been externalized → endpoint 404s
+//   1. GET /api/v1/prompts/visitor-header returns md text (non-block fragments are still on the endpoint)
+//   2. blocks/* have been externalized → endpoint 404s
 //   3. system_prompt_full = the actual concatenated result sent to the LLM, containing the
 //      corpus fragment verbatim (when a corpus scope exists), absent when there's no scope.
 
@@ -43,8 +43,8 @@ const CODE = 'PROMPTS-001';
 const CORPUS_FRAGMENT_MARK =
   'The owner\'s corpus is a LINKED TREE of notes';
 
-interface VisitorCapabilitiesResp {
-  capabilities: Array<{ id: string; enabled: boolean }>;
+interface VisitorBlocksResp {
+  blocks: Array<{ id: string; enabled: boolean }>;
   tool_specs: Array<{ name: string }>;
   system_prompt_hash: string;
   system_prompt_full: string;
@@ -83,14 +83,14 @@ test.describe('prompts fragment API · single source of truth', () => {
       await request.dispose();
     });
 
-  test('GET /api/v1/prompts/capabilities/corpus.retrieval returns tool description',
+  test('GET /api/v1/prompts/blocks/corpus.retrieval returns tool description',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
       // The fragment has been externalized into plugin instructions (no .md file
       // backs it anymore), but the prompts endpoint still serves it by id via a
       // registry fallback — so the frontend can still fetch it by part-id and
       // splice it into the system prompt.
-      const text = await fetchPrompt(request, 'capabilities/corpus.retrieval');
+      const text = await fetchPrompt(request, 'blocks/corpus.retrieval');
       expect(text).toContain('corpus_search');
       expect(text).toContain('corpus_read');
       expect(text).toContain('corpus_list');
@@ -104,13 +104,13 @@ test.describe('prompts fragment API · single source of truth', () => {
     await request.dispose();
   });
 
-  test('system_prompt_full appears in /visitor-capabilities + contains each fragment verbatim',
+  test('system_prompt_full appears in /visitor-blocks + contains each fragment verbatim',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
       const sess = await issueSession(request, {
         handle: OWNER.handle, code: CODE, visitor_name: 'V',
       });
-      const body = await fetchVisitorCapabilities(request, sess.session_token);
+      const body = await fetchVisitorBlocks(request, sess.session_token);
       expect(typeof body.system_prompt_full).toBe('string');
       expect(body.system_prompt_full.length).toBeGreaterThan(0);
       // Both header (endpoint fragment) and the corpus retrieval fragment
@@ -135,7 +135,7 @@ test.describe('prompts fragment API · single source of truth', () => {
       const sess = await issueSession(request, {
         handle: OWNER.handle, code: 'PROMPTS-EMPTY', visitor_name: 'V',
       });
-      const body = await fetchVisitorCapabilities(request, sess.session_token);
+      const body = await fetchVisitorBlocks(request, sess.session_token);
       // header is still there; the corpus fragment should be absent because there's no corpus scope (enabled=false)
       expect(body.system_prompt_full).not.toContain(CORPUS_FRAGMENT_MARK);
       await request.dispose();
@@ -150,15 +150,15 @@ async function fetchPrompt(request: APIRequestContext, id: string): Promise<stri
   return await res.text();
 }
 
-async function fetchVisitorCapabilities(
+async function fetchVisitorBlocks(
   request: APIRequestContext, sessionToken: string,
-): Promise<VisitorCapabilitiesResp> {
+): Promise<VisitorBlocksResp> {
   const res = await request.get(
     `${BACKEND}/internal/diag/session`,
     { headers: { 'X-Session-Token': sessionToken } },
   );
   if (res.status() !== 200) {
-    throw new Error(`visitor-capabilities: ${res.status()} ${await res.text()}`);
+    throw new Error(`visitor-blocks: ${res.status()} ${await res.text()}`);
   }
-  return await res.json() as VisitorCapabilitiesResp;
+  return await res.json() as VisitorBlocksResp;
 }

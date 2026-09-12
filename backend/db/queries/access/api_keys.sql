@@ -48,15 +48,15 @@ UPDATE api_keys SET last_used_at = now() WHERE id = $1;
 
 -- ───── per-key denials (mirror code denials) ─────
 
--- name: AddAPIKeyCapabilityDenial :exec
-INSERT INTO api_key_capability_denials (key_id, capability_id)
+-- name: AddAPIKeyBlockDenial :exec
+INSERT INTO api_key_block_denials (key_id, block_id)
 VALUES ($1, $2) ON CONFLICT DO NOTHING;
 
--- name: DeleteAPIKeyCapabilityDenial :exec
-DELETE FROM api_key_capability_denials WHERE key_id = $1 AND capability_id = $2;
+-- name: DeleteAPIKeyBlockDenial :exec
+DELETE FROM api_key_block_denials WHERE key_id = $1 AND block_id = $2;
 
--- name: ListAPIKeyCapabilityDenials :many
-SELECT capability_id FROM api_key_capability_denials WHERE key_id = $1;
+-- name: ListAPIKeyBlockDenials :many
+SELECT block_id FROM api_key_block_denials WHERE key_id = $1;
 
 -- name: AddAPIKeySkillDenial :exec
 INSERT INTO api_key_skill_denials (key_id, skill_id)
@@ -70,13 +70,13 @@ SELECT skill_id FROM api_key_skill_denials WHERE key_id = $1;
 
 -- ───── candidacy ("open") gate ─────
 
--- name: OpenAPICapability :exec
-INSERT INTO api_open_capabilities (owner_id, capability_id)
+-- name: OpenAPIBlock :exec
+INSERT INTO api_open_blocks (owner_id, block_id)
 VALUES ($1, $2) ON CONFLICT DO NOTHING;
 
--- name: CloseAPICapability :exec
-DELETE FROM api_open_capabilities WHERE owner_id = $1 AND capability_id = $2;
+-- name: CloseAPIBlock :exec
+DELETE FROM api_open_blocks WHERE owner_id = $1 AND block_id = $2;
 
--- name: ListAPIOpenCapabilities :many
-SELECT capability_id FROM api_open_capabilities
-WHERE owner_id = $1 ORDER BY capability_id;
+-- name: ListAPIOpenBlocks :many
+SELECT block_id FROM api_open_blocks
+WHERE owner_id = $1 ORDER BY block_id;

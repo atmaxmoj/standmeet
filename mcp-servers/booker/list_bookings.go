@@ -9,7 +9,7 @@
 // The specific reason this couldn't move over before: the list needs to carry the
 // **record id** (cancellation looks it up by id), and the reach-back fixed verb list
 // only had insert/query/count/delete — no "query and return the id". This works now
-// that capstore.query_records has been added.
+// that blockstore.query_records has been added.
 
 package main
 
@@ -77,7 +77,7 @@ func loadBookings(ownerID string, limit int) ([]bookingRow, error) {
 	if merr != nil {
 		return nil, fmt.Errorf("bookings filter: %w", merr)
 	}
-	recs, err := gwCapstoreQueryRecords(bookingsColl, filter)
+	recs, err := gwBlockstoreQueryRecords(bookingsColl, filter)
 	if err != nil {
 		return nil, err
 	}

@@ -55,7 +55,7 @@ func AccessRequests(d AccessRequestsDeps) []fp.Op {
 			ID: "access_requests.approve",
 			Description: "Approve a gate access request: issue an access code, send " +
 				"it (code + link) to the requester, and mark the request replied. " +
-				"A connector able to deliver it must be set up first.",
+				"A supplier able to deliver it must be set up first.",
 			InputSchema: accessRequestIDSchema,
 			Kind:        fp.Action,
 			Reach:       fp.OwnerAction(),
@@ -226,11 +226,11 @@ var accessRequestErrClasses = []struct {
 }
 
 // approveErr —— the class unique to approve: delivery failure. The message must name what
-// the owner **finds on the connectors page**; "an outbound channel" is a term that doesn't
+// the owner **finds on the suppliers page**; "an outbound channel" is a term that doesn't
 // exist in the UI, and he can't find anything by looking for it.
 func approveErr(err error, channel string) error {
 	if errors.Is(err, usecase.ErrOutboundNotConfigured) {
-		return fp.BadInput("connect and verify a " + channel + " connector first")
+		return fp.BadInput("connect and verify a " + channel + " supplier first")
 	}
 	return accessRequestErr(err)
 }

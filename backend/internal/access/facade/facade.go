@@ -18,7 +18,7 @@
 //   - Public* built-in role constants · Err* (domain error sentinels)
 //
 // Repositories (impl: repo) ——
-//   - RoleRepo / CodeRepo / APIKeyRepo / CapabilityRepo / CodeDenialRepo / RequestRepo + their
+//   - RoleRepo / CodeRepo / APIKeyRepo / BlockEnableRepo / CodeDenialRepo / RequestRepo + their
 //     New* constructors
 //   - CreateCodeInput / CreateRoleInput / UpdateRoleInput / UpsertBuiltinInput (write inputs)
 //
@@ -29,5 +29,5 @@
 //   - visitor session: NewVisitorSessionStore / VisitorSessionStore / VisitorSessionData
 //   - RefValidator / SoleOwnerLookup and other narrow consumer ports used when writing a role
 //
-// New capability: implement it in the matching subpackage, then add one forwarding line here.
+// New ability: implement it in the matching subpackage, then add one forwarding line here.
 package access

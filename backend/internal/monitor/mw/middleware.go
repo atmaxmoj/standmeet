@@ -302,7 +302,7 @@ func (s *statusRecorder) WriteHeader(code int) {
 	s.ResponseWriter.WriteHeader(code)
 }
 
-// Flush / Unwrap —— a wrapper must hand on the writer capabilities it does not use.
+// Flush / Unwrap —— a wrapper must hand on the writer features it does not use.
 //
 // Embedding the `http.ResponseWriter` INTERFACE promotes exactly its three methods. Everything
 // a streaming handler reaches for OUTSIDE that interface — `http.Flusher`, and the write
@@ -325,7 +325,7 @@ func (s *statusRecorder) Unwrap() http.ResponseWriter { return s.ResponseWriter 
 
 func (s *statusRecorder) Flush() {
 	// A writer with nothing flushable underneath has nothing to flush — the same nothing that
-	// happened before, except now it is this line's decision instead of a silent capability loss.
+	// happened before, except now it is this line's decision instead of a silent feature loss.
 	//nolint:errcheck,gosec // http.Flusher.Flush returns nothing — there is no caller to tell
 	http.NewResponseController(s.ResponseWriter).Flush()
 }

@@ -60,7 +60,7 @@ export async function seedOwnerLoggedIn(playwright: Playwright): Promise<BaseSee
 /** Claim + login + paste credentials (NOT authorized).
  *
  *  `scopes` is what the owner ticked on the card. Omitted = everything the
- *  connector offers, which is what every spec but the read-only one wants. */
+ *  supplier offers, which is what every spec but the read-only one wants. */
 export async function seedOwnerCredentialed(
   playwright: Playwright, scopes?: readonly string[],
 ): Promise<BaseSeed> {
@@ -132,7 +132,7 @@ export async function seedCodeVisitorOnConnectedOwner(
  *
  *  seedOwnerGCalConnected resets first, which is right for API-only specs but kills
  *  the admin browser session a GUI spec logged in with. A spec that drives the card
- *  needs to claim once in beforeAll and then change connector state underneath the
+ *  needs to claim once in beforeAll and then change supplier state underneath the
  *  same session. */
 export async function connectGCalOnExistingOwner(seed: BaseSeed): Promise<void> {
   await saveGCalCredentials(seed.request, seed.csrf, MOCK_GCAL_CREDS);

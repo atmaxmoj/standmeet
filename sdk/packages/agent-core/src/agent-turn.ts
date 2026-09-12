@@ -201,7 +201,7 @@ export class VisitorTurnAgent {
   }
 
   // composeSystemPrompt —— fixed fragments (visitor-header + one section
-  // per capability) come first, this session's dynamic persona comes
+  // per block) come first, this session's dynamic persona comes
   // after. Order matters: persona is what the owner wrote for this
   // audience, so it should sit on top of the general instructions.
   private async composeSystemPrompt(): Promise<string> {

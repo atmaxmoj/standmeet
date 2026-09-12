@@ -10,7 +10,7 @@
 //
 // The criterion sits at the only place that's actually observable: **the message sent
 // to the model**. The sentence being present on screen doesn't count — that's exactly
-// the shape of this whole family of defects ([[test-covers-capability-not-face]]).
+// the shape of this whole family of defects ([[test-covers-block-not-face]]).
 
 import { test, expect } from '@/fixtures/test';
 import type { Page } from '@playwright/test';

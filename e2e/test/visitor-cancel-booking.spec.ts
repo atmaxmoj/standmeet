@@ -1,6 +1,6 @@
 // visitor-cancel-booking.spec.ts —— #123: a visitor cancels a meeting, **only one they booked themselves**.
 //
-// After the refactor (connector deps, §2): cancel no longer goes through "React card + REST postBookingCancellation",
+// After the refactor (supplier deps, §2): cancel no longer goes through "React card + REST postBookingCancellation",
 // but lands inside the `mcp-app-card-calendar_book` sandbox iframe —— the card's cancel button posts
 // `mcp-ui:tool` → host dispatches the `calendar_cancel` tool with **session context** → the tool deletes the
 // event + returns `mcp-ui:tool-result` → the card goes to cancelled state. The whole click path moves into the iframe;
@@ -17,7 +17,7 @@
 // The happy path is fully browser-driven (book → enter the iframe card → click cancel → tool runs → event deleted).
 // The two isolation negative cases' "attack" is essentially a forged tool call —— it's sent from the **attacker's own
 // authenticated session** (the real attack surface), asserting that `calendar_cancel`'s session gate blocks it (cancel doesn't
-// succeed) and the victim's GCal event remains. The tool goes through a connector-backed proxy, but the recipient/ownership check is in the tool/backend; the sandbox card can't bypass it.
+// succeed) and the victim's GCal event remains. The tool goes through a supplier-backed proxy, but the recipient/ownership check is in the tool/backend; the sandbox card can't bypass it.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Browser, FrameLocator, Page } from '@playwright/test';
@@ -65,7 +65,7 @@ test.describe('visitor · cancel own booking + isolation (#123)', () => {
         .toHaveAttribute('data-cancelled', 'true', { timeout: 10_000 });
       await expect(frame.getByTestId('book-card-cancel')).toHaveCount(0);
 
-      // Real delete: the tool deleted that mock GCal event via the connector proxy (observable side effect = the tool actually ran).
+      // Real delete: the tool deleted that mock GCal event via the supplier proxy (observable side effect = the tool actually ran).
       const after = await getMockEvents(seed.request);
       expect(after.find((e) => e.event_id === eventID)).toBeUndefined();
       await ctx.close();

@@ -63,47 +63,47 @@
     "withdraw": "zurückziehen",
     "logUpdate": "update protokollieren"
   },
-  "connectorAdd": {
-    "catalogCount": "connector hinzufügen · {n} im katalog",
+  "supplierAdd": {
+    "catalogCount": "supplier hinzufügen · {n} im katalog",
     "tagline": "Erweitern Sie die corpus-oberfläche.",
     "close": "schließen ✕",
     "installed": "installiert",
     "builtIn": "integriert"
   },
-  "connectorConfig": {
+  "supplierConfig": {
     "oauthHint": "öffnet provider oauth in einem neuen tab",
     "choose": "auswählen…",
     "backToCatalog": "← zurück zum katalog",
     "connect": "verbinden →"
   },
-  "connectorCard": {
-    "credsStored": "Anmeldedaten für diesen Connector werden gespeichert. Sie werden nie wieder angezeigt — lassen Sie die Felder leer um sie zu behalten oder geben Sie neue ein um sie zu ersetzen.",
+  "supplierCard": {
+    "credsStored": "Anmeldedaten für diesen Supplier werden gespeichert. Sie werden nie wieder angezeigt — lassen Sie die Felder leer um sie zu behalten oder geben Sie neue ein um sie zu ersetzen.",
     "scopeShortfall": "Verbunden, aber dieser Grant kann nicht alles tun, was gefragt wird — Aktionen, die {scopes} benötigen, werden nicht ausgeführt. Aktivieren Sie oben und verbinden Sie sich erneut."
   },
-  "connectorCred": {
+  "supplierCred": {
     "authentication": "authentifizierung",
     "apiKeyHint": "Gesendet im {where} als <code>{name}</code>.",
     "discoveryHint": "Erkennung: <code>{url}</code>",
-    "needsDance": "Dieses Schema benötigt einen Autorisierungsschritt. Montieren Sie zuerst den Connector — die Connect-Schaltfläche existiert auf seiner Karte.",
+    "needsDance": "Dieses Schema benötigt einen Autorisierungsschritt. Montieren Sie zuerst den Supplier — die Connect-Schaltfläche existiert auf seiner Karte.",
     "scopes": "bereiche"
   },
-  "protocolConnector": {
+  "protocolSupplier": {
     "testConnection": "Verbindung testen →"
   },
   "specIngest": {
     "heading": "fügen Sie eine openapi-Spezifikation ein",
-    "blurb": "Jede OpenAPI 3.0-Spezifikation (JSON oder YAML). Wir leiten das Glaubwürdigkeits-Formular + die Kategorie davon ab.",
+    "blurb": "Jede OpenAPI 3.0-Spezifikation (JSON oder YAML). Wir leiten das Credential-Formular + den Seam davon ab.",
     "useThisSpec": "diese spezifikation überprüfen",
     "uploadSpec": "datei hochladen",
     "bindingLabel": "bindung — optional",
-    "bindingHint": "JSONata (YAML) Kartierung dieser API's Operationen auf einen Kategorie-Vertrag, damit der Agent sie als Kalender, Mailer usw. verwenden kann. Lassen Sie es leer um stattdessen die Raw-Operationen freizulegen.",
+    "bindingHint": "JSONata (YAML) Kartierung dieser API's Operationen auf einen Seam-Vertrag, damit der Agent sie als Kalender, Mailer usw. verwenden kann. Lassen Sie es leer um stattdessen die Raw-Operationen freizulegen.",
     "orFetchFromUrl": "…oder von einer URL abrufen",
     "fetch": "abrufen",
-    "candidate": "connector-kandidat",
+    "candidate": "supplier-kandidat",
     "baseUrlLabel": "basis-url — nur wenn die spezifikation keine server deklariert",
-    "assemble": "connector zusammenstellen →",
+    "assemble": "supplier zusammenstellen →",
     "exposeLabel": "Erlauben Sie dem AI eines Besuchers diese Operationen direkt aufzurufen. Jede Operation in der Spezifikation wird ein Tool, das es verwenden kann, vorbehaltlich Pro-Code-Gewährungen. Schalten Sie dies aus, wenn Sie eine Bindung versorgten.",
-    "needsBindingOrExpose": "Dies würde einen Connector zusammenstellen, den nichts aufrufen kann. Versorgten Sie eine Bindung um eine Kategorie zu füllen, oder aktivieren Sie das Kontrollkästchen oben um die Operationen dem AI eines Besuchers freizulegen."
+    "needsBindingOrExpose": "Dies würde einen Supplier zusammenstellen, den nichts aufrufen kann. Versorgten Sie eine Bindung um einen Seam zu füllen, oder aktivieren Sie das Kontrollkästchen oben um die Operationen dem AI eines Besuchers freizulegen."
   },
   "composer": {
     "save": "speichern",
@@ -257,7 +257,7 @@
     "recoveryDetailReady": "noch nicht gesetzt",
     "recoveryDetailNeedsMail": "benötigt verifizierte E-Mail",
     "recoveryNoteReady": "Erzeugt einen Wiederherstellungssatz und schickt ihn dir per E-Mail. Einmalig — er wird verbraucht, sobald du dich damit anmeldest.",
-    "recoveryNoteNeedsMail": "Verifiziere zuerst die E-Mail (SMTP) unter Connectors — der Wiederherstellungssatz wird dir per E-Mail zugesandt."
+    "recoveryNoteNeedsMail": "Verifiziere zuerst die E-Mail (SMTP) unter Suppliers — der Wiederherstellungssatz wird dir per E-Mail zugesandt."
   },
   "monitor": {
     "collection": "Traffic-Erfassung",

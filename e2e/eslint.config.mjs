@@ -1,3 +1,4 @@
+import sonarjs from 'eslint-plugin-sonarjs';
 import tseslint from 'typescript-eslint';
 
 // E2E-only repo.  Same TS strict spine as MainApp + every e2e-spec
@@ -85,6 +86,120 @@ const e2eLocal = {
               firstArgText(node).includes('/api/admin/')
             ) {
               context.report({ node: c.property, messageId: 'mutate', data: { m: c.property.name } });
+            }
+          },
+        };
+      },
+    },
+
+    // no-tautological-assertion (ERROR) — an assertion that cannot fail.
+    //
+    // Worse than a missing assertion: the suite is green, the count goes up, and nothing is checked.
+    //
+    // ── What is already on the shelf, MEASURED against a probe file rather than assumed ─────────
+    //
+    // Four off-the-shelf sources were installed and run against six tautology shapes. Each result
+    // below was confirmed with a positive control, so "no hit" means the rule ran and did not fire,
+    // not that the scanner never saw the file:
+    //
+    //   shape                            core  sonarjs  proper-tests  playwright
+    //   x === x                           ✅      ✅          –            –
+    //   b && b                            –      ✅          –            –
+    //   b || !b                           –       –           –            –
+    //   f() === false || f()              –       –           –            –
+    //   expect(true).toBe(true)           –       –           –            –
+    //   expect(x).toBe(x)                 –       –           –            –
+    //
+    // So the shelf covers exactly one thing: BOTH SIDES LITERALLY IDENTICAL. That is what SonarLint
+    // shows in an IDE, and `no-self-compare` / `sonarjs/no-identical-expressions` are kept on for it.
+    // The four shapes below are invisible to all of them BY CONSTRUCTION:
+    //
+    //   expect(x).toBe(x)             not a binary expression at all, so no expression rule looks
+    //   expect(true).toBe(true)       not a condition, so no-constant-condition never looks
+    //   expect(b || !b)               `b` is a variable, so it is not a *constant* expression
+    //   expect(f() === false || f())  `f()` is a call, and core cannot assume two calls agree — but
+    //                                 inside ONE assertion it is a tautology whether they do or not
+    //
+    // eslint-plugin-proper-tests ships only no-useless-matcher-to-be-{defined,null} and two
+    // unrelated rules; eslint-plugin-playwright's no-unnecessary-assertions is about repeated
+    // Playwright matchers, not about vacuity. Both were installed, measured, and removed.
+    //
+    // Comparison is by SOURCE TEXT, not AST identity: two spellings of the same expression are
+    // what a reader sees, and a false positive here is a test that deserves rewriting anyway.
+    'no-tautological-assertion': {
+      meta: {
+        type: 'problem',
+        docs: { description: 'an assertion that cannot fail is not an assertion' },
+        messages: {
+          sameBothSides:
+            'Tautological assertion: both sides are the same expression `{{ expr }}`, so this ' +
+            'passes whatever the code does. Assert the expected VALUE, not the expression again.',
+          constant:
+            'Tautological assertion: `{{ expr }}` is a constant, so this passes whatever the ' +
+            'code does. Assert something the code produced.',
+          excludedMiddle:
+            'Tautological assertion: `{{ expr }}` is true for every value of its operand ' +
+            '(X or not-X), so this passes whatever the code does.',
+        },
+      },
+      create(context) {
+        const src = context.sourceCode ?? context.getSourceCode();
+        const text = (n) => src.getText(n).replace(/\s+/gu, ' ').trim();
+
+        // The matchers whose argument is an expected VALUE, so that arg === expected is vacuous.
+        const VALUE_MATCHERS = new Set([
+          'toBe', 'toEqual', 'toStrictEqual', 'toContain', 'toContainEqual', 'toHaveLength',
+        ]);
+        const TRUTHY_MATCHERS = new Set(['toBeTruthy', 'toBe', 'toEqual']);
+
+        // isNegationPair — b is a logical negation of a, or vice versa, spelled either way round.
+        const negations = (n) => {
+          const t = text(n);
+          const out = new Set([`!${t}`, `!(${t})`, `${t} === false`, `${t} == false`,
+            `${t} !== true`, `${t} != true`]);
+          if (n.type === 'UnaryExpression' && n.operator === '!') out.add(text(n.argument));
+          if (n.type === 'BinaryExpression' && (n.operator === '===' || n.operator === '==') &&
+              text(n.right) === 'false') out.add(text(n.left));
+          return out;
+        };
+        const isNegationPair = (a, b) => negations(a).has(text(b)) || negations(b).has(text(a));
+
+        const isConstant = (n) =>
+          n.type === 'Literal' ||
+          (n.type === 'UnaryExpression' && n.operator === '!' && isConstant(n.argument));
+
+        // The `expect(ARG)` of an `expect(ARG).matcher(...)` chain, or null.
+        const expectArg = (callee) => {
+          if (callee.type !== 'MemberExpression') return null;
+          let obj = callee.object;
+          // unwrap expect(x).not.toBe(...) and expect(x).resolves.toBe(...)
+          while (obj.type === 'MemberExpression') obj = obj.object;
+          if (obj.type !== 'CallExpression') return null;
+          if (obj.callee.type !== 'Identifier' || obj.callee.name !== 'expect') return null;
+          return obj.arguments.length === 1 ? obj.arguments[0] : null;
+        };
+
+        return {
+          CallExpression(node) {
+            const arg = expectArg(node.callee);
+            if (arg === null) return;
+            const matcher = node.callee.property?.name;
+
+            // expect(X).toBe(X) — the same expression on both sides.
+            if (VALUE_MATCHERS.has(matcher) && node.arguments.length === 1 &&
+                text(arg) === text(node.arguments[0])) {
+              context.report({ node, messageId: 'sameBothSides', data: { expr: text(arg) } });
+              return;
+            }
+            // expect(true).toBe(true) / expect(1).toBeTruthy() — nothing under test is read.
+            if (isConstant(arg) && (TRUTHY_MATCHERS.has(matcher) || matcher === 'toBeFalsy')) {
+              context.report({ node, messageId: 'constant', data: { expr: text(arg) } });
+              return;
+            }
+            // expect(X || !X) — true for every value of X, however X is spelled.
+            if (arg.type === 'LogicalExpression' && arg.operator === '||' &&
+                isNegationPair(arg.left, arg.right)) {
+              context.report({ node, messageId: 'excludedMiddle', data: { expr: text(arg) } });
             }
           },
         };
@@ -240,7 +355,7 @@ export default tseslint.config(
   // drive the UI through real user actions.
   {
     files: ['test/**/*.spec.ts'],
-    plugins: { 'e2e-local': e2eLocal },
+    plugins: { 'e2e-local': e2eLocal, sonarjs },
     rules: {
       // The strict type-checked rules from the recommended set are
       // relaxed in spec files only.  Specs read freely from JSON
@@ -258,6 +373,18 @@ export default tseslint.config(
       // marked eslint-disables on the action-under-test calls), so both are now ENFORCED.
       'e2e-local/no-goto-teleport': 'error',
       'e2e-local/no-direct-mutating-api': 'error',
+      'e2e-local/no-tautological-assertion': 'error',
+      // sonarjs + core: the four tautology shapes the shelf already covers, measured
+      // against a probe file rather than assumed (see the rule comment above).
+      'sonarjs/no-identical-expressions': 'error',
+      'sonarjs/no-gratuitous-expressions': 'error',
+      'sonarjs/no-redundant-boolean': 'error',
+      'sonarjs/no-same-argument-assert': 'error',
+      'sonarjs/no-identical-conditions': 'error',
+      'sonarjs/no-all-duplicated-branches': 'error',
+      'no-self-compare': 'error',
+      'no-constant-binary-expression': 'error',
+      'no-constant-condition': ['error', { checkLoops: 'allExceptWhileTrue' }],
     },
   },
   // Connector specs additionally ban Chinese in test titles + expect messages

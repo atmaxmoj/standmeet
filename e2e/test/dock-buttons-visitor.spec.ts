@@ -1,8 +1,8 @@
 // dock-buttons-visitor.spec.ts —— #109/#110 E: visitor-side dock button rendering + click.
 //
 // A button = a shortcut: clicking it = sending the owner-configured "trigger phrase" as a visitor message → a normal agent turn.
-// The button label = the capability's MCP title. This only verifies the button's responsibility (render + click sends the trigger + turn fires);
-// whether the capability answers correctly is guaranteed by each capability's own tests (summarize/booking) —— separation of concerns.
+// The button label = the block's MCP title. This only verifies the button's responsibility (render + click sends the trigger + turn fires);
+// whether the block answers correctly is guaranteed by each block's own tests (summarize/booking) —— separation of concerns.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page } from '@playwright/test';
@@ -22,8 +22,8 @@ const OWNER = {
 };
 const CODE = 'DOCKV-1';
 const LATE_CODE = 'DOCKV-LATE';
-const CAP_SUMMARIZE = 'summarize_conversation';
-const CAP_RETRIEVAL = 'corpus.retrieval';
+const BLOCK_SUMMARIZE = 'summarize_conversation';
+const BLOCK_RETRIEVAL = 'corpus.retrieval';
 const TRIGGER_SUMMARIZE = 'Summarize our conversation so far';
 const TRIGGER_RETRIEVAL = 'What have we covered?';
 let lateRoleID = '';
@@ -35,7 +35,7 @@ async function bindSummarizeDock(request: APIRequestContext): Promise<void> {
   await updateRole(request, csrf, lateRoleID, {
     name: 'dockv-late', description: 'wiki', greeting: '', prompt_id: null,
     corpus_uris: ['wiki://**'], skill_ids: [], mcp_server_ids: [], waypoints: [],
-    dock_buttons: [{ capability_id: CAP_SUMMARIZE, trigger: TRIGGER_SUMMARIZE }],
+    dock_buttons: [{ block_id: BLOCK_SUMMARIZE, trigger: TRIGGER_SUMMARIZE }],
   });
 }
 
@@ -51,8 +51,8 @@ test.describe('dock buttons · E — visitor render + click', () => {
     const role = await createRole(request, csrf, {
       name: 'dockv', description: 'wiki', corpus_uris: ['wiki://**'],
       dock_buttons: [
-        { capability_id: CAP_SUMMARIZE, trigger: TRIGGER_SUMMARIZE },
-        { capability_id: CAP_RETRIEVAL, trigger: TRIGGER_RETRIEVAL },
+        { block_id: BLOCK_SUMMARIZE, trigger: TRIGGER_SUMMARIZE },
+        { block_id: BLOCK_RETRIEVAL, trigger: TRIGGER_RETRIEVAL },
       ],
     });
     await createCode(request, csrf, { code: CODE, label: 'dockv', assumed_role_id: role.id });
@@ -99,7 +99,7 @@ test.describe('dock buttons · E — visitor render + click', () => {
       await expect(page.getByTestId('session-strip')).toContainText('Robin', { timeout: 8_000 });
       // the dock must render WITHOUT a reload.
       await expect(page.getByTestId('dock-buttons')).toBeVisible({ timeout: 5_000 });
-      await expect(page.getByTestId(`dock-button-${CAP_SUMMARIZE}`)).toBeVisible();
+      await expect(page.getByTestId(`dock-button-${BLOCK_SUMMARIZE}`)).toBeVisible();
     });
 
   test('E1/E3 exactly the ≤2 configured buttons render, labelled by the MCP title (not the id)',
@@ -108,17 +108,17 @@ test.describe('dock buttons · E — visitor render + click', () => {
       const bar = page.getByTestId('dock-buttons');
       await expect(bar).toBeVisible({ timeout: 5_000 });
       await expect(bar.getByTestId(/^dock-button-/)).toHaveCount(2);
-      const summ = page.getByTestId(`dock-button-${CAP_SUMMARIZE}`);
+      const summ = page.getByTestId(`dock-button-${BLOCK_SUMMARIZE}`);
       await expect(summ).toBeVisible();
-      // the label is the title, not the capability id.
-      await expect(summ).not.toHaveText(CAP_SUMMARIZE);
+      // the label is the title, not the block id.
+      await expect(summ).not.toHaveText(BLOCK_SUMMARIZE);
       await expect(summ).not.toHaveText('');
     });
 
   test('E2 clicking a dock button sends its trigger as a visitor message → agent turn fires',
     async ({ page }) => {
       await enterChat(page);
-      await page.getByTestId(`dock-button-${CAP_SUMMARIZE}`).click();
+      await page.getByTestId(`dock-button-${BLOCK_SUMMARIZE}`).click();
       // the trigger phrase enters the transcript as a visitor message (= same as typing it).
       await expect(page.getByText(TRIGGER_SUMMARIZE)).toBeVisible({ timeout: 8_000 });
       // the agent turn fires and produces an answer.

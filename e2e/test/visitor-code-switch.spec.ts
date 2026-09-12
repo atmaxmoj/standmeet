@@ -2,7 +2,7 @@
 // must be offered the switch (the identity picker), not silently kept in the old chat. The switch
 // DECISION is unit-tested (visitor-root.test.ts: "a NEW code pending while in a session → picker"),
 // but the real browser surface was never driven end to end — the HIRING-2026 → HIRING-2026xxxx bug
-// the audit flagged shipped with only that unit ([[test-covers-capability-not-face]]).
+// the audit flagged shipped with only that unit ([[test-covers-block-not-face]]).
 
 import { test, expect } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';

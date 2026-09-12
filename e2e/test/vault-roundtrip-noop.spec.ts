@@ -50,7 +50,7 @@ import { test, expect } from '@/fixtures/test';
 
 import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { uploadVault, downloadExport, type VaultFile } from '@/fixtures/obsidian';
+import { uploadVault, downloadExport, vaultText, type VaultFile } from '@/fixtures/obsidian';
 
 const OWNER = {
   email: 'vault-roundtrip@example.com', password: 'correct-horse-battery-staple',
@@ -229,8 +229,9 @@ function diff(before: VaultFile[], after: Record<string, string>): Diff {
   for (const f of before) {
     seen.add(f.rel);
     const got = after[f.rel];
+    const body = vaultText(f.body);
     if (got === undefined) d.missing.push(f.rel);
-    else if (got !== f.body) d.changed.push({ rel: f.rel, before: f.body, after: got });
+    else if (got !== body) d.changed.push({ rel: f.rel, before: body, after: got });
   }
   d.added = Object.keys(after).filter((k) => !seen.has(k));
   return d;

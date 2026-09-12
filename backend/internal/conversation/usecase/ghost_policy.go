@@ -9,7 +9,7 @@
 // marker the mock gateway uses to recognize a GhostPolicy call —— changing this sentence
 // requires updating the mock in sync.
 //
-// ghost is a capability of conversation (not an external plugin): policy/telemetry live
+// ghost is a built-in ability of conversation (not an external plugin): policy/telemetry live
 // in core alongside the conversation code. inference only emits a generic
 // EpilogueFrame; the route wraps this file's candidate into a Kind="ghost" epilogue.
 

@@ -16,7 +16,7 @@ type (
 // Op groups (impl: ops).
 var (
 	ConversationOps = ops.Conversations
-	// HostOps -- exposed to sandboxed capabilities: read transcript / borrow the LLM to
+	// HostOps -- exposed to sandboxed blocks: read transcript / borrow the LLM to
 	// generate / store a report.
 	HostOps = ops.HostOps
 )

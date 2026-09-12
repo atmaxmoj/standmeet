@@ -1,7 +1,7 @@
 {
-  "_why": "connector-assembly check 4 的判据原话：*The list holds real data and the created object exists on the vendor's side. The connector's own success reply is not the evidence.* 所以去 GitHub 自己那一侧看那个 gist 在不在。",
+  "_why": "supplier-assembly check 4 的判据原话：*The list holds real data and the created object exists on the vendor's side. The supplier's own success reply is not the evidence.* 所以去 GitHub 自己那一侧看那个 gist 在不在。",
   "login": false,
-  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/connector-assembly/shots",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/supplier-assembly/shots",
   "viewport": [1280, 1100],
   "shots": [
     {

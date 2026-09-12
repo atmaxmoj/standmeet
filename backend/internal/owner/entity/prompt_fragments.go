@@ -12,11 +12,11 @@ import (
 	"strings"
 )
 
-// capabilities/*.md is now entirely empty — the prompt fragments for the
-// four leaf capabilities (corpus.retrieval / calendar.book / summarize /
-// ask_visitor) moved with their capabilities into each plugin's own MCP
+// blocks/*.md is now entirely empty — the prompt fragments for the
+// four leaf blocks (corpus.retrieval / calendar.book / summarize /
+// ask_visitor) moved with their blocks into each plugin's own MCP
 // `instructions`, and are no longer embedded here. What's left is
-// non-capability fragments like visitor-header.md.
+// non-block fragments like visitor-header.md.
 //
 //go:embed *.md
 var promptFS embed.FS
@@ -40,7 +40,7 @@ func LoadPromptFragment(id string) (string, error) {
 }
 
 // MustLoadPromptFragment —— for ids known at boot time (post-refactor
-// capability fragments, etc). Panics if missing — a boot failure beats a
+// block fragments, etc). Panics if missing — a boot failure beats a
 // missing file at runtime.
 func MustLoadPromptFragment(id string) string {
 	text, err := LoadPromptFragment(id)

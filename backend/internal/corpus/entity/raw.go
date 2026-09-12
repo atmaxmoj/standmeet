@@ -18,7 +18,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/connector"
+	"github.com/atmaxmoj/standmeet/internal/corpus/integration"
 )
 
 // Raw —— the "half-finished", uncurated entry the owner pushes into the corpus via MCP.
@@ -30,7 +30,7 @@ type Raw struct {
 	ownerID        string
 	source         string
 	content        Content
-	integrations   connector.Integrations
+	integrations   integration.Integrations
 	flaggedPrivate bool
 	archived       bool
 }
@@ -46,7 +46,7 @@ type RawInit struct {
 	Body           string
 	Source         string
 	Tags           []string
-	Integrations   connector.Integrations
+	Integrations   integration.Integrations
 	FlaggedPrivate bool
 	Archived       bool
 }
@@ -113,7 +113,7 @@ func (r *Raw) CreatedAt() time.Time { return r.timestamps.CreatedAt() }
 func (r *Raw) UpdatedAt() time.Time { return r.timestamps.UpdatedAt() }
 
 // Integrations —— copy of the attached integrations (defensive copy), always non-nil.
-func (r *Raw) Integrations() []connector.Integration { return r.integrations.All() }
+func (r *Raw) Integrations() []integration.Integration { return r.integrations.All() }
 
 // --- Raw-specific accessors ---
 

@@ -10,7 +10,7 @@
 // ReadMinutes / CrossRefs. Obsidian sync attaches through the generic
 // Integrations mechanism (the former ObsidianSourcePath / ObsidianImportedAt
 // fields now go through the Integration interface internally; callers get them
-// via Integrations().Find(connector.IntegrationObsidian)).
+// via Integrations().Find(integration.IntegrationObsidian)).
 
 package entity
 
@@ -19,7 +19,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/connector"
+	"github.com/atmaxmoj/standmeet/internal/corpus/integration"
 )
 
 // Writing —— value object for the writings table.
@@ -34,7 +34,7 @@ type Writing struct {
 	excerpt      string
 	parentID     string
 	content      Content
-	integrations connector.Integrations
+	integrations integration.Integrations
 	crossRefs    []string
 	readMinutes  int32
 	hasParent    bool
@@ -58,7 +58,7 @@ type WritingInit struct {
 	ParentID     string
 	Tags         []string
 	CrossRefs    []string
-	Integrations connector.Integrations
+	Integrations integration.Integrations
 	ReadMinutes  int32
 }
 
@@ -118,7 +118,7 @@ func (w *Writing) CreatedAt() time.Time { return w.timestamps.CreatedAt() }
 func (w *Writing) UpdatedAt() time.Time { return w.timestamps.UpdatedAt() }
 
 // Integrations —— attached integration list (defensive copy), e.g. Obsidian sync.
-func (w *Writing) Integrations() []connector.Integration { return w.integrations.All() }
+func (w *Writing) Integrations() []integration.Integration { return w.integrations.All() }
 
 // --- Writing-specific accessors ---
 
@@ -162,17 +162,17 @@ func (w *Writing) IsPublished() bool { return w.timestamps.IsPublished() }
 // Obsidian —— whether this writing was synced from an Obsidian vault; a
 // type-assert helper so callers don't have to Find + assert every time.
 // Returns (Obsidian{}, false) when it isn't from a vault.
-func (w *Writing) Obsidian() (connector.Obsidian, bool) {
-	in, ok := w.integrations.Find(connector.IntegrationObsidian)
+func (w *Writing) Obsidian() (integration.Obsidian, bool) {
+	in, ok := w.integrations.Find(integration.IntegrationObsidian)
 	if !ok {
-		return connector.Obsidian{}, false
+		return integration.Obsidian{}, false
 	}
-	ob, ok := in.(connector.Obsidian)
+	ob, ok := in.(integration.Obsidian)
 	return ob, ok
 }
 
 // HasObsidian —— the ok-only version of Obsidian().
-func (w *Writing) HasObsidian() bool { return w.integrations.Has(connector.IntegrationObsidian) }
+func (w *Writing) HasObsidian() bool { return w.integrations.Has(integration.IntegrationObsidian) }
 
 // CoverHeadline —— cover headline; a convenience so mapper / view code doesn't
 // have to fetch Cover() first and then the field.

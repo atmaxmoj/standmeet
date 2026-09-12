@@ -234,8 +234,8 @@ func marshalWritingSaved(out *writingOut) (json.RawMessage, error) {
 // descendant" went from a **400 plus a human-readable message** to a 500. The owner sees
 // "server error", when what actually went wrong was the click they just made.
 //
-// The lesson is about moving code: **error classification travels with the capability**. The
-// error table at the routing layer was part of the capability, not decoration on the
+// The lesson is about moving code: **error classification travels with the op**. The
+// error table at the routing layer was part of the op, not decoration on the
 // routing — leaving it behind is the same as deleting it.
 func writingCreateErr(log *slog.Logger, err error) error {
 	for _, c := range writingSaveErrClasses {

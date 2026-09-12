@@ -63,7 +63,7 @@ test.describe.serial('F-B-11 · an outward key books under a limit, not without 
     roleID = code.assumed_role_id;
     token = await createAPIToken(seed.request, seed.csrf, 'api-key-quota');
     sid = await initMCP(seed.request, token);
-    await callTool(seed.request, token, sid, 'api.open', { capability_id: 'calendar.book' });
+    await callTool(seed.request, token, sid, 'api.open', { block_id: 'calendar.book' });
   });
 
   test.afterAll(async () => { await seed.request.dispose(); });

@@ -11,7 +11,7 @@ import "github.com/atmaxmoj/standmeet/internal/access/ops"
 type (
 	CodeExtras = ops.CodeExtras
 	RoleExtras = ops.RoleExtras
-	// KeyExtras —— fields a capability occupies on an outward-facing API key (F-B-11).
+	// KeyExtras —— fields a block occupies on an outward-facing API key (F-B-11).
 	KeyExtras  = ops.KeyExtras
 	OpsAPIKeys = ops.APIKeysDeps
 	OpsCodes   = ops.CodesDeps

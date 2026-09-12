@@ -1,6 +1,6 @@
 {
-  "_why": "connector-assembly check 5 的 `book` 那一半：在真 CalDAV server 上真订一场。订 11:00（空档），订完去 Radicale 上查那个 .ics 在不在 —— 回执不看产品自己说什么，去外部看（[[receipt-check-belongs-next-to-the-action]]）。",
-  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/connector-assembly/shots",
+  "_why": "supplier-assembly check 5 的 `book` 那一半：在真 CalDAV server 上真订一场。订 11:00（空档），订完去 Radicale 上查那个 .ics 在不在 —— 回执不看产品自己说什么，去外部看（[[receipt-check-belongs-next-to-the-action]]）。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/supplier-assembly/shots",
   "viewport": [1280, 1700],
   "shots": [
     { "name": "ca-68-booked-on-caldav", "url": "/?code=VOICE-01", "login": false,

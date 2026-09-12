@@ -19,7 +19,7 @@ import (
 )
 
 // ConversationMemberID —— the member that owns a conversation (within owner scope). Used by the
-// booker visitor-cancel isolation gate (host-side resolver: bookings in booker's capstore carry
+// booker visitor-cancel isolation gate (host-side resolver: bookings in booker's blockstore carry
 // only conversation_id). Unknown conversation → ("", nil): an empty member id the caller treats as
 // "not this member's" (must not leak existence). Only a real DB error propagates.
 func (r *ChatRepo) ConversationMemberID(

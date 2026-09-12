@@ -25,7 +25,7 @@ import { test, expect } from '@/fixtures/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { configureMailConnector, clearMailpit, countMailpitMessages } from '@/fixtures/mail';
+import { configureMailSupplier, clearMailpit, countMailpitMessages } from '@/fixtures/mail';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
@@ -54,7 +54,7 @@ test.describe('the per-recipient mail cap holds against a multi-IP bomb of one v
   test('over-budget approvals to one victim deliver exactly the cap; each approve still succeeds',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
-      await configureMailConnector(request, OWNER.email, OWNER.password);
+      await configureMailSupplier(request, OWNER.email, OWNER.password);
       await clearMailpit(request);
       const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
 

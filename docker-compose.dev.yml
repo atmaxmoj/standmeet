@@ -173,10 +173,10 @@ services:
       - GOOGLE_AUTH_URL=http://localhost:${DEV_PORT_EXTERNAL_MOCK:-9000}/google-oauth/auth
       - GOOGLE_TOKEN_URL=http://external-mock:9000/google-oauth/token
       - GOOGLE_CALENDAR_BASE=http://external-mock:9000/google-calendar
-      # Connector SSRF egress allow-list (hostname). The mock resolves to a private
+      # Supplier SSRF egress allow-list (hostname). The mock resolves to a private
       # docker IP, so it must be explicitly allowed; prod leaves this unset → all
       # loopback/link-local/private targets are blocked.
-      - CONNECTOR_EGRESS_ALLOW=external-mock
+      - SUPPLIER_EGRESS_ALLOW=external-mock
       # httpx SSRF guard allow-list (BYOAI endpoint / writings inline-fetch): the in-cluster mock
       # gateway is an internal IP, so allow it here; prod leaves this unset → all internal blocked.
       - EGRESS_ALLOW_HOSTS=llm-gateway,external-mock
@@ -403,15 +403,43 @@ services:
   db:
     image: pgvector/pgvector:pg16
     restart: unless-stopped
+    # Durability off — **dev/test only**, and measured rather than guessed: this database is
+    # 18 MB of real data and had written **9.43 GB** in 30 hours. 500× write amplification,
+    # because every spec TRUNCATEs ~30 tables, every TRUNCATE rebuilds every index, and with
+    # `full_page_writes` on, the first touch of each 8 KB page after a checkpoint writes the
+    # whole page into the WAL.
+    #
+    # The settings that cost that are postgres's PRODUCTION defaults, and they are the right
+    # defaults for a database whose data must survive a power cut. This one's data must not:
+    # every spec's first act is to delete it. So the trade has no downside here — a crash loses
+    # exactly what the next `resetInstance()` was going to throw away.
+    #
+    # `wal_level=minimal` needs `max_wal_senders=0` (postgres refuses to start otherwise).
+    # prod's compose is untouched: the same reasoning does not apply there.
+    command: >
+      postgres
+      -c fsync=off
+      -c synchronous_commit=off
+      -c full_page_writes=off
+      -c wal_level=minimal
+      -c max_wal_senders=0
+      -c checkpoint_timeout=30min
+      -c autovacuum_naptime=10s
     environment:
       - POSTGRES_DB=standmeet
       - POSTGRES_USER=standmeet
       - POSTGRES_PASSWORD=standmeet_dev
     volumes:
       - pgdata:/var/lib/postgresql/data
-      # schema.sql 是唯一权威：fresh volume 首次启动时 postgres 自动应用。
-      # schema 变化的姿势是 `make clean && make dev` 重建 volume —— 这是
-      # 全新软件，没有任何 production 数据需要 migrate 的负担。
+      # schema.sql 是**新装**的权威：fresh volume 首次启动时 postgres 自动应用。
+      #
+      # ⚠️ 注释原来写着「没有 production 数据需要 migrate 的负担」—— 那是 v0.0.1 发布前的
+      # 姿势，早就作废了。现在每一次 schema 改动都要配 `backend/db/migrations/` 里的迁移，
+      # 启动时 `pgstore.Migrate` 从 `schema_migrations` 台账往下补。
+      #
+      # 两条路都要能走通，而且**新装那条最容易漏**：新卷上 schema.sql 是当前的，然后全部
+      # 迁移从空台账重放一遍。于是一条引用了后来被改名的表的旧迁移，在新装时会炸 —— 2026-09-11
+      # 就是这样：`2026-08-22-connector-title.sql` 少了 `ALTER TABLE IF EXISTS`，新装起不来。
       - ./backend/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
     ports:
       - "${DEV_PORT_DB:-5432}:5432"

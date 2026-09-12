@@ -1,7 +1,7 @@
 // security-prompt-injection.spec.ts -- pentest. Threat model: a visitor jailbreaks the LLM
 // with a hostile message to get it to call an **unauthorized** tool (here calendar_book --
 // gcal is connected, so the tool exists and works, but this code's granted_skills=[] does
-// not authorize it). The security boundary is the **server-side capability gate**, not how
+// not authorize it). The security boundary is the **server-side block gate**, not how
 // compliant the LLM is -- so we script the mock to be **fully compliant** (it emits the
 // calendar_book call directly), proving that even if the LLM is compromised, the backend
 // still blocks the tool:
@@ -9,7 +9,7 @@
 //       LLM doesn't even have a handle for it);
 //   (b) even if the mock forcibly emits the call, this turn produces no booking side effect
 //       and no 5xx.
-// Green = the capability gate holds beneath the LLM; red = one injected message can trigger
+// Green = the block gate holds beneath the LLM; red = one injected message can trigger
 // a tool it isn't authorized for.
 
 import { test, expect } from '@/fixtures/test';

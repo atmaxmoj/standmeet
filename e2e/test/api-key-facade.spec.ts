@@ -1,5 +1,5 @@
 // api-key-facade.spec.ts — [external-facing] the API-key facade (/api/pub/v1) behavior: a Bearer smk_ key
-// resolves to a role snapshot and calls capabilities as HTTP endpoints (no LLM, no gas). Proves the
+// resolves to a role snapshot and calls blocks as HTTP endpoints (no LLM, no gas). Proves the
 // two gates on top of role assembly — candidacy (opened) + the non-Agentic whitelist — plus auth,
 // per-key denials, revocation, and QUERY/POST dispatch. Keys are minted via the owner-MCP
 // api_keys.create tool (the product's MCP-first management surface).
@@ -46,7 +46,7 @@ async function setup(playwright: Playwright): Promise<void> {
   });
   secret = mint.secret;
   keyID = mint.id;
-  await callTool(request, token, sid, 'api.open', { capability_id: 'corpus.retrieval' });
+  await callTool(request, token, sid, 'api.open', { block_id: 'corpus.retrieval' });
   await request.dispose();
 }
 
@@ -107,24 +107,24 @@ async function checkAuthRejections(r: APIRequestContext): Promise<void> {
 
 async function checkCandidacyGate(r: APIRequestContext): Promise<void> {
   // close corpus.retrieval (owner-scoped) → the key's toolset empties → 404 on dispatch.
-  await callTool(r, token, sid, 'api.close', { capability_id: 'corpus.retrieval' });
+  await callTool(r, token, sid, 'api.close', { block_id: 'corpus.retrieval' });
   const closed = await facadeCall(r, secret, 'QUERY', 'corpus_search', { query: 'x' });
-  expect(closed.status(), 'not-opened capability → 404').toBe(404);
+  expect(closed.status(), 'not-opened block → 404').toBe(404);
   const disc = await facadeDiscover(r, secret);
   expect((await disc.json() as DiscoverBody).tools, 'discovery empty when closed').toHaveLength(0);
   // reopen for the other tests.
-  await callTool(r, token, sid, 'api.open', { capability_id: 'corpus.retrieval' });
+  await callTool(r, token, sid, 'api.open', { block_id: 'corpus.retrieval' });
   const reopened = await facadeCall(r, secret, 'QUERY', 'corpus_search', { query: 'x' });
   expect(reopened.status(), 'reopened → 200').toBe(200);
 }
 
 async function checkPerKeyDenial(r: APIRequestContext): Promise<void> {
   await callTool(r, token, sid, 'api_keys.add_denial',
-    { key_id: keyID, kind: 'capability', target_id: 'corpus.retrieval' });
+    { key_id: keyID, kind: 'block', target_id: 'corpus.retrieval' });
   const denied = await facadeCall(r, secret, 'QUERY', 'corpus_search', { query: 'x' });
   expect(denied.status(), 'per-key denial removes the tool → 404').toBe(404);
   await callTool(r, token, sid, 'api_keys.remove_denial',
-    { key_id: keyID, kind: 'capability', target_id: 'corpus.retrieval' });
+    { key_id: keyID, kind: 'block', target_id: 'corpus.retrieval' });
   const restored = await facadeCall(r, secret, 'QUERY', 'corpus_search', { query: 'x' });
   expect(restored.status(), 'denial lifted → 200').toBe(200);
 }
@@ -184,9 +184,9 @@ test.describe('API-key facade · /api/pub/v1 行为守护', () => {
     ({ playwright }) => run(playwright, checkDispatch));
   test('missing / unknown / malformed key → 401',
     ({ playwright }) => run(playwright, checkAuthRejections));
-  test('candidacy gate: closed capability → 404, reopened → 200',
+  test('candidacy gate: closed block → 404, reopened → 200',
     ({ playwright }) => run(playwright, checkCandidacyGate));
-  test('per-key capability denial subtracts the tool',
+  test('per-key block denial subtracts the tool',
     ({ playwright }) => run(playwright, checkPerKeyDenial));
   test('revoked key → 401', ({ playwright }) => run(playwright, checkRevocation));
   test('revoking a key that is not there never reports success',

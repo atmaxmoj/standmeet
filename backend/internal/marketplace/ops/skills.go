@@ -39,7 +39,7 @@ func Skills(deps usecase.SkillsDeps) []fp.Op {
 			ID: "skill_create",
 			Description: "Create an owner-curated AI skill: an extra system prompt plus " +
 				"optional sandbox scripts. Attach it to invite codes to compose the " +
-				"visitor-facing persona and capability set.",
+				"visitor-facing persona and block set.",
 			InputSchema: skillCreateSchema,
 			Kind:        fp.Action,
 			Reach:       fp.OwnerAction(),
@@ -48,8 +48,8 @@ func Skills(deps usecase.SkillsDeps) []fp.Op {
 		{
 			ID: "skill_update",
 			Description: "Edit an owner-curated skill: its prompt, its description, and " +
-				"which tools it may call. Naming a connector operation here is what lets a " +
-				"visitor's AI reach an uploaded connector. Builtin skills cannot be edited.",
+				"which tools it may call. Naming a supplier operation here is what lets a " +
+				"visitor's AI reach an uploaded supplier. Builtin skills cannot be edited.",
 			InputSchema: skillUpdateSchema,
 			Kind:        fp.Action,
 			Reach:       fp.OwnerAction(),
@@ -102,7 +102,7 @@ var (
 			"description":{"type":"string","description":"Optional one-line description."},
 			"allowed_tools":{"type":"array","items":{"type":"string"},
 				"description":
-				"Tool ids unlocked on roles with this skill; see connectors.agent_ops."}
+				"Tool ids unlocked on roles with this skill; see suppliers.agent_ops."}
 		},
 		"required":["skill_id","name","prompt"]
 	}`)
@@ -115,7 +115,7 @@ var (
 				"description":"System prompt fragment appended to the base persona."},
 			"description":{"type":"string","description":"Optional one-line description."},
 			"allowed_tools":{"type":"array","items":{"type":"string"},
-				"description":"Capability ids unlocked on roles, e.g. calendar.book."},
+				"description":"Block ids unlocked on roles, e.g. calendar.book."},
 			"scripts":{"type":"array","items":{"type":"object"},
 				"description":"Optional sandbox scripts; each {filename,language,content,...}."}
 		},

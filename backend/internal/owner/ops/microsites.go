@@ -43,7 +43,7 @@ func Microsites(deps usecase.MicrositeDeps) []fp.Op {
 // op exists on every owner facade"). The ratchet now **requires** these entries to carry
 // admin, and keeps requiring it. The MCP path is untouched — this is parity, not a move:
 // the owner uses whichever one is convenient — MCP inside Claude, the panel entry here.
-// Same family: F-C-47 (a connector passed in with no face to fill its credentials),
+// Same family: F-C-47 (a supplier passed in with no face to fill its credentials),
 // F-C-57 (expose checked with nowhere to grant it).
 
 func micrositeReadOps(deps usecase.MicrositeDeps) []fp.Op {

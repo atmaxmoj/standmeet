@@ -3,7 +3,7 @@
 // the owner **automatically** gets an owner-perspective notification email (not the
 // visitor-facing #122 confirmation -- that one goes to the visitor). The AI is not
 // involved; the backend triggers this deterministically after the booking commits. No
-// mail connector configured -> silently skipped (no error, doesn't block the booking).
+// mail supplier configured -> silently skipped (no error, doesn't block the booking).
 //
 // Real e2e: browser books -> backend -> owner SMTP (Mailpit).
 
@@ -11,7 +11,7 @@ import { test, expect } from '@/fixtures/test';
 import type { Browser, FrameLocator, Page } from '@playwright/test';
 
 import {
-  configureMailConnector, clearMailpit, waitForMailEnvelopeTo,
+  configureMailSupplier, clearMailpit, waitForMailEnvelopeTo,
   countMailpitMessages, MAIL_FROM,
 } from '@/fixtures/mail';
 import {
@@ -36,8 +36,8 @@ test.describe('booking · per-role owner notification (#130)', () => {
     seed = await seedCodeVisitorOnConnectedOwner(playwright, {
       granted_skills: ['calendar.book'],
     });
-    await configureMailConnector(seed.request, OWNER.email, OWNER.password);
-    // configureMailConnector logs in again internally, which rotates the CSRF token --
+    await configureMailSupplier(seed.request, OWNER.email, OWNER.password);
+    // configureMailSupplier logs in again internally, which rotates the CSRF token --
     // refresh seed.csrf, otherwise issueCodeWithSkills below would 403 on the stale token.
     seed.csrf = (await login(seed.request, OWNER.email, OWNER.password)).csrf;
   });
@@ -69,7 +69,7 @@ test.describe('booking · per-role owner notification (#130)', () => {
       // The booked card still appears as usual (the booking succeeded), but the owner
       // should not receive a notification.
       // The book-card appearing means the booker tool already returned. owner-notify now
-      // runs async in the background, but with OFF/no connector it **sends no mail at
+      // runs async in the background, but with OFF/no supplier it **sends no mail at
       // all** (there's nothing to send), so the count is always 0 and there's no need to
       // wait for the background job.
       await expect(bookedFrame(page).getByTestId('book-card-time')).toBeVisible();
@@ -78,13 +78,13 @@ test.describe('booking · per-role owner notification (#130)', () => {
     });
 });
 
-// notify on, but the owner has **not configured** a mail connector -> no way to send
+// notify on, but the owner has **not configured** a mail supplier -> no way to send
 // mail, best-effort silently skips it: the booking still succeeds, no crash, no block.
 // This is #130's guarantee that "a notification failure never affects the booking".
-test.describe('booking · owner notify on but no mail connector (#130 best-effort)', () => {
+test.describe('booking · owner notify on but no mail supplier (#130 best-effort)', () => {
   let seed: CodedSeed;
   test.beforeAll(async ({ playwright }) => {
-    // Note: this deliberately **does not** call configureMailConnector -- the owner has
+    // Note: this deliberately **does not** call configureMailSupplier -- the owner has
     // no ability to send mail.
     seed = await seedCodeVisitorOnConnectedOwner(playwright, {
       granted_skills: ['calendar.book'],
@@ -92,7 +92,7 @@ test.describe('booking · owner notify on but no mail connector (#130 best-effor
   });
   test.afterAll(async () => { await teardownSeed(seed); });
 
-  test('notify-on role + no connector → booking succeeds, no email, no crash',
+  test('notify-on role + no supplier → booking succeeds, no email, no crash',
     async ({ browser }) => {
       await clearMailpit(seed.request);
       const code = await issueCodeWithSkills(seed.request, seed.csrf, {
@@ -101,7 +101,7 @@ test.describe('booking · owner notify on but no mail connector (#130 best-effor
       const page = await enterAndBook(browser, code.code, 'Dana', 14);
 
       // The book-card appearing means the booker tool already returned. owner-notify now
-      // runs async in the background, but with OFF/no connector it **sends no mail at
+      // runs async in the background, but with OFF/no supplier it **sends no mail at
       // all** (there's nothing to send), so the count is always 0 and there's no need to
       // wait for the background job.
       await expect(bookedFrame(page).getByTestId('book-card-time')).toBeVisible();

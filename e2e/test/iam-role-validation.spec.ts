@@ -138,7 +138,7 @@ test.describe('A.3-IAM role REST · builtin + uniqueness', () => {
   //
   // On the HTTP side it's a `PUT`, where a full-record replace makes sense (the panel
   // always sends a complete form). The problem is that **the same op is described on
-  // the MCP side as a partial-friendly update** — [[test-covers-capability-not-face]].
+  // the MCP side as a partial-friendly update** — [[test-covers-block-not-face]].
   //
   // This assertion holds under either fix: either absent means "don't touch it", or
   // the schema lists these fields as required (in which case this call would be

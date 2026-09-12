@@ -1,4 +1,4 @@
-// acl-skill-matrix.spec.ts —— §B.1（skill target）of capability-acl-hierarchy-tests.md.
+// acl-skill-matrix.spec.ts —— §B.1（skill target）of block-acl-hierarchy-tests.md.
 //
 // How a skill surfaces = L1 injects the name+description of every skill the
 // role grants and enables into the system prompt (the SkillPrompts channel in

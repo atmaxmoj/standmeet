@@ -169,7 +169,7 @@ function SecurityCard({ hook }: { hook: AccountHook }) {
 }
 
 // RecoveryRow —— generate a recovery phrase (emailed to the owner). Enabled only once a mail
-// connector is verified (recoveryRowView owns that copy/gating); the button POSTs and toasts.
+// supplier is verified (recoveryRowView owns that copy/gating); the button POSTs and toasts.
 function RecoveryRow({ canDeliver }: { canDeliver: boolean }) {
   const t = useTranslations('adminShell.account');
   const view = recoveryRowView(canDeliver);

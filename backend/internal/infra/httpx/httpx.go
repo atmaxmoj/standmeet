@@ -1,10 +1,10 @@
 // Package httpx —— #132's single outbound HTTP client. Every subsystem (jobs / marketplace /
-// gotenberg / captcha / connector / inference …) gets its *http.Client through it, which
+// gotenberg / captcha / suppliers / inference …) gets its *http.Client through it, which
 // uniformly provides:
 //   - a configurable timeout
 //   - automatic retry with exponential backoff on transient failures (connection errors —
 //     not ctx cancel/timeout — plus 429 / 5xx)
-//   - a composable base transport (connector egress passes in its SSRF guard transport)
+//   - a composable base transport (supplier egress passes in its SSRF guard transport)
 //   - an optional OnRetry hook (inference uses it to log + tell the frontend to show a
 //     "retrying" throbber)
 //
@@ -49,7 +49,7 @@ type RetryInfo struct {
 // Options —— NewClient config. The zero value works (no timeout, default retry count/backoff,
 // DefaultTransport).
 type Options struct {
-	// Base —— the underlying RoundTripper; nil → http.DefaultTransport. connector egress
+	// Base —— the underlying RoundTripper; nil → http.DefaultTransport. supplier egress
 	// passes in its SSRF guard transport here, composing retry with the guard (every redial
 	// goes through the guard again).
 	Base http.RoundTripper
@@ -62,8 +62,8 @@ type Options struct {
 	// BaseDelay —— first backoff, doubling exponentially after. 0 → defaultBaseDelay.
 	BaseDelay time.Duration
 	// NoRetry —— send exactly once, no retry (still goes through the unified client: timeout
-	// + composable base). connector egress uses this — retry semantics there are owned by the
-	// connector layer via an idempotency key; retrying again at the transport level would
+	// + composable base). supplier egress uses this — retry semantics there are owned by the
+	// supplier layer via an idempotency key; retrying again at the transport level would
 	// double-send.
 	NoRetry bool
 	// BlockInternalEgress —— install the SSRF guard dialer (block internal targets + pin) as base.
@@ -97,7 +97,7 @@ func newRetryTransport(o Options) *retryTransport {
 // staying silent (F-A-41).
 //
 // The LLM path already hooks its own (`inference.onLLMRetry`); what this guards is **every
-// other NewClient call site**: connector egress, external MCP, job source fetches … they all
+// other NewClient call site**: supplier egress, external MCP, job source fetches … they all
 // retry too, and a backoff that never got logged just looks like "that one call was slow" in
 // hindsight.
 //

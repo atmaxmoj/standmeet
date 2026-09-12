@@ -9,7 +9,7 @@
 //
 // POST /sessions/{id}/dialogs (frontend self-persists) is retired by #28: persistence is
 // now one sink, at /agent/turn stream end. POST /summary (I.3) is gone too, replaced by
-// the summarize_conversation capability.
+// the summarize_conversation block.
 
 package public
 

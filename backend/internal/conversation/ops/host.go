@@ -1,12 +1,12 @@
-// host.go — the inbound side of what this domain opens to **sandboxed capabilities**.
+// host.go — the inbound side of what this domain opens to **sandboxed blocks**.
 //
-// A sandboxed capability has no network access; it can only call back to the host over a
+// A sandboxed block has no network access; it can only call back to the host over a
 // unix socket. The domain itself decides which ops the host exposes — the same rule as the
 // outbound half (conversations.go is outbound, this is inbound). Which of these ops a
-// capability may call is declared in that capability's own manifest, and the host dispatches
+// block may call is declared in that block's own manifest, and the host dispatches
 // by that declaration; calling a name outside the declared list crashes at startup.
 //
-// All three ops serve capabilities like summarize: read this conversation's transcript, run
+// All three ops serve blocks like summarize: read this conversation's transcript, run
 // one generation on the owner's LLM, and hand back the generated report to store.
 // **Credentials never leave the host** — the sandbox gets a result, not a key.
 

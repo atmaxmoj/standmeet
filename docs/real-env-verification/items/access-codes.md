@@ -2,7 +2,7 @@
 
 - **Module:** The owner's access-code management. A code issues, renders in the list, shows its QR and its members, quota and expiry, revokes, and redeems end to end. An access code IS an invitation.
 - **Surface:** `/admin/codes`, plus `/gate` to redeem and `/admin/requests` to approve.
-- **Real dep:** The prod stack. A real mail connector for the emailed-code path (see [[mail-connector]]). A live code that has already been used — an issued résumé PDF or a shared link carrying its string, and a visitor session open on it — so a rotation has something to break.
+- **Real dep:** The prod stack. A real mail connector for the emailed-code path (see [[mail-supplier]]). A live code that has already been used — an issued résumé PDF or a shared link carrying its string, and a visitor session open on it — so a rotation has something to break.
 - **Exclusive:** gmail-inbox
 - **Backing e2e:** `access-codes` · `admin-requests` · `mail-connector` · `coded-landing-slug` · `code-rotation` · `code-change-ui` · `admin-codes-extended` · `microsite-code-binding` · `revoke-purges-session`.
 
@@ -23,7 +23,7 @@
 - **Steps:** As a no-code visitor, submit a request on `/gate`. As the owner, find it in `/admin/requests` and approve it. Open the real inbox. Follow the emailed link. Take a turn in the session it opens.
 - **Expected:** The chain completes with real mail. The emailed code opens a working session.
 - **Mock gap:** No spec walks the whole journey. CI proves the request list, the approve gate and redemption separately, and the mail hop is always a local catcher.
-- **Backing test:** `admin-requests.spec.ts` · `mail-connector.spec.ts` · `access-codes.spec.ts` · the joined journey → `gap`
+- **Backing test:** `admin-requests.spec.ts` · `mail-supplier.spec.ts` · `access-codes.spec.ts` · the joined journey → `gap`
 
 ### 4 — Approve is refused without a way to deliver
 - **Steps:** With no verified mail connector, approve a request.

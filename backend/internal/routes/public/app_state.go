@@ -2,7 +2,7 @@
 // point of view).
 //
 // A sandboxed card (ui://) CRUDs **only its own MCP slot** through the host. mcp_id is
-// derived server-side from {tool} (the capability id off the capreg binding, e.g.
+// derived server-side from {tool} (the block id off the registry binding, e.g.
 // calendar.book / corpus.retrieval) — it never accepts an mcp_id sent by the client, and
 // that's the root of the isolation: a card can never touch another MCP's slot. member
 // (the durable identity behind the session) is the scope; public/byoai has no member →
@@ -132,8 +132,8 @@ func (h *Handlers) resolveAppScope(w http.ResponseWriter, r *http.Request) (appS
 // id → they share one app-state slot.
 //
 // **Ask one question, don't assemble everything.** This used to call AssembleVisitor
-// first, instantiating every capability just to translate a tool name into a capability
-// id off the binding — instantiating an external capability means spinning up a bwrap
+// first, instantiating every block just to translate a tool name into a block
+// id off the binding — instantiating an external block means spinning up a bwrap
 // sandbox, so every time a card read or wrote its own state slot, the whole row of
 // sandboxes cold-started. Measured: one app-state read took 6 seconds, the card stayed
 // empty the whole time, and assertions timed out (this is the third in the same family

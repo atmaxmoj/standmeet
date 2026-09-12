@@ -5,7 +5,7 @@ import "github.com/atmaxmoj/standmeet/internal/access/repo"
 // Types (impl: repo).
 type (
 	APIKeyRepo         = repo.APIKeyRepo
-	CapabilityRepo     = repo.CapabilityRepo
+	BlockEnableRepo    = repo.BlockEnableRepo
 	CodeDenialRepo     = repo.CodeDenialRepo
 	CodeRepo           = repo.CodeRepo
 	EmbedRepo          = repo.EmbedRepo
@@ -20,7 +20,7 @@ var (
 	CreateAccessCodeTx   = repo.CreateAccessCodeTx
 	NewAPIKeyRepo        = repo.NewAPIKeyRepo
 	NewAccessRequestRepo = repo.NewAccessRequestRepo
-	NewCapabilityRepo    = repo.NewCapabilityRepo
+	NewBlockEnableRepo   = repo.NewBlockEnableRepo
 	NewCodeDenialRepo    = repo.NewCodeDenialRepo
 	NewCodeRepo          = repo.NewCodeRepo
 	NewEmbedRepo         = repo.NewEmbedRepo

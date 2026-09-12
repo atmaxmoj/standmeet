@@ -17,7 +17,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// ProvidersAdminDeps — capability source for the route.
+// ProvidersAdminDeps — op source for the route.
 type ProvidersAdminDeps struct {
 	Face *dispatcher.Face
 }

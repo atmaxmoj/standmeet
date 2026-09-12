@@ -3,7 +3,7 @@
 // Design: wiki/.../key-designs/embed-credential-never-carries-the-code (2026-09-01).
 //
 // A <standmeet-chat> widget runs on a third-party site. Its session must land on an access code
-// (the code carries role → corpus + capabilities), but the code is a reusable secret also printed
+// (the code carries role → corpus + blocks), but the code is a reusable secret also printed
 // on résumé QRs and emailed — writing it in the widget's public JS exposes it. Instead the embed
 // carries a per-embed Ed25519 key; each session issue signs a short-lived JWT folding in a bound
 // origin + expiry + one-time jti; the server verifies with the embed's public key and resolves it

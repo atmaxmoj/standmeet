@@ -6,13 +6,13 @@
 // confirmed by prod logs), but the visitor's screen barely changed: the card still laid
 // out a row of clickable chips, and the AI still said *"Tap the 9:00 AM slot on the card
 // and it'll lock in the booking"*. The first fix (removing the booking instructions from
-// the capability-level instructions) **wasn't enough** -- driving it again produced the
+// the block-level instructions) **wasn't enough** -- driving it again produced the
 // same line. Where the promise actually lands is **the card itself**: the card is
 // attached to `calendar_list_slots`, and that tool is present under a read-only grant;
 // clicking any chip posts a message saying "book the ... slot", and under this grant that
 // message can never actually reach a booking.
 //
-// This field's fact is now answered by the host (`connector.invoke can_perform
+// This field's fact is now answered by the host (`supplier.invoke can_perform
 // events.insert`), the plugin puts it into the result as `can_book`, and the card decides
 // whether to offer the entry point based on that -- the same rule the booked card follows
 // when deciding whether to render the confirmation-email widget based on `can_email`:

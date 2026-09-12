@@ -121,6 +121,6 @@ async function initOwner(playwright: Playwright): Promise<void> {
     name: 'attrib-role', description: 'tool attribution spec',
     corpus_uris: ['wiki://**', 'output://**'],
   });
-  await createCode(request, csrf, { code: CODE, label: 'attrib', role_id: role.id });
+  await createCode(request, csrf, { code: CODE, label: 'attrib', assumed_role_id: role.id });
   await request.dispose();
 }

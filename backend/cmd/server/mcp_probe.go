@@ -14,7 +14,7 @@
 //
 // So this probe **isn't a newly built outbound path**: it lets the owner manually walk
 // the same path session assembly already walks — same shape as the read-only
-// connector probe (F-C-16). A card claiming `connected` with no way to actually ask is
+// supplier probe (F-C-16). A card claiming `connected` with no way to actually ask is
 // a mistake this product has made before.
 //
 // (There's a blank line between the block above and `package` because the package
@@ -28,7 +28,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpclient"
+	"github.com/atmaxmoj/standmeet/internal/infra/mcpclient"
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 )
 

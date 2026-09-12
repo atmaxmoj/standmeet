@@ -1,6 +1,6 @@
 // Toggle —— an iOS-style on/off switch: a pill track with a knob that slides to the right when on.
 // role="switch" + aria-checked so it reads as a toggle to assistive tech and to tests. The visible
-// state is the knob position + the track fill (no text). Extracted from CapabilitiesPanel's enable
+// state is the knob position + the track fill (no text). Extracted from BlockPanel's enable
 // toggle so the same switch is used everywhere a boolean is flipped in place.
 
 function trackClass(on: boolean, disabled: boolean): string {

@@ -1,8 +1,8 @@
 // book.go —— the calendar_book main flow, ported from the old core usecases/calendar_book.go
 // + capreg_booker_book.go.
 // #135: the logic lives in the sandbox; everything external goes through a fixed vocabulary
-// —— calendar insert/delete/freebusy via connector.invoke, booking storage/counting (quota)
-// via capstore, owner timezone via owner.meta. The result wire stays **byte-aligned** with
+// —— calendar insert/delete/freebusy via supplier.invoke, booking storage/counting (quota)
+// via blockstore, owner timezone via owner.meta. The result wire stays **byte-aligned** with
 // the old host (the frontend card decodes it unchanged).
 
 package main
@@ -124,13 +124,13 @@ func bookFailResult(conflict, hint string, busy []busyInterval) string {
 	return mustJSON(bookFailWire{OK: false, Conflict: conflict, PolicyHint: hint, BusyWindows: wins})
 }
 
-// insertedEvent —— the response from connector.invoke insert_event (InsertedEvent json tags).
+// insertedEvent —— the response from supplier.invoke insert_event (InsertedEvent json tags).
 type insertedEvent struct {
 	EventID  string `json:"event_id"`
 	HTMLLink string `json:"html_link"`
 }
 
-// bookingDoc —— one booking as stored in the booker capstore (cancel looks it up by
+// bookingDoc —— one booking as stored in the booker blockstore (cancel looks it up by
 // conversation, quota counts by subject).
 type bookingDoc struct {
 	OwnerID string `json:"owner_id"`
@@ -159,7 +159,7 @@ func doBook(s session, rawArgs json.RawMessage) string {
 	if verr := validateBookArgs(&args); verr != nil {
 		return bookErr("invalid_args", verr.Error())
 	}
-	// The quota gate lives on the host side (the composition root reads the booker capstore
+	// The quota gate lives on the host side (the composition root reads the booker blockstore
 	// count and hides the tool outright once the limit is hit), so reaching this point means
 	// there's still quota left —— booker doesn't check again.
 	return runBook(s, &args)
@@ -244,7 +244,7 @@ func commitBooking(s session, args *bookArgs, tz string, slot time.Time) string 
 	end := slot.Add(time.Duration(args.DurationMin) * time.Minute)
 	summary := buildSummary(s.VisitorName, args.Topic)
 	holdKey := slotHoldKey(s.OwnerID, slot, end)
-	if !gwCapstoreClaim(bookingsColl, holdKey, slotHoldSeconds) {
+	if !gwBlockstoreClaim(bookingsColl, holdKey, slotHoldSeconds) {
 		return mustJSON(bookConflictWire{
 			OK: false, Conflict: "just_taken",
 			Detail: "that time was taken a moment ago — pick another slot",
@@ -252,12 +252,12 @@ func commitBooking(s session, args *bookArgs, tz string, slot time.Time) string 
 	}
 	inserted, ierr := insertEvent(s, args, tz, slot, end, summary)
 	if ierr != nil {
-		gwCapstoreRelease(bookingsColl, holdKey) // booking failed, don't leave the slot locked until the TTL expires
+		gwBlockstoreRelease(bookingsColl, holdKey) // booking failed, don't leave the slot locked until the TTL expires
 		return friendlyCalErr(ierr)
 	}
 	if perr := persistBooking(s, &inserted, summary, slot, end); perr != nil {
 		compensateDelete(s, inserted.EventID)
-		gwCapstoreRelease(bookingsColl, holdKey)
+		gwBlockstoreRelease(bookingsColl, holdKey)
 		return friendlyCalErr(perr)
 	}
 	// #130 owner-notify: the booking has already succeeded, the notification is a
@@ -281,7 +281,7 @@ func insertEvent(
 		"summary": summary, "description": args.Topic,
 		"start": slot, "end": end, "time_zone": tz, "visitor_email": s.VisitorEmail,
 	})
-	resp, err := gwConnectorInvoke(s.OwnerID, "calendar", "insert_event", req)
+	resp, err := gwSupplierInvoke(s.OwnerID, "calendar", "insert_event", req)
 	if err != nil {
 		return insertedEvent{}, err
 	}
@@ -299,7 +299,7 @@ func persistBooking(s session, ev *insertedEvent, summary string, start, end tim
 		GoogleEventID:  ev.EventID, GoogleHTMLLink: ev.HTMLLink, Summary: summary,
 		VisitorEmail: s.VisitorEmail, StartAt: start, EndAt: end,
 	})
-	if _, err := gwCapstoreInsert(bookingsColl, doc); err != nil {
+	if _, err := gwBlockstoreInsert(bookingsColl, doc); err != nil {
 		return err
 	}
 	return nil
@@ -307,13 +307,13 @@ func persistBooking(s session, ev *insertedEvent, summary string, start, end tim
 
 func compensateDelete(s session, eventID string) {
 	req, _ := json.Marshal(map[string]string{"event_id": eventID, "attendee_email": s.VisitorEmail})
-	_, _ = gwConnectorInvoke(s.OwnerID, "calendar", "delete_event", req)
+	_, _ = gwSupplierInvoke(s.OwnerID, "calendar", "delete_event", req)
 }
 
-// ownerCanEmail —— whether the owner has a usable mail connector (decides whether the
+// ownerCanEmail —— whether the owner has a usable mail supplier (decides whether the
 // confirmation-email widget shows up on the card).
 func ownerCanEmail(ownerID string) bool {
-	resp, err := gwConnectorInvoke(ownerID, "mail", "connected", nil)
+	resp, err := gwSupplierInvoke(ownerID, "mail", "connected", nil)
 	if err != nil {
 		return false
 	}
@@ -330,7 +330,7 @@ func ownerCanEmail(ownerID string) bool {
 // fewer entry point than one that does nothing when pressed.
 func ownerCanBook(ownerID string) bool {
 	args, _ := json.Marshal(map[string]string{"operation": "events.insert"})
-	resp, err := gwConnectorInvoke(ownerID, "calendar", "can_perform", args)
+	resp, err := gwSupplierInvoke(ownerID, "calendar", "can_perform", args)
 	if err != nil {
 		return false
 	}
@@ -350,10 +350,18 @@ func buildSummary(visitorName, topic string) string {
 }
 
 // friendlyCalErr —— every underlying error gets degraded to a friendly message; never leak a
-// socket/connector internal error to the visitor.
+// socket/supplier internal error to the visitor.
+// The category comes from the host's fault code, the same signal the confirmation path
+// already branches on (confirm.go). Matching on the sentence instead is what this used to
+// do, and the sentence is not a contract: when the host's "no active supplier" wording
+// changed to "no block supplies this seam", the phrase stopped matching and every
+// unconnected calendar started telling the visitor to *try again later* — advice that is
+// false, since waiting fixes nothing the owner has not done. The phrase check stays as a
+// fallback for a host that answers without a code.
 func friendlyCalErr(err error) string {
 	switch {
-	case err != nil && strings.Contains(err.Error(), "not connected"):
+	case faultCode(err) == faultNotConfigured,
+		err != nil && strings.Contains(err.Error(), "not connected"):
 		return bookErr("not_connected", "owner has not connected a calendar yet")
 	default:
 		return bookErr("calendar_unavailable",

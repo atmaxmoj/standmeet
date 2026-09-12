@@ -574,7 +574,7 @@
    gone, so all four states fell back to the default serif font and ran together into a single
    string, "committed submitted failed withdrawn," leaving the owner unable to tell which state
    was current (F-E-10).
-   When a capability moves, its edges have to move with it ([[move-the-capability-move-its-edges]]). */
+   When a block moves, its edges have to move with it ([[move-the-capability-move-its-edges]]). */
 .sm-seg > * {
   font-family: var(--font-mono);
   font-size: 10.5px;
@@ -1313,8 +1313,8 @@
   .sm-composer-preview { display: none; }
 }
 
-/* ── connector add modal · admin /connectors "+ add" ──────────────── */
-.sm-connector-modal-overlay {
+/* ── supplier add modal · admin /suppliers "+ add" ──────────────── */
+.sm-supplier-modal-overlay {
   position: fixed;
   inset: 0;
   z-index: var(--z-modal);
@@ -1324,7 +1324,7 @@
   justify-content: center;
   padding: 24px;
 }
-.sm-connector-modal-card {
+.sm-supplier-modal-card {
   background: var(--color-paper);
   border: 1px solid var(--color-rule);
   border-radius: 3px;
@@ -1333,7 +1333,7 @@
   max-height: 86vh;
   overflow-y: auto;
 }
-.sm-connector-modal-head {
+.sm-supplier-modal-head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -1341,17 +1341,17 @@
   padding: 18px 24px;
   border-bottom: 1px solid var(--color-rule);
 }
-.sm-connector-modal-title {
+.sm-supplier-modal-title {
   font-family: var(--font-serif);
   font-size: 22px;
   font-weight: 400;
   color: var(--color-ink);
   margin-top: 4px;
 }
-.sm-connector-modal-body {
+.sm-supplier-modal-body {
   padding: 18px 24px 22px;
 }
-.sm-connector-card {
+.sm-supplier-card {
   display: block;
   text-align: left;
   padding: 12px 14px;
@@ -1363,19 +1363,19 @@
   font: inherit;
   color: inherit;
 }
-.sm-connector-card:hover { border-color: var(--color-ink); }
-.sm-connector-card:disabled {
+.sm-supplier-card:hover { border-color: var(--color-ink); }
+.sm-supplier-card:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
-.sm-connector-card-icon {
+.sm-supplier-card-icon {
   display: inline-block;
   width: 24px;
   font-family: var(--font-mono);
   font-size: 18px;
   color: var(--color-accent);
 }
-.sm-connector-card-name {
+.sm-supplier-card-name {
   font-family: var(--font-mono);
   font-size: 12.5px;
   letter-spacing: 0.08em;

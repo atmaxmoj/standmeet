@@ -59,7 +59,7 @@ var (
 	ErrRoleNotFound               = entity.ErrRoleNotFound
 	ErrTooManyDockButtons         = entity.ErrTooManyDockButtons
 	ErrTurnQuotaReached           = entity.ErrTurnQuotaReached
-	ErrUnknownDockCapability      = entity.ErrUnknownDockCapability
+	ErrUnknownDockBlock           = entity.ErrUnknownDockBlock
 	InvitedRoleCorpusURIs         = entity.InvitedRoleCorpusURIs
 	PublicRoleCorpusURIs          = entity.PublicRoleCorpusURIs
 )

@@ -1,4 +1,32 @@
 {
+  "blocks": {
+    "installKicker": "installer",
+    "installHeading": "ajouter un bloc",
+    "installIntro": "Collez le manifeste d'un bloc. Il indique son nom, à qui il s'adresse, comment le démarrer et quels réglages il attend.",
+    "installPlaceholder": "id: acme.widget\ntitle: Acme Widget\nversion: \"1\"\nshape: visitor_only",
+    "install": "installer",
+    "installedToast": "Bloc installé",
+    "bundlesKicker": "assembler",
+    "bundlesHeading": "lots",
+    "bundlesIntro": "Un lot est un ensemble de blocs portant un nom. Un code qui pointe dessus peut utiliser exactement ceux-là — modifié en direct, retirer un bloc atteint les sessions déjà ouvertes.",
+    "bundleNamePlaceholder": "recruiter",
+    "create": "créer",
+    "bundleCreatedToast": "Lot créé",
+    "remove": "retirer",
+    "removedToast": "Retiré",
+    "addBlock": "+ {id}",
+    "addedToast": "Ajouté",
+    "grantNet": "net(autorisé)",
+    "blocksFailed": "{count, plural, one {# bloc en échec} other {# blocs en échec}}",
+    "settings": "réglages",
+    "save": "enregistrer",
+    "savedToast": "Enregistré",
+    "close": "fermer",
+    "codeBundleLabel": "lot · ce que ce code peut utiliser",
+    "codeBundleNone": "aucun lot — s'en remettre au rôle",
+    "codeBundle": "lot · {name}",
+    "blockOff": "· désactivé"
+  },
   "credField": {
     "host": "Hôte",
     "port": "Port",
@@ -100,19 +128,19 @@
     "keyId": "id de clé",
     "deletedToast": "Clé supprimée"
   },
-  "connectors": {
-    "intro": "Les connecteurs permettent à l'agent d'accéder à des services externes — Calendrier et Mail sont actifs ci-dessous, et vous pouvez télécharger votre propre connecteur (OpenAPI / protocole) pour en ajouter d'autres.",
-    "catalogError": "Impossible de charger le catalogue des connecteurs — rechargez et réessayez.",
-    "overwritePrompt": "Un connecteur <mono>{category}</mono> existe déjà. L'écraser ?",
+  "suppliers": {
+    "intro": "Les fournisseurs permettent à l'agent d'accéder à des services externes — Calendrier et Mail sont actifs ci-dessous, et vous pouvez télécharger votre propre fournisseur (OpenAPI / protocole) pour en ajouter d'autres.",
+    "catalogError": "Impossible de charger le catalogue des fournisseurs — rechargez et réessayez.",
+    "overwritePrompt": "Un fournisseur <mono>{seam}</mono> existe déjà. L'écraser ?",
     "overwrite": "Écraser",
-    "add": "+ ajouter un connecteur",
+    "add": "+ ajouter un fournisseur",
     "builtinHeading": "Prêt à connecter",
     "builtinCount": "{count} disponibles",
-    "uploadedHeading": "Connecteurs que vous avez téléchargés",
+    "uploadedHeading": "Fournisseurs que vous avez téléchargés",
     "uploadedCount": "{count} installés",
     "kicker": "intégrations",
     "count": "agenda · mail actif · importez le vôtre",
-    "removedToast": "Connecteur supprimé"
+    "removedToast": "Fournisseur supprimé"
   },
   "calendar": {
     "heading": "Google Calendrier",
@@ -134,32 +162,32 @@
     "leadDays": "jours minimum à l’avance",
     "bufferMin": "minutes tampon (autour des événements existants)"
   },
-  "capabilities": {
+  "blockPanel": {
     "kicker": "disponibilité",
-    "heading": "capacités",
-    "intro": "Désactivez une capacité et ses outils disparaîtront de chaque session visiteur. Les capacités intégrées peuvent être désactivées mais non supprimées ; seules celles que vous avez créées peuvent être supprimées.",
-    "empty": "aucune capacité enregistrée.",
+    "heading": "blocs",
+    "intro": "Désactivez un bloc et ses outils disparaîtront de chaque session visiteur. Les blocs intégrés peuvent être désactivés mais non supprimés ; seuls ceux que vous avez créés peuvent être supprimés.",
+    "empty": "aucun bloc enregistré.",
     "loading": "chargement…",
-    "removeTitle": "supprimer la capacité",
-    "removedToast": "Capacité supprimée"
+    "removeTitle": "supprimer le bloc",
+    "removedToast": "Bloc supprimé"
   },
-  "connectorCard": {
+  "supplierCard": {
     "disconnect": "Déconnecter",
     "statusConnecting": "connexion…",
     "statusConnected": "connecté",
     "statusNotConnected": "non connecté"
   },
-  "connectorOp": {
+  "supplierOp": {
     "run": "Exécuter",
     "running": "Exécution…",
-    "sent": "Accepté par le connecteur {kind} — vérifiez la boîte de réception pour confirmer qu'il est arrivé.",
+    "sent": "Accepté par le fournisseur {kind} — vérifiez la boîte de réception pour confirmer qu'il est arrivé.",
     "unreachable": "Impossible d'accéder à votre instance — vérifiez votre connexion et réessayez.",
-    "failedNoReason": "Ça n'a pas fonctionné, et le connecteur n'a donné aucune raison — consultez les journaux du serveur."
+    "failedNoReason": "Ça n'a pas fonctionné, et le fournisseur n'a donné aucune raison — consultez les journaux du serveur."
   },
-  "connectorList": {
-    "loadError": "Impossible de charger vos connecteurs — rechargez et réessayez.",
+  "supplierList": {
+    "loadError": "Impossible de charger vos fournisseurs — rechargez et réessayez.",
     "delete": "Supprimer",
-    "removeAria": "supprimer le connecteur"
+    "removeAria": "supprimer le fournisseur"
   },
   "skills": {
     "new": "+ nouvelle compétence",

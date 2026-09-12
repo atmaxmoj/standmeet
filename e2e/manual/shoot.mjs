@@ -218,7 +218,7 @@ async function runSteps(steps) {
     })();
     // clickFrame —— click something **inside a sandbox card**:
     // `{"clickFrame": ["iframe selector", "in-card selector"]}`.
-    // The capability-provided ui:// cards (booking receipt, slot picker) all
+    // The block-provided ui:// cards (booking receipt, slot picker) all
     // render inside a sandbox iframe that the main document's selectors can't
     // reach — and the buttons a visitor would actually click (Cancel meeting,
     // a time-slot chip) all live in there. Without this step, every check that

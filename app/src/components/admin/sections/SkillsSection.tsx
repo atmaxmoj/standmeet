@@ -35,11 +35,11 @@ import { useAction } from '@/lib/ui/use-action';
 import { useReportError } from '@/lib/ui/use-report-error';
 import { useEffectErrorToast } from '@/lib/ui/toast';
 
-// connectorLabel was removed (F-F-4): it hand-mapped connector rows to 'Calendar' / 'Email' so
+// supplierLabel was removed (F-F-4): it hand-mapped supplier rows to 'Calendar' / 'Email' so
 // the client could compute the `needs − connected` difference itself. That was a **third name**
-// for the same thing (dep name `smtp` / connector category `mail` / `Email` here), and both
+// for the same thing (dep name `smtp` / supplier seam `mail` / `Email` here), and both
 // halves needed for the difference already lived on the server. The server now answers directly
-// which connectors a card is still missing, and the card just renders it.
+// which suppliers a card is still missing, and the card just renders it.
 export function SkillsSection() {
   const skills = useSkills();
   const agent = useAgentSkills();

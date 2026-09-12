@@ -13,7 +13,7 @@ import (
 // `z.array(z.string()).optional()` — which admits `undefined` but NOT `null` — so one `null`
 // row throws the whole `z.array(...)` parse and the entire list renders empty ("No codes yet").
 // DecodeStringJSON must therefore ALWAYS return a non-nil slice, so it re-marshals as `[]`.
-// Guards both callers: access_codes.ghosts (codes_query.go, live-broken) and connector scopes
+// Guards both callers: access_codes.ghosts (codes_query.go, live-broken) and supplier scopes
 // (calendar.go, latent).
 func TestDecodeStringJSON_NeverNil(t *testing.T) {
 	t.Parallel()

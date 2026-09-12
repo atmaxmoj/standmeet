@@ -10,7 +10,7 @@
 //      article page renders rich GFM features (h2 / bold / lists).
 //      (Rich GFM full coverage lives here specifically, because feeding
 //      markdown through the MCP path is the AI's primary entry point and
-//      doesn't depend on editor interaction capabilities.)
+//      doesn't depend on editor interaction blocks.)
 //   3. infinite scroll: writing_create seeds 13 entries (default limit 12) ->
 //      a visitor scrolls to the bottom -> the 13th one auto-appends.
 //   4. XSS: a `<script>` stuffed into markdown must be escaped, and must

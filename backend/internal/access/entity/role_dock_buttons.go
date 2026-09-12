@@ -1,7 +1,7 @@
 // role_dock_buttons.go — #109/#110 the domain config + invariants for per-role chat dock buttons.
 //
 // A role has at most two dock buttons (chat has two button slots). Each button carries one
-// capability + a "trigger" string — the visitor clicking the button sends the trigger as
+// block + a "trigger" string — the visitor clicking the button sends the trigger as
 // their own message (a shortcut). Title resolution + code-deny filtering happen at the
 // session assembly layer; the domain only owns the pure config invariants: count <=2,
 // trigger non-empty.
@@ -17,12 +17,12 @@ import (
 // MaxDockButtons —— chat has two button slots, so the cap is 2.
 const MaxDockButtons = 2
 
-// DockButtonConfig —— an owner's config for one dock button: which capability it carries +
+// DockButtonConfig —— an owner's config for one dock button: which block it carries +
 // the trigger string sent on click. A pure config carrier, with json tags so roleView /
 // snapshot can serialize it directly (title is added separately at the session assembly layer).
 type DockButtonConfig struct {
-	CapabilityID string `json:"capability_id"`
-	Trigger      string `json:"trigger"`
+	BlockID string `json:"block_id"`
+	Trigger string `json:"trigger"`
 }
 
 // ErrTooManyDockButtons —— more than two dock buttons were configured.
@@ -32,18 +32,18 @@ var ErrTooManyDockButtons = errors.New("at most two dock buttons per role")
 // would do nothing).
 var ErrDockButtonEmptyTrigger = errors.New("dock button needs a non-empty trigger")
 
-// ErrUnknownDockCapability —— a dock button carries a capability the role does not have /
+// ErrUnknownDockBlock —— a dock button carries a block the role does not have /
 // that does not exist.
-var ErrUnknownDockCapability = errors.New("dock button references an unknown capability")
+var ErrUnknownDockBlock = errors.New("dock button references an unknown block")
 
-// ValidateDockButtonCapabilities —— every button's capability must be in the valid set
-// (route hands in the set of capability ids this role may carry, from the capability
-// registry). An empty valid set is treated as "no capability may be carried" -> any button
+// ValidateDockButtonBlocks —— every button's block must be in the valid set
+// (route hands in the set of block ids this role may carry, from the block
+// registry). An empty valid set is treated as "no block may be carried" -> any button
 // is rejected.
-func ValidateDockButtonCapabilities(buttons []DockButtonConfig, valid []string) error {
+func ValidateDockButtonBlocks(buttons []DockButtonConfig, valid []string) error {
 	for i := range buttons {
-		if !slices.Contains(valid, buttons[i].CapabilityID) {
-			return ErrUnknownDockCapability
+		if !slices.Contains(valid, buttons[i].BlockID) {
+			return ErrUnknownDockBlock
 		}
 	}
 	return nil

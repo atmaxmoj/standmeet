@@ -1,6 +1,6 @@
-// Package retry -- generic configurable retry (#132). Connector call-outs (flaky third
+// Package retry -- generic configurable retry (#132). Supplier call-outs (flaky third
 // parties) layer their per-call-class policy on top: this base only handles "retry on
-// backoff, hard-capped, interruptible" -- connectors configure it, never modify it.
+// backoff, hard-capped, interruptible" -- suppliers configure it, never modify it.
 //
 // Hard caps (decision D-7): (1) attempt count capped at MaxAttempts (2) backoff capped
 // at MaxInterval (no unbounded exponential growth) (3) total duration capped at MaxTotal

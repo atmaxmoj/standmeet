@@ -12,7 +12,7 @@
 # ROLE`). Say it on failure and the owner acts on a config they never actually read.
 #
 # **Someone in the product already did this right** (`CodeCorpusConfig`'s `CorpusLoadFailed`,
-# `CapabilitiesPanel` branching on `status === 'error'`) — the right way is to **hand-write the third
+# `BlockPanel` branching on `status === 'error'`) — the right way is to **hand-write the third
 # state**. Hand-writing means the next section will still miss it: a check that needs remembering is a
 # responsibility class (see [[structure-means-no-responsibility-class]]). So this locks "did it bypass
 # ListPane", not "did you remember to add the error branch".

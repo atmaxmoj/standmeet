@@ -23,7 +23,7 @@ var noArgs = json.RawMessage(`{"type":"object","properties":{}}`)
 // Attach it to a role, and a visitor coming in with that code gets that server's
 // tools.
 //
-// ext-MCP is the **lowest-trust** tier: if one of its tools declares a connector
+// ext-MCP is the **lowest-trust** tier: if one of its tools declares a seam
 // dependency, that dependency stays uninjected by default until the owner grants
 // it explicitly. That's why grant is its own separate operation, not a field on
 // create.
@@ -70,7 +70,7 @@ func MCPServers(deps usecase.MCPServersDeps) []fp.Op {
 		},
 		{
 			ID: "mcp_server_grant_dep",
-			Description: "Grant this ext-MCP server a connector dependency. ext-MCP is " +
+			Description: "Grant this ext-MCP server a seam dependency. ext-MCP is " +
 				"lowest-trust: tools declaring Requires stay uninjected until the owner " +
 				"grants the dep here. Idempotent; the server must belong to the owner.",
 			InputSchema: mcpServerGrantSchema,
@@ -105,7 +105,7 @@ var (
 		"type":"object",
 		"properties":{
 			"server_id":{"type":"string","description":"Server id."},
-			"dep":{"type":"string","description":"Connector dependency name to grant."}
+			"dep":{"type":"string","description":"Seam dependency name to grant."}
 		},
 		"required":["server_id","dep"]
 	}`)

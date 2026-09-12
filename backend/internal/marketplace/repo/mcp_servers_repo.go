@@ -130,7 +130,7 @@ func parseOwnerAndServerID(ownerID, serverID string) (serverIDArgs, error) {
 // the code_mcp_servers table has been dropped. MCP servers attach to a Role via
 // role_mcp_servers.
 
-// GrantDep — owner explicitly authorizes this server to satisfy a connector
+// GrantDep — owner explicitly authorizes this server to satisfy a supplier
 // dependency (idempotent append).
 func (r *MCPServerRepo) GrantDep(ctx context.Context, ownerID, serverID, dep string) error {
 	args, perr := parseOwnerAndServerID(ownerID, serverID)

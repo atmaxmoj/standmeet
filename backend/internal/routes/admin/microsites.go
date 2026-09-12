@@ -7,7 +7,7 @@
 // removed, the convergence point names these eight routes by name at startup, and the
 // server flatly refuses to boot until they're mounted.
 //
-// Capability comes from the outbound convergence point (shared plumbing in dispatch.go);
+// Ability comes from the outbound convergence point (shared plumbing in dispatch.go);
 // this facade only decides the REST shape: create returns 201, everything else returns
 // 200, the resource id goes in the path, everything else goes in the body.
 
@@ -25,7 +25,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// MicrositesDeps — capability source for the admin microsites handlers.
+// MicrositesDeps — op source for the admin microsites handlers.
 type MicrositesDeps struct {
 	Face *dispatcher.Face
 	// Notifier backs the preview long-poll (/wait): it wakes the moment a build settles.

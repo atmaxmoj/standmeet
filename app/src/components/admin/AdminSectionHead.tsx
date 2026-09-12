@@ -3,7 +3,7 @@
 //
 // Why this component exists: this convention (12px + vermillion vertical bar + rule below) had
 // to be patched in three times — UX-76 for `api·mcp`'s six major sections, 2026-08-16 for
-// `system`'s sandbox panel, while `connectors` and the other five sections of `system` still
+// `system`'s sandbox panel, while `suppliers` and the other five sections of `system` still
 // don't have it. Every time it was "remember to add it", and every time some page got missed
 // (UX-79).
 //

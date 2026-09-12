@@ -18,7 +18,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/connector"
+	"github.com/atmaxmoj/standmeet/internal/corpus/integration"
 )
 
 // Output —— the domain value object for a corpus_notes row with genre=output. Its
@@ -32,7 +32,7 @@ type Output struct {
 	ownerID       string
 	title         string
 	content       Content
-	integrations  connector.Integrations
+	integrations  integration.Integrations
 	excerpt       string
 	sourceWikiIDs []string
 	showAsSource  bool
@@ -51,7 +51,7 @@ type OutputInit struct {
 	Excerpt       string
 	SourceWikiIDs []string
 	Tags          []string
-	Integrations  connector.Integrations
+	Integrations  integration.Integrations
 	Published     bool
 	ShowAsSource  bool
 }
@@ -114,7 +114,7 @@ func (o *Output) CreatedAt() time.Time { return o.timestamps.CreatedAt() }
 func (o *Output) UpdatedAt() time.Time { return o.timestamps.UpdatedAt() }
 
 // Integrations —— the attached integration list (defensive copy).
-func (o *Output) Integrations() []connector.Integration { return o.integrations.All() }
+func (o *Output) Integrations() []integration.Integration { return o.integrations.All() }
 
 // --- Output-specific accessors ---
 

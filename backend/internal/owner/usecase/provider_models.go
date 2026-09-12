@@ -15,7 +15,7 @@
 // stateless list-fetching code (`infra/providermodels`) live.
 //
 // When no implementation is wired up (nil), say clearly that this instance lacks the
-// capability, rather than pretending to have asked.
+// ability, rather than pretending to have asked.
 
 package usecase
 

@@ -10,7 +10,7 @@
 //
 // Two assertions pin down two surfaces: the owner's AI client (MCP) and their own
 // admin panel (GUI). **Both are required**: pinning only one leaves the other free to
-// stay empty indefinitely without anyone noticing ([[test-covers-capability-not-face]]).
+// stay empty indefinitely without anyone noticing ([[test-covers-block-not-face]]).
 
 import { test, expect } from '@/fixtures/test';
 

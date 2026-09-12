@@ -66,11 +66,11 @@ func loadCodeWaypoints(
 // resolution rule (the two-layer stack) is substantial enough for its own file, while
 // this file is the snapshot's assembly.
 
-// roleDenials —— the capability / skill ids the code layer subtracts from the role
+// roleDenials —— the block / skill ids the code layer subtracts from the role
 // grant (pure deny). Non-code paths (public + byoai) pass a zero value = subtract
 // nothing.
 type roleDenials struct {
-	Caps   []string
+	Blocks []string
 	Skills []string
 	// Corpus —— the URI globs this code retracts from the role's allow-list (the
 	// corpus category among the three ACL kinds). Not removed from CorpusURIs: glob
@@ -87,9 +87,9 @@ func loadCodeDenials(
 	if deps.CodeDenials == nil {
 		return roleDenials{}, nil
 	}
-	caps, err := deps.CodeDenials.ListCapabilities(ctx, codeID)
+	blocks, err := deps.CodeDenials.ListBlocks(ctx, codeID)
 	if err != nil {
-		return roleDenials{}, fmt.Errorf("list code capability denials: %w", err)
+		return roleDenials{}, fmt.Errorf("list code block denials: %w", err)
 	}
 	skills, err := deps.CodeDenials.ListSkills(ctx, codeID)
 	if err != nil {
@@ -99,33 +99,33 @@ func loadCodeDenials(
 	if uerr != nil {
 		return roleDenials{}, fmt.Errorf("list code corpus denials: %w", uerr)
 	}
-	return roleDenials{Caps: caps, Skills: skills, Corpus: uris}, nil
+	return roleDenials{Blocks: blocks, Skills: skills, Corpus: uris}, nil
 }
 
 // APIKeyDenialReader —— read an API key's deny set (access.APIKeyRepo implements it).
 // Same shape as the code denial reader; the api facade subtracts these from the role's grant.
 type APIKeyDenialReader interface {
-	ListCapabilityDenials(ctx context.Context, keyID string) ([]string, error)
+	ListBlockDenials(ctx context.Context, keyID string) ([]string, error)
 	ListSkillDenials(ctx context.Context, keyID string) ([]string, error)
 }
 
 // BuildAPIKeyRoleSnapshot —— freeze the RoleSnapshot for an API key: the assumed role's
 // grant minus the key's per-key denials. No per-key prompt (the api facade has no LLM
-// persona) — snapshot only gates which capabilities/tools the key's HTTP calls may reach.
+// persona) — snapshot only gates which blocks/tools the key's HTTP calls may reach.
 func BuildAPIKeyRoleSnapshot(
 	ctx context.Context, deps *VisitorSessionDeps, denials APIKeyDenialReader,
 	key *access.APIKey,
 ) (access.RoleSnapshot, error) {
-	caps, err := denials.ListCapabilityDenials(ctx, key.ID)
+	blocks, err := denials.ListBlockDenials(ctx, key.ID)
 	if err != nil {
-		return access.RoleSnapshot{}, fmt.Errorf("list api key capability denials: %w", err)
+		return access.RoleSnapshot{}, fmt.Errorf("list api key block denials: %w", err)
 	}
 	skills, serr := denials.ListSkillDenials(ctx, key.ID)
 	if serr != nil {
 		return access.RoleSnapshot{}, fmt.Errorf("list api key skill denials: %w", serr)
 	}
 	return buildRoleSnapshotByID(ctx, deps, key.OwnerID, key.AssumedRoleID,
-		&codeOverlay{denials: roleDenials{Caps: caps, Skills: skills}})
+		&codeOverlay{denials: roleDenials{Blocks: blocks, Skills: skills}})
 }
 
 // buildRoleSnapshotForOwnerPublic —— public / byoai sessions use the owner's public
@@ -168,7 +168,7 @@ func buildRoleSnapshotByID(
 	if err != nil {
 		return access.RoleSnapshot{}, err
 	}
-	// ACL code layer (capability-acl-hierarchy.md): a denied skill is removed right at
+	// ACL code layer (block-acl-hierarchy.md): a denied skill is removed right at
 	// the assembly source, so its L1 prompt / tool grants / id all vanish together
 	// (subtracting only from SkillIDs would leave the L1 prompt behind).
 	skills, err := loadRoleSkills(ctx, deps, role.ID(), overlay.denials.Skills)
@@ -184,9 +184,9 @@ func buildRoleSnapshotByID(
 		CorpusURIs:     role.CorpusURIs(),
 		SkillPrompts:   skills.Prompts,
 		AllowedTools:   skills.Tools,
-		// Frozen into DeniedCapabilities; the exposure gate blocks on this, including
-		// ACL=always caps (never in allowedTools, so only the gate can block them).
-		DeniedCapabilities: overlay.denials.Caps,
+		// Frozen into DeniedBlocks; the exposure gate blocks on this, including
+		// ACL=always blocks (never in allowedTools, so only the gate can block them).
+		DeniedBlocks: overlay.denials.Blocks,
 		// Code layer's corpus narrowing: own column, checked as grant AND NOT deny
 		// (AllowsCorpusScope) — a glob subtraction can't delete a list entry.
 		DeniedCorpusURIs: overlay.denials.Corpus,
@@ -217,27 +217,27 @@ func buildRoleSnapshotByID(
 		RequireGhostEvidence: effectiveGhostEvidence(
 			role.RequireGhostEvidence(), overlay.requireGhostEvidence,
 		),
-		// Per-capability config frozen alongside the role. This layer knows nothing
+		// Per-block config frozen alongside the role. This layer knows nothing
 		// about the keys — replaces the old single NotifyOwnerOnBooking bool wired
-		// into the kernel; now capability id → config, passed through unchanged for
+		// into the kernel; now block id → config, passed through unchanged for
 		// the sandbox to read.
-		CapConfig: roleCapConfig(ctx, deps, role.ID()),
+		BlockConfig: roleBlockConfig(ctx, deps, role.ID()),
 	}), nil
 }
 
-// roleCapConfig —— at the moment of freezing, each capability's config on this role. No
-// read port wired → empty map (not an error): an instance where no capability has ever
+// roleBlockConfig —— at the moment of freezing, each block's config on this role. No
+// read port wired → empty map (not an error): an instance where no block has ever
 // declared per-role config is perfectly normal.
 //
 // A read failure shouldn't stop a session from opening either —— that layer logs it
-// itself (see SubjectFields in capconfig).
-func roleCapConfig(
+// itself (see SubjectFields in blockconfig).
+func roleBlockConfig(
 	ctx context.Context, deps *VisitorSessionDeps, roleID string,
 ) map[string]json.RawMessage {
-	if deps.RoleCapConfig == nil {
+	if deps.RoleBlockConfig == nil {
 		return map[string]json.RawMessage{}
 	}
-	return deps.RoleCapConfig.ReadByCapability(ctx, roleID)
+	return deps.RoleBlockConfig.ReadByBlock(ctx, roleID)
 }
 
 // effectiveGhostEvidence —— F-A-10's role/code merge: uses code if it explicitly

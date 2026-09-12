@@ -176,14 +176,14 @@ services:
       # SSRF allowlist: **empty is the production posture**, it blocks every internal-network
       # address.
       - EGRESS_ALLOW_HOSTS=${EGRESS_ALLOW_HOSTS:-}
-      # The connector outbound allowlist (two separate policies from the one above: that one
+      # The supplier outbound allowlist (two separate policies from the one above: that one
       # governs what the backend itself dials out to, this one governs what the assembled
-      # connectors can reach). Fill this in when the owner needs to reach their own internal
+      # suppliers can reach). Fill this in when the owner needs to reach their own internal
       # CalDAV / mail server.
-      - CONNECTOR_EGRESS_ALLOW=${CONNECTOR_EGRESS_ALLOW:-}
+      - SUPPLIER_EGRESS_ALLOW=${SUPPLIER_EGRESS_ALLOW:-}
       # The byte cap for one OpenAPI spec (default 2 MiB). GitHub's REST description is a
       # 12 MB file, so connecting to that kind of vendor needs this raised.
-      - CONNECTOR_SPEC_MAX_BYTES=${CONNECTOR_SPEC_MAX_BYTES:-}
+      - SUPPLIER_SPEC_MAX_BYTES=${SUPPLIER_SPEC_MAX_BYTES:-}
       # Which repo the skill marketplace reads from; empty = the public anthropics/skills.
       - MARKETPLACE_GITHUB_BASE_URL=${MARKETPLACE_GITHUB_BASE_URL:-}
       # ── The upgrade button on /admin/system ──────────────────────────────────────────────

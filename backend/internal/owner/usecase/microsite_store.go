@@ -3,7 +3,7 @@
 //
 //   - NoSQL: opaque JSON documents in named collections (no fixed columns to fit into).
 //   - Its OWN namespace: each page gets a physically separate Postgres schema (page_<id>, the
-//     capstore pattern) — NOT a shared table filtered by id. A query in one page's schema cannot
+//     blockstore pattern) — NOT a shared table filtered by id. A query in one page's schema cannot
 //     see another page's rows; there is no WHERE clause to forget.
 //   - Dropped with it: DeletePage runs DROP SCHEMA CASCADE (DropMicrositeStore); no orphaned data.
 //   - Model C: visitor WRITES are off until the owner opens the page. Reads are ungated.
@@ -11,7 +11,7 @@
 //     public route.
 //
 // The owner domain depends only on the MicrositeDocStore interface; the composition root backs it
-// capstore. A caller never supplies a page id — the page is resolved from (owner, slug) here.
+// blockstore. A caller never supplies a page id — the page is resolved from (owner, slug) here.
 
 package usecase
 
@@ -57,8 +57,8 @@ type DocRef struct {
 	RecordID   string
 }
 
-// MicrositeDocStore — a per-microsite doc namespace (each its own schema). Backed by capstore at
-// the composition root; the owner domain never imports capstore. Every method takes the
+// MicrositeDocStore — a per-microsite doc namespace (each its own schema). Backed by blockstore at
+// the composition root; the owner domain never imports blockstore. Every method takes the
 // host-resolved pageID, so one page can never address another's namespace.
 type MicrositeDocStore interface {
 	Provision(ctx context.Context, pageID string) error

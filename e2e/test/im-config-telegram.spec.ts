@@ -1,9 +1,9 @@
 // im-config-telegram.spec.ts — the missing middle of the bots feature.
 //
 // im-bridge (a deployed Telegram bot) polls GET /internal/im/config for the owner's bot
-// token and waits until one appears. That endpoint + a telegram connector didn't exist, so
+// token and waits until one appears. That endpoint + a telegram supplier didn't exist, so
 // the bridge waited forever and the owner had no way to configure it. This proves the loop
-// the bridge depends on: the owner connects a Telegram connector under /admin/connectors,
+// the bridge depends on: the owner connects a Telegram supplier under /admin/suppliers,
 // and /internal/im/config then hands the bridge exactly that token — and hands back an
 // **empty** token before anything is connected (the bridge's "not yet", not an error).
 
@@ -26,7 +26,7 @@ const TOKEN = '7654321:BOTFATHER-abcdefghijklmnopqrstuvwxyz012345';
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
-test.describe('telegram connector → /internal/im/config', () => {
+test.describe('telegram supplier → /internal/im/config', () => {
   test.beforeAll(async ({ playwright }) => { await claimFreshOwner(playwright, OWNER); });
 
   test('the bridge gets an empty token until the owner connects one, then gets it',
@@ -36,13 +36,13 @@ test.describe('telegram connector → /internal/im/config', () => {
       expect(await imToken(request), 'no token before the owner connects one').toBe('');
 
       // 2. Owner connects a Telegram bot: create → credentials → connect (the same lane the
-      //    admin UI's ProtocolConnectorForm drives).
+      //    admin UI's ProtocolSupplierForm drives).
       const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
       const created = await api(request, csrf, 'post', '/',
-        { kind: 'protocol', protocol: 'telegram', category: 'im' });
-      expect(created.status, 'create telegram connector').toBeLessThan(300);
+        { kind: 'protocol', protocol: 'telegram', seam: 'im' });
+      expect(created.status, 'create telegram supplier').toBeLessThan(300);
       const id = created.body['id'] as string;
-      expect(id, 'create returns a connector id').toBeTruthy();
+      expect(id, 'create returns a supplier id').toBeTruthy();
 
       expect((await api(request, csrf, 'post', `/${id}/credentials`, { token: TOKEN })).status,
         'save the bot token').toBeLessThan(300);
@@ -65,7 +65,7 @@ async function api(
   request: APIRequestContext, csrf: string, method: 'get' | 'post' | 'put' | 'delete',
   path: string, data?: unknown,
 ): Promise<{ status: number; body: Record<string, unknown> }> {
-  const res = await request[method](`${BACKEND}/api/admin/connectors${path}`, {
+  const res = await request[method](`${BACKEND}/api/admin/suppliers${path}`, {
     headers: { 'X-Csrftoken': csrf },
     ...(data === undefined ? {} : { data }),
   });

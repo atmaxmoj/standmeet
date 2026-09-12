@@ -16,7 +16,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/connector"
+	"github.com/atmaxmoj/standmeet/internal/corpus/integration"
 )
 
 // Wiki — the domain value object for a corpus_notes row with genre=wiki.
@@ -31,7 +31,7 @@ type Wiki struct {
 	ownerID      string
 	title        string
 	content      Content
-	integrations connector.Integrations
+	integrations integration.Integrations
 	excerpt      string
 	sourceRawIDs []string
 	showAsSource bool
@@ -51,7 +51,7 @@ type WikiInit struct {
 	SourceRawIDs []string
 	Tags         []string
 	CSSClasses   []string
-	Integrations connector.Integrations
+	Integrations integration.Integrations
 	Published    bool
 	ShowAsSource bool
 }
@@ -119,7 +119,7 @@ func (w *Wiki) CreatedAt() time.Time { return w.timestamps.CreatedAt() }
 func (w *Wiki) UpdatedAt() time.Time { return w.timestamps.UpdatedAt() }
 
 // Integrations — the attached integration list (defensive copy).
-func (w *Wiki) Integrations() []connector.Integration { return w.integrations.All() }
+func (w *Wiki) Integrations() []integration.Integration { return w.integrations.All() }
 
 // --- Wiki-specific accessors ---
 

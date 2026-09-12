@@ -135,8 +135,7 @@ func isInternalHop(host string) bool {
 	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsUnspecified()
 }
 
-// warnHidden — once per process. Spells out **what capability is lost**, and how to get
-// it back.
+// warnHidden — once per process. Spells out **what stops working**, and how to get it back.
 func warnHidden(log *slog.Logger, remoteAddr string) {
 	log.Warn("visitor IP not visible: no forwarding header on the proxy hop",
 		"peer", remoteAddr,

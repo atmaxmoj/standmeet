@@ -1,13 +1,13 @@
 // registry-introspection.spec.ts -- Phase B-1 contract spec: existence + response shape of
 // 3 dev-only endpoints.
 //
-// This is the observability exit for the whole Capability Registry rework; every following
+// This is the observability exit for the whole Block Registry rework; every following
 // B-N commit relies on this same set of endpoints to verify assembly results. This spec
-// only asserts shape (200 + fields present), not specific content (which capabilities got
+// only asserts shape (200 + fields present), not specific content (which blocks got
 // registered) -- that's checked by the invariants spec and the specific B-N specs.
 //
 // The three endpoints:
-//   GET /internal/diag/registry       -- all registered capabilities
+//   GET /internal/diag/registry       -- all registered blocks
 //   GET /internal/diag/session        -- assembly result for a given session
 //   GET /internal/diag/ext-mcp-stats  -- process-level dial/close counts
 
@@ -30,14 +30,14 @@ const OWNER = {
 const CODE = 'REG-001';
 
 interface RegistryListResp {
-  capabilities: Array<{
+  blocks: Array<{
     id: string;
     shape: 'visitor_only' | 'owner_only' | 'both';
   }>;
 }
 
-interface VisitorCapabilitiesResp {
-  capabilities: Array<{
+interface VisitorBlocksResp {
+  blocks: Array<{
     id: string;
     enabled: boolean;
     quota_remaining?: number;
@@ -52,7 +52,7 @@ interface ExtMCPStatsResp {
   closed: number;
 }
 
-test.describe('Phase B-1 capability registry dev endpoints', () => {
+test.describe('Phase B-1 block registry dev endpoints', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();
@@ -75,30 +75,30 @@ test.describe('Phase B-1 capability registry dev endpoints', () => {
   test('registry-list returns deterministic shape', async ({ playwright }) => {
     const request = await playwright.request.newContext();
     const first = await fetchRegistryList(request);
-    expect(Array.isArray(first.capabilities)).toBe(true);
-    for (const c of first.capabilities) {
+    expect(Array.isArray(first.blocks)).toBe(true);
+    for (const c of first.blocks) {
       expect(typeof c.id).toBe('string');
       expect(c.id.length).toBeGreaterThan(0);
       expect(['visitor_only', 'owner_only', 'both']).toContain(c.shape);
     }
     // Order is stable across repeated calls (cache key / system prompt hash rely on determinism).
     const second = await fetchRegistryList(request);
-    expect(second.capabilities.map((c) => c.id))
-      .toEqual(first.capabilities.map((c) => c.id));
+    expect(second.blocks.map((c) => c.id))
+      .toEqual(first.blocks.map((c) => c.id));
     await request.dispose();
   });
 
-  test('visitor-capabilities returns state + specs + hash', async ({ playwright }) => {
+  test('visitor-blocks returns state + specs + hash', async ({ playwright }) => {
     const request = await playwright.request.newContext();
     const sess = await issueSession(request, {
       handle: OWNER.handle, code: CODE, visitor_name: 'Inspector',
     });
-    const body = await fetchVisitorCapabilities(request, sess.session_token);
-    expect(Array.isArray(body.capabilities)).toBe(true);
+    const body = await fetchVisitorBlocks(request, sess.session_token);
+    expect(Array.isArray(body.blocks)).toBe(true);
     expect(Array.isArray(body.tool_specs)).toBe(true);
     expect(typeof body.system_prompt_hash).toBe('string');
     expect(body.system_prompt_hash.length).toBeGreaterThan(0);
-    for (const c of body.capabilities) {
+    for (const c of body.blocks) {
       expect(typeof c.id).toBe('string');
       expect(typeof c.enabled).toBe('boolean');
     }
@@ -125,17 +125,17 @@ async function fetchRegistryList(request: APIRequestContext): Promise<RegistryLi
   return await res.json() as RegistryListResp;
 }
 
-async function fetchVisitorCapabilities(
+async function fetchVisitorBlocks(
   request: APIRequestContext, sessionToken: string,
-): Promise<VisitorCapabilitiesResp> {
+): Promise<VisitorBlocksResp> {
   const res = await request.get(
     `${BACKEND}/internal/diag/session`,
     { headers: { 'X-Session-Token': sessionToken } },
   );
   if (res.status() !== 200) {
-    throw new Error(`visitor-capabilities: ${res.status()} ${await res.text()}`);
+    throw new Error(`visitor-blocks: ${res.status()} ${await res.text()}`);
   }
-  return await res.json() as VisitorCapabilitiesResp;
+  return await res.json() as VisitorBlocksResp;
 }
 
 async function fetchExtMCPStats(request: APIRequestContext): Promise<ExtMCPStatsResp> {

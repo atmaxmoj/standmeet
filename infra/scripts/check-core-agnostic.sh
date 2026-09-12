@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
-# check-core-agnostic.sh —— #135 structure-lock Layer 4: kernel zero-capability (string ratchet).
+# check-core-agnostic.sh —— #135 structure-lock Layer 4: kernel zero-block (string ratchet).
 #
-# Any **concrete capability/connector** name inside the kernel (CORE_DIRS) = a leak. go-arch-lint
+# Any **concrete block/supplier** name inside the kernel (CORE_DIRS) = a leak. go-arch-lint
 # only tracks the import arrows between packages. It cannot catch "a kernel file wrote booking
 # logic in the same package" (such a file only imports legal packages, all arrows green). This
 # guard covers that blind spot with a string ratchet —— plan Part 0 Layer 4.
 #
 # **The baseline is drained and deleted —— this guard is in pure-red mode**: any concrete
-# capability name in a kernel package is red, with nothing grandfathered. The last entry was
+# block name in a kernel package is red, with nothing grandfathered. The last entry was
 # `agent_instruction.go<TAB>calendar`: the always-on datetime context told every visitor that
 # "the owner's calendar runs in this timezone" and to confirm their zone "before proposing or
 # scheduling times" —— a scheduling instruction carried by visitors who had no booking tool at
 # all. The kernel now states only facts (the time, its zone, the visitor's zone when known);
-# what to do about those zones lives in the booking capability's own MCP instructions.
+# what to do about those zones lives in the booking block s own MCP instructions.
 #
 # Re-seeding backend/.core-agnostic-baseline (each line "file<TAB>token", sorted) would put it
 # back into ratchet mode:
@@ -21,9 +21,9 @@
 # Each drain trims the baseline; shrink it to empty → delete the file again → back to pure red.
 #
 # Excluded: _test.go, and comment lines starting with `//` or `*`. CORE_DIRS holds only the three
-# kernel packages; the connector layer (internal/connector*), postgres, mailer, the composition
+# kernel packages; the supplier layer (plugin adapters), postgres, mailer, the composition
 # root (cmd/server), the owner-side cap bundles (internal/owner/{ownercore,jobs}), and mcp-servers/ are **not** the
-# kernel —— capability names there are legal.
+# kernel —— block names there are legal.
 #
 # Usage:
 #   check-core-agnostic.sh          check (default). Exit code 0=clean, 1=has violations.
@@ -36,8 +36,8 @@ cd "$(dirname "$0")/../.."
 
 BASELINE="backend/.core-agnostic-baseline"
 
-# The kernel packages —— they must not let you infer that any concrete capability/connector exists.
-# (internal/usecases was the third; it is dissolved, so the agent engine + capability axis remain.)
+# The kernel packages —— they must not let you infer that any concrete block/supplier exists.
+# (internal/usecases was the third; it is dissolved, so the agent engine + block layer remain.)
 # access/entity + owner/entity were added on 2026-08-31.
 #
 # Reason: a real leak. Job loop (a **plugin**) needed a `hiring` role and prompt, and it
@@ -49,17 +49,37 @@ BASELINE="backend/.core-agnostic-baseline"
 # And they are exactly the ones that most need locking: `access/entity` defines the access
 # tiers, `owner/entity` defines the owner's value objects — if a plugin wants to "claim a
 # seat" inside the kernel, these two are the first place it would land.
-CORE_DIRS="backend/internal/conversation/inference backend/internal/capabilities \
+#
+# The substrate half is listed package by package rather than as `backend/internal/plugin`:
+# `internal/plugin/adapters` IS the supplier layer, so "calendar" and "smtp" are its whole
+# subject and scanning it would red on correct code. Its siblings — the registry, the mount
+# machinery, the block's storage/config/quota, the assembly record — are the kernel, and none
+# of them may name a concrete block.
+CORE_DIRS="backend/internal/conversation/inference \
+backend/internal/plugin/registry backend/internal/plugin/mount \
+backend/internal/plugin/blockconfig backend/internal/plugin/blockquota \
+backend/internal/plugin/blockstore backend/internal/plugin/assembly \
 backend/internal/access/entity backend/internal/owner/entity"
+
+# A missing CORE_DIR is the gate losing its subject, not the kernel being clean. This is not
+# hypothetical: the list used to name `backend/internal/capabilities`, the block-vocabulary
+# rename removed that directory, `find` exited non-zero, and `set -euo pipefail` killed the
+# script — rc=1 with **no output at all**, which reads as "some check failed somewhere".
+for d in $CORE_DIRS; do
+  if [ ! -d "$d" ]; then
+    echo "check-core-agnostic: CORE_DIR $d does not exist — the scan is blind, not the kernel clean." >&2
+    exit 2
+  fi
+done
 
 # Concrete capability/connector names. All are words with "almost zero legitimate reason" in the kernel. Deliberately excluded:
 #   - bare "mail"/"email"/"google"/"corpus" —— email is identity, corpus is a kernel primitive; catching them would
 #     hurt future legitimate kernel code. mail catches only camelCase Mail[A-Z] and mail. (MailProxy/MailSender/mail.X).
-# ask_visitor / askvisitor —— the leaf capability the list used to miss entirely. Its self-test
+# ask_visitor / askvisitor —— the leaf block the list used to miss entirely. Its self-test
 # probe went straight through the guard: a guard only sees the words it lists, and "it caught
 # calendar" says nothing about the other four. Both spellings, because the match is per-token and
 # case-insensitive: `ask_visitor` catches the id, `askvisitor` catches AskVisitor / askVisitor.
-# Every shipped leaf capability now has a probe in the self-test — add a capability, add its word.
+# Every shipped leaf block now has a probe in the self-test — add a block, add its word.
 TOKENS="calendar caldav freebusy booking booker smtp gcal retrieval summarize summarise ask_visitor askvisitor"
 
 # Print the current hit set (each line "file<TAB>token", sort -u).
@@ -98,8 +118,8 @@ stale=$(comm -13 "$hits_f" "$base_f")   # only in the baseline → already clean
 
 rc=0
 if [ -n "$new" ]; then
-  echo "check-core-agnostic: new concrete capability/connector leak in the kernel (outside the baseline)." >&2
-  echo "The three kernel packages must not let you infer these capabilities exist —— move the logic to the plugin/connector layer, or reach out through a generic seam:" >&2
+  echo "check-core-agnostic: new concrete block/supplier leak in the kernel (outside the baseline)." >&2
+  echo "The three kernel packages must not let you infer these blocks exist —— move the logic to the plugin layer, or reach out through a generic seam:" >&2
   printf '%s\n' "$new" | sed 's/^/  + /' >&2
   rc=1
 fi
@@ -117,7 +137,7 @@ if [ "$rc" -eq 0 ]; then
   else
     # No baseline file = nothing grandfathered. Say so —— "clean against baseline" would read
     # as if some leaks were still being tolerated.
-    echo "check-core-agnostic: kernel names no concrete capability (pure-red mode, no baseline)."
+    echo "check-core-agnostic: kernel names no concrete block (pure-red mode, no baseline)."
   fi
 fi
 exit "$rc"

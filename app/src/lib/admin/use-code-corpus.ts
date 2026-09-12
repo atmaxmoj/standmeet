@@ -6,7 +6,7 @@
 // see. Reads use the same payload of **a code's three denial categories**
 // (corpus is just one of them; MCP reads this same payload), and writes
 // touch only the corpus category: **a code can only subtract**, never grant
-// what its role didn't already give (the pure AND of capability-acl-hierarchy A.4).
+// what its role didn't already give (the pure AND of block-acl-hierarchy A.4).
 
 import { z } from 'zod';
 
@@ -15,7 +15,7 @@ import { adminAPI } from '@/lib/api/admin';
 // CodeDenialsSchema —— a code's three denial categories + what its role
 // granted on the corpus (for comparison).
 export const CodeDenialsSchema = z.object({
-  capability_ids: z.array(z.string()),
+  block_ids: z.array(z.string()),
   skill_ids: z.array(z.string()),
   // corpus_uris —— globs this code has withdrawn (empty = fully inherits the role).
   corpus_uris: z.array(z.string()),

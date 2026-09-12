@@ -3,7 +3,7 @@
 //
 // The kernel needs to send mail itself (OTP / recovery / booking confirmation), a
 // scenario §1.6 acknowledges. But how it sends must be **ask the registry by name for
-// a connector, then `Invoke(op, argsJSON)` on it** — not hold a typed `contract.MailProxy`.
+// a supplier, then `Invoke(op, argsJSON)` on it** — not hold a typed `contract.MailProxy`.
 // The difference isn't elegance:
 //
 //   - A typed proxy is **compile-time** coupling. As soon as the kernel can write
@@ -26,8 +26,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/atmaxmoj/standmeet/internal/connector/consumer"
 	"github.com/atmaxmoj/standmeet/internal/infra/mailthrottle"
+	"github.com/atmaxmoj/standmeet/internal/plugin/adapters"
 
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
 
@@ -58,7 +58,7 @@ type OutboundSenderAdapter struct {
 	log      *slog.Logger
 }
 
-// ChannelName — which kind of connector the owner should go connect when sending
+// ChannelName — which kind of supplier the owner should go connect when sending
 // fails. **Only this layer knows which category this instance bound outbound to**;
 // the kernel relays this name rather than inventing its own (the phrase "outbound
 // channel" doesn't exist in the UI — the owner couldn't find anything with it).
@@ -125,17 +125,17 @@ type outboundWire struct {
 // translation happens here because this is the composition root — it's supposed to
 // know both sides at once.
 func outboundErr(what string, err error) error {
-	if errors.Is(err, consumer.ErrMailNotConfigured) {
+	if errors.Is(err, adapters.ErrMailNotConfigured) {
 		return fmt.Errorf("outbound %s: %w", what, owner.ErrOutboundNotConfigured)
 	}
 	return fmt.Errorf("outbound %s: %w", what, err)
 }
 
-// OutboundSender — the kernel-neutral send port, backed by whichever connector the
+// OutboundSender — the kernel-neutral send port, backed by whichever supplier the
 // registry resolves by name.
 func OutboundSender(d *deps.Runtime) OutboundSenderAdapter {
 	return OutboundSenderAdapter{
-		inv:      d.ConnectorSlots,
+		inv:      d.BlockDispatch,
 		throttle: mailthrottle.New(mailthrottle.RedisCounter{RDB: d.RDB}),
 		log:      d.Log,
 	}

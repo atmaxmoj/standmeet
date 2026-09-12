@@ -18,7 +18,7 @@
 //
 // **This spec drives the actual shipped client** (`@standmeet/core`'s `createClient`),
 // not a fetch I wrote to imitate it — rewriting it myself would keep this green even
-// after the real implementation changed ([[test-covers-capability-not-face]]).
+// after the real implementation changed ([[test-covers-block-not-face]]).
 //
 // The criterion borrows the F-A-36 trick: the mock gateway echoes the system prompt it
 // receives verbatim back into the answer, so "a sentence that can only come from the

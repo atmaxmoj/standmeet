@@ -1,13 +1,13 @@
 // Package pubapi —— the API-key facade (facade-directions.md): the outward, non-agentic,
 // role-scoped programmatic surface at /api/pub/v1. A holder presents `Authorization: Bearer smk_…`;
 // the key resolves to a role snapshot (exactly like an access code, minus the LLM and the gas), and
-// its HTTP calls dispatch through the SAME capreg assembly the visitor chat tools use — so ACL /
-// denial / quota / connector-gate behavior is identical to code by construction. On top of assembly
-// the facade adds candidacy (the owner must have "opened" the capability) and the api whitelist
+// its HTTP calls dispatch through the SAME registry assembly the visitor chat tools use — so ACL /
+// denial / quota / seam-gate behavior is identical to code by construction. On top of assembly
+// the facade adds candidacy (the owner must have "opened" the block) and the api whitelist
 // (only non-Agentic outward tools render). Bounded by rate limiting, not gas.
 //
 // Handlers stay presentation-only (cyclo ≤3): auth + rate + assembly run as middleware and stash
-// their results in context; the branchy toolset assembly lives in capload.AssembleAPIKeyToolset.
+// their results in context; the branchy toolset assembly lives in blockload.AssembleAPIKeyToolset.
 package pubapi
 
 import (
@@ -24,10 +24,10 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
-	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	"github.com/atmaxmoj/standmeet/internal/infra/paritymanifest"
-	"github.com/atmaxmoj/standmeet/internal/routes/capload"
+	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
+	"github.com/atmaxmoj/standmeet/internal/routes/blockload"
 )
 
 // methodQuery —— HTTP QUERY (RFC 10008), registered on the chi method table at server boot.
@@ -40,9 +40,9 @@ const rateWindow = time.Minute
 const maxAPIBodyBytes = 1 << 20
 
 // KeyStore —— everything the facade needs off the api-key persistence (access.APIKeyRepo
-// implements it): auth lookup, per-key denials, the owner's opened capabilities, last-used bump.
+// implements it): auth lookup, per-key denials, the owner's opened blocks, last-used bump.
 type KeyStore interface {
-	capload.APIToolsetStore
+	blockload.APIToolsetStore
 	GetBySecretHash(ctx context.Context, hash []byte) (access.APIKey, error)
 	TouchLastUsed(ctx context.Context, id string) error
 }
@@ -52,7 +52,7 @@ type KeyStore interface {
 type Deps struct {
 	Keys        KeyStore
 	Visitor     *conversation.VisitorSessionDeps
-	AgentSkills *capreg.Registry
+	AgentSkills *registry.Registry
 	Redis       *redis.Client
 	Log         *slog.Logger
 	DefaultRPM  int
@@ -117,11 +117,11 @@ func (h *Handlers) assemble(next http.Handler) http.Handler {
 			h.writeErr(w, http.StatusBadRequest, "invalid_visitor", perr.Error())
 			return
 		}
-		in := &capload.APIToolsetInput{
+		in := &blockload.APIToolsetInput{
 			Key: key, Whitelist: paritymanifest.APIRenderableTools(),
 			OnBehalfOf: access.VisitorProfile{Name: on.Name, Email: on.Email},
 		}
-		ts, err := capload.AssembleAPIKeyToolset(r.Context(), h.toolsetDeps(), in)
+		ts, err := blockload.AssembleAPIKeyToolset(r.Context(), h.toolsetDeps(), in)
 		if err != nil {
 			h.d.Log.Error("api assemble toolset", "err", err)
 			h.writeErr(w, http.StatusInternalServerError, "internal", "could not prepare tools")
@@ -132,8 +132,8 @@ func (h *Handlers) assemble(next http.Handler) http.Handler {
 	})
 }
 
-func (h *Handlers) toolsetDeps() capload.APIToolsetDeps {
-	return capload.APIToolsetDeps{Visitor: h.d.Visitor, Store: h.d.Keys, Skills: h.d.AgentSkills}
+func (h *Handlers) toolsetDeps() blockload.APIToolsetDeps {
+	return blockload.APIToolsetDeps{Visitor: h.d.Visitor, Store: h.d.Keys, Skills: h.d.AgentSkills}
 }
 
 func keyFromCtx(ctx context.Context) *access.APIKey {
@@ -144,8 +144,8 @@ func keyFromCtx(ctx context.Context) *access.APIKey {
 	return k
 }
 
-func toolsetFromCtx(ctx context.Context) *capload.APIToolset {
-	t, ok := ctx.Value(toolsetCtxKey).(*capload.APIToolset)
+func toolsetFromCtx(ctx context.Context) *blockload.APIToolset {
+	t, ok := ctx.Value(toolsetCtxKey).(*blockload.APIToolset)
 	if !ok {
 		return nil
 	}

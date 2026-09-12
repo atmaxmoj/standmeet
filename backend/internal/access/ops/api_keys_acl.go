@@ -1,12 +1,12 @@
-// api_keys_acl.go — a key's permission narrowing + which capabilities are opened to the API
+// api_keys_acl.go — a key's permission narrowing + which blocks are opened to the API
 // facade (declared in api_keys.go).
 //
 // Two things:
 //
-//   - The per-key denylist (capability / skill), same model as the invitation-code half:
+//   - The per-key denylist (block / skill), same model as the invitation-code half:
 //     subtracting one more layer from what the role granted.
-//   - The owner-level "open to the API facade" (candidate → open / close). Which capabilities
-//     may be opened is decided by the capability axis, so that list is injected in, not
+//   - The owner-level "open to the API facade" (candidate → open / close). Which blocks
+//     may be opened is decided by the registry, so that list is injected in, not
 //     hardcoded by this domain.
 //
 // Every per-key operation first checks key_id against the owner: key_id is caller-supplied,
@@ -24,8 +24,8 @@ import (
 
 // The two denial kinds — a key only has these two (corpus narrowing lives on the role).
 const (
-	keyDenialKindCapability = "capability"
-	keyDenialKindSkill      = "skill"
+	keyDenialKindBlock = "block"
+	keyDenialKindSkill = "skill"
 )
 
 // denialsMCPOnly — this group grows only on MCP for now.
@@ -51,7 +51,7 @@ func apiKeyACLOps(d APIKeysDeps) []fp.Op {
 	return []fp.Op{
 		{
 			ID: "api_keys.list_denials",
-			Description: "List the capability and skill ids denied on an API key " +
+			Description: "List the block and skill ids denied on an API key " +
 				"(per-key ACL: subtracted from what the key's assumed role grants).",
 			InputSchema: keyIDSchema,
 			Kind:        fp.Read,
@@ -60,8 +60,8 @@ func apiKeyACLOps(d APIKeysDeps) []fp.Op {
 		},
 		{
 			ID: "api_keys.add_denial",
-			Description: "Deny a capability or skill on an API key (per-key ACL). " +
-				"kind is 'capability' or 'skill'; target_id is the capability/skill id.",
+			Description: "Deny a block or skill on an API key (per-key ACL). " +
+				"kind is 'block' or 'skill'; target_id is the block/skill id.",
 			InputSchema: keyDenialSchema,
 			Kind:        fp.Action,
 			Reach:       denialsMCPOnly(),
@@ -69,8 +69,8 @@ func apiKeyACLOps(d APIKeysDeps) []fp.Op {
 		},
 		{
 			ID: "api_keys.remove_denial",
-			Description: "Remove a per-key capability or skill denial (re-grants it if the " +
-				"key's assumed role allows). kind is 'capability' or 'skill'.",
+			Description: "Remove a per-key block or skill denial (re-grants it if the " +
+				"key's assumed role allows). kind is 'block' or 'skill'.",
 			InputSchema: keyDenialSchema,
 			Kind:        fp.Action,
 			Reach:       denialsMCPOnly(),
@@ -78,25 +78,25 @@ func apiKeyACLOps(d APIKeysDeps) []fp.Op {
 		},
 		{
 			ID: "api.open",
-			Description: "Open a capability to the API facade (make it an API candidate). " +
-				"Only non-Agentic outward capabilities may be opened.",
-			InputSchema: apiCapabilityIDSchema,
+			Description: "Open a block to the API facade (make it an API candidate). " +
+				"Only non-Agentic outward blocks may be opened.",
+			InputSchema: apiBlockIDSchema,
 			Kind:        fp.Action,
 			Reach:       denialsMCPOnly(),
-			Invoke:      openAPICapability(d),
+			Invoke:      openAPIBlock(d),
 		},
 		{
 			ID: "api.close",
-			Description: "Close a capability from the API facade (withdraw its candidacy). " +
+			Description: "Close a block from the API facade (withdraw its candidacy). " +
 				"Keys whose role granted it stop reaching it immediately.",
-			InputSchema: apiCapabilityIDSchema,
+			InputSchema: apiBlockIDSchema,
 			Kind:        fp.Action,
 			Reach:       denialsMCPOnly(),
-			Invoke:      closeAPICapability(d),
+			Invoke:      closeAPIBlock(d),
 		},
 		{
 			ID: "api.list_candidates",
-			Description: "List the capabilities that may be opened to the API facade " +
+			Description: "List the blocks that may be opened to the API facade " +
 				"(available) and the ones currently opened for the owner (opened).",
 			InputSchema: noArgs,
 			Kind:        fp.Read,
@@ -117,18 +117,18 @@ var (
 		"type":"object",
 		"properties":{
 			"key_id":{"type":"string","description":"API key UUID."},
-			"kind":{"type":"string","description":"'capability' or 'skill'."},
-			"target_id":{"type":"string","description":"Capability or skill id to deny."}
+			"kind":{"type":"string","description":"'block' or 'skill'."},
+			"target_id":{"type":"string","description":"Block or skill id to deny."}
 		},
 		"required":["key_id","kind","target_id"]
 	}`)
 
-	apiCapabilityIDSchema = json.RawMessage(`{
+	apiBlockIDSchema = json.RawMessage(`{
 		"type":"object",
 		"properties":{
-			"capability_id":{"type":"string","description":"Capreg capability id."}
+			"block_id":{"type":"string","description":"Registry block id."}
 		},
-		"required":["capability_id"]
+		"required":["block_id"]
 	}`)
 )
 
@@ -154,8 +154,8 @@ func parseKeyID(raw json.RawMessage) (string, error) {
 }
 
 type keyDenialsOut struct {
-	CapabilityIDs []string `json:"capability_ids"`
-	SkillIDs      []string `json:"skill_ids"`
+	BlockIDs []string `json:"block_ids"`
+	SkillIDs []string `json:"skill_ids"`
 }
 
 func listKeyDenials(d APIKeysDeps) fp.Invoke {
@@ -178,7 +178,7 @@ func listKeyDenials(d APIKeysDeps) fp.Invoke {
 func loadKeyDenials(
 	ctx context.Context, d APIKeysDeps, keyID string,
 ) (keyDenialsOut, error) {
-	caps, cerr := d.Keys.ListCapabilityDenials(ctx, keyID)
+	blocks, cerr := d.Keys.ListBlockDenials(ctx, keyID)
 	if cerr != nil {
 		return keyDenialsOut{}, apiKeyErr(cerr)
 	}
@@ -187,7 +187,7 @@ func loadKeyDenials(
 		return keyDenialsOut{}, apiKeyErr(serr)
 	}
 	return keyDenialsOut{
-		CapabilityIDs: nonNilStrings(caps), SkillIDs: nonNilStrings(skills),
+		BlockIDs: nonNilStrings(blocks), SkillIDs: nonNilStrings(skills),
 	}, nil
 }
 
@@ -208,8 +208,8 @@ func parseKeyDenial(raw json.RawMessage) (keyDenialArgs, error) {
 	); err != nil {
 		return in, err
 	}
-	if in.Kind != keyDenialKindCapability && in.Kind != keyDenialKindSkill {
-		return in, fp.BadInput("kind must be 'capability' or 'skill'")
+	if in.Kind != keyDenialKindBlock && in.Kind != keyDenialKindSkill {
+		return in, fp.BadInput("kind must be 'block' or 'skill'")
 	}
 	return in, nil
 }
@@ -220,15 +220,15 @@ type keyDenialWrite func(ctx context.Context, keyID, target string) error
 
 func keyDenialAdders(d APIKeysDeps) map[string]keyDenialWrite {
 	return map[string]keyDenialWrite{
-		keyDenialKindCapability: d.Keys.AddCapabilityDenial,
-		keyDenialKindSkill:      d.Keys.AddSkillDenial,
+		keyDenialKindBlock: d.Keys.AddBlockDenial,
+		keyDenialKindSkill: d.Keys.AddSkillDenial,
 	}
 }
 
 func keyDenialRemovers(d APIKeysDeps) map[string]keyDenialWrite {
 	return map[string]keyDenialWrite{
-		keyDenialKindCapability: d.Keys.DeleteCapabilityDenial,
-		keyDenialKindSkill:      d.Keys.DeleteSkillDenial,
+		keyDenialKindBlock: d.Keys.DeleteBlockDenial,
+		keyDenialKindSkill: d.Keys.DeleteSkillDenial,
 	}
 }
 
@@ -267,50 +267,50 @@ func writeKeyDenial(d APIKeysDeps, writes map[string]keyDenialWrite, verb string
 	}
 }
 
-type apiCapabilityIDArgs struct {
-	CapabilityID string `json:"capability_id"`
+type apiBlockIDArgs struct {
+	BlockID string `json:"block_id"`
 }
 
-func parseAPICapabilityID(raw json.RawMessage) (string, error) {
-	var in apiCapabilityIDArgs
+func parseAPIBlockID(raw json.RawMessage) (string, error) {
+	var in apiBlockIDArgs
 	if err := json.Unmarshal(raw, &in); err != nil {
 		return "", fp.BadInput("invalid arguments: " + err.Error())
 	}
-	return in.CapabilityID, fp.RequireArgs([2]string{"capability_id", in.CapabilityID})
+	return in.BlockID, fp.RequireArgs([2]string{"block_id", in.BlockID})
 }
 
 type apiCandidacyOut struct {
-	CapabilityID string `json:"capability_id"`
-	Opened       bool   `json:"opened,omitempty"`
-	Closed       bool   `json:"closed,omitempty"`
+	BlockID string `json:"block_id"`
+	Opened  bool   `json:"opened,omitempty"`
+	Closed  bool   `json:"closed,omitempty"`
 }
 
-func openAPICapability(d APIKeysDeps) fp.Invoke {
+func openAPIBlock(d APIKeysDeps) fp.Invoke {
 	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
-		capID, perr := parseAPICapabilityID(raw)
+		blockID, perr := parseAPIBlockID(raw)
 		if perr != nil {
 			return nil, perr
 		}
-		if !slices.Contains(d.APICandidates(), capID) {
-			return nil, fp.BadInput("capability is not an API candidate")
+		if !slices.Contains(d.APICandidates(), blockID) {
+			return nil, fp.BadInput("block is not an API candidate")
 		}
-		if err := d.Keys.OpenCapability(ctx, ownerID, capID); err != nil {
+		if err := d.Keys.OpenBlock(ctx, ownerID, blockID); err != nil {
 			return nil, apiKeyErr(err)
 		}
-		return json.Marshal(apiCandidacyOut{CapabilityID: capID, Opened: true})
+		return json.Marshal(apiCandidacyOut{BlockID: blockID, Opened: true})
 	}
 }
 
-func closeAPICapability(d APIKeysDeps) fp.Invoke {
+func closeAPIBlock(d APIKeysDeps) fp.Invoke {
 	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
-		capID, perr := parseAPICapabilityID(raw)
+		blockID, perr := parseAPIBlockID(raw)
 		if perr != nil {
 			return nil, perr
 		}
-		if err := d.Keys.CloseCapability(ctx, ownerID, capID); err != nil {
+		if err := d.Keys.CloseBlock(ctx, ownerID, blockID); err != nil {
 			return nil, apiKeyErr(err)
 		}
-		return json.Marshal(apiCandidacyOut{CapabilityID: capID, Closed: true})
+		return json.Marshal(apiCandidacyOut{BlockID: blockID, Closed: true})
 	}
 }
 
@@ -321,7 +321,7 @@ type apiCandidatesOut struct {
 
 func listAPICandidates(d APIKeysDeps) fp.Invoke {
 	return func(ctx context.Context, ownerID string, _ json.RawMessage) (json.RawMessage, error) {
-		opened, err := d.Keys.ListOpenCapabilities(ctx, ownerID)
+		opened, err := d.Keys.ListOpenBlocks(ctx, ownerID)
 		if err != nil {
 			return nil, apiKeyErr(err)
 		}

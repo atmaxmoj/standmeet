@@ -58,7 +58,7 @@ const OWNER = {
 const minExpectedTools = 100;
 
 // PANIC_MARKER — must match the backend's mcphandle.PanicResultMarker verbatim.
-const PANIC_MARKER = 'internal error: capability handler panicked';
+const PANIC_MARKER = 'internal error: block handler panicked';
 
 test.describe('owner MCP · 每个工具都接通(不只是列得出来)', () => {
   let token = '';

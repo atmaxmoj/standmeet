@@ -5,8 +5,8 @@
 // This guards the tool list tools/list actually returns when the owner
 // connects with a real MCP client (Claude Desktop / Cursor). It is **a
 // different path** from norm-outward-handles.spec.ts (which goes through
-// diag/registry to check capability ids):
-//   - the registry path: is the capability registered correctly (an
+// diag/registry to check block ids):
+//   - the registry path: is the block registered correctly (an
 //     in-process view).
 //   - this path: is the tool serialized, transported over HTTP, and
 //     discovered by the client -- **can it actually be used**.
@@ -21,8 +21,8 @@
 // discover the complete toolset" at the e2e level.
 //
 // golden = every owner_only tool: the ops declared with fp.OwnerAction() /
-// fp.OwnerRead() on the host side, plus the ones a capability plugin or a
-// connector manifest declares for itself. This spec goes red when an owner
+// fp.OwnerRead() on the host side, plus the ones a block plugin or a
+// supplier manifest declares for itself. This spec goes red when an owner
 // tool is added or removed -- that's **deliberate**: it forces you to update
 // the toolset expectation in sync.
 //
@@ -34,7 +34,7 @@
 // (F-P-6). It's a checker that "requires someone to remember to update it" --
 // and the same fact already has a home that never forgets:
 // `internal/infra/paritymanifest` is the single source of truth for owner
-// capabilities, and `server.New` checks it against both live facades at
+// blocks, and `server.New` checks it against both live facades at
 // startup, panicking on mismatch.
 // This is yet another copy, and whoever copies it will one day forget and
 // let it silently drift. See F-P-6 for the structural fix: derive the
@@ -42,9 +42,9 @@
 // ([[structure-means-no-responsibility-class]]).
 //
 // **Owner tools have three sources**, not two: hardcoded on the host side,
-// contributed by capability plugins, and **`owner_ops:` declared in a
-// connector manifest**. The third source was added later (F-C-16's
-// connectors.calendar_check), and that change never updated this golden --
+// contributed by block plugins, and **`owner_ops:` declared in a
+// supplier manifest**. The third source was added later (F-C-16's
+// suppliers.calendar_check), and that change never updated this golden --
 // so this spec has been red ever since, unnoticed until owner-mcp was driven
 // manually and its tools were counted by hand.
 
@@ -62,7 +62,7 @@ const OWNER = {
 // GOLDEN -- tools/list must return exactly these owner tools (compared
 // after sorting; ordering noise is decided by mcp-go's registration order,
 // which is out of this spec's responsibility). Once facade-parity debt was
-// fully paid off (56 -> 0): every admin-facade owner capability has an
+// fully paid off (56 -> 0): every admin-facade owner block has an
 // owner-MCP twin tool. Adding/removing an owner tool must update this golden
 // in lockstep.
 const GOLDEN_TOOLSET: readonly string[] = [
@@ -136,7 +136,7 @@ const GOLDEN_TOOLSET: readonly string[] = [
   'providers.list_models',
   'role_create', 'role_list', 'role_delete', 'role_update', 'roles.get',
   'roles.set_dock_buttons',
-  // mcp servers / skills / capabilities
+  // mcp servers / skills / blocks
   // mcp_server_check -- the only thing you can ask once registered: does that
   // server respond, and what tools does it have. Without it, the only
   // evidence on an ext-MCP row is the URL the owner pasted in themselves
@@ -144,10 +144,21 @@ const GOLDEN_TOOLSET: readonly string[] = [
   'mcp_server_create', 'mcp_server_list', 'mcp_server_check', 'mcp_server_delete',
   'mcp_server_grant_dep',
   // skill_update -- added on 2026-08-22 alongside "the owner can grant a
-  // connector's interface out", and **this golden did not get updated at the
+  // supplier's interface out", and **this golden did not get updated at the
   // same time** (the third time now -- see the file header).
   'skill_create', 'skill_update', 'skill_list', 'skill_delete', 'skill_set_enabled',
-  'capabilities.list', 'capabilities.set_enabled', 'capabilities.delete',
+  'blocks.list', 'blocks.set_enabled', 'blocks.delete',
+  // blocks / bundles -- added 2026-09-10 with the block model. Installing a block and
+  // grouping blocks into a bundle are owner operations, so they reach the owner's MCP
+  // client the same way the panel reaches them: the owner's AI can assemble a
+  // recruiter bundle and issue a code against it without opening the admin at all.
+  //
+  // There is no `blocks.uninstall`: `blocks.delete` already uninstalls an owner-installed
+  // block (blockOps.Delete branches on ownerInstalled), and the second verb reached
+  // Assembly.Uninstall directly, skipping the built-in refusal.
+  'blocks.install',
+  'bundles.list', 'bundles.create', 'bundles.delete',
+  'bundles.add_block', 'bundles.remove_block',
   // writings
   // save is still writing_create (the multipart half hasn't moved -- see the
   // note in res_writings.go); the other four are named writings.* uniformly
@@ -196,30 +207,30 @@ const GOLDEN_TOOLSET: readonly string[] = [
   // appearance.set_favicon -- point /favicon.ico at an uploaded asset (asset_id
   // from assets.list); empty clears it back to the product default.
   'appearance.set_favicon',
-  // connectors
-  'connectors.list', 'connectors.catalog', 'connectors.status',
-  'connectors.create', 'connectors.update', 'connectors.delete',
-  'connectors.activate', 'connectors.disconnect',
-  'connectors.validate_spec', 'connectors.mail_test_send',
-  // connectors.agent_ops -- same as skill_update, added in the 2026-08-22
+  // suppliers
+  'suppliers.list', 'suppliers.catalog', 'suppliers.status',
+  'suppliers.create', 'suppliers.update', 'suppliers.delete',
+  'suppliers.activate', 'suppliers.disconnect',
+  'suppliers.validate_spec', 'suppliers.mail_test_send',
+  // suppliers.agent_ops -- same as skill_update, added in the 2026-08-22
   // batch, golden didn't follow.
-  'connectors.agent_ops',
-  // **The third source**: an owner op a connector manifest declares for
+  'suppliers.agent_ops',
+  // **The third source**: an owner op a supplier manifest declares for
   // itself (`owner_ops:`). Everything above is hardcoded on the host side;
-  // this one lives in `backend/connectors/google-calendar/manifest.yaml`,
+  // this one lives in `backend/suppliers/google-calendar/manifest.yaml`,
   // added by F-C-16 -- and this golden didn't get updated at the time, so it
   // has been red ever since, unnoticed (see [[green-means-the-real-suite-ran]]:
   // a locally green run can't mask a cross-cutting guard's red).
-  'connectors.calendar_check',
+  'suppliers.calendar_check',
   // access requests / ip bans / domains / instance / marketplace / ai
   'access_requests.list', 'access_requests.update', 'access_requests.approve',
   'ip_bans.list', 'ip_bans.add', 'ip_bans.remove',
   'domains.list', 'domains.add', 'domains.remove',
-  // A capability's configurable settings go through a **generic** surface
-  // (capability_config.*), no longer a hardcoded set of tools per capability:
+  // A block's configurable settings go through a **generic** surface
+  // (block_config.*), no longer a hardcoded set of tools per block:
   // booking.get_policy / set_policy came from exactly that, and had drifted
   // from the sandbox's own policy.
-  'capability_config.list', 'capability_config.get', 'capability_config.set',
+  'block_config.list', 'block_config.get', 'block_config.set',
   'instance.status', 'instance.inference_usage', 'instance.corpus_growth',
   // corpus_graph is a **newly-filled gap**: admin has always had
   // GET /stats/graph, and MCP had no twin; it didn't even have a line in the
@@ -283,7 +294,7 @@ test.describe('能力归一化 · 【对外】tools/list 工具面 golden(真实
     await request.dispose();
   });
 
-  // A capability can add its own field to the codes input schema (the
+  // A block can add its own field to the codes input schema (the
   // booker's max_bookings was the first, going through access.CodeExtras).
   // The access domain doesn't recognize it, so there's nothing at compile
   // time pinning down "it's still there": the wiring can break and stay
@@ -297,7 +308,7 @@ test.describe('能力归一化 · 【对外】tools/list 工具面 golden(真实
       expect(tool, `${name} missing from tools/list`).toBeTruthy();
       expect(
         Object.keys(tool?.inputSchema?.properties ?? {}),
-        `${name} lost the capability-contributed field`,
+        `${name} lost the block-contributed field`,
       ).toContain('max_bookings');
     }
     await request.dispose();

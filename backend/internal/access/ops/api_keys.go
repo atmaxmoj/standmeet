@@ -25,14 +25,14 @@ import (
 )
 
 // APIKeysDeps — the key repo + the seam for validating a role when issuing a key + "which
-// capabilities may be opened to the API facade".
+// blocks may be opened to the API facade".
 //
-// APICandidates is injected: **which capabilities** may open to the API facade is knowledge
-// that belongs to the capability axis, not to access.
+// APICandidates is injected: **which blocks** may open to the API facade is knowledge
+// that belongs to the block axis, not to access.
 type APIKeysDeps struct {
 	Keys  *repo.APIKeyRepo
 	Roles usecase.APIKeyRoleGetter
-	// Extras — the fields each capability occupies on **this key** (calendar.book's
+	// Extras — the fields each block occupies on **this key** (calendar.book's
 	// max_bookings was the first). Same seam, same declaration as the one on codes, just a
 	// different mount point. Without it, "how many bookings this key allows at most" has
 	// nowhere to be set, and a quota can't exist (F-B-11).
@@ -59,7 +59,7 @@ func APIKeys(d APIKeysDeps) []fp.Op {
 			ID: "api_keys.create",
 			Description: "Mint an API key assuming a role. Returns the raw secret ONCE " +
 				"(smk_…) plus its id and prefix; the secret is never retrievable again.",
-			// The fields each capability occupies on the key grow along with it
+			// The fields each block occupies on the key grow along with it
 			// (max_bookings…), same mechanism as the code-issuing side.
 			InputSchema: withExtraFields(apiKeyCreateSchema, extrasOr(d.Extras).Fields()),
 			Kind:        fp.Action,
@@ -184,9 +184,9 @@ func createAPIKey(d APIKeysDeps) fp.Invoke {
 		if err != nil {
 			return nil, apiKeyErr(err)
 		}
-		// Each capability picks its own fields (max_bookings…) out of the raw input and
+		// Each block picks its own fields (max_bookings…) out of the raw input and
 		// stores them on this key. Best-effort: the key is already minted, so one
-		// capability's storage failing shouldn't turn this into a failed minting.
+		// block's storage failing shouldn't turn this into a failed minting.
 		extrasOr(d.Extras).Write(ctx, issued.Key.ID, raw)
 		return json.Marshal(apiKeyCreatedOut{
 			ID: issued.Key.ID, Prefix: issued.Key.Prefix, Secret: issued.Secret,
@@ -241,7 +241,7 @@ func listAPIKeys(d APIKeysDeps) fp.Invoke {
 	}
 }
 
-// marshalAPIKey — a key + the fields other capabilities put on it (max_bookings…).
+// marshalAPIKey — a key + the fields other blocks put on it (max_bookings…).
 //
 // Reading back goes through the same seam as writing: if it only wrote and never read, a cap
 // the owner set would be invisible in the list, and "a setting you can't see" looks identical

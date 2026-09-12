@@ -20,7 +20,7 @@ import (
 // WriteSubjectivityInput —— input for subjectivity_write. Empty ID = create;
 // non-empty = update/reparent.
 // ShowAsSource: opts this subjectivity note into the visitor-cited footer. Defaults
-// to false (private) — the capability layer passes false when the arg is omitted,
+// to false (private) — the ops layer passes false when the arg is omitted,
 // the opposite of wiki/output's default of true.
 type WriteSubjectivityInput struct {
 	OwnerID      string

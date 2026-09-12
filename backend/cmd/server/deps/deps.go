@@ -9,26 +9,28 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
-	"github.com/atmaxmoj/standmeet/internal/capabilities"
-	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
-	"github.com/atmaxmoj/standmeet/internal/capabilities/capstore"
-	"github.com/atmaxmoj/standmeet/internal/capabilities/sandbox"
-	"github.com/atmaxmoj/standmeet/internal/capabilities/sandboxws"
-	"github.com/atmaxmoj/standmeet/internal/connector"
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	"github.com/atmaxmoj/standmeet/internal/conversation/inference"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	"github.com/atmaxmoj/standmeet/internal/corpus/search"
 	"github.com/atmaxmoj/standmeet/internal/infra/buildnotify"
+	"github.com/atmaxmoj/standmeet/internal/infra/sandbox"
+	"github.com/atmaxmoj/standmeet/internal/infra/sandboxws"
 	"github.com/atmaxmoj/standmeet/internal/infra/session"
 	"github.com/atmaxmoj/standmeet/internal/infra/storage"
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 	monitor "github.com/atmaxmoj/standmeet/internal/monitor/facade"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
+	pluginjobs "github.com/atmaxmoj/standmeet/internal/owner/jobs"
 	jobcache "github.com/atmaxmoj/standmeet/internal/owner/jobs/cache"
 	jobfetch "github.com/atmaxmoj/standmeet/internal/owner/jobs/fetch"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/printsess"
+	"github.com/atmaxmoj/standmeet/internal/plugin/adapters"
+	"github.com/atmaxmoj/standmeet/internal/plugin/assembly"
+	"github.com/atmaxmoj/standmeet/internal/plugin/blockstore"
+	"github.com/atmaxmoj/standmeet/internal/plugin/credentials"
+	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
 	security "github.com/atmaxmoj/standmeet/internal/security/facade"
@@ -38,18 +40,21 @@ import (
 // Runtime —— all of serve's dependencies. Fields are exported because the composition
 // root's groups each live in their own package.
 type Runtime struct {
-	Upgrade            stats.UpgradeSources
-	SandboxRunner      sandbox.Runner
-	CorpusIndexer      corpus.Indexer
-	ProviderModels     owner.ProviderModelLister
-	MCPProber          marketplace.MCPServerProber
-	ConnectorNeeds     marketplace.ConnectorNeeds
-	ReportPDFRenderer  publicroutes.ReportPDFRenderer
-	PdfRenderer        jobsuc.PDFRenderer
-	CaptchaVerifier    security.Verifier
-	ProviderResolver   inference.Resolver
-	CodeDenialRepo     *access.CodeDenialRepo
-	ConnectorRepo      *connector.Repo
+	Upgrade           stats.UpgradeSources
+	SandboxRunner     sandbox.Runner
+	CorpusIndexer     corpus.Indexer
+	ProviderModels    owner.ProviderModelLister
+	MCPProber         marketplace.MCPServerProber
+	SeamNeeds         marketplace.SeamNeeds
+	ReportPDFRenderer publicroutes.ReportPDFRenderer
+	PdfRenderer       jobsuc.PDFRenderer
+	CaptchaVerifier   security.Verifier
+	ProviderResolver  inference.Resolver
+	CodeDenialRepo    *access.CodeDenialRepo
+	Credentials       *credentials.Repo
+	// Assembly —— what the owner installed, grouped into bundles, plus the blocks that
+	// failed to start. The grant source for any code that carries a bundle.
+	Assembly           *assembly.Repo
 	OutputRepo         *corpus.OutputRepo
 	GrowthRepo         *stats.GrowthRepo
 	ActivityRepo       *stats.ActivityRepo
@@ -76,7 +81,7 @@ type Runtime struct {
 	NoteHeroRepo       *corpus.NoteHeroRepo
 	WritingRepo        *corpus.WritingRepo
 	WritingRefRepo     *corpus.WritingRefRepo
-	CapabilityRepo     *access.CapabilityRepo
+	BlockEnableRepo    *access.BlockEnableRepo
 	GhostRepo          *conversation.GhostRepo
 	ChatReportRepo     *conversation.ChatReportRepo
 	InferenceUsageRepo *stats.InferenceUsageRepo
@@ -85,32 +90,43 @@ type Runtime struct {
 	APIKeyRepo         *access.APIKeyRepo
 	AppStateRepo       *conversation.AppStateRepo
 	NoteRefRepo        *corpus.NoteRefRepo
-	ConnectorHub       *connector.Hub
-	ConnectorSlots     *connector.Slots
-	VaultSyncRepo      *corpus.VaultSyncRepo
-	StorageClient      *storage.Client
-	JobCachePool       *jobcache.Pool
-	JobFetchRegistry   *jobfetch.Registry
-	PluginRegistry     *capabilities.Registry
-	SessionStore       *session.OwnerSessionStore
-	VisitorStore       *access.VisitorSessionStore
-	QueryQueue         *session.QueryQueue
-	SubjectivityRepo   *corpus.NoteRepo
-	SetupTokenHolder   *session.SetupTokenHolder
-	WikiRepo           *corpus.WikiRepo
-	RawRepo            *corpus.RawRepo
-	KeypairRepo        *owner.KeypairRepo
-	PrintStore         *printsess.Store
-	MarketplaceClient  *marketplace.Client
-	AgentSkills        *capreg.Registry
-	OwnerRepo          *owner.Repo
-	DepRegistry        *capreg.DepRegistry
-	InstanceRepo       *owner.InstanceRepo
-	RDB                *redis.Client
-	DB                 *pgxpool.Pool
-	Dispatch           *dispatcher.Dispatcher
-	CapStores          map[string]*capstore.Store
-	// MicrositeDocs —— per-microsite document store (capstore KindMicrosite); its own schema each.
+	// BlockDispatch — seam name → the owner's supplier, then verb + JSON.
+	//
+	// This used to be a registry object plus a per-seam typed accessor. Both are gone —
+	// resolution is by name in the substrate, so the composition root holds one
+	// dispatcher and no registry at all.
+	BlockDispatch *adapters.Dispatcher
+	// BlockSuppliers — the assembled blocks this instance has, by id.
+	//
+	// Held next to the dispatcher because the two are one mechanism split by direction:
+	// boot writes into this table, and every call reads through the dispatcher's lookup
+	// into it. It used to be a registry type in a package of its own.
+	BlockSuppliers    *adapters.Suppliers
+	VaultSyncRepo     *corpus.VaultSyncRepo
+	StorageClient     *storage.Client
+	JobCachePool      *jobcache.Pool
+	JobFetchRegistry  *jobfetch.Registry
+	JobsModule        *pluginjobs.Plugin
+	SessionStore      *session.OwnerSessionStore
+	VisitorStore      *access.VisitorSessionStore
+	QueryQueue        *session.QueryQueue
+	SubjectivityRepo  *corpus.NoteRepo
+	SetupTokenHolder  *session.SetupTokenHolder
+	WikiRepo          *corpus.WikiRepo
+	RawRepo           *corpus.RawRepo
+	KeypairRepo       *owner.KeypairRepo
+	PrintStore        *printsess.Store
+	MarketplaceClient *marketplace.Client
+	AgentSkills       *registry.Registry
+	OwnerRepo         *owner.Repo
+	DepRegistry       *registry.DepRegistry
+	InstanceRepo      *owner.InstanceRepo
+	RDB               *redis.Client
+	DB                *pgxpool.Pool
+	Dispatch          *dispatcher.Dispatcher
+	BlockStores       map[string]*blockstore.Store
+	// MicrositeDocs —— per-microsite document store (blockstore KindMicrosite); one schema
+	// per microsite.
 	MicrositeDocs  owner.MicrositeDocStore
 	SearchClient   *search.Client
 	CaptchaSiteKey string

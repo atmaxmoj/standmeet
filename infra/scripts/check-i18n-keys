@@ -32,7 +32,7 @@ BASE_LOCALE = "en"
 MESSAGES = os.path.join(MESSAGES_ROOT, BASE_LOCALE)
 
 # Bind by VARIABLE NAME, not by proximity. A component routinely holds two of these —
-#   const t  = useTranslations('adminIntegrations.connectorList');
+#   const t  = useTranslations('adminIntegrations.supplierList');
 #   const tc = useTranslations('adminIntegrations.common');
 # — and a nearest-preceding-namespace rule attributes t('delete') to the wrong one. My first
 # version did exactly that and reported a key as missing that resolves fine: one false alarm out

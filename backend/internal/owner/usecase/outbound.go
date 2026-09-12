@@ -25,7 +25,7 @@ import (
 // delivery is impossible.
 //
 // **The core's own sentinel.** This used to be `consumer.ErrMailNotConfigured` exported
-// from the connector axis — a boundary-crossing error with "mail" in its name: the
+// from the supplier side — a boundary-crossing error with "mail" in its name: the
 // moment the core did errors.Is against it even once, that was an admission that it
 // knows the other side is email. The composition root is responsible for translating
 // the channel-side equivalent into this one (see cmd/server/port/outbound_sender.go).
@@ -39,7 +39,7 @@ type OutboundSender interface {
 	Connected(ctx context.Context, ownerID string) (bool, error)
 	// Send — delivers one notice to a recipient.
 	Send(ctx context.Context, ownerID string, n OutboundNotice) error
-	// ChannelName — when delivery fails, tells the owner **which kind** of connector to
+	// ChannelName — when delivery fails, tells the owner **which kind** of supplier to
 	// go connect.
 	//
 	// This string is supplied by the **composition root** (only it knows which category

@@ -1,6 +1,6 @@
 // MarketplaceCard —— one card in the marketplace grid. Renders skill
 // metadata + install button (or "✓ installed" pill when present in the
-// local registry). Missing connector hint in vermillion.
+// local registry). Missing supplier hint in vermillion.
 //
 // Design source: docs/design/project/admin.js.
 
@@ -37,12 +37,12 @@ export function MarketplaceCard({
   );
 }
 
-// hintable —— which connectors this card should mention.
+// hintable —— which suppliers this card should mention.
 //
-// needs is already a **difference set** (computed server-side: connectors the skill
+// needs is already a **difference set** (computed server-side: suppliers the skill
 // wants, minus the ones the owner already has). Don't subtract again here — both
 // halves of that subtraction live on the server; doing it client-side would mean
-// maintaining a second connector lookup table here (F-F-4).
+// maintaining a second supplier lookup table here (F-F-4).
 // null (server can't answer) and [] (nothing missing) both mean "say nothing", and
 // so does installed: what to connect is a post-install concern by then.
 function hintable(skill: MarketSkillView, installed: boolean): readonly string[] {

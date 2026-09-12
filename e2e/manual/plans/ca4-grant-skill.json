@@ -1,6 +1,6 @@
 {
-  "_why": "connector-assembly check 4 —— 把刚建的 github-gists 技能挂到 invited 角色上（后端就是从角色的技能里取 allowed_tools 的），这样带 invited 码的访客 session 才拿得到 GitHub 那两个 operation。",
-  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/connector-assembly/shots",
+  "_why": "supplier-assembly check 4 —— 把刚建的 github-gists 技能挂到 invited 角色上（后端就是从角色的技能里取 allowed_tools 的），这样带 invited 码的访客 session 才拿得到 GitHub 那两个 operation。",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/supplier-assembly/shots",
   "viewport": [1280, 1400],
   "shots": [
     {

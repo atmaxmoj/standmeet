@@ -1,7 +1,7 @@
 // booker_assembly_test.go —— the eval mini-host mounts the REAL booker plugin.
 //
 // Booking coverage died in P.13: the eval moved onto agentcore.Driver, `LaunchInput` never got a
-// booking hook, and the booker had become a sandboxed plugin — so five capability asserts spent
+// booking hook, and the booker had become a sandboxed plugin — so five block asserts spent
 // six weeks asserting a tool nobody mounted. This is the mechanism that brings it back: build the
 // booker binary, start a host socket that serves the ops ITS OWN MANIFEST orders (backed by a
 // canned calendar + in-memory store), and let the same assembly prod uses discover it.
@@ -24,9 +24,9 @@ import (
 	"github.com/atmaxmoj/standmeet/agentcore"
 )
 
-// bookerCapID —— the shipped capability id; the manifest under that id decides host ops / ACL /
-// tool naming, so this test cannot drift from what prod declares.
-const bookerCapID = "calendar.book"
+// The shipped block id is `bookerBlockID` (candidate.go). The manifest under that id decides
+// host ops / ACL / tool naming, so this test cannot drift from what prod declares — which is
+// exactly why it is read from there rather than restated here.
 
 func TestEvalAssemblesBookerPlugin(t *testing.T) {
 	ctx := context.Background()
@@ -43,7 +43,7 @@ func TestEvalAssemblesBookerPlugin(t *testing.T) {
 }
 
 // TestEvalBookerBooksThroughTheCannedCalendar —— invoke the tool for real: it must reach the
-// canned connector (event inserted) and persist a booking in the capability's own store.
+// canned supplier (event inserted) and persist a booking in the block’s own store.
 func TestEvalBookerBooksThroughTheCannedCalendar(t *testing.T) {
 	ctx := context.Background()
 	agent, store := launchWithBooker(t, ctx, "")
@@ -53,7 +53,7 @@ func TestEvalBookerBooksThroughTheCannedCalendar(t *testing.T) {
 	}
 	docs := store.rows("bookings")
 	if len(docs) != 1 {
-		t.Fatalf("booking not persisted in the capability store: %d docs (%s)", len(docs), out)
+		t.Fatalf("booking not persisted in the block store: %d docs (%s)", len(docs), out)
 	}
 	var doc map[string]any
 	if err := json.Unmarshal(docs[0].Doc, &doc); err != nil {
@@ -79,7 +79,7 @@ func TestEvalBookerSurfacesACalendarFailure(t *testing.T) {
 }
 
 // launchWithBooker —— build the plugin, start its host socket, launch a code-mode agent with it.
-// failVerb != "" makes that one connector verb fail. Uses the offline cred: these asserts invoke
+// failVerb != "" makes that one supplier verb fail. Uses the offline cred: these asserts invoke
 // tools directly and never reach a model.
 func launchWithBooker(
 	t *testing.T, ctx context.Context, failVerb string,
@@ -105,13 +105,13 @@ func launchWithBookerCred(
 	t.Cleanup(func() { _ = os.RemoveAll(sockDir) })
 	sock := filepath.Join(sockDir, "b.sock")
 
-	spec, serr := agentcore.BuiltinPluginSpec(bookerCapID, bin, sock)
+	spec, serr := agentcore.BuiltinPluginSpec(bookerBlockID, bin, sock)
 	if serr != nil {
 		t.Fatalf("BuiltinPluginSpec: %v", serr)
 	}
-	stop, herr := agentcore.StartCapabilitySocket(ctx, host, bookerCapID, sock)
+	stop, herr := agentcore.StartBlockSocket(ctx, host, bookerBlockID, sock)
 	if herr != nil {
-		t.Fatalf("StartCapabilitySocket: %v", herr)
+		t.Fatalf("StartBlockSocket: %v", herr)
 	}
 	t.Cleanup(func() { _ = stop() })
 
@@ -119,7 +119,7 @@ func launchWithBookerCred(
 	agent, err := agentcore.BuildVisitorAgent(ctx, driver, &agentcore.LaunchInput{
 		OwnerID: host.OwnerID, Mode: "code", ConversationID: "c1", CodeID: "code-1",
 		// booker is acl=role_granted:role — exposed only once granted (same gate as prod).
-		GrantedCapabilities: []string{bookerCapID},
+		GrantedBlocks: []string{bookerBlockID},
 	})
 	if err != nil {
 		t.Fatalf("BuildVisitorAgent: %v", err)

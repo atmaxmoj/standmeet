@@ -131,7 +131,7 @@
     }
   },
   "requests": {
-    "deliveryHint": "Kein verifizierter ausgehender Kanal — richten Sie einen unter Konnektoren ein, damit ein Genehmigen eine Codee ausstellen kann. Bis dahin können Sie Anfragen nur manuell beantworten/archivieren.",
+    "deliveryHint": "Kein verifizierter ausgehender Kanal — richten Sie einen unter Supplier ein, damit ein Genehmigen eine Codee ausstellen kann. Bis dahin können Sie Anfragen nur manuell beantworten/archivieren.",
     "intro": "Einreichungen aus dem Gate-Pfad 'kein Code'. Als beantwortet markieren, sobald Sie einen Code ausgegeben oder geantwortet haben; schließen zum Archivieren. Der Eigentümer liest jeden selbst — darum geht es.",
     "empty": "Keine {filter}anfragen.",
     "issued": "ausgegeben {code} — per E-Mail an den Anfragenden gesendet",

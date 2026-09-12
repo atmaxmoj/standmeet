@@ -1,9 +1,10 @@
 // CreateCodeFields — the field block for CodeCreateModal. A.3-IAM-5: a code only
 // carries assumed_role_id; the old permissions / skills / agent-skills pickers are
-// all removed — ACL / capability gating is entirely derived from the role.
+// all removed — ACL / block gating is entirely derived from the role.
 
 import { useTranslations } from 'next-intl';
 
+import { CodeBundlePicker } from '@/components/admin/modals/CodeBundlePicker';
 import { CodePromptPicker } from '@/components/admin/modals/CodePromptPicker';
 import { CodeProviderPicker } from '@/components/admin/modals/CodeProviderPicker';
 import { CodeRolePicker } from '@/components/admin/modals/CodeRolePicker';
@@ -30,6 +31,7 @@ function NonQuotaSlot({ form, editing }: EditingProps) {
   return editing ? null : (
     <>
       <CodeRolePicker form={form} />
+      <CodeBundlePicker form={form} />
       <CodePromptPicker form={form} />
       <CodeProviderPicker form={form} />
       <QuestionsField form={form} />

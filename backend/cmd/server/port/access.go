@@ -47,7 +47,7 @@ func RecoveryDeps(d *deps.Runtime) owner.RecoveryDeps {
 
 // EmailChangeDeps — narrow deps for changing email. Has one more outbound port than
 // AccountDeps: it first asks "can mail be sent?" (goes through pending-confirmation
-// if a mail connector exists, changes immediately otherwise), then uses it to send
+// if a mail supplier exists, changes immediately otherwise), then uses it to send
 // the confirmation email to the **new** address.
 func EmailChangeDeps(d *deps.Runtime) owner.EmailChangeDeps {
 	return owner.EmailChangeDeps{Owners: d.OwnerRepo, Proxy: OutboundSender(d)}

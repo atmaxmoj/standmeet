@@ -63,47 +63,47 @@
     "withdraw": "retirar",
     "logUpdate": "actualización de registro"
   },
-  "connectorAdd": {
-    "catalogCount": "agregar conector · {n} en catálogo",
+  "supplierAdd": {
+    "catalogCount": "agregar proveedor · {n} en catálogo",
     "tagline": "Extienda la superficie de corpus.",
     "close": "cerrar ✕",
     "installed": "instalado",
     "builtIn": "integrado"
   },
-  "connectorConfig": {
+  "supplierConfig": {
     "oauthHint": "abre OAuth del proveedor en una nueva pestaña",
     "choose": "elegir…",
     "backToCatalog": "← volver al catálogo",
     "connect": "conectar →"
   },
-  "connectorCard": {
-    "credsStored": "Las credenciales se guardan para este conector. Nunca se volverán a mostrar — deje los campos en blanco para mantenerlos o escriba otros nuevos para reemplazarlos.",
+  "supplierCard": {
+    "credsStored": "Las credenciales se guardan para este proveedor. Nunca se volverán a mostrar — deje los campos en blanco para mantenerlos o escriba otros nuevos para reemplazarlos.",
     "scopeShortfall": "Conectado, pero esta subvención no puede hacer todo lo solicitado — las acciones que necesitan {scopes} no se ejecutarán. Marque arriba y conéctese de nuevo."
   },
-  "connectorCred": {
+  "supplierCred": {
     "authentication": "autenticación",
     "apiKeyHint": "Enviado en el {where} como <code>{name}</code>.",
     "discoveryHint": "Descubrimiento: <code>{url}</code>",
-    "needsDance": "Este esquema necesita un paso de autorización. Primero arme el conector — el botón Conectar existe en su tarjeta.",
+    "needsDance": "Este esquema necesita un paso de autorización. Primero arme el proveedor — el botón Conectar existe en su tarjeta.",
     "scopes": "alcances"
   },
-  "protocolConnector": {
+  "protocolSupplier": {
     "testConnection": "Probar conexión →"
   },
   "specIngest": {
     "heading": "pegue una especificación openapi",
-    "blurb": "Cualquier especificación OpenAPI 3.0 (JSON o YAML). Derivamos el formulario de credencial + categoría de ella.",
+    "blurb": "Cualquier especificación OpenAPI 3.0 (JSON o YAML). Derivamos el formulario de credencial + seam de ella.",
     "useThisSpec": "verificar esta especificación",
     "uploadSpec": "cargar archivo",
     "bindingLabel": "vinculación — opcional",
-    "bindingHint": "Mapeo JSONata (YAML) de las operaciones de esta API a un contrato de categoría, para que el agente pueda usarla como calendario, correo, etc. Déjelo vacío para exponer las operaciones sin procesar en su lugar.",
+    "bindingHint": "Mapeo JSONata (YAML) de las operaciones de esta API a un contrato de seam, para que el agente pueda usarla como calendario, correo, etc. Déjelo vacío para exponer las operaciones sin procesar en su lugar.",
     "orFetchFromUrl": "…u obtener desde una URL",
     "fetch": "obtener",
-    "candidate": "candidato a conector",
+    "candidate": "candidato a proveedor",
     "baseUrlLabel": "URL base — solo si la especificación no declara servidores",
-    "assemble": "ensamblar conector →",
+    "assemble": "ensamblar proveedor →",
     "exposeLabel": "Permita que la IA de un visitante llame directamente a estas operaciones. Cada operación en la especificación se convierte en una herramienta que puede usar, sujeta a subvenciones por código. Desactívelo si proporcionó una vinculación.",
-    "needsBindingOrExpose": "Esto ensamblaría un conector que nada puede llamar. Proporcione una vinculación para llenar una categoría o marque la casilla anterior para exponer las operaciones a la IA de un visitante."
+    "needsBindingOrExpose": "Esto ensamblaría un proveedor que nada puede llamar. Proporcione una vinculación para llenar un seam o marque la casilla anterior para exponer las operaciones a la IA de un visitante."
   },
   "composer": {
     "save": "guardar",
@@ -257,7 +257,7 @@
     "recoveryDetailReady": "aún sin configurar",
     "recoveryDetailNeedsMail": "requiere correo verificado",
     "recoveryNoteReady": "Genera una frase de recuperación y te la envía por correo. De un solo uso — se consume cuando inicias sesión con ella.",
-    "recoveryNoteNeedsMail": "Verifica el correo (SMTP) en Connectors primero — la frase de recuperación se te envía por correo."
+    "recoveryNoteNeedsMail": "Verifica el correo (SMTP) en Proveedores primero — la frase de recuperación se te envía por correo."
   },
   "monitor": {
     "collection": "recopilación de tráfico",

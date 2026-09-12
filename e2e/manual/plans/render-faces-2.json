@@ -20,7 +20,7 @@
       "steps": [{ "wait": 5000 }], "wait": 1500 },
     { "name": "cr-08-architecture", "url": "/wiki/software/project/standmeet/architecture",
       "steps": [{ "wait": 5000 }], "wait": 1500 },
-    { "name": "cr-09-ui-cards-mermaid", "url": "/wiki/software/project/standmeet/architecture/key-designs/capabilities/ui-cards",
+    { "name": "cr-09-ui-cards-mermaid", "url": "/wiki/software/project/standmeet/architecture/key-designs/blocks/ui-cards",
       "steps": [{ "wait": 5000 }], "wait": 1500 }
   ]
 }

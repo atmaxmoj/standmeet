@@ -1,6 +1,6 @@
 // codes.go — /api/admin/codes/*: the invitation codes the owner has issued.
 //
-// Capability comes from the outbound convergence point (shared plumbing in dispatch.go);
+// Ability comes from the outbound convergence point (shared plumbing in dispatch.go);
 // this facade only decides the REST shape: the resource id goes in the path, everything
 // else goes in the body, and a denial's kind and target also sit in the path (a
 // historical shape the frontend was written against).
@@ -33,7 +33,7 @@ const (
 	paramTargetID = "target_id"
 )
 
-// CodesDeps — capability source for the admin codes handlers.
+// CodesDeps — op source for the admin codes handlers.
 type CodesDeps struct {
 	Face *dispatcher.Face
 }
@@ -63,7 +63,7 @@ func (h *Handlers) MountCodes(r chi.Router) {
 // mountCodeACL — a single code's ACL facade: the three denial kinds + waypoint
 // destinations.
 //
-// The three denial kinds used to split across two places: capability/skill went through
+// The three denial kinds used to split across two places: block/skill went through
 // /denials/{kind}, corpus went through a separate /corpus. Now it's the same op with kind
 // as a parameter — they were always three dimensions of "narrowing further within the
 // scope a role already grants".
@@ -93,9 +93,9 @@ func (h *Handlers) mountCodeACL(r chi.Router, face *dispatcher.Face) {
 // accepted is decided by the op's schema — the facade doesn't restate that judgment
 // (a wrong value gets a bad-input reply from the domain).
 var denialTargetFields = map[string]string{
-	"capability": "capability_id",
-	"skill":      "skill_id",
-	"corpus":     "uri",
+	"block":  "block_id",
+	"skill":  "skill_id",
+	"corpus": "uri",
 }
 
 // addDenialArgs — POST /codes/{id}/denials/{kind}: kind in the path, target in the body.

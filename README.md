@@ -76,12 +76,12 @@ Coolify generates and persists these; you never type them:
 |---|---|
 | `SERVICE_PASSWORD_POSTGRES` | the database |
 | `SERVICE_PASSWORD_64_SESSION` | session signing |
-| `SERVICE_PASSWORD_64_INSTANCE` | at-rest encryption for connector credentials |
+| `SERVICE_PASSWORD_64_INSTANCE` | at-rest encryption for supplier credentials |
 | `SERVICE_PASSWORD_64_MINIO` | object storage |
 
 **Never rotate `INSTANCE_SECRET` on a running instance.** It is the key every stored
-connector credential is encrypted with. Rotating it leaves the backend booting normally
-while `/admin/connectors` renders every card as "not connected" above a row of empty
+supplier credential is encrypted with. Rotating it leaves the backend booting normally
+while `/admin/suppliers` renders every card as "not connected" above a row of empty
 fields — the ciphertext and the `connected_at` timestamps are still in the database, and
 the screen says nothing about it. You would be re-entering credentials on a configuration
 you cannot read.
@@ -173,12 +173,12 @@ Suspect a flaky test? `REPEAT=5`. One pass is not evidence.
 
 | Directory | What it is |
 |---|---|
-| `backend/` | Go. Domain modules, the corpus, connectors, the MCP surfaces |
+| `backend/` | Go. Domain modules, the corpus, suppliers, the MCP surfaces |
 | `app/` | Next.js. The four public surfaces and the owner's admin |
 | `sdk/` | `@standmeet/sdk` — embed chat and corpus reading in your own site |
 | `builder/` | Sandboxed build of owner-written microsites |
 | `im-bridge/` | Talk to the owner's AI from a chat app, on an access code |
-| `mcp-servers/` | Capability plugins, linked into the backend |
+| `mcp-servers/` | Block plugins, linked into the backend |
 | `infra/` | Deployment: the image-based compose (`infra/deploy/`), updater, plugin manifests, lint tooling |
 | `e2e/` | Playwright. The suite the whole product is judged by |
 | `docs/design/` | The canonical visual and product spec |

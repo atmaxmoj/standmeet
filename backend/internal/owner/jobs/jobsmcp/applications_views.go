@@ -89,7 +89,7 @@ func buildSubmissionHint(c *jobsmodel.CommittedApplication) submissionHint {
 	return submissionHint{
 		Type:          "submit_via_playwright",
 		TargetURL:     c.Application.JobSnapshot.URL,
-		AttachmentURI: applicationCapURIScheme + c.Application.ID,
+		AttachmentURI: applicationURIScheme + c.Application.ID,
 		FillFields:    fill,
 		Instructions:  submissionInstructions,
 	}

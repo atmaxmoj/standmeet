@@ -2,10 +2,10 @@
 
 - **Module:** One walk of the account section. The email on this row is both the login identity and the channel a lost password comes back through, so changing it is a two-step move that proves the new address receives mail before either use of it moves. The recovery phrase is generated here, and what the row says about itself matches what the button does.
 - **Surface:** `/admin/account` — the name, the email block with its pending state, and the recovery row.
-- **Real dep:** A real mail connector and a real inbox to read (see [[mail-connector]]), because every step here is confirmed by something arriving rather than by the panel saying it sent.
+- **Real dep:** A real mail connector and a real inbox to read (see [[mail-supplier]]), because every step here is confirmed by something arriving rather than by the panel saying it sent.
 - **Exclusive:** gmail-inbox
 - **Note:** The current-password gate and its rate limit have their own specs and nothing a person can look at beyond one refusal; they are not checks here.
-- **Backing e2e:** `account-email-change-needs-confirmation` · `account-email-pending-lifecycle` · `account-email-change-without-mail-connector` · `account-recovery-row-tells-the-truth` · `account-current-password-gate` · `owner-email-normalized-at-every-entrance` · `recovery-phrase`.
+- **Backing e2e:** `account-email-change-needs-confirmation` · `account-email-pending-lifecycle` · `account-email-change-without-mail-supplier` · `account-recovery-row-tells-the-truth` · `account-current-password-gate` · `owner-email-normalized-at-every-entrance` · `recovery-phrase`.
 
 ## Checks
 
@@ -23,7 +23,7 @@
 ### 3 — With no way to send, the change is refused rather than half-made ⭐
 - **Steps:** Disconnect the mail connector. Try to change the email.
 - **Expected:** It is refused, and the message says the instance cannot reach the new address. The stored email is unchanged — the owner is not left with a pending change nothing can ever confirm.
-- **Backing test:** `account-email-change-without-mail-connector.spec.ts`
+- **Backing test:** `account-email-change-without-mail-supplier.spec.ts`
 
 ### 4 — The recovery row's words match what its button does
 - **Steps:** Read the recovery row's description, then press it and read the resulting inbox.

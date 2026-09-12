@@ -3,7 +3,7 @@
 //
 // Called at the end of each turn: this turn's assistant citations (cited note id) are
 // resolved into URIs, and a match against a frozen waypoint's evidence_refs → marks it
-// visited; a hit on a terminal capability (e.g. a booking closed) → marks the terminal
+// visited; a hit on a terminal block (e.g. a booking closed) → marks the terminal
 // waypoint visited. The ledger lives on redis visitor_session (VisitedWaypoints). Only
 // saves when something changed; best-effort —— a failure only warns, never blocks this
 // turn's reply.

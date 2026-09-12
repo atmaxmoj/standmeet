@@ -42,7 +42,7 @@ test.beforeAll(async ({ playwright }) => {
   await initOwner(playwright);
 });
 
-test.describe('visitor ask_visitor capability · externalized sandbox card', () => {
+test.describe('visitor ask_visitor block · externalized sandbox card', () => {
   test('radio widget renders in sandbox → click option → next turn + card locks',
     async ({ page, playwright }) => {
       const request = await playwright.request.newContext();

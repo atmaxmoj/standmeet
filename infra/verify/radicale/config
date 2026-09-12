@@ -1,4 +1,4 @@
-# Radicale config for the real-env audit's CalDAV leg (connector-assembly check 5).
+# Radicale config for the real-env audit's CalDAV leg (supplier-assembly check 5).
 # This server exists only on the audit rig. It never ships with the product.
 
 [server]

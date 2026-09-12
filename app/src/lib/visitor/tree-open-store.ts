@@ -10,7 +10,7 @@
 //
 // Expanded state is **state for this browsing session**, not state
 // belonging to any one component: it needs to outlive any single mount.
-// So it lives in a store, the same as session, ghost, and capability
+// So it lives in a store, the same as session, ghost, and block
 // ([[mail-state-single-zustand]] — same root cause: one piece of state,
 // one home, don't store a second copy at every call site).
 //

@@ -48,7 +48,7 @@ func TestOutward_AgenticOpsAreNeverRenderable(t *testing.T) {
 // face: the tool set it renders must realize **every** non-Agentic outward op.
 //
 // This guards against "a third outward face reporting something different from the first two":
-// if a face under-reports one capability, the visitor's AI can never plan a path to it, and
+// if a face under-reports one block, the visitor's AI can never plan a path to it, and
 // nothing at compile time will say a word.
 func TestOutward_MCPVisitorRatchet(t *testing.T) {
 	t.Parallel()
@@ -62,7 +62,7 @@ func TestOutward_MCPVisitorRatchet(t *testing.T) {
 //
 // The visitor MCP face authenticates with an access code, while the owner face authenticates
 // with Sigv1 — the two faces live in the same process, and their mount points differ only by a
-// prefix (`/mcp` vs `/mcp/visitor`). The day someone mounts an owner capability onto the visitor
+// prefix (`/mcp` vs `/mcp/visitor`). The day someone mounts an owner block onto the visitor
 // face, it compiles, tests go green, and the visitor's AI gets a hold of an owner tool. Once this
 // face is registered as outward-plane, that becomes a leak.
 func TestOutward_OwnerOpOnMCPVisitorIsLeak(t *testing.T) {
@@ -86,7 +86,7 @@ func TestOutward_OwnerOpOnMCPVisitorIsLeak(t *testing.T) {
 
 // TestOutward_OwnerOpOnAPIFacadeIsLeak —— the integration leak wall: over the combined
 // owner+outward manifest (AllOps), an owner op rendered on the api facade is a hard leak. This is
-// the real guarantee the whole direction axis exists for: admin capabilities can never render on
+// the real guarantee the whole direction axis exists for: admin blocks can never render on
 // the outward api surface.
 func TestOutward_OwnerOpOnAPIFacadeIsLeak(t *testing.T) {
 	t.Parallel()

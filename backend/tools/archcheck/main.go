@@ -29,21 +29,23 @@ import (
 
 const modulePrefix = "github.com/atmaxmoj/standmeet/internal/"
 
-// domains —— the 8 core modules from the class diagram + the capability axis. infra (leaf) and
+// domains —— the 8 core modules from the class diagram + the block substrate. infra (leaf) and
 // routes (top) have their own gates (check-infra-not-domain / check-routes-not-imported).
 var domains = []string{
-	"corpus", "conversation", "connector", "access", "owner",
-	"security", "marketplace", "stats", "capabilities",
+	"corpus", "conversation", "plugin", "access", "owner",
+	"security", "marketplace", "stats",
 }
 
 // submodules —— sub-packages that keep their OWN boundary: not a domain's DDD guts, but
 // aggregators/plugins hanging off it with their own entry points (owner/ownercore is the owner-MCP
-// cap bundle, owner/jobs the job loop, corpus/obsidian vault I/O, conversation/inference the agent
-// engine). Both the facade gate and the acyclic gate treat this same set as separate nodes —
+// block bundle, owner/jobs the job loop, corpus/obsidian vault I/O, corpus/integration the value
+// objects saying where a document came from plus the sync-source shape, conversation/inference the
+// agent engine). Both the facade gate and the acyclic gate treat this same set as separate nodes —
 // otherwise an aggregator that legitimately spans domains forges a false cycle onto the core it
 // merely sits beside. Each domain's core must still be a clean node.
 var submodules = map[string]bool{
 	"jobs": true, "inference": true, "obsidian": true, "ownercore": true,
+	"integration": true,
 }
 
 // layerOf —— the DDD layer order inside one domain (low → high). A file in layer L may import a

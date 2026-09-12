@@ -1,0 +1,56 @@
+// block-enable-disable-concurrency.spec.ts -- Phase H corner: enable/disable
+// concurrency must not cross wires. The owner mashes the toggle in two tabs -> the
+// backend upsert must not deadlock/500/leave a half-written row; the final state must
+// be deterministic and consistent. block_enabled is an (owner_id, block_id)
+// upsert, and concurrent writes must be safe.
+
+import { test, expect } from '@/fixtures/test';
+import type { APIRequestContext } from '@playwright/test';
+
+import { claim, login as loginAPI } from '@/fixtures/admin';
+import { resetInstance, findSetupToken } from '@/fixtures/instance';
+import { findBlock, setBlockEnabled } from '@/fixtures/blocks';
+
+const OWNER = {
+  email: 'cap-conc@example.com', password: 'correct-horse-battery-staple',
+  handle: 'capconc', fullName: 'Cap Conc Owner',
+};
+
+const CAP_ID = 'corpus.retrieval';
+
+let csrf = '';
+let admin: APIRequestContext;
+
+test.describe('Phase H · enable/disable under concurrency', () => {
+  test.beforeAll(async ({ playwright }) => {
+    resetInstance();
+    admin = await playwright.request.newContext();
+    const request = admin;
+    await claim(request, findSetupToken(), {
+      email: OWNER.email, password: OWNER.password,
+      handle: OWNER.handle, fullName: OWNER.fullName,
+    });
+    ({ csrf } = await loginAPI(request, OWNER.email, OWNER.password));
+  });
+
+  test.afterAll(async () => { await admin?.dispose(); });
+
+  test('many concurrent toggles → all 200, no corruption, deterministic final state',
+    async () => {
+      const request = admin;
+
+      // fire 12 interleaved enable/disable concurrently.
+      const calls = Array.from({ length: 12 }, (_, i) =>
+        setBlockEnabled(request, csrf, CAP_ID, i % 2 === 0));
+      const statuses = await Promise.all(calls);
+      // upsert must be concurrency-safe: every write succeeds, none 500/deadlock.
+      for (const s of statuses) expect(s, 'no error under concurrency').toBe(200);
+
+      // a final explicit write wins and the row is in a consistent, readable state.
+      expect(await setBlockEnabled(request, csrf, CAP_ID, false)).toBe(200);
+      expect((await findBlock(request, csrf, CAP_ID))?.enabled).toBe(false);
+      expect(await setBlockEnabled(request, csrf, CAP_ID, true)).toBe(200);
+      expect((await findBlock(request, csrf, CAP_ID))?.enabled).toBe(true);
+
+    });
+});

@@ -1,6 +1,6 @@
 // openapi-mail-specs.ts —— sample spec / binding for a fake mail vendor.
 //
-// Extracted from connector-openapi-mail.spec.ts (which hit the line-count gate).
+// Extracted from supplier-openapi-mail.spec.ts (which hit the line-count gate).
 // They're **data**: "what a vendor's docs look like" and "what this case asserts"
 // are two different things.
 
@@ -52,7 +52,7 @@ export const FORM_MAIL_SPEC = {
  * returns it, not in the headers.
  */
 export const FORM_MAIL_BINDING = {
-  category: 'mail',
+  seam: 'mail',
   kind: 'openapi',
   operations: {
     send: {

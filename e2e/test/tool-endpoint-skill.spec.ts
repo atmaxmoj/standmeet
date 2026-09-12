@@ -10,8 +10,8 @@
 //   • the old skill_<name>_<script> → 404 (the eager per-script tool has been
 //                                  replaced and no longer exists).
 //   • a role with no skill attached → skill.runner hidden → both endpoints 404
-//                                  capability_not_enabled.
-//   • capability_state           → still lists skill.runner enabled when the role
+//                                  block_not_enabled.
+//   • block_state           → still lists skill.runner enabled when the role
 //                                  includes a skill.
 
 import { test, expect } from '@/fixtures/test';
@@ -23,7 +23,7 @@ import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool as callMCPTool, initMCP } from '@/fixtures/mcp';
 import { createRole } from '@/fixtures/roles';
 import { issueSession } from '@/fixtures/visitor';
-import type { SessionCapability, VisitorSession } from '@/fixtures/visitor';
+import type { SessionBlock, VisitorSession } from '@/fixtures/visitor';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
@@ -52,7 +52,7 @@ interface ToolResp<R> {
   ok: boolean;
   reason?: string;
   result?: R;
-  capability_state?: SessionCapability[];
+  block_state?: SessionBlock[];
 }
 
 async function callTool<R>(
@@ -120,8 +120,8 @@ test.describe('tool endpoint · Phase C generic skill tools (skill_use / skill_r
   test('L3: skill_run_script(granted) → 200 + sandbox stdout + exit 0',
     async ({ playwright }) => { await assertRunScriptGranted(playwright); });
 
-  test('skill.runner capability_state enabled when role grants a skill',
-    async ({ playwright }) => { await assertCapabilityState(playwright); });
+  test('skill.runner block_state enabled when role grants a skill',
+    async ({ playwright }) => { await assertBlockState(playwright); });
 
   test('eager per-script tool is GONE: legacy skill_<name>_<script> → 404',
     async ({ playwright }) => { await assertLegacyToolGone(playwright); });
@@ -129,7 +129,7 @@ test.describe('tool endpoint · Phase C generic skill tools (skill_use / skill_r
   test('per-skill ACL: skill_use(name the role does not grant) → result.error, no disclosure',
     async ({ playwright }) => { await assertUngrantedNameDenied(playwright); });
 
-  test('role grants no skill → skill_use AND skill_run_script → 404 capability_not_enabled',
+  test('role grants no skill → skill_use AND skill_run_script → 404 block_not_enabled',
     async ({ playwright }) => { await assertNoSkillRole(playwright); });
 });
 
@@ -163,10 +163,10 @@ async function assertRunScriptGranted(playwright: Playwright): Promise<void> {
   await request.dispose();
 }
 
-async function assertCapabilityState(playwright: Playwright): Promise<void> {
+async function assertBlockState(playwright: Playwright): Promise<void> {
   const { request, sess } = await sessFor(playwright, CODE_WITH_SKILL);
   const { body } = await callTool<SkillUseResult>(request, sess, 'skill_use', { name: SKILL_NAME });
-  const cap = body.capability_state?.find(c => c.id === 'skill.runner');
+  const cap = body.block_state?.find(c => c.id === 'skill.runner');
   expect(cap, 'skill.runner cap visible').toBeDefined();
   expect(cap?.enabled).toBe(true);
   await request.dispose();
@@ -193,11 +193,11 @@ async function assertNoSkillRole(playwright: Playwright): Promise<void> {
   const { request, sess } = await sessFor(playwright, CODE_NO_SKILL);
   const useRes = await callTool<SkillUseResult>(request, sess, 'skill_use', { name: SKILL_NAME });
   expect(useRes.status).toBe(404);
-  expect(useRes.body.reason).toBe('capability_not_enabled');
+  expect(useRes.body.reason).toBe('block_not_enabled');
   const runRes = await callTool<SkillRunResult>(
     request, sess, 'skill_run_script', { name: SKILL_NAME, script: SCRIPT_FILENAME, args: {} },
   );
   expect(runRes.status).toBe(404);
-  expect(runRes.body.reason).toBe('capability_not_enabled');
+  expect(runRes.body.reason).toBe('block_not_enabled');
   await request.dispose();
 }

@@ -10,7 +10,7 @@
 // (`capreg/binding_tool.go:55`); the booker plugin has never declared it on its read tools.
 //
 // The pass criterion is not "that flag reads true", it is **that the method actually
-// works**: first assert QUERY goes through (that's the capability this flag unlocks),
+// works**: first assert QUERY goes through (that's the block this flag unlocks),
 // then assert QUERY is still rejected on write tools -- otherwise an implementation that
 // always returns `read_only:true` would also go green ([[assertion-that-cannot-fail]]).
 
@@ -42,7 +42,7 @@ test.describe.serial('F-B-13 · a safe read is declared as one, and QUERY works 
     });
     const token = await createAPIToken(seed.request, seed.csrf, 'api-key-query');
     const sid = await initMCP(seed.request, token);
-    await callTool(seed.request, token, sid, 'api.open', { capability_id: 'calendar.book' });
+    await callTool(seed.request, token, sid, 'api.open', { block_id: 'calendar.book' });
     const mint = await callTool<MintResp>(seed.request, token, sid, 'api_keys.create', {
       label: 'query-key', assumed_role_id: code.assumed_role_id,
     });

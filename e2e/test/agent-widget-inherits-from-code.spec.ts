@@ -2,7 +2,7 @@
 //
 // The owner ruling (embedded-agent-inherits-structurally): the agent a microsite drops in must
 // INHERIT everything the access code grants — corpus scope, persona, quota, dock buttons — with no
-// per-capability decision in the widget; a new capability inherits by structure, and a TEST (this
+// per-block decision in the widget; a new block inherits by structure, and a TEST (this
 // one) enforces it rather than the widget asserting it.
 //
 // Setup: a role with a corpus scope + a dock button + a persona mark; a code assuming it; a custom
@@ -41,7 +41,7 @@ const OWNER = {
 const CODE = 'AGENTW-1';
 const ROLE = 'agentw-role';
 const SLUG = 'agentw-page';
-const CAP_SUMMARIZE = 'summarize_conversation';
+const BLOCK_SUMMARIZE = 'summarize_conversation';
 const TRIGGER = 'Summarize our conversation so far';
 // A sentence that can ONLY come from the role persona (not the corpus, not any generic header) —
 // its appearance in an answer proves the code's persona reached the model through the adopted
@@ -102,7 +102,7 @@ async function initOwner(playwright: Playwright): Promise<void> {
   const role = await createRole(request, csrf, {
     name: ROLE, description: 'agent widget carrier', greeting: '', prompt_id: promptID,
     corpus_uris: ['wiki://**'],
-    dock_buttons: [{ capability_id: CAP_SUMMARIZE, trigger: TRIGGER }],
+    dock_buttons: [{ block_id: BLOCK_SUMMARIZE, trigger: TRIGGER }],
   });
   await createCode(request, csrf, { code: CODE, label: 'agentw', assumed_role_id: role.id });
   const token = await createAPIToken(request, csrf, 'agentw-seed');
@@ -159,7 +159,7 @@ test.describe('the embedded AgentWidget inherits the code (corpus + persona + do
       // 1. grant adopted → inline, not the handoff.
       await expect(w).toHaveAttribute('data-mode', 'inline');
       // 2. the code's dock button is inherited from the stored blob.
-      await expect(page.getByTestId(`agent-widget-dock-${CAP_SUMMARIZE}`))
+      await expect(page.getByTestId(`agent-widget-dock-${BLOCK_SUMMARIZE}`))
         .toBeVisible({ timeout: 10_000 });
 
       // 3. a turn runs through the ADOPTED session, and the answer carries the persona mark.
@@ -172,7 +172,7 @@ test.describe('the embedded AgentWidget inherits the code (corpus + persona + do
         .toContainText(PERSONA_MARK, { timeout: 30_000 });
 
       // 4. clicking the dock button sends its trigger as a visitor message.
-      await page.getByTestId(`agent-widget-dock-${CAP_SUMMARIZE}`).click();
+      await page.getByTestId(`agent-widget-dock-${BLOCK_SUMMARIZE}`).click();
       await expect(page.getByTestId('agent-widget-transcript'))
         .toContainText(TRIGGER, { timeout: 15_000 });
     });

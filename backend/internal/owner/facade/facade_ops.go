@@ -21,7 +21,7 @@ type (
 // Op groups (impl: ops).
 var (
 	AccessRequestOps = ops.AccessRequests
-	// HostOps —— exposed to sandboxed capabilities: reads owner's whitelisted fields.
+	// HostOps —— exposed to sandboxed blocks: reads owner's whitelisted fields.
 	HostOps = ops.HostOps
 	// FullNameOf —— the name persona's opening "who are you" line needs (UX-66).
 	FullNameOf    = ops.FullNameOf

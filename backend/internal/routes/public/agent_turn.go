@@ -1,5 +1,5 @@
 // agent_turn.go —— POST /api/v1/agent/turn. Handler: visitor auth → acquire concurrency slot
-// (agent_turn_queue.go) → decode → assemble capability bindings → inference.RunAgentTurn (SSE).
+// (agent_turn_queue.go) → decode → assemble block bindings → inference.RunAgentTurn (SSE).
 // Coexists with /llm/chat/stream until the SDK cutover (H.10).
 
 package public
@@ -12,9 +12,9 @@ import (
 
 	"github.com/cloudwego/eino/components/tool"
 
-	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	"github.com/atmaxmoj/standmeet/internal/conversation/inference"
+	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
 	stats "github.com/atmaxmoj/standmeet/internal/stats/facade"
 )
 
@@ -155,7 +155,7 @@ func buildAgentTurnLedger(h *Handlers, auth authedVisitor) inference.MarkWaypoin
 }
 
 // terminalToolHit —— the ledger's "terminal hit" signal: did this turn's successful tools
-// include one that ran a terminal capability. The capability is external (booking =
+// include one that ran a terminal block. The block is external (booking =
 // calendar_book); inference only reports the tool name, so this call is made here.
 func terminalToolHit(successfulTools []string) bool {
 	return slices.Contains(successfulTools, "calendar_book")
@@ -275,7 +275,7 @@ func usageBillable(h *Handlers, auth authedVisitor) bool {
 type visitorToolset struct {
 	Labels         map[string]string
 	ReturnDirectly map[string]bool
-	Bindings       []*capreg.Binding
+	Bindings       []*registry.Binding
 	Tools          []tool.BaseTool
 	// ClaimGates —— the "said it, must do it" conditions assembled for this turn, passed
 	// through as-is (F-A-37).
@@ -308,8 +308,8 @@ func pickAgentTurnBYOAICred(
 }
 
 // collectVisitorTools —— assembles every visitor binding for this session, flattened into
-// the eino tool set + a name → progress_label table (via capreg.FlattenBindings; flattening
-// lives in the capreg package so this handler stays under the routes-cyclo ≤ 3 budget).
+// the eino tool set + a name → progress_label table (via registry.FlattenBindings; flattening
+// lives in the registry package so this handler stays under the routes-cyclo ≤ 3 budget).
 // Returns visitorToolset to stay under revive's func-result max=2 limit; Bindings is only
 // for the handler's defer close, inference doesn't take it. convID threads through to
 // AssembleInput.ConversationID so downstream tools (calendar_book / persist) can find the
@@ -319,7 +319,7 @@ func collectVisitorTools(
 ) *visitorToolset {
 	in := assembleInputFromSession(auth.Data, convID)
 	bindings := h.Visitor.AgentSkills.AssembleVisitor(ctx, in)
-	fr := capreg.FlattenBindings(bindings)
+	fr := registry.FlattenBindings(bindings)
 	return &visitorToolset{
 		Bindings: bindings, Tools: fr.Tools,
 		Labels: fr.Labels, ReturnDirectly: fr.ReturnDirectly,
@@ -330,8 +330,8 @@ func collectVisitorTools(
 
 // turnClaimGates —— assembly-side declarations → this turn's required conditions. Both
 // sides are the same data, split across two boundaries: the assembly side states "what
-// this capability declares", the kernel only asks "does this turn satisfy it".
-func turnClaimGates(gates []capreg.ClaimGate) []inference.ClaimGate {
+// this block declares", the kernel only asks "does this turn satisfy it".
+func turnClaimGates(gates []registry.ClaimGate) []inference.ClaimGate {
 	out := make([]inference.ClaimGate, 0, len(gates))
 	for i := range gates {
 		out = append(out, inference.ClaimGate{

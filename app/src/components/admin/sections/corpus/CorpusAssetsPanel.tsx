@@ -4,7 +4,7 @@
 // This is the owner's only way to touch assets from the panel. Before this
 // existed, "every genre can carry assets" was done on the backend, rendered on
 // the visitor page, and green in e2e — while the owner had zero entry point in
-// the UI. A capability only an AI can invoke is, to whoever's on the panel,
+// the UI. A block only an AI can invoke is, to whoever's on the panel,
 // as good as nonexistent.
 //
 // Every row states **filename + real byte count**: after uploading, those are

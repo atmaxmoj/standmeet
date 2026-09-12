@@ -3,7 +3,7 @@
 // The beacon spec next door proves the endpoint accepts these names. That is a different claim
 // from "the product sends them", and for eleven of them it was true while nothing on any page
 // emitted a single one: the backend was instrumented and the browser was silent, which reads on
-// the panel exactly like "nobody clicked anything" ([[test-covers-capability-not-face]]).
+// the panel exactly like "nobody clicked anything" ([[test-covers-block-not-face]]).
 //
 // So nothing here posts a beacon. Every test drives the real reader in a browser, clicks the real
 // control, and then reads the row back through the admin API. A control that stops emitting —

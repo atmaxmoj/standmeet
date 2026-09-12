@@ -1,7 +1,7 @@
 // byoai.go — PUT /api/admin/byoai. The owner writes three fields at once: enabled /
 // providers / blurb.
 //
-// Capability comes from the outbound convergence point (shared plumbing in dispatch.go).
+// Ability comes from the outbound convergence point (shared plumbing in dispatch.go).
 // The response is the complete settings slice (ai + byoai), so the frontend can swap it
 // straight into the cache — before the migration this path's response **was missing
 // ai.endpoint and ai.model**, and one swap wiped those two fields blank; now both write
@@ -15,7 +15,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// BYOAIDeps — capability source for the admin BYOAI handlers.
+// BYOAIDeps — op source for the admin BYOAI handlers.
 type BYOAIDeps struct {
 	Face *dispatcher.Face
 }

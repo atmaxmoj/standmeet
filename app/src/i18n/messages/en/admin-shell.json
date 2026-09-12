@@ -63,47 +63,47 @@
     "withdraw": "withdraw",
     "logUpdate": "log update"
   },
-  "connectorAdd": {
-    "catalogCount": "add connector · {n} in catalog",
+  "supplierAdd": {
+    "catalogCount": "add supplier · {n} in catalog",
     "tagline": "Extend the corpus surface.",
     "close": "close ✕",
     "installed": "installed",
     "builtIn": "built-in"
   },
-  "connectorConfig": {
+  "supplierConfig": {
     "oauthHint": "opens provider OAuth in a new tab",
     "choose": "choose…",
     "backToCatalog": "← back to catalog",
     "connect": "connect →"
   },
-  "connectorCard": {
-    "credsStored": "Credentials are saved for this connector. They are never shown again — leave the fields blank to keep them, or type new ones to replace them.",
+  "supplierCard": {
+    "credsStored": "Credentials are saved for this supplier. They are never shown again — leave the fields blank to keep them, or type new ones to replace them.",
     "scopeShortfall": "Connected, but this grant can't do everything asked of it — actions needing {scopes} will not run. Tick it above and connect again."
   },
-  "connectorCred": {
+  "supplierCred": {
     "authentication": "authentication",
     "apiKeyHint": "Sent in the {where} as <code>{name}</code>.",
     "discoveryHint": "Discovery: <code>{url}</code>",
-    "needsDance": "This scheme needs an authorization step. Assemble the connector first — the Connect button lives on its card.",
+    "needsDance": "This scheme needs an authorization step. Assemble the supplier first — the Connect button lives on its card.",
     "scopes": "scopes"
   },
-  "protocolConnector": {
+  "protocolSupplier": {
     "testConnection": "Test connection →"
   },
   "specIngest": {
     "heading": "paste an OpenAPI spec",
-    "blurb": "Any OpenAPI 3.0 spec (JSON or YAML). We derive the credential form + category from it.",
+    "blurb": "Any OpenAPI 3.0 spec (JSON or YAML). We derive the credential form + seam from it.",
     "useThisSpec": "check this spec",
     "uploadSpec": "upload a file",
     "bindingLabel": "binding — optional",
-    "bindingHint": "JSONata (YAML) mapping this API's operations onto a category contract, so the agent can use it as a calendar, a mailer, and so on. Leave it empty to expose the raw operations instead.",
+    "bindingHint": "JSONata (YAML) mapping this API's operations onto a seam contract, so the agent can use it as a calendar, a mailer, and so on. Leave it empty to expose the raw operations instead.",
     "orFetchFromUrl": "…or fetch from a URL",
     "fetch": "fetch",
-    "candidate": "connector candidate",
+    "candidate": "supplier candidate",
     "baseUrlLabel": "base URL — only if the spec declares no servers",
-    "assemble": "assemble connector →",
+    "assemble": "assemble supplier →",
     "exposeLabel": "Let a visitor's AI call these operations directly. Every operation in the spec becomes a tool it can use, subject to per-code grants. Leave this off if you supplied a binding.",
-    "needsBindingOrExpose": "This would assemble a connector nothing can call. Supply a binding to fill a category, or tick the box above to open the operations to a visitor's AI."
+    "needsBindingOrExpose": "This would assemble a supplier nothing can call. Supply a binding to fill a seam, or tick the box above to open the operations to a visitor's AI."
   },
   "composer": {
     "save": "save",
@@ -257,7 +257,7 @@
     "recoveryDetailReady": "not yet set",
     "recoveryDetailNeedsMail": "needs verified email",
     "recoveryNoteReady": "Generates a recovery phrase and emails it to you. Single use — it is consumed when you sign in with it.",
-    "recoveryNoteNeedsMail": "Verify email (SMTP) under Connectors first — the recovery phrase is sent to you by email."
+    "recoveryNoteNeedsMail": "Verify email (SMTP) under Suppliers first — the recovery phrase is sent to you by email."
   },
   "monitor": {
     "collection": "traffic collection",

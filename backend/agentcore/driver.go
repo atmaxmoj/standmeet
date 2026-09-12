@@ -19,7 +19,7 @@ import "context"
 
 // Driver —— the environment a visitor-agent launch runs against. Methods are the
 // external effects + data that vary by environment (persona/corpus, skill execution,
-// owner-registered ext-mcp, LLM cred). The bridge wires each onto the real capability
+// owner-registered ext-mcp, LLM cred). The bridge wires each onto the real block
 // assembly; the agent never sees who's behind it (P.12 entry-point-agnostic).
 type Driver interface {
 	// Persona —— the owner voice (RoleBody → composed prompt) + curated corpus the

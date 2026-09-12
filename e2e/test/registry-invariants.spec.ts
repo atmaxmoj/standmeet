@@ -1,5 +1,5 @@
 // registry-invariants.spec.ts -- Phase B cross-cutting invariants. As each subsequent
-// B-N adds a capability, this checks along the way: every ID is unique, the shape
+// B-N adds a block, this checks along the way: every ID is unique, the shape
 // contract is self-consistent (visitor_only <-> never appears in owner MCP; owner_only
 // <-> never appears in a visitor session), and repeated introspection within the same
 // session gives an identical system_prompt_hash (guards against system-prompt jitter).
@@ -27,15 +27,15 @@ const OWNER = {
 const CODE = 'INV-001';
 
 interface Cap { id: string; shape: 'visitor_only' | 'owner_only' | 'both' }
-interface RegistryListResp { capabilities: Cap[] }
+interface RegistryListResp { blocks: Cap[] }
 interface VisitorCap { id: string; enabled: boolean }
-interface VisitorCapabilitiesResp {
-  capabilities: VisitorCap[];
+interface VisitorBlocksResp {
+  blocks: VisitorCap[];
   tool_specs: Array<{ name: string }>;
   system_prompt_hash: string;
 }
 
-test.describe('Phase B capability registry invariants', () => {
+test.describe('Phase B block registry invariants', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();
@@ -58,23 +58,23 @@ test.describe('Phase B capability registry invariants', () => {
   test('every registered ID is unique', async ({ playwright }) => {
     const request = await playwright.request.newContext();
     const body = await fetchRegistryList(request);
-    const ids = body.capabilities.map((c) => c.id);
+    const ids = body.blocks.map((c) => c.id);
     const set = new Set(ids);
     expect(set.size).toBe(ids.length);
     await request.dispose();
   });
 
-  test('visitor-only capability never appears as owner MCP tool', async ({ playwright }) => {
+  test('visitor-only block never appears as owner MCP tool', async ({ playwright }) => {
     const request = await playwright.request.newContext();
     const reg = await fetchRegistryList(request);
-    const visitorOnly = reg.capabilities.filter((c) => c.shape === 'visitor_only').map((c) => c.id);
+    const visitorOnly = reg.blocks.filter((c) => c.shape === 'visitor_only').map((c) => c.id);
     // owner-side MCP tool list (read via internal endpoint is acceptable; during B-1 the
     // registry list itself is the declared source of truth -- the shape field must map
     // 1:1 to what the owner MCP server actually exposes). This reuses the
     // owner_only/both subset within registry-list to cross-check in reverse: no
     // visitor_only ID may appear in the owner_only|both set.
     const ownerExposed = new Set(
-      reg.capabilities
+      reg.blocks
         .filter((c) => c.shape === 'owner_only' || c.shape === 'both')
         .map((c) => c.id),
     );
@@ -82,11 +82,11 @@ test.describe('Phase B capability registry invariants', () => {
     await request.dispose();
   });
 
-  test('owner-only capability never appears in a visitor session', async ({ playwright }) => {
+  test('owner-only block never appears in a visitor session', async ({ playwright }) => {
     const request = await playwright.request.newContext();
     const reg = await fetchRegistryList(request);
     const ownerOnly = new Set(
-      reg.capabilities.filter((c) => c.shape === 'owner_only').map((c) => c.id),
+      reg.blocks.filter((c) => c.shape === 'owner_only').map((c) => c.id),
     );
     if (ownerOnly.size === 0) {
       // May be empty during Phase B-1 -- this spec's value still lies in establishing the
@@ -96,8 +96,8 @@ test.describe('Phase B capability registry invariants', () => {
     const sess = await issueSession(request, {
       handle: OWNER.handle, code: CODE, visitor_name: 'Inv',
     });
-    const body = await fetchVisitorCapabilities(request, sess.session_token);
-    for (const c of body.capabilities) expect(ownerOnly.has(c.id)).toBe(false);
+    const body = await fetchVisitorBlocks(request, sess.session_token);
+    for (const c of body.blocks) expect(ownerOnly.has(c.id)).toBe(false);
     for (const t of body.tool_specs) expect(ownerOnly.has(t.name)).toBe(false);
     await request.dispose();
   });
@@ -107,9 +107,9 @@ test.describe('Phase B capability registry invariants', () => {
     const sess = await issueSession(request, {
       handle: OWNER.handle, code: CODE, visitor_name: 'Inv',
     });
-    const a = await fetchVisitorCapabilities(request, sess.session_token);
-    const b = await fetchVisitorCapabilities(request, sess.session_token);
-    const c = await fetchVisitorCapabilities(request, sess.session_token);
+    const a = await fetchVisitorBlocks(request, sess.session_token);
+    const b = await fetchVisitorBlocks(request, sess.session_token);
+    const c = await fetchVisitorBlocks(request, sess.session_token);
     expect(b.system_prompt_hash).toBe(a.system_prompt_hash);
     expect(c.system_prompt_hash).toBe(a.system_prompt_hash);
     // tool_specs order is stable too
@@ -126,15 +126,15 @@ async function fetchRegistryList(request: APIRequestContext): Promise<RegistryLi
   return await res.json() as RegistryListResp;
 }
 
-async function fetchVisitorCapabilities(
+async function fetchVisitorBlocks(
   request: APIRequestContext, sessionToken: string,
-): Promise<VisitorCapabilitiesResp> {
+): Promise<VisitorBlocksResp> {
   const res = await request.get(
     `${BACKEND}/internal/diag/session`,
     { headers: { 'X-Session-Token': sessionToken } },
   );
   if (res.status() !== 200) {
-    throw new Error(`visitor-capabilities: ${res.status()} ${await res.text()}`);
+    throw new Error(`visitor-blocks: ${res.status()} ${await res.text()}`);
   }
-  return await res.json() as VisitorCapabilitiesResp;
+  return await res.json() as VisitorBlocksResp;
 }

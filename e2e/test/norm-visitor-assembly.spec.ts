@@ -1,13 +1,13 @@
-// norm-visitor-assembly.spec.ts —— the visitor-side golden snapshot of capability normalization.
+// norm-visitor-assembly.spec.ts —— the visitor-side golden snapshot of block normalization.
 //
-// registry-snapshot locks "which capabilities are registered"; this one locks "the tool set
+// registry-snapshot locks "which blocks are registered"; this one locks "the tool set
 // assembled for a visitor session" — what the visitor actually sees. Normalization externalizes the
-// loading mechanism of those 6 inward capabilities into an MCP server (plane (b) of the platform
+// loading mechanism of those 6 inward blocks into an MCP server (plane (b) of the platform
 // architecture), and the assembly result must not be affected — the tool_specs assembled from the
 // same role must be word-for-word identical.
 //
 // Use a corpus-only role (no skill / no calendar / no echoer) → the assembly result is
-// deterministic and does not depend on external connectors, which makes it a stable golden.
+// deterministic and does not depend on external suppliers, which makes it a stable golden.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -39,7 +39,7 @@ const CODE = 'NORM-ASM-1';
 //                                    the three of them — the whole point of a golden is to force this
 //                                    update out into the open: **adding a line here = admitting the
 //                                    visitor was given one more tool**.
-//   ask_visitor / summarize_conversation —— no authorization gate, base capabilities exposed in all modes
+//   ask_visitor / summarize_conversation —— no authorization gate, base blocks exposed in all modes
 const CORPUS_RETRIEVAL_TOOLS: readonly string[] = [
   'corpus_search', 'corpus_read', 'corpus_list', 'corpus_links',
   'corpus_map', 'corpus_resolve', 'corpus_peek', 'corpus_grep',
@@ -49,7 +49,7 @@ const BASELINE_TOOLS: readonly string[] = ['ask_visitor', 'summarize_conversatio
 const GOLDEN_CORPUS_TOOLS: readonly string[] = [...CORPUS_RETRIEVAL_TOOLS, ...BASELINE_TOOLS];
 
 // skill-granted role (the fixture also carries corpus by default) → locks skill.runner assembly
-// (skill_use / skill_run_script appear) + corpus + base capabilities.
+// (skill_use / skill_run_script appear) + corpus + base blocks.
 const GOLDEN_SKILL_TOOLS: readonly string[] = [
   ...CORPUS_RETRIEVAL_TOOLS,
   'skill_use', 'skill_run_script',

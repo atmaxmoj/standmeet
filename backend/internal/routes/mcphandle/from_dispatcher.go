@@ -20,8 +20,8 @@ import (
 	mcpgo "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 
-	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
+	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
@@ -34,8 +34,8 @@ func MCPFace() fp.Facade {
 
 // registerDispatcherOps —— mounts every operation in the convergence point
 // as an MCP tool. owner_id resolution / panic recover / result translation
-// reuse wrapCapabilityHandler, going through the same wrapping as tools
-// coming from capreg.
+// reuse wrapBlockHandler, going through the same wrapping as tools
+// coming from registry.
 //
 // Ops are fetched via Face.Ops(): **all are taken at once, and taking them
 // registers them as projected in the same step**. So this face can neither
@@ -46,19 +46,19 @@ func registerDispatcherOps(srv *server.MCPServer, d *dispatcher.Dispatcher, log 
 	ops := d.Attach(MCPFace()).Ops()
 	for i := range ops {
 		tool := mcpgo.NewToolWithRawSchema(ops[i].ID, ops[i].Description, ops[i].InputSchema)
-		srv.AddTool(tool, wrapCapabilityHandler(mcpHandlerFor(ops[i].Invoke), ops[i].ID, log))
+		srv.AddTool(tool, wrapBlockHandler(mcpHandlerFor(ops[i].Invoke), ops[i].ID, log))
 	}
 }
 
 // mcpHandlerFor —— converts the protocol-agnostic Invoke into MCP's handler
 // shape. error → an isError result; a success payload passes through as-is
 // (the convergence point's output is already JSON).
-func mcpHandlerFor(invoke dispatcher.Invoke) capreg.MCPHandler {
-	return func(ctx context.Context, ownerID string, raw json.RawMessage) capreg.MCPResult {
+func mcpHandlerFor(invoke dispatcher.Invoke) registry.MCPHandler {
+	return func(ctx context.Context, ownerID string, raw json.RawMessage) registry.MCPResult {
 		out, err := invoke(ctx, ownerID, raw)
 		if err != nil {
-			return capreg.MCPError(err.Error())
+			return registry.MCPError(err.Error())
 		}
-		return capreg.MCPSuccess(string(out))
+		return registry.MCPSuccess(string(out))
 	}
 }

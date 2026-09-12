@@ -95,7 +95,7 @@ test.describe('visitor chat answer 真路径 ChatMarkdown 渲染', () => {
       await expect(answer).toBeVisible({ timeout: 20_000 });
 
       // Each markdown feature renders correctly. The mock provider echoes the full
-      // [system:...] system prompt (capability fragments) before the reply, and that
+      // [system:...] system prompt (block fragments) before the reply, and that
       // also contains <strong>/<em>/<code> nodes once rendered as markdown; the
       // assertions use hasText to exact-match tokens this spec itself planted (bold /
       // italic / "inline code").

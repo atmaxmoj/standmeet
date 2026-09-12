@@ -5,7 +5,7 @@
 // criterion is "the agent on the page is this code's agent", so this page must
 // really take the SDK's path (`useChatSession` → take over an issued session →
 // `/api/v1/agent/turn`). A page that just prints one line makes every assertion
-// green while proving nothing ([[test-covers-capability-not-face]]).
+// green while proving nothing ([[test-covers-block-not-face]]).
 //
 // Every assertable point on the page carries data-sm: the assertion is about what
 // the page produces, not what it looks like.

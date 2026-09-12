@@ -11,7 +11,7 @@
 // The root of this duplication was a mechanism gap: the sandbox used to have no
 // way to get at its own records' ids (the reach-back fixed vocabulary only had
 // insert/query/count/delete), so "cancel by id" had to be written on the host
-// side. Now that capstore.query_records / delete_by_id have been added, this can
+// side. Now that blockstore.query_records / delete_by_id have been added, this can
 // use booker's own deleteBooking.
 
 package main
@@ -70,7 +70,7 @@ func findOwnedBooking(ownerID, bookingID string) (string, *bookingDoc, error) {
 	if merr != nil {
 		return "", nil, fmt.Errorf("bookings filter: %w", merr)
 	}
-	recs, err := gwCapstoreQueryRecords(bookingsColl, filter)
+	recs, err := gwBlockstoreQueryRecords(bookingsColl, filter)
 	if err != nil {
 		return "", nil, err
 	}
@@ -100,10 +100,10 @@ func deleteBookingByRecord(ownerID, recordID string, b *bookingDoc) error {
 	if merr != nil {
 		return fmt.Errorf("delete request: %w", merr)
 	}
-	if _, err := gwConnectorInvoke(ownerID, "calendar", "delete_event", delReq); err != nil {
+	if _, err := gwSupplierInvoke(ownerID, "calendar", "delete_event", delReq); err != nil {
 		return err
 	}
-	if _, err := gwCapstoreDeleteByID(bookingsColl, recordID); err != nil {
+	if _, err := gwBlockstoreDeleteByID(bookingsColl, recordID); err != nil {
 		return err
 	}
 	return nil

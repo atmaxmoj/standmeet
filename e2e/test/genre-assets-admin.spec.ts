@@ -102,7 +102,7 @@ test.describe('owner 在面板上挂文件', () => {
   // attachment, but the request's kind is empty, and the backend replies
   // *"content-type application/pdf is not accepted for image"*. The owner can
   // never attach a PDF from the panel — and the attachment category exists
-  // for exactly this ([[test-covers-capability-not-face]]: the MCP path
+  // for exactly this ([[test-covers-block-not-face]]: the MCP path
   // passes kind correctly, so everything there is green).
   test('选 attachment 类别 → PDF 挂得上（那个下拉框不是装饰）', async ({ adminPage: page }) => {
     await gotoAdminSection(page, 'wiki');

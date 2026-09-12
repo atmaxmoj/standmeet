@@ -6,7 +6,7 @@
 // department / url / created_at (ISO) / description (HTML) / location.location_str.
 // This is the real jobs endpoint (the v1 widget endpoint only returns account
 // metadata) — it needs the owner's API token to authenticate, following the
-// connector framework's usual authed-source pattern (the token lives in the
+// supplier framework's usual authed-source pattern (the token lives in the
 // per-source config and never leaves the owner's hands).
 
 package fetch

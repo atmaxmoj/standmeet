@@ -5,13 +5,13 @@
 //
 // **The first admin route wired from the outbound convergence point.** The route shape,
 // method, path, parameter placement are all still hand-written as before — what REST
-// looks like is this facade's own decision. What changes is where the capability comes
+// looks like is this facade's own decision. What changes is where the ability comes
 // from: the handler no longer holds security's repository, it takes an Op from the
 // dispatcher's admin Face instead (shared plumbing in dispatch.go). As a result:
 //
 //   - business logic and validation exist in one copy (at the convergence point); MCP's
 //     facade gets the same Op, so there's no separate copy on each side;
-//   - "which capability does this route serve" is a fact recorded by the convergence
+//   - "which op does this route serve" is a fact recorded by the convergence
 //     point (taking it registers it), so parity is answered by structure, no more
 //     hand-written cross-reference table to reconcile after the fact.
 
@@ -23,7 +23,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// IPBansAdminDeps — capability source for admin ip-bans: the outbound convergence
+// IPBansAdminDeps — op source for admin ip-bans: the outbound convergence
 // point's admin Face. No longer a repository: this facade shouldn't reach the domain
 // directly.
 type IPBansAdminDeps struct {

@@ -1,5 +1,5 @@
-// security-spec-dos.spec.ts — pentest. Connector spec ingestion
-// (POST /connectors/validate-spec) parses arbitrary OpenAPI text pasted by the
+// security-spec-dos.spec.ts — pentest. Supplier spec ingestion
+// (POST /suppliers/validate-spec) parses arbitrary OpenAPI text pasted by the
 // owner. A malicious spec must not be able to bring down parsing: an oversize body
 // (>4MiB) gets cut off by a LimitReader, deep nesting doesn't overflow the stack,
 // a YAML alias bomb (billion-laughs) doesn't expand exponentially and OOM. Contract:
@@ -28,7 +28,7 @@ const BILLION_LAUGHS = [
 const DEEP_NEST = '{"openapi":"3.0.0","x":' + '['.repeat(100000) + ']'.repeat(100000) + '}';
 const OVERSIZE = '{"openapi":"3.0.0","pad":"' + 'A'.repeat(5 << 20) + '"}'; // >4 MiB body cap
 
-test.describe('pentest · connector spec-ingest DoS resistance', () => {
+test.describe('pentest · supplier spec-ingest DoS resistance', () => {
   let seed: BaseSeed;
   test.beforeAll(async ({ playwright }) => { seed = await seedOwnerLoggedIn(playwright); });
   test.afterAll(async () => { await teardownSeed(seed); });
@@ -46,7 +46,7 @@ test.describe('pentest · connector spec-ingest DoS resistance', () => {
       // the UI-write rule is disabled here.
       /* eslint-disable no-restricted-syntax */
       // eslint-disable-next-line e2e-local/no-direct-mutating-api -- attacker/DoS probe: hits the raw API from the attacker's perspective; the test asserts THIS call is bounded (no 5xx, never ok:true)
-      const res = await seed.request.post(`${BACKEND}/api/admin/connectors/validate-spec`, {
+      const res = await seed.request.post(`${BACKEND}/api/admin/suppliers/validate-spec`, {
         headers: { 'X-Csrftoken': seed.csrf },
         data: { spec, url: '' },
         timeout: 15_000,

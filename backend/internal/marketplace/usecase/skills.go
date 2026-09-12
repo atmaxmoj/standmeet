@@ -75,7 +75,7 @@ type UpdateSkillReq struct {
 // UpdateSkill —— edit one of the owner's own skills: its body, and **which tools it can
 // call**.
 //
-// The latter is the only place the owner can grant a connector operation: the session's
+// The latter is the only place the owner can grant a supplier operation: the session's
 // tool gate checks "does the allowed_tools of the skills attached to this role contain
 // `op_<id>`", and the role itself carries no tool list of its own. This path used to be
 // reachable only through marketplace import and owner-MCP — the GUI had no entry point at

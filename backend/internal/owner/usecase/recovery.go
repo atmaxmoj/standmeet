@@ -2,7 +2,7 @@
 //
 // GenerateRecovery (authed): generates a high-entropy phrase -> stores only the hash
 // (bcrypt, reusing the password hasher) -> the plaintext is sent **only** to the
-// owner's email (through the owner's own mail connector; SMTP credentials never leave
+// owner's email (through the owner's own mail supplier; SMTP credentials never leave
 // the vault).
 // Recover (public): when locked out, {email, phrase} is checked against the hash; on a
 // match -> invalidate (single use) -> issue an owner session. The public endpoint's

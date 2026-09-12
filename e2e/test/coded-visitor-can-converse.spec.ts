@@ -1,5 +1,5 @@
 // coded-visitor-can-converse.spec.ts —— a recruiter who opens the product's own link (?code=<valid>)
-// must be able to actually START A CONVERSATION. This is the positive capability the coded landing
+// must be able to actually START A CONVERSATION. This is the positive block the coded landing
 // exists for — not "the name picker appears" (too shallow — coded-link-opens-chat stops there and
 // stayed green while the landing rendered a "page under construction" background), and not "the
 // under-construction text is absent" (asserting a negative). The owner's rule: assert you can begin

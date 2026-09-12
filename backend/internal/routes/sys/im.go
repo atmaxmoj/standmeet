@@ -3,17 +3,17 @@
 //
 // **Why this exists**: im-bridge is a deployed Telegram bot that polls this endpoint for a
 // token (im-bridge/src/config.ts), waiting until the owner has configured one. Before this,
-// the endpoint didn't exist and there was no telegram connector, so the bridge waited
+// the endpoint didn't exist and there was no telegram supplier, so the bridge waited
 // forever and the owner had no way to see or set up their bot. Now the owner connects a
-// "Telegram" connector under /admin/connectors (the token lands encrypted in
-// owner_connectors), and this route reads it back for the bridge.
+// "Telegram" supplier under /admin/suppliers (the token lands encrypted in
+// block_connections), and this route reads it back for the bridge.
 //
 // No auth: it lives behind the trusted-internal boundary (Caddy blocks /internal from the
 // public internet), the same lane as /internal/builds/*.
 //
 // The token is read through a **function** the composition root supplies, not by reaching
-// into the connector package here — the route layer stays off the connector implementation
-// (go-arch-lint: sysroutes may not depend on connector). cmd/server owns that read.
+// into the supplier package here — the route layer stays off the supplier implementation
+// (go-arch-lint: sysroutes may not depend on it). cmd/server owns that read.
 
 package sys
 

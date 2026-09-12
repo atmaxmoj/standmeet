@@ -1,0 +1,4 @@
+backend/cmd/server/blockwire/supplier_register.go	smtp
+backend/cmd/server/blockwire/supplier_register.go	telegram
+backend/internal/infra/credform/credform.go	smtp
+backend/internal/infra/credform/credform.go	telegram

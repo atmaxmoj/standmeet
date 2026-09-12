@@ -32,10 +32,10 @@ type SearchClient interface {
 // SearchDeps —— bundle for the marketplace search REST route.
 type SearchDeps struct {
 	Client SearchClient
-	// Connectors —— port: answers "which connectors is this card still missing". nil =
+	// Seams —— port: answers "which seams is this card still missing". nil =
 	// this instance can't answer, so every result's Needs stays nil (unknown), not an
 	// empty list (nothing missing).
-	Connectors ConnectorNeeds
+	Seams SeamNeeds
 }
 
 // SearchParams —— search query + source + page window.
@@ -56,7 +56,7 @@ func SearchMarketplace(
 	ctx context.Context, deps SearchDeps, p SearchParams,
 ) []entity.MarketSkill {
 	page := pageSlice(deps.Client.Search(ctx, p.Query, p.Source), p.Limit, p.Offset)
-	fillNeeds(ctx, deps.Connectors, p.OwnerID, page)
+	fillNeeds(ctx, deps.Seams, p.OwnerID, page)
 	return page
 }
 
@@ -79,10 +79,10 @@ func pageSlice(items []entity.MarketSkill, limit, offset int) []entity.MarketSki
 type InstallSkillDeps struct {
 	Marketplace SearchClient
 	Skills      *repo.SkillRepo
-	// Connectors —— the port the search half needs (see ConnectorNeeds). nil = this
-	// instance can't answer "which connectors is this card still missing", so it says
+	// Seams —— the port the search half needs (see SeamNeeds). nil = this
+	// instance can't answer "which seams is this card still missing", so it says
 	// nothing.
-	Connectors ConnectorNeeds
+	Seams SeamNeeds
 }
 
 // InstallSkillInput —— what the admin install endpoint passes through.

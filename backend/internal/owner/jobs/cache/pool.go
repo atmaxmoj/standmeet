@@ -17,23 +17,31 @@ package cache
 import (
 	"cmp"
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
+	"strconv"
+	"strings"
 	"time"
 
+	"github.com/atmaxmoj/standmeet/internal/infra/snowflake"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmodel"
 	"github.com/redis/go-redis/v9"
 )
 
 const (
-	defaultTTL   = 24 * time.Hour
-	cacheIDBytes = 12 // base64url → ~16 chars, enough to avoid collisions
-	keyPrefix    = "job:"
-	scanCount    = 100 // SCAN COUNT hint; the pool is small, one or two rounds is enough
+	defaultTTL = 24 * time.Hour
+	// cacheIDWidth — every cache id is padded to this many base-36 digits, because ids of
+	// different lengths do not sort as numbers ("9" > "10" as strings). 13 holds any int64.
+	cacheIDWidth = 13
+	// cacheIDRadix — base 36's digits are 0-9a-z, which is also their byte order, so a
+	// fixed-width base-36 number sorts the same as a string and as a number.
+	cacheIDRadix = 36
+	// poolNodeID — this instance's snowflake node. One instance, one node.
+	poolNodeID = 0
+	keyPrefix  = "job:"
+	scanCount  = 100 // SCAN COUNT hint; the pool is small, one or two rounds is enough
 )
 
 // ErrCacheMiss —— the key isn't in Redis (expired / never existed / discarded).
@@ -43,6 +51,9 @@ var ErrCacheMiss = jobsmodel.ErrJobCacheMiss
 // Pool —— a Redis-backed 1d TTL job pool.
 type Pool struct {
 	rdb *redis.Client
+	// ids — the pool's own id source. Time-ordered, so the id of an entry says when it
+	// went in; see newCacheID for why the pool has to be able to answer that.
+	ids *snowflake.Node
 	ttl time.Duration
 }
 
@@ -51,7 +62,14 @@ func New(rdb *redis.Client, ttl time.Duration) *Pool {
 	if ttl <= 0 {
 		ttl = defaultTTL
 	}
-	return &Pool{rdb: rdb, ttl: ttl}
+	// Node 0: one instance is one node, and the snowflake package's own doc says multi-node
+	// is a future shape. The only error is an out-of-range node id, so a literal 0 failing
+	// means that package changed under this one — a broken build, not a runtime condition.
+	node, err := snowflake.New(poolNodeID)
+	if err != nil {
+		panic("jobs cache: snowflake node " + strconv.Itoa(poolNodeID) + ": " + err.Error())
+	}
+	return &Pool{rdb: rdb, ids: node, ttl: ttl}
 }
 
 // Put —— bulk-inserts a batch of FetchedJob pulled by a fetcher. Each entry
@@ -62,16 +80,13 @@ func (p *Pool) Put(
 ) ([]jobsmodel.FetchedJob, error) {
 	out := make([]jobsmodel.FetchedJob, 0, len(jobs))
 	for i := range jobs {
-		id, err := newCacheID()
-		if err != nil {
-			return nil, fmt.Errorf("gen cache id: %w", err)
-		}
-		jobs[i].CacheID = id
+		jobs[i].CacheID = p.newCacheID()
 		payload, merr := json.Marshal(jobs[i])
 		if merr != nil {
 			return nil, fmt.Errorf("marshal job: %w", merr)
 		}
-		if serr := p.rdb.Set(ctx, key(ownerID, id), payload, p.ttl).Err(); serr != nil {
+		k := key(ownerID, jobs[i].CacheID)
+		if serr := p.rdb.Set(ctx, k, payload, p.ttl).Err(); serr != nil {
 			return nil, fmt.Errorf("redis set job: %w", serr)
 		}
 		out = append(out, jobs[i])
@@ -124,10 +139,14 @@ type PooledJob struct {
 // ListWindow —— every job in the pool whose **enqueue time falls within
 // since**, newest first. since<=0 → the whole live pool.
 //
-// Enqueue time isn't stored separately: the key's remaining TTL already
-// is it (TTL is fixed, doesn't slide), so age = p.ttl - remaining. Storing
-// a second field would create a second source, and the two would eventually
-// disagree.
+// Enqueue AGE isn't stored separately: the key's remaining TTL already is it
+// (TTL is fixed, doesn't slide), so age = p.ttl - remaining. Storing a second
+// field would create a second source, and the two would eventually disagree.
+//
+// Enqueue ORDER is a different fact, and TTL cannot carry it: remaining TTL is
+// reported per second, so a whole fetch's worth of entries is one tie. The id
+// carries the order instead — one field, minted by the one writer, and the
+// order is read back off the thing itself rather than kept beside it.
 func (p *Pool) ListWindow(
 	ctx context.Context, ownerID string, since time.Duration,
 ) ([]PooledJob, error) {
@@ -143,10 +162,13 @@ func (p *Pool) ListWindow(
 		return nil, err
 	}
 	out := p.withinWindow(rows, since)
-	// Larger remaining TTL = enqueued more recently. SCAN order carries no
-	// meaning, but "newest first" does.
+	// Newest first, by the id — which is time-ordered and fixed-width, so this is a TOTAL
+	// order over the pool. It used to sort on remaining TTL, and every entry from one fetch
+	// has the same TTL to the second: the comparison was all ties, and a stable sort leaves
+	// ties in SCAN order. So the same pool came back in a different order on each read, and
+	// the two surfaces that dedup it disagreed about which duplicate survived.
 	slices.SortStableFunc(out, func(a, b PooledJob) int {
-		return cmp.Compare(b.TTLRemaining, a.TTLRemaining)
+		return cmp.Compare(b.Job.CacheID, a.Job.CacheID)
 	})
 	return out, nil
 }
@@ -299,10 +321,26 @@ func key(ownerID, cacheID string) string {
 	return keyPrefix + ownerID + ":" + cacheID
 }
 
-func newCacheID() (string, error) {
-	b := make([]byte, cacheIDBytes)
-	if _, err := rand.Read(b); err != nil {
-		return "", fmt.Errorf("rand read: %w", err)
+// newCacheID —— a time-ordered id, zero-padded so that **sorting the ids as strings is
+// sorting them by when they entered the pool**.
+//
+// It used to be 12 random bytes, and the pool had no record of its own insertion order at
+// all. ListWindow sorted by remaining TTL, which is fixed at 24h and reported per second,
+// so every entry written by one fetch tied — and a stable sort leaves ties in Redis SCAN
+// order, which the code's own comment calls meaningless. Two reads of one pool therefore
+// ordered the same duplicates differently, and cross-source dedup keeps whichever it sees
+// first: /admin/listings surfaced the JBA copy of a posting while the MCP receipt for the
+// same pool surfaced the Greenhouse copy. Two boards, one pool, and no way to say which
+// was wrong.
+//
+// Order is a fact about the write, so it is carried by what the write already produces.
+// Base 36's digits are 0-9a-z, which is also their byte order, so a fixed-width base-36
+// snowflake sorts lexically exactly as it sorts numerically — no decoder, no second field
+// beside the entry, nothing that can drift out of step with it.
+func (p *Pool) newCacheID() string {
+	s := strconv.FormatInt(p.ids.Next(), cacheIDRadix)
+	if n := cacheIDWidth - len(s); n > 0 {
+		s = strings.Repeat("0", n) + s
 	}
-	return base64.RawURLEncoding.EncodeToString(b), nil
+	return s
 }

@@ -329,15 +329,15 @@ skill 不是个跑着的 server，是 owner **author / 从 marketplace 装**的*
 
 外置 = 换承载方式，**功能一个都不能丢**。下面是测试锁死的下限，externalize 后必须逐条仍然成立（括号是锁它的 spec）。**关键：这些 gating/state 大多是 StandMeet 特有、标准 MCP/Skill 本身没有的 → 留在 core 当「插件宿主」职责，插件只提供 tools/instructions，core 把这套框架套在插件产出的 tool 上。**
 
-**retrieval → MCP server**：3 tool（corpus_search/read/list）；ACL gated on role.corpus_uris；空 corpus → `enabled=false` 但**仍可见**（降级提示，不是消失）；贡献 system-prompt fragment + 进 part_ids + 影响 hash。（`retrieval-capability-state` / `session-capability-bundle`）
+**retrieval → MCP server**：3 tool（corpus_search/read/list）；ACL gated on role.corpus_uris；空 corpus → `enabled=false` 但**仍可见**（降级提示，不是消失）；贡献 system-prompt fragment + 进 part_ids + 影响 hash。（`retrieval-block-state` / `session-block-bundle`）
 
 **booking → MCP server**：2 tool（calendar_book + calendar_list_slots 只读不走 quota）；完整 gating 链 —— mode=code only（public/byoai 永不见，`chat-book-public/byoai-denied`）、role ACL（`chat-book-skill-not-granted`）、**connector 依赖**（GCal 未连/OAuth 未完 → 隐藏，`chat-book-not-connected`）、**quota**（max_bookings 耗尽 → tool 消失非报错 + quota_remaining + 跨 tool 实时重算，`chat-book-quota-exhausted` / `tool-endpoint-state-cascade`）、booking 政策（conflict/busy/leadtime/weekend/hours 四个 `chat-book-conflict-policy-*`）、token 刷新（`chat-book-token-refresh`）、约成通知 owner（`booking-owner-notify`）、session email 默认（`chat-book-session-email-default`）、schema 拒半 args（`chat-book-schema-rejects-partial`）、访客取消自己的约（`visitor-cancel-booking` / `tool-calendar-cancel-booking`）。
 
 **email（确认信）→ 确定性 flow（非 AI tool）**：**SMTP connector 依赖**（没连 → 卡片不渲 email 区，`booking-confirmation-email` no-connector）；HTML + schema.org EventReservation；收件人硬控（引用 session email / 透传 / 校验非法 422 / skip）。
 
-**skill → Agent Skill**：owner 脚本 + allowed_tools；ACL（role 授权）；`skill.runner` enabled 当 role 含 skill；tool_specs 含 tool_<skill>_*；沙箱执行。（`tool-endpoint-skill` / `b3-bundle-capabilities`）
+**skill → Agent Skill**：owner 脚本 + allowed_tools；ACL（role 授权）；`skill.runner` enabled 当 role 含 skill；tool_specs 含 tool_<skill>_*；沙箱执行。（`tool-endpoint-skill` / `b3-bundle-blocks`）
 
-**ext-mcp → MCP server（owner 运行时来源，已标准）**：dial→list→`ext_<server>_<tool>`；ACL via role.mcp_server_ids；不可达 → 静默隐藏（ErrHidden）；**Close hook 释放 session**（dial/close 计数对账）；加密 auth header。（`tool-endpoint-ext-mcp` / `external-mcp-tools` / `b3-bundle-capabilities`）
+**ext-mcp → MCP server（owner 运行时来源，已标准）**：dial→list→`ext_<server>_<tool>`；ACL via role.mcp_server_ids；不可达 → 静默隐藏（ErrHidden）；**Close hook 释放 session**（dial/close 计数对账）；加密 auth header。（`tool-endpoint-ext-mcp` / `external-mcp-tools` / `b3-bundle-blocks`）
 
 **job-loop → MCP server（owner-only）**：register_source / fetch_new / resume.draft / applications.commit + 自动 issue AccessCode。（`integration-job-loop`）
 

@@ -11,11 +11,11 @@
 // facade now tell two different stories — and outsiders can only see the
 // facade's version.
 //
-// # 2. The dispatcher aggregates; it is not home to any capability
+// # 2. The dispatcher aggregates; it is not home to any block
 // (internal/routes/dispatcher)
 //
 // The dispatcher should hold exactly: mechanism (registration, decorators,
-// Face, Conform, error categories) plus a list of imports. A capability's
+// Face, Conform, error categories) plus a list of imports. A block s
 // declaration and its input/output payload shape belong to the **domain**.
 //
 // The criterion is two precise signals, not a vague "feels too long":
@@ -203,7 +203,7 @@ func nonAliasTypes(path string, decl ast.Decl) []violation {
 // allowedDispatcherImports —— the dispatcher recognizes only two kinds of
 // things from this repo: a domain's front door, and neutral vocabulary.
 //
-// If it imports any other internal package, that means a capability's
+// If it imports any other internal package, that means a block s
 // implementation is leaking into the dispatcher — the dispatcher's job is
 // **to gather each domain's facade and re-export it**, not to know how to
 // do anything on its own.

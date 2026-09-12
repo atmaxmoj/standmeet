@@ -9,7 +9,7 @@
 
 export type AdminSlug =
   | 'raw' | 'wiki' | 'subjectivity' | 'output' | 'conversations' | 'codes' | 'requests'
-  | 'connectors' | 'microsites' | 'api-mcp' | 'account'
+  | 'suppliers' | 'microsites' | 'api-mcp' | 'account'
   | 'skills' | 'writings' | 'drafts' | 'applications'
   | 'dashboard' | 'sources' | 'listings' | 'system'
   | 'preview' | 'obsidian' | 'embeds' | 'assets' | 'data'
@@ -74,7 +74,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
   },
   {
     id: 'integrations',
-    items: [{ slug: 'connectors' }, { slug: 'api-mcp' }, { slug: 'obsidian' }],
+    items: [{ slug: 'suppliers' }, { slug: 'api-mcp' }, { slug: 'obsidian' }],
   },
   {
     id: 'settings',

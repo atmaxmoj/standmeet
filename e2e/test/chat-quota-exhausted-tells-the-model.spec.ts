@@ -9,7 +9,7 @@
 // the owner's calendar. **The product talked two real bookings into a cancellation.**
 //
 // The cause is in the shape of the gate, not the model's temperament: once the allowance
-// runs out, the host hides the whole capability, so that turn's agent
+// runs out, the host hides the whole block, so that turn's agent
 //   · has no booking tool in hand,
 //   · **still has** the "you can book meetings" instructions left in the system prompt
 //     (the fragment never checks the gate),
@@ -35,7 +35,7 @@ import {
   lastGatewayRequest, resetGatewayRequests, scriptMockReplyText, scriptMockToolCall, sendAndDrain,
 } from '@/fixtures/mock-llm-script';
 
-// ALLOWANCE_MARK — the qualifier inside the sentence the host writes for this capability
+// ALLOWANCE_MARK — the qualifier inside the sentence the host writes for this block
 // once its allowance runs out. Only that sentence writes this phrase, so a hit means the
 // model really was told (using a tool name as the needle couldn't fail: the tool list is
 // already in the prompt regardless).

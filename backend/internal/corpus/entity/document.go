@@ -16,7 +16,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/atmaxmoj/standmeet/internal/connector"
+	"github.com/atmaxmoj/standmeet/internal/corpus/integration"
 )
 
 // ErrSubjectivityNotFound —— a subjectivity lookup by id came up empty (used by the
@@ -95,5 +95,5 @@ type Document interface {
 
 	// Integrations —— the list of this document's sync relationships with external
 	// systems (Obsidian / Notion / etc). Always returns a non-nil slice.
-	Integrations() []connector.Integration
+	Integrations() []integration.Integration
 }

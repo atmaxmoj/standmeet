@@ -35,15 +35,15 @@ func buildRetrievalBinary(outDir string) (string, error) {
 // definition, so the six fields can't drift between call sites.
 func retrievalPluginSpec(bin, sock string) agentcore.PluginSpec {
 	return agentcore.PluginSpec{
-		ID: retrievalCapabilityID, Command: bin,
+		ID: retrievalBlockID, Command: bin,
 		Env:     map[string]string{agentcore.HostSocketEnv: sock},
 		HostOps: agentcore.CorpusHostOpNames(), RawToolNames: true, ACLAlways: true,
 	}
 }
 
-// bookerCapabilityID —— the shipped capability id. Everything else about the booker
+// bookerBlockID —— the shipped block id. Everything else about the booker
 // (host ops, ACL tier, tool naming) is read from ITS manifest, not restated here.
-const bookerCapabilityID = "calendar.book"
+const bookerBlockID = "calendar.book"
 
 // launchCandidate —— assemble a candidate visitor agent with corpus tools live. The caller
 // pre-builds `driver` with corpus/roleBody/skill/mcp/cred; this appends the retrieval plugin,
@@ -63,12 +63,12 @@ func ownerTZOr(tz string) string {
 	return tz
 }
 
-// launchOpts —— extra capabilities this launch mounts beyond corpus retrieval.
+// launchOpts —— extra blocks this launch mounts beyond corpus retrieval.
 type launchOpts struct {
 	// booking —— mount the REAL booker plugin over a canned calendar + store. Without it the
 	// booker is structurally absent, which is what a role that granted nothing looks like.
 	booking bool
-	// bookingFail / bookingFailMsg —— make one connector verb fail ("calendar.insert_event")
+	// bookingFail / bookingFailMsg —— make one supplier verb fail ("calendar.insert_event")
 	// with that message, to drive the can't-book paths. Empty verb = the calendar cooperates.
 	// The message travels with the verb: the agent should take two different paths for "the slot's
 	// taken" versus "the service errored".
@@ -79,7 +79,7 @@ type launchOpts struct {
 	// mini-host that says UTC while the prompt says New York makes an in-hours slot look closed
 	// — and the eval blames the model for the harness's disagreement with itself.
 	ownerTimezone string
-	// transcript / report —— the two things the summarize capability asks the host for: what was
+	// transcript / report —— the two things the summarize block asks the host for: what was
 	// said in this session, and where the scrubbed HTML lands. Leaving these nil makes their
 	// respective bridges error out — instead of silently reading an empty transcript.
 	transcript agentcore.TranscriptSource
@@ -113,7 +113,7 @@ func launchCandidateWith(
 		inner := stopAll
 		stopAll = func() { _ = stopOne(); inner() }
 	}
-	// The two remaining acl:always capabilities. prod mounts them for every visitor — if this side
+	// The two remaining acl:always blocks. prod mounts them for every visitor — if this side
 	// didn't, an assertion like "it called summarize_conversation / ask_visitor" could never go
 	// green, and the failure would read as the model misbehaving.
 	for _, mount := range []func() (func() error, error){

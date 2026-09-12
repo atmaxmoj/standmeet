@@ -18,7 +18,7 @@ const InstanceInfoSchema = z.object({
   name: z.string().optional().default(''),
   setup_token: z.string().optional(),
   captcha_site_key: z.string().optional(),
-  // can_deliver_codes —— the owner has a connected mail connector (can send code
+  // can_deliver_codes —— the owner has a connected mail supplier (can send code
   // emails). /gate uses this to decide whether to show the "request access"
   // block at all. Defaults to false (don't show it if it can't send).
   can_deliver_codes: z.boolean().optional().default(false),

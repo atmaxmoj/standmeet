@@ -18,16 +18,16 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/conversation/inference"
 	conversationrepo "github.com/atmaxmoj/standmeet/internal/conversation/repo"
 	ownerentity "github.com/atmaxmoj/standmeet/internal/owner/entity"
-	capstoreroutes "github.com/atmaxmoj/standmeet/internal/routes/capstore"
+	"github.com/atmaxmoj/standmeet/internal/routes/blockdesk"
 )
 
-// errNoConnector / errNoStore — the capability called this, but nothing was wired
+// errNoSupplier / errNoStore — the block called this, but nothing was wired
 // for this run. **Surface it**: silently returning empty would let it think "the
 // calendar is empty / there are no records" — that's the hardest kind of false
 // green to track down.
 var (
-	errNoConnector = errors.New("agentcore: this launch wired no connector")
-	errNoStore     = errors.New("agentcore: this launch wired no capability store")
+	errNoSupplier = errors.New("agentcore: this launch wired no supplier")
+	errNoStore    = errors.New("agentcore: this launch wired no block store")
 )
 
 // —— owner.meta ——
@@ -38,35 +38,35 @@ func (b ownerMetaBridge) GetByID(_ context.Context, ownerID string) (ownerentity
 	return ownerentity.Owner{ID: ownerID, ProfileTimezone: b.tz}, nil
 }
 
-// —— connector.invoke ——
+// —— supplier.invoke ——
 
-type connectorBridge struct{ call ConnectorCall }
+type supplierBridge struct{ call SupplierCall }
 
-func (b connectorBridge) Invoke(
-	_ context.Context, _, category, verb string, args json.RawMessage,
+func (b supplierBridge) Invoke(
+	_ context.Context, _, seam, verb string, args json.RawMessage,
 ) (json.RawMessage, error) {
 	if b.call == nil {
-		return nil, errNoConnector
+		return nil, errNoSupplier
 	}
-	out, err := b.call(category+"."+verb, args)
+	out, err := b.call(seam+"."+verb, args)
 	if err != nil {
-		return nil, fmt.Errorf("connector %s.%s: %w", category, verb, err)
+		return nil, fmt.Errorf("supplier %s.%s: %w", seam, verb, err)
 	}
 	return out, nil
 }
 
-func (b connectorBridge) InvokeBackground(
-	ctx context.Context, ownerID, category, verb string, args json.RawMessage,
+func (b supplierBridge) InvokeBackground(
+	ctx context.Context, ownerID, seam, verb string, args json.RawMessage,
 ) {
-	_, _ = b.Invoke(ctx, ownerID, category, verb, args) //nolint:errcheck // background, drop result
+	_, _ = b.Invoke(ctx, ownerID, seam, verb, args) //nolint:errcheck // background, drop result
 }
 
-// —— capstore.* ——
+// —— blockstore.* ——
 
 // storeBridge — all five read/write ports derive from the caller's three methods:
 // counting = query and take the length, fetching a doc = query and drop the id.
 // One fewer API, one fewer place the two sides can drift apart.
-type storeBridge struct{ store CapabilityStore }
+type storeBridge struct{ store BlockStore }
 
 func (b storeBridge) Insert(
 	_ context.Context, collection string, doc json.RawMessage,
@@ -76,7 +76,7 @@ func (b storeBridge) Insert(
 	}
 	id, err := b.store.Insert(collection, doc)
 	if err != nil {
-		return "", fmt.Errorf("capability store insert: %w", err)
+		return "", fmt.Errorf("block store insert: %w", err)
 	}
 	return id, nil
 }
@@ -113,24 +113,24 @@ func (b storeBridge) Delete(
 	}
 	n, err := b.store.DeleteMatching(collection, filter)
 	if err != nil {
-		return 0, fmt.Errorf("capability store delete: %w", err)
+		return 0, fmt.Errorf("block store delete: %w", err)
 	}
 	return int64(n), nil
 }
 
 func (b storeBridge) QueryRecords(
 	_ context.Context, collection string, filter json.RawMessage,
-) ([]capstoreroutes.BoundRecord, error) {
+) ([]blockdesk.BoundRecord, error) {
 	if b.store == nil {
 		return nil, errNoStore
 	}
 	recs, err := b.store.Query(collection, filter)
 	if err != nil {
-		return nil, fmt.Errorf("capability store query: %w", err)
+		return nil, fmt.Errorf("block store query: %w", err)
 	}
-	out := make([]capstoreroutes.BoundRecord, 0, len(recs))
+	out := make([]blockdesk.BoundRecord, 0, len(recs))
 	for i := range recs {
-		out = append(out, capstoreroutes.BoundRecord{ID: recs[i].ID, Doc: recs[i].Doc})
+		out = append(out, blockdesk.BoundRecord{ID: recs[i].ID, Doc: recs[i].Doc})
 	}
 	return out, nil
 }
@@ -141,7 +141,7 @@ func (b storeBridge) DeleteByID(_ context.Context, collection, recordID string) 
 	}
 	gone, err := b.store.DeleteByID(collection, recordID)
 	if err != nil {
-		return 0, fmt.Errorf("capability store delete by id: %w", err)
+		return 0, fmt.Errorf("block store delete by id: %w", err)
 	}
 	if gone {
 		return 1, nil
@@ -149,12 +149,12 @@ func (b storeBridge) DeleteByID(_ context.Context, collection, recordID string) 
 	return 0, nil
 }
 
-// —— capconfig.get ——
+// —— blockconfig.get ——
 
 // manifestConfigBridge — config values: keys not overridden fall back to the
 // manifest's declared default. **The default isn't copied here** — it reads
 // straight from the manifest.
-type manifestConfigBridge struct{ host *CapabilityHost }
+type manifestConfigBridge struct{ host *BlockHost }
 
 func (c manifestConfigBridge) Values(
 	_ context.Context, _ string,
@@ -171,11 +171,11 @@ func (c manifestConfigBridge) Values(
 }
 
 // A wrong wiring goes red right here, instead of quietly missing something at runtime.
-var _ capstoreroutes.BoundStore = storeBridge{}
+var _ blockdesk.BoundStore = storeBridge{}
 
 // —— conversation.read / inference.generate / report.store ——
 //
-// Capabilities like summarize call these three. Same story, only a bridge:
+// Blocks like summarize call these three. Same story, only a bridge:
 // the transcript is data the caller supplies, the credential resolves through
 // its existing Driver, and the report is handed back to the caller to store —
 // this layer produces no content of its own.
@@ -251,8 +251,8 @@ func (b credBridge) Resolve(_ context.Context, _ *inference.ResolveInput) (*Cred
 	return b.cred, nil
 }
 
-// A capability called one of these three and nothing was wired for this run —
-// surface it every time, same reasoning as errNoConnector.
+// A block called one of these three and nothing was wired for this run —
+// surface it every time, same reasoning as errNoSupplier.
 var (
 	errNoReportSink = errors.New("agentcore: this launch wired no report sink")
 	errNoTranscript = errors.New("agentcore: this launch wired no transcript source")

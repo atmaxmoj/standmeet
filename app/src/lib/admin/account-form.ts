@@ -57,8 +57,8 @@ export interface RecoveryRowView {
 }
 
 // recoveryRowView —— display data for the recovery phrase row. Recovery is sent by
-// email, so it needs a verified SMTP connector first (#112/#122's mail-sender is
-// that connector); unverified → greyed state + prompt to configure Connectors.
+// email, so it needs a verified SMTP supplier first (#112/#122's mail-sender is
+// that supplier); unverified → greyed state + prompt to configure Suppliers.
 //
 // Warning: this copy used to say the opposite thing: it read "generation not
 // built yet", while the `/account/recovery` and `/recover` routes were

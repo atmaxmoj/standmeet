@@ -42,6 +42,7 @@
       }
     },
     {
+      "_comment": "netfetch / cagedfetch —— the control pair. SAME immutable code (/srv/plugins/fetch), opposite egress policy, so a difference in outcome can only come from the grant and not from the block being broken. Both keep the default <id>_ prefix (netfetch_fetch / cagedfetch_fetch): two mounts of one server MUST be distinguishable, and the prefix already says which grant each carries.",
       "id": "netfetch",
       "version": "1",
       "shape": "visitor_only",

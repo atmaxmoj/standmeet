@@ -5,7 +5,7 @@
 // all sections into duplicates of one and crashed the editor. resume-composer-sections guards the
 // no-works shape (Header/Summary/Education/SkillSet), but Experience / Social / Custom were never
 // asserted to render on the canvas at all — so a collapse or a bad render of those three would ship
-// unseen ([[test-covers-capability-not-face]]). This seeds a résumé with ALL SEVEN section types and
+// unseen ([[test-covers-block-not-face]]). This seeds a résumé with ALL SEVEN section types and
 // checks each renders distinctly with its own data. It's the "editor faithfully shows the draft"
 // guard — the exact thing the owner hit as "编辑和预览对不上".
 

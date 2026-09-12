@@ -28,7 +28,7 @@ export interface ClaimOptions {
 //
 // It must be THIS checkout's app port, and it was a bare literal until the per-checkout stacks
 // landed. owners.public_url is not decoration — the backend builds outbound links from it: the
-// QR URL at application-commit time, the OAuth `redirect_uri` (connector/svc_oauth.go:49) and
+// QR URL at application-commit time, the OAuth `redirect_uri` (supplier/svc_oauth.go:49) and
 // the email-confirmation link. Pointing at the default port sent all three at whichever checkout
 // owns it, so an offset checkout ran the OAuth callback and the email confirmation against a
 // NEIGHBOUR's instance, which had neither state: 401, and "That link is not valid."

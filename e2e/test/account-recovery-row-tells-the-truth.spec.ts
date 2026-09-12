@@ -2,7 +2,7 @@
 // it says "not built yet".
 //
 // Defect (found 2026-08-31 during an audit coverage sweep): `lib/admin/account-form.ts`'s
-// `recoveryRowView` returns, when the mail connector is already verified,
+// `recoveryRowView` returns, when the mail supplier is already verified,
 //
 //     note: 'Generates a recovery phrase emailed to you (generation not built yet).'
 //
@@ -24,7 +24,7 @@ import { test, expect } from '@/fixtures/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { findSetupToken, resetInstance } from '@/fixtures/instance';
-import { clearMailpit, configureMailConnector, waitForMailTo } from '@/fixtures/mail';
+import { clearMailpit, configureMailSupplier, waitForMailTo } from '@/fixtures/mail';
 import { gotoAdminSection } from '@/fixtures/navigate';
 
 const OWNER = {
@@ -40,13 +40,13 @@ test.describe('account · the recovery row describes what the button actually do
     resetInstance();
     const request = await playwright.request.newContext();
     await claim(request, findSetupToken(), OWNER);
-    await configureMailConnector(request, OWNER.email, OWNER.password);
+    await configureMailSupplier(request, OWNER.email, OWNER.password);
     await clearMailpit(request);
     await request.dispose();
   });
 
   // -- positive control: it actually works --------------------------------
-  test('with a verified mail connector, generate actually sends a phrase to the owner',
+  test('with a verified mail supplier, generate actually sends a phrase to the owner',
     async ({ adminPage: page, playwright }) => {
       await gotoAdminSection(page, 'account');
       await page.waitForURL('**/admin/account', { timeout: 5_000 });
@@ -83,17 +83,17 @@ test.describe('account · the recovery row describes what the button actually do
       await expect(page.getByTestId('recovery-row')).toContainText(/recovery phrase/i);
     });
 
-  // -- without a mail connector, the copy still has to be true --------------
-  test('without a mail connector the row explains the gate, and the button is off',
+  // -- without a mail supplier, the copy still has to be true --------------
+  test('without a mail supplier the row explains the gate, and the button is off',
     async ({ adminPage: page, playwright }) => {
       const request = await playwright.request.newContext();
       const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-      // Disconnect the mail connector so outbound reports not-connected. The connector's id is
-      // `smtp` (not `mail-sender`), and the operation is POST /connectors/smtp/disconnect — there
-      // is no DELETE /credentials route; the old call no-op'd, so the connector stayed connected
+      // Disconnect the mail supplier so outbound reports not-connected. The supplier's id is
+      // `smtp` (not `mail-sender`), and the operation is POST /suppliers/smtp/disconnect — there
+      // is no DELETE /credentials route; the old call no-op'd, so the supplier stayed connected
       // and the button never disabled.
       const disc = await request.post(`${process.env['BACKEND_URL'] ?? 'http://localhost:8000'}` +
-        `/api/admin/connectors/smtp/disconnect`, { headers: { 'X-Csrftoken': csrf } });
+        `/api/admin/suppliers/smtp/disconnect`, { headers: { 'X-Csrftoken': csrf } });
       expect(disc.ok(), `disconnect smtp: ${disc.status()}`).toBe(true);
       await request.dispose();
 

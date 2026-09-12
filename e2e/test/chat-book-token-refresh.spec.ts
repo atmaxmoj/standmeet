@@ -48,9 +48,9 @@ test.describe('chat · calendar.book refreshes expired access token', () => {
 // the past as needing refresh. SQL is the cleanest knob — backend now
 // has no dev-only HTTP endpoint for this (G-Y dropped /test/*).
 function expireAccessToken(): void {
-  const sql = `UPDATE owner_connectors
+  const sql = `UPDATE block_connections
               SET token_expires_at = NOW() - INTERVAL '1 hour'
-              WHERE connector_id = 'google-calendar'`;
+              WHERE block_id = 'google-calendar'`;
   execSync(
     `docker exec ${DB_CONTAINER} psql -U standmeet -d standmeet -c "${sql}"`,
     { stdio: 'pipe' },

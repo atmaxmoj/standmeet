@@ -1,6 +1,6 @@
 // use-protocol-connect —— #155 §8-E: the assembly lifecycle for protocol
-// connectors (SMTP/CalDAV). The owner fills in a fixed credentials form →
-// save (creates the protocol connector + stores credentials) → connect (a
+// suppliers (SMTP/CalDAV). The owner fills in a fixed credentials form →
+// save (creates the protocol supplier + stores credentials) → connect (a
 // real connection test) → status. The logic lives here; the form only renders + wires up.
 
 import { useCallback, useState } from 'react';
@@ -38,17 +38,17 @@ function credsFor(values: Record<string, string>): Record<string, string> {
   return out;
 }
 
-export function useProtocolConnect(protocol: string, category: string): ProtocolConnectHook {
+export function useProtocolConnect(protocol: string, seam: string): ProtocolConnectHook {
   const [id, setId] = useState('');
   const [status, setStatus] = useState<ConnectStatus>('idle');
   const [error, setError] = useState('');
 
   const save = useCallback((values: Record<string, string>) => {
-    void adminAPI.post('/connectors', { kind: 'protocol', protocol, category }, CreateSchema)
-      .then((r) => adminAPI.postVoid(`/connectors/${r.id}/credentials`, credsFor(values)).then(() => r.id))
+    void adminAPI.post('/suppliers', { kind: 'protocol', protocol, seam }, CreateSchema)
+      .then((r) => adminAPI.postVoid(`/suppliers/${r.id}/credentials`, credsFor(values)).then(() => r.id))
       .then(setId)
-      .catch(() => setError('Could not save the connector configuration.'));
-  }, [protocol, category]);
+      .catch(() => setError('Could not save the supplier configuration.'));
+  }, [protocol, seam]);
 
   const applyConnect = useCallback((r: z.infer<typeof ConnectSchema>) => {
     setStatus(r.connected ? 'connected' : 'not-connected');
@@ -57,12 +57,12 @@ export function useProtocolConnect(protocol: string, category: string): Protocol
 
   const connect = useCallback(() => {
     setError('');
-    void adminAPI.post(`/connectors/${id}/connect`, {}, ConnectSchema)
+    void adminAPI.post(`/suppliers/${id}/connect`, {}, ConnectSchema)
       .then(applyConnect)
       .catch(() => { setStatus('not-connected'); setError('The connection test failed.'); });
   }, [id, applyConnect]);
 
-  // saveAndConnect —— one click: create the protocol connector + store
+  // saveAndConnect —— one click: create the protocol supplier + store
   // credentials → immediately run the connection test (the unified assemble
   // view's protocol path — the owner fills in the form and clicks Connect
   // once). Chains sequentially off the id returned by the previous step, avoiding the save→connect state race.
@@ -70,15 +70,15 @@ export function useProtocolConnect(protocol: string, category: string): Protocol
     setError('');
     setStatus('connecting'); // Flips to connecting… synchronously, so expectConnected really waits for connect to land (won't be loosely matched by "not connected")
 
-    void adminAPI.post('/connectors', { kind: 'protocol', protocol, category }, CreateSchema)
+    void adminAPI.post('/suppliers', { kind: 'protocol', protocol, seam }, CreateSchema)
       .then((r) => {
         setId(r.id);
-        return adminAPI.postVoid(`/connectors/${r.id}/credentials`, credsFor(values))
-          .then(() => adminAPI.post(`/connectors/${r.id}/connect`, {}, ConnectSchema));
+        return adminAPI.postVoid(`/suppliers/${r.id}/credentials`, credsFor(values))
+          .then(() => adminAPI.post(`/suppliers/${r.id}/connect`, {}, ConnectSchema));
       })
       .then(applyConnect)
       .catch(() => { setStatus('not-connected'); setError('The connection test failed.'); });
-  }, [protocol, category, applyConnect]);
+  }, [protocol, seam, applyConnect]);
 
   return { saved: id !== '', status, error, save, connect, saveAndConnect };
 }

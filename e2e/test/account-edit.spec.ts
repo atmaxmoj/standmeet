@@ -38,14 +38,14 @@ test.describe('owner edits account fields post-claim', () => {
     await request.dispose();
   });
 
-  // #115: the recovery phrase row is grey/enabled depending on SMTP (mail connector).
-  // A fresh owner has no verified mail connector → grey state: detail "needs verified
+  // #115: the recovery phrase row is grey/enabled depending on SMTP (mail supplier).
+  // A fresh owner has no verified mail supplier → grey state: detail "needs verified
   // email" + generate disabled (recoveryRowView holds the business logic, presentation
   // only renders it). Guards "without SMTP configured, the owner must not think they
   // can generate a recovery phrase".
   // Runs before the email/password edit test — that test rotates the owner's
   // credentials, and adminPage can't log in afterward with the old ones.
-  test('recovery phrase row is SMTP-gated (grey) until a verified mail connector exists (#115)',
+  test('recovery phrase row is SMTP-gated (grey) until a verified mail supplier exists (#115)',
     async ({ adminPage: page }) => {
       await gotoAdminSection(page, 'account');
       await page.waitForURL('**/admin/account', { timeout: 5_000 });

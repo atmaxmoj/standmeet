@@ -11,7 +11,7 @@
 // four "Booked" lines it wrote itself — what it ends up completing is that sentence, not
 // the action.
 //
-// **Why this can run deterministically**: the gate is judged by the host (the capability
+// **Why this can run deterministically**: the gate is judged by the host (the block
 // declares in its manifest "which statements count as a claim, which tool counts as its
 // receipt"; the kernel only asks whether this turn satisfies that), so this doesn't need
 // to gamble on a real model — the script makes the model only talk, never call a tool,

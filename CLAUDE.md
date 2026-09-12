@@ -16,7 +16,7 @@ A self-hostable platform for people who think a lot but don't like writing. Owne
 |---------|-----------|
 | `index` | Owner's public page. Long-scroll, hero prose + chat input + insights + projects + status + contact. |
 | `gate` | Visitor without a code. Code-entry block + BYOAI panel + request-access. |
-| `admin` | Owner backend. 6 sections: raw / wiki / conversations / codes / connectors / page (+ api·mcp). |
+| `admin` | Owner backend. 6 sections: raw / wiki / conversations / codes / suppliers / page (+ api·mcp). |
 | `login` | Sign in + first-run "claim this instance" flow. |
 
 **Three visitor access tiers:**
@@ -29,7 +29,7 @@ A self-hostable platform for people who think a lot but don't like writing. Owne
 
 > Attachments / images / hero art exist for `writings` only. `upload_media` appears in older notes but was never implemented, and the `media_assets` table (with its raw/wiki/output foreign keys) has no writer. Bringing assets to every genre is planned work, not something the code already does.
 
-**SDK.** Core capabilities (chat, content retrieval, asset rendering, access-code check) are packaged for embedding into anyone's site:
+**SDK.** Core abilities (chat, content retrieval, asset rendering, access-code check) are packaged for embedding into anyone's site:
 - `@standmeet/sdk` — React components + hooks
 - Web Components / vanilla JS bundle — single `<script>` tag drop-in
 

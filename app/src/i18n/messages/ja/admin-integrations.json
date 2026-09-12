@@ -1,4 +1,32 @@
 {
+  "blocks": {
+    "installKicker": "インストール",
+    "installHeading": "ブロックを追加",
+    "installIntro": "ブロックのマニフェストを貼り付けてください。名前、誰に向けたものか、どう起動するか、どんな設定を求めるかが書かれています。",
+    "installPlaceholder": "id: acme.widget\ntitle: Acme Widget\nversion: \"1\"\nshape: visitor_only",
+    "install": "インストール",
+    "installedToast": "ブロックをインストールしました",
+    "bundlesKicker": "組み立て",
+    "bundlesHeading": "バンドル",
+    "bundlesIntro": "バンドルは名前のついたブロックの集まりです。コードをそれに向けると、まさにこれらだけが使えます。編集は即時に効くので、ブロックを外せば開いている会話からもすぐ使えなくなります。",
+    "bundleNamePlaceholder": "recruiter",
+    "create": "作成",
+    "bundleCreatedToast": "バンドルを作成しました",
+    "remove": "外す",
+    "removedToast": "外しました",
+    "addBlock": "+ {id}",
+    "addedToast": "追加しました",
+    "grantNet": "net(許可)",
+    "blocksFailed": "{count} 個のブロックが起動できませんでした",
+    "settings": "設定",
+    "save": "保存",
+    "savedToast": "保存しました",
+    "close": "閉じる",
+    "codeBundleLabel": "バンドル · このコードで使えるもの",
+    "codeBundleNone": "バンドルなし — ロールの権限に従う",
+    "codeBundle": "バンドル · {name}",
+    "blockOff": "· オフ"
+  },
   "credField": {
     "host": "ホスト",
     "port": "ポート",
@@ -100,19 +128,19 @@
     "keyId": "key id",
     "deletedToast": "キーを削除しました"
   },
-  "connectors": {
-    "intro": "Connectors let the agent reach external services — Calendar and Mail are live below, and you can upload your own (OpenAPI / protocol) connector to add more.",
-    "catalogError": "Couldn’t load the connector catalog — reload and retry.",
-    "overwritePrompt": "A <mono>{category}</mono> connector already exists. Overwrite it?",
+  "suppliers": {
+    "intro": "サプライヤー let the agent reach external services — Calendar and Mail are live below, and you can upload your own (OpenAPI / protocol) supplier to add more.",
+    "catalogError": "Couldn’t load the supplier catalog — reload and retry.",
+    "overwritePrompt": "A <mono>{seam}</mono> supplier already exists. Overwrite it?",
     "overwrite": "Overwrite",
-    "add": "+ add connector",
+    "add": "+ add supplier",
     "builtinHeading": "Ready to connect",
     "builtinCount": "{count} available",
-    "uploadedHeading": "Connectors you uploaded",
+    "uploadedHeading": "サプライヤー you uploaded",
     "uploadedCount": "{count} installed",
     "kicker": "連携",
     "count": "カレンダー · メール稼働中 · 独自にアップロード",
-    "removedToast": "コネクターを削除しました"
+    "removedToast": "サプライヤーを削除しました"
   },
   "calendar": {
     "heading": "Google Calendar",
@@ -134,32 +162,32 @@
     "leadDays": "最低予約リード日数",
     "bufferMin": "バッファ分（既存の予定の前後）"
   },
-  "capabilities": {
+  "blockPanel": {
     "kicker": "availability",
-    "heading": "capabilities",
-    "intro": "Turn a capability off and its tools vanish from every visitor session. Built-in capabilities can be disabled but not deleted; only the ones you authored can be removed.",
-    "empty": "登録された機能はありません。",
+    "heading": "ブロック",
+    "intro": "ブロックをオフにすると、そのツールはすべての訪問者セッションから消えます。組み込みブロックは無効化できますが削除はできません。自分で書いたものだけが削除できます。",
+    "empty": "登録されたブロックはありません。",
     "loading": "読み込み中…",
-    "removeTitle": "機能を削除",
-    "removedToast": "機能を削除しました"
+    "removeTitle": "ブロックを削除",
+    "removedToast": "ブロックを削除しました"
   },
-  "connectorCard": {
+  "supplierCard": {
     "disconnect": "Disconnect",
     "statusConnecting": "接続中…",
     "statusConnected": "接続済み",
     "statusNotConnected": "未接続"
   },
-  "connectorOp": {
+  "supplierOp": {
     "run": "Run",
     "running": "Running…",
-    "sent": "Accepted by the {kind} connector — check the inbox to confirm it arrived.",
+    "sent": "Accepted by the {kind} supplier — check the inbox to confirm it arrived.",
     "unreachable": "Couldn’t reach your instance — check your connection and retry.",
-    "failedNoReason": "It didn’t work, and the connector gave no reason — check the server logs."
+    "failedNoReason": "It didn’t work, and the supplier gave no reason — check the server logs."
   },
-  "connectorList": {
-    "loadError": "Couldn’t load your connectors — reload and retry.",
+  "supplierList": {
+    "loadError": "Couldn’t load your suppliers — reload and retry.",
     "delete": "Delete",
-    "removeAria": "コネクターを削除"
+    "removeAria": "サプライヤーを削除"
   },
   "skills": {
     "new": "+ new skill",

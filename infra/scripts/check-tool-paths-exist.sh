@@ -52,9 +52,14 @@ route_exists() {
 # also scan HTTP API paths (the tails of `/api/admin/…`), which is a different matter, and the
 # false positives would get this gate turned off (see [[gate-scope-forces-architecture]]).
 # Tools have two declaration forms, both must be recognized — recognize only one and the very file
-# that prompted this gate sits in the blind spot (jobs' tools go through capreg.MCPBinding, see
+# that prompted this gate sits in the blind spot (jobs' tools go through registry.MCPBinding, see
 # [[gate-can-go-blind]]).
-tool_files=$(grep -rl -e 'fp\.Op{' -e 'capreg\.MCPBinding{' backend/internal \
+#
+# The scan covers `backend/cmd` as well as `backend/internal`: the block model's own ops (the
+# `blocks` / `bundles` / `suppliers` / `block_config` resources) are declared in the composition
+# root, and a range of `internal` alone reads none of them. This gate's own self-test caught that
+# the day the packages moved — which is the only reason the blind spot did not simply stay green.
+tool_files=$(grep -rl -e 'fp\.Op{' -e 'registry\.MCPBinding{' backend/internal backend/cmd \
   --include='*.go' 2>/dev/null | grep -v '_test\.go' || true)
 
 # Three narrowings, each a false positive from the first version:
@@ -87,7 +92,7 @@ fi
 # Scan-range self-test two: **both declaration forms must be in range**. With only one left, the
 # count above still passes, while a whole other class of tool descriptions goes unread — this gate
 # nearly went blind this way on its first run.
-for marker in 'fp\.Op{' 'capreg\.MCPBinding{'; do
+for marker in 'fp\.Op{' 'registry\.MCPBinding{'; do
   hits=$(printf '%s\n' "$tool_files" | xargs -r grep -l "$marker" 2>/dev/null | grep -c . || true)
   if [ "$hits" -lt 1 ]; then
     echo "check-tool-paths-exist: SELF-TEST FAILED — no file matched $marker; that whole"

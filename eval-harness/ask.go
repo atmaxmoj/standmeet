@@ -22,7 +22,7 @@ import (
 // turn on real DeepSeek and reports the answer + tools it used.
 //
 // F.2: no more hand-assembled prompt / canned tools. BuildVisitorAgent drives
-// the SAME capability assembly the HTTP path runs (RegisterVisitorSkills +
+// the SAME block assembly the HTTP path runs (RegisterVisitorSkills +
 // AssembleVisitor + ComposeSystemPrompt) over fixture data — so prompt + tool
 // fidelity is structural, not maintained-by-hand. The prompt stays injectable
 // (EVAL_SYSTEM_PROMPT_FILE) so experiments can be tried and backfilled.
@@ -242,7 +242,7 @@ func askCandidate(
 		CodeID: evalCodeID, SystemPromptOverride: override,
 		// booking is acl=role_granted: it's exposed only when **this run's role granted
 		// it**. Not granted = structural absence, exactly what the deny test case checks.
-		GrantedCapabilities: grantedCapabilities(req),
+		GrantedBlocks: grantedBlocks(req),
 	}, launchOpts{
 		booking: req.Booking, bookingFail: failVerb, bookingFailMsg: failMsg,
 		// The timezone in owner.meta must be the same one that's in the instruction ——
@@ -335,15 +335,15 @@ func ghostTexts(g *agentcore.GhostFrame) []string {
 	return []string{g.Text}
 }
 
-// grantedCapabilities —— the capability ids this run's role granted.
-func grantedCapabilities(req askRequest) []string {
+// grantedBlocks —— the block ids this run's role granted.
+func grantedBlocks(req askRequest) []string {
 	if !req.Booking {
 		return []string{}
 	}
-	return []string{bookerCapabilityID}
+	return []string{bookerBlockID}
 }
 
-// bookingFailVerb —— EVAL_BOOKING_FAIL forces a connector verb to fail, to run the
+// bookingFailVerb —— EVAL_BOOKING_FAIL forces a supplier verb to fail, to run the
 // "can't book" paths.
 //   - "conflict"     → the insert is rejected by the calendar (someone else took the slot
 //     right then)

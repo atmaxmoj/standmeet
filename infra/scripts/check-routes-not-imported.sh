@@ -3,7 +3,7 @@
 # and must not be imported by any other package. Only the assembly entry points may mount it:
 # cmd/server (composition root), agentcore (eval driver entry).
 #
-# Another package (domain / infra / capabilities / usecases) importing routes = inverted layering (lower depends on higher).
+# Another package (domain / infra / plugin) importing routes = inverted layering (lower depends on higher).
 # Known existing violations go in backend/.routes-import-baseline (one importer directory per line, relative to backend/;
 # can only shrink). The allowed entry points are not in the baseline and are not violations.
 set -eu

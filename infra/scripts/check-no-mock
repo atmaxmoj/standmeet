@@ -3,7 +3,7 @@
 #
 # Five violation classes:
 #   A) source patterns (MockProvider / INFERENCE_MOCK_ / /__mock / Test{Registry,
-#      VisitorCap,GCalExpire})                          —— named blocklist
+#      VisitorBlocks,GCalExpire}Deps)                       —— named blocklist
 #   B) directories   (backend/cmd/job-board-mock, backend/cmd/mcp-server-mock)
 #   C) files   (backend/internal/routes/sys/test_*.go)
 #   D) fixture/canned named stand-ins (canned* / *Fixture / stub*) —— named blocklist
@@ -28,7 +28,7 @@ report() {
 }
 
 # A) source patterns
-patterns='MockProvider|INFERENCE_MOCK_|"/__mock/|TestRegistryDeps|TestVisitorCapabilitiesDeps|TestGCalExpireDeps'
+patterns='MockProvider|INFERENCE_MOCK_|"/__mock/|TestRegistryDeps|TestVisitorBlocksDeps|TestGCalExpireDeps'
 src_hits=$(grep -rnE "$patterns" backend/ \
   --include='*.go' --exclude='*_test.go' 2>/dev/null \
   | grep -vE '^[^:]+:[0-9]+:[[:space:]]*//' \

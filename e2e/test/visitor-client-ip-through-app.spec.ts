@@ -116,7 +116,7 @@ test.describe('F-F-5 · the visitor address is the visitor, or it is unknown', (
         visitor, 'CLIENTIP-1', 'Forwarded', { 'X-Forwarded-For': FORWARDED },
       );
       // The reverse assertion: the fix must not be "clear every IP unconditionally" —
-      // a real address must survive unchanged, or the owner's ban capability would be
+      // a real address must survive unchanged, or the owner's ban block would be
       // fixed right out of existence.
       expect(await recordedIP('Forwarded'),
         'a forwarded address survives the hop unchanged').toBe(FORWARDED);

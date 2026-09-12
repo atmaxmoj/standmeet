@@ -24,7 +24,7 @@
 // redirect to login / 409 → handle in place / everything else → generic toast); collapsing it
 // into 400 would change that behavior. 502 too: it carries a message safe to show directly
 // ("couldn't fetch this skill, check the source"), and collapsing it into 500 turns it into
-// "internal error". Conversely, "mail connector isn't configured" vs. "missing required field"
+// "internal error". Conversely, "mail supplier isn't configured" vs. "missing required field"
 // behave identically for every facade — that's **message content**, not a new category. Every
 // category added means every facade has to add a matching translation.
 

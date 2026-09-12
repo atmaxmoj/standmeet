@@ -184,7 +184,7 @@ async function notesDoNotPretendToSave({ adminPage: page }: { adminPage: Page })
 //
 // Cause: `sm-atoms.css` hangs all the segmented styling off `.sm-seg button`, but the
 // component renders a `<span>` instead — because "something that isn't persisted
-// shouldn't look clickable". The capability moved house and its styling boundary didn't
+// shouldn't look clickable". The block moved house and its styling boundary didn't
 // move with it.
 async function litSegmentLooksDifferent({ adminPage: page }: { adminPage: Page }): Promise<void> {
   await gotoAdminSection(page, 'applications');

@@ -1,4 +1,4 @@
-// canned_host.go —— the outside world a mounted capability talks to, canned.
+// canned_host.go —— the outside world a mounted block talks to, canned.
 //
 // P.13's invariant: backend carries ZERO fixtures. agentcore gives the bridge (a socket serving
 // the host ops a manifest orders); the *answers* live here, next to EvalDriver.
@@ -19,13 +19,13 @@ import (
 	"github.com/atmaxmoj/standmeet/agentcore"
 )
 
-// BusyWindow —— one busy interval, in the shape the calendar connector answers free_busy with.
+// BusyWindow —— one busy interval, in the shape the calendar supplier answers free_busy with.
 type BusyWindow struct {
 	Start time.Time `json:"start"`
 	End   time.Time `json:"end"`
 }
 
-// cannedCalendar —— a calendar connector that answers. Busy windows are configurable (empty = the
+// cannedCalendar —— a calendar supplier that answers. Busy windows are configurable (empty = the
 // week is free); an insert returns a fresh event id; a delete forgets it. `fail` makes ONE verb
 // fail ("calendar.insert_event"), which is how the can't-book paths get driven.
 type cannedCalendar struct {
@@ -36,7 +36,7 @@ type cannedCalendar struct {
 	events map[string]bool
 }
 
-// call —— one "<category>.<verb>" from the plugin, answered.
+// call —— one "<seam>.<verb>" from the plugin, answered.
 func (c *cannedCalendar) call(verb string, args []byte) ([]byte, error) {
 	if msg, bad := c.fail[verb]; bad {
 		return nil, fmt.Errorf("%s: %s", verb, msg)
@@ -93,7 +93,7 @@ func nonNilWindows(w []BusyWindow) []BusyWindow {
 	return w
 }
 
-// memStore —— a capability's isolated store, in memory.
+// memStore —— a block's isolated store, in memory.
 //
 // Matching follows postgres's `doc @> filter` (containment), not equality: the booking quota
 // counts rows by code_id with a one-key filter, and equality would count zero — silently.
@@ -165,11 +165,11 @@ func (m *memStore) rows(collection string) []agentcore.StoredRecord {
 	return append([]agentcore.StoredRecord{}, m.docs[collection]...)
 }
 
-// jsonContains —— postgres's `doc @> filter` for the shapes these capabilities filter on: the
+// jsonContains —— postgres's `doc @> filter` for the shapes these blocks filter on: the
 // top-level keys must be present and equal. An empty filter matches everything.
 //
 // Nested containment is not implemented: the booker filters on scalars (owner_id / code_id /
-// conversation_id). If a capability ever filters on a nested object this under-matches, and the
+// conversation_id). If a block ever filters on a nested object this under-matches, and the
 // assertion that relies on it goes red — it does not quietly return extra rows.
 func jsonContains(doc, filter []byte) bool {
 	want := map[string]json.RawMessage{}
@@ -195,7 +195,7 @@ func jsonContains(doc, filter []byte) bool {
 // just taken" and "the service is down" are different situations, and the agent is supposed to
 // take a different path for each. A generic "refused" leaves it guessing.
 func bookingWorld(ownerID, tz string, busy []BusyWindow, fail, failMsg string) (
-	*agentcore.CapabilityHost, *memStore,
+	*agentcore.BlockHost, *memStore,
 ) {
 	cal := &cannedCalendar{busy: busy}
 	if fail != "" {
@@ -205,8 +205,8 @@ func bookingWorld(ownerID, tz string, busy []BusyWindow, fail, failMsg string) (
 		cal.fail = map[string]string{fail: failMsg}
 	}
 	store := newMemStore()
-	return &agentcore.CapabilityHost{
-		OwnerID: ownerID, Timezone: tz, Connector: cal.call, Store: store,
+	return &agentcore.BlockHost{
+		OwnerID: ownerID, Timezone: tz, Supplier: cal.call, Store: store,
 	}, store
 }
 

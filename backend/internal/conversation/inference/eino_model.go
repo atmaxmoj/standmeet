@@ -5,7 +5,7 @@
 //   - Stream (proxy.go)   —— streaming SSE, drives the browser's pi-agent-core chat agent
 //     loop
 //   - Generate (generate.go) —— returns text in one shot, reused by visitor_summary / future
-//     capabilities
+//     callers
 //
 // Cred + Resolver live in resolver.go; errors.go holds the sentinels + status classification.
 //

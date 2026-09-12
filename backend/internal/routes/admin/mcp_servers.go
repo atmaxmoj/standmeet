@@ -1,6 +1,6 @@
 // mcp_servers.go — admin /mcp-servers: list / create / check / delete + dep-grant.
 //
-// Capability comes from the outbound convergence point (shared plumbing in dispatch.go).
+// Ability comes from the outbound convergence point (shared plumbing in dispatch.go).
 // delete and dep-grant have historically returned 204 empty, the frontend is written
 // against that contract, so they keep returning 204 — the status code is this facade's
 // decision, the payload is the convergence point's.
@@ -13,7 +13,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// MCPServersAdminDeps — capability source for the admin mcp-servers handlers.
+// MCPServersAdminDeps — op source for the admin mcp-servers handlers.
 type MCPServersAdminDeps struct {
 	Face *dispatcher.Face
 }
@@ -33,7 +33,7 @@ func (h *Handlers) MountMCPServers(r chi.Router) {
 			h.dispatchOp(face, "mcp_server_check", urlParamArgs("server_id"), jsonOK))
 		r.Delete("/{server_id}",
 			h.dispatchOp(face, "mcp_server_delete", urlParamArgs("server_id"), noContent))
-		// The owner explicitly authorizes this ext-mcp server to use a connector
+		// The owner explicitly authorizes this ext-mcp server to use a supplier
 		// dependency (minimum trust, denied by default).
 		r.Post("/{server_id}/dep-grants",
 			h.dispatchOp(face, "mcp_server_grant_dep",

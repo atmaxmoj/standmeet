@@ -3,8 +3,8 @@
 #
 # Why this gate exists (UX-79): before it, headings at the same level had **four** mutually unaware
 # forms in admin — a `.sm-section-h` div, a `.sm-smallcaps` div (system's five cards), a mono 10.5px
-# uppercase h3 (calendar), a kicker + large serif h3 (capabilities); and the two groups on the
-# connectors page had no heading at all. Each new page meant "remember to add one too", so each time
+# uppercase h3 (calendar), a kicker + large serif h3 (blocks); and the two groups on the
+# suppliers page had no heading at all. Each new page meant "remember to add one too", so each time
 # the next page was missed.
 #
 # **Why a gate couldn't be added before**: a section heading and a field name have the same shape in

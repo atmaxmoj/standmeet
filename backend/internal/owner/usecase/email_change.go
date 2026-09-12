@@ -9,7 +9,7 @@
 // bites the day the session expires.
 //
 // **Two paths, chosen by outbound channel**:
-//   - A verified mail connector exists -> go through pending: send a confirmation email,
+//   - A verified mail supplier exists -> go through pending: send a confirmation email,
 //     switch only once it's clicked.
 //   - None exists -> switch instantly. The feature can't be pulled just because mail
 //     can't be sent (that would push the system's limitation onto the user as discipline),

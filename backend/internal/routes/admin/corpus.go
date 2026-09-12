@@ -1,7 +1,7 @@
 // corpus.go — admin's corpus facade: list / detail / create / update / delete / promote,
 // with genre carried as a path parameter.
 //
-// All capability is taken through the outbound convergence point (declared in
+// All ability is taken through the outbound convergence point (declared in
 // internal/corpus/ops); this layer keeps only the REST shape: genre in the path, id in
 // the path, everything else in the body, and whether a success returns 200, 201, or 204.
 //
@@ -26,7 +26,7 @@ import (
 
 // CorpusDeps — dependencies for the admin corpus handlers.
 //
-// Face — corpus capability is taken through the convergence point. Corpus is only kept
+// Face — corpus ability is taken through the convergence point. Corpus is only kept
 // for the tree/page views, the two panel-unique views that still connect directly.
 type CorpusDeps struct {
 	Corpus corpus.Deps

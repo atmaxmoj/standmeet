@@ -50,11 +50,11 @@ var ErrVisitorSessionNotFound = errors.New("visitor session not found")
 // once, and discards it.
 // Centralized storage lives in one place, the browser — not spread across sessions.
 type VisitorSessionData struct {
-	// **No capability-specific quota lives here.** There used to be a
+	// **No block-specific quota lives here.** There used to be a
 	// `MaxBookings *int32` — booker's per-code limit — written into the visitor
 	// session payload. It ended up sitting here unwritten and unread: the column
 	// on the code was long gone (see the generic CodeExtras in
-	// access/ops/extras.go), but the field itself stayed. A capability that
+	// access/ops/extras.go), but the field itself stayed. A block that
 	// needs a field on the code declares it via the manifest's CodeConfig, it
 	// does not live on this struct.
 	ExpiresAt    time.Time            `json:"expires_at"`

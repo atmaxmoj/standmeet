@@ -3,7 +3,7 @@
 // last_used_ip + last_used_user_agent (verify logic itself is untouched); the admin list returns
 // them and the panel row renders them, so a stale or leaked key is recognizable before revoking.
 //
-// Covers both the capability (the signed request records ip/ua, the list returns them) and the face
+// Covers both the block (the signed request records ip/ua, the list returns them) and the face
 // (the api·mcp row shows the "device · ip" line). RED before: no ip/ua columns, no row line.
 
 import { test, expect } from '@/fixtures/test';
@@ -70,7 +70,7 @@ async function signedMcpInit(request: APIRequestContext, keyID: string, pem: str
     data: {
       jsonrpc: '2.0', id: 1, method: 'initialize',
       params: {
-        protocolVersion: '2024-11-05', capabilities: {},
+        protocolVersion: '2024-11-05', blocks: {},
         clientInfo: { name: 'kpused-spec', version: '1' },
       },
     },

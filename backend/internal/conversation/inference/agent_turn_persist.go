@@ -151,9 +151,9 @@ func (a *accumSink) Done(stop string) {
 }
 
 // successfulToolNames —— names of the tools that ran successfully this turn. inference doesn't
-// know which one counts as a "terminal" tool (that's an externalized capability's concept, like
+// know which one counts as a "terminal" tool (that's an externalized block's concept, like
 // a booking-confirmed action); it only reports the names, leaving the route layer that injects
-// the ledger port (which does know the specific capabilities) to judge a terminal hit.
+// the ledger port (which does know the specific blocks) to judge a terminal hit.
 func (a *accumSink) successfulToolNames() []string {
 	out := make([]string, 0, len(a.tools))
 	for i := range a.tools {

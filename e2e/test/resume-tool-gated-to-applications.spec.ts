@@ -20,7 +20,7 @@ import { applicationsCommit, resumeDraft, sampleResumeContent } from '@/fixtures
 import { createRole } from '@/fixtures/roles';
 import { createCode } from '@/fixtures/codes';
 import { issueSession } from '@/fixtures/visitor';
-import { sessionToolNames } from '@/fixtures/capabilities';
+import { sessionToolNames } from '@/fixtures/blocks';
 
 const OWNER = {
   email: 'resume-gate@example.com', password: 'correct-horse-battery-staple',

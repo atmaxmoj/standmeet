@@ -32,7 +32,7 @@ func PeriodicJobs(ctx context.Context, d *deps.Runtime) {
 
 // collectPeriodicJobs — one line per source.
 func collectPeriodicJobs(d *deps.Runtime) []periodic.Job {
-	jobs := d.PluginRegistry.AllPeriodicJobs()
+	jobs := d.JobsModule.PeriodicJobs()
 	jobs = append(jobs, corpus.IndexPeriodicJobs(d.CorpusIndexer, soleOwnerID(d))...)
 	jobs = append(jobs, stats.UsagePeriodicJobs(d.InferenceUsageRepo)...)
 	jobs = append(jobs, monitor.PeriodicJobs(d.MonitorRepo)...)

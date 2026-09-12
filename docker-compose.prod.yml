@@ -127,29 +127,29 @@ services:
       # resilience check 3 needs a provider endpoint that fails on demand, and the product's
       # own provider form is the only legal way to point at one.
       - EGRESS_ALLOW_HOSTS=${EGRESS_ALLOW_HOSTS:-}
-      # CONNECTOR_EGRESS_ALLOW —— the same posture for the CONNECTOR guard
-      # (internal/connector/egress.go), which is a separate policy from the one above: that one
-      # covers everything the backend dials, this one covers what an assembled connector may reach.
-      # Empty stays the default here too.
+      # SUPPLIER_EGRESS_ALLOW —— the same posture for the supplier guard
+      # (the egress allowlist an assembled supplier runs behind), which is a separate policy
+      # from the one above: that one covers everything the backend dials, this one covers what
+      # an assembled supplier may reach. Empty stays the default here too.
       #
       # It was read by the backend and passed by the DEV compose only, so on a shipped stack an
-      # owner could never point a connector at a self-hosted service — a CalDAV server or a mailer
-      # on their own LAN is exactly what the protocol connectors are for (F-C-49). The connect just
+      # owner could never point a supplier at a self-hosted service — a CalDAV server or a mailer
+      # on their own LAN is exactly what the protocol suppliers are for (F-C-49). The connect just
       # failed, and the card blamed their credentials.
-      - CONNECTOR_EGRESS_ALLOW=${CONNECTOR_EGRESS_ALLOW:-}
-      # CONNECTOR_SPEC_MAX_BYTES —— how large an OpenAPI spec this instance accepts
+      - SUPPLIER_EGRESS_ALLOW=${SUPPLIER_EGRESS_ALLOW:-}
+      # SUPPLIER_SPEC_MAX_BYTES —— how large an OpenAPI spec this instance accepts
       # (default 2 MiB). It is a knob because real vendor documents outgrow any number we
       # would pick: GitHub publishes its REST description as one 12 MB file, so an owner
-      # who wants that connector has nothing to turn (F-C-53). The ceiling still exists —
+      # who wants that supplier has nothing to turn (F-C-53). The ceiling still exists —
       # a runaway document must not take the instance down — but how high it sits is a
       # deployment decision, not a compile-time one.
-      - CONNECTOR_SPEC_MAX_BYTES=${CONNECTOR_SPEC_MAX_BYTES:-}
+      - SUPPLIER_SPEC_MAX_BYTES=${SUPPLIER_SPEC_MAX_BYTES:-}
       # MARKETPLACE_GITHUB_BASE_URL —— which skill catalogue this instance reads.
       # Empty = the public anthropics/skills repo (the backend default).
       #
       # It is here because an owner can legitimately run their own catalogue — their team's
       # skills, or a fork with the ones they actually use — and the backend has always read
-      # this variable; only prod had no way to set it. Same shape as CONNECTOR_EGRESS_ALLOW
+      # this variable; only prod had no way to set it. Same shape as SUPPLIER_EGRESS_ALLOW
       # above (F-C-49): a knob that exists in code and is unreachable from a deployment is
       # not a knob. `check-knobs-reachable` cannot see this one — its `*_BASE_URL` exemption
       # was written for dev-only mock pointers and swallows this too.

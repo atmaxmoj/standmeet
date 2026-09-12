@@ -9,7 +9,7 @@
 // The whole criterion lives **on the page**. If the backend is right but the page opens
 // its own separate anonymous session, nothing on screen looks different: the name, the
 // quota, the turn count all silently come up empty, while the reader keeps getting
-// normal-looking answers ([[test-covers-capability-not-face]]).
+// normal-looking answers ([[test-covers-block-not-face]]).
 //
 // Covers: landing (what you scan into is that page) - accounting (the conversation
 // posts to that code) - inheritance (name/quota/turns/revocation) - admission (carrying

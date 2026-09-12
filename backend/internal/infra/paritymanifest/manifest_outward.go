@@ -1,7 +1,7 @@
 package paritymanifest
 
 // manifest_outward.go —— the OUTWARD-plane manifest (facade-directions.md). These are the
-// role-grantable capabilities served to granted outsiders: the chat facade (LLM in the loop) and
+// role-grantable ops served to granted outsiders: the chat facade (LLM in the loop) and
 // the api facade (programmatic, no LLM). Owner-plane ops live in manifest_table*.go; the two planes
 // never mix (an op on the wrong-plane facade is a "leak" — enforced by facadeparity.Conform).
 //
@@ -19,12 +19,12 @@ const (
 	// FacadeMCPVisitor —— the face where a visitor points **their own** AI client
 	// (`/mcp/visitor`, authenticated by an access code). Same outward plane as api, same
 	// programmatic face (the LLM sits on the other side, not on ours), so it renders the same
-	// set of non-Agentic outward capabilities.
+	// set of non-Agentic outward ops.
 	//
 	// It's registered here because "any future face also comes from this registry" only holds
 	// once it's registered: the previous version of this face was **built and mounted
 	// directly**, with nothing guaranteeing it reported the same set as the other outward
-	// faces, and nothing stopping someone from mounting an owner capability onto it.
+	// faces, and nothing stopping someone from mounting an owner op onto it.
 	FacadeMCPVisitor = "mcp-visitor"
 )
 
@@ -118,13 +118,12 @@ func APIRenderableTools() []string {
 	return out
 }
 
-// APICandidateCapabilities —— the capreg capability ids an owner may OPEN to the api facade: the
-// non-Agentic outward capabilities whose tools are api-renderable. Opening anything else (an
-// owner-only cap, or an Agentic one like mail.send) is rejected by api.open. This is the capability
-// grain of the tool-grain apiRenderable() list.
-func APICandidateCapabilities() []string {
-	return []string{"corpus.retrieval", "calendar.book"}
-}
+// The block grain of this tool-grain list — which blocks an owner may OPEN to the api
+// facade — used to be a second literal right here, naming two shipped blocks. It is now
+// derived from the manifests by blockwire.APICandidateBlocks: a block declares its own
+// tools, this file declares which tools the api renders, and the intersection is the
+// answer. Neither side keeps a copy of the other's list, and this package keeps no list of
+// which blocks exist.
 
 // OutwardOpForTool —— map a rendered api tool name back to its outward op-id (for the ratchet).
 func OutwardOpForTool(tool string) (string, bool) {

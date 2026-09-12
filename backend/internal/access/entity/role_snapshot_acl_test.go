@@ -1,9 +1,9 @@
-// role_snapshot_acl_test.go — §A truth table (capability-acl-hierarchy-tests.md).
+// role_snapshot_acl_test.go — §A truth table (block-acl-hierarchy-tests.md).
 //
 // The frozen part of the three-tier ACL (role AND NOT code_deny) lives in
-// entity.RoleSnapshot.AllowsCapability — mcpAppGranted delegates to it directly. This
+// entity.RoleSnapshot.AllowsBlock — mcpAppGranted delegates to it directly. This
 // exhausts baseGrant (role-granted / ACL=always) x code deny, pinning down "a code can only
-// subtract, and even an always capability can be blocked by a deny". A pure domain unit
+// subtract, and even an always block can be blocked by a deny". A pure domain unit
 // test (one of the few pure decision-logic units in the project that runs as a unit test —
 // it anchors the truth of the whole ACL).
 package entity_test
@@ -15,14 +15,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRoleSnapshot_AllowsCapability(t *testing.T) {
+func TestRoleSnapshot_AllowsBlock(t *testing.T) {
 	t.Parallel()
 	const target = "calendar.book"
 	cases := []struct {
 		name    string
 		allowed []string // tools the role grants (contains target = role-granted)
-		denied  []string // capabilities the code denies (contains target = denied)
-		always  bool     // is this capability's ACL=always?
+		denied  []string // blocks the code denies (contains target = denied)
+		always  bool     // is this block's ACL=always?
 		want    bool
 	}{
 		{"role_grant_no_deny", []string{target}, nil, false, true},            // inherited
@@ -36,26 +36,26 @@ func TestRoleSnapshot_AllowsCapability(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			snap := entity.NewRoleSnapshot(&entity.RoleSnapshotInit{
-				AllowedTools: tc.allowed, DeniedCapabilities: tc.denied,
+				AllowedTools: tc.allowed, DeniedBlocks: tc.denied,
 			})
-			require.Equal(t, tc.want, snap.AllowsCapability(target, tc.always))
+			require.Equal(t, tc.want, snap.AllowsBlock(target, tc.always))
 		})
 	}
 }
 
-// TestRoleSnapshot_AllowsCapability_FrozenThroughWire —— the deny set still takes effect
+// TestRoleSnapshot_AllowsBlock_FrozenThroughWire —— the deny set still takes effect
 // after entity.RoleSnapshot is frozen into session_data (JSON wire) (a marshal->unmarshal
 // round-trip does not lose it).
-func TestRoleSnapshot_AllowsCapability_FrozenThroughWire(t *testing.T) {
+func TestRoleSnapshot_AllowsBlock_FrozenThroughWire(t *testing.T) {
 	t.Parallel()
 	const target = "corpus.retrieval"
 	orig := entity.NewRoleSnapshot(&entity.RoleSnapshotInit{
-		DeniedCapabilities: []string{target},
+		DeniedBlocks: []string{target},
 	})
 	blob, err := orig.MarshalJSON()
 	require.NoError(t, err)
 	var restored entity.RoleSnapshot
 	require.NoError(t, restored.UnmarshalJSON(blob))
-	// An always capability under deny -> still blocked after unfreezing.
-	require.False(t, restored.AllowsCapability(target, true))
+	// An always block under deny -> still blocked after unfreezing.
+	require.False(t, restored.AllowsBlock(target, true))
 }

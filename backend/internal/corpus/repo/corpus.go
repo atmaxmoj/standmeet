@@ -13,9 +13,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/corpus/db"
 	"github.com/atmaxmoj/standmeet/internal/corpus/entity"
+	"github.com/atmaxmoj/standmeet/internal/corpus/integration"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/infra/textcut"
 )
@@ -207,7 +207,7 @@ func toDomainRaw(r *db.CorpusNote) entity.Raw {
 		FlaggedPrivate: r.FlaggedPrivate,
 		Archived:       r.Archived,
 		CreatedAt:      r.CreatedAt.Time,
-		Integrations:   connector.NewIntegrations(),
+		Integrations:   integration.NewIntegrations(),
 	}
 	if r.PromotedTo.Valid {
 		s := pgstore.FormatUUID(r.PromotedTo)

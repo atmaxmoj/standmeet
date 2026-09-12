@@ -1,0 +1,235 @@
+// supplier-registry —— the plugin array for adding new admin supplier kinds.
+//
+// Design source: docs/design/project/admin-data.js SUPPLIER_REGISTRY.
+// Adding a new supplier = append one entry to SUPPLIER_REGISTRY;
+// SupplierAddModal + SupplierConfigForm render it automatically. After GCal
+// booking (memory:gcal-booking-future) = add an oauth flow to the calendar entry, without touching component code.
+
+export interface SupplierField {
+  k: string;
+  label: string;
+  options?: readonly string[]; // a picker (rendered as select / chips)
+  secret?: boolean;            // a password input that hides its content
+  oauth?: boolean;             // redirects to "Authorize…" instead of an input
+  default?: string;
+}
+
+export interface SupplierCategory {
+  id: string;
+  label: string;
+  blurb: string;
+}
+
+export interface SupplierEntry {
+  id: string;
+  name: string;
+  icon: string; // unicode glyph
+  category: string;
+  blurb: string;
+  fields: readonly SupplierField[];
+  builtin?: boolean; // built-in, cannot be deleted
+  docs_url?: string;
+  // protocol supplier (#155 kind=protocol): selecting it takes the "create
+  // protocol supplier + store fixed credentials + connection test" path,
+  // protocolSeam = the seam slot it fills (mail/calendar). openapi/catalog entries don't set these two.
+  protocol?: string;
+  protocolSeam?: string;
+  // assemble (#155): the unified assembly entry point (seam card) → AssembleView (OpenAPI upload or the built-in protocol form).
+  assemble?: boolean;
+  assembleSeam?: string;
+}
+
+export const SUPPLIER_CATEGORIES: readonly SupplierCategory[] = [
+  { id: 'comms',     label: 'communication',      blurb: 'inbox, scheduling, voice' },
+  { id: 'capture',   label: 'capture',            blurb: 'where thinking lands' },
+  { id: 'identity',  label: 'identity & social',  blurb: 'verified-by accounts' },
+  { id: 'storage',   label: 'storage & backup',   blurb: 'where the corpus archives to' },
+  // Renamed from "analytics": knowing who is reading is now the instance's own job
+  // (settings → traffic). What is left here is sending that elsewhere.
+  { id: 'export', label: 'export', blurb: 'send events somewhere you control' },
+];
+
+export const SUPPLIER_REGISTRY: readonly SupplierEntry[] = [
+  // ── comms ──────────────────────────────────────────────────────────
+  {
+    id: 'email', name: 'Email', icon: '✉', category: 'comms',
+    blurb: 'visitors can ping you when they hit a private redaction.',
+    fields: [
+      { k: 'smtp_host', label: 'SMTP host' },
+      { k: 'smtp_user', label: 'SMTP user' },
+      { k: 'smtp_pass', label: 'SMTP password', secret: true },
+    ],
+  },
+  {
+    // SMTP protocol supplier (#155 §8-E): kind=protocol, fixed credential form (NOT spec-derived).
+    id: 'smtp', name: 'SMTP', icon: '✉', category: 'comms', builtin: true,
+    protocol: 'smtp', protocolSeam: 'mail',
+    blurb: 'send mail through any SMTP server (the mail seam, protocol kind).',
+    fields: [
+      { k: 'host', label: 'Host' },
+      { k: 'port', label: 'Port', default: '587' },
+      { k: 'username', label: 'Username' },
+      { k: 'password', label: 'Password', secret: true },
+      { k: 'from', label: 'From address' },
+      { k: 'tls', label: 'TLS', options: ['none', 'starttls', 'tls'], default: 'starttls' },
+    ],
+  },
+  {
+    // Telegram protocol supplier (kind=protocol). Stores the BotFather token; the separate
+    // im-bridge service reads it from /internal/im/config and runs the actual bot.
+    // protocolSeam 'im' matches the backend manifest's `provides` (the telegram block).
+    id: 'telegram', name: 'Telegram', icon: '✈', category: 'comms', builtin: true,
+    protocol: 'telegram', protocolSeam: 'im',
+    blurb: 'chat with your standmeet from a Telegram bot — visitor chat + ingest, over DM.',
+    fields: [
+      { k: 'token', label: 'Bot token', secret: true },
+    ],
+  },
+  {
+    // Unified assembly entry point (#155): calendar category → AssembleView
+    // (paste an OpenAPI spec to assemble per-SaaS, or fill in the built-in
+    // CalDAV protocol form). No longer a hardcoded provider dropdown (that was legacy, now removed).
+    id: 'calendar', name: 'Calendar', icon: '◫', category: 'comms', assemble: true,
+    assembleSeam: 'calendar',
+    blurb: 'offers booking slots when a conversation gets serious.',
+    fields: [],
+  },
+  {
+    // mail category → AssembleView (an OpenAPI mail SaaS or the built-in SMTP).
+    id: 'mail', name: 'Mail', icon: '✉', category: 'comms', assemble: true,
+    assembleSeam: 'mail',
+    blurb: 'sends confirmations and follow-ups in the owner’s name.',
+    fields: [],
+  },
+  {
+    id: 'discord', name: 'Discord DM', icon: '⌬', category: 'comms',
+    blurb: 'mirror access requests to a DM. one-way, owner-only.',
+    fields: [{ k: 'webhook', label: 'Webhook URL', secret: true }],
+  },
+  {
+    id: 'twilio', name: 'Twilio SMS', icon: '☎', category: 'comms',
+    blurb: 'sms when someone hits a high-trust topic + replies allowed.',
+    fields: [
+      { k: 'sid', label: 'Account SID' },
+      { k: 'token', label: 'Auth token', secret: true },
+      { k: 'from', label: 'From number' },
+    ],
+  },
+
+  // ── capture ────────────────────────────────────────────────────────
+  {
+    id: 'mcp', name: 'MCP push', icon: '◈', category: 'capture',
+    blurb: 'where claude/chatgpt/cursor send dumps. token-scoped.',
+    fields: [{ k: 'token_scope', label: 'Default token scope', options: ['read+write', 'write only'] }],
+    builtin: true,
+  },
+  {
+    id: 'obsidian', name: 'Obsidian', icon: '◆', category: 'capture',
+    blurb: 'two-way sync with a local vault. plugin required.',
+    fields: [
+      { k: 'vault_path', label: 'Vault path' },
+      { k: 'mode', label: 'Mode', options: ['two-way', 'push only', 'pull only'] },
+    ],
+    builtin: true,
+  },
+  {
+    id: 'notion', name: 'Notion', icon: '▢', category: 'capture',
+    blurb: 'import pages / databases as wiki entries.',
+    fields: [
+      { k: 'integration_token', label: 'Notion integration token', secret: true },
+      { k: 'database_id', label: 'Database ID' },
+    ],
+  },
+  {
+    id: 'readwise', name: 'Readwise', icon: '➤', category: 'capture',
+    blurb: 'pull highlights from articles, books, tweets.',
+    fields: [{ k: 'access_token', label: 'Readwise API token', secret: true }],
+  },
+  {
+    id: 'gmail', name: 'Gmail · drafts label', icon: '✦', category: 'capture',
+    blurb: 'auto-import emails you tagged "standmeet" as raw entries.',
+    fields: [
+      { k: 'oauth', label: 'Authorize…', oauth: true },
+      { k: 'label', label: 'Label to watch', default: 'standmeet' },
+    ],
+  },
+
+  // ── identity ───────────────────────────────────────────────────────
+  {
+    id: 'github', name: 'GitHub', icon: '⎔', category: 'identity',
+    blurb: 'pulls README + project descriptions; proves identity.',
+    fields: [
+      { k: 'username', label: 'Username' },
+      { k: 'oauth', label: 'Authorize…', oauth: true },
+    ],
+    builtin: true,
+  },
+  {
+    id: 'linkedin', name: 'LinkedIn', icon: '⏍', category: 'identity',
+    blurb: 'proof-of-employment fetch + name-match check.',
+    fields: [{ k: 'oauth', label: 'Authorize…', oauth: true }],
+  },
+  {
+    id: 'twitter', name: 'X / Twitter', icon: '𝕏', category: 'identity',
+    blurb: 'verified handle + pulls pinned thread as a public wiki entry.',
+    fields: [
+      { k: 'handle', label: 'Handle (@…)' },
+      { k: 'oauth', label: 'Authorize…', oauth: true },
+    ],
+  },
+  {
+    id: 'orcid', name: 'ORCID', icon: '◉', category: 'identity',
+    blurb: 'for researchers · verify ORCID iD + publications list.',
+    fields: [{ k: 'orcid_id', label: 'ORCID iD' }],
+  },
+
+  // ── storage ────────────────────────────────────────────────────────
+  {
+    id: 's3', name: 'S3 / R2', icon: '☷', category: 'storage',
+    blurb: 'daily corpus backup to your own bucket.',
+    fields: [
+      { k: 'endpoint', label: 'Endpoint' },
+      { k: 'bucket', label: 'Bucket' },
+      { k: 'access_key', label: 'Access key', secret: true },
+      { k: 'secret_key', label: 'Secret key', secret: true },
+    ],
+  },
+  {
+    id: 'gdrive', name: 'Google Drive', icon: '△', category: 'storage',
+    blurb: 'snapshot to a designated drive folder.',
+    fields: [
+      { k: 'oauth', label: 'Authorize…', oauth: true },
+      { k: 'folder', label: 'Folder name', default: 'standmeet-backups' },
+    ],
+  },
+
+  // ── export ─────────────────────────────────────────────────────────
+  //
+  // This category used to be "analytics" and used to offer Plausible and Umami: point the
+  // instance at someone else's analytics service. Both are gone. The instance now collects its
+  // own visitor traffic (docs/design/monitor.md) — in its own database, with the visitor's
+  // access code as a first-class dimension, which no third party can see. A second, weaker copy
+  // of the same data is not worth a supplier.
+  //
+  // What survives is export: sending events somewhere the owner controls.
+  {
+    id: 'webhook', name: 'Generic webhook', icon: '⚭', category: 'export',
+    blurb: 'POST every chat-conversation event to a URL you control.',
+    fields: [
+      { k: 'endpoint', label: 'POST URL' },
+      { k: 'secret', label: 'Signing secret (optional)', secret: true },
+      { k: 'events', label: 'Events',
+        options: ['all', 'private-hits only', 'sent applications only'] },
+    ],
+  },
+];
+
+// suppliersByCategory —— used to group entries by category tab when rendering the modal.
+export function suppliersByCategory(category: string): SupplierEntry[] {
+  return SUPPLIER_REGISTRY.filter((c) => c.category === category);
+}
+
+// installedCount —— SuppliersSection's header "N installed / M catalog".
+export function catalogSize(): number {
+  return SUPPLIER_REGISTRY.length;
+}

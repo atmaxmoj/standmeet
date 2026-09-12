@@ -10,7 +10,7 @@
 // This drives the REAL Puck editor on the exact shape that broke (identity + summary + two educations
 // + one skill, no works) and asserts: (1) no pageerror fires, (2) the iframe canvas holds one Header,
 // one Summary, TWO Education and one SkillSet section — i.e. the components did not collapse into one.
-// On the id-less code both assertions fail. ([[test-covers-capability-not-face]]: draft-puck-paper
+// On the id-less code both assertions fail. ([[test-covers-block-not-face]]: draft-puck-paper
 // only checked the paper colour, so this class of collapse slipped through.)
 
 import { test, expect } from '@/fixtures/test';

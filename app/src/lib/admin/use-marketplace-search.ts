@@ -27,7 +27,7 @@ const MarketSkillWireSchema = z.object({
   // count). `.default(0)` is not allowed: that's exactly the step that
   // printed `★ 0` on every GitHub card — translating "unknown" into "zero stars" (F-F-2).
   repo_stars: z.number().nullish(),
-  // needs —— the names of connectors ('calendar' / 'smtp') behind this
+  // needs —— the names of suppliers ('calendar' / 'smtp') behind this
   // skill's tools that the owner **hasn't** connected yet.
   //   null / absent = the server couldn't answer (hasn't read its SKILL.md,
   //     or this instance can't parse it) → the card stays silent;
@@ -36,7 +36,7 @@ const MarketSkillWireSchema = z.object({
   // **The set difference is computed server-side**: both halves — "what this
   // skill needs" and "what the owner has connected" — live there; computing
   // it again on the client would mean maintaining its own
-  // connector→label lookup table, which is just a third name for the same thing (F-F-4).
+  // supplier→label lookup table, which is just a third name for the same thing (F-F-4).
   needs: z.array(z.string()).nullish(),
 });
 
@@ -65,7 +65,7 @@ export function useMarketplaceSearch(query: string, source: SourceParam): Market
   // request that comes back late would win**: the full catalog from an empty
   // query lands on top of results from a just-run search, while the search
   // box still shows what the owner typed — and nothing errors anywhere
-  // (F-F-6). The connector list already handles this (useLatestList); it was missed here.
+  // (F-F-6). The supplier list already handles this (useLatestList); it was missed here.
   const seq = useRef(0);
   useEffect(() => {
     void loadPage(query, source, 0, [], setState, seq);

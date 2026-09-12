@@ -4,7 +4,7 @@
 # The shape of the rule (owner's words): the AI provider reaches half-way out. On the inward
 # side the owner fills the form, it gets sealed and stored, and **the inward side has no way to
 # open it at all**. Opening happens on the outbound side, which opens and hands the plaintext to
-# whoever spends it. That seal/open pair is not a kind of connector —— it is the base mechanism
+# whoever spends it. That seal/open pair is not a kind of supplier —— it is the base mechanism
 # both sit on.
 #
 # Two scopes, because the invariant has two escapes and only one of them is visible:
@@ -45,12 +45,25 @@ cd "$(dirname "$0")/../.."
 BASELINE="backend/.core-seals-only-baseline"
 
 # The kernel —— same set as check-core-agnostic.sh.
-KERNEL_DIRS="backend/internal/conversation/inference backend/internal/capabilities"
+KERNEL_DIRS="backend/internal/conversation/inference \
+backend/internal/plugin/registry backend/internal/plugin/mount \
+backend/internal/plugin/blockconfig backend/internal/plugin/blockquota \
+backend/internal/plugin/blockstore backend/internal/plugin/assembly"
 KERNEL_PATTERN='[Dd]ecrypt|[Uu]nseal'
+
+# A missing KERNEL_DIR is the gate losing its subject. `find` over a directory that is not there
+# exits non-zero, and with `set -euo pipefail` the whole script dies producing NO output at all —
+# which is what happened when the block-vocabulary rename removed internal/capabilities. Say so.
+for d in $KERNEL_DIRS; do
+  if [ ! -d "$d" ]; then
+    echo "check-core-seals-only: KERNEL_DIR $d does not exist — the scan is blind, not the kernel clean." >&2
+    exit 2
+  fi
+done
 
 # The inward side —— everything under internal/ except the outbound layer and the box itself.
 INWARD_ROOT="backend/internal"
-INWARD_SKIP='backend/internal/connector/|backend/internal/infra/cryptobox/'
+INWARD_SKIP='backend/internal/plugin/adapters/|backend/internal/plugin/credentials/|backend/internal/plugin/blockadmin/|backend/internal/infra/cryptobox/'
 # The opening parenthesis is required: without it, `cryptobox.DecryptWithKey(` would also match —— that's
 # a session envelope, already out of scope for this rule as noted above. (A prefix false-positive, same kind as the market-skill- one.)
 INWARD_PATTERN='cryptobox\.Decrypt\('

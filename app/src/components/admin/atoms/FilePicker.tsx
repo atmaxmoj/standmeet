@@ -2,7 +2,7 @@
 //
 // The browser's native `<input type="file">` draws its own `Choose File / No file
 // chosen`: the look is decided by the OS and matches nothing in this product. UX-81
-// was caught in the connector modal — the one undesigned control in the whole window,
+// was caught in the supplier modal — the one undesigned control in the whole window,
 // sitting right next to a designed button. After fixing that spot, the same thing was
 // still standing in two other places (the wiki entry's FILES row, a writing's cover
 // image) — one lesson only fixed the place it was found in.

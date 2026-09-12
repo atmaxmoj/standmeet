@@ -1,6 +1,6 @@
 // policy.go —— booking policy 结构 + 评估算法,港自旧核心 usecases/calendar_policy.go +
 // domain.BookingPolicy。#135:booker 是 self-contained cap,自带这份结构与算法;核心不再认识
-// "booking policy"。policy 存在 booker 自己的 capstore("policy" collection,单 doc);没设过
+// "booking policy"。policy 存在 booker 自己的 blockstore("policy" collection,单 doc);没设过
 // → DefaultBookingPolicy。评估纯 Go(time/strings),不碰任何外部。
 
 package main
@@ -33,7 +33,7 @@ var errMissingHours = errors.New("policy: working hours missing")
 
 var errOutsideHours = errors.New("policy: outside hours")
 
-// bookingPolicy —— owner 的预约政策(capstore JSONB 文档)。
+// bookingPolicy —— owner 的预约政策(blockstore JSONB 文档)。
 type bookingPolicy struct {
 	OwnerID           string   `json:"owner_id"`
 	WorkingHoursStart string   `json:"working_hours_start"` // 'HH:MM'
@@ -43,7 +43,7 @@ type bookingPolicy struct {
 	BufferMin         int32    `json:"buffer_min"`
 }
 
-// 默认值不在这儿了 —— 它是 host manifest 里 Config 声明的一部分,经 capconfig.get 兜好底
+// 默认值不在这儿了 —— 它是 host manifest 里 Config 声明的一部分,经 blockconfig.get 兜好底
 // 之后一起送来(见 loadPolicy)。这儿曾经有一份 defaultBookingPolicy(),host 侧也有一份,
 // 两份飘了:host 说工作到 18:00、缓冲 15 分钟,这儿按 17:00、缓冲 0。
 

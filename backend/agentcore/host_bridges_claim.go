@@ -1,7 +1,7 @@
 // host_bridges_claim.go — single-winner claim on the eval side.
 //
 // The real host guarantees "only one caller ever gets a given key" with a
-// primary-key conflict (see capstore/claim.go). This is the mini-host: one
+// primary-key conflict (see blockstore/claim.go). This is the mini-host: one
 // table + one lock inside a single process, and the semantics **must match** —
 // a fake claim that only ever returns true would keep the guard for it green
 // forever on this side, and what that guard protects is exactly "two callers

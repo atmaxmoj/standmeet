@@ -1,12 +1,12 @@
 // visitor_build.go —— P.13: the standalone-launch handle. BuildVisitorAgent drives
-// the SAME real visitor capability assembly the HTTP path runs (RegisterVisitorSkills
+// the SAME real visitor block assembly the HTTP path runs (RegisterVisitorSkills
 // + AssembleVisitor + ComposeSystemPrompt) — but takes its environment from an
-// injected agentcore.Driver instead of postgres/connectors. prod plugs in a real
+// injected agentcore.Driver instead of postgres/suppliers. prod plugs in a real
 // Driver; eval-harness plugs in a canned one. No fixture lives here: the Driver IS the
 // environment, the bridge (bridge.go) adapts it onto the real internal ports.
 //
 // The system prompt is the experiment injection point: leave SystemPromptOverride
-// empty for the faithful composed prompt (ComposeBasePersona + capability fragments),
+// empty for the faithful composed prompt (ComposeBasePersona + block fragments),
 // or set it to try a variant. The core runs whatever prompt you hand it — that's the
 // "trial a good prompt → backfill into prod" mechanism, parallelizable across processes.
 
@@ -20,11 +20,11 @@ import (
 	"github.com/cloudwego/eino/components/tool"
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
-	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
-	"github.com/atmaxmoj/standmeet/internal/routes/capload"
+	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
+	"github.com/atmaxmoj/standmeet/internal/routes/blockload"
 )
 
 // evalSkillID / evalMCPID —— fixed grant ids the launch RoleSnapshot references when
@@ -61,22 +61,22 @@ func BuildVisitorAgent(ctx context.Context, d Driver, in *LaunchInput) (*Visitor
 
 	snapshot := buildSnapshot(&snapshotInput{
 		roleBody: env.persona.RoleBody, corpusURIs: buildCorpusGrants(env.persona.Corpus),
-		skill: env.skill, mcpURL: env.mcpURL, granted: in.GrantedCapabilities,
+		skill: env.skill, mcpURL: env.mcpURL, granted: in.GrantedBlocks,
 	})
 	deps := buildDriverDeps(d, in.OwnerID, env.skill, env.mcpURL)
 
-	reg := capreg.NewRegistry()
-	capload.RegisterVisitorSkills(reg, deps, nil)
+	reg := registry.NewRegistry()
+	blockload.RegisterVisitorSkills(reg, deps, nil)
 	registerDriverPlugins(reg, env.plugins)
 
-	assemble := &capreg.AssembleInput{
+	assemble := &registry.AssembleInput{
 		RoleSnapshot:   &snapshot,
 		OwnerID:        in.OwnerID,
 		Mode:           in.Mode,
 		ConversationID: in.ConversationID,
-		Subject:        capreg.Subject{Kind: capreg.SubjectCode, ID: in.CodeID},
+		Subject:        registry.Subject{Kind: registry.SubjectCode, ID: in.CodeID},
 	}
-	fr := capreg.FlattenBindings(reg.AssembleVisitor(ctx, assemble))
+	fr := registry.FlattenBindings(reg.AssembleVisitor(ctx, assemble))
 	return &VisitorAgent{
 		SystemPrompt: composePrompt(ctx, reg, assemble, &promptSource{
 			snapshot: &snapshot, ownerName: env.persona.OwnerName,
@@ -128,10 +128,10 @@ type promptSource struct {
 }
 
 // composePrompt —— the override IS the prompt when set (experiment injection);
-// otherwise compose the faithful prod prompt (base persona + capability fragments).
+// otherwise compose the faithful prod prompt (base persona + block fragments).
 func composePrompt(
-	ctx context.Context, reg *capreg.Registry,
-	in *capreg.AssembleInput, src *promptSource,
+	ctx context.Context, reg *registry.Registry,
+	in *registry.AssembleInput, src *promptSource,
 ) string {
 	if src.override != "" {
 		return src.override
@@ -159,7 +159,7 @@ func buildSnapshot(in *snapshotInput) access.RoleSnapshot {
 		RoleName:   "eval",
 		PromptBody: in.roleBody,
 		CorpusURIs: in.corpusURIs,
-		// AllowedTools — the capability ids the role has granted. acl=role_granted
+		// AllowedTools — the block ids the role has granted. acl=role_granted
 		// plugins are exposed through this.
 		AllowedTools: in.granted,
 	}
@@ -175,10 +175,10 @@ func buildSnapshot(in *snapshotInput) access.RoleSnapshot {
 	return access.NewRoleSnapshot(init)
 }
 
-// buildDriverDeps —— VisitorSkillsDeps with only the ports the assembled capabilities
+// buildDriverDeps —— VisitorSkillsDeps with only the ports the assembled blocks
 // touch, each backed by the Driver: skill-runner (Skills + Sandbox) when a skill is
 // granted, ext-mcp (MCPServers) when a server is granted, plus the Resolver. The other
-// ports stay nil — their capabilities grant-gate to ErrHidden, same as for an owner
+// ports stay nil — their blocks grant-gate to ErrHidden, same as for an owner
 // who wired nothing.
 func buildDriverDeps(
 	d Driver, ownerID string, skill *VisitorSkillSpec, mcpURL string,

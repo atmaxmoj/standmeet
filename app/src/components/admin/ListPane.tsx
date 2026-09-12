@@ -14,7 +14,7 @@
 // actually read.
 //
 // The product **already has examples done right** (`CodeCorpusConfig`'s `CorpusLoadFailed`,
-// `CapabilitiesPanel` checking `status === 'error'`) — done right by **hand-writing the third
+// `BlockPanel` checking `status === 'error'`) — done right by **hand-writing the third
 // state**. And hand-writing it means the next section will miss it again: a check that depends
 // on someone remembering is a responsibility class
 // ([[structure-means-no-responsibility-class]]). So the ordering is **welded into one place**

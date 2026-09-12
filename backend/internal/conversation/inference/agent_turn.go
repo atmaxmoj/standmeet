@@ -52,7 +52,7 @@ func agentTurnTimeout() time.Duration {
 // ProgressLabels —— tool name → throbber copy; since H.11 the tool_started SSE frame carries a
 // progress_label field to the browser, read directly by the frontend instead of going through a
 // local zustand-registry lookup. Filled in by the caller (route handler); inference doesn't know
-// which capability registered which label — zero cross-package coupling.
+// which block registered which label — zero cross-package coupling.
 //
 // Mode —— visitor session mode (public / code / byoai). Since H.13, a code-accessor session
 // emits a `ghosts` SSE event (follow-up chips) before wrap-up; public / byoai never produce chips.
@@ -112,11 +112,11 @@ type AgentTurnInput struct {
 	VisitorTimezone string
 	Tools           []tool.BaseTool
 	// ClaimGates —— "if it says so, it must have happened" conditions declared by the
-	// capabilities granted this session (from the manifest at assembly time). Empty = this
+	// blocks granted this session (from the manifest at assembly time). Empty = this
 	// turn has no claims needing a receipt. See agent_claim_gate.go.
 	ClaimGates []ClaimGate
 	// SessionNotes —— facts that only became true **after the session started** (quota ran
-	// out, a connector went offline).
+	// out, a supplier went offline).
 	//
 	// The visitor's system prompt is fixed when the session is assembled by the client —
 	// anything true mid-session has no other way in. The route handler fills it in (queries

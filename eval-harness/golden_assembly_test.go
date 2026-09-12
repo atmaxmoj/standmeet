@@ -1,4 +1,4 @@
-// golden_assembly_test.go —— #154 step 4: **the launcher** assembles the same capability set
+// golden_assembly_test.go —— #154 step 4: **the launcher** assembles the same block set
 // prod does for a vanilla (public, no grants) launch. Every acl:always plugin (ask-visitor,
 // retrieval, summarize) is built and run for real over plain stdio; role-granted caps (booker,
 // skill, ext-mcp) correctly stay OUT of a vanilla set.
@@ -21,7 +21,7 @@ import (
 	"github.com/atmaxmoj/standmeet/agentcore"
 )
 
-func TestEvalAssemblesProdCapabilitySet(t *testing.T) {
+func TestEvalAssemblesProdBlockSet(t *testing.T) {
 	ctx := context.Background()
 	driver := &EvalDriver{
 		cred:   evalCred(),

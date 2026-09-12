@@ -7,7 +7,7 @@
 # (no `wire-check` / `wire` targets). schema lives in db/schema.sql
 # applied at db volume init—no goose migration runner.
 
-.PHONY: lint build test arch fmt-check max-lines routes-cyclo boundary-thin no-nil-container build-check secrets golangci-config escape-lint connector-boundary core-agnostic core-seals-only internal-dirs domain-acyclic infra-not-domain routes-not-imported domain-facade-boundary domain-layering hostops-via-desk periodic-via-scheduler axes-declare-in-data
+.PHONY: lint build test arch fmt-check max-lines routes-cyclo boundary-thin no-nil-container build-check secrets golangci-config escape-lint supplier-boundary core-agnostic core-seals-only internal-dirs domain-acyclic infra-not-domain routes-not-imported domain-facade-boundary domain-layering hostops-via-desk periodic-via-scheduler blocks-declare-in-data host-blind-to-blocks
 
 # sqlc generation lives in the root Makefile (`make sqlc-gen`) so it works
 # the same way for app/sdk/backend devs. Don't duplicate it here.
@@ -17,7 +17,7 @@
 # typo dies before the slow arch scan.  Everything that gates a
 # commit lives here — there are no "also run X" steps anywhere else,
 # so the lefthook pre-commit and CI both just call `make lint`.
-lint: fmt-check golangci-config max-lines routes-cyclo routes-via-dispatcher hostops-via-desk periodic-via-scheduler axes-declare-in-data boundary-thin no-nil-container no-raw-http arch connector-boundary core-agnostic core-seals-only internal-dirs domain-acyclic infra-not-domain routes-not-imported domain-facade-boundary domain-layering build-check golangci escape-lint
+lint: fmt-check golangci-config max-lines routes-cyclo routes-via-dispatcher hostops-via-desk periodic-via-scheduler blocks-declare-in-data boundary-thin no-nil-container no-raw-http arch supplier-boundary core-agnostic host-blind-to-blocks core-seals-only internal-dirs domain-acyclic infra-not-domain routes-not-imported domain-facade-boundary domain-layering build-check golangci escape-lint
 
 # gofmt diff is instant — anything malformed fails here first.
 fmt-check:
@@ -43,7 +43,7 @@ routes-cyclo:
 no-nil-container:
 	@tool=$$(mktemp) && ( cd ../infra/scripts/check-no-nil-container && go build -o "$$tool" . ) && "$$tool"; rc=$$?; rm -f "$$tool"; exit $$rc
 
-# Faces may reach capability only through the outbound convergence point
+# Faces may reach operations only through the outbound convergence point
 # (internal/routes/dispatcher) — a handler that imports a domain facade directly
 # has bypassed it, so nothing can guarantee parity or apply policy for that op.
 # Shrink-only baseline of the files that predate the dispatcher.
@@ -51,8 +51,8 @@ routes-via-dispatcher:
 	@tool=$$(mktemp) && ( cd ../infra/scripts/check-routes-via-dispatcher && go build -o "$$tool" . ) && "$$tool"; rc=$$?; rm -f "$$tool"; \
 		[ $$rc -eq 0 ] && bash ../infra/scripts/check-routes-via-dispatcher-test.sh; rc2=$$?; exit $$((rc + rc2))
 
-# The inbound mirror: a sandboxed capability reaches back only through the inbound
-# convergence point (internal/routes/hostdesk). Only the desk opens a capability
+# The inbound mirror: a sandboxed block reaches back only through the inbound
+# convergence point (internal/routes/hostdesk). Only the desk opens an op
 # socket, and only a domain (or an axis's own mechanism) declares a host op — the
 # assembly root wires deps, it never mints verbs.
 hostops-via-desk:
@@ -68,12 +68,12 @@ periodic-via-scheduler:
 	@bash ../infra/scripts/check-periodic-via-scheduler.sh
 	@bash ../infra/scripts/check-periodic-via-scheduler-test.sh
 
-# Both plugin axes declare their built-ins as DATA in their own top-level dir
-# (backend/connectors/, backend/capabilities/), and a declaration never names a
+# Blocks and suppliers declare their built-ins as DATA in their own top-level dir
+# (backend/blocks/, backend/suppliers/), and a declaration never names a
 # socket path — it names WHICH OPS it wants, and the path is derived from the id.
-axes-declare-in-data:
-	@bash ../infra/scripts/check-axes-declare-in-data.sh
-	@bash ../infra/scripts/check-axes-declare-in-data-test.sh
+blocks-declare-in-data:
+	@bash ../infra/scripts/check-blocks-declare-in-data.sh
+	@bash ../infra/scripts/check-blocks-declare-in-data-test.sh
 
 # Boundaries only declare and hand over: a facade re-exports its domain, and the
 # dispatcher aggregates facades. Payload shapes, op schemas and reaching past a
@@ -91,22 +91,32 @@ no-raw-http:
 arch:
 	@"$$(go env GOPATH)/bin/go-arch-lint" check
 
-# Phase B structural gate: outbound connector clients (gcal/mailer) may only
-# be reached through the connector layer — credentials never leave the vault
-# into capability/usecases code. Red until the connector proxy lands.
-connector-boundary:
-	@bash ../infra/scripts/check-connector-boundary.sh
+# Structural gate: the credential vault (internal/plugin/credentials) may only be
+# reached from the supplier layer + the composition root — credentials never leave
+# the vault into block or route code.
+supplier-boundary:
+	@bash ../infra/scripts/check-supplier-boundary.sh
 	@bash ../infra/scripts/check-no-impl-words-at-visitor.sh
 
 # #135 structural lock (Layer 4): the kernel (internal/usecases + inference +
-# domain) must name ZERO concrete capabilities/connectors. go-arch-lint only
-# governs import arrows; this string ratchet catches capability logic sitting
+# domain) must name ZERO concrete blocks/suppliers. go-arch-lint only
+# governs import arrows; this string ratchet catches block logic sitting
 # inside a kernel package. Baseline .core-agnostic-baseline only ever shrinks.
 core-agnostic:
 	@bash ../infra/scripts/check-core-agnostic.sh
 
+# The other half of the same rule, at the other end of the codebase. core-agnostic locks
+# the KERNEL against concrete block words, from a hand-written token list, and excludes
+# the composition root by design — which is exactly where the host had come to hold four
+# lists of which blocks ship. This one scans everything core-agnostic doesn't, and derives
+# its subject from backend/blocks/*/manifest.yaml, so a new block is covered without anyone
+# remembering to add its word. Baseline .host-blind-to-blocks-baseline only ever shrinks.
+host-blind-to-blocks:
+	@bash ../infra/scripts/check-host-blind-to-blocks.sh
+	@bash ../infra/scripts/check-host-blind-to-blocks-test.sh
+
 # §1.5: the kernel only seals, never unseals. Unsealing belongs to the layer that
-# **holds that ciphertext column and spends it right there** (the connector / the repo
+# **holds that ciphertext column and spends it right there** (the supplier / the repo
 # owning that column). go-arch-lint can't see this — the kernel takes a
 # `func([]byte)([]byte,error)`, imports no illegal package, and every arrow is green.
 # Baseline .core-seals-only-baseline records the **declared exceptions**; it only shrinks.
@@ -120,7 +130,7 @@ core-seals-only:
 internal-dirs:
 	@bash ../infra/scripts/check-internal-dirs.sh
 
-# domain-acyclic: the domain graph (8 core + capabilities) must be acyclic. go-arch-lint only
+# domain-acyclic: the domain graph (8 core + plugin) must be acyclic. go-arch-lint only
 # checks package level; subpackages can split a domain cycle into a package DAG and slip past it.
 domain-acyclic:
 	@bash ../infra/scripts/check-domain-acyclic.sh
@@ -157,6 +167,18 @@ golangci-config:
 # golangci-lint runs the full linter set.  Slowest of the three,
 # runs last.  --timeout=30m so docker-builder boxes don't trip the
 # default 1m ceiling when the eino dep tree expands the scan surface.
+# IF YOU ADD A BUILD TAG, ADD A SECOND PASS UNDER IT.
+#
+# Code behind a build tag is invisible to a default run: the files do not compile into the package
+# being analysed, so every rule silently skips them — no error, no warning, no mention. There are no
+# tags in this tree today, so one pass is one pass. There was one (`effectcontract`, guarding the
+# property suite of internal/plugin/effect while it was a contract of panicking stubs), and while it
+# stood, a tautological assertion — `x == false || x` — was written, committed, and never reported,
+# because nothing had ever read the file. Adding
+#
+#	golangci-lint run --timeout=30m --build-tags=<tag> ./...
+#
+# alongside the pass below is the whole fix, and it costs one line.
 golangci:
 	@if command -v golangci-lint >/dev/null 2>&1; then \
 	  golangci-lint run --timeout=30m ./...; \
@@ -187,7 +209,7 @@ escape-lint:
 
 # `make test` runs the Go unit/integration tests (testify, no DB/docker).
 # Pure-logic + in-process coverage; e2e lives in the root `make test`.
-# -race is on by design: shared runtime state (e.g. the connector Hub, resolved
+# -race is on by design: shared runtime state (e.g. the supplier table, resolved
 # per request across goroutines) can only be guarded here — a data race is a real
 # bug the green-but-sequential e2e suite structurally cannot see.
 test:

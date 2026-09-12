@@ -422,7 +422,7 @@ function buildPageAgent(
 ): VisitorTurnAgent {
   // H.10: the backend (eino ADK) owns the agent loop; the browser makes
   // just one /agent/turn call and receives SSE events. The three ports —
-  // capabilities / llm / tools — are no longer needed; the whole
+  // blocks / llm / tools — are no longer needed; the whole
   // loop / dispatch lives in the backend now.
   return new VisitorTurnAgent(
     {

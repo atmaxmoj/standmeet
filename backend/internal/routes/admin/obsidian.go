@@ -22,8 +22,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/connector"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
+	"github.com/atmaxmoj/standmeet/internal/corpus/integration"
 	"github.com/atmaxmoj/standmeet/internal/corpus/obsidian"
 	"github.com/atmaxmoj/standmeet/internal/infra/middleware"
 	"github.com/atmaxmoj/standmeet/internal/infra/storage"
@@ -79,26 +79,26 @@ func (a writingsSyncAdapter) ImportWritings(
 	return obsidian.ImportVault(ctx, a.tx, a.setter, ownerID, files)
 }
 
-// *ObsidianDeps IS the corpus sync-mode connector's ingester (#28 step 2): the vault-sync feed
-// folds through the connector layer's SyncIngester abstraction instead of the route calling
+// *ObsidianDeps IS the corpus sync-mode source's ingester (#28 step 2): the vault-sync feed
+// folds through the integration layer's SyncIngester abstraction instead of the route calling
 // SyncVault inline. The DTOs (SyncFile/SyncResult) match obsidian's 1:1 — a trivial rename at the
-// boundary that keeps the connector layer usecase-independent.
-var _ connector.SyncIngester = (*ObsidianDeps)(nil)
+// boundary that keeps the integration layer usecase-independent.
+var _ integration.SyncIngester = (*ObsidianDeps)(nil)
 
-// toSyncFiles converts parsed vault files → connector-layer DTOs (RelPath/Body match 1:1).
-func toSyncFiles(files []obsidian.VaultFile) []connector.SyncFile {
-	out := make([]connector.SyncFile, len(files))
+// toSyncFiles converts parsed vault files → integration-layer DTOs (RelPath/Body match 1:1).
+func toSyncFiles(files []obsidian.VaultFile) []integration.SyncFile {
+	out := make([]integration.SyncFile, len(files))
 	for i, f := range files {
-		out[i] = connector.SyncFile{RelPath: f.RelPath, Body: f.Body}
+		out[i] = integration.SyncFile{RelPath: f.RelPath, Body: f.Body}
 	}
 	return out
 }
 
-// Ingest — connector.SyncIngester: build the vault SyncDeps, run the sync, rebuild the
+// Ingest — integration.SyncIngester: build the vault SyncDeps, run the sync, rebuild the
 // index.
 func (d *ObsidianDeps) Ingest(
-	ctx context.Context, ownerID string, files []connector.SyncFile, opts connector.SyncOpts,
-) (connector.SyncResult, error) {
+	ctx context.Context, ownerID string, files []integration.SyncFile, opts integration.SyncOpts,
+) (integration.SyncResult, error) {
 	vfiles := make([]obsidian.VaultFile, len(files))
 	for i, f := range files {
 		vfiles[i] = obsidian.VaultFile{RelPath: f.RelPath, Body: f.Body}
@@ -113,7 +113,7 @@ func (d *ObsidianDeps) Ingest(
 	// deletions, leaves no drift). Best-effort.
 	corpus.ReindexCorpusOwner(ctx, d.Corpus, ownerID)
 	d.recordImportReceipt(ctx, ownerID, &res)
-	return connector.SyncResult{
+	return integration.SyncResult{
 		Created: res.Created, Updated: res.Updated, Skipped: res.Skipped,
 		Deleted: res.Deleted, Errors: res.Errors,
 	}, nil
@@ -215,10 +215,10 @@ func (h *Handlers) importObsidian() http.HandlerFunc {
 			return
 		}
 		ownerID := middleware.OwnerIDFrom(r.Context())
-		var ingester connector.SyncIngester = &h.Obsidian // fold through the sync-mode connector
+		var ingester integration.SyncIngester = &h.Obsidian // fold through the sync-mode source
 		res, err := ingester.Ingest(
 			r.Context(), ownerID, toSyncFiles(files),
-			connector.SyncOpts{Authoritative: isAuthoritativeUpload(r)},
+			integration.SyncOpts{Authoritative: isAuthoritativeUpload(r)},
 		)
 		if err != nil {
 			writeError(h.Log, w, envBadReq(err.Error()))

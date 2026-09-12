@@ -19,7 +19,7 @@ const APP_BASE = process.env['APP_BASE_URL'] ?? 'http://localhost:38127';
 // And the consequence isn't just "this case went red": the client gives up → the
 // browser closes → the request is aborted → the server's three dials receive
 // `parent-canceled(caller gave up first)` → the session **opens anyway**, just with
-// every capability "hidden from this session". So the failure message points at the
+// every block "hidden from this session". So the failure message points at the
 // session not opening, while the truth is we cut it off ourselves.
 const SESSION_OPEN_TIMEOUT_MS = 30_000;
 
@@ -127,6 +127,16 @@ async function submitVisitorName(page: Page, name?: string): Promise<void> {
   await page.getByTestId('visitor-name-input').fill(name);
   await page.getByTestId('visitor-name-submit').click();
 }
+
+// BLOCKS_SECTION —— the admin section that holds the block list.
+//
+// It is still called `suppliers` in the sidebar: `docs/design/plugin/frontend.md`
+// merges the supplier panel, the block panel and the per-block config route into
+// **one** block screen, and that rename is the frontend workstream's. The block specs
+// name the section through this constant so the rename is one line here rather than a
+// sweep over fourteen call sites — and so the read "is this spec red because the
+// feature is missing, or because it walked into the wrong screen?" has one answer.
+export const BLOCKS_SECTION = 'suppliers';
 
 // gotoAdminSection —— click a section's nav link in the admin sidebar.
 // Matched by testid (data-testid="admin-nav-<slug>"), unaffected by design changing

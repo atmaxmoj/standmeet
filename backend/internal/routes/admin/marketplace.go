@@ -1,7 +1,7 @@
 // marketplace.go — admin marketplace routes: GET /search + POST /install +
 // /install-manual.
 //
-// Capability comes from the outbound convergence point (shared plumbing in dispatch.go).
+// Ability comes from the outbound convergence point (shared plumbing in dispatch.go).
 // What gets installed is a skill, and the payload shape is the same one /skills uses —
 // at the convergence point, marketplace and skills share skillRow.
 
@@ -13,7 +13,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// MarketplaceAdminDeps — capability source for the admin marketplace handlers.
+// MarketplaceAdminDeps — op source for the admin marketplace handlers.
 type MarketplaceAdminDeps struct {
 	Face *dispatcher.Face
 }

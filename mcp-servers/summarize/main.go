@@ -1,4 +1,4 @@
-// Command summarize —— the externalized summarize_conversation capability as a
+// Command summarize —— the externalized summarize_conversation block as a
 // sandboxed stdio MCP server (origin=builtin). It owns NO data: it reads the
 // trusted session context off the tool-call `_meta` (planted by the host) and
 // calls the host's narrow "summarize" op over a bind-mounted unix socket
@@ -119,7 +119,7 @@ func handleSummarize(
 	return mcpgo.NewToolResultText(out), nil
 }
 
-// runSummarize —— the summarize capability's own orchestration:
+// runSummarize —— the summarize block’s own orchestration:
 //
 //	conversation.read → build STAR prompt (owned here) → inference.generate (owner LLM) →
 //	report.store (host sanitizes untrusted HTML + styled-renders + persists the report artifact).

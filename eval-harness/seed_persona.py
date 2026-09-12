@@ -132,9 +132,9 @@ def main():
     prompt_id = need_id(pr, "prompt_create", "prompt_id")
     print("prompt:", text_of(pr)[:120])
 
-    # Booking skill —— allowed_tools unlocks the built-in calendar.book capability
+    # Booking skill —— allowed_tools unlocks the built-in calendar.book block
     # on any role it's attached to, so the recruiter can schedule a call with Marcus
-    # (requires the owner's calendar connector to be connected).
+    # (requires the owner’s calendar supplier to be connected).
     sk = b.call("skill_create", {
         "name": "Schedule a meeting",
         "prompt": "When the recruiter wants to talk live, or asks about Marcus's "

@@ -7,12 +7,12 @@
 // browser only replays history as `{role, content}` — the model reads back its own four earlier
 // "Booked" messages and sees no trace of any tool call, so it completes the pattern with **that
 // sentence**. Adding "don't make things up" to the prompt only nudges the probability down a
-// little; a capability's job is the "did it happen / not" action, and the judging criterion has
+// little; a block's job is the "did it happen / not" action, and the judging criterion has
 // to be the receipt.
 //
 // The kernel side only recognizes two things: which tools got a **successful** result this turn,
-// and the "completion" phrasings a capability declares. It doesn't know what booking is (gates
-// are declared by capabilities in their manifest, brought in at assembly time).
+// and the "completion" phrasings a block declares. It doesn't know what booking is (gates
+// are declared by blocks in their manifest, brought in at assembly time).
 
 package inference
 
@@ -91,7 +91,7 @@ func violates(g *ClaimGate, answer string, okTools map[string]bool) bool {
 }
 
 // markToolOK — record "this tool returned successfully once this turn." A failed receipt
-// doesn't count as a receipt: the capability error convention is `{"ok":false,...}`, and that
+// doesn't count as a receipt: the block error convention is `{"ok":false,...}`, and that
 // kind of receipt can't back "already completed."
 //
 // Recorded separately rather than reusing evidence: evidence is **capped** (on a long crawl it
@@ -108,7 +108,7 @@ func markToolOK(state *turnState, tool, result string) {
 }
 
 // toolResultFailed — does the receipt claim it failed. The uniform error convention across
-// capabilities is a top-level `"ok": false`.
+// blocks is a top-level `"ok": false`.
 func toolResultFailed(result string) bool {
 	compact := strings.ReplaceAll(result, " ", "")
 	return strings.Contains(compact, `"ok":false`)

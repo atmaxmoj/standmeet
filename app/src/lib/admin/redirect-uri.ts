@@ -1,4 +1,4 @@
-// redirect-uri.ts —— the connector's callback address that gets "registered
+// redirect-uri.ts —— the supplier's callback address that gets "registered
 // with the SaaS" (F-C-32).
 //
 // This value's **only** use is being pasted into a third party's console
@@ -15,18 +15,18 @@
 
 import { useEffect, useState } from 'react';
 
-/** connectorCallbackPath —— the callback's path on this instance (the half after the origin). */
-export function connectorCallbackPath(connectorID: string): string {
-  return `/api/admin/connectors/${connectorID}/callback`;
+/** supplierCallbackPath —— the callback's path on this instance (the half after the origin). */
+export function supplierCallbackPath(supplierID: string): string {
+  return `/api/admin/suppliers/${supplierID}/callback`;
 }
 
 /**
- * useConnectorRedirectURI —— the full, paste-ready callback address.
+ * useSupplierRedirectURI —— the full, paste-ready callback address.
  * SSR has no window, so the path is given first (renders something, without
  * pretending it's a URI); it's swapped for the absolute address after mount.
  */
-export function useConnectorRedirectURI(connectorID: string): string {
-  const path = connectorCallbackPath(connectorID);
+export function useSupplierRedirectURI(supplierID: string): string {
+  const path = supplierCallbackPath(supplierID);
   const [uri, setURI] = useState(path);
   useEffect(() => setURI(`${window.location.origin}${path}`), [path]);
   return uri;

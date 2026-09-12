@@ -22,7 +22,7 @@ import type { Page } from '@playwright/test';
 
 import { claim } from '@/fixtures/admin';
 import { findSetupToken, resetInstance } from '@/fixtures/instance';
-import { configureMailConnector } from '@/fixtures/mail';
+import { configureMailSupplier } from '@/fixtures/mail';
 import { openGate } from '@/fixtures/navigate';
 
 const OWNER = {
@@ -44,7 +44,7 @@ test.describe('gate · a refusal names a way out only when there is one', () => 
       email: OWNER.email, password: OWNER.password,
       handle: OWNER.handle, fullName: OWNER.fullName,
     });
-    await configureMailConnector(request, OWNER.email, OWNER.password);
+    await configureMailSupplier(request, OWNER.email, OWNER.password);
     await request.dispose();
   });
 

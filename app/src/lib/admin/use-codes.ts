@@ -14,7 +14,7 @@ import type { ResourceStatus } from '@/lib/state/status';
 // PathPermission —— the access unit of the retrieval-redesign. first-match-wins
 // as of A.3-IAM-5: PathPermission / corpus_permissions / granted_skills /
 // skill_ids have all been removed from the code wire shape — a code only
-// carries assumed_role_id, and ACL / capability are both derived from the role.
+// carries assumed_role_id, and ACL / block are both derived from the role.
 export const CodeViewSchema = z.object({
   id: z.string(), code: z.string(), label: z.string(), status: z.string(),
   purpose: z.string().optional(),
@@ -42,6 +42,11 @@ export const CodeViewSchema = z.object({
   // nullish: old backends don't send this field, and a missing field
   // shouldn't silently fail the whole code list ([[zod-unknown-is-not-optional]]).
   microsite_slug: z.string().nullish().transform((v) => v ?? ''),
+  // bundle —— which bundle of blocks this code carries. '' = none, and the code is
+  // judged by its role, which is every code issued before bundles existed. nullish
+  // rather than required: an older backend simply does not send the field, and one
+  // missing key must not blank the entire codes screen.
+  bundle: z.string().nullish().transform((v) => v ?? ''),
 });
 export type CodeView = z.infer<typeof CodeViewSchema>;
 
@@ -56,6 +61,8 @@ export interface CreateCodeInput {
   assumed_role_id?: string | null;
   prompt_id?: string | null;
   provider_id?: string;
+  // bundle —— the blocks this code carries, by bundle name. Omit for none.
+  bundle?: string;
 }
 
 export interface QuotasInput {
@@ -165,6 +172,11 @@ function toCreateBody(input: CreateCodeInput): Record<string, unknown> {
     // Empty string = unspecified (the backend treats empty as "not given").
     // null isn't sent here: that column is a uuid reference, and the backend expects the id as a string.
     provider_id: input.provider_id ?? '',
+    // bundle —— which blocks this code carries. Empty = none, and the code is judged by
+    // its role. This function names every field it sends, so a field added to
+    // CreateCodeInput and not added here is silently dropped: the owner picks a bundle,
+    // the code is issued, and it carries nothing. That happened.
+    bundle: input.bundle ?? '',
   };
 }
 

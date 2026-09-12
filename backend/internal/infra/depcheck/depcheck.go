@@ -10,7 +10,7 @@
 // out.
 //
 // The email-change confirmation flow hit exactly this on 2026-08-31: `EmailChange` was
-// missing one line ([[move-the-capability-move-its-edges]]).
+// missing one line ([[move-the-capability-move-its-edges]] — the memory keeps its own name).
 //
 // **Why reflection instead of writing yet another checklist**: a checklist is exactly the
 // kind of thing that just got missed — a table someone has to remember to update. Reflection

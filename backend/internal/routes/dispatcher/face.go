@@ -11,13 +11,13 @@
 //
 //   - a face registers itself against the convergence point (Attach) and gets back a
 //     Face;
-//   - **the act of pulling a capability is itself the act of registering its
+//   - **the act of pulling an op is itself the act of registering its
 //     projection** -- serving an op is only possible by getting its Invoke through Face,
 //     and getting it is recorded at the same moment. There's no gap where you pull it and
 //     forget to register it;
 //   - a generated face (MCP) goes through Face.Ops(), pulling everything at once ->
 //     its completeness is constructed, not maintained; a verified face (admin HTTP)
-//     hand-writes its REST shape as usual, pulling capabilities one by one via
+//     hand-writes its REST shape as usual, pulling ops one by one via
 //     Face.Op(id) -> pulling it is registering it;
 //   - at startup, Conform(): each op's Reach declares which faces owe it; that's compared
 //     against what was actually registered. Missing even one goes red.
@@ -80,7 +80,7 @@ func (f *Face) Ops() []Op {
 // Op -- what a verified face uses: fetch one operation by id (Invoke already wrapped with
 // the decorator chain), and fetching it registers it as projected. The admin HTTP face
 // uses this when wiring a route -- route shape, status codes, and arg binding are still
-// hand-written as usual, but **the capability can only be pulled from here**, so "which op
+// hand-written as usual, but **the op can only be pulled from here**, so "which op
 // did this route serve" is a fact the convergence point knows, not a claim in a comment.
 func (f *Face) Op(id string) (Op, bool) {
 	op, ok := f.d.lookup(id)

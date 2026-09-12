@@ -46,7 +46,7 @@ function rpc(method, params) {
 
 const init = await rpc('initialize', {
   protocolVersion: '2024-11-05',
-  capabilities: {},
+  blocks: {},
   clientInfo: { name: 'verify-driver', version: '0' },
 });
 console.log('# initialize:', JSON.stringify(init.result?.serverInfo ?? init.error));

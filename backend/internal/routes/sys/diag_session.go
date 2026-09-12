@@ -1,6 +1,6 @@
 // diag_session.go —— GET /internal/diag/session
 //
-// Takes X-Session-Token and dumps out the capability map + tool specs + full system
+// Takes X-Session-Token and dumps out the block map + tool specs + full system
 // prompt + hash that the backend assembled for this session. Useful for owner
 // troubleshooting and for e2e specs that verify the assembly result (including enabled
 // state, quota_remaining computation, etc.); this goes through the same
@@ -19,15 +19,15 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
-	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
+	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
 )
 
 // DiagSessionDeps —— deps for /diag/session.
 type DiagSessionDeps struct {
 	Sessions *access.VisitorSessionStore
-	Registry *capreg.Registry
+	Registry *registry.Registry
 	// Owners —— fetches the owner's name. The persona's first line is "who are you"
 	// (UX-66), and this endpoint exists precisely so "the hash reflects the actual
 	// outbound prompt" — without this piece, the hash it reports wouldn't match what's
@@ -47,10 +47,10 @@ type toolSpecWireV2 struct {
 }
 
 type diagSessionResp struct {
-	SystemPromptHash string                   `json:"system_prompt_hash"`
-	SystemPromptFull string                   `json:"system_prompt_full"`
-	Capabilities     []capreg.CapabilityState `json:"capabilities"`
-	ToolSpecs        []toolSpecWireV2         `json:"tool_specs"`
+	SystemPromptHash string                `json:"system_prompt_hash"`
+	SystemPromptFull string                `json:"system_prompt_full"`
+	Blocks           []registry.FiberState `json:"blocks"`
+	ToolSpecs        []toolSpecWireV2      `json:"tool_specs"`
 	// Waypoints —— ghost-steering: the guidance destinations frozen into RoleSnapshot
 	// (post-ACL-filter) plus the ledger's visited state. Lets operators/e2e observe the
 	// freeze result and waypoint visit status.
@@ -105,22 +105,22 @@ func writeDiagSession(
 // one piece beats a 500, and `ComposeBasePersona`'s handling of an empty name is
 // byte-for-byte identical to its no-identity version.
 func buildDiagSessionResp(
-	ctx context.Context, reg *capreg.Registry,
+	ctx context.Context, reg *registry.Registry,
 	data *access.VisitorSessionData, ownerName string,
 ) diagSessionResp {
-	in := &capreg.AssembleInput{
+	in := &registry.AssembleInput{
 		RoleSnapshot: data.RoleSnapshot,
 		OwnerID:      data.OwnerID,
 		Mode:         data.Mode,
-		Subject:      capreg.Subject{Kind: capreg.SubjectCode, ID: data.CodeID},
+		Subject:      registry.Subject{Kind: registry.SubjectCode, ID: data.CodeID},
 		Visitor:      data.Visitor,
 		// ConversationID left empty: the diag endpoint isn't bound to a specific
-		// conversation; capability implementations fall back as needed (booker skips
+		// conversation; block implementations fall back as needed (booker skips
 		// the DB lookup with no conv ID).
 	}
 	basePersona := conversation.ComposeBasePersona(data.RoleSnapshot, ownerName)
 	return diagSessionResp{
-		Capabilities:     reg.VisitorStates(ctx, in),
+		Blocks:           reg.VisitorStates(ctx, in),
 		ToolSpecs:        toolSpecsFor(ctx, reg, in),
 		SystemPromptHash: reg.SystemPromptHash(ctx, basePersona, in),
 		SystemPromptFull: reg.ComposeSystemPrompt(ctx, basePersona, in),
@@ -147,7 +147,7 @@ func diagWaypoints(frozen []access.Waypoint, visited []string) []diagWaypoint {
 }
 
 func toolSpecsFor(
-	ctx context.Context, reg *capreg.Registry, in *capreg.AssembleInput,
+	ctx context.Context, reg *registry.Registry, in *registry.AssembleInput,
 ) []toolSpecWireV2 {
 	bindings := reg.AssembleVisitor(ctx, in)
 	specs := make([]toolSpecWireV2, 0, len(bindings))
@@ -161,7 +161,7 @@ func toolSpecsFor(
 // and releases the Close hook along the way (introspect closes right after use, so
 // the ext-mcp count goes +1 then back to zero).
 func appendBindingToolSpecs(
-	ctx context.Context, out []toolSpecWireV2, b *capreg.Binding,
+	ctx context.Context, out []toolSpecWireV2, b *registry.Binding,
 ) []toolSpecWireV2 {
 	for i := range b.Tools {
 		out = append(out, toolSpecWireV2{
@@ -175,7 +175,7 @@ func appendBindingToolSpecs(
 }
 
 // toolDesc —— a tool's description (eino Tool.Info().Desc); empty if unavailable.
-func toolDesc(ctx context.Context, t *capreg.BindingTool) string {
+func toolDesc(ctx context.Context, t *registry.BindingTool) string {
 	if info, err := t.Tool.Info(ctx); err == nil {
 		return info.Desc
 	}

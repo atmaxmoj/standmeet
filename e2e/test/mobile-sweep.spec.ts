@@ -75,7 +75,7 @@ const LONG_BODY = [
   '| admin | the owner | twenty-six sections over one corpus |',
   '',
   '```go',
-  'func longEnoughToOverflow(ctx context.Context, in *AssembleInput) (*Capability, error) {',
+  'func longEnoughToOverflow(ctx context.Context, in *AssembleInput) (*Block, error) {',
   '    return registry.VisitorBinding(ctx, in.SessionID, in.CorpusScope, in.Denials)',
   '}',
   '```',

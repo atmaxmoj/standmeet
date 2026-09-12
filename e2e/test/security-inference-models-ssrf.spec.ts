@@ -4,19 +4,19 @@
 // callUpstreamModelsAPI → httpx.NewClient{Timeout} only). So any anonymous caller can make the
 // server dial an internal/link-local address — read cloud metadata (169.254.169.254), hit
 // loopback-only admin services, port-scan the private net. Boundary: the server must refuse to
-// dial an internal address and say so (like the connector egress guard already does).
+// dial an internal address and say so (like the supplier egress guard already does).
 //
-// Mirrors connector-security.spec.ts's SSRF assertion exactly. GREEN = boundary holds; currently
+// Mirrors supplier-security.spec.ts's SSRF assertion exactly. GREEN = boundary holds; currently
 // RED — the server dials the internal target and returns a generic "provider unreachable" whose
 // message does not name the address policy (and, worse, actually reached loopback/metadata).
 
 import { test, expect } from '@/fixtures/test';
 
-import { INTERNAL_SERVER_URLS } from '@/fixtures/connector-security-specs';
+import { INTERNAL_SERVER_URLS } from '@/fixtures/supplier-security-specs';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
-// same policy-naming regex the connector SSRF contract asserts on.
+// same policy-naming regex the supplier SSRF contract asserts on.
 const SSRF_REJECT_RE = /internal|loopback|private|not allowed|disallow|blocked/i;
 
 test.describe('security · inference model discovery must not SSRF internal addresses', () => {

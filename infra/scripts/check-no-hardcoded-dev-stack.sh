@@ -159,7 +159,7 @@ scan_ports() {
 #   e2e/manual/            recorded evidence of a past round — the URL a QR actually decoded to.
 #                          Rewriting it would falsify the record.
 #   `stack-port-ok: <why>` a literal that is a PAYLOAD, not an address: the SSRF lists assert that
-#                          the connector REFUSES loopback, so the port is beside the point and
+#                          the supplier REFUSES loopback, so the port is beside the point and
 #                          making it track a knob would be noise. The reason is required — an
 #                          unexplained marker is how an exemption becomes a hole.
 scan_e2e_ports() {

@@ -8,7 +8,7 @@
 // itself, assembling the view itself), because the convergence point had no channel for
 // carrying bytes. Once that channel was built, they became like every other route: the
 // shape is still hand-written as before (how to unpack multipart, which status code),
-// capability is taken through the Face — the bytes ride along with this call (see
+// ability is taken through the Face — the bytes ride along with this call (see
 // dispatcher.WithFiles), and the op side merges them with the address list MCP supplies.
 //
 // The tree and page routes still connect directly (writings_tree.go): they're views

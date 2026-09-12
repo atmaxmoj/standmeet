@@ -33,6 +33,15 @@ while IFS= read -r -d '' f; do
   fi
 done < <(find "$ROOT/cmd" "$ROOT/internal" -name '*.go' -not -name 'wire_gen.go' -not -name '*.sql.go' -not -path '*/db/models.go' -print0 2>/dev/null)
 
+# Self-test: a scan that found nothing is indistinguishable from a scan that
+# looked in the wrong place.  This repo always has Go files under cmd/ and
+# internal/; zero means the root argument is wrong and the gate is blind.
+if [ "$total" -eq 0 ]; then
+  echo "check-max-lines: SELF-TEST FAILED — no Go files found under $ROOT/{cmd,internal}."
+  echo "The scan is blind (wrong root?), not clean."
+  exit 1
+fi
+
 if [ "$violations" -gt 0 ]; then
   echo ""
   echo "Long files almost always mean a missing package split or a god"

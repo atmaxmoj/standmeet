@@ -30,7 +30,7 @@ import {
 } from '@/lib/api/public';
 import { loadStoredSession } from '@/lib/gate/use-gate';
 import { splitParas, type Citation, type Dialog } from '@/lib/page/dialog-stream';
-import { useCapabilityStore } from '@/lib/visitor/capability-store';
+import { useBlockStore } from '@/lib/visitor/block-store';
 import { useDockButtonsStore } from '@/lib/visitor/dock-buttons-store';
 import { useGhostsStore } from '@/lib/visitor/ghosts-store';
 import { recoverFromDeadSession } from '@/lib/visitor/session-recovery';
@@ -41,7 +41,7 @@ type DialogSetter = Dispatch<SetStateAction<Dialog[]>>;
 
 // seedEphemeralStores —— on startup (mount/refresh), restore the stored
 // blob's ephemeral projections into each store: ghosts / tool_specs
-// (including per-tool ui_html) / dock buttons / capabilities.
+// (including per-tool ui_html) / dock buttons / blocks.
 // ensureSession is lazy (only runs on asking a question), so without this
 // seeding the initial chat screen would be empty (buttons wouldn't
 // render, externalized cards wouldn't render). Returns stored so the
@@ -51,7 +51,7 @@ export function seedEphemeralStores(): ReturnType<typeof loadStoredSession> {
   useGhostsStore.getState().seed(stored?.ghosts ?? []);
   useToolSpecsStore.getState().setSpecs(stored?.tool_specs ?? []);
   useDockButtonsStore.getState().setButtons(stored?.dock_buttons ?? []);
-  useCapabilityStore.getState().setStates(stored?.capabilities ?? []);
+  useBlockStore.getState().setStates(stored?.blocks ?? []);
   return stored;
 }
 

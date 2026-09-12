@@ -1,7 +1,7 @@
 // diag_registry.go —— GET /internal/diag/registry
 //                    —— GET /internal/diag/ext-mcp-stats
 //
-// Ops-facing diagnostic endpoints: lists registered Capabilities + shape (the first),
+// Ops-facing diagnostic endpoints: lists registered blocks + shape (the first),
 // reads ext MCP dial/close counts (the second). Useful for owner troubleshooting and
 // e2e invariants specs alike.
 //
@@ -17,12 +17,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
+	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
 )
 
 // DiagRegistryDeps —— deps for /diag/registry + /diag/ext-mcp-stats.
 type DiagRegistryDeps struct {
-	Registry *capreg.Registry
+	Registry *registry.Registry
 	Log      *slog.Logger
 }
 
@@ -33,24 +33,27 @@ func MountDiagRegistry(r chi.Router, deps DiagRegistryDeps) {
 	r.Get("/diag/ext-mcp-stats", diagExtMCPStatsHandler(deps))
 }
 
-type registryCapWire struct {
+type registryBlockWire struct {
 	ID     string `json:"id"`
 	Shape  string `json:"shape"`
 	Origin string `json:"origin"`
 }
 
 type registryListResp struct {
-	Capabilities []registryCapWire `json:"capabilities"`
+	Blocks []registryBlockWire `json:"blocks"`
 }
 
+// diagRegistryListHandler —— what this INSTANCE ships, in registration order.
+//
+// Which blocks count as shipped is the registry's question, not this face's — see
+// `Registry.Shipped`. This end only renames the fields onto the wire.
 func diagRegistryListHandler(deps DiagRegistryDeps) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
-		caps := deps.Registry.List()
-		resp := registryListResp{Capabilities: make([]registryCapWire, 0, len(caps))}
-		for _, c := range caps {
-			origin, _ := deps.Registry.OriginOf(c.ID())
-			resp.Capabilities = append(resp.Capabilities, registryCapWire{
-				ID: c.ID(), Shape: string(c.Shape()), Origin: string(origin),
+		shipped := deps.Registry.Shipped()
+		resp := registryListResp{Blocks: make([]registryBlockWire, 0, len(shipped))}
+		for i := range shipped {
+			resp.Blocks = append(resp.Blocks, registryBlockWire{
+				ID: shipped[i].ID, Shape: shipped[i].Shape, Origin: shipped[i].Origin,
 			})
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -68,7 +71,7 @@ type extMCPStatsResp struct {
 
 func diagExtMCPStatsHandler(deps DiagRegistryDeps) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
-		stat := capreg.ExtMCPStats()
+		stat := registry.ExtMCPStats()
 		resp := extMCPStatsResp{Dialed: stat.Dialed, Closed: stat.Closed}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)

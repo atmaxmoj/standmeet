@@ -34,7 +34,7 @@ func BuiltinRoles(ctx context.Context, d *deps.Runtime) {
 	// instance** is missing one row after upgrading — and the missing row is exactly the
 	// profile a code needs to attach at issue time. The feature works on a fresh instance
 	// and breaks on every existing instance.
-	if perr := d.PluginRegistry.SeedAllOwners(ctx, soleOwner.ID); perr != nil {
+	if perr := d.JobsModule.SeedOwner(ctx, soleOwner.ID); perr != nil {
 		d.Log.Error("reseed plugin builtins at boot", "owner_id", soleOwner.ID, "err", perr)
 	}
 }

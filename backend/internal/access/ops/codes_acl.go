@@ -1,7 +1,7 @@
 // codes_acl.go — the ACL facet of the codes resource: the per-code denylist + steering
 // destinations.
 //
-// There are **three kinds** of denial (capability / skill / corpus URI) — three dimensions of
+// There are **three kinds** of denial (block / skill / corpus URI) — three dimensions of
 // the same thing: this code narrowing the scope the role gave it one layer further. The rules
 // live in usecase/code_acl.go; this file only declares and forwards.
 //
@@ -26,7 +26,7 @@ func codeACLOps(deps usecase.CodeACLDeps) []fp.Op {
 	return []fp.Op{
 		{
 			ID: "codes.list_denials",
-			Description: "List everything this code is denied: capabilities, skills, and " +
+			Description: "List everything this code is denied: blocks, skills, and " +
 				"corpus URI globs. All three narrow whatever the role granted.",
 			InputSchema: codeIDSchema,
 			Kind:        fp.Read,
@@ -35,7 +35,7 @@ func codeACLOps(deps usecase.CodeACLDeps) []fp.Op {
 		},
 		{
 			ID: "codes.add_denial",
-			Description: "Deny this code one capability, skill, or corpus URI glob. " +
+			Description: "Deny this code one block, skill, or corpus URI glob. " +
 				"Idempotent.",
 			InputSchema: codeDenialSchema,
 			Kind:        fp.Action,
@@ -86,9 +86,9 @@ var (
 		"type":"object",
 		"properties":{
 			"code_id":{"type":"string","description":"Access code id."},
-			"kind":{"type":"string","description":"capability | skill | corpus."},
+			"kind":{"type":"string","description":"block | skill | corpus."},
 			"target_id":{"type":"string",
-				"description":"Capability id, skill id, or corpus URI glob."}
+				"description":"Block id, skill id, or corpus URI glob."}
 		},
 		"required":["code_id","kind","target_id"]
 	}`)
@@ -116,7 +116,7 @@ var (
 
 // codeDenialsOut / codeWaypointsOut — outbound payloads (identical on every facade).
 type codeDenialsOut struct {
-	CapabilityIDs []string `json:"capability_ids"`
+	BlockIDs      []string `json:"block_ids"`
 	SkillIDs      []string `json:"skill_ids"`
 	CorpusURIs    []string `json:"corpus_uris"`
 	CorpusGranted []string `json:"corpus_granted"`
@@ -133,7 +133,7 @@ type codeWaypointsOut struct {
 
 func marshalDenials(d *usecase.CodeDenials) (json.RawMessage, error) {
 	return json.Marshal(codeDenialsOut{
-		CapabilityIDs: nonNilStrings(d.CapabilityIDs),
+		BlockIDs:      nonNilStrings(d.BlockIDs),
 		SkillIDs:      nonNilStrings(d.SkillIDs),
 		CorpusURIs:    nonNilStrings(d.CorpusURIs),
 		CorpusGranted: nonNilStrings(d.CorpusGranted),

@@ -2,7 +2,7 @@
 // capreg_booker_cancel.go / _reschedule.go. Isolation relies on the host-planted
 // ConversationID (not LLM-controlled): only touches the booking for **this
 // conversation**.
-// Cancel = delete the calendar event + delete the booker capstore record;
+// Cancel = delete the calendar event + delete the booker blockstore record;
 // reschedule = book the new one first (doesn't count against quota, it's a
 // move) → then delete the old one once it succeeds.
 
@@ -29,7 +29,7 @@ type rescheduleArgs struct {
 // defensive check that event_id belongs to it. Non-empty errWire = return it directly.
 func resolveConvBooking(s session, eventID string) (bookingDoc, string) {
 	filter, _ := json.Marshal(map[string]string{"conversation_id": s.ConversationID})
-	recs, err := gwCapstoreQuery(bookingsColl, filter)
+	recs, err := gwBlockstoreQuery(bookingsColl, filter)
 	if err != nil {
 		return bookingDoc{}, bookErr("cancel_failed",
 			"couldn't reach the booking right now — please try again later")
@@ -58,19 +58,19 @@ func latestBooking(recs []json.RawMessage) bookingDoc {
 	return latest
 }
 
-// deleteBooking —— delete the calendar event + delete the capstore record
+// deleteBooking —— delete the calendar event + delete the blockstore record
 // (deletes precisely by conversation + event_id, so it never hits another booking by mistake).
 func deleteBooking(ownerID string, b *bookingDoc) error {
 	delReq, _ := json.Marshal(map[string]string{
 		"event_id": b.GoogleEventID, "attendee_email": b.VisitorEmail,
 	})
-	if _, err := gwConnectorInvoke(ownerID, "calendar", "delete_event", delReq); err != nil {
+	if _, err := gwSupplierInvoke(ownerID, "calendar", "delete_event", delReq); err != nil {
 		return err
 	}
 	filter, _ := json.Marshal(map[string]string{
 		"conversation_id": b.ConversationID, "google_event_id": b.GoogleEventID,
 	})
-	if _, err := gwCapstoreDelete(bookingsColl, filter); err != nil {
+	if _, err := gwBlockstoreDelete(bookingsColl, filter); err != nil {
 		return err
 	}
 	return nil

@@ -3,8 +3,8 @@
 // presentation layer, not allowed to do if-statements / type assertions;
 // narrowing is done at this layer.
 
-// CardKind —— **legacy** hardcoded card dispatch (serves only capabilities
-// not yet externalized; an externalized capability brings its own ui://
+// CardKind —— **legacy** hardcoded card dispatch (serves only blocks
+// not yet externalized; an externalized block brings its own ui://
 // card through sandboxed rendering and doesn't go here). booked
 // (calendar_book) has already been externalized into the booker plugin's
 // ui:// card; what's left here is the generic debug fallback for

@@ -19,8 +19,8 @@ export interface ProtocolSpec {
 // TLS is a plain text field (none | starttls | tls), not a select — assemble tests always fill it with .fill().
 const TLS_FIELD: AssembleField = { k: 'tls', label: 'TLS (none | starttls | tls)', default: 'starttls' };
 
-// PROTOCOL_BY_CATEGORY —— a category's built-in protocol + its fixed credential fields (filled in by admin).
-export const PROTOCOL_BY_CATEGORY: Record<string, ProtocolSpec> = {
+// PROTOCOL_BY_SEAM —— a category's built-in protocol + its fixed credential fields (filled in by admin).
+export const PROTOCOL_BY_SEAM: Record<string, ProtocolSpec> = {
   calendar: {
     protocol: 'caldav',
     fields: [
@@ -43,9 +43,9 @@ export const PROTOCOL_BY_CATEGORY: Record<string, ProtocolSpec> = {
   },
 };
 
-// protocolForCategory —— a category's built-in protocol spec (unknown category → undefined).
-export function protocolForCategory(category: string): ProtocolSpec | undefined {
-  return PROTOCOL_BY_CATEGORY[category];
+// protocolForSeam —— a seam's built-in protocol spec (unknown seam → undefined).
+export function protocolForSeam(seam: string): ProtocolSpec | undefined {
+  return PROTOCOL_BY_SEAM[seam];
 }
 
 // fieldDefault —— the field's initial value (default > first option > empty).

@@ -18,7 +18,7 @@ import { claim, login } from '@/fixtures/admin';
 import { changeAccountEmail, changeAccountPassword, requestRecovery } from '@/fixtures/admin-mutations';
 import { execSQL, findSetupToken, querySQL, resetInstance } from '@/fixtures/instance';
 import {
-  clearMailpit, configureMailConnector, confirmLinkIn, followMailedLink,
+  clearMailpit, configureMailSupplier, confirmLinkIn, followMailedLink,
   mailpitHasNothingTo, waitForMailTo,
 } from '@/fixtures/mail';
 import { gotoAdminSection, openReader } from '@/fixtures/navigate';
@@ -70,7 +70,7 @@ test.describe('account · the pending email change, every state it can sit in', 
     resetInstance();
     const request = await playwright.request.newContext();
     await claim(request, findSetupToken(), OWNER);
-    await configureMailConnector(request, OWNER.email, OWNER.password);
+    await configureMailSupplier(request, OWNER.email, OWNER.password);
     await request.dispose();
   });
 

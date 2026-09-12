@@ -1,6 +1,6 @@
 // skills.go — /api/admin/skills CRUD (#48-2).
 //
-// Capability comes from the outbound convergence point (shared plumbing in dispatch.go);
+// Ability comes from the outbound convergence point (shared plumbing in dispatch.go);
 // this facade only decides the REST shape: create returns 201, everything else returns
 // 200, the resource id goes in the path, everything else goes in the body.
 //
@@ -16,7 +16,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// SkillsAdminDeps — capability source for the admin skills handlers.
+// SkillsAdminDeps — op source for the admin skills handlers.
 type SkillsAdminDeps struct {
 	Face *dispatcher.Face
 }

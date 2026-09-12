@@ -8,10 +8,10 @@ import type { APIRequestContext } from '@playwright/test';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
-// DockButtonConfig —— #109/#110 the owner config for one dock button: which capability it binds + the trigger word sent on click.
+// DockButtonConfig —— #109/#110 the owner config for one dock button: which block it binds + the trigger word sent on click.
 // A role has at most two (chat has two button slots).
 export interface DockButtonConfig {
-  capability_id: string;
+  block_id: string;
   trigger: string;
 }
 

@@ -11,9 +11,9 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/atmaxmoj/standmeet/internal/connector"
 	"github.com/atmaxmoj/standmeet/internal/corpus/db"
 	"github.com/atmaxmoj/standmeet/internal/corpus/entity"
+	"github.com/atmaxmoj/standmeet/internal/corpus/integration"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
@@ -79,14 +79,14 @@ func toDomainWriting(row *db.CorpusNote) entity.Writing {
 // buildWritingIntegrations — translates the obsidian_source_path / _imported_at columns
 // on a corpus_notes row into an Integration set at this mapper layer. When future columns
 // for Notion / GitHub etc. are added, extend the if-branches here without touching domain.
-func buildWritingIntegrations(row *db.CorpusNote) connector.Integrations {
-	integrations := connector.NewIntegrations()
+func buildWritingIntegrations(row *db.CorpusNote) integration.Integrations {
+	integrations := integration.NewIntegrations()
 	if row.ObsidianSourcePath != "" {
 		var importedAt time.Time
 		if row.ObsidianImportedAt.Valid {
 			importedAt = row.ObsidianImportedAt.Time
 		}
-		integrations.Add(connector.NewObsidian(&connector.ObsidianInit{
+		integrations.Add(integration.NewObsidian(&integration.ObsidianInit{
 			SourcePath: row.ObsidianSourcePath,
 			ImportedAt: importedAt,
 		}))

@@ -10,7 +10,7 @@
 // The consequence isn't "inconvenient": `invited` and `public` are seeder-created and never
 // went through that modal. So the default role every blank code falls back to **could never
 // get any external MCP server**, and the owner's only way out was to create a new role and
-// resend every code. The backend was never missing this capability: Update in
+// resend every code. The backend was never missing this ability: Update in
 // usecase/roles.go always accepted corpus_uris + skill_ids + mcp_server_ids, and
 // syncRoleJoins synced all three joins together — only the UI was missing.
 //

@@ -1,4 +1,32 @@
 {
+  "blocks": {
+    "installKicker": "इंस्टॉल",
+    "installHeading": "एक ब्लॉक जोड़ें",
+    "installIntro": "ब्लॉक का मैनिफ़ेस्ट यहाँ चिपकाएँ। उसमें लिखा होता है कि ब्लॉक का नाम क्या है, वह किसके सामने आता है, कैसे शुरू होता है, और कौन-सी सेटिंग्स चाहता है।",
+    "installPlaceholder": "id: acme.widget\ntitle: Acme Widget\nversion: \"1\"\nshape: visitor_only",
+    "install": "इंस्टॉल",
+    "installedToast": "ब्लॉक इंस्टॉल हो गया",
+    "bundlesKicker": "जोड़ें",
+    "bundlesHeading": "बंडल",
+    "bundlesIntro": "बंडल यानी ब्लॉकों का एक नामित समूह। जो कोड उस पर लगा है वह ठीक यही ब्लॉक इस्तेमाल कर सकता है — बदलाव तुरंत लागू, इसलिए ब्लॉक हटाते ही चालू सत्रों में भी वह बंद हो जाता है।",
+    "bundleNamePlaceholder": "recruiter",
+    "create": "बनाएँ",
+    "bundleCreatedToast": "बंडल बन गया",
+    "remove": "हटाएँ",
+    "removedToast": "हटा दिया",
+    "addBlock": "+ {id}",
+    "addedToast": "जोड़ दिया",
+    "grantNet": "net(अनुमत)",
+    "blocksFailed": "{count, plural, one {# ब्लॉक चालू नहीं हुआ} other {# ब्लॉक चालू नहीं हुए}}",
+    "settings": "सेटिंग्स",
+    "save": "सहेजें",
+    "savedToast": "सहेजा गया",
+    "close": "बंद करें",
+    "codeBundleLabel": "बंडल · यह कोड क्या इस्तेमाल कर सकता है",
+    "codeBundleNone": "कोई बंडल नहीं — भूमिका के अधिकार से चलेगा",
+    "codeBundle": "बंडल · {name}",
+    "blockOff": "· बंद"
+  },
   "credField": {
     "host": "होस्ट",
     "port": "पोर्ट",
@@ -100,19 +128,19 @@
     "keyId": "key id",
     "deletedToast": "कुंजी हटाई गई"
   },
-  "connectors": {
-    "intro": "Connectors let the agent reach external services — Calendar and Mail are live below, and you can upload your own (OpenAPI / protocol) connector to add more.",
-    "catalogError": "Couldn’t load the connector catalog — reload and retry.",
-    "overwritePrompt": "A <mono>{category}</mono> connector already exists. Overwrite it?",
+  "suppliers": {
+    "intro": "सप्लायर let the agent reach external services — Calendar and Mail are live below, and you can upload your own (OpenAPI / protocol) supplier to add more.",
+    "catalogError": "Couldn’t load the supplier catalog — reload and retry.",
+    "overwritePrompt": "A <mono>{seam}</mono> supplier already exists. Overwrite it?",
     "overwrite": "Overwrite",
-    "add": "+ add connector",
+    "add": "+ add supplier",
     "builtinHeading": "Ready to connect",
     "builtinCount": "{count} available",
-    "uploadedHeading": "Connectors you uploaded",
+    "uploadedHeading": "सप्लायर you uploaded",
     "uploadedCount": "{count} installed",
     "kicker": "एकीकरण",
     "count": "कैलेंडर · मेल लाइव · अपना अपलोड करें",
-    "removedToast": "कनेक्टर हटाया गया"
+    "removedToast": "सप्लायर हटाया गया"
   },
   "calendar": {
     "heading": "Google Calendar",
@@ -134,32 +162,32 @@
     "leadDays": "न्यूनतम अग्रिम दिन",
     "bufferMin": "बफ़र मिनट (मौजूदा इवेंट के आसपास)"
   },
-  "capabilities": {
+  "blockPanel": {
     "kicker": "availability",
-    "heading": "capabilities",
-    "intro": "Turn a capability off and its tools vanish from every visitor session. Built-in capabilities can be disabled but not deleted; only the ones you authored can be removed.",
-    "empty": "कोई क्षमता पंजीकृत नहीं है।",
+    "heading": "ब्लॉक",
+    "intro": "Turn a block off and its tools vanish from every visitor session. Built-in blocks can be disabled but not deleted; only the ones you authored can be removed.",
+    "empty": "कोई ब्लॉक पंजीकृत नहीं है।",
     "loading": "लोड हो रहा है…",
-    "removeTitle": "क्षमता हटाएँ",
-    "removedToast": "क्षमता हटाई गई"
+    "removeTitle": "ब्लॉक हटाएँ",
+    "removedToast": "ब्लॉक हटाया गया"
   },
-  "connectorCard": {
+  "supplierCard": {
     "disconnect": "Disconnect",
     "statusConnecting": "कनेक्ट हो रहा है…",
     "statusConnected": "कनेक्टेड",
     "statusNotConnected": "कनेक्ट नहीं"
   },
-  "connectorOp": {
+  "supplierOp": {
     "run": "Run",
     "running": "Running…",
-    "sent": "Accepted by the {kind} connector — check the inbox to confirm it arrived.",
+    "sent": "Accepted by the {kind} supplier — check the inbox to confirm it arrived.",
     "unreachable": "Couldn’t reach your instance — check your connection and retry.",
-    "failedNoReason": "It didn’t work, and the connector gave no reason — check the server logs."
+    "failedNoReason": "It didn’t work, and the supplier gave no reason — check the server logs."
   },
-  "connectorList": {
-    "loadError": "Couldn’t load your connectors — reload and retry.",
+  "supplierList": {
+    "loadError": "Couldn’t load your suppliers — reload and retry.",
     "delete": "Delete",
-    "removeAria": "कनेक्टर हटाएँ"
+    "removeAria": "सप्लायर हटाएँ"
   },
   "skills": {
     "new": "+ new skill",

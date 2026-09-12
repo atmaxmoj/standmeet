@@ -50,7 +50,7 @@ import { test, expect } from '@/fixtures/test';
 
 import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { uploadVault, downloadExport, type VaultFile } from '@/fixtures/obsidian';
+import { uploadVault, downloadExport, vaultText, type VaultFile } from '@/fixtures/obsidian';
 
 const OWNER = {
   email: 'vault-fidelity@example.com', password: 'correct-horse-battery-staple',
@@ -168,7 +168,7 @@ async function roundTrip(
 }
 
 function asMap(files: VaultFile[]): Record<string, string> {
-  return Object.fromEntries(files.map((f) => [f.rel, f.body]));
+  return Object.fromEntries(files.map((f) => [f.rel, vaultText(f.body)]));
 }
 
 function toVault(m: Record<string, string>): VaultFile[] {

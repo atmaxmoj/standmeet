@@ -17,7 +17,7 @@ import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool as callMCPTool, initMCP } from '@/fixtures/mcp';
 import { createRole } from '@/fixtures/roles';
 import { issueSession } from '@/fixtures/visitor';
-import type { SessionCapability, VisitorSession } from '@/fixtures/visitor';
+import type { SessionBlock, VisitorSession } from '@/fixtures/visitor';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
@@ -45,7 +45,7 @@ interface ToolResp {
   ok: boolean;
   reason?: string;
   result?: ExtToolResult | string;
-  capability_state?: SessionCapability[];
+  block_state?: SessionBlock[];
 }
 
 async function callExtTool(
@@ -120,20 +120,20 @@ test.describe('tool endpoint · external MCP server tool', () => {
       await request.dispose();
     });
 
-  test('role attaches ext server → capability_state lists ext.mcp enabled',
+  test('role attaches ext server → block_state lists ext.mcp enabled',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
       const sess = await issueSession(request, {
         handle: OWNER.handle, code: CODE_WITH_SERVER, visitor_name: 'V',
       });
       const { body } = await callExtTool(request, sess);
-      const extCap = body.capability_state?.find(c => c.id === 'ext.mcp');
+      const extCap = body.block_state?.find(c => c.id === 'ext.mcp');
       expect(extCap, 'ext.mcp cap visible').toBeDefined();
       expect(extCap?.enabled).toBe(true);
       await request.dispose();
     });
 
-  test('role without ext server → 404 + capability_not_enabled',
+  test('role without ext server → 404 + block_not_enabled',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
       const sess = await issueSession(request, {
@@ -141,11 +141,11 @@ test.describe('tool endpoint · external MCP server tool', () => {
       });
       const { status, body } = await callExtTool(request, sess);
       expect(status).toBe(404);
-      expect(body.reason).toBe('capability_not_enabled');
+      expect(body.reason).toBe('block_not_enabled');
       await request.dispose();
     });
 
-  test('role attaches only an UNREACHABLE server → 404 + capability_not_enabled (silent dial fail)',
+  test('role attaches only an UNREACHABLE server → 404 + block_not_enabled (silent dial fail)',
     async ({ playwright }) => {
       // Implementation choice (agentskills_ext_mcp.go): a failed dial silently skips
       // the server; all-failed → empty bundle.tools → ErrHidden → cap absent → 404.
@@ -188,8 +188,8 @@ async function assertUnreachableServerReturns404(
   );
   expect(res.status()).toBe(404);
   const body = await res.json() as ToolResp;
-  expect(body.reason).toBe('capability_not_enabled');
+  expect(body.reason).toBe('block_not_enabled');
   // ext.mcp cap should also be absent in fresh state (because dial fail → ErrHidden)
-  const extCap = body.capability_state?.find(c => c.id === 'ext.mcp');
+  const extCap = body.block_state?.find(c => c.id === 'ext.mcp');
   expect(extCap, 'ext.mcp cap absent when all servers unreachable').toBeUndefined();
 }

@@ -1,6 +1,6 @@
 package main
 
-// instructions —— the retrieval capability's system-prompt fragment, served via MCP
+// instructions —— the retrieval block's system-prompt fragment, served via MCP
 // `instructions` (self-contained: the prompt ships with the plugin, not in core).
 //
 // Teaches the corpus PROTOCOL, not a filesystem habit: the corpus is a linked node tree

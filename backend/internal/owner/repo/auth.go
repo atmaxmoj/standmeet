@@ -108,7 +108,7 @@ func (r *Repo) OwnerExists(ctx context.Context, id string) (bool, error) {
 	return exists, nil
 }
 
-// PublicURL —— owner's public base URL (the narrow read used by a connector
+// PublicURL —— owner's public base URL (the narrow read used by a supplier
 // to build its oauth redirect).
 func (r *Repo) PublicURL(ctx context.Context, ownerID string) (string, error) {
 	o, err := r.GetByID(ctx, ownerID)

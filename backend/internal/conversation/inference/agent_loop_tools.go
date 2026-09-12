@@ -62,7 +62,7 @@ func emitToolStarted(em *loopEmit, accum *assistantAccum) {
 }
 
 // emitToolCompleted —— called when ADK sends a Role=Tool event; content is the string a tool's
-// execution returned (a capability binding is typically a JSON envelope, parsed by the
+// execution returned (a block binding is typically a JSON envelope, parsed by the
 // consumer itself).
 func emitToolCompleted(em *loopEmit, mv *adk.MessageVariant, state *turnState) {
 	msg, err := mv.GetMessage()
@@ -82,6 +82,7 @@ func emitToolCompleted(em *loopEmit, mv *adk.MessageVariant, state *turnState) {
 	// bytes.
 	em.log.Info("agent tool done",
 		"call_id", msg.ToolCallID, "name", mv.ToolName, "result_bytes", len(msg.Content))
+	logToolFailure(em, mv.ToolName, msg.ToolCallID, msg.Content)
 	// Keep the finding: if this turn later exhausts its iteration budget, the forced
 	// synthesis answers FROM this material instead of from an empty context.
 	recordEvidence(state, mv.ToolName, msg.Content)
@@ -89,4 +90,33 @@ func emitToolCompleted(em *loopEmit, mv *adk.MessageVariant, state *turnState) {
 	// lets this turn's answer say the action happened.
 	markToolOK(state, mv.ToolName, msg.Content)
 	em.sink.ToolCompleted(mv.ToolName, msg.Content)
+}
+
+// failedToolResultBytes —— how much of a failing tool's answer to keep. A refusal is a
+// short envelope; the cap only stops a runaway body from filling the log.
+const failedToolResultBytes = 512
+
+// logToolFailure —— a tool that answered `{"ok":false,...}` says WHY in that answer, and
+// the byte count above throws the reason away.
+//
+// This cost a full suite run to learn. Eleven booking specs went red together, every one of
+// them with `agent tool done … result_bytes:129` and nothing else anywhere — the reason was
+// inside those 129 bytes, and the only way to read it was to reproduce the run. The host op
+// layer already logs its own failures loudly (`hostsocket.dispatch`) for exactly this
+// reason; a tool that fails on its own side, without any host op failing, had no such line.
+//
+// Only the failing branch logs, and only at WARN: a successful tool result is often large
+// and is already accounted for by result_bytes.
+func logToolFailure(em *loopEmit, name, callID, content string) {
+	var envelope struct {
+		OK *bool `json:"ok"`
+	}
+	if json.Unmarshal([]byte(content), &envelope) != nil || envelope.OK == nil || *envelope.OK {
+		return
+	}
+	body := content
+	if len(body) > failedToolResultBytes {
+		body = body[:failedToolResultBytes]
+	}
+	em.log.Warn("agent tool answered not-ok", "call_id", callID, "name", name, "result", body)
 }

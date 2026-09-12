@@ -2,14 +2,14 @@
 //
 // Assembly order (inside registry.ComposeSystemPrompt):
 //   ComposeBasePersona(snapshot)
-//   + each capability's SystemPromptFragment (registration order)
+//   + each block's SystemPromptFragment (registration order)
 //
 // ComposeBasePersona = visitorHeader + role.PromptBody + skillPrompts.
-// Tool usage instructions go through the capability fragment (the retrieval cap
+// Tool usage instructions go through the block fragment (the retrieval cap
 // contributes the descriptions for the three corpus_search/read/list tools), not in
 // base.
 //
-// The dev endpoint (/internal/test/visitor-capabilities) goes through the same
+// The diag endpoint (/internal/diag/session) goes through the same
 // ComposeBasePersona + registry.ComposeSystemPrompt as the real SendMessage, so its hash
 // truly reflects the downstream prompt.
 
@@ -22,9 +22,9 @@ import (
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
-// ComposeBasePersona —— the "non-capability" part of the system prompt: **who you are**
+// ComposeBasePersona —— the "non-block" part of the system prompt: **who you are**
 // + visitor header + role persona body + skill prompts. When snapshot is nil, returns
-// only identity + header. Capability fragments are appended in order by
+// only identity + header. Block fragments are appended in order by
 // registry.ComposeSystemPrompt.
 //
 // ownerName comes first (UX-66). The header demands, verbatim, "you ARE the owner,

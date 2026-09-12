@@ -25,7 +25,7 @@ export type {
 export type {
   AgentEvent,
   AgentTurnEvent,
-  CapabilityState,
+  BlockState,
   Message,
   ToolCallRef,
   ToolResult,

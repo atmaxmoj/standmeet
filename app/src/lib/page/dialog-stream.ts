@@ -9,7 +9,7 @@ import type { AgentEvent } from '@standmeet/agent-core';
 
 import { throbberLabel } from '@/lib/page/throbber-label';
 import { pickCorpusReadShape, citableCorpusRead } from '@/lib/page/corpus-read-wire';
-import { useCapabilityStore } from '@/lib/visitor/capability-store';
+import { useBlockStore } from '@/lib/visitor/block-store';
 import { useGhostsStore } from '@/lib/visitor/ghosts-store';
 import { logger } from '@/lib/logger';
 
@@ -223,8 +223,8 @@ export function handleAgentEvent(ev: AgentEvent, accum: DialogAccumulator): void
     accum.retrying = false;
     return;
   }
-  if (ev.type === 'capability_state_changed') {
-    useCapabilityStore.getState().setStates(ev.states);
+  if (ev.type === 'block_state_changed') {
+    useBlockStore.getState().setStates(ev.states);
     return;
   }
   if (ev.type === 'turn_finished') {

@@ -1,6 +1,6 @@
 // guide-store-docs.spec.ts —— #11: the microsite authoring guide (microsite.guide, served on both
 // the MCP and HTTP faces) documents the per-page STORE, so an author reading it knows the store
-// exists — before this, useMicrositeStore was a real SDK capability the guide never mentioned.
+// exists — before this, useMicrositeStore was a real SDK block the guide never mentioned.
 //
 // Positive content assertion (the guide SAYS the thing), not an absence test.
 

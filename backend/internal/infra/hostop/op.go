@@ -1,11 +1,11 @@
-// Package hostop — the vocabulary the host exposes to sandboxed capabilities (inbound direction).
+// Package hostop — the vocabulary the host exposes to sandboxed blocks (inbound direction).
 //
 // Outbound has facadeparity: a domain declares what it does, a single convergence point
-// collects it, and facades project it. Inbound is its mirror: a capability inside the sandbox
+// collects it, and facades project it. Inbound is its mirror: a block inside the sandbox
 // has no network, so it can only call back to the host over a unix socket to ask for things
 // (read the corpus, send mail, store its own data). This vocabulary lets **a domain say for
 // itself** which operations it exposes, without the domain importing routing or importing
-// the capability axis.
+// the block axis.
 //
 // Why not reuse facadeparity.Op: outbound's identity is the owner; inbound's identity is
 // **the session** (owner + conversation, planted by the host on the tool call's _meta and
@@ -19,7 +19,7 @@ import (
 	"path/filepath"
 )
 
-// SocketDir / SocketPath — where a capability's socket lands, derived from an **id the
+// SocketDir / SocketPath — where a block's socket lands, derived from an **id the
 // host trusts**.
 //
 // The path isn't written into the manifest: the declaration says "which operations I want,"
@@ -28,7 +28,7 @@ import (
 // rule, so the two sides never end up with two different paths.
 const SocketDir = "/run/standmeet"
 
-// SocketPath — derives the socket path for a given capability.
+// SocketPath — derives the socket path for a given block.
 func SocketPath(pluginID string) string {
 	return filepath.Join(SocketDir, pluginID+".sock")
 }
@@ -39,7 +39,7 @@ type Invoke func(ctx context.Context, req json.RawMessage) (json.RawMessage, err
 
 // Op — one thing the host exposes to the sandbox.
 //
-// Name is an entry from the fixed vocabulary (e.g. "conversation.read"). A capability orders
+// Name is an entry from the fixed vocabulary (e.g. "conversation.read"). A block orders
 // by name in its own manifest; ordering a name that isn't in the vocabulary blows up at
 // startup, not later when the owner actually clicks it.
 type Op struct {

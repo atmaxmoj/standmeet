@@ -1,12 +1,12 @@
 // admin-requests.spec.ts —— admin requests: seeded request appears, approve
-// gated on a verified mail connector, filter chips work.
+// gated on a verified mail supplier, filter chips work.
 //
 // User story:
 //   1. request seeded via API → appears in admin list
-//   2. WITHOUT a verified mail connector: no approve button, a "connect mail"
+//   2. WITHOUT a verified mail supplier: no approve button, a "connect mail"
 //      hint shows instead (can't issue + email a code you can't send). The
 //      positive approve→issue→email path is covered by the Mailpit closed-loop
-//      spec (mail-connector.spec.ts).
+//      spec (mail-supplier.spec.ts).
 //   3. filter chips switch between states
 
 import { test, expect } from '@/fixtures/test';
@@ -14,7 +14,7 @@ import type { APIRequestContext, Playwright } from '@playwright/test';
 
 import { claim, login } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { configureMailConnector } from '@/fixtures/mail';
+import { configureMailSupplier } from '@/fixtures/mail';
 import { gotoAdminSection } from '@/fixtures/navigate';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
@@ -41,7 +41,7 @@ test.describe('admin requests management', () => {
       await expect(adminPage.getByText('apitest@example.com')).toBeVisible();
     });
 
-  test('no approve button without a verified mail connector',
+  test('no approve button without a verified mail supplier',
     async ({ adminPage }) => {
       await gotoAdminSection(adminPage, 'requests');
       await adminPage.waitForURL('**/admin/requests', { timeout: 5_000 });
@@ -60,7 +60,7 @@ test.describe('admin requests management', () => {
       await expect(adminPage.getByTestId('requests-list')).toBeVisible();
     });
 
-  test('gate hides the request-access block without a verified mail connector',
+  test('gate hides the request-access block without a verified mail supplier',
     async ({ page }) => {
       await page.getByRole('link', { name: 'request access ↗' }).click();
       await page.waitForURL('**/gate', { timeout: 10_000 });
@@ -68,7 +68,7 @@ test.describe('admin requests management', () => {
       await expect(page.getByTestId('request-name')).toHaveCount(0);
     });
 
-  test('approve endpoint rejects (400) without a verified mail connector',
+  test('approve endpoint rejects (400) without a verified mail supplier',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
       const id = await firstRequestID(request);
@@ -81,7 +81,7 @@ test.describe('admin requests management', () => {
       await request.dispose();
     });
 
-  // #155: the generic /credentials store no longer validates per-connector
+  // #155: the generic /credentials store no longer validates per-supplier
   // fields (that lives in the form + the connection test). Saving empty SMTP
   // creds succeeds; connect then uniformly returns 200 reporting the outcome in
   // the body — the POST is well-formed, the stored config just can't connect,
@@ -92,13 +92,13 @@ test.describe('admin requests management', () => {
       const request = await playwright.request.newContext();
       const { csrf } = await login(request, OWNER.email, OWNER.password);
       // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: #155 asserts saving empty SMTP creds returns 200
-      const saved = await request.post(`${BACKEND}/api/admin/connectors/smtp/credentials`, {
+      const saved = await request.post(`${BACKEND}/api/admin/suppliers/smtp/credentials`, {
         headers: { 'X-Csrftoken': csrf },
         data: { host: '', port: '0', username: '', password: '', from_address: '', from_name: '' },
       });
       expect(saved.status()).toBe(200);
       // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: #155 asserts connect returns 200 + connected:false + reason
-      const connected = await request.post(`${BACKEND}/api/admin/connectors/smtp/connect`, {
+      const connected = await request.post(`${BACKEND}/api/admin/suppliers/smtp/connect`, {
         headers: { 'X-Csrftoken': csrf },
       });
       expect(connected.status()).toBe(200);
@@ -109,10 +109,10 @@ test.describe('admin requests management', () => {
     });
 });
 
-// F-C-7: once a real mail connector (id `smtp`, category `mail`) is connected+active, the
+// F-C-7: once a real mail supplier (id `smtp`, category `mail`) is connected+active, the
 // requests approve-gate AND the account recovery-gate must un-gate. Regression caught on real
-// prod: the gates read the DEAD `/connectors/mail/status` (id `mail`) so they stayed locked
-// even with a working, delivering SMTP connector. The mock served id=`mail` as connected, so
+// prod: the gates read the DEAD `/suppliers/mail/status` (id `mail`) so they stayed locked
+// even with a working, delivering SMTP supplier. The mock served id=`mail` as connected, so
 // no prior spec exercised the real id split — this drives the GUI gate with a real connect.
 const MAIL_OWNER = {
   email: 'requests-mailon@example.com',
@@ -132,7 +132,7 @@ test.describe('admin requests · mail connected un-gates approve (F-C-7)', () =>
       handle: MAIL_OWNER.handle, fullName: MAIL_OWNER.fullName,
     });
     await submitRequestViaAPI(request);
-    await configureMailConnector(request, MAIL_OWNER.email, MAIL_OWNER.password);
+    await configureMailSupplier(request, MAIL_OWNER.email, MAIL_OWNER.password);
     await request.dispose();
   });
 
@@ -140,7 +140,7 @@ test.describe('admin requests · mail connected un-gates approve (F-C-7)', () =>
     async ({ adminPage }) => {
       await gotoAdminSection(adminPage, 'requests');
       await adminPage.waitForURL('**/admin/requests', { timeout: 5_000 });
-      // the "connect mail" hint must be absent now that a mail connector is live
+      // the "connect mail" hint must be absent now that a mail supplier is live
       await expect(adminPage.getByTestId('requests-mail-hint')).toHaveCount(0);
       await expect(adminPage.getByRole('button', { name: /approve/i }).first())
         .toBeVisible({ timeout: 5_000 });

@@ -1,22 +1,22 @@
-// plugins.go —— mini-host: register the Driver's plugin capabilities (real MCP-server
+// plugins.go —— mini-host: register the Driver's plugin blocks (real MCP-server
 // binaries run over PLAIN stdio — not bwrap; bwrap is only prod's isolation shell)
-// into the launch's registry, through the SAME mcpAppCapability path prod's
+// into the launch's registry, through the SAME mcpAppFiber path prod's
 // registerDiscoveredPlugins uses. The Driver names which plugin binaries to run + how
 // to reach their host ops (via Env); the agent dials them like any MCP client. This is
-// what lets a standalone launch assemble the full prod capability set — not just the
+// what lets a standalone launch assemble the full prod block set — not just the
 // in-process loaders (skill-runner / ext-mcp).
 
 package agentcore
 
 import (
-	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
-	"github.com/atmaxmoj/standmeet/internal/capabilities/mcpplugin"
-	"github.com/atmaxmoj/standmeet/internal/routes/capload"
+	"github.com/atmaxmoj/standmeet/internal/plugin"
+	"github.com/atmaxmoj/standmeet/internal/plugin/mount"
+	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
 )
 
 // PluginSpec —— a plugin the launch should assemble: a host-built MCP-server binary run
 // over plain stdio. Env carries e.g. the host-op socket path the plugin dials back for
-// base capabilities (corpus / booking / …). All public data — the eval module builds it.
+// base blocks (corpus / booking / …). All public data — the eval module builds it.
 type PluginSpec struct {
 	Env     map[string]string
 	ID      string
@@ -33,26 +33,26 @@ type PluginSpec struct {
 	ACLAlways    bool
 }
 
-// registerDriverPlugins —— register the Driver's plugins as mcpAppCapabilities (plain
+// registerDriverPlugins —— register the Driver's plugins as mcpAppFibers (plain
 // stdio transport), origin=builtin, same path prod uses.
-func registerDriverPlugins(reg *capreg.Registry, specs []PluginSpec) {
+func registerDriverPlugins(reg *registry.Registry, specs []PluginSpec) {
 	if len(specs) == 0 {
 		return
 	}
-	manifests := make([]mcpplugin.Manifest, 0, len(specs))
+	manifests := make([]plugin.Manifest, 0, len(specs))
 	for i := range specs {
 		manifests = append(manifests, pluginManifest(&specs[i]))
 	}
-	capload.RegisterDiscoveredPlugins(reg, manifests, capreg.OriginBuiltin, nil)
+	mount.RegisterDiscoveredPlugins(reg, manifests, registry.OriginBuiltin, nil)
 }
 
-func pluginManifest(p *PluginSpec) mcpplugin.Manifest {
-	acl := mcpplugin.ACLRoleGranted
+func pluginManifest(p *PluginSpec) plugin.Manifest {
+	acl := plugin.ACLRoleGranted
 	if p.ACLAlways {
-		acl = mcpplugin.ACLAlways
+		acl = plugin.ACLAlways
 	}
-	transport := mcpplugin.Transport{
-		Kind:    mcpplugin.TransportStdio,
+	transport := plugin.Transport{
+		Kind:    plugin.TransportStdio,
 		Command: p.Command,
 		Args:    p.Args,
 		Env:     p.Env,
@@ -61,12 +61,12 @@ func pluginManifest(p *PluginSpec) mcpplugin.Manifest {
 	// context (sessionMetaFor gates on Sandbox.HostOps). Kind stays TransportStdio, so
 	// the dialer runs it plain — Sandbox here is metadata for the gate, not a bwrap request.
 	if len(p.HostOps) > 0 {
-		transport.Sandbox = &mcpplugin.Sandbox{HostOps: p.HostOps}
+		transport.Sandbox = &plugin.Sandbox{HostOps: p.HostOps}
 	}
-	return mcpplugin.Manifest{
+	return plugin.Manifest{
 		ID:           p.ID,
-		Version:      mcpplugin.SupportedVersion,
-		Shape:        mcpplugin.ShapeVisitorOnly,
+		Version:      plugin.SupportedVersion,
+		Shape:        plugin.ShapeVisitorOnly,
 		ACL:          acl,
 		RawToolNames: p.RawToolNames,
 		Transport:    transport,

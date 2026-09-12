@@ -1,7 +1,8 @@
-// micrositestore_adapter.go — backs owner.MicrositeDocStore with capstore's KindMicrosite, so each
-// microsite gets its OWN Postgres schema (microsite_<id>). Lives at the composition root: the owner
-// domain depends only on the MicrositeDocStore interface and never imports capstore. Reads tolerate
-// a microsite with no schema yet (never written) as empty — no read path runs DDL to provision.
+// micrositestore_adapter.go — backs owner.MicrositeDocStore with blockstore's KindMicrosite,
+// so each microsite gets its OWN Postgres schema (microsite_<id>). Lives at the composition
+// root: the owner domain depends only on the MicrositeDocStore interface and never imports
+// blockstore. Reads tolerate a microsite with no schema yet (never written) as empty — no read
+// path runs DDL to provision.
 
 package main
 
@@ -12,37 +13,37 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/atmaxmoj/standmeet/internal/capabilities/capstore"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
+	"github.com/atmaxmoj/standmeet/internal/plugin/blockstore"
 )
 
-// micrositeDocStore adapts capstore (KindMicrosite) to owner.MicrositeDocStore. Every call passes
-// host-resolved pageID; capstore derives + validates the schema name from it, so a caller can
+// micrositeDocStore adapts blockstore (KindMicrosite) to owner.MicrositeDocStore. Every call passes
+// host-resolved pageID; blockstore derives + validates the schema name from it, so a caller can
 // never name another page's schema.
-type micrositeDocStore struct{ store *capstore.Store }
+type micrositeDocStore struct{ store *blockstore.Store }
 
-func newMicrositeDocStore(store *capstore.Store) *micrositeDocStore {
+func newMicrositeDocStore(store *blockstore.Store) *micrositeDocStore {
 	return &micrositeDocStore{store: store}
 }
 
 func (p *micrositeDocStore) Provision(ctx context.Context, pageID string) error {
-	return p.store.Provision(ctx, capstore.KindMicrosite, pageID)
+	return p.store.Provision(ctx, blockstore.KindMicrosite, pageID)
 }
 
 func (p *micrositeDocStore) Drop(ctx context.Context, pageID string) error {
-	return p.store.Drop(ctx, capstore.KindMicrosite, pageID)
+	return p.store.Drop(ctx, blockstore.KindMicrosite, pageID)
 }
 
 func (p *micrositeDocStore) Insert(
 	ctx context.Context, pageID, collection string, doc json.RawMessage,
 ) (string, error) {
-	return p.store.Insert(ctx, capstore.KindMicrosite, pageID, collection, doc)
+	return p.store.Insert(ctx, blockstore.KindMicrosite, pageID, collection, doc)
 }
 
 func (p *micrositeDocStore) Query(
 	ctx context.Context, pageID, collection string, filter json.RawMessage,
 ) ([]json.RawMessage, error) {
-	docs, err := p.store.Query(ctx, capstore.KindMicrosite, pageID, collection, filter)
+	docs, err := p.store.Query(ctx, blockstore.KindMicrosite, pageID, collection, filter)
 	if missingSchema(err) {
 		return []json.RawMessage{}, nil
 	}
@@ -53,7 +54,7 @@ func (p *micrositeDocStore) Query(
 }
 
 func (p *micrositeDocStore) CountAll(ctx context.Context, pageID string) (int64, error) {
-	n, err := p.store.CountAll(ctx, capstore.KindMicrosite, pageID)
+	n, err := p.store.CountAll(ctx, blockstore.KindMicrosite, pageID)
 	if missingSchema(err) {
 		return 0, nil
 	}
@@ -63,7 +64,7 @@ func (p *micrositeDocStore) CountAll(ctx context.Context, pageID string) (int64,
 func (p *micrositeDocStore) AllRecords(
 	ctx context.Context, pageID string,
 ) ([]owner.MicrositeDocument, error) {
-	recs, err := p.store.AllRecords(ctx, capstore.KindMicrosite, pageID)
+	recs, err := p.store.AllRecords(ctx, blockstore.KindMicrosite, pageID)
 	if missingSchema(err) {
 		return []owner.MicrositeDocument{}, nil
 	}
@@ -82,7 +83,7 @@ func (p *micrositeDocStore) AllRecords(
 func (p *micrositeDocStore) DeleteByID(
 	ctx context.Context, pageID, collection, recordID string,
 ) error {
-	_, err := p.store.DeleteByID(ctx, capstore.KindMicrosite, pageID, collection, recordID)
+	_, err := p.store.DeleteByID(ctx, blockstore.KindMicrosite, pageID, collection, recordID)
 	return err
 }
 

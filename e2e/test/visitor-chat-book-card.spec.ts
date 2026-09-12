@@ -1,7 +1,7 @@
 // visitor-chat-book-card.spec.ts — a successful calendar_book renders a "booking
 // confirmed" card.
 //
-// After the refactor (connector deps, §2): the booked card is a sandboxed iframe served
+// After the refactor (supplier deps, §2): the booked card is a sandboxed iframe served
 // by the booker plugin's ui:// (`mcp-app-card-calendar_book`), no longer a hardcoded
 // React card in the main DOM (`tool-card-calendar_book`, `NON_SANDBOX_CARDS` is now
 // empty). The card's content (time + GCal link + cancel/confirmation widget) lives inside

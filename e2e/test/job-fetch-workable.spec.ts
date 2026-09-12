@@ -3,7 +3,7 @@
 // owner registers kind=workable {company, api_token}; fetch_new calls
 //   GET {base}/spi/v3/accounts/{company}/jobs   Authorization: Bearer {api_token}
 // → {jobs:[...]} → surfaces as FetchedJobs. The adapter framework already does authed sources
-// (the connector layer's whole point); this wires Workable's real jobs endpoint over its API token.
+// (the supplier layer's whole point); this wires Workable's real jobs endpoint over its API token.
 //
 // mock: mock-stack/job-board serveWorkable checks the Bearer token; WORKABLE_BASE_URL points at it.
 // RED (before impl): the adapter is a stub that always errors → fetch_new fails → assertions red.

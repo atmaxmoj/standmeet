@@ -10,7 +10,7 @@ allow:
 # test packages importing themselves, cross-layer imports, are all normal and shouldn't trip arch rules.
 excludeFiles:
   - "^.*_test\\.go$"
-  # composition root plugin wiring file: the one place that imports externalized capability modules
+  # composition root plugin wiring file: the one place that imports externalized block modules
   # (own go.mod, import path under the standmeet root prefix, arch-lint treats as internal but can't
   # map it to a group) for in-process loading. Same reason as deepScan being off for cmd — the
   # composition root crossing boundaries is expected and shouldn't trip the internal dep-graph rules.
@@ -21,6 +21,10 @@ excludeFiles:
 components:
   obsidian:
     in: internal/corpus/obsidian          # Obsidian vault import/export (corpus sub-module)
+  integration:
+    in: internal/corpus/integration       # how a corpus takes content IN from an external place (sync sources); the ingest direction, opposite a supplier's outbound one
+  mailer:
+    in: internal/infra/mailer             # the outbound SMTP send leaf: pure stdlib (net/smtp), no internal deps
   archcheck:
     in: tools/archcheck                   # build-time lint tool: internal/'s import-graph gates
   pgstore:
@@ -52,7 +56,7 @@ components:
   mcphandle:
     in: internal/routes/mcphandle         # owner MCP handles (controller layer): mcp-go server + tool handlers
   dispatcher:
-    in: internal/routes/dispatcher        # outbound convergence: each capability declares itself once, each face (MCP/admin) is a projection of it
+    in: internal/routes/dispatcher        # outbound convergence: each block declares itself once, each face (MCP/admin) is a projection of it
   inference:
     in: internal/conversation/inference                # LLM provider abstraction
   agentcore:
@@ -62,9 +66,9 @@ components:
   jobsuc:
     in: internal/owner/jobs/jobsuc      # J.2: jobs plugin usecases (jobs / resume / applications)
   jobsmcp:
-    in: internal/owner/jobs/jobsmcp     # J.3: jobs plugin MCP capabilities + views + helpers
+    in: internal/owner/jobs/jobsmcp     # J.3: jobs plugin MCP ops + views + helpers
   mcputil:
-    in: internal/capabilities/mcputil                  # shared owner-MCP result marshaller (mcphandle + owner-cap plugins)
+    in: internal/infra/mcputil                  # shared owner-MCP result marshaller (mcphandle + owner-side blocks)
   jobsadmin:
     in: internal/owner/jobs/jobsadmin   # J.4: jobs plugin admin REST routes (drafts / applications list)
   jobcache:
@@ -136,8 +140,8 @@ components:
     in: internal/corpus/entity       # corpus guts: per-genre value objects/entities + domain errors
   corpusi18n:
     in: internal/corpus/i18n         # corpus guts: multi-language structure (parse / diagnose / pick a face). Plain text, no deps
-  builtincaps:
-    in: capabilities                 # **declaration** of the built-in capabilities shipped with the product (manifest.yaml, go:embed); data only
+  builtinblocks:
+    in: blocks                       # **declaration** of the built-in blocks shipped with the product (manifest.yaml, go:embed); data only
   corpusrepo:
     in: internal/corpus/repo         # corpus guts: repository (over db + pgstore)
   corpususecase:
@@ -165,47 +169,51 @@ components:
   ownerops:
     in: internal/owner/ops           # owner guts: declaration of what this domain offers outward
   sandbox:
-    in: internal/capabilities/sandbox                  # owner-curated skill scripts run inside a docker container
-  capabilities:
-    in: internal/capabilities              # capability-axis domain doc (root)
-  capload:
-    in: internal/routes/capload            # capability-axis load/dispatch glue (ext-mcp / mcp-app / skill-runner / openapi-tools / register)
-  capreg:
-    in: internal/capabilities/capreg              # Phase B Capability registry: the single registration point consumed by all three (visitor + owner MCP)
+    in: internal/infra/sandbox                  # owner-curated skill scripts run inside a docker container
+  plugin:
+    in: internal/plugin                    # the block substrate root: manifest shape, seam resolution, discovery sources (leaf)
+  blockload:
+    in: internal/routes/blockload          # block load/dispatch glue (ext-mcp / mcp-app / skill-runner / openapi-tools / register)
+  effect:
+    in: internal/plugin/effect             # the revertible-effect mechanism (arXiv:2608.25512 §3/§4): Scope + accumulator, coeffect table, fiber calculus. A LEAF — it knows nothing of blocks, seams or postgres, and must keep knowing nothing, which is what lets its 119 properties be stated against the paper rather than against this codebase
+  registry:
+    in: internal/plugin/registry           # the fiber registry: the single registration point consumed by all three (visitor + owner MCP)
+  mount:
+    in: internal/plugin/mount              # turns a manifest into a mounted fiber (dial / tool wrap / state / gates)
+  assembly:
+    in: internal/plugin/assembly           # bundles + assembly failures: what a code carries, and what failed to bind
   mcpclient:
-    in: internal/capabilities/mcpclient                # calls an external MCP server (owner-registered)
-  mcpplugin:
-    in: internal/capabilities/mcpplugin                # C1: installed-plugin manifest parsing + discovery sources (leaf)
-  capsocket:
-    in: internal/capabilities/capsocket                # narrow unix-socket host service: the socket a network-isolated sandbox plugin binds into to call backend ops (leaf)
+    in: internal/infra/mcpclient                # calls an external MCP server (owner-registered)
+  hostsocket:
+    in: internal/infra/hostsocket               # narrow unix-socket host service: the socket a network-isolated sandbox block binds into to call backend ops (leaf)
   sandboxws:
-    in: internal/capabilities/sandboxws                # per-session sandbox workspace lifecycle: lazy-create/TTL/cron sweep (leaf)
+    in: internal/infra/sandboxws                # per-session sandbox workspace lifecycle: lazy-create/TTL/cron sweep (leaf)
   storage:
     in: internal/infra/storage                  # MinIO/S3 object storage (images / attachments)
   geoip:
     in: internal/infra/geoip                    # geoip mmdb reader (IP → country/region/city), umami-style
-  connector:
-    in: internal/connector                # Phase B: Nango-style connector layer — decrypts credentials + relays to external services (gcal/mailer); credentials never leave the vault into usecases
-  connectoropenapi:
-    in: internal/connector/openapi        # #155: generic openapi connector execution core (spec+JSONata+HTTP); schemaless-JSON boundary, leaf
-  connectorcontract:
-    in: internal/connector/contract       # #135 Slice A: typed CATEGORY contract for the connector axis (CalendarProxy + DTO); the kernel holds zero type handles, contracts live here
-  connectorconsumer:
-    in: internal/connector/consumer       # #135: connector-axis consumer contract leaf (AgentToolConnector/AgentOp/ErrMailNotConfigured); no CalendarProxy, the kernel may depend on it
-  connectorbuiltins:
-    in: connectors                        # built-in connector data (embedded manifest/spec/binding) + Load — own top-level dir, out of internal/
-  capabilitybuiltins:
-    in: capabilities                      # built-in capability data (embedded manifest.yaml) + Load — same shape as connectors, both axes share one address form
+  adapters:
+    in: internal/plugin/adapters          # the supplier layer: assembles a manifest into something that supplies a seam, and dispatches seam+verb onto it
+  blockadmin:
+    in: internal/plugin/blockadmin        # supplier admin orchestration (save credentials / connect / oauth callback / activate / disconnect)
+  credentials:
+    in: internal/plugin/credentials       # the credential vault: a supplier's decrypted connection state; credentials never leave this layer into block or route code
+  openapi:
+    in: internal/infra/openapi            # #155: generic openapi execution core (spec+JSONata+HTTP); schemaless-JSON boundary, leaf
+  egress:
+    in: internal/infra/egress             # the supplier's outbound SSRF guard + hostname allow-list; leaf
+  credform:
+    in: internal/infra/credform           # derives "which fields must the owner fill in" from a supplier's declaration; leaf
   cryptobox:
     in: internal/infra/cryptobox                # AES-GCM symmetric encryption helper (owner key storage, etc)
-  capconfig:
-    in: internal/capabilities/capconfig                # generic read/write for capability-configurable fields (declared in the manifest, values land in capstore); the host knows the meaning of no field
-  capquota:
-    in: internal/capabilities/capquota                 # per-code usage ceiling: counted per the manifest's QuotaDecl, the host knows no business term
-  capstore:
-    in: internal/capabilities/capstore                 # #135 constrained-reachback: per-plugin isolated JSONB storage (one schema per connector/mcp); leaf, depends only on pgx
+  blockconfig:
+    in: internal/plugin/blockconfig                # generic read/write for block-configurable fields (declared in the manifest, values land in blockstore); the host knows the meaning of no field
+  blockquota:
+    in: internal/plugin/blockquota                 # per-code usage ceiling: counted per the manifest's QuotaDecl, the host knows no business term
+  blockstore:
+    in: internal/plugin/blockstore                 # #135 constrained-reachback: per-plugin isolated JSONB storage (one schema per supplier/mcp); leaf, depends only on pgx
   retry:
-    in: internal/infra/retry                    # #132 generic configurable-retry infra (backoff/cap/retryable/ctx cancel); leaf, connector call-relaying builds on it
+    in: internal/infra/retry                    # #132 generic configurable-retry infra (backoff/cap/retryable/ctx cancel); leaf, supplier call-relaying builds on it
   httpx:
     in: internal/infra/httpx                    # #132 the single outbound HTTP client (retry+timeout+composable base); leaf, every outbound caller depends on it
   search:
@@ -222,14 +230,12 @@ components:
     in: internal/routes/public            # /api/v1/* — SDK / visitor entry
   pubapi:
     in: internal/routes/pubapi            # /api/pub/v1/* — API-key facade (facade-directions.md)
-  connectorroutes:
-    in: internal/routes/connector         # inbound socket API controller: connector.invoke (thin shell → connector.Slots)
-  capstoreroutes:
-    in: internal/routes/capstore          # inbound socket API controller: capstore.* (thin shell → BoundStore)
-  capconfigroutes:
-    in: internal/routes/capconfig         # inbound socket API controller: capconfig.get (thin shell → BoundConfig)
+  supplierroutes:
+    in: internal/routes/supplier          # inbound socket API controller: supplier.invoke (thin shell → adapters.Dispatcher)
+  blockdesk:
+    in: internal/routes/blockdesk         # inbound socket API controllers: blockstore.* + blockconfig.get (thin shells over the block's own storage/config)
   hostdesk:
-    in: internal/routes/hostdesk          # inbound convergence: domains declare host ops, each capability's socket is a projection of it
+    in: internal/routes/hostdesk          # inbound convergence: domains declare host ops, each block's socket is a projection of it
   hostop:
     in: internal/infra/hostop             # the inbound vocabulary (Op/Invoke/socket path rules); leaf, knows no domain
   periodic:
@@ -240,17 +246,17 @@ components:
     in: internal/infra/selfstat           # reads THIS container's own cgroup (CPU/mem) for the System panel; leaf (stdlib only, no docker socket)
   # cmd — the composition root, now split into five packages + the startup sequence on the root. For
   # **layering** purposes they're one thing: the one place allowed to cross all layers. Direction between
-  # them is one-way: deps ← port ← axisconn ← axiscap ← wire ← cmd.
+  # them is one-way: deps ← port ← blockwire ← wire ← cmd.
   cmd:
     in: cmd/server
   cmddeps:
     in: cmd/server/deps                   # the running set of things: data only, no wiring (leaf)
   cmdport:
     in: cmd/server/port                   # composition root's implementation of a narrow port a domain declares
-  cmdaxisconn:
-    in: cmd/server/axisconn               # wiring for the connector axis
-  cmdaxiscap:
-    in: cmd/server/axiscap                # wiring for the capability axis
+  cmdblockwire:
+    in: cmd/server/blockwire              # wiring for blocks and the seams they use
+  cmdconfig:
+    in: cmd/server/config                 # environment-derived settings, parsed once (leaf)
   cmdwire:
     in: cmd/server/wire                   # wires up a mechanism (the two convergence points / periodic tasks / search index)
 
@@ -262,8 +268,8 @@ components:
     in: internal/access/db                # #135: access's own sqlc DAO (each domain owns its repository); pure leaf, only pgx
   ownerdb:
     in: internal/owner/db                # #135: owner's own sqlc DAO (each domain owns its repository); pure leaf, only pgx
-  connectordb:
-    in: internal/connector/db                # #135: connector's own sqlc DAO (each domain owns its repository); pure leaf, only pgx
+  credentialsdb:
+    in: internal/plugin/credentials/db       # #135: the credential vault's own sqlc DAO (each domain owns its repository); pure leaf, only pgx
   marketplacedb:
     in: internal/marketplace/db                # #135: marketplace's own sqlc DAO (each domain owns its repository); pure leaf, only pgx
   statsdb:
@@ -292,7 +298,7 @@ deps:
     mayDependOn: []
     anyVendorDeps: true
 
-  # paritymanifest — the concrete owner-capability manifest (source of truth) for facade-parity + the
+  # paritymanifest — the concrete owner-op manifest (source of truth) for facade-parity + the
   # real facade to compare against. Depends only on facadeparity (the mechanism); consumed by the
   # composition root's conformance test.
   paritymanifest:
@@ -300,76 +306,111 @@ deps:
       - facadeparity
     anyVendorDeps: false
 
-  # connector — Phase B Nango-proxy layer: the one place that decrypts owner credentials + relays calls
-  # to external services (gcal / mailer). usecases hold only the CalendarProxy / MailProxy interfaces,
-  # credentials never reach usecases. Implementing an external capability → depends on gcal + mailer +
-  # domain; reusing usecases' DTO types (FreeBusyReq / MailMessage, etc) → depends on usecases.
-  connector:
+  # adapters — the supplier layer: the one place that decrypts owner credentials + relays calls to
+  # external services. Consumers hold only the CalendarProxy / MailProxy interfaces; credentials never
+  # reach them. The seam contracts, the openapi/protocol assemblers and the dispatcher that turns
+  # (seam, verb, args) into a call all live here — three packages before the block model merged them,
+  # which is why this list used to name itself three times.
+  adapters:
     mayDependOn:
-      - connectordb
-      - connector
-      - connectorcontract
-      - connectorconsumer
+      - credentialsdb
+      - credentials
       - retry
       - httpx
-      - connectoropenapi
+      - openapi
+      - egress
+      - mailer      # the SMTP protocol supplier sends through the outbound send leaf
       - cryptobox
       - pgstore
       # hostop — leaf for the inbound vocabulary. This domain's receipt back to the sandbox must
-      # **carry the failure category** (`hostop.Faulted`); otherwise "never configured" and "can't
+      # **carry the failure class** (`hostop.Faulted`); otherwise "never configured" and "can't
       # reach it right now" read as the same sentence to the visitor (F-C-42). The classification can
-      # only happen here: the sentinels belong to this domain, and the connectorroutes thin shell isn't
+      # only happen here: the sentinels belong to this domain, and the supplierroutes thin shell isn't
       # designed to recognize them by design. This is exactly what the hostop comment means by
       # "only a domain can speak through it, without importing routes".
       - hostop
     anyVendorDeps: true
 
-  # connectorconsumer — connector-axis consumer contract leaf (AgentToolConnector/AgentOp/ErrMailNotConfigured).
-  # Pure context/json/errors, no internal deps: connectors implement it, the kernel's assembly face/owner
-  # tools/admin consume it.
-  connectorconsumer:
-    mayDependOn: []
+  # credentials — the vault: a supplier's decrypted connection state for one owner. Decrypts at the
+  # repo boundary; the plaintext lives only in the supplier layer's memory and never reaches a domain.
+  credentials:
+    mayDependOn:
+      - credentialsdb
+      - cryptobox
+      - pgstore
     anyVendorDeps: true
 
-  # connectorroutes — controller layer for the inbound socket API (same layer as HTTP routes): the thin
-  # shell for connector.invoke, only parses socket params + forwards into the connector business domain
-  # (Invoker, satisfied by connector.Slots). Depends only on the capsocket transport.
-  connectorroutes:
+  # assembly — what a code carries (bundles) and what failed to bind (assembly failures). Its own
+  # storage, which is why it reaches pgstore: a block may not hold state, so the record of a failed
+  # mount belongs to the substrate rather than to whichever block failed.
+  assembly:
+    mayDependOn:
+      - pgstore
+    anyVendorDeps: true
+
+  # blockadmin — supplier admin orchestration (save credentials / connect / oauth callback / activate /
+  # disconnect). Deliberately NOT a face: it runs under a business cyclo budget, not the routes ≤3 one,
+  # which is why it lives here rather than under internal/routes.
+  blockadmin:
+    mayDependOn:
+      - adapters
+      - credentials
+      - credform
+      - integration   # an uploaded spec is validated the same way a sync source's is
+      - openapi
+      - egress
+      - httpx
+    anyVendorDeps: true
+
+  # credform — derives the fields the owner must fill in from a supplier's own declaration. Reads the
+  # spec's securityScheme through openapi; knows nothing about who will render the form.
+  credform:
+    mayDependOn:
+      - openapi
+    anyVendorDeps: true
+
+  # egress — the outbound SSRF guard + the owner-set hostname allow-list. It hands back a guarded
+  # client, so it builds that client through the one place allowed to (httpx).
+  egress:
+    mayDependOn:
+      - httpx
+    anyVendorDeps: true
+
+  # supplierroutes — controller layer for the inbound socket API (same layer as HTTP routes): the thin
+  # shell for supplier.invoke, only parses socket params + forwards into the supplier business domain
+  # (Invoker, satisfied by adapters.Suppliers). Depends only on the hostsocket transport.
+  supplierroutes:
     mayDependOn:
       - hostop
     anyVendorDeps: true
 
-  # capstoreroutes — same as connectorroutes, a controller thin shell for the inbound API.
-  capstoreroutes:
+  # blockdesk — same as supplierroutes, a controller thin shell for the inbound API: the block's own
+  # storage (blockstore.*) and its own config (blockconfig.get, defaults already backstopped by the
+  # declaration). Both are bound at construction time to one block, so a sandbox cannot fill in
+  # another's id. They were routes/capstore and routes/capconfig, two components with identical rules,
+  # before the block-vocabulary rename put them in one package.
+  blockdesk:
     mayDependOn:
       - hostop
     anyVendorDeps: true
 
-  # capconfigroutes — the sandbox reads its own config through this (defaults already backstopped by the
-  # declaration). Same shape as capstoreroutes: a thin shell, bound at construction time to one cap, a
-  # sandbox can't fill in another's.
-  capconfigroutes:
-    mayDependOn:
-      - hostop
-    anyVendorDeps: true
-
-  # capconfig — generic read/write for capability config. Knows only capstore (where values are stored) +
-  # mcpplugin (what the declaration looks like); recognizes no business field. The mount point is a
+  # blockconfig — generic read-write for block config. Knows only blockstore (where values are stored) +
+  # plugin (what the declaration looks like); recognizes no business field. The mount point is a
   # parameter (owner / code), not two code paths.
-  capconfig:
+  blockconfig:
     mayDependOn:
-      - capstore
-      - mcpplugin
+      - blockstore
+      - plugin
     anyVendorDeps: true
 
-  # capquota — per-code usage ceiling, enforced per the manifest's QuotaDecl: the ceiling reads
-  # capconfig's code scope, usage counts one capstore collection. The gate and the remaining balance
+  # blockquota — per-code usage ceiling, enforced per the manifest's QuotaDecl: the ceiling reads
+  # blockconfig's code scope, usage counts one blockstore collection. The gate and the remaining balance
   # share the same counter (was split once, only half got merged back).
-  capquota:
+  blockquota:
     mayDependOn:
-      - capconfig
-      - capstore
-      - mcpplugin
+      - blockconfig
+      - blockstore
+      - plugin
     anyVendorDeps: true
   # hostop — the inbound vocabulary. Leaf: it knows no domain, so a domain can speak through it without
   # importing routes.
@@ -396,56 +437,46 @@ deps:
     anyVendorDeps: true
 
   # hostdesk — inbound convergence, the mirror of the outbound dispatcher. It imports each domain's
-  # **front door** (facade) + the two axes' own controller thin shells, gathers up the host ops each
-  # declares, then dispatches by the name each capability's manifest points to.
+  # **front door** (facade) + the substrate's own controller thin shells, gathers up the host ops each
+  # declares, then dispatches by the name each block's manifest points to.
   #
-  # It didn't used to exist: each capability had its own hand-written gateway in the composition root,
+  # It didn't used to exist: each block had its own hand-written gateway in the composition root,
   # each stood up its own socket, each hung its own verbs on top, so "what can the sandbox ask the host
   # for" had no answer. Same reasoning as dispatcher — of course the convergence point itself has to
   # know each domain.
   hostdesk:
     mayDependOn:
       - hostop
-      - capsocket
+      - hostsocket
       - conversation
       - corpus
       - owner
-      - connectorroutes
-      - capstoreroutes
-      - capconfigroutes
-    anyVendorDeps: true
-
-  # connectorcontract — #135 Slice A: typed CATEGORY contract for the connector axis (CalendarProxy + DTO).
-  # Pure context/time, no internal deps: connectors implement it, capability plugins consume it, the
-  # composition root wires it, the kernel holds zero handles.
-  connectorcontract:
-    mayDependOn: []
+      - supplierroutes
+      - blockdesk
     anyVendorDeps: true
 
 
 
-  # connectoropenapi — #155 generic openapi execution core leaf: spec parsing + JSONata binding + HTTP
+
+  # openapi — #155 generic openapi execution core leaf: spec parsing + JSONata binding + HTTP
   # call relay. Pure stdlib + vendor (jsonata-go / yaml), no internal deps (everything about a provider
   # lives in the spec+binding data). schemaless-JSON boundary, golangci exempts this path from forbidigo
   # `any`.
-  connectoropenapi:
+  openapi:
     mayDependOn: []
     anyVendorDeps: true
 
-  # connectorbuiltins — #155 built-in connector data: embedded manifest/spec/binding files + Load.
-  # Assembly goes through connector.AssembleOpenAPI (depends on connector); yaml parsing (vendor).
-  connectorbuiltins:
-    mayDependOn:
-      - connector
-    anyVendorDeps: true
-
-  # capabilitybuiltins — the **declaration** of built-in capabilities (embedded manifest.yaml) + Load.
-  # Knows only mcpplugin (the shape of a declaration) and hostop (the rule that a socket path derives
+  # builtinblocks — the **declaration** of the built-in blocks (embedded manifest.yaml, plus the
+  # spec/binding files a supplying block carries) + Load. One tree now: a block that supplies a seam
+  # and one that only consumes live side by side under backend/blocks/, separated by a field
+  # (`provides`), not a directory — which is why this used to be two components with two rules.
+  #
+  # Knows only plugin (the shape of a declaration) and hostop (the rule that a socket path derives
   # from an id) — it knows no domain and does no assembly: assembly still happens at the composition
   # root, this just translates the on-disk form into the shape the host uses.
-  capabilitybuiltins:
+  builtinblocks:
     mayDependOn:
-      - mcpplugin
+      - plugin
       - hostop
     anyVendorDeps: true
 
@@ -474,45 +505,90 @@ deps:
     mayDependOn: []
     anyVendorDeps: true
 
-  # capreg — Phase B Capability interface + Registry. A leaf-ish package,
-  # depends only on inference (ToolSpec / ToolExecutor) + domain (RoleSnapshot type).
-  # Concrete Capability implementations live in usecases / mcp etc, higher layers import this package to register.
-  capabilities:
+  # plugin — the block substrate root: the manifest shape, seam resolution, discovery sources.
+  # A leaf-ish package: concrete block implementations live in mcp-servers/ (sandboxed) or in a
+  # domain's own ops, and higher layers import this to register them.
+  plugin:
     mayDependOn:
-      - capreg
+      - registry
       # periodic — the plugin declaration's optional hook for a periodic task uses its type; the scheduling itself isn't here.
       - periodic
+      # hostop — loading a declaration checks its `host_ops` against the inbound vocabulary, so a
+      # manifest naming an op the host does not serve is refused at load rather than at first call.
+      - hostop
     anyVendorDeps: true
 
-  capload:
+  # mount — turns a manifest into a mounted fiber: dials the transport, wraps the dialed tools,
+  # assembles the state, and applies the per-session gates. It sits between the substrate (plugin,
+  # registry) and the domains a block needs material from, which is why it names those facades and
+  # nothing deeper.
+  mount:
     mayDependOn:
-      - capreg
+      - plugin
+      - registry
       - mcpclient
-      - mcpplugin
       - sandbox
       - conversation
       - access
       - marketplace
-      - connectorconsumer
-      - cryptobox
-      # hostop — the loader derives this capability's socket path by the same rule (the manifest only says which ops it needs).
+      # hostop — mount derives this block's socket path by the same rule (the manifest only says
+      # which ops it needs, never a path).
       - hostop
     anyVendorDeps: true
-  capreg:
+
+  blockload:
+    mayDependOn:
+      - registry
+      - mount
+      - mcpclient
+      - plugin
+      - sandbox
+      - conversation
+      # conversationusecase — the API-key toolset builds a visitor assembly the same way the chat
+      # path does; that constructor is the domain's, not a second copy here.
+      - conversationusecase
+      - access
+      - marketplace
+      - adapters
+      - cryptobox
+      # hostop — the loader derives this block's socket path by the same rule (the manifest only says which ops it needs).
+      - hostop
+    anyVendorDeps: true
+
+  # integration — a corpus document's relationship with where it came FROM: the Integration value
+  # objects an entity carries, plus the sync-source shape. A leaf beside corpus, not a supplier:
+  # suppliers reach outward on demand, this takes content in on the owner's trigger.
+  integration:
+    mayDependOn:
+      - openapi
+    anyVendorDeps: true
+
+  mailer:
+    mayDependOn: []
+    anyVendorDeps: true
+  # effect — the paper's mechanism, and a LEAF on purpose. It depends on nothing in this codebase and
+  # must go on depending on nothing: the moment it knows what a block or a seam is, its properties stop
+  # being statements about arXiv:2608.25512 and start being statements about StandMeet, which is
+  # exactly the re-derivation `effects.md` exists to avoid. Wiring happens in the packages above it.
+  effect:
+    mayDependOn: []
+    anyVendorDeps: true
+
+  registry:
     mayDependOn:
       - access
       - inference
     anyVendorDeps: true
 
   # prompts — Phase D-1: a leaf package, stdlib only (embed); every place that pulls in a system prompt
-  # fragment (usecases capability impl / sysroutes endpoint / publicroutes endpoint) loads from here now,
+  # fragment (usecases block impl / sysroutes endpoint / publicroutes endpoint) loads from here now,
   # no more hardcoded strings.
   mcpclient:
     mayDependOn: []
     anyVendorDeps: true
 
-  # capsocket — narrow host unix-socket service leaf: line-JSON dispatch, no internal deps.
-  capsocket:
+  # hostsocket — narrow host unix-socket service leaf: line-JSON dispatch, no internal deps.
+  hostsocket:
     mayDependOn: []
     anyVendorDeps: true
 
@@ -575,7 +651,7 @@ deps:
   # token verification.
   mcphandle:
     mayDependOn:
-      - capreg
+      - registry
       - mcputil
       - jobsuc
       - jobsmcp
@@ -624,32 +700,32 @@ deps:
   # agentcore — public facade: re-exports internal/inference's agentic-loop surface
   # (AgentSink / AgentTurnInput / BuildAgentIterator / DriveAgentLoop) to the out-of-module driver
   # (eval-harness). The loop surface has no logic, pure alias + pass-through. As of F.2 there's one more,
-  # BuildVisitorAgent: drives the real visitor-capability assembly
+  # BuildVisitorAgent: drives the real visitor-block assembly
   # (usecases.RegisterVisitorSkills + AssembleVisitor + ComposeSystemPrompt) over a fixture data source,
-  # so it additionally depends on usecases/capreg/domain/postgres — it runs the exact same production
+  # so it additionally depends on usecases/registry/domain/postgres — it runs the exact same production
   # agentic feature set, only the injected repo changes. Nobody inside backend imports it.
   agentcore:
     mayDependOn:
-      - capload
+      - blockload
+      - mount
       - conversation
       - marketplace
       - corpus
       - inference
-      - capreg
+      - registry
       - sandbox
-      - mcpplugin
-      - capsocket
+      - plugin
+      - hostsocket
       - access
       # eval mini-host — hangs the handful of things a **real** plugin needs: the inbound convergence
-      # (word list and pick both use its one copy), the capability's own storage/config port, the owner
+      # (word list and pick both use its one copy), the block’s own storage-and-config port, the owner
       # entity (the canned return type for owner.meta), the built-in manifest.
       # This is the composition root's job: agentcore is eval's composition root, the same role as cmd/server.
       - hostdesk
-      - capstoreroutes
-      - capconfigroutes
-      - connectorroutes
+      - blockdesk
+      - supplierroutes
       - ownerentity
-      - builtincaps
+      - builtinblocks
       # conversation's two guts packages: the host port's shape carries their types (ChatWithMessages /
       # UpsertReportInput / ChatReport), so implementing those bridges outside the domain has to import
       # them — same reasoning as ownerentity, not a bypass of the facade.
@@ -659,16 +735,16 @@ deps:
 
   # jobcache — Redis-backed 1d TTL pool holding the FetchedJob the fetcher grabbed.
   # plugins — J phase: Plugin interface + Registry + optional hooks
-  # (CapabilityRegistrar / AdminRouter). As of J.5 the hooks need capreg +
+  # (BlockRegistrar / AdminRouter). As of J.5 the hooks need registry +
   # chi (vendor); the boundary is still a leaf, not coupled to any business package.
 
   # pluginjobs — J phase: jobs plugin entry. As of J.5 it holds the Deps closure + implements
-  # CapabilityRegistrar (calls jobsmcp) + AdminRouter (calls jobsadmin);
+  # BlockRegistrar (calls jobsmcp) + AdminRouter (calls jobsadmin);
   # it's the assembly layer for the whole jobs-plugin face set (uc / mcp / admin / fetch / cache).
   pluginjobs:
     mayDependOn:
-      - capabilities
-      - capreg
+      - plugin
+      - registry
       - jobcache
       - jobfetch
       - jobsuc
@@ -678,7 +754,7 @@ deps:
       - periodic
     anyVendorDeps: true
 
-  # pluginownercore is gone. It used to be the **clearinghouse** for owner-MCP capabilities, one package
+  # pluginownercore is gone. It used to be the **clearinghouse** for owner-MCP ops, one package
   # depending on seven or eight domains at once — the mayDependOn above was its medical chart. Once each
   # operation went back to its own domain and got projected through outbound convergence, the package
   # was empty and got deleted whole. A cross-domain grab bag shouldn't have a legitimate address.
@@ -707,21 +783,21 @@ deps:
       - jobsmodel
     anyVendorDeps: true
 
-  # jobsmcp — J.3: jobs plugin MCP capabilities + result wire views.
-  # Registers to the core Registry via capreg; depends on jobsuc for *Deps.
+  # jobsmcp — J.3: jobs plugin MCP ops + result wire views.
+  # Registers to the core Registry via registry; depends on jobsuc for *Deps.
   jobsmcp:
     mayDependOn:
       - owner
       - jobsmodel
-      - capreg
+      - registry
       - mcputil
       - jobsuc
     anyVendorDeps: true
 
-  # mcputil — shared owner-MCP result marshaller. Leaf: only capreg (for MCPResult).
+  # mcputil — shared owner-MCP result marshaller. Leaf: only registry (for MCPResult).
   mcputil:
     mayDependOn:
-      - capreg
+      - registry
     anyVendorDeps: true
 
   # jobsadmin — J.4: jobs plugin admin REST routes (drafts / applications list).
@@ -738,6 +814,7 @@ deps:
   jobcache:
     mayDependOn:
       - jobsmodel
+      - snowflake        # cache ids are time-ordered, so sorting them IS sorting by insertion
     anyVendorDeps: true
 
   # jobfetch — 6+ source adapters (Greenhouse / Lever / Ashby / RemoteOK / WWR / HN / SmartRecruiters /
@@ -879,7 +956,7 @@ deps:
       - conversationusecase
       - corpus
       - facadeparity
-      # hostop / inference — this domain also has the inbound half open: a sandbox capability reads a
+      # hostop / inference — this domain also has the inbound half open: a sandbox block reads a
       # transcript through convergence, generates via the owner's model, hands the report back to be
       # stored. The domain can say all this itself so the composition root doesn't have to write it a gateway.
       - hostop
@@ -905,9 +982,9 @@ deps:
       - owner
       - marketplace
       - inference
-      - capreg
+      - registry
       - sandbox
-      - connectorconsumer
+      - adapters
       - apierr
     anyVendorDeps: true
 
@@ -932,25 +1009,23 @@ deps:
       - apierr
       - corpusi18n
     anyVendorDeps: true
+  # corpusentity — a document carries where it came from (integration.Integrations). That value
+  # object used to live on the supplier side; it belongs to corpus, and moved there with the domain
+  # modules. This row followed the move.
   corpusentity:
     mayDependOn:
-      - connector
+      - integration
     anyVendorDeps: true
   # corpusi18n — a pure text function (one note's multi-language structure); knows no repository, no face, no other domain.
   # All four consumers (MCP writes / check tools / vault sync / reader page) call only this, so it can depend on none of them.
   corpusi18n:
     mayDependOn: []
     anyVendorDeps: true
-  # builtincaps — only data (a manifest) + a loader that parses into mcpplugin.Manifest.
-  builtincaps:
-    mayDependOn:
-      - mcpplugin
-    anyVendorDeps: true
   corpusrepo:
     mayDependOn:
       - corpusentity
       - corpusdb
-      - connector
+      - integration
       - pgstore
       # textcut — raw's derived title is truncated by character; truncating by byte would make postgres reject the whole write.
       - textcut
@@ -962,7 +1037,7 @@ deps:
       - search
       - access
       - corpusi18n
-      # hostop replaces capsocket: this domain declares "I offer these seven corpus-reading things", not "I'm mounted on this socket".
+      # hostop replaces hostsocket: this domain declares "I offer these seven corpus-reading things", not "I'm mounted on this socket".
       - hostop
       # periodic — reconciling after Meili recovers is this domain's periodic task; scheduling and bookkeeping belong to the host.
       - periodic
@@ -1012,7 +1087,7 @@ deps:
       - cryptobox        # unwraps the public key when verifying an embed JWT (ParseEd25519Public)
     anyVendorDeps: true
 
-  # owner — #135 owner module: entity + repo (the connector's OwnerLookup consumes owner.Owner).
+  # owner — #135 owner module: entity + repo (the supplier’s OwnerLookup consumes owner.Owner).
   owner:
     mayDependOn:
       - ownerentity
@@ -1038,8 +1113,8 @@ deps:
       - access
       - corpus
       # if the outbound channel isn't configured, it needs to be able to say "go configure it" — that
-      # sentinel lives on the connector consumer side.
-      - connectorconsumer
+      # sentinel lives on the supplier consumer side.
+      - adapters
     anyVendorDeps: true
   ownerentity:
     mayDependOn: []
@@ -1058,12 +1133,10 @@ deps:
       - marketplace
       - corpus
       - access
-      - connector
-      # booking usecases (list_slots / cancel / cancel-own) reach calendars only through the
-      # category contract; the concrete proxy is injected at the composition root. Inherited
-      # from the dissolved plugins/booker, which had exactly this one dependency.
-      - connectorcontract
-      - connectorconsumer
+      # adapters — booking usecases (list_slots / cancel / cancel-own) reach calendars only through
+      # the seam contract; the concrete supplier is injected at the composition root. Inherited from
+      # the dissolved plugins/booker, which had exactly this one dependency.
+      - adapters
       - apierr
       - session
     anyVendorDeps: true
@@ -1112,11 +1185,11 @@ deps:
     mayDependOn: []
     anyVendorDeps: true
 
-  # capstore — per-plugin isolated document storage (one schema per connector/mcp). Leaf: depends only on
+  # blockstore — per-plugin isolated document storage (one schema per block). Leaf: depends only on
   # pgx, doesn't route back through any internal business module. The schema name derives from the
   # host-trusted (kind,id); the DROP guard lives inside the package.
-  capstore:
-    mayDependOn: []   # #135: socket.go (the capstore.* host op) moved to internal/routes/capstore; this package is back to a pure leaf
+  blockstore:
+    mayDependOn: []   # #135: socket.go (the blockstore.* host op) moved to internal/routes/blockstore; this package is back to a pure leaf
     anyVendorDeps: true
 
 
@@ -1129,10 +1202,10 @@ deps:
       - conversation
       - printsess
       - session
-      - capreg
+      - registry
       - sandboxws
-      - connectorcontract  # #155 connector diag: CalendarProxy/DTO type contract
-      - middleware  # #155 connector diag: owner id from context (middleware.OwnerIDFrom)
+      - adapters  # #155 supplier diag: CalendarProxy/DTO type contract
+      - middleware  # #155 supplier diag: owner id from context (middleware.OwnerIDFrom)
       - access
       - pgstore
       - buildnotify  # preview long-poll: signal the panel when a build settles (builder callback)
@@ -1149,9 +1222,15 @@ deps:
   # + usecases + apierr (error envelope) + middleware (ctx key + cookie name).
   adminroutes:
     mayDependOn:
-      - dispatcher      # admin-face capabilities can only be wired from outbound convergence (the route shape is still hand-written)
+      - dispatcher      # admin-face ops can only be wired from outbound convergence (the route shape is still hand-written)
       - conversation
-      - connector
+      # adapters — the supplier layer, named once now: the credential form, the test-send through the
+      # MailProxy contract and the panel's supplier list were three components before the block model
+      # merged contract, consumer and implementation into one.
+      - adapters
+      - blockadmin  # /suppliers/* hands the write paths to the supplier admin service
+      - credform    # /suppliers/{id}/credential-form renders the fields a supplier's declaration asks for
+      - integration # /obsidian hands the uploaded vault to the corpus sync source
       - owner
       - access
       - marketplace
@@ -1161,10 +1240,8 @@ deps:
       - apierr
       - middleware
       - storage
-      - connectorconsumer
       - inference   # /ai-provider/presets exposes the preset table to the admin UI
-      - connectorcontract # #135 Slice 5: /connectors/mail credential form + test-send go through the MailProxy contract
-      - capreg      # Phase H /capabilities: lists registry origin + the owner-enable toggle
+      - registry      # /blocks: lists registry origin + the owner-enable toggle
       - stats       # #135 /stats/*: Monitor activity/growth/graph/jobs value objects
       - security    # #135 /ip-bans: BannedIP value object
       - depcheck    # checks at startup whether buildAdminHandlers' hand-copied dependency table has a missing row
@@ -1192,7 +1269,7 @@ deps:
       - session
       - inference
       - apierr
-      - capreg # D-2: /api/v1/sessions returns capability_state + part_ids, reads the Registry
+      - registry # D-2: /api/v1/sessions returns block_state + part_ids, reads the Registry
       - cryptobox   # BYOAI envelope (HKDF + AES-GCM) unwraps the X-BYOAI-Key header
       - httpx   # #132 /api/v1 inference-models listing probe goes through the unified client
       - providermodels   # "which models does this endpoint have" — the visitor asks with their own key (F-R-11)
@@ -1201,15 +1278,15 @@ deps:
       - clientaddr   # conversations.client_ip only takes the visitor's own address; leaves it blank if it can't get one
     anyVendorDeps: true
 
-  # pubapi —— API-key facade. Reuses the visitor assembly (capreg) + usecases; whitelists non-Agentic
+  # pubapi —— API-key facade. Reuses the visitor assembly (registry) + usecases; whitelists non-Agentic
   # outward tools via paritymanifest. Own auth (api-key), no CSRF/owner-session.
   pubapi:
     mayDependOn:
-      - capload
+      - blockload
       - access
       - conversation
       - owner
-      - capreg
+      - registry
       - paritymanifest
     anyVendorDeps: true
 
@@ -1221,19 +1298,23 @@ deps:
       - providermodels
       - cmddeps
       - cmdport
-      - cmdaxisconn
-      - cmdaxiscap
+      - cmdblockwire
       - cmdwire
       # clientaddr — the composition root mounts it right after chi.RealIP: "is the source address the visitor's own" is decided exactly once there.
       - clientaddr
       # geoip — the composition root opens the bundled geoip DB and adapts it to monitor's LocationResolver port (the domain never names an infra file).
       - geoip
-      - capconfig       # the composition root binds "the config a capability declares" to its own isolated storage
-      - capconfigroutes # and mounts capconfig.get on that capability's reach-back socket
-      - capquota        # and, per the manifest's Quota declaration, hangs the gate + remaining-balance on it (one counter, two exits)
+      - blockconfig       # the composition root binds "the config a block declares" to its own isolated storage
+      - blockdesk # and mounts blockconfig.get on that block's reach-back socket
+      - blockquota        # and, per the manifest's Quota declaration, hangs the gate + remaining-balance on it (one counter, two exits)
+      - mount             # it turns each discovered manifest into a mounted fiber
+      - assembly          # and keeps what a code carries (bundles) + what failed to bind
+      - credentials       # the vault the supplier layer reads through; the root is where the repo is built
+      - blockadmin        # the supplier admin service the admin routes hand their write paths to
+      - egress            # the outbound allow-list is read from the environment here, once
       - dispatcher      # the composition root builds the **single** outbound convergence point, each face projects from it
       - facadeparity    # each face's parity profile (Facade profile) is declared at the composition root
-      # paritymanifest — "which capabilities can be exposed to the API face" is knowledge that belongs to the capability axis, injected into access from this side.
+      # paritymanifest — "which blocks can be exposed to the API face" is knowledge that belongs to the block layer, injected into access from this side.
       - paritymanifest
       # apierr — when the composition root adapts a domain into the convergence point's narrow port, it
       # has to translate the domain's error vocabulary (sentinels like apierr.ErrEmptyField) into the
@@ -1242,7 +1323,7 @@ deps:
       # doesn't know HTTP status codes.
       - apierr
       - middleware
-      - capload
+      - blockload
       - jobsmodel
       - config
       - session
@@ -1250,9 +1331,8 @@ deps:
       - adminroutes
       - publicroutes
       - pubapi
-      - connectorroutes
-      - capstoreroutes
-      # hostdesk — the composition root builds the **single** inbound convergence point, each capability's
+      - supplierroutes
+      # hostdesk — the composition root builds the **single** inbound convergence point, each block's
       # socket projects from it (symmetric with dispatcher). This used to list ownerroutes /
       # reportroutes / conversationroutes / inferenceroutes: the composition root hung verbs on each
       # controller thin shell itself, which is exactly how the four hand-written gateways came to be.
@@ -1266,10 +1346,9 @@ deps:
       - jobfetch
       - jobsuc
       - gotenberg
-      - connector
-      # both axes' built-in **declarations** are read from their own top-level directory; the composition root only assembles.
-      - connectorbuiltins
-      - capabilitybuiltins
+      # the built-in **declarations** are read from their own top-level directory; the composition
+      # root only assembles.
+      - builtinblocks
       - printsess
       - stats
       - marketplace
@@ -1278,17 +1357,15 @@ deps:
       - cryptobox
       - sandbox
       - mcpclient
-      - mcpplugin
+      - plugin
       - storage
-      - capreg
-      - capabilities
+      - registry
       - pluginjobs
-      - capsocket
-      - capstore
-      - connectorconsumer
+      - hostsocket
+      - blockstore
+      - adapters
       - sandboxws
       - search
-      - connectorcontract
       - conversation
       - owner
       - corpus
@@ -1308,12 +1385,17 @@ deps:
   # leaf **inside the composition root**: none of the four packages below import it, so the direction holds.
   cmddeps:
     mayDependOn:
-      - capconfig       # the composition root binds "the config a capability declares" to its own isolated storage
-      - capconfigroutes # and mounts capconfig.get on that capability's reach-back socket
-      - capquota        # and, per the manifest's Quota declaration, hangs the gate + remaining-balance on it (one counter, two exits)
+      - blockconfig       # the composition root binds "the config a block declares" to its own isolated storage
+      - blockdesk # and mounts blockconfig.get on that block's reach-back socket
+      - blockquota        # and, per the manifest's Quota declaration, hangs the gate + remaining-balance on it (one counter, two exits)
+      - mount             # it turns each discovered manifest into a mounted fiber
+      - assembly          # and keeps what a code carries (bundles) + what failed to bind
+      - credentials       # the vault the supplier layer reads through; the root is where the repo is built
+      - blockadmin        # the supplier admin service the admin routes hand their write paths to
+      - egress            # the outbound allow-list is read from the environment here, once
       - dispatcher      # the composition root builds the **single** outbound convergence point, each face projects from it
       - facadeparity    # each face's parity profile (Facade profile) is declared at the composition root
-      # paritymanifest — "which capabilities can be exposed to the API face" is knowledge that belongs to the capability axis, injected into access from this side.
+      # paritymanifest — "which blocks can be exposed to the API face" is knowledge that belongs to the block layer, injected into access from this side.
       - paritymanifest
       # apierr — when the composition root adapts a domain into the convergence point's narrow port, it
       # has to translate the domain's error vocabulary (sentinels like apierr.ErrEmptyField) into the
@@ -1322,7 +1404,7 @@ deps:
       # doesn't know HTTP status codes.
       - apierr
       - middleware
-      - capload
+      - blockload
       - jobsmodel
       - config
       - session
@@ -1330,9 +1412,8 @@ deps:
       - adminroutes
       - publicroutes
       - pubapi
-      - connectorroutes
-      - capstoreroutes
-      # hostdesk — the composition root builds the **single** inbound convergence point, each capability's
+      - supplierroutes
+      # hostdesk — the composition root builds the **single** inbound convergence point, each block's
       # socket projects from it (symmetric with dispatcher). This used to list ownerroutes /
       # reportroutes / conversationroutes / inferenceroutes: the composition root hung verbs on each
       # controller thin shell itself, which is exactly how the four hand-written gateways came to be.
@@ -1346,10 +1427,9 @@ deps:
       - jobfetch
       - jobsuc
       - gotenberg
-      - connector
-      # both axes' built-in **declarations** are read from their own top-level directory; the composition root only assembles.
-      - connectorbuiltins
-      - capabilitybuiltins
+      # the built-in **declarations** are read from their own top-level directory; the composition
+      # root only assembles.
+      - builtinblocks
       - printsess
       - stats
       - marketplace
@@ -1358,17 +1438,15 @@ deps:
       - cryptobox
       - sandbox
       - mcpclient
-      - mcpplugin
+      - plugin
       - storage
-      - capreg
-      - capabilities
+      - registry
       - pluginjobs
-      - capsocket
-      - capstore
-      - connectorconsumer
+      - hostsocket
+      - blockstore
+      - adapters
       - sandboxws
       - search
-      - connectorcontract
       - conversation
       - owner
       - corpus
@@ -1389,12 +1467,17 @@ deps:
       - httpx
       - mailthrottle    # composition root caps outbound mail per-recipient at the OutboundSender bridge (email-bomb defense)
       - selfstat        # SysInfoProvider reads own-cgroup stats + fetches peer /selfstat (System panel)
-      - capconfig       # the composition root binds "the config a capability declares" to its own isolated storage
-      - capconfigroutes # and mounts capconfig.get on that capability's reach-back socket
-      - capquota        # and, per the manifest's Quota declaration, hangs the gate + remaining-balance on it (one counter, two exits)
+      - blockconfig       # the composition root binds "the config a block declares" to its own isolated storage
+      - blockdesk # and mounts blockconfig.get on that block's reach-back socket
+      - blockquota        # and, per the manifest's Quota declaration, hangs the gate + remaining-balance on it (one counter, two exits)
+      - mount             # it turns each discovered manifest into a mounted fiber
+      - assembly          # and keeps what a code carries (bundles) + what failed to bind
+      - credentials       # the vault the supplier layer reads through; the root is where the repo is built
+      - blockadmin        # the supplier admin service the admin routes hand their write paths to
+      - egress            # the outbound allow-list is read from the environment here, once
       - dispatcher      # the composition root builds the **single** outbound convergence point, each face projects from it
       - facadeparity    # each face's parity profile (Facade profile) is declared at the composition root
-      # paritymanifest — "which capabilities can be exposed to the API face" is knowledge that belongs to the capability axis, injected into access from this side.
+      # paritymanifest — "which blocks can be exposed to the API face" is knowledge that belongs to the block layer, injected into access from this side.
       - paritymanifest
       # apierr — when the composition root adapts a domain into the convergence point's narrow port, it
       # has to translate the domain's error vocabulary (sentinels like apierr.ErrEmptyField) into the
@@ -1403,7 +1486,7 @@ deps:
       # doesn't know HTTP status codes.
       - apierr
       - middleware
-      - capload
+      - blockload
       - jobsmodel
       - config
       - session
@@ -1411,9 +1494,8 @@ deps:
       - adminroutes
       - publicroutes
       - pubapi
-      - connectorroutes
-      - capstoreroutes
-      # hostdesk — the composition root builds the **single** inbound convergence point, each capability's
+      - supplierroutes
+      # hostdesk — the composition root builds the **single** inbound convergence point, each block's
       # socket projects from it (symmetric with dispatcher). This used to list ownerroutes /
       # reportroutes / conversationroutes / inferenceroutes: the composition root hung verbs on each
       # controller thin shell itself, which is exactly how the four hand-written gateways came to be.
@@ -1427,10 +1509,9 @@ deps:
       - jobfetch
       - jobsuc
       - gotenberg
-      - connector
-      # both axes' built-in **declarations** are read from their own top-level directory; the composition root only assembles.
-      - connectorbuiltins
-      - capabilitybuiltins
+      # the built-in **declarations** are read from their own top-level directory; the composition
+      # root only assembles.
+      - builtinblocks
       - printsess
       - stats
       - marketplace
@@ -1439,33 +1520,40 @@ deps:
       - cryptobox
       - sandbox
       - mcpclient
-      - mcpplugin
+      - plugin
       - storage
-      - capreg
-      - capabilities
+      - registry
       - pluginjobs
-      - capsocket
-      - capstore
-      - connectorconsumer
+      - hostsocket
+      - blockstore
+      - adapters
       - sandboxws
       - search
-      - connectorcontract
       - conversation
       - owner
       - corpus
       - pgstore
     anyVendorDeps: true
 
-  cmdaxisconn:
+  cmdblockwire:
     mayDependOn:
       - cmddeps
       - cmdport
-      - capconfig       # the composition root binds "the config a capability declares" to its own isolated storage
-      - capconfigroutes # and mounts capconfig.get on that capability's reach-back socket
-      - capquota        # and, per the manifest's Quota declaration, hangs the gate + remaining-balance on it (one counter, two exits)
+      # conversationusecase — widening an assembled supplier to the AgentToolSource port the
+      # conversation domain declares. The two interfaces have the same methods and different owners
+      # on purpose; the composition root is where they meet (see supplier_register.go).
+      - conversationusecase
+      - blockconfig       # the composition root binds "the config a block declares" to its own isolated storage
+      - blockdesk # and mounts blockconfig.get on that block's reach-back socket
+      - blockquota        # and, per the manifest's Quota declaration, hangs the gate + remaining-balance on it (one counter, two exits)
+      - mount             # it turns each discovered manifest into a mounted fiber
+      - assembly          # and keeps what a code carries (bundles) + what failed to bind
+      - credentials       # the vault the supplier layer reads through; the root is where the repo is built
+      - blockadmin        # the supplier admin service the admin routes hand their write paths to
+      - egress            # the outbound allow-list is read from the environment here, once
       - dispatcher      # the composition root builds the **single** outbound convergence point, each face projects from it
       - facadeparity    # each face's parity profile (Facade profile) is declared at the composition root
-      # paritymanifest — "which capabilities can be exposed to the API face" is knowledge that belongs to the capability axis, injected into access from this side.
+      # paritymanifest — "which blocks can be exposed to the API face" is knowledge that belongs to the block layer, injected into access from this side.
       - paritymanifest
       # apierr — when the composition root adapts a domain into the convergence point's narrow port, it
       # has to translate the domain's error vocabulary (sentinels like apierr.ErrEmptyField) into the
@@ -1474,7 +1562,7 @@ deps:
       # doesn't know HTTP status codes.
       - apierr
       - middleware
-      - capload
+      - blockload
       - jobsmodel
       - config
       - session
@@ -1482,9 +1570,8 @@ deps:
       - adminroutes
       - publicroutes
       - pubapi
-      - connectorroutes
-      - capstoreroutes
-      # hostdesk — the composition root builds the **single** inbound convergence point, each capability's
+      - supplierroutes
+      # hostdesk — the composition root builds the **single** inbound convergence point, each block's
       # socket projects from it (symmetric with dispatcher). This used to list ownerroutes /
       # reportroutes / conversationroutes / inferenceroutes: the composition root hung verbs on each
       # controller thin shell itself, which is exactly how the four hand-written gateways came to be.
@@ -1498,10 +1585,9 @@ deps:
       - jobfetch
       - jobsuc
       - gotenberg
-      - connector
-      # both axes' built-in **declarations** are read from their own top-level directory; the composition root only assembles.
-      - connectorbuiltins
-      - capabilitybuiltins
+      # the built-in **declarations** are read from their own top-level directory; the composition
+      # root only assembles.
+      - builtinblocks
       - printsess
       - stats
       - marketplace
@@ -1510,89 +1596,15 @@ deps:
       - cryptobox
       - sandbox
       - mcpclient
-      - mcpplugin
+      - plugin
       - storage
-      - capreg
-      - capabilities
+      - registry
       - pluginjobs
-      - capsocket
-      - capstore
-      - connectorconsumer
+      - hostsocket
+      - blockstore
+      - adapters
       - sandboxws
       - search
-      - connectorcontract
-      - conversation
-      - owner
-      - corpus
-      - pgstore
-    anyVendorDeps: true
-
-  cmdaxiscap:
-    mayDependOn:
-      - cmddeps
-      - cmdport
-      - cmdaxisconn
-      - capconfig       # the composition root binds "the config a capability declares" to its own isolated storage
-      - capconfigroutes # and mounts capconfig.get on that capability's reach-back socket
-      - capquota        # and, per the manifest's Quota declaration, hangs the gate + remaining-balance on it (one counter, two exits)
-      - dispatcher      # the composition root builds the **single** outbound convergence point, each face projects from it
-      - facadeparity    # each face's parity profile (Facade profile) is declared at the composition root
-      # paritymanifest — "which capabilities can be exposed to the API face" is knowledge that belongs to the capability axis, injected into access from this side.
-      - paritymanifest
-      # apierr — when the composition root adapts a domain into the convergence point's narrow port, it
-      # has to translate the domain's error vocabulary (sentinels like apierr.ErrEmptyField) into the
-      # category the convergence point understands (dispatcher.BadInput). That translation has to live at
-      # the composition root: the convergence point imports neither the domain nor apierr, and a domain
-      # doesn't know HTTP status codes.
-      - apierr
-      - middleware
-      - capload
-      - jobsmodel
-      - config
-      - session
-      - sysroutes
-      - adminroutes
-      - publicroutes
-      - pubapi
-      - connectorroutes
-      - capstoreroutes
-      # hostdesk — the composition root builds the **single** inbound convergence point, each capability's
-      # socket projects from it (symmetric with dispatcher). This used to list ownerroutes /
-      # reportroutes / conversationroutes / inferenceroutes: the composition root hung verbs on each
-      # controller thin shell itself, which is exactly how the four hand-written gateways came to be.
-      - hostdesk
-      - hostop
-      # periodic — the composition root gathers periodic tasks declared everywhere into a **single** schedule (same reasoning as the two convergence points).
-      - periodic
-      - mcphandle
-      - inference
-      - jobcache
-      - jobfetch
-      - jobsuc
-      - gotenberg
-      - connector
-      # both axes' built-in **declarations** are read from their own top-level directory; the composition root only assembles.
-      - connectorbuiltins
-      - capabilitybuiltins
-      - printsess
-      - stats
-      - marketplace
-      - security
-      - access
-      - cryptobox
-      - sandbox
-      - mcpclient
-      - mcpplugin
-      - storage
-      - capreg
-      - capabilities
-      - pluginjobs
-      - capsocket
-      - capstore
-      - connectorconsumer
-      - sandboxws
-      - search
-      - connectorcontract
       - conversation
       - owner
       - corpus
@@ -1603,14 +1615,18 @@ deps:
     mayDependOn:
       - cmddeps
       - cmdport
-      - cmdaxisconn
-      - cmdaxiscap
-      - capconfig       # the composition root binds "the config a capability declares" to its own isolated storage
-      - capconfigroutes # and mounts capconfig.get on that capability's reach-back socket
-      - capquota        # and, per the manifest's Quota declaration, hangs the gate + remaining-balance on it (one counter, two exits)
+      - cmdblockwire
+      - blockconfig       # the composition root binds "the config a block declares" to its own isolated storage
+      - blockdesk # and mounts blockconfig.get on that block's reach-back socket
+      - blockquota        # and, per the manifest's Quota declaration, hangs the gate + remaining-balance on it (one counter, two exits)
+      - mount             # it turns each discovered manifest into a mounted fiber
+      - assembly          # and keeps what a code carries (bundles) + what failed to bind
+      - credentials       # the vault the supplier layer reads through; the root is where the repo is built
+      - blockadmin        # the supplier admin service the admin routes hand their write paths to
+      - egress            # the outbound allow-list is read from the environment here, once
       - dispatcher      # the composition root builds the **single** outbound convergence point, each face projects from it
       - facadeparity    # each face's parity profile (Facade profile) is declared at the composition root
-      # paritymanifest — "which capabilities can be exposed to the API face" is knowledge that belongs to the capability axis, injected into access from this side.
+      # paritymanifest — "which blocks can be exposed to the API face" is knowledge that belongs to the block layer, injected into access from this side.
       - paritymanifest
       # apierr — when the composition root adapts a domain into the convergence point's narrow port, it
       # has to translate the domain's error vocabulary (sentinels like apierr.ErrEmptyField) into the
@@ -1619,7 +1635,7 @@ deps:
       # doesn't know HTTP status codes.
       - apierr
       - middleware
-      - capload
+      - blockload
       - jobsmodel
       - config
       - session
@@ -1627,9 +1643,8 @@ deps:
       - adminroutes
       - publicroutes
       - pubapi
-      - connectorroutes
-      - capstoreroutes
-      # hostdesk — the composition root builds the **single** inbound convergence point, each capability's
+      - supplierroutes
+      # hostdesk — the composition root builds the **single** inbound convergence point, each block's
       # socket projects from it (symmetric with dispatcher). This used to list ownerroutes /
       # reportroutes / conversationroutes / inferenceroutes: the composition root hung verbs on each
       # controller thin shell itself, which is exactly how the four hand-written gateways came to be.
@@ -1643,10 +1658,9 @@ deps:
       - jobfetch
       - jobsuc
       - gotenberg
-      - connector
-      # both axes' built-in **declarations** are read from their own top-level directory; the composition root only assembles.
-      - connectorbuiltins
-      - capabilitybuiltins
+      # the built-in **declarations** are read from their own top-level directory; the composition
+      # root only assembles.
+      - builtinblocks
       - printsess
       - stats
       - marketplace
@@ -1658,20 +1672,24 @@ deps:
       - cryptobox
       - sandbox
       - mcpclient
-      - mcpplugin
+      - plugin
       - storage
-      - capreg
-      - capabilities
+      - registry
       - pluginjobs
-      - capsocket
-      - capstore
-      - connectorconsumer
+      - hostsocket
+      - blockstore
+      - adapters
       - sandboxws
       - search
-      - connectorcontract
       - conversation
       - owner
       - corpus
+      # integration — obsidian.import's VaultIngest is a DOMAIN port; the ingest layer's
+      # SyncFile/SyncOpts are the shapes on the other side of it. Translating between the two
+      # belongs here precisely because neither may reach the other: the dispatcher is forbidden
+      # the ingest layer, and the ingest layer knows nothing of a dispatched op. Same rule, and
+      # the same reason, as apierr above.
+      - integration
       - pgstore
     anyVendorDeps: true
 
@@ -1688,7 +1706,7 @@ deps:
   ownerdb:
     mayDependOn: []
     anyVendorDeps: true
-  connectordb:
+  credentialsdb:
     mayDependOn: []
     anyVendorDeps: true
   marketplacedb:

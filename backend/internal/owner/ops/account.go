@@ -28,7 +28,7 @@ import (
 type AccountDeps struct {
 	Account  usecase.AccountDeps
 	Recovery usecase.RecoveryDeps
-	// EmailChange —— changing email needs to ask "can we send mail?" (a mail connector
+	// EmailChange —— changing email needs to ask "can we send mail?" (a mail supplier
 	// means a pending confirmation, none means an immediate swap), so it has one more
 	// outbound port than Account.
 	EmailChange usecase.EmailChangeDeps
@@ -60,9 +60,9 @@ func accountReadOps(deps AccountDeps) []fp.Op {
 		},
 		{
 			ID: "account.set_timezone",
-			Description: "Set the owner's IANA timezone (e.g. America/New_York). Capabilities " +
+			Description: "Set the owner's IANA timezone (e.g. America/New_York). Blocks " +
 				"that reason about time of day — booking hours, for one — read it from here; " +
-				"it is the owner's profile, not any one capability's setting.",
+				"it is the owner's profile, not any one block's setting.",
 			InputSchema: timezoneSchema,
 			Kind:        fp.Action,
 			Reach:       fp.OwnerAction(),

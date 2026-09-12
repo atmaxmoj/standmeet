@@ -5,9 +5,9 @@
 // unmarshals→usecase→marshals).
 //
 // Covers: instance.{status,inference_usage,corpus_growth,activity,jobs} · microsite.list ·
-// ai_provider.presets · appearance.get_css · page.get · capabilities.list ·
+// ai_provider.presets · appearance.get_css · page.get · blocks.list ·
 // conversations.{list,ghost_telemetry} · access_requests.list · ip_bans.list · domains.list ·
-// connectors.{list,catalog} · booking.get_policy · bookings.list · codes.list · codes.list_members
+// suppliers.{list,catalog} · booking.get_policy · bookings.list · codes.list · codes.list_members
 //
 // The SEO read used to be seo.{get_settings,stats}, the global site-SEO settings. That feature is
 // gone (7037a434e): **SEO follows each microsite**, so the read that carries SEO now is
@@ -128,17 +128,17 @@ async function checkOwnerSettings(r: APIRequestContext): Promise<void> {
   // page.get is gone: the homepage is a microsite now, not built-in page content.
 }
 
-async function checkCapabilities(r: APIRequestContext): Promise<void> {
-  // The payload is {"capabilities": [...]} — admin has always used this envelope, and
-  // once the convergence took over, MCP got the same one. The connector rows come along
+async function checkBlocks(r: APIRequestContext): Promise<void> {
+  // The payload is {"blocks": [...]} — admin has always used this envelope, and
+  // once the convergence took over, MCP got the same one. The supplier rows come along
   // too (that whole class was absent from the MCP surface before the migration).
-  const body = await callTool<{ capabilities: Array<{ id: string; kind: string; enabled: boolean }> }>(
-    r, token, sid, 'capabilities.list', {});
-  const caps = body.capabilities;
-  expect(caps.length, 'at least one capability').toBeGreaterThan(0);
+  const body = await callTool<{ blocks: Array<{ id: string; kind: string; enabled: boolean }> }>(
+    r, token, sid, 'blocks.list', {});
+  const caps = body.blocks;
+  expect(caps.length, 'at least one block').toBeGreaterThan(0);
   expect(typeof caps[0]!.id, 'cap.id string').toBe('string');
   expect(typeof caps[0]!.enabled, 'cap.enabled bool').toBe('boolean');
-  expect(caps.some((c) => c.kind === 'connector'), 'connector rows are present too').toBe(true);
+  expect(caps.some((c) => c.kind === 'supplier'), 'supplier rows are present too').toBe(true);
 }
 
 async function checkEmptyRegistries(r: APIRequestContext): Promise<void> {
@@ -162,22 +162,22 @@ async function checkEmptyRegistries(r: APIRequestContext): Promise<void> {
   expect(Array.isArray(domains.domains), 'domains.list.domains array').toBe(true);
 }
 
-async function checkConnectors(r: APIRequestContext): Promise<void> {
-  const list = await callTool<unknown[]>(r, token, sid, 'connectors.list', {});
-  expect(Array.isArray(list), 'connectors.list array').toBe(true);
+async function checkSuppliers(r: APIRequestContext): Promise<void> {
+  const list = await callTool<unknown[]>(r, token, sid, 'suppliers.list', {});
+  expect(Array.isArray(list), 'suppliers.list array').toBe(true);
 
   const catalog = await callTool<Array<{ id: string; category: string; kind: string }>>(
-    r, token, sid, 'connectors.catalog', {});
-  expect(catalog.length, 'catalog has built-in connectors').toBeGreaterThan(0);
+    r, token, sid, 'suppliers.catalog', {});
+  expect(catalog.length, 'catalog has built-in suppliers').toBeGreaterThan(0);
   expect(typeof catalog[0]!.category, 'catalog entry has category').toBe('string');
 }
 
-// The booking policy is read through the **generic** capability_config interface — the
+// The booking policy is read through the **generic** block_config interface — the
 // fields the booker declares itself — there's no longer a booking.get_policy-style tool
-// hardcoded to a capability name.
+// hardcoded to a block name.
 async function checkBookingConfig(r: APIRequestContext): Promise<void> {
   const cfg = await callTool<{ fields: { key: string; value: unknown }[] }>(
-    r, token, sid, 'capability_config.get', { capability_id: 'calendar.book' });
+    r, token, sid, 'block_config.get', { block_id: 'calendar.book' });
   const byKey = new Map(cfg.fields.map((f) => [f.key, f.value]));
   expect(typeof byKey.get('working_hours_start'), 'working_hours_start string').toBe('string');
   expect(Array.isArray(byKey.get('allowed_weekdays')), 'allowed_weekdays array').toBe(true);
@@ -202,13 +202,13 @@ test.describe('facade-parity · 新增 owner-MCP 只读工具功能守护', () =
     ({ playwright }) => run(playwright, checkSEO));
   test('ai_provider.presets + appearance.get_css return owner settings',
     ({ playwright }) => run(playwright, checkOwnerSettings));
-  test('capabilities.list enumerates registry caps with origin + enabled',
-    ({ playwright }) => run(playwright, checkCapabilities));
+  test('blocks.list enumerates registry caps with origin + enabled',
+    ({ playwright }) => run(playwright, checkBlocks));
   test('conversations + access_requests + ip_bans + domains return arrays',
     ({ playwright }) => run(playwright, checkEmptyRegistries));
-  test('connectors.list empty + catalog has built-ins',
-    ({ playwright }) => run(playwright, checkConnectors));
-  test('capability_config.get returns booker\'s declared scheduling fields',
+  test('suppliers.list empty + catalog has built-ins',
+    ({ playwright }) => run(playwright, checkSuppliers));
+  test('block_config.get returns booker\'s declared scheduling fields',
     ({ playwright }) => run(playwright, checkBookingConfig));
   test('codes.list shows the seeded code; codes.list_members returns an array',
     ({ playwright }) => run(playwright, checkCodes));

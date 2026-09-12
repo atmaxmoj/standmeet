@@ -5,8 +5,15 @@ import "github.com/atmaxmoj/standmeet/internal/conversation/usecase"
 // Types (impl: usecase).
 type (
 	APIKeyDenialReader = usecase.APIKeyDenialReader
-	CodeIntroResult    = usecase.CodeIntroResult
-	ConvDialog         = usecase.ConvDialog
+	// AgentOp / AgentToolSource -- the port this domain declares for "a supplier the owner opted
+	// in as an agent tool". Named here as well as in usecase because the block loader assembles
+	// against it from outside the domain, and outside code reaches a domain only through its
+	// facade.
+	AgentOp                 = usecase.AgentOp
+	AgentToolSource         = usecase.AgentToolSource
+	AgentToolSupplierSource = usecase.AgentToolSupplierSource
+	CodeIntroResult         = usecase.CodeIntroResult
+	ConvDialog              = usecase.ConvDialog
 	// ConvEvent -- something that happened during this conversation (a cancel on the card,
 	// sending a confirmation letter), F-B-9.
 	ConvEvent               = usecase.ConvEvent

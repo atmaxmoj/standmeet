@@ -1,7 +1,7 @@
 {
-  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/connector-assembly/shots",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/supplier-assembly/shots",
   "viewport": [1280, 900],
   "shots": [
-    { "name": "dispatch-03-list-json", "url": "/api/admin/connectors", "wait": 1500 }
+    { "name": "dispatch-03-list-json", "url": "/api/admin/suppliers", "wait": 1500 }
   ]
 }

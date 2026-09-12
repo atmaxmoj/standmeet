@@ -18,8 +18,12 @@ INTERNAL="$ROOT/backend/internal"
 BASELINE="$ROOT/backend/.internal-dirs-baseline"
 
 # -- whitelist: class-diagram core modules + routes + domain-less infra --
+#
+# `plugin` replaced `capabilities` and `connector`. The two used to be separate axes with separate
+# directories; `block-model.md` collapsed them — a supplier is a block that declares `provides` —
+# so there is one substrate directory now, not two.
 ALLOWED="
-access conversation connector corpus owner security marketplace stats monitor capabilities
+access conversation corpus owner security marketplace stats monitor plugin
 routes infra
 "
 

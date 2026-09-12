@@ -19,8 +19,8 @@ import (
 
 	"github.com/mark3labs/mcp-go/server"
 
-	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
+	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
@@ -36,9 +36,9 @@ var ctxKeyOwnerID = ctxKey{name: "mcpOwnerID"}
 //     owner tools converge into a single endpoint)
 type Deps struct {
 	Keypairs    owner.KeypairDeps
-	AgentSkills *capreg.Registry
+	AgentSkills *registry.Registry
 	// Dispatcher —— the outbound convergence point: every outbound-facing
-	// capability (domain ops / connector caps / capreg caps) is declared here,
+	// block (domain ops / supplier blocks / registry blocks) is declared here,
 	// and the MCP face is its projection (generated). See internal/routes/dispatcher.
 	Dispatcher *dispatcher.Dispatcher
 	Log        *slog.Logger
@@ -162,7 +162,7 @@ func OwnerIDFrom(ctx context.Context) string {
 }
 
 // registerTools registers every owner tool into mcpSrv. Two sources:
-//   - capreg.Registry —— capabilities that are real on the capability axis
+//   - registry.Registry —— blocks that are real on the block axis
 //     (owner tools declared by plugins, etc.);
 //   - dispatcher —— the outbound convergence point; the MCP face is its
 //     projection (generated, see from_dispatcher.go).
@@ -171,6 +171,6 @@ func OwnerIDFrom(ctx context.Context) string {
 // convergence point means ownercore registers one fewer, until ownercore
 // is deleted entirely.
 func registerTools(mcpSrv *server.MCPServer, deps *Deps) {
-	registerCapabilities(mcpSrv, deps.AgentSkills, deps.Log)
+	registerBlocks(mcpSrv, deps.AgentSkills, deps.Log)
 	registerDispatcherOps(mcpSrv, deps.Dispatcher, deps.Log)
 }

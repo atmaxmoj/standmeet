@@ -102,12 +102,12 @@ type CorpusEntryRef struct {
 	Published bool
 }
 
-// ReachesAnything — **can this identity reach the corpus at all** (used by the capability
+// ReachesAnything — **can this identity reach the corpus at all** (used by the block
 // gate: if it can't reach anything, don't attach the retrieval tool).
 //
 // The verdict must ask the scope itself. The gate used to ask "is the positive list
 // empty", but the public identity's scope is not a list at all — so once it switched to
-// published-only, the retrieval capability turned off entirely for every no-code visitor,
+// published-only, the retrieval block turned off entirely for every no-code visitor,
 // showing up as "search returns nothing no matter what". Every time a rule grows a new way
 // to hold, whatever judges it has to learn about it too; putting the judgment on the rule
 // itself means it never falls behind.
@@ -131,7 +131,7 @@ func (s CorpusScope) ReachesAnything() bool {
 // published" — missing it does not silently pass, it fails to compile.
 //
 // **Pure subtraction**: deny can only shrink what's readable, a code cannot open what its
-// role never gave — isomorphic to the deny sets for capability/skill, and consistent with
+// role never gave — isomorphic to the deny sets for block/skill, and consistent with
 // A.4's rule of "pure AND, a code can only deny".
 //
 // **Order-independent**: deny and grant are computed in two separate passes, not

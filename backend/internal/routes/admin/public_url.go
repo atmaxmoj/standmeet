@@ -1,7 +1,7 @@
 // public_url.go — PATCH /api/admin/public-url: the owner changes the deployment's
 // canonical public URL (when changing domains after claim).
 //
-// owner.public_url is the single source for QR / canonical links. Capability comes from
+// owner.public_url is the single source for QR / canonical links. Ability comes from
 // the outbound convergence point.
 
 package admin
@@ -12,7 +12,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// PublicURLDeps — capability source for the admin public-url endpoint.
+// PublicURLDeps — op source for the admin public-url endpoint.
 type PublicURLDeps struct {
 	Face *dispatcher.Face
 }

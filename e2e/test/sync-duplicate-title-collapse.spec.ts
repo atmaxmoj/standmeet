@@ -52,7 +52,7 @@ test.describe('sync · same-basename files in different folders both import (F-L
   // these links attach to" using `st.titleToID[node.title]` — a table indexed by title, and
   // title is exactly what's not unique. Notes sharing a title share one bucket, and
   // `RebuildForNote(id, body)` is a **rebuild**, so whichever note gets processed second
-  // wholesale overwrites the previous one's edges. Once again: "one capability, two faces,
+  // wholesale overwrites the previous one's edges. Once again: "one block, two faces,
   // only one face got fixed".
   //
   // Cost measured in prod: 97 same-titled notes, only 22 have outbound edges — **41 have

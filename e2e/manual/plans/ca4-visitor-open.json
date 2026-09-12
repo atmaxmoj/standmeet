@@ -1,7 +1,7 @@
 {
-  "_why": "connector-assembly check 4 —— 上一趟：POST /api/v1/sessions 回了 200、库里也真有了一条 conversation（visitor_name=gist-check），可界面停在 STARTING CHAT··· 然后落到 /gate。这一趟只做「报名 → 开聊」这一步，把浏览器控制台原样留下来看。",
+  "_why": "supplier-assembly check 4 —— 上一趟：POST /api/v1/sessions 回了 200、库里也真有了一条 conversation（visitor_name=gist-check），可界面停在 STARTING CHAT··· 然后落到 /gate。这一趟只做「报名 → 开聊」这一步，把浏览器控制台原样留下来看。",
   "login": false,
-  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/connector-assembly/shots",
+  "out": "../e2e/manual-runs/2026-08-07T0027/trajectory/supplier-assembly/shots",
   "viewport": [1280, 1400],
   "shots": [
     {

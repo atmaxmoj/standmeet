@@ -12,11 +12,11 @@ import (
 	"net/http"
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
-	"github.com/atmaxmoj/standmeet/internal/capabilities/capreg"
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	"github.com/atmaxmoj/standmeet/internal/infra/clientaddr"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
+	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
 )
 
 // createSessionRequest —— input for POST /api/v1/sessions. BYOAIKey was removed — the
@@ -62,12 +62,12 @@ type createSessionResponse struct {
 	MicrositeSlug string `json:"microsite_slug"`
 	// Slug —— the code's OWN landing path (`/<slug>`). The client rewrites the URL to this after
 	// absorbing ?code=, so the raw code leaves the URL and the chat gets a real path, not bare `/`.
-	Slug                string                   `json:"slug"`
-	SystemPromptPersona string                   `json:"system_prompt_persona"`
-	Members             []sessionMemberResp      `json:"members"`
-	Capabilities        []capreg.CapabilityState `json:"capabilities"`
-	ToolSpecs           []capreg.VisitorToolSpec `json:"tool_specs"`
-	SystemPromptPartIDs []string                 `json:"system_prompt_part_ids"`
+	Slug                string                     `json:"slug"`
+	SystemPromptPersona string                     `json:"system_prompt_persona"`
+	Members             []sessionMemberResp        `json:"members"`
+	Blocks              []registry.FiberState      `json:"blocks"`
+	ToolSpecs           []registry.VisitorToolSpec `json:"tool_specs"`
+	SystemPromptPartIDs []string                   `json:"system_prompt_part_ids"`
 	// Ghosts —— H.13.b: owner's "what to ask when you first arrive" list; frontend's
 	// ghost text takes the first entry. Empty array outside code mode ("ghosts": []).
 	Ghosts []string `json:"ghosts"`
@@ -80,39 +80,39 @@ type createSessionResponse struct {
 	OwnerCanDeliver bool `json:"owner_can_deliver"`
 }
 
-// dockButtonResp —— one renderable dock button: capability id + display name (from
+// dockButtonResp —— one renderable dock button: block id + display name (from
 // MCP title) + trigger phrase.
 type dockButtonResp struct {
-	CapabilityID string `json:"capability_id"`
-	Title        string `json:"title"`
-	Trigger      string `json:"trigger"`
+	BlockID string `json:"block_id"`
+	Title   string `json:"title"`
+	Trigger string `json:"trigger"`
 }
 
 // resolveDockButtons —— frozen dock config → renderable buttons: keeps only
-// capabilities still in this session's available set (code-denied → absent from caps →
-// button doesn't render, D2); title passes through from the matching CapabilityState.
+// blocks still in this session's available set (code-denied → absent from states →
+// button doesn't render, D2); title passes through from the matching FiberState.
 func resolveDockButtons(
-	cfg []access.DockButtonConfig, caps []capreg.CapabilityState,
+	cfg []access.DockButtonConfig, states []registry.FiberState,
 ) []dockButtonResp {
-	title := capTitleMap(caps)
+	title := blockTitleMap(states)
 	out := make([]dockButtonResp, 0, len(cfg))
 	for i := range cfg {
-		t, ok := title[cfg[i].CapabilityID]
+		t, ok := title[cfg[i].BlockID]
 		if !ok {
-			continue // capability is code-denied / absent from this session → button doesn't render
+			continue // block is code-denied / absent from this session → button doesn't render
 		}
 		out = append(out, dockButtonResp{
-			CapabilityID: cfg[i].CapabilityID, Title: t, Trigger: cfg[i].Trigger,
+			BlockID: cfg[i].BlockID, Title: t, Trigger: cfg[i].Trigger,
 		})
 	}
 	return out
 }
 
-// capTitleMap —— capability id → title (used to resolve dock button labels).
-func capTitleMap(caps []capreg.CapabilityState) map[string]string {
-	m := make(map[string]string, len(caps))
-	for i := range caps {
-		m[caps[i].ID] = caps[i].Title
+// blockTitleMap —— block id → title (used to resolve dock button labels).
+func blockTitleMap(states []registry.FiberState) map[string]string {
+	m := make(map[string]string, len(states))
+	for i := range states {
+		m[states[i].ID] = states[i].Title
 	}
 	return m
 }
@@ -176,7 +176,7 @@ func writeCodeIntro(
 }
 
 // OpenCodeSession —— trades a code for a session, and hands back the already-assembled
-// capability input. Lives here because this file runs every "code → session" exchange
+// block input. Lives here because this file runs every "code → session" exchange
 // in this instance; the visitor MCP face (mcp_visitor.go) wants the same thing, differing
 // only in transport (Authorization header, no HTTP body) — writing it twice would let
 // quota, member resolution, and failure wording drift apart. Nil return means it never
@@ -202,7 +202,7 @@ func (h *Handlers) OpenCodeSession(
 // OpenedCodeSession —— the session that got opened; nil In means it never opened
 // (check the envelope returned alongside it).
 type OpenedCodeSession struct {
-	In     *capreg.AssembleInput
+	In     *registry.AssembleInput
 	ConvID string
 }
 
@@ -294,7 +294,7 @@ func writeCreateSession(
 		Slug:           res.Slug,
 		SystemPromptPersona: conversation.ComposeDynamicPersona(res.Session.Data.RoleSnapshot,
 			owner.FullNameOf(ctx, h.Owners, res.Session.Data.OwnerID)),
-		Capabilities:        bundle.States,
+		Blocks:              bundle.States,
 		ToolSpecs:           bundle.ToolSpecs,
 		SystemPromptPartIDs: bundle.PromptPartIDs,
 		Ghosts:              nonNilStringSlice(res.Ghosts),
@@ -329,17 +329,17 @@ func nonNilStringSlice(s []string) []string {
 }
 
 // assembleInputFromSession —— folds a freshly issued VisitorSessionData into
-// capreg.AssembleInput; ConversationID comes from res.Chat, not data. Kept consistent
-// with dev's /internal/test/visitor-capabilities, so capability shape stays same-source.
+// registry.AssembleInput; ConversationID comes from res.Chat, not data. Kept consistent
+// with diag's /internal/diag/session, so block shape stays same-source.
 func assembleInputFromSession(
 	data *access.VisitorSessionData, conversationID string,
-) *capreg.AssembleInput {
-	return &capreg.AssembleInput{
+) *registry.AssembleInput {
+	return &registry.AssembleInput{
 		RoleSnapshot: data.RoleSnapshot,
 		OwnerID:      data.OwnerID,
 		Mode:         data.Mode,
 		// Subject is the code the visitor holds (public/byoai have none → ungated).
-		Subject:        capreg.Subject{Kind: capreg.SubjectCode, ID: data.CodeID},
+		Subject:        registry.Subject{Kind: registry.SubjectCode, ID: data.CodeID},
 		Visitor:        data.Visitor,
 		ConversationID: conversationID,
 	}

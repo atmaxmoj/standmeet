@@ -5,7 +5,7 @@
     { "name": "seo-hints", "url": "/admin/seo" },
     { "name": "marketplace-grid", "url": "/admin/skills",
       "steps": [{ "click": "text=marketplace" }], "wait": 2500 },
-    { "name": "connector-credfields", "url": "/admin/connectors" },
+    { "name": "supplier-credfields", "url": "/admin/suppliers" },
     { "name": "corpus-body-field", "url": "/admin/raw",
       "steps": [{ "click": "text=EDIT" }], "wait": 1500 },
     { "name": "transcript-measure", "url": "/admin/conversations",

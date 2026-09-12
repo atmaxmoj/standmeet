@@ -53,7 +53,7 @@ async function mcpInitNoAuth(
     data: {
       jsonrpc: '2.0', id: 1, method: 'initialize',
       params: {
-        protocolVersion: '2024-11-05', capabilities: {},
+        protocolVersion: '2024-11-05', blocks: {},
         clientInfo: { name: 'e2e', version: '1' },
       },
     },

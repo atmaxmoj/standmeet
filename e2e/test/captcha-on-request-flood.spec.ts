@@ -22,7 +22,7 @@ import type { Page } from '@playwright/test';
 import { claim } from '@/fixtures/admin';
 import { skipUnlessCaptchaOn } from '@/fixtures/captcha';
 import { findSetupToken, resetInstance } from '@/fixtures/instance';
-import { configureMailConnector } from '@/fixtures/mail';
+import { configureMailSupplier } from '@/fixtures/mail';
 import { openGate } from '@/fixtures/navigate';
 
 const OWNER = {
@@ -54,7 +54,7 @@ test.describe('gate · the request-access door has a lock, and the captcha is it
     // it's filling in the precondition (the first version skipped it and
     // went red on "the panel doesn't exist", which isn't what this spec
     // guards).
-    await configureMailConnector(request, OWNER.email, OWNER.password);
+    await configureMailSupplier(request, OWNER.email, OWNER.password);
     await request.dispose();
   });
 

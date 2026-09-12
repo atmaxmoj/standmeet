@@ -1,5 +1,5 @@
 # Root build context for the backend image (docker-compose backend: context: .).
-# Needed: the backend module + the externalized capability modules (mcp-servers/*,
+# Needed: the backend module + the externalized block modules (mcp-servers/*,
 # provisioned separately but their go.mod resolves) + infra/scripts (the lint tools
 # live OUTSIDE backend — make lint reaches ../infra/scripts). Everything else (app/,
 # e2e/, docs/, .git, node_modules, other modules) bloats the context — exclude it

@@ -2,7 +2,7 @@
 """inbox-peek —— 去**真收件箱**看那封信到底有没有到，并把里面的链接原样打出来。
 
 为什么要有它：产品说「已发送」不算数。SMTP 回 250 只证明**对方收下了**，不证明**送达**了
-（mail-connector 的 F-C-13 就是这条：accepted ≠ delivered）。判据写着「打开真实收件箱」，
+（mail-supplier 的 F-C-13 就是这条：accepted ≠ delivered）。判据写着「打开真实收件箱」，
 那就得真去读，而不是把产品自己的成功提示当回执。
 
 用的是 verify-creds 里那把 app password —— 跟发信同一把，只是换成 IMAP 读。

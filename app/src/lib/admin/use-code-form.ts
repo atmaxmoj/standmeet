@@ -1,6 +1,6 @@
 // use-code-form —— state shared by CodeCreateForm / CodeCreateModal.
 //
-// As of A.3-IAM-5, a code only carries assumed_role_id; ACL / capability /
+// As of A.3-IAM-5, a code only carries assumed_role_id; ACL / block /
 // skill prompts are all derived from the role. The three old fields
 // permissions / grantedSkills / skillIDs have been removed entirely.
 
@@ -26,13 +26,18 @@ export interface CodeFormState {
   promptID: string;
   // providerID —— which provider this code uses; '' = inherits the role, then falls back to the owner default.
   providerID: string;
+  // bundle —— which bundle of blocks this code carries; '' = none, and the code is
+  // judged by its role exactly as every code issued before bundles existed. Not a
+  // narrowing of the role: when a bundle is set it IS the grant, read live, so editing
+  // the bundle moves every code bound to it.
+  bundle: string;
 }
 
 const EMPTY: CodeFormState = {
   code: '', label: '', purpose: '',
   suggested: ['', ''],
   maxMembers: '', maxTurns: '', maxBookings: '',
-  assumedRoleID: '', promptID: '', providerID: '',
+  assumedRoleID: '', promptID: '', providerID: '', bundle: '',
 };
 
 export interface CodeFormHook {
@@ -46,6 +51,7 @@ export interface CodeFormHook {
   setAssumedRoleID: (v: string) => void;
   setPromptID: (v: string) => void;
   setProviderID: (v: string) => void;
+  setBundle: (v: string) => void;
   updateQ: (i: number, v: string) => void;
   addQ: () => void;
   removeQ: (i: number) => void;
@@ -77,6 +83,9 @@ export function useCodeForm(initial?: Partial<CodeView>): CodeFormHook {
   const setProviderID = useCallback(
     (providerID: string) => setValues((v) => ({ ...v, providerID })), [],
   );
+  const setBundle = useCallback(
+    (bundle: string) => setValues((v) => ({ ...v, bundle })), [],
+  );
 
   const updateQ = useCallback((i: number, txt: string) => {
     setValues((v) => ({ ...v, suggested: v.suggested.map((q, j) => j === i ? txt : q) }));
@@ -92,7 +101,7 @@ export function useCodeForm(initial?: Partial<CodeView>): CodeFormHook {
 
   return {
     values, setCode, setLabel, setPurpose, setMaxMembers, setMaxTurns,
-    setMaxBookings, setAssumedRoleID, setPromptID, setProviderID,
+    setMaxBookings, setAssumedRoleID, setPromptID, setProviderID, setBundle,
     updateQ, addQ, removeQ, reset, toInput,
   };
 }
@@ -111,6 +120,7 @@ function seed(initial?: Partial<CodeView>): CodeFormState {
     assumedRoleID: initial?.assumed_role_id ?? '',
     promptID:      initial?.prompt_id ?? '',
     providerID:    initial?.provider_id ?? '',
+    bundle:        initial?.bundle ?? '',
   };
 }
 
@@ -130,6 +140,10 @@ function buildInput(v: CodeFormState): CreateCodeInput {
     assumed_role_id: v.assumedRoleID === '' ? null : v.assumedRoleID,
     prompt_id: v.promptID === '' ? null : v.promptID,
     provider_id: v.providerID,
+    // Omitted entirely when unset, rather than sent as "": the server treats an empty
+    // bundle name as "no bundle", and sending one explicitly would be this form
+    // asserting a choice the owner did not make.
+    ...(v.bundle === '' ? {} : { bundle: v.bundle }),
   };
 }
 

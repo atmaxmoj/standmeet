@@ -1,8 +1,8 @@
-// envelope_test.go — connector-deps-tests.md §4 E5: credential decrypt failure
+// envelope_test.go — supplier-deps-tests.md §4 E5: credential decrypt failure
 // (vault corrupted / wrong key) must degrade friendly, and **the error must
 // never contain ciphertext/plaintext**. cryptobox is the last line for
-// connector-credential no-leak: secrets are persisted only as ciphertext, and
-// decryption happens only inside the connector layer. This guards the decrypt
+// supplier-credential no-leak: secrets are persisted only as ciphertext, and
+// decryption happens only inside the supplier layer. This guards the decrypt
 // failure path.
 
 package cryptobox_test
@@ -27,9 +27,9 @@ const (
 // same-key round-trip works normally.
 func TestDecryptFailure_NoSecretLeak(t *testing.T) {
 	t.Parallel()
-	keyA, err := cryptobox.DeriveSessionKey("session-token-A", "connector-cred")
+	keyA, err := cryptobox.DeriveSessionKey("session-token-A", "supplier-cred")
 	require.NoError(t, err)
-	keyB, err := cryptobox.DeriveSessionKey("session-token-B", "connector-cred")
+	keyB, err := cryptobox.DeriveSessionKey("session-token-B", "supplier-cred")
 	require.NoError(t, err)
 
 	secret := []byte(e5Secret)
