@@ -62,7 +62,7 @@ func seamTitles() map[string]string {
 // toSupplierManifest — one block declaration → the adapter shape.
 func toSupplierManifest(m *plugin.Manifest) adapters.Manifest {
 	return adapters.Manifest{
-		ID: m.ID, Kind: supplierKind(m), Seam: m.Provides,
+		ID: m.ID, Kind: supplierKind(m), Seam: m.Provides, Title: m.Title,
 		Protocol: m.Transport.Protocol, AuthScheme: m.Transport.AuthScheme,
 		Spec: m.Transport.SpecBytes, Binding: m.Transport.BindingBytes,
 		Fields:   configFieldKeys(m.Config),

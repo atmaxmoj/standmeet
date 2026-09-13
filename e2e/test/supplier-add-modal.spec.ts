@@ -68,6 +68,9 @@ test.describe('admin /suppliers · add modal + dynamic config form', () => {
       // the frontend naming caldav.
       const card = adminPage.getByTestId('supplier-row-caldav');
       await expect(card).toBeVisible();
+      // Named by its provider title, not the seam — so it's distinct from the Google calendar card
+      // (both fill the "calendar" seam; both reading "calendar" would be indistinguishable).
+      await expect(card.getByTestId('supplier-card-name')).toHaveText('CalDAV');
       await expect(card.getByTestId('supplier-field-url')).toBeVisible();
       await expect(card.getByTestId('supplier-field-username')).toBeVisible();
       await expect(card.getByTestId('supplier-field-password'))

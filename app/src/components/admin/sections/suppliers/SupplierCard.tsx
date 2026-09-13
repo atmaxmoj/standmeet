@@ -62,13 +62,14 @@ export function SupplierCardBody({ entry }: { entry: CatalogEntry }) {
 // with two rows side by side the owner couldn't tell which vendor was which, and so couldn't
 // tell which one to fill credentials for (F-C-56).
 //
-// A supplier with a seam is still named by seam (`calendar` / `mail` are the owner's
-// own vocabulary, closer to what they're trying to do than a vendor name); it only falls back
-// to the vendor name when there's no seam. When neither exists, fall back to the id —
-// **never leave it blank**: a nameless actionable object looks, on screen, exactly like a
-// load failure.
+// Named by the supplier's own title (the provider) first: `calendar` and `mail` are seams, and a
+// seam can now be filled by more than one supplier (a Google calendar and a CalDAV one) — naming
+// both cards by the seam made them read identically ("calendar"), so the owner couldn't tell which
+// provider a card configured. The seam is the section they sit under; the card names the provider.
+// Falls back to the seam when a supplier declares no title, then to the id — **never blank**: a
+// nameless actionable object looks, on screen, exactly like a load failure.
 function cardName(entry: CatalogEntry): string {
-  const named = [entry.seam, entry.title ?? '', entry.id].filter((s) => s !== '');
+  const named = [entry.title ?? '', entry.seam, entry.id].filter((s) => s !== '');
   return named[0] ?? '';
 }
 

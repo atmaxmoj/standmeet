@@ -101,7 +101,7 @@ func (s *Service) Catalog() []credentials.Connection {
 	for i := range s.d.Manifests {
 		m := &s.d.Manifests[i]
 		out = append(out, credentials.Connection{
-			BlockID: m.ID, Seam: m.Seam, Kind: m.Kind,
+			BlockID: m.ID, Seam: m.Seam, Kind: m.Kind, Title: m.Title,
 		})
 	}
 	return out

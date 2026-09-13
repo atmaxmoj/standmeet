@@ -26,6 +26,10 @@ type Manifest struct {
 	ID   string
 	Kind string // "openapi" | "protocol" | "credential" | "block"
 	Seam string
+	// Title —— the supplier's own display name (the block's declared title). The admin card is
+	// named by it, so two suppliers of one seam (a Google calendar and a CalDAV one) are
+	// distinguishable rather than both reading "calendar".
+	Title string
 	// Protocol — the built-in wire protocol a `protocol` supplier speaks. Only "smtp" now:
 	// CalDAV moved off "protocol" and became a `block` (a Koishi plugin composing the http hand),
 	// so the host no longer speaks CalDAV as a wire protocol.
