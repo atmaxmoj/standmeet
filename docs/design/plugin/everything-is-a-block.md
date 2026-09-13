@@ -155,6 +155,11 @@ The admin carries a plugin **nav group** with two views:
   the block's storage, the sandbox reads them via `blockconfig`. Credentials go through the
   credential-manager form. A block that needs **custom** GUI ships an **MCP-App `ui://` card** (HTML
   per tool via `_meta.ui_resource`) rendered in a sandboxed iframe.
+- **A modal is a base-provided shell; the block owns the when and the what.** The base gives only a
+  modal **trigger** and an **inner render frame** (a sandboxed frame). The block declares, in itself,
+  **when to pop** (the trigger timing) and **what renders inside** (its content, like a `ui://` card).
+  The base fires and frames; it owns neither the timing nor the content. The data-loss warning block
+  rides this.
 
 Block, fiber, and assembly are unfamiliar words to a lay owner, so **every control here carries a
 thorough `(?)` help tooltip** — spelling out what a block is, what a fiber is, and how to assemble
