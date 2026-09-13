@@ -17,8 +17,6 @@ import { AdminSectionHead } from '@/components/admin/AdminSectionHead';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { SupplierAddModal } from '@/components/admin/SupplierAddModal';
 import { CalendarSupplierPanel } from '@/components/admin/sections/suppliers/CalendarSupplierPanel';
-import { BundlePanel } from '@/components/admin/sections/suppliers/BundlePanel';
-import { BlocksPanel } from '@/components/admin/sections/suppliers/BlocksPanel';
 import { useSupplierList, type SupplierListHook } from '@/lib/admin/use-supplier-list';
 import { useSupplierCatalog, type SupplierCatalogHook } from '@/lib/admin/use-supplier-catalog';
 import { useSupplierUpload, type SupplierUploadHook } from '@/lib/admin/use-supplier-upload';
@@ -96,15 +94,9 @@ function SectionBody({
       <div className="mb-8 max-w-[640px]">
         <CalendarSupplierPanel />
       </div>
-      <div className="mb-8">
-        <BlocksPanel />
-      </div>
-      {/* Install and assemble. `frontend.md` merges the bespoke panels above into one
-          block list; this is the half of that which exists — the owner adds a block
-          and groups blocks into bundles without any of it costing frontend code. */}
-      <div className="mb-8">
-        <BundlePanel />
-      </div>
+      {/* The block list + bundle assembler moved to their own Plugins nav group
+          (BlocksSection): a block is a unit the owner composes, a supplier is a third
+          party they connect to — two subjects, two sections. */}
     </>
   ) : null;
 }

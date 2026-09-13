@@ -6,6 +6,7 @@
     "resources": "资源",
     "jobs": "求职",
     "integrations": "集成",
+    "plugins": "插件",
     "settings": "设置"
   },
   "section": {
@@ -31,6 +32,7 @@
     "applications": "投递",
     "skills": "技能",
     "suppliers": "supplier",
+    "blocks": "block",
     "api-mcp": "api · mcp",
     "obsidian": "obsidian",
     "monitor": "流量",

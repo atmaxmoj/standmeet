@@ -6,6 +6,7 @@
     "resources": "संसाधन",
     "jobs": "नौकरी",
     "integrations": "एकीकरण",
+    "plugins": "प्लगइन",
     "settings": "सेटिंग्स"
   },
   "section": {
@@ -31,6 +32,7 @@
     "applications": "आवेदन",
     "skills": "कौशल",
     "suppliers": "सप्लायर",
+    "blocks": "ब्लॉक",
     "api-mcp": "api · mcp",
     "obsidian": "obsidian",
     "monitor": "ट्रैफ़िक",

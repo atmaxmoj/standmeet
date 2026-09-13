@@ -6,6 +6,7 @@
     "resources": "리소스",
     "jobs": "채용",
     "integrations": "통합",
+    "plugins": "플러그인",
     "settings": "설정"
   },
   "section": {
@@ -31,6 +32,7 @@
     "applications": "지원",
     "skills": "스킬",
     "suppliers": "공급자",
+    "blocks": "블록",
     "api-mcp": "api · mcp",
     "obsidian": "obsidian",
     "monitor": "트래픽",

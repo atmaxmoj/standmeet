@@ -136,7 +136,7 @@ async function submitVisitorName(page: Page, name?: string): Promise<void> {
 // name the section through this constant so the rename is one line here rather than a
 // sweep over fourteen call sites — and so the read "is this spec red because the
 // feature is missing, or because it walked into the wrong screen?" has one answer.
-export const BLOCKS_SECTION = 'suppliers';
+export const BLOCKS_SECTION = 'blocks';
 
 // gotoAdminSection —— click a section's nav link in the admin sidebar.
 // Matched by testid (data-testid="admin-nav-<slug>"), unaffected by design changing

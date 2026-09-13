@@ -6,6 +6,7 @@
     "resources": "resources",
     "jobs": "jobs",
     "integrations": "integrations",
+    "plugins": "plugins",
     "settings": "settings"
   },
   "section": {
@@ -31,6 +32,7 @@
     "applications": "applications",
     "skills": "skills",
     "suppliers": "suppliers",
+    "blocks": "blocks",
     "api-mcp": "api · mcp",
     "obsidian": "obsidian",
     "monitor": "traffic",
