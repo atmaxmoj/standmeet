@@ -7,10 +7,12 @@
 # door, and "where is a plugin registered?" stops having one answer. This is the structural form of
 # "no internal self-registration" (docs/design/plugin/everything-is-a-block.md, rule 2).
 #
-# Registration verbs scanned: `.MustRegister(`, `.RegisterOrigin(`, and the seam DepRegistry's
-# `depReg.Register(`. The bare `.Register(` is deliberately NOT scanned generically —
-# periodic.Board.Register and others share the name; the plugin seam registration is always spelled
-# `depReg.Register(`.
+# Registration verbs scanned: the block/fiber registry's `.MustRegister(` and `.RegisterOrigin(`.
+# The bare `.Register(` is NOT scanned (periodic.Board.Register etc. share the name), and the seam
+# DepRegistry's `depReg.Register(` is deliberately EXCLUDED: registering which supplier provides a
+# seam is composition-root **wiring**, not a block minting itself — the same distinction
+# check-hostops-via-desk draws ("the assembly root wires deps, it never mints verbs"). This gate is
+# about who registers a BLOCK/FIBER; that must be the door.
 #
 # Baseline (.register-via-door-baseline) grandfathers pre-existing call-sites and only ever shrinks.
 set -eu
@@ -33,7 +35,7 @@ fi
 # registration mechanism (registry, mount): the door invokes it. Violations are domains and the
 # composition root (cmd/server/blockwire, internal/owner/...) registering directly.
 ALLOWED='^internal/routes/blockload/|^internal/plugin/'
-PAT='\.MustRegister\(|\.RegisterOrigin\(|depReg\.Register\('
+PAT='\.MustRegister\(|\.RegisterOrigin\('
 
 # blind-check: the door registers by construction, so the pattern MUST find at least one file. Nothing
 # found means the verbs were renamed and the gate went blind, which must go RED, not green.

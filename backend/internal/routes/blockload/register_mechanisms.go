@@ -52,6 +52,16 @@ func RegisterVisitorSkills(
 	}
 }
 
+// RegisterOwnerFibers —— the door for owner-side block-fibers: a module PROVIDES its fibers
+// (e.g. jobs.OwnerFibers()) and the door registers them. Registration lives here, not in the
+// domain, so "where is a block registered?" has one answer (everything-is-a-block.md, rule 2).
+// A duplicate id panics via MustRegister as a boot-time backstop.
+func RegisterOwnerFibers(reg *registry.Registry, fibers []registry.Fiber) {
+	for _, f := range fibers {
+		reg.MustRegister(f)
+	}
+}
+
 // agentToolBridge —— the conversation domain's agent-tool port, seen as this loader's own.
 //
 // The two interfaces have the same methods and different owners on purpose: the domain states

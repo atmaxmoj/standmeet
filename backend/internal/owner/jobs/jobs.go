@@ -34,7 +34,7 @@ const Name = "jobs"
 
 // Deps — the complete set of dependencies needed to construct the jobs
 // plugin. The composition root provides it once; the plugin closes over the
-// reference so RegisterBlocks / MountAdminRoutes need no extra params.
+// reference so OwnerFibers / MountAdminRoutes need no extra params.
 type Deps struct {
 	Jobs         *jobsuc.JobsDeps
 	Resume       *jobsuc.ResumeDeps
@@ -98,14 +98,16 @@ func (p *Plugin) PeriodicJobs() []periodic.Job {
 // Name — matches the plugin registry.
 func (*Plugin) Name() string { return Name }
 
-// RegisterBlocks — the BlockRegistrar role:
-// registers 6+3+1 owner-MCP tools into the core registry.Registry. A duplicate
-// ID panics via the registry's MustRegister as a backstop (failing at boot is
-// better than a missing registration at runtime).
-func (p *Plugin) RegisterBlocks(reg *registry.Registry) {
-	reg.MustRegister(jobsmcp.NewJobsFiber(p.deps.Jobs, p.deps.Log))
-	reg.MustRegister(jobsmcp.NewResumeFiber(p.deps.Resume, p.deps.Log))
-	reg.MustRegister(jobsmcp.NewApplicationsFiber(p.deps.Applications, p.deps.Log))
+// OwnerFibers — the owner-MCP block-fibers this module PROVIDES (jobs / resume /
+// applications). It hands them up; the registration door (internal/routes/blockload) is
+// what puts them in the registry. A domain does not register its own blocks — registration
+// converges on one door (docs/design/plugin/everything-is-a-block.md, rule 2).
+func (p *Plugin) OwnerFibers() []registry.Fiber {
+	return []registry.Fiber{
+		jobsmcp.NewJobsFiber(p.deps.Jobs, p.deps.Log),
+		jobsmcp.NewResumeFiber(p.deps.Resume, p.deps.Log),
+		jobsmcp.NewApplicationsFiber(p.deps.Applications, p.deps.Log),
+	}
 }
 
 // MountAdminRoutes — the AdminRouter role: mounts
