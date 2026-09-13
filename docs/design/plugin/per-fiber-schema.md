@@ -79,9 +79,44 @@ sanitising — the DROP guard is unchanged. `bundleShort` = the bundle uuid with
    Extends today's `blockOps.uninstall` drop (item 8) to the fiber set. Data-loss warning (item 9)
    fires per dropped fiber that held rows.
 5. **Native key (rule 4) is minted at mount, bound to the fiber id.** The issuer exists
-   (`internal/plugin/nativekey`); this wires it so the reach-back delivers a per-fiber key. **This is
-   defense-in-depth on top of (2)'s structural confinement, not the thing that provides isolation** —
-   so it is the last batch, not a prerequisite for items 6/7.
+   (`internal/plugin/nativekey`); this wires it so the reach-back delivers a per-fiber key.
+
+## Trust model (corrected 2026-09-13 after reading the socket path)
+
+The host-side store handler receives the fiber identity **from the request**: the host plants the
+`SessionContext` on the tool call's `_meta`, and the **sandboxed plugin forwards it** to the per-block
+socket (`internal/infra/hostsocket/server.go:16-18`). This is already how per-owner config resolves —
+`internal/routes/blockdesk/config_socket.go:53` decodes `owner_id` from the request and trusts it.
+
+Consequence, in two parts:
+
+- **Item 6 (a per-fiber schema exists) ships at the existing trust level.** Keying storage by the
+  forwarded `(owner, bundle)` is exactly as trusted as config today — not a new assumption.
+- **Items 7/41/42 (isolation against a block that FORGES the forwarded id) require the native key.**
+  A malicious block controls what it forwards, so it could claim another fiber's `(owner, bundle)` and
+  reach that schema. The forwarded-identity trust is therefore a **latent cross-owner hole that already
+  exists for config and billing**, and rule 4's native key — host-minted, unforgeable, resolved
+  host-side to the fiber — is the **systemic fix for all of them**. So the native key is the isolation
+  mechanism the adversarial items need, not defense-in-depth, and it closes config's existing hole too.
+
+## Batches (corrected order)
+
+- **B1 — per-fiber schema (item 6).** The store socket request carries the fiber id (forwarded like
+  `owner_id` in config_socket); `boundBlockStore` resolves the schema from it per op; lazy provision.
+  Fiber = the code's bundle, else `root_<owner>` (so no-bundle codes stay per-owner-unified, and the
+  cross-owner sharing of `mcp_<block>` is fixed on the way). **Migration**: the sole existing owner's
+  `mcp_<block>` data moves to its `root_<owner>__<block>` schema — tested with real old data
+  (schema-lives-in-the-volume). e2e: two bundles for one owner → two schemas; owner-A data not visible
+  to owner B.
+- **B2 — lifecycle (item 9 extend).** Bundle-delete / uninstall drop the fiber schema set + per-fiber
+  data-loss warning.
+- **B3 — native key at mount (rule 4) → items 7/41/42/44.** Mint the per-fiber native key at mount;
+  the reach-back authenticates with it; the store handler resolves the fiber from the **key**, not from
+  the forwarded plaintext, closing the forgery hole (config + storage). Adversarial e2e: a block that
+  forges `(owner, bundle)` is refused; there is no get-by-id for another fiber's key. Add the
+  legitimate `.Reveal()` caller to `check-native-key-confined` ALLOWED.
+
+(The obsolete "native key last / defense-in-depth" framing above is superseded by this section.)
 
 ## Test matrix
 
