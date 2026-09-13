@@ -1,0 +1,16 @@
+CalDAV block — credits and approach.
+
+CalDAV is an application on HTTP, not a base protocol, so it is a BLOCK: a Koishi plugin
+(caldav-plugin.js) that injects Koishi's `http` service (the HTTP hand) for the WebDAV requests
+and parses the iCalendar responses with ical.js. It carries no Go — the substrate runs it as a
+stdio-MCP block, the same way infra/plugins/koishi runs koishi-plugin-base64.
+
+Third-party libraries, used unmodified:
+  - ical.js — iCalendar (RFC 5545) parser, Mozilla, MPL-2.0/MIT. https://github.com/kewisch/ical.js
+    Does the VFREEBUSY / period parsing the block would otherwise reimplement.
+  - Koishi framework (koishi core, @koishijs/plugin-http) — MIT. https://koishi.chat
+  - @modelcontextprotocol/sdk — MIT.
+
+The WebDAV request bodies (free-busy-query, VEVENT) are small iCalendar/XML templates; everything
+that is a general capability (HTTP, iCalendar parsing) is composed from a library or the http hand,
+not written again.

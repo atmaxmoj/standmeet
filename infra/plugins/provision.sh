@@ -124,6 +124,11 @@ build_go_into mail-sender "mcp-servers/mail-sender" .
 # koishi —— our stdio-MCP wrapper (koishi-mcp.js) around the third-party koishi-plugin-base64.
 # Deps declared in infra/plugins/koishi/package.json. The Koishi POC (everything-is-a-block).
 install_project_into koishi
+# caldav —— CalDAV as a Koishi plugin (caldav-plugin.js) wrapped as a stdio-MCP block: injects
+# Koishi's http hand for the WebDAV requests, parses iCalendar with ical.js. CalDAV is an app on
+# HTTP → a block (pluggable into Koishi), not a base protocol, and carries no Go. Deps in
+# infra/plugins/caldav/package.json. Credit: infra/plugins/caldav/CREDITS.
+install_project_into caldav
 install_into everything "@modelcontextprotocol/server-everything@2026.1.26"
 install_into fsmcp      "@modelcontextprotocol/server-filesystem@2026.1.14"
 # fetch —— shared by both netfetch (allow_net) and cagedfetch (--network=none);
