@@ -88,6 +88,9 @@ func filter(owner, name string) (json.RawMessage, error) {
 // is deleted before the new one is inserted, so a re-set changes the value in place rather than
 // piling up rows.
 func (s *Store) Set(ctx context.Context, owner, name, value string) error {
+	if err := s.ensure(ctx); err != nil {
+		return err
+	}
 	blob, err := encode(owner, value)
 	if err != nil {
 		return err
@@ -105,6 +108,30 @@ func (s *Store) Set(ctx context.Context, owner, name, value string) error {
 // Get — read back a named secret for an owner. Returns ErrNotFound when there is no such
 // secret. Internal use (the consuming supplier), never an owner-facing plaintext egress.
 func (s *Store) Get(ctx context.Context, owner, name string) (string, error) {
+	if err := s.ensure(ctx); err != nil {
+		return "", err
+	}
+	return s.fetch(ctx, owner, name)
+}
+
+// Delete — remove a named secret for an owner (hard disconnect). Idempotent: deleting an absent
+// secret is a no-op.
+func (s *Store) Delete(ctx context.Context, owner, name string) error {
+	if err := s.ensure(ctx); err != nil {
+		return err
+	}
+	f, ferr := filter(owner, name)
+	if ferr != nil {
+		return ferr
+	}
+	if _, derr := s.bs.Delete(ctx, blockstore.KindMCP, BlockID, collection, f); derr != nil {
+		return fmt.Errorf("credmgr delete: %w", derr)
+	}
+	return nil
+}
+
+// fetch — the query + decode half of Get, split so Get stays under the branch cap.
+func (s *Store) fetch(ctx context.Context, owner, name string) (string, error) {
 	f, ferr := filter(owner, name)
 	if ferr != nil {
 		return "", ferr
@@ -131,6 +158,16 @@ func (s *Store) insert(ctx context.Context, owner, name, blob string) error {
 	}
 	if _, ierr := s.bs.Insert(ctx, blockstore.KindMCP, BlockID, collection, doc); ierr != nil {
 		return fmt.Errorf("credmgr store: %w", ierr)
+	}
+	return nil
+}
+
+// ensure — the credential-manager schema exists. Idempotent (CREATE ... IF NOT EXISTS); called
+// before each op so the store is self-sufficient rather than depending on a one-time boot provision
+// that a schema-drop (an owner reset, or a test's instance reset) would leave behind.
+func (s *Store) ensure(ctx context.Context) error {
+	if err := s.bs.Provision(ctx, blockstore.KindMCP, BlockID); err != nil {
+		return fmt.Errorf("credmgr provision: %w", err)
 	}
 	return nil
 }

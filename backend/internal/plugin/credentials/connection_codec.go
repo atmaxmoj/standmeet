@@ -10,9 +10,11 @@
 package credentials
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/cryptobox"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
@@ -93,27 +95,73 @@ func unreadableConn(row *db.BlockConnection) Connection {
 	}
 }
 
-// secrets — what a row's two ciphertext blobs look like once decoded. When
-// `Unreadable` is true the other two fields carry no meaning.
+// secrets — what a row's secrets look like once decoded. When `Unreadable` is true the other two
+// fields carry no meaning.
 type secrets struct {
 	Token      tokenBlob
 	Creds      []byte
 	Unreadable bool
 }
 
-// decodeSecrets — decode the two ciphertext blobs on this row.
-//
-// **Only an auth failure counts as "can't be read"** (key rotated / ciphertext
-// tampered — AES-GCM can't tell these two apart). A JSON decode failure and the like
-// still count as real errors: that means the data is corrupt, not that this instance
-// merely can't read it.
-func decodeSecrets(row *db.BlockConnection, aad []byte) (secrets, error) {
-	creds, err := decBytes(row.CredentialsEnc, aad)
-	if errors.Is(err, cryptobox.ErrTampered) {
+// errCredsUnreadable — the legacy credential blob failed to decrypt (key rotated / tampered —
+// AES-GCM can't tell these apart). A sentinel so resolveCreds stays a two-result function.
+var errCredsUnreadable = errors.New("credentials unreadable")
+
+// resolveCreds — the credential VALUE for one row, from the credential-manager (credmgr) first,
+// falling back to the legacy block_connections.credentials_enc column. A legacy value found this
+// way self-heals: it is written into credmgr so future reads hit the new source. Returns
+// errCredsUnreadable when the legacy blob won't decrypt.
+func (r *Repo) resolveCreds(
+	ctx context.Context, ownerID, blockID string, legacyEnc, aad []byte,
+) ([]byte, error) {
+	v, gerr := r.secrets.Get(ctx, ownerID, blockID)
+	// A credmgr value that won't decrypt (the instance key rotated) is "unreadable", not a hard
+	// error — same as a rotated legacy blob: the owner is asked to reconnect, and one unreadable
+	// supplier must not sink the whole list.
+	if errors.Is(gerr, cryptobox.ErrTampered) {
+		return nil, errCredsUnreadable
+	}
+	if gerr != nil {
+		return nil, fmt.Errorf("read credentials: %w", gerr)
+	}
+	if v != "" {
+		return []byte(v), nil
+	}
+	return r.legacyCreds(ctx, ownerID, blockID, legacyEnc, aad)
+}
+
+// legacyCreds — the fallback: decrypt the row's legacy credentials_enc, and self-heal it into
+// credmgr so the next read hits the new source. errCredsUnreadable on an auth failure.
+func (r *Repo) legacyCreds(
+	ctx context.Context, ownerID, blockID string, legacyEnc, aad []byte,
+) ([]byte, error) {
+	legacy, derr := decBytes(legacyEnc, aad)
+	if errors.Is(derr, cryptobox.ErrTampered) {
+		return nil, errCredsUnreadable
+	}
+	if derr != nil {
+		return nil, derr
+	}
+	if len(legacy) > 0 {
+		if serr := r.secrets.Set(ctx, ownerID, blockID, string(legacy)); serr != nil {
+			slog.Default().Warn("credential self-heal failed", "block", blockID, "err", serr)
+		}
+	}
+	return legacy, nil
+}
+
+// decodeRowSecrets — creds (credmgr/legacy) + tokens (row) for one row. Only an auth failure
+// counts as "can't be read" (key rotated / tampered); a JSON decode failure is a real error.
+func (r *Repo) decodeRowSecrets(
+	ctx context.Context, row *db.BlockConnection, aad []byte,
+) (secrets, error) {
+	owner := pgstore.FormatUUID(row.OwnerID)
+	creds, cerr := r.resolveCreds(ctx, owner, row.BlockID, row.CredentialsEnc, aad)
+	if errors.Is(cerr, errCredsUnreadable) {
 		return secrets{Unreadable: true}, nil
 	}
-	if err != nil {
-		return secrets{}, err
+	if cerr != nil {
+		return secrets{}, cerr
 	}
 	tok, terr := decodeToken(row.TokenEnc, aad)
 	if errors.Is(terr, cryptobox.ErrTampered) {
@@ -125,16 +173,15 @@ func decodeSecrets(row *db.BlockConnection, aad []byte) (secrets, error) {
 	return secrets{Creds: creds, Token: tok}, nil
 }
 
-func decodeConnection(row *db.BlockConnection) (Connection, error) {
+func (r *Repo) decodeConnection(ctx context.Context, row *db.BlockConnection) (Connection, error) {
 	aad := []byte(pgstore.FormatUUID(row.OwnerID))
-	sec, err := decodeSecrets(row, aad)
+	sec, err := r.decodeRowSecrets(ctx, row, aad)
 	if err != nil {
 		return Connection{}, err
 	}
 	if sec.Unreadable {
 		return unreadableConn(row), nil
 	}
-	creds, tok := sec.Creds, sec.Token
 	scopes, serr := decodeScopes(row.Scopes)
 	if serr != nil {
 		return Connection{}, serr
@@ -142,8 +189,8 @@ func decodeConnection(row *db.BlockConnection) (Connection, error) {
 	conn := Connection{
 		BlockID: row.BlockID, Seam: row.Seam, Kind: row.Kind,
 		Title:       row.Title,
-		AccessToken: tok.AccessToken, RefreshToken: tok.RefreshToken,
-		Credentials: creds, Scopes: scopes,
+		AccessToken: sec.Token.AccessToken, RefreshToken: sec.Token.RefreshToken,
+		Credentials: sec.Creds, Scopes: scopes,
 		Connected: row.ConnectedAt.Valid, Active: row.Active,
 	}
 	if row.TokenExpiresAt.Valid {
@@ -153,12 +200,12 @@ func decodeConnection(row *db.BlockConnection) (Connection, error) {
 	return conn, nil
 }
 
-func decodeConnections(
-	rows []db.BlockConnection) ([]Connection, error,
-) {
+func (r *Repo) decodeConnections(
+	ctx context.Context, rows []db.BlockConnection,
+) ([]Connection, error) {
 	out := make([]Connection, 0, len(rows))
 	for i := range rows {
-		conn, err := decodeConnection(&rows[i])
+		conn, err := r.decodeConnection(ctx, &rows[i])
 		if err != nil {
 			return nil, err
 		}

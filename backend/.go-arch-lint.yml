@@ -1322,6 +1322,7 @@ deps:
       - cmdport
       - cmdblockwire
       - cmdwire
+      - credmgr           # the credential-manager; the root adapts it to the credentials repo's SecretStore port (credsecrets.go)
       # clientaddr — the composition root mounts it right after chi.RealIP: "is the source address the visitor's own" is decided exactly once there.
       - clientaddr
       # geoip — the composition root opens the bundled geoip DB and adapts it to monitor's LocationResolver port (the domain never names an infra file).

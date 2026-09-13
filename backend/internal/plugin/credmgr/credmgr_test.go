@@ -13,7 +13,8 @@ import (
 )
 
 const (
-	testInstanceSecret = "test-instance-secret-at-least-32-bytes-long" //gitleaks:allow // test fixture, not a real secret
+	//nolint:lll // test fixture, not a real secret
+	testInstanceSecret = "test-instance-secret-at-least-32-bytes-long" //gitleaks:allow
 	ownerA             = "11111111-1111-1111-1111-111111111111"
 	ownerB             = "22222222-2222-2222-2222-222222222222"
 	probeValue         = "reddish-noon-anchor-42-do-not-leak"

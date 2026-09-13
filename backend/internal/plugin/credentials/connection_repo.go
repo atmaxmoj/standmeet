@@ -19,11 +19,29 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/plugin/credentials/db"
 )
 
-// Repo — reads/writes block_connections.
-type Repo struct{ pool *pgstore.Pool }
+// SecretStore — where a block's owner-entered credential VALUE lives: the credential-manager
+// block (credmgr), keyed by (owner, block id). The design's move off the bespoke vault: the value
+// is ordinary data in the db block's storage, not a manifest field or a dedicated column
+// (everything-is-a-block.md rule 3). block_connections keeps the connection METADATA (seam, kind,
+// connected/active, oauth tokens); only the credential value moves here. The composition root wires
+// the concrete credmgr store; Get returns ("", nil) when there is no stored value (absent, not an
+// error) so the repo can fall back to a legacy row.
+type SecretStore interface {
+	Set(ctx context.Context, owner, name, value string) error
+	Get(ctx context.Context, owner, name string) (string, error)
+	Delete(ctx context.Context, owner, name string) error
+}
 
-// NewRepo — composition root injects the connection pool.
-func NewRepo(pool *pgstore.Pool) *Repo { return &Repo{pool: pool} }
+// Repo — reads/writes block_connections (metadata) + the credential value via SecretStore.
+type Repo struct {
+	pool    *pgstore.Pool
+	secrets SecretStore
+}
+
+// NewRepo — composition root injects the connection pool + the credential-value store.
+func NewRepo(pool *pgstore.Pool, secrets SecretStore) *Repo {
+	return &Repo{pool: pool, secrets: secrets}
+}
 
 // SaveCredentialsInput — input for saving credentials (plaintext credential JSON, encrypted
 // inside the repo).
@@ -66,13 +84,16 @@ func (r *Repo) SaveCredentials(ctx context.Context, in *SaveCredentialsInput) er
 	if err != nil {
 		return fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	enc, eerr := encBytes(in.Credentials, []byte(in.OwnerID))
-	if eerr != nil {
-		return eerr
+	// The credential VALUE goes to the credential-manager (credmgr), sealed there. The
+	// block_connections row keeps only the metadata; its credentials_enc column is left empty —
+	// credmgr is now the single source for the value. (A legacy row still carrying a value is read
+	// via the fallback in resolveCreds and self-heals to credmgr.)
+	if serr := r.secrets.Set(ctx, in.OwnerID, in.BlockID, string(in.Credentials)); serr != nil {
+		return fmt.Errorf("store credentials: %w", serr)
 	}
 	_, qerr := db.New(r.pool).UpsertBlockCredentials(ctx, db.UpsertBlockCredentialsParams{
 		OwnerID: ownerUUID, BlockID: in.BlockID,
-		Seam: in.Seam, Kind: in.Kind, CredentialsEnc: enc,
+		Seam: in.Seam, Kind: in.Kind, CredentialsEnc: []byte{},
 		ResetConnected: in.ResetConnected,
 	})
 	if qerr != nil {
@@ -170,11 +191,15 @@ func (r *Repo) SetActive(
 	return nil
 }
 
-// Delete — hard disconnect: deletes the row, back to a never-connected state.
+// Delete — hard disconnect: deletes the row AND the stored credential value, back to a
+// never-connected state.
 func (r *Repo) Delete(ctx context.Context, ownerID, blockID string) error {
 	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
 		return fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
+	}
+	if serr := r.secrets.Delete(ctx, ownerID, blockID); serr != nil {
+		return fmt.Errorf("delete credentials: %w", serr)
 	}
 	if derr := db.New(r.pool).DeleteBlockConnection(ctx,
 		db.DeleteBlockConnectionParams{OwnerID: ownerUUID, BlockID: blockID}); derr != nil {
@@ -200,7 +225,7 @@ func (r *Repo) Get(
 		}
 		return Connection{}, fmt.Errorf("get block connection: %w", qerr)
 	}
-	return decodeConnection(&row)
+	return r.decodeConnection(ctx, &row)
 }
 
 // ListByOwner — connection state of all of an owner's blocks (admin list).
@@ -215,7 +240,7 @@ func (r *Repo) ListByOwner(
 	if qerr != nil {
 		return nil, fmt.Errorf("list block connections: %w", qerr)
 	}
-	return decodeConnections(rows)
+	return r.decodeConnections(ctx, rows)
 }
 
 // ListBySeam — an owner's suppliers of one seam (slot resolution).
@@ -231,7 +256,7 @@ func (r *Repo) ListBySeam(
 	if qerr != nil {
 		return nil, fmt.Errorf("list block connections by seam: %w", qerr)
 	}
-	return decodeConnections(rows)
+	return r.decodeConnections(ctx, rows)
 }
 
 // SeamConnected — whether an owner has an active, connected supplier for a seam

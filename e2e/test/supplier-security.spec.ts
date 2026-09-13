@@ -307,13 +307,18 @@ async function secretMaskedInAdminReads(playwright: Playwright): Promise<void> {
 // implementation that tells every supplier to reconnect could also go green.
 const RECONNECT_RE = /reconnect|connect it again|no longer read/i;
 
-// corruptStoredCredential -- flips one byte of a supplier's stored ciphertext.
-// This is exactly why `execSQL` exists: no API can build this pre-state, and none should.
+// corruptStoredCredential -- makes a supplier's stored ciphertext undecryptable, the harness
+// equivalent of an INSTANCE_SECRET rotation (AES-GCM can't tell "wrong key" from "tampered").
+// The credential VALUE now lives in the credential-manager's storage (credmgr → mcp_credential_manager),
+// not the legacy block_connections.credentials_enc column, so the corruption targets the credmgr blob:
+// replaced with a valid-base64 all-zero payload that decodes fine but fails the GCM auth tag →
+// cryptobox.ErrTampered, exactly the rotation branch. This is why `execSQL` exists: no API can build
+// this pre-state, and none should.
 function corruptStoredCredential(supplierID: string): void {
   execSQL(
-    `UPDATE block_connections
-       SET credentials_enc = overlay(credentials_enc placing '\\x00'::bytea from 1 for 1)
-     WHERE block_id = '${supplierID}'`,
+    `UPDATE mcp_credential_manager.records
+       SET doc = jsonb_set(doc, '{blob}', '"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="')
+     WHERE doc->>'name' = '${supplierID}'`,
   );
 }
 

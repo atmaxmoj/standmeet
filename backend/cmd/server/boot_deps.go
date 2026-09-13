@@ -32,6 +32,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/plugin/assembly"
 	"github.com/atmaxmoj/standmeet/internal/plugin/blockstore"
 	"github.com/atmaxmoj/standmeet/internal/plugin/credentials"
+	"github.com/atmaxmoj/standmeet/internal/plugin/credmgr"
 	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
 	security "github.com/atmaxmoj/standmeet/internal/security/facade"
@@ -121,7 +122,7 @@ func newRepos(db *pgstore.Pool, sessionKey string) *repoSet {
 		bannedIP:       security.NewBannedIPRepo(db),
 		apiKey:         access.NewAPIKeyRepo(db),
 		appState:       conversation.NewAppStateRepo(db),
-		credentials:    credentials.NewRepo(db),
+		credentials:    credentials.NewRepo(db, newCredmgrSecrets(credmgr.New(blockstore.New(db)))),
 		assembly:       assembly.NewRepo(db),
 	}
 }
