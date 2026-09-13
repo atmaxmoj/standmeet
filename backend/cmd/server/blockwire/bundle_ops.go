@@ -193,6 +193,11 @@ func parseInstallArgs(raw json.RawMessage) (*parsedInstall, error) {
 func persistAndMount(
 	ctx context.Context, d *deps.Runtime, ownerID string, p *parsedInstall,
 ) error {
+	// Refuse a cyclic composition BEFORE persisting: a block whose requires close a loop with the
+	// already-installed set has no load order and must not be stored or mounted.
+	if cerr := refuseIfCycle(ctx, d, ownerID, &p.m); cerr != nil {
+		return cerr
+	}
 	rec := assembly.InstalledBlock{BlockID: p.m.ID, Title: p.m.Title, Manifest: p.text}
 	if serr := d.Assembly.Install(ctx, ownerID, &rec); serr != nil {
 		return fp.OpErr("install block", serr)
