@@ -32,7 +32,7 @@ const OUT = path.join(__dirname, 'test-results', 'backend.log');
 // (`fixtures/instance.ts`, off COMPOSE_PROJECT_NAME). Deliberately not restated here: a second
 // copy of "which project am I" is how a teardown ends up dropping schemas in another worktree's
 // database.
-import { DB_CONTAINER } from './fixtures/instance';
+import { DB_CONTAINER } from '@/fixtures/instance';
 
 export default async function globalTeardown(): Promise<void> {
   await fs.mkdir(path.dirname(OUT), { recursive: true });
@@ -53,16 +53,32 @@ async function dumpService(service: string, out: string): Promise<void> {
   }
 }
 
-// dropBlockSchemas —— every per-block document store this run provisioned.
+// dropBlockSchemas —— the per-block document stores a TEST created, and only those.
 //
-// Safe to drop: `blockstore` creates a block's schema on demand and `BlockStorageInit` reprovisions
-// at boot, so the next run rebuilds whatever it needs. What does NOT come back on its own is the
-// schema of a block that only ever existed inside one test — those are pure leak.
+// It used to drop every `mcp_*` schema, reasoning that "`BlockStorageInit` reprovisions at boot, so
+// the next run rebuilds whatever it needs". **That is only true if there IS a boot before the next
+// run.** `make test-asis` drives the stack already up and restarts nothing, and `dev-up` leaves a
+// healthy backend alone — so two runs in a row started with the SHIPPED blocks' storage deleted.
+// The booker's store is where its config lives, so the next run's booking specs died at
+// `policy set: 500` on `relation "mcp_calendar_book.records" does not exist`, and the red pointed
+// at booking rather than at the teardown that had removed it.
+//
+// The sentence above kept its intent and lost its overreach: what leaks is "the schema of a block
+// that only ever existed inside one test". A block that SHIPS owns its schema — the teardown is
+// not its owner and does not get to delete it.
 async function dropBlockSchemas(): Promise<void> {
   const list = await psql(
     `SELECT nspname FROM pg_namespace WHERE nspname LIKE 'mcp\\_%' ORDER BY nspname`,
   );
-  const schemas = list.split('\n').map((s) => s.trim()).filter(Boolean);
+  const shipped = await shippedBlockSchemas();
+  const all = list.split('\n').map((s) => s.trim()).filter(Boolean);
+  const schemas = all.filter((s) => !shipped.has(s));
+  if (all.length > 0 && schemas.length === 0) {
+    process.stdout.write(
+      `[global-teardown] ${all.length} block schema(s), all shipped — kept, nothing leaked\n`,
+    );
+    return;
+  }
   if (schemas.length === 0) {
     // Not necessarily clean: this is also what a pattern that no longer matches looks like.
     // Say which, so a rename cannot turn this step into a silent no-op.
@@ -73,6 +89,27 @@ async function dropBlockSchemas(): Promise<void> {
   process.stdout.write(
     `[global-teardown] dropped ${schemas.length} block schema(s): ${schemas.join(', ')}\n`,
   );
+}
+
+// shippedBlockSchemas —— the schema names belonging to blocks that ship with the product, derived
+// from backend/blocks/*/manifest.yaml rather than listed here. A hand-kept list would be one more
+// place to forget when a block is added, and forgetting would silently delete that block's storage
+// out from under the next run — the same shape of defect this function exists to fix.
+//
+// The schema name is the block id with everything postgres will not take in an identifier folded
+// to '_', mirroring blockstore's own idSuffixRe (`calendar.book` -> `mcp_calendar_book`).
+async function shippedBlockSchemas(): Promise<Set<string>> {
+  const dir = path.join(REPO_ROOT, 'backend', 'blocks');
+  const out = new Set<string>();
+  for (const entry of await fs.readdir(dir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const body = await fs
+      .readFile(path.join(dir, entry.name, 'manifest.yaml'), 'utf-8')
+      .catch(() => '');
+    const id = /^id:\s*(\S+)/m.exec(body)?.[1]?.replace(/["']/g, '');
+    if (id !== undefined && id !== '') out.add(`mcp_${id.replace(/[^a-zA-Z0-9]/g, '_')}`);
+  }
+  return out;
 }
 
 async function psql(sql: string): Promise<string> {
