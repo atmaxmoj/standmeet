@@ -75,6 +75,38 @@ measured a proxy ("does the host name a protocol"), not the goal ("is this a dec
    with more than one provider has *all* of them as blocks (`google-calendar` is a block, so CalDAV
    must be; SMTP is externalizable, so SMTP is a block too).
 
+## Block & fiber management — CRUD, edge cases, error flows
+
+The panel is not a viewer; it is create / read / update / delete on blocks and fibers, and every op
+has an edge and an error path with a **correct reaction**, never a raw stack trace.
+
+**Blocks.**
+- *Create* — built-in (shipped), marketplace (install), or **owner-written** (author a declaration →
+  validate → install). Errors: invalid manifest → rejected with a specific message; duplicate id →
+  conflict; a declaration whose `requires` nobody provides installs but stays inactive with "needs X".
+- *Read* — list every block with origin, provides/requires, connected/enabled, and whether a fiber
+  uses it.
+- *Update* — connect (bad credential / unreachable → friendly error, stays disconnected); config
+  (typed fields; invalid value → field error); enable/disable (disabling a block a fiber is mounted on
+  drops it from that fiber, dependents go inactive, with a warning).
+- *Delete* — **built-in cannot be deleted, only disabled** (no delete control on it). Non-built-in
+  (uploaded / marketplace) deletes, but: in use by a fiber → refuse ("used by fiber X"); holds data →
+  data-loss modal → confirm Drops the schema; attached to a code / microsite → warn which.
+
+**Fibers.**
+- *Create / assemble* — pick a block, mount; all deps met → Active; unmet `requires` → "还差 X", no
+  mount; cycle → refuse; the per-fiber instantiation config is filled here (settings that are
+  per-instance, not block-global).
+- *Read* — running fibers, status, resolved deps, what relies on them.
+- *Update* — Active toggle (**locked when relied upon**, with the reason); reconfigure.
+- *Delete / unmount* — relied upon → refuse ("X depends on it"); holds data → data-loss modal.
+
+**Error flows that must fire and react correctly:** bad credential; delete a built-in; delete a
+block/fiber in use or relied upon; delete-with-data; unmet-deps mount; cyclic mount; deactivate a
+relied fiber; invalid owner declaration; disable-under-a-mounted-fiber; and a block that fails to
+mount or dies mid-action — the "three faces" (`block-failure-three-faces`): the tool is absent from
+the agent, the visitor is told honestly, the owner gets a persistent entry. None shows a stack trace.
+
 ## Seam resolution needs no manual ordering
 
 Resolution is by name, recomputed at assembly. Registration order does not matter. A block goes

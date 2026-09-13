@@ -102,6 +102,33 @@ e2e (real Postgres, real mount):
     / connect / assemble / mount). Both surfaces; neither substitutes for the other.
 27. **(?) tooltips render** the how-to steps.
 
+## Block & fiber CRUD — happy, edge, error (e2e, black-box, both GUI and owner MCP)
+
+Happy flow (drive the real panel / MCP; assert the real effect, not visibility):
+
+29. Block **install / connect / config / enable / delete a non-built-in** each work end to end — block
+    appears / disappears, connected badge flips, a config value is saved then read back.
+30. Fiber **assemble → Active**, **unmount → gone**.
+
+Edge / error (RED-first: prove the *wrong* reaction — allowing it — fails before the guard; then assert
+the *correct* reaction; each error is user-friendly, never a stack trace):
+
+31. **Delete a built-in** → the delete control is absent / the op is refused.
+32. **Delete a block a fiber uses** → refused, the fiber named.
+33. **Unmount or deactivate a relied-upon fiber** → refused / toggle locked, the dependent named.
+34. **Delete or unmount with data** → data-loss modal; confirm Drops the schema (`querySQL`: gone),
+    cancel keeps it.
+35. **Assemble with unmet deps** → "还差 X", no mount.
+36. **Assemble a cycle** → refused.
+37. **Bad credential on connect** → friendly error, stays disconnected.
+38. **Invalid owner-written declaration** → validation error, not installed.
+39. **Disable a block under a mounted fiber** → the fiber loses it, dependents go inactive, a warning
+    shows.
+40. **A block dies mid-action** → the three faces: tool absent from the agent, visitor told honestly,
+    owner gets a persistent entry (`block-failure-three-faces`).
+
+The destructive / edge ops run over the owner MCP too, with the same reactions.
+
 ## Koishi POC (validate the works-today piggyback)
 
 28. **A real third-party Koishi plugin, used by an agent, for real.** Wrap a real `koishi-plugin-*` as
