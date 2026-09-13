@@ -1,7 +1,7 @@
 // supplier_register.go —— #155 composition root: wires supplier machinery into the running
 // system. Boot assembles built-in manifests into the supplier table and declares the seams
-// they supply; the credentials repo satisfies ConnectionStore / SMTPVault / CalDAVVault /
-// SeamStore through the adapters in supplier_vaults.go (decryption happens inside the repo).
+// they supply; the credentials repo satisfies ConnectionStore / SMTPVault / the opaque block
+// cred vault / SeamStore through the adapters in supplier_vaults.go (decryption inside the repo).
 
 package blockwire
 
@@ -111,7 +111,7 @@ func assembleBuiltinSupplier(m *plugin.Manifest, adeps *assembleDeps) (adapters.
 func blockSeamSupplier(m *plugin.Manifest, adeps *assembleDeps) (adapters.Supplier, error) {
 	switch m.Provides {
 	case "calendar":
-		return newBlockCalendarProxy(m, adeps.caldavVault), nil
+		return newBlockCalendarProxy(m, adeps.credVault), nil
 	default:
 		return nil, fmt.Errorf("sandbox_stdio supplier %q provides seam %q, "+
 			"which has no block-backed proxy", m.ID, m.Provides)
@@ -311,7 +311,7 @@ type assembleDeps struct {
 	doer          *http.Client
 	store         connectionStoreAdapter
 	smtpVault     smtpVaultAdapter
-	caldavVault   caldavVaultAdapter
+	credVault     credVaultAdapter
 	telegramVault telegramVaultAdapter
 	allow         egress.Allow
 }
@@ -322,7 +322,7 @@ func newAssembleDeps(repo *credentials.Repo) *assembleDeps {
 		doer:          allow.GuardedHTTPClient(),
 		store:         connectionStoreAdapter{repo: repo},
 		smtpVault:     smtpVaultAdapter{repo: repo},
-		caldavVault:   caldavVaultAdapter{repo: repo},
+		credVault:     credVaultAdapter{repo: repo},
 		telegramVault: telegramVaultAdapter{repo: repo},
 		allow:         allow,
 	}

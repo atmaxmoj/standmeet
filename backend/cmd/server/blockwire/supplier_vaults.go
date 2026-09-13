@@ -106,40 +106,31 @@ func (a smtpVaultAdapter) SMTPConfig(
 	}, nil
 }
 
-// caldavCredJSON —— JSON shape in the caldav supplier's credentials_enc (owner url/user/pass).
-type caldavCredJSON struct {
-	URL      string `json:"url"`
-	Username string `json:"username"`
-	Password string `json:"password"`
-}
+// credVaultAdapter —— credentials.Repo → the opaque-credential port a block-backed supplier reads
+// (blockCredVault): connection state + the owner's stored connect-form values as an OPAQUE JSON
+// blob. The host does NOT decode the fields — the block declares them in its manifest `config` and
+// consumes them. This is what keeps a block-backed seam (e.g. CalDAV) from needing any
+// provider-shaped Go in the host: no CalDAVConfig, no url/username/password named here.
+type credVaultAdapter struct{ repo *credentials.Repo }
 
-// caldavVaultAdapter —— credentials.Repo → adapters.CalDAVVault (decodes caldav config JSON).
-type caldavVaultAdapter struct{ repo *credentials.Repo }
-
-func (a caldavVaultAdapter) Connected(
+func (a credVaultAdapter) Connected(
 	ctx context.Context, blockID, ownerID string,
 ) (bool, error) {
 	conn, err := a.repo.Get(ctx, ownerID, blockID)
 	if err != nil {
-		return false, fmt.Errorf("caldav vault connected: %w", err)
+		return false, fmt.Errorf("block cred vault connected: %w", err)
 	}
 	return conn.Connected, nil
 }
 
-func (a caldavVaultAdapter) CalDAVConfig(
+func (a credVaultAdapter) Credentials(
 	ctx context.Context, blockID, ownerID string,
-) (adapters.CalDAVConfig, error) {
+) (json.RawMessage, error) {
 	conn, err := a.repo.Get(ctx, ownerID, blockID)
 	if err != nil {
-		return adapters.CalDAVConfig{}, fmt.Errorf("caldav vault config: %w", err)
+		return nil, fmt.Errorf("block cred vault credentials: %w", err)
 	}
-	var c caldavCredJSON
-	if len(conn.Credentials) > 0 {
-		if uerr := json.Unmarshal(conn.Credentials, &c); uerr != nil {
-			return adapters.CalDAVConfig{}, fmt.Errorf("decode caldav credentials: %w", uerr)
-		}
-	}
-	return adapters.CalDAVConfig{URL: c.URL, Username: c.Username, Password: c.Password}, nil
+	return conn.Credentials, nil
 }
 
 // seamStoreAdapter —— the credentials repo, narrowed to the one question SeamStore asks.

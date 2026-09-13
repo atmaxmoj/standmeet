@@ -7,12 +7,18 @@
 # door, and "where is a plugin registered?" stops having one answer. This is the structural form of
 # "no internal self-registration" (docs/design/plugin/everything-is-a-block.md, rule 2).
 #
-# Registration verbs scanned: the block/fiber registry's `.MustRegister(` and `.RegisterOrigin(`.
-# The bare `.Register(` is NOT scanned (periodic.Board.Register etc. share the name), and the seam
-# DepRegistry's `depReg.Register(` is deliberately EXCLUDED: registering which supplier provides a
-# seam is composition-root **wiring**, not a block minting itself — the same distinction
-# check-hostops-via-desk draws ("the assembly root wires deps, it never mints verbs"). This gate is
-# about who registers a BLOCK/FIBER; that must be the door.
+# ONE reference chain, facade→core: registration reaches the core only through the door. There is no
+# second path. The reified supplier layer + seam wiring in the composition root
+# (`adapters.NewSuppliers(`, `depReg.Register(`) IS that forbidden second path — the
+# everything-is-a-block target folds it into the door so db/warn/suppliers register as blocks like
+# everything else. It is NOT excused as "wiring": that carve-out is exactly how bespoke host Go
+# (blockstore/blockwarn/caldav) slipped in unseen. No exclusion list — every hit is reported.
+#
+# The block/fiber verbs (`.MustRegister(` / `.RegisterOrigin(`) are ERROR now (already converged on
+# the door). The second-path verbs are surfaced as WARNINGS — the debt to burn down — and flip to
+# ERROR once the fold lands (docs/design/plugin/everything-is-a-block.md wrap-up: warning→error).
+# The bare `.Register(` is not scanned by name alone (periodic.Board.Register etc. share it); the
+# seam registry is caught by its own receiver `depReg.Register(`.
 #
 # Baseline (.register-via-door-baseline) grandfathers pre-existing call-sites and only ever shrinks.
 set -eu
@@ -58,5 +64,16 @@ done < <(printf '%s\n' "$hits")
 # ERROR mode (flipped from WARN at the everything-is-a-block wrap-up): registration outside the door
 # blocks the commit. The baseline above still grandfathers pre-existing call-sites and only shrinks.
 [ "$fail" -eq 0 ] || exit 1
+
+# Second registration path (the reified supplier layer + seam wiring) — WARNING while the fold into
+# the door is in flight. No exclusion list: every hit outside the door is printed; the count must
+# reach zero, then these verbs join the ERROR set above and this block is deleted.
+SECOND_PATH='adapters\.NewSuppliers\(|depReg\.Register\('
+while IFS= read -r f; do
+	[ -n "$f" ] || continue
+	rel="${f#"$BK"/}"
+	echo "$rel" | grep -qE "$ALLOWED" && continue
+	echo "check-register-via-door: WARNING — $rel registers via the second path (supplier layer / seam wiring), not the door. Fold it into blockload (everything-is-a-block: one reference chain)."
+done < <(goFiles | grep -v '_test\.go$' | xargs grep -lE "$SECOND_PATH" 2>/dev/null | sort)
 
 echo "check-register-via-door: plugin registration converges on internal/routes/blockload."
