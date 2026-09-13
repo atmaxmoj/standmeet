@@ -46,6 +46,7 @@ func BlockResource(d *deps.Runtime) dispatcher.Resource {
 			Reach:       fp.OwnerAction(),
 			Invoke:      installBlock(d),
 		},
+		blockGraphOp(d),
 	}...)}
 }
 

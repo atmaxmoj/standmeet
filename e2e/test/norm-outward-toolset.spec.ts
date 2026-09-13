@@ -157,6 +157,12 @@ const GOLDEN_TOOLSET: readonly string[] = [
   // block (blockOps.Delete branches on ownerInstalled), and the second verb reached
   // Assembly.Uninstall directly, skipping the built-in refusal.
   'blocks.install',
+  // blocks.graph -- the dependency graph (provides/requires + what relies on each block); the
+  // fiber view draws it and locks the Active toggle while something relies on a block.
+  'blocks.graph',
+  // warnings.list -- standing block-lifecycle warnings (data loss on uninstall-with-data),
+  // surfaced in admin.
+  'warnings.list',
   'bundles.list', 'bundles.create', 'bundles.delete',
   'bundles.add_block', 'bundles.remove_block',
   // writings

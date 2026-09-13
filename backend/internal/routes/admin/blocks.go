@@ -67,6 +67,9 @@ func (h *Handlers) MountBlocks(r chi.Router) {
 func (h *Handlers) mountBlockPanel(r chi.Router, face *dispatcher.Face) {
 	r.Route("/blocks", func(r chi.Router) {
 		r.Get("/", h.dispatchOp(face, "blocks.list", emptyArgs, jsonOK))
+		// The dependency graph (fiber view). Declared before /{id} so chi doesn't read
+		// "graph" as a block id.
+		r.Get("/graph", h.dispatchOp(face, "blocks.graph", emptyArgs, jsonOK))
 		r.Post("/", h.dispatchOp(face, "blocks.install", bodyArgs, jsonCreated))
 		r.Patch("/{id}",
 			h.dispatchOp(face, "blocks.set_enabled", bodyWithURLParam("id"), jsonOK))
