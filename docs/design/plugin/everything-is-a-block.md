@@ -122,6 +122,38 @@ Order is bottom-up so the base lands first and leaf work is not reworked afterwa
 As each member of the reified supplier layer moves to the uniform block mechanism, fold the layer
 away (the `Supplier` type, `check-supplier-boundary`, etc.).
 
+## Owner UI
+
+The admin carries a plugin **nav group** with two views:
+
+- **block** — the catalogue and per-block management: built-in, installed, and marketplace-installable
+  block definitions; connect (credentials), config, enable/delete. This is today's "Suppliers"
+  section, renamed: a supplier is just a block, so the view is **block**. The owner can also **author
+  their own block by writing its declaration** (a manifest) — not only install a built-in or a
+  marketplace one.
+- **fiber** — the running instances. **To actually use a block, the owner goes to fiber**:
+  instantiate it, mount it, compose it with others. `block` is "what exists"; `fiber` is "put it to
+  work", and where the owner assembles the compositions they want. When a fiber's `requires` cannot
+  all be met, the fiber view **resolves and shows what is still missing** — it names the seam that has
+  no provider and the block the owner still needs to add or connect, instead of failing silently.
+- **The composition is a graph.** A dependency is not a line, and not even always a tree — a block may
+  `require` several seams, and providers are shared (one `smtp` feeds both `mail.send` and a booking's
+  confirmation). The declared graph is not guaranteed acyclic; **resolution enforces a DAG — a cycle
+  is detected, warned, and refused (the composition is not mounted).** The fiber view **draws that
+  graph** for the owner.
+- **Fibers can be built-in.** Some compositions ship as always-on built-in fibers (corpus retrieval,
+  summarize, ask-visitor), not only owner-assembled ones.
+- **Access codes attach fibers.** Which fibers a code admits is which tools its visitors get; the codes
+  section wires fibers onto a code.
+
+Block, fiber, and assembly are unfamiliar words to a lay owner, so **every control here carries a
+thorough `(?)` help tooltip** — spelling out what a block is, what a fiber is, and how to assemble
+one. Write these in detail; do not assume the owner knows the vocabulary.
+
+Not to be confused with the two content composers: the résumé composer is **Puck**; **microsites are
+written directly in React** on the SDK. Neither is the general block/fiber composer — that is the
+fiber view.
+
 ## Tests
 
 - **The lint is the structural gate.** Its self-test plants a `Register` call outside the door and
@@ -138,6 +170,14 @@ away (the `Supplier` type, `check-supplier-boundary`, etc.).
 - **The db block is a schema change.** Test the upgrade path (an existing owner's token / connection
   survives) and the new behaviour (uninstall drops the composition's schema, no orphan). A capability
   that moves house moves its test with it.
+- **block / fiber is a new owner surface — test it both ways.** These controls did not exist before,
+  so they need new e2e on **both** surfaces: (a) **GUI** — drive the real block / fiber panel: install
+  / connect / configure / enable a block, assemble a fiber and assert it goes Active, and the `(?)`
+  tooltips render; (b) **owner MCP** — the same block / fiber operations through the owner's AI-client
+  toolset (list / install / connect / assemble / mount). Neither substitutes for the other; a
+  GUI-only or MCP-only test leaves half the surface uncovered.
+- **A cyclic composition is refused.** Declare a cycle in `requires`; resolution detects it, warns, and
+  refuses to mount. RED-first: the cycle must be rejected, never silently mounted.
 
 ## Details still to pin
 
