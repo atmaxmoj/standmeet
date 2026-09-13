@@ -145,6 +145,16 @@ The admin carries a plugin **nav group** with two views:
   summarize, ask-visitor), not only owner-assembled ones.
 - **Access codes attach fibers.** Which fibers a code admits is which tools its visitors get; the codes
   section wires fibers onto a code.
+- **Microsites attach fibers too.** Like codes. At minimum a microsite attaches the **db fiber** —
+  that is the microsite store (today `blockstore`'s `KindMicrosite`; under this model, the microsite's
+  own db fiber + schema). A microsite may attach other fibers (corpus search, a form handler) to power
+  the page.
+- **Config GUI is data-driven; custom GUI is an MCP-App card.** Most blocks need no bespoke UI: the
+  manifest declares `config` (typed fields — time / int / bool / string_list / text / password /
+  scopes) and one generic form (`BlockConfigForm`, "one form, every block") renders it; values live in
+  the block's storage, the sandbox reads them via `blockconfig`. Credentials go through the
+  credential-manager form. A block that needs **custom** GUI ships an **MCP-App `ui://` card** (HTML
+  per tool via `_meta.ui_resource`) rendered in a sandboxed iframe.
 
 Block, fiber, and assembly are unfamiliar words to a lay owner, so **every control here carries a
 thorough `(?)` help tooltip** — spelling out what a block is, what a fiber is, and how to assemble
@@ -178,6 +188,31 @@ fiber view.
   GUI-only or MCP-only test leaves half the surface uncovered.
 - **A cyclic composition is refused.** Declare a cycle in `requires`; resolution detects it, warns, and
   refuses to mount. RED-first: the cycle must be rejected, never silently mounted.
+- **Agent-use parity is the acceptance test.** The visitor agent must behave identically after the
+  refactor, and a large black-box family already asserts this: `chat-book-success` /
+  `chat-book-conflict-*`, the `visitor-chat-*` family (list-slots, tool-cards, book-card, retrieval,
+  citations, ask-visitor, summarize), `supplier-happy-matrix` / `-send-confirmation` /
+  `-provider-agnostic`, the `block-*` lifecycle specs, and the `norm-outward-toolset` tools/list
+  golden. Acceptance = this family stays green **verbatim, with no spec edits**. Editing a black-box
+  agent spec to make it pass is a behaviour change leaking through, not a test fix. If the refactor
+  touches an agent-use path that turns out uncovered, add the test before touching that path.
+
+## Marketplace: Koishi compatibility (research)
+
+We borrow Cordis (Koishi's kernel) vocabulary wholesale, so the concepts map (their `inject` ↔ our
+`requires`, their `Service`/provide ↔ our `provides`, plugin ↔ block, fiber ↔ fiber). Piggybacking
+Koishi's npm market is feasible, but not drop-in — their plugins are TS/Node running on Koishi's
+concrete services (database / bot / http …); our host is Go. Two paths:
+
+- **Discovery:** add Koishi's npm listing as a source for our block market (our marketplace already
+  reads a catalogue — today a GitHub skills repo). Listing ≠ running.
+- **Run:** wrap a single Koishi plugin as a **stdio-MCP block** (the works-today path — a Node process
+  loading the plugin behind an MCP tool, declared like `server-everything` in `dev-plugins.json`), or,
+  larger, a `koishi-host` adapter block (a Cordis/Node runtime bridging our seams to Koishi services).
+  The shared Cordis lineage makes the adapter a translation, not a rewrite.
+
+A working proof-of-concept (a real third-party Koishi plugin as a stdio-MCP block, used by an agent,
+with an e2e) is being built to validate the works-today path; credit the plugin author.
 
 ## Details still to pin
 
