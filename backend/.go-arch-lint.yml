@@ -214,6 +214,8 @@ components:
     in: internal/plugin/blockstore                 # #135 constrained-reachback: per-plugin isolated JSONB storage (one schema per supplier/mcp); leaf, depends only on pgx
   nativekey:
     in: internal/plugin/nativekey                  # the native key: a backend-issued capability credential a fiber uses for privileged reach-back (db bridge / host_ops); self-redacting value type, leaf (no imports)
+  credmgr:
+    in: internal/plugin/credmgr                    # the credential-manager block: stores a non-native secret (telegram/smtp/api token) AES-GCM-sealed in the db block's storage, keyed by (owner, name); in-process host infra (holds the instance secret)
   retry:
     in: internal/infra/retry                    # #132 generic configurable-retry infra (backoff/cap/retryable/ctx cancel); leaf, supplier call-relaying builds on it
   httpx:
@@ -413,6 +415,15 @@ deps:
       - blockconfig
       - blockstore
       - plugin
+    anyVendorDeps: true
+
+  # credmgr — the credential-manager block: stores a non-native secret sealed at rest. Knows
+  # blockstore (where the ciphertext lands, in the db block's storage) + cryptobox (the seal).
+  # It recognizes no business field; a secret is just a named blob keyed by (owner, name).
+  credmgr:
+    mayDependOn:
+      - blockstore
+      - cryptobox
     anyVendorDeps: true
   # hostop — the inbound vocabulary. Leaf: it knows no domain, so a domain can speak through it without
   # importing routes.

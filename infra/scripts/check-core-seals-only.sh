@@ -62,8 +62,13 @@ for d in $KERNEL_DIRS; do
 done
 
 # The inward side —— everything under internal/ except the outbound layer and the box itself.
+# The outbound layer is the credential side that opens a secret right where it is spent:
+# adapters (spends a supplier token on the outbound call), credentials (the per-supplier vault),
+# blockadmin (the connect/oauth flow), credmgr (the credential-manager block — the successor to
+# the vault; it opens a non-native secret and hands the plaintext to the consuming supplier), and
+# the crypto box itself.
 INWARD_ROOT="backend/internal"
-INWARD_SKIP='backend/internal/plugin/adapters/|backend/internal/plugin/credentials/|backend/internal/plugin/blockadmin/|backend/internal/infra/cryptobox/'
+INWARD_SKIP='backend/internal/plugin/adapters/|backend/internal/plugin/credentials/|backend/internal/plugin/blockadmin/|backend/internal/plugin/credmgr/|backend/internal/infra/cryptobox/'
 # The opening parenthesis is required: without it, `cryptobox.DecryptWithKey(` would also match —— that's
 # a session envelope, already out of scope for this rule as noted above. (A prefix false-positive, same kind as the market-skill- one.)
 INWARD_PATTERN='cryptobox\.Decrypt\('
