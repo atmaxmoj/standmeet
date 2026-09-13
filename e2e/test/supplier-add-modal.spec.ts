@@ -73,6 +73,17 @@ test.describe('admin /suppliers · add modal + dynamic config form', () => {
       await expect(card.getByTestId('supplier-field-password'))
         .toHaveAttribute('type', 'password');
     });
+
+  test('Telegram block is a catalog card whose derived form asks for a token',
+    async ({ adminPage }) => {
+      await openSuppliers(adminPage);
+      // Telegram (kind=credential) is also connected from its catalog card, not the add-modal —
+      // its derived form is a single masked token field.
+      const card = adminPage.getByTestId('supplier-row-telegram');
+      await expect(card).toBeVisible();
+      await expect(card.getByTestId('supplier-field-token'))
+        .toHaveAttribute('type', 'password');
+    });
 });
 
 async function initOwner(playwright: Playwright): Promise<void> {

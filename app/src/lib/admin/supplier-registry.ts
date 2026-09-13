@@ -74,17 +74,12 @@ export const SUPPLIER_REGISTRY: readonly SupplierEntry[] = [
       { k: 'tls', label: 'TLS', options: ['none', 'starttls', 'tls'], default: 'starttls' },
     ],
   },
-  {
-    // Telegram protocol supplier (kind=protocol). Stores the BotFather token; the separate
-    // im-bridge service reads it from /internal/im/config and runs the actual bot.
-    // protocolSeam 'im' matches the backend manifest's `provides` (the telegram block).
-    id: 'telegram', name: 'Telegram', icon: '✈', category: 'comms', builtin: true,
-    protocol: 'telegram', protocolSeam: 'im',
-    blurb: 'chat with your standmeet from a Telegram bot — visitor chat + ingest, over DM.',
-    fields: [
-      { k: 'token', label: 'Bot token', secret: true },
-    ],
-  },
+  // Telegram is a shipped block (kind=credential — it stores a BotFather token the im-bridge
+  // reads). Like every built-in, it is connected from its own catalog card (supplier-row-telegram,
+  // whose form the backend derives from the block's declared config), NOT created here. It used to
+  // sit in this add-modal as a protocol entry; once telegram moved off "protocol" (f8e4fdd55) that
+  // add-modal path POSTed a kind the host no longer builds, so it is gone. (See the CalDAV note on
+  // the calendar entry below — same move.)
   {
     // Unified assembly entry point (#155): calendar category → AssembleView (paste an OpenAPI spec
     // to assemble a per-SaaS calendar). The built-in calendars — Google (openapi) and CalDAV (a
