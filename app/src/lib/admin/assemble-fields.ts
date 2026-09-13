@@ -19,17 +19,12 @@ export interface ProtocolSpec {
 // TLS is a plain text field (none | starttls | tls), not a select — assemble tests always fill it with .fill().
 const TLS_FIELD: AssembleField = { k: 'tls', label: 'TLS (none | starttls | tls)', default: 'starttls' };
 
-// PROTOCOL_BY_SEAM —— a category's built-in protocol + its fixed credential fields (filled in by admin).
+// PROTOCOL_BY_SEAM —— a category's built-in protocol + its fixed credential fields (filled in by
+// admin). Only `mail` (SMTP) now: SMTP is a base protocol the host speaks directly. CalDAV left the
+// protocol path — it is a shipped BLOCK (a Koishi plugin composing the http hand), connected from its
+// own catalog card (supplier-row-caldav, backend-derived form) like google-calendar, NOT assembled
+// here. So the calendar assemble view offers only the bring-your-own-OpenAPI path.
 export const PROTOCOL_BY_SEAM: Record<string, ProtocolSpec> = {
-  calendar: {
-    protocol: 'caldav',
-    fields: [
-      { k: 'url', label: 'CalDAV URL' },
-      { k: 'username', label: 'Username' },
-      { k: 'password', label: 'Password', secret: true },
-      TLS_FIELD,
-    ],
-  },
   mail: {
     protocol: 'smtp',
     fields: [

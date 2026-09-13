@@ -86,9 +86,9 @@ export const SUPPLIER_REGISTRY: readonly SupplierEntry[] = [
     ],
   },
   {
-    // Unified assembly entry point (#155): calendar category → AssembleView
-    // (paste an OpenAPI spec to assemble per-SaaS, or fill in the built-in
-    // CalDAV protocol form). No longer a hardcoded provider dropdown (that was legacy, now removed).
+    // Unified assembly entry point (#155): calendar category → AssembleView (paste an OpenAPI spec
+    // to assemble a per-SaaS calendar). The built-in calendars — Google (openapi) and CalDAV (a
+    // block) — are connected from their own catalog cards, not assembled here.
     id: 'calendar', name: 'Calendar', icon: '◫', category: 'comms', assemble: true,
     assembleSeam: 'calendar',
     blurb: 'offers booking slots when a conversation gets serious.',

@@ -47,18 +47,30 @@ test.describe('admin /suppliers · add modal + dynamic config form', () => {
       await expect(adminPage.getByTestId('supplier-add-open')).toBeVisible({ timeout: 3_000 });
     });
 
-  test('calendar card → normalized assemble view (OpenAPI upload + built-in CalDAV form)',
+  test('calendar card → assemble view is OpenAPI-only (CalDAV is a block, connected from its card)',
     async ({ adminPage }) => {
       await openSuppliers(adminPage);
       await adminPage.getByTestId('supplier-add-open').click();
-      // After normalization: calendar is no longer a hardcoded provider dropdown (the legacy
-      // one was removed) — it's an assembly view instead, able to either paste an OpenAPI
-      // spec to assemble a per-SaaS supplier, or fill in the built-in CalDAV protocol's fixed form.
+      // The calendar assemble view is the bring-your-own-OpenAPI path. CalDAV is no longer a
+      // protocol form assembled here — it became a shipped block, connected from its own catalog
+      // card (below), so the assemble view no longer hand-rolls a CalDAV credentials form.
       await adminPage.getByTestId('supplier-card-calendar').click();
       await expect(adminPage.getByTestId('supplier-spec-input')).toBeVisible();
-      await expect(adminPage.getByTestId('supplier-field-url')).toBeVisible();
-      // The secret field is masked as password.
-      await expect(adminPage.getByTestId('supplier-field-password'))
+      await expect(adminPage.getByTestId('supplier-field-url'), 'no built-in CalDAV form here')
+        .toHaveCount(0);
+    });
+
+  test('CalDAV block is a catalog card whose derived form asks for url/username/password',
+    async ({ adminPage }) => {
+      await openSuppliers(adminPage);
+      // The shipped CalDAV block is a connectable catalog card (like google-calendar). Its form is
+      // derived by the backend from the block's declared config, so the fields render here without
+      // the frontend naming caldav.
+      const card = adminPage.getByTestId('supplier-row-caldav');
+      await expect(card).toBeVisible();
+      await expect(card.getByTestId('supplier-field-url')).toBeVisible();
+      await expect(card.getByTestId('supplier-field-username')).toBeVisible();
+      await expect(card.getByTestId('supplier-field-password'))
         .toHaveAttribute('type', 'password');
     });
 });
