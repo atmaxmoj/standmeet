@@ -66,10 +66,13 @@ func (b supplierBridge) InvokeBackground(
 // storeBridge — all five read/write ports derive from the caller's three methods:
 // counting = query and take the length, fetching a doc = query and drop the id.
 // One fewer API, one fewer place the two sides can drift apart.
+//
+// The `fiber` on each op (prod's per-fiber schema key, rule 3) is ignored here: this eval
+// mini-host wires ONE in-memory store per block, so there is a single namespace to key by.
 type storeBridge struct{ store BlockStore }
 
 func (b storeBridge) Insert(
-	_ context.Context, collection string, doc json.RawMessage,
+	_ context.Context, _, collection string, doc json.RawMessage,
 ) (string, error) {
 	if b.store == nil {
 		return "", errNoStore
@@ -82,9 +85,9 @@ func (b storeBridge) Insert(
 }
 
 func (b storeBridge) Query(
-	ctx context.Context, collection string, filter json.RawMessage,
+	ctx context.Context, fiber, collection string, filter json.RawMessage,
 ) ([]json.RawMessage, error) {
-	recs, err := b.QueryRecords(ctx, collection, filter)
+	recs, err := b.QueryRecords(ctx, fiber, collection, filter)
 	if err != nil {
 		return nil, err
 	}
@@ -96,9 +99,9 @@ func (b storeBridge) Query(
 }
 
 func (b storeBridge) Count(
-	ctx context.Context, collection string, filter json.RawMessage,
+	ctx context.Context, fiber, collection string, filter json.RawMessage,
 ) (int64, error) {
-	recs, err := b.QueryRecords(ctx, collection, filter)
+	recs, err := b.QueryRecords(ctx, fiber, collection, filter)
 	if err != nil {
 		return 0, err
 	}
@@ -106,7 +109,7 @@ func (b storeBridge) Count(
 }
 
 func (b storeBridge) Delete(
-	_ context.Context, collection string, filter json.RawMessage,
+	_ context.Context, _, collection string, filter json.RawMessage,
 ) (int64, error) {
 	if b.store == nil {
 		return 0, errNoStore
@@ -119,7 +122,7 @@ func (b storeBridge) Delete(
 }
 
 func (b storeBridge) QueryRecords(
-	_ context.Context, collection string, filter json.RawMessage,
+	_ context.Context, _, collection string, filter json.RawMessage,
 ) ([]blockdesk.BoundRecord, error) {
 	if b.store == nil {
 		return nil, errNoStore
@@ -135,7 +138,9 @@ func (b storeBridge) QueryRecords(
 	return out, nil
 }
 
-func (b storeBridge) DeleteByID(_ context.Context, collection, recordID string) (int64, error) {
+func (b storeBridge) DeleteByID(
+	_ context.Context, _, collection, recordID string,
+) (int64, error) {
 	if b.store == nil {
 		return 0, errNoStore
 	}

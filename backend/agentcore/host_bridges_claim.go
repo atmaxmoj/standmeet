@@ -24,7 +24,7 @@ var claimTable = struct { //nolint:gochecknoglobals // mini-host state, mirrors 
 // Claim — returns true on success; returns false (not an error) if someone
 // else already holds it and it hasn't expired.
 func (storeBridge) Claim(
-	_ context.Context, collection, key string, ttlSeconds int,
+	_ context.Context, _, collection, key string, ttlSeconds int,
 ) (bool, error) {
 	claimTable.mu.Lock()
 	defer claimTable.mu.Unlock()
@@ -37,7 +37,7 @@ func (storeBridge) Claim(
 }
 
 // Release — releases the slot this caller holds.
-func (storeBridge) Release(_ context.Context, collection, key string) error {
+func (storeBridge) Release(_ context.Context, _, collection, key string) error {
 	claimTable.mu.Lock()
 	defer claimTable.mu.Unlock()
 	delete(claimTable.till, collection+"\x00"+key)

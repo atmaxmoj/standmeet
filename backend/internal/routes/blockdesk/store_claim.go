@@ -16,6 +16,7 @@ import (
 )
 
 type claimReq struct {
+	FiberID    string `json:"fiber_id"`
 	Collection string `json:"collection"`
 	Key        string `json:"key"`
 	// TTLSeconds — how long this claim lives. 0 = use the host default; anything over the
@@ -29,7 +30,7 @@ func claimHandler(store BoundStore) hostop.Invoke {
 		if err := json.Unmarshal(raw, &req); err != nil {
 			return nil, fmt.Errorf("blockstore.claim: decode: %w", err)
 		}
-		got, err := store.Claim(ctx, req.Collection, req.Key, req.TTLSeconds)
+		got, err := store.Claim(ctx, req.FiberID, req.Collection, req.Key, req.TTLSeconds)
 		if err != nil {
 			return nil, fmt.Errorf("blockstore.claim: %w", err)
 		}
@@ -43,7 +44,7 @@ func releaseHandler(store BoundStore) hostop.Invoke {
 		if err := json.Unmarshal(raw, &req); err != nil {
 			return nil, fmt.Errorf("blockstore.release: decode: %w", err)
 		}
-		if err := store.Release(ctx, req.Collection, req.Key); err != nil {
+		if err := store.Release(ctx, req.FiberID, req.Collection, req.Key); err != nil {
 			return nil, fmt.Errorf("blockstore.release: %w", err)
 		}
 		return jsonReply("blockstore.release", map[string]bool{"released": true})

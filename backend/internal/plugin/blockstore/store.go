@@ -14,6 +14,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -22,10 +23,29 @@ import (
 // Store —— per-plugin document storage sitting on the shared Postgres.
 type Store struct {
 	pool *pgxpool.Pool
+	// provisioned —— schema ids (kind+id) already ensured this process. Per-fiber schemas are
+	// created lazily on first use (the fiber set isn't known at install), and running the
+	// CREATE-IF-NOT-EXISTS DDL on every op would be a needless round-trip; this makes it once.
+	provisioned sync.Map // map[string]struct{}, key = string(kind)+"\x00"+id
 }
 
 // New —— the composition root injects the shared connection pool.
 func New(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
+
+// EnsureProvisioned —— provision (kind,id)'s schema if this process hasn't already. Idempotent
+// and cheap after the first call per id (a process-local cache over the idempotent DDL). Used by
+// the per-fiber reach-back, where a fiber's schema is created on first use rather than at install.
+func (s *Store) EnsureProvisioned(ctx context.Context, kind Kind, id string) error {
+	key := string(kind) + "\x00" + id
+	if _, ok := s.provisioned.Load(key); ok {
+		return nil
+	}
+	if err := s.Provision(ctx, kind, id); err != nil {
+		return err
+	}
+	s.provisioned.Store(key, struct{}{})
+	return nil
+}
 
 // Provision —— when a supplier/mcp is installed, create its isolated schema plus the
 // records/claims tables (idempotent). An invalid name → error, nothing gets built.

@@ -15,13 +15,20 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/hostop"
 )
 
-// BoundStore — an isolated document store already bound to one cap (no kind/id). cmd binds
-// one via blockstore.Store to a (kind,id) pair before passing it in.
+// BoundStore — one block's own document store. Bound host-side to the block's namespace; the
+// `fiber` on each op selects WHICH of that block's per-fiber schemas to touch (rule 3, "one
+// schema per bundle/fiber"). fiber is the host-planted session identity the plugin forwards (the
+// same trust as the owner_id config forwards), NOT a schema name the plugin invents — the host
+// composes the real schema from (block, fiber), so the plugin still cannot name another block's
+// store. Empty fiber → the block's legacy single schema (today's mcp_<block>), so a block that
+// does not yet forward a fiber is unchanged.
 type BoundStore interface {
-	Insert(ctx context.Context, collection string, doc json.RawMessage) (string, error)
-	Query(ctx context.Context, collection string, filter json.RawMessage) ([]json.RawMessage, error)
-	Count(ctx context.Context, collection string, filter json.RawMessage) (int64, error)
-	Delete(ctx context.Context, collection string, filter json.RawMessage) (int64, error)
+	Insert(ctx context.Context, fiber, collection string, doc json.RawMessage) (string, error)
+	Query(
+		ctx context.Context, fiber, collection string, filter json.RawMessage,
+	) ([]json.RawMessage, error)
+	Count(ctx context.Context, fiber, collection string, filter json.RawMessage) (int64, error)
+	Delete(ctx context.Context, fiber, collection string, filter json.RawMessage) (int64, error)
 	// QueryRecords / DeleteByID — read with the record id, and delete by that id.
 	//
 	// These two used to be marked "host-only (cancel-by-id)": a sandboxed cap couldn't get its
@@ -30,15 +37,15 @@ type BoundStore interface {
 	// block can't reach its own data, a duplicate inevitably grows somewhere else — the
 	// same hole as OwnerTools and Config.
 	QueryRecords(
-		ctx context.Context, collection string, filter json.RawMessage,
+		ctx context.Context, fiber, collection string, filter json.RawMessage,
 	) ([]BoundRecord, error)
-	DeleteByID(ctx context.Context, collection, recordID string) (int64, error)
+	DeleteByID(ctx context.Context, fiber, collection, recordID string) (int64, error)
 	// Claim / Release — single-winner claim: only one caller gets a given key at a given
 	// moment (guaranteed by primary-key conflict, not by arrival order). Any "look then act"
 	// step needs this to cover the window in between — without it, two callers arriving at
 	// the same time would see the same "free" slot (F-B-15: the same slot gets booked twice).
-	Claim(ctx context.Context, collection, key string, ttlSeconds int) (bool, error)
-	Release(ctx context.Context, collection, key string) error
+	Claim(ctx context.Context, fiber, collection, key string, ttlSeconds int) (bool, error)
+	Release(ctx context.Context, fiber, collection, key string) error
 }
 
 // BoundRecord — one record: its id plus the document.
@@ -99,11 +106,13 @@ func StoreOps(store BoundStore) []hostop.Op {
 }
 
 type writeReq struct {
+	FiberID    string          `json:"fiber_id"`
 	Collection string          `json:"collection"`
 	Doc        json.RawMessage `json:"doc"`
 }
 
 type filterReq struct {
+	FiberID    string          `json:"fiber_id"`
 	Collection string          `json:"collection"`
 	Filter     json.RawMessage `json:"filter"`
 }
@@ -114,7 +123,7 @@ func insertHandler(store BoundStore) hostop.Invoke {
 		if err := json.Unmarshal(raw, &req); err != nil {
 			return nil, fmt.Errorf("blockstore.insert: decode: %w", err)
 		}
-		id, err := store.Insert(ctx, req.Collection, req.Doc)
+		id, err := store.Insert(ctx, req.FiberID, req.Collection, req.Doc)
 		if err != nil {
 			return nil, fmt.Errorf("blockstore.insert: %w", err)
 		}
@@ -132,7 +141,7 @@ func queryHandler(store BoundStore) hostop.Invoke {
 		if err := json.Unmarshal(raw, &req); err != nil {
 			return nil, fmt.Errorf("blockstore.query: decode: %w", err)
 		}
-		docs, err := store.Query(ctx, req.Collection, req.Filter)
+		docs, err := store.Query(ctx, req.FiberID, req.Collection, req.Filter)
 		if err != nil {
 			return nil, fmt.Errorf("blockstore.query: %w", err)
 		}
@@ -150,7 +159,7 @@ func queryRecordsHandler(store BoundStore) hostop.Invoke {
 		if err := json.Unmarshal(raw, &req); err != nil {
 			return nil, fmt.Errorf("blockstore.query_records: decode: %w", err)
 		}
-		recs, err := store.QueryRecords(ctx, req.Collection, req.Filter)
+		recs, err := store.QueryRecords(ctx, req.FiberID, req.Collection, req.Filter)
 		if err != nil {
 			return nil, fmt.Errorf("blockstore.query_records: %w", err)
 		}
@@ -163,6 +172,7 @@ func queryRecordsHandler(store BoundStore) hostop.Invoke {
 }
 
 type byIDReq struct {
+	FiberID    string `json:"fiber_id"`
 	Collection string `json:"collection"`
 	RecordID   string `json:"record_id"`
 }
@@ -173,7 +183,7 @@ func deleteByIDHandler(store BoundStore) hostop.Invoke {
 		if err := json.Unmarshal(raw, &req); err != nil {
 			return nil, fmt.Errorf("blockstore.delete_by_id: decode: %w", err)
 		}
-		n, err := store.DeleteByID(ctx, req.Collection, req.RecordID)
+		n, err := store.DeleteByID(ctx, req.FiberID, req.Collection, req.RecordID)
 		if err != nil {
 			return nil, fmt.Errorf("blockstore.delete_by_id: %w", err)
 		}
@@ -191,7 +201,7 @@ func countHandler(store BoundStore) hostop.Invoke {
 		if err := json.Unmarshal(raw, &req); err != nil {
 			return nil, fmt.Errorf("blockstore.count: decode: %w", err)
 		}
-		n, err := store.Count(ctx, req.Collection, req.Filter)
+		n, err := store.Count(ctx, req.FiberID, req.Collection, req.Filter)
 		if err != nil {
 			return nil, fmt.Errorf("blockstore.count: %w", err)
 		}
@@ -209,7 +219,7 @@ func deleteHandler(store BoundStore) hostop.Invoke {
 		if err := json.Unmarshal(raw, &req); err != nil {
 			return nil, fmt.Errorf("blockstore.delete: decode: %w", err)
 		}
-		n, err := store.Delete(ctx, req.Collection, req.Filter)
+		n, err := store.Delete(ctx, req.FiberID, req.Collection, req.Filter)
 		if err != nil {
 			return nil, fmt.Errorf("blockstore.delete: %w", err)
 		}

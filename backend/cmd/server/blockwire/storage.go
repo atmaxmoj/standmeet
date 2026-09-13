@@ -95,17 +95,24 @@ func HostOpsOf(m *plugin.Manifest) []string {
 	return m.Transport.Sandbox.HostOps
 }
 
-// boundBlockStore — the generic blockstore.Store bound to one block's namespace.
+// boundBlockStore — the generic blockstore.Store bound to one block. Each op takes the session's
+// fiber, and the block's schema is keyed per-fiber (rule 3): schemaID = fiber+"_"+block, else the
+// block's legacy single schema when the fiber is empty (a block that doesn't yet forward one). The
+// fiber schema is provisioned lazily on first use — the fiber set isn't known at install.
 type boundBlockStore struct {
-	store *blockstore.Store
-	kind  blockstore.Kind
-	id    string
+	store   *blockstore.Store
+	kind    blockstore.Kind
+	blockID string
 }
 
 func (b boundBlockStore) Insert(
-	ctx context.Context, collection string, doc json.RawMessage,
+	ctx context.Context, fiber, collection string, doc json.RawMessage,
 ) (string, error) {
-	id, err := b.store.Insert(ctx, b.kind, b.id, collection, doc)
+	sid, eerr := b.ensure(ctx, fiber)
+	if eerr != nil {
+		return "", eerr
+	}
+	id, err := b.store.Insert(ctx, b.kind, sid, collection, doc)
 	if err != nil {
 		return "", fmt.Errorf("blockstore insert: %w", err)
 	}
@@ -113,9 +120,13 @@ func (b boundBlockStore) Insert(
 }
 
 func (b boundBlockStore) Query(
-	ctx context.Context, collection string, filter json.RawMessage,
+	ctx context.Context, fiber, collection string, filter json.RawMessage,
 ) ([]json.RawMessage, error) {
-	docs, err := b.store.Query(ctx, b.kind, b.id, collection, filter)
+	sid, eerr := b.ensure(ctx, fiber)
+	if eerr != nil {
+		return nil, eerr
+	}
+	docs, err := b.store.Query(ctx, b.kind, sid, collection, filter)
 	if err != nil {
 		return nil, fmt.Errorf("blockstore query: %w", err)
 	}
@@ -123,9 +134,13 @@ func (b boundBlockStore) Query(
 }
 
 func (b boundBlockStore) Count(
-	ctx context.Context, collection string, filter json.RawMessage,
+	ctx context.Context, fiber, collection string, filter json.RawMessage,
 ) (int64, error) {
-	n, err := b.store.Count(ctx, b.kind, b.id, collection, filter)
+	sid, eerr := b.ensure(ctx, fiber)
+	if eerr != nil {
+		return 0, eerr
+	}
+	n, err := b.store.Count(ctx, b.kind, sid, collection, filter)
 	if err != nil {
 		return 0, fmt.Errorf("blockstore count: %w", err)
 	}
@@ -133,9 +148,13 @@ func (b boundBlockStore) Count(
 }
 
 func (b boundBlockStore) Delete(
-	ctx context.Context, collection string, filter json.RawMessage,
+	ctx context.Context, fiber, collection string, filter json.RawMessage,
 ) (int64, error) {
-	n, err := b.store.Delete(ctx, b.kind, b.id, collection, filter)
+	sid, eerr := b.ensure(ctx, fiber)
+	if eerr != nil {
+		return 0, eerr
+	}
+	n, err := b.store.Delete(ctx, b.kind, sid, collection, filter)
 	if err != nil {
 		return 0, fmt.Errorf("blockstore delete: %w", err)
 	}
@@ -146,9 +165,13 @@ func (b boundBlockStore) Delete(
 // block can't reach its own records' ids, a duplicate is bound to grow somewhere else
 // (see the note on blockdesk.BoundStore).
 func (b boundBlockStore) QueryRecords(
-	ctx context.Context, collection string, filter json.RawMessage,
+	ctx context.Context, fiber, collection string, filter json.RawMessage,
 ) ([]blockdesk.BoundRecord, error) {
-	recs, err := b.store.QueryWithIDs(ctx, b.kind, b.id, collection, filter)
+	sid, eerr := b.ensure(ctx, fiber)
+	if eerr != nil {
+		return nil, eerr
+	}
+	recs, err := b.store.QueryWithIDs(ctx, b.kind, sid, collection, filter)
 	if err != nil {
 		return nil, fmt.Errorf("blockstore query records: %w", err)
 	}
@@ -160,9 +183,13 @@ func (b boundBlockStore) QueryRecords(
 }
 
 func (b boundBlockStore) DeleteByID(
-	ctx context.Context, collection, recordID string,
+	ctx context.Context, fiber, collection, recordID string,
 ) (int64, error) {
-	n, err := b.store.DeleteByID(ctx, b.kind, b.id, collection, recordID)
+	sid, eerr := b.ensure(ctx, fiber)
+	if eerr != nil {
+		return 0, eerr
+	}
+	n, err := b.store.DeleteByID(ctx, b.kind, sid, collection, recordID)
 	if err != nil {
 		return 0, fmt.Errorf("blockstore delete by id: %w", err)
 	}
@@ -172,10 +199,14 @@ func (b boundBlockStore) DeleteByID(
 // Claim / Release — single-winner locking. Closes the window in the middle of "check then
 // act" (F-B-15).
 func (b boundBlockStore) Claim(
-	ctx context.Context, collection, key string, ttlSeconds int,
+	ctx context.Context, fiber, collection, key string, ttlSeconds int,
 ) (bool, error) {
+	sid, eerr := b.ensure(ctx, fiber)
+	if eerr != nil {
+		return false, eerr
+	}
 	got, err := b.store.Claim(ctx, blockstore.ClaimKey{
-		Kind: b.kind, ID: b.id, Collection: collection, Key: key,
+		Kind: b.kind, ID: sid, Collection: collection, Key: key,
 	}, time.Duration(ttlSeconds)*time.Second)
 	if err != nil {
 		return false, fmt.Errorf("blockstore claim: %w", err)
@@ -183,13 +214,36 @@ func (b boundBlockStore) Claim(
 	return got, nil
 }
 
-func (b boundBlockStore) Release(ctx context.Context, collection, key string) error {
+func (b boundBlockStore) Release(ctx context.Context, fiber, collection, key string) error {
+	sid, eerr := b.ensure(ctx, fiber)
+	if eerr != nil {
+		return eerr
+	}
 	if err := b.store.Release(ctx, blockstore.ClaimKey{
-		Kind: b.kind, ID: b.id, Collection: collection, Key: key,
+		Kind: b.kind, ID: sid, Collection: collection, Key: key,
 	}); err != nil {
 		return fmt.Errorf("blockstore release: %w", err)
 	}
 	return nil
+}
+
+// sid — the per-fiber schema id for this block. Empty fiber → the legacy single schema (block id
+// alone), so an un-updated block keeps mcp_<block> exactly as before.
+func (b boundBlockStore) sid(fiber string) string {
+	if fiber == "" {
+		return b.blockID
+	}
+	return fiber + "_" + b.blockID
+}
+
+// ensure — provision the fiber's schema once (cached), before touching it. Errors surface to the
+// caller (the op fails) rather than writing into a missing schema.
+func (b boundBlockStore) ensure(ctx context.Context, fiber string) (string, error) {
+	sid := b.sid(fiber)
+	if err := b.store.EnsureProvisioned(ctx, b.kind, sid); err != nil {
+		return "", fmt.Errorf("blockstore ensure %q: %w", sid, err)
+	}
+	return sid, nil
 }
 
 // boundBlockConfig — the config read port bound to (kind, id, declaration): the sandbox can

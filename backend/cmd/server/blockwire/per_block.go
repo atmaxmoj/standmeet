@@ -33,7 +33,7 @@ func PerBlockDeps(d *deps.Runtime, m *plugin.Manifest) *hostdesk.PerBlock {
 	// published nothing, and the host panicked that calendar.book wanted an op "the
 	// host does not publish" — an op whose implementation was sitting right there.
 	if wantsAny(m, "blockstore.") {
-		per.Store = boundBlockStore{store: store, kind: blockstore.KindMCP, id: m.ID}
+		per.Store = boundBlockStore{store: store, kind: blockstore.KindMCP, blockID: m.ID}
 	}
 	if len(m.Config) > 0 {
 		per.Config = boundBlockConfig{cfg: BlockConfigFor(store, m.ID), decl: m.Config}
