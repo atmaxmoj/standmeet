@@ -118,7 +118,21 @@ func defaultOf(f *plugin.ConfigField) string {
 	if f.Default == "" {
 		return "null"
 	}
-	return f.Default
+	// The declared default must come back as a JSON literal (Field.Value/Default are documented as
+	// such, and are wrapped in json.RawMessage downstream). Numeric / bool / list defaults are
+	// already valid JSON as declared (5 / true / ["a"]); a string or time default is a bare string
+	// in the manifest (YAML `default: hello` / `10:00`) and must be JSON-quoted, or the read path
+	// marshals invalid JSON and 500s.
+	switch f.Type {
+	case plugin.ConfigTypeInt, plugin.ConfigTypeBool, plugin.ConfigTypeStringList:
+		return f.Default
+	default: // string, time, or an unrecognized (string-like) type
+		b, err := json.Marshal(f.Default)
+		if err != nil {
+			return "null"
+		}
+		return string(b)
+	}
 }
 
 // Values — just the key/value pairs (a block's implementation reads
