@@ -212,6 +212,8 @@ components:
     in: internal/plugin/blockquota                 # per-code usage ceiling: counted per the manifest's QuotaDecl, the host knows no business term
   blockstore:
     in: internal/plugin/blockstore                 # #135 constrained-reachback: per-plugin isolated JSONB storage (one schema per supplier/mcp); leaf, depends only on pgx
+  nativekey:
+    in: internal/plugin/nativekey                  # the native key: a backend-issued capability credential a fiber uses for privileged reach-back (db bridge / host_ops); self-redacting value type, leaf (no imports)
   retry:
     in: internal/infra/retry                    # #132 generic configurable-retry infra (backoff/cap/retryable/ctx cancel); leaf, supplier call-relaying builds on it
   httpx:
