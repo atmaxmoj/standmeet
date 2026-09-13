@@ -34,5 +34,19 @@ func DepRegistry(ctx context.Context, d *deps.Runtime) *registry.DepRegistry {
 	if err := RegisterDiscoveredSuppliers(ctx, d, depReg); err != nil {
 		panic("blockwire: a built-in supplier does not assemble — " + err.Error())
 	}
+	registerBaseSeams(depReg)
 	return depReg
+}
+
+// registerBaseSeams —— the seams the host itself supplies, not an owner-connected
+// external supplier. `db` is the instance's own Postgres: a block that must persist
+// declares `requires: [db]` (everything-is-a-block.md rule 3 — the db block is an
+// ordinary block a stateful block depends on). Unlike calendar / smtp, db has nothing to
+// connect: it is always available, so its provider reports connected unconditionally.
+// This makes `requires: [db]` a first-class, gate-valid declaration (so boot validation
+// accepts it and a db-requiring block is never seam-hidden); storage delivery itself stays
+// with the bound blockstore.
+func registerBaseSeams(depReg *registry.DepRegistry) {
+	depReg.Register(registry.NamedProvider("db",
+		func(_ context.Context, _ string) (bool, error) { return true, nil }))
 }
