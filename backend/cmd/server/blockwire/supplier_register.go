@@ -21,6 +21,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/plugin/adapters"
 	"github.com/atmaxmoj/standmeet/internal/plugin/credentials"
 	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
+	"github.com/atmaxmoj/standmeet/internal/routes/blockload"
 )
 
 // supplierEgressAllow —— outbound SSRF allowlist (SUPPLIER_EGRESS_ALLOW: comma-separated
@@ -47,28 +48,24 @@ func EnsureBlockDispatch(d *deps.Runtime) {
 	if d.BlockDispatch != nil {
 		return
 	}
-	d.BlockSuppliers = adapters.NewSuppliers(seamStoreAdapter{repo: d.Credentials})
-	d.BlockDispatch = adapters.NewDispatcher(d.BlockSuppliers.Lookup)
-	// The by-id path, for owner diag only: exercise the block the owner just uploaded
-	// without first making it the active one for its seam.
-	d.BlockDispatch.SetSupplierByID(d.BlockSuppliers.ByID)
-	// a background call's failure needs somewhere to go, or it is silent
-	d.BlockDispatch.SetLogger(d.Log)
+	// The door owns the holder's construction (allocate + wire the by-id diag path + logger); the
+	// composition root only supplies the seam store it reads and the logger. One reference chain,
+	// facade→core (everything-is-a-block.md rule 2): the supplier dispatch is no longer allocated
+	// outside the door.
+	d.BlockSuppliers, d.BlockDispatch = blockload.NewSupplierDispatch(
+		seamStoreAdapter{repo: d.Credentials}, d.Log)
 }
 
 // DiscoverSeamProviders —— boot: assemble every supplying block into the table, then RETURN the
 // seam providers they supply (the caller registers them through the one door — no direct reach into
 // the core registry from the composition root, everything-is-a-block.md rule 2).
 //
-// The seam names come from the manifests. They used to be two string literals here —
-//
-//	depReg.Register(NamedOpProvider("calendar", slots.Calendar().Connected, ...))
-//	depReg.Register(NamedProvider("smtp", slots.Mail().Connected))
-//
-// — with a typed accessor apiece, which is why adding a seam meant editing the
-// composition root, and why `mail.send` ended up declaring `requires: [smtp]`: "smtp"
-// was not any manifest's name, it was this line. A loop over `provides` cannot produce
-// that mistake, because there is nowhere left to write a name down.
+// The seam names come from the manifests. They used to be two string literals here — one
+// per-op provider named "calendar" and one plain provider named "smtp", each with a typed
+// accessor — which is why adding a seam meant editing the composition root, and why `mail.send`
+// ended up declaring `requires: [smtp]`: "smtp" was not any manifest's name, it was that line. A
+// loop over `provides` cannot produce that mistake, because there is nowhere left to write a name
+// down.
 func DiscoverSeamProviders(
 	ctx context.Context, d *deps.Runtime,
 ) ([]registry.DepProvider, error) {

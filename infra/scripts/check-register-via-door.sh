@@ -41,7 +41,12 @@ fi
 # registration mechanism (registry, mount): the door invokes it. Violations are domains and the
 # composition root (cmd/server/blockwire, internal/owner/...) registering directly.
 ALLOWED='^internal/routes/blockload/|^internal/plugin/'
-PAT='\.MustRegister\(|\.RegisterOrigin\('
+# The block/fiber verbs (.MustRegister / .RegisterOrigin) AND the outbound-supplier + seam-provider
+# construction/registration (adapters.NewSuppliers / depReg.Register) all register a plugin through
+# the core registry. Every one is now ERROR: it may appear only inside the door (blockload) or the
+# substrate it invokes (internal/plugin). The former second-path WARNING (supplier layer wired in the
+# composition root) reached zero once construction moved behind the door, so it joined this set.
+PAT='\.MustRegister\(|\.RegisterOrigin\(|adapters\.NewSuppliers\(|depReg\.Register\('
 
 # blind-check: the door registers by construction, so the pattern MUST find at least one file. Nothing
 # found means the verbs were renamed and the gate went blind, which must go RED, not green.
@@ -61,19 +66,9 @@ while IFS= read -r f; do
 	fail=1
 done < <(printf '%s\n' "$hits")
 
-# ERROR mode (flipped from WARN at the everything-is-a-block wrap-up): registration outside the door
-# blocks the commit. The baseline above still grandfathers pre-existing call-sites and only shrinks.
+# ERROR mode: registration outside the door blocks the commit. The baseline above still grandfathers
+# pre-existing call-sites and only shrinks. The second-path verbs (supplier layer + seam wiring) were
+# folded behind the door, reached zero, and are now part of PAT above — no separate WARNING block.
 [ "$fail" -eq 0 ] || exit 1
-
-# Second registration path (the reified supplier layer + seam wiring) — WARNING while the fold into
-# the door is in flight. No exclusion list: every hit outside the door is printed; the count must
-# reach zero, then these verbs join the ERROR set above and this block is deleted.
-SECOND_PATH='adapters\.NewSuppliers\(|depReg\.Register\('
-while IFS= read -r f; do
-	[ -n "$f" ] || continue
-	rel="${f#"$BK"/}"
-	echo "$rel" | grep -qE "$ALLOWED" && continue
-	echo "check-register-via-door: WARNING — $rel registers via the second path (supplier layer / seam wiring), not the door. Fold it into blockload (everything-is-a-block: one reference chain)."
-done < <(goFiles | grep -v '_test\.go$' | xargs grep -lE "$SECOND_PATH" 2>/dev/null | sort)
 
 echo "check-register-via-door: plugin registration converges on internal/routes/blockload."
