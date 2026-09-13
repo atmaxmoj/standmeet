@@ -1324,6 +1324,7 @@ deps:
       - cmdblockwire
       - cmdwire
       - credmgr           # the credential-manager; the root adapts it to the credentials repo's SecretStore port (credsecrets.go)
+      - nativekey         # the root mints the per-mount native-key issuer (boot_deps.go) that authenticates fiber reach-back
       # clientaddr — the composition root mounts it right after chi.RealIP: "is the source address the visitor's own" is decided exactly once there.
       - clientaddr
       # geoip — the composition root opens the bundled geoip DB and adapts it to monitor's LocationResolver port (the domain never names an infra file).
@@ -1409,6 +1410,7 @@ deps:
   # leaf **inside the composition root**: none of the four packages below import it, so the direction holds.
   cmddeps:
     mayDependOn:
+      - nativekey         # deps.Runtime holds the native-key issuer the root mints
       - blockconfig       # the composition root binds "the config a block declares" to its own isolated storage
       - blockdesk # and mounts blockconfig.get on that block's reach-back socket
       - blockquota        # and, per the manifest's Quota declaration, hangs the gate + remaining-balance on it (one counter, two exits)
@@ -1641,6 +1643,7 @@ deps:
       - cmddeps
       - cmdport
       - cmdblockwire
+      - nativekey         # wires the native-key verifier onto the host-op socket (wire/hostdesk.go)
       - blockconfig       # the composition root binds "the config a block declares" to its own isolated storage
       - blockdesk # and mounts blockconfig.get on that block's reach-back socket
       - blockquota        # and, per the manifest's Quota declaration, hangs the gate + remaining-balance on it (one counter, two exits)

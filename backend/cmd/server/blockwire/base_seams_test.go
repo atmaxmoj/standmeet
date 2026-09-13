@@ -11,12 +11,15 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
+	"github.com/atmaxmoj/standmeet/internal/routes/blockload"
 )
 
 func TestRegisterBaseSeams_DBAlwaysConnected(t *testing.T) {
 	t.Parallel()
 	depReg := registry.NewDepRegistry()
-	registerBaseSeams(depReg)
+	// The base providers are assembled here and registered through the one door — the same
+	// path boot uses (everything-is-a-block.md rule 2).
+	blockload.RegisterSeamProviders(depReg, baseSeamProviders())
 
 	p, ok := depReg.Lookup("db")
 	require.True(t, ok, "db seam must be registered")

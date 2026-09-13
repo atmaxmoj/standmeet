@@ -56,8 +56,9 @@ func EnsureBlockDispatch(d *deps.Runtime) {
 	d.BlockDispatch.SetLogger(d.Log)
 }
 
-// RegisterDiscoveredSuppliers —— boot: assemble every supplying block, then declare the
-// seams they supply.
+// DiscoverSeamProviders —— boot: assemble every supplying block into the table, then RETURN the
+// seam providers they supply (the caller registers them through the one door — no direct reach into
+// the core registry from the composition root, everything-is-a-block.md rule 2).
 //
 // The seam names come from the manifests. They used to be two string literals here —
 //
@@ -68,9 +69,9 @@ func EnsureBlockDispatch(d *deps.Runtime) {
 // composition root, and why `mail.send` ended up declaring `requires: [smtp]`: "smtp"
 // was not any manifest's name, it was this line. A loop over `provides` cannot produce
 // that mistake, because there is nowhere left to write a name down.
-func RegisterDiscoveredSuppliers(
-	ctx context.Context, d *deps.Runtime, depReg *registry.DepRegistry,
-) error {
+func DiscoverSeamProviders(
+	ctx context.Context, d *deps.Runtime,
+) ([]registry.DepProvider, error) {
 	EnsureBlockDispatch(d)
 	adeps := newAssembleDeps(d.Credentials)
 	// Iterate the FULL manifests (not the thin supplier shape): a sandbox_stdio block that serves a
@@ -84,14 +85,14 @@ func RegisterDiscoveredSuppliers(
 		}
 		sup, aerr := assembleBuiltinSupplier(&full[i], adeps)
 		if aerr != nil {
-			return aerr
+			return nil, aerr
 		}
 		d.BlockSuppliers.Put(sup)
 		thin = append(thin, toSupplierManifest(&full[i]))
 	}
-	registerSeams(d, depReg, thin)
+	providers := seamProviders(d, thin)
 	registerUploadedSuppliers(ctx, d.BlockSuppliers, d.Credentials, adeps, d.Log)
-	return nil
+	return providers, nil
 }
 
 // assembleBuiltinSupplier — one built-in supplier block. A sandbox_stdio block SERVES its seam via
@@ -118,21 +119,25 @@ func blockSeamSupplier(m *plugin.Manifest, adeps *assembleDeps) (adapters.Suppli
 	}
 }
 
-// registerSeams —— declare each supplied seam ONCE, from the manifests and nothing else.
+// seamProviders —— one DepProvider per supplied seam, from the manifests and nothing else.
 //
 // A seam may be supplied by several blocks (a Google calendar and a CalDAV one); its DepProvider
-// is registered once and resolves whichever supplier is active at call time. Registering it twice
-// panics (DepRegistry.Register), so the dedupe is load-bearing, not cosmetic.
+// is produced once and resolves whichever supplier is active at call time. The door registers them
+// and a duplicate panics (Register), so the dedupe (distinctSeamShapes) is load-bearing, not
+// cosmetic.
 //
 // Two shapes, and which one a seam gets is read off the declarations: if ANY supplier of the seam
 // can answer per-operation questions (an openapi supplier compares the spec's per-op scope against
 // the grant) it gets the richer provider, so `calendar.readonly` still lists free slots while
 // booking fails (F-B-8); a seam with no such supplier only answers "connected" (the active
 // supplier is asked at call time regardless — CanPerform allows a supplier that cannot answer).
-func registerSeams(d *deps.Runtime, depReg *registry.DepRegistry, ms []adapters.Manifest) {
-	for _, sh := range distinctSeamShapes(ms) {
-		depReg.Register(seamProvider(d, sh))
+func seamProviders(d *deps.Runtime, ms []adapters.Manifest) []registry.DepProvider {
+	shapes := distinctSeamShapes(ms)
+	out := make([]registry.DepProvider, 0, len(shapes))
+	for _, sh := range shapes {
+		out = append(out, seamProvider(d, sh))
 	}
+	return out
 }
 
 // seamShape —— one seam and whether any of its suppliers can answer per-operation questions.
