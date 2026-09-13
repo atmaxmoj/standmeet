@@ -176,18 +176,16 @@ func (s *Server) dispatch(ctx context.Context, raw []byte) json.RawMessage {
 	return out
 }
 
-// checkKey —— authenticate the reach-back by its native key (rule 4). PRESENT but unresolvable = a
-// forged/stale credential → refused. ABSENT = tolerated for now (blocks roll on one at a time,
-// warning→error; later absence is refused too). No verifier configured → no check (eval).
+// checkKey —— authenticate the reach-back by its native key (rule 4). Every reach-back block now
+// presents the per-mount key the host delivered into its sandbox env, so a request whose key is
+// absent OR unresolvable is a forged/stale channel → refused (verify("") never resolves, folding
+// absent into the same reject). No verifier configured → no check (eval's mini-host).
 func (s *Server) checkKey(nativeKey string) error {
 	if s.verify == nil {
 		return nil
 	}
-	if nativeKey == "" {
-		return nil // transitional: not yet every block presents a key
-	}
 	if _, ok := s.verify(nativeKey); !ok {
-		s.log.Warn("hostsocket: reach-back presented an unresolvable native key")
+		s.log.Warn("hostsocket: reach-back with absent or unresolvable native key")
 		return errors.New("unauthorized reach-back: native key not recognized")
 	}
 	return nil

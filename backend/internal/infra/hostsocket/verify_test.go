@@ -8,9 +8,9 @@ import (
 	"testing"
 )
 
-// TestDispatchNativeKeyVerification — the reach-back is a keyed channel (rule 4): a present-but-
-// unresolvable key is refused before the handler runs; a resolvable one passes; an absent one is
-// tolerated during the rollout; no verifier configured means no check.
+// TestDispatchNativeKeyVerification — the reach-back is a keyed channel (rule 4): a resolvable key
+// passes; a present-but-unresolvable key AND an absent key are both refused before the handler runs
+// (every reach-back block presents its key now); no verifier configured means no check.
 func TestDispatchNativeKeyVerification(t *testing.T) {
 	t.Parallel()
 	var called bool
@@ -30,7 +30,7 @@ func TestDispatchNativeKeyVerification(t *testing.T) {
 	}{
 		{"resolvable key passes", `{"op":"do","native_key":"good"}`, true, false},
 		{"forged key refused before handler", `{"op":"do","native_key":"bad"}`, false, true},
-		{"absent key tolerated (rollout)", `{"op":"do"}`, true, false},
+		{"absent key refused before handler", `{"op":"do"}`, false, true},
 	}
 	for _, tc := range tests {
 		s := &Server{log: slog.Default(), handlers: handlers, verify: verify}

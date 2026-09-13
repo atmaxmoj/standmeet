@@ -39,6 +39,7 @@ import (
 // 于是同一件事有四个名字,而且路径要在宿主的 manifest 里手写一遍。现在路径由 id 派生、
 // 由装载器注入,声明里不出现路径,也不出现这个变量名。
 const socketEnv = "STANDMEET_HOST_SOCKET"
+const nativeKeyEnv = "STANDMEET_NATIVE_KEY"
 
 func main() {
 	srv := server.NewMCPServer("booker", "1.0.0",
@@ -375,6 +376,9 @@ func callHost(reqObj map[string]any) ([]byte, error) {
 		return nil, fmt.Errorf("dial host socket: %w", derr)
 	}
 	defer func() { _ = conn.Close() }()
+	if key := os.Getenv(nativeKeyEnv); key != "" {
+		reqObj["native_key"] = key // rule 4: authenticate this reach-back
+	}
 	line, merr := json.Marshal(reqObj)
 	if merr != nil {
 		return nil, merr

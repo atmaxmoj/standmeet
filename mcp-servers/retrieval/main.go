@@ -27,6 +27,7 @@ import (
 // socketEnv —— the host socket path injected by the host. Same name across
 // all blocks (see the identically-named constant in booker).
 const socketEnv = "STANDMEET_HOST_SOCKET"
+const nativeKeyEnv = "STANDMEET_NATIVE_KEY"
 
 func main() {
 	srv := server.NewMCPServer("retrieval", "1.0.0",
@@ -337,6 +338,9 @@ func callHost(reqObj map[string]any) ([]byte, error) {
 		return nil, fmt.Errorf("dial host socket: %w", derr)
 	}
 	defer func() { _ = conn.Close() }()
+	if key := os.Getenv(nativeKeyEnv); key != "" {
+		reqObj["native_key"] = key // rule 4: authenticate this reach-back
+	}
 	line, merr := json.Marshal(reqObj)
 	if merr != nil {
 		return nil, merr

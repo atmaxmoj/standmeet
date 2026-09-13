@@ -21,6 +21,7 @@ import (
 // socketEnv —— the host socket path the host injects. Same name across all blocks
 // (see the identically-named constant in booker).
 const socketEnv = "STANDMEET_HOST_SOCKET"
+const nativeKeyEnv = "STANDMEET_NATIVE_KEY"
 
 const instructions = `You can send an email on the owner's behalf through their configured mail ` +
 	`supplier. Use send_email only when the visitor has clearly asked you to email them (or the ` +
@@ -133,6 +134,9 @@ func callHost(reqObj map[string]any) ([]byte, error) {
 		return nil, fmt.Errorf("dial host socket: %w", derr)
 	}
 	defer func() { _ = conn.Close() }()
+	if key := os.Getenv(nativeKeyEnv); key != "" {
+		reqObj["native_key"] = key // rule 4: authenticate this reach-back
+	}
 	line, merr := json.Marshal(reqObj)
 	if merr != nil {
 		return nil, merr

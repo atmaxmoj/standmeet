@@ -21,6 +21,7 @@ import (
 
 // socketEnv —— 宿主注入的 host socket 路径。名字对所有能力都一样(见 booker 的同名常量)。
 const socketEnv = "STANDMEET_HOST_SOCKET"
+const nativeKeyEnv = "STANDMEET_NATIVE_KEY"
 
 func main() {
 	srv := server.NewMCPServer("summarize", "1.0.0",
@@ -159,6 +160,9 @@ func callHost(reqObj map[string]any) ([]byte, error) {
 		return nil, fmt.Errorf("dial host socket: %w", derr)
 	}
 	defer func() { _ = conn.Close() }()
+	if key := os.Getenv(nativeKeyEnv); key != "" {
+		reqObj["native_key"] = key // rule 4: authenticate this reach-back
+	}
 	line, merr := json.Marshal(reqObj)
 	if merr != nil {
 		return nil, merr
