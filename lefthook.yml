@@ -7,7 +7,11 @@
 #   pre-commit — PARTITIONED BY SUBPROJECT (one glob-gated block per container: backend / app / sdk /
 #     e2e / im-bridge). A block runs only when this commit touches that subproject, so a commit pays
 #     only for what it changed (change e2e specs → only e2e-lint). secrets + env-lint are cross-cutting
-#     and always run (cheap, and guard an irreversible leak / a silent deploy drift). Fast.
+#     and always run (cheap, and guard an irreversible leak / a silent deploy drift). And backend is
+#     STAGED-ONLY: golangci runs on just the staged files' packages (seconds), not the whole module —
+#     the whole-module golangci + arch + build + ~25 guards (~230s) is too slow to pay per commit and
+#     belongs on pre-push. The commit gate still exists (a commit is not nothing), it is just scoped
+#     to what this commit changed; pre-push is the unscoped real gate. Fast.
 #
 #   pre-push — the WHOLE thing, GLOBALLY, unscoped: the full aggregate `make lint` across every
 #     subproject PLUS im-bridge's vitest. This is the last line before code leaves the machine; CI /
@@ -22,10 +26,12 @@ pre-commit:
       run: infra/scripts/check-secrets.sh
     env-lint:
       run: make env-lint
-    # one block per subproject — runs only when this commit touches it
+    # one block per subproject — runs only when this commit touches it.
+    # backend is STAGED-ONLY: golangci on the staged files' packages (fast). The whole-module chain
+    # (all packages + arch + build + guards + backend-no-mock) runs unscoped on pre-push.
     backend:
-      glob: "backend/**"
-      run: make backend-lint backend-no-mock
+      glob: "backend/**/*.go"
+      run: bash infra/scripts/lint-go-staged.sh {staged_files}
     app:
       glob: "app/**"
       run: make app-lint
