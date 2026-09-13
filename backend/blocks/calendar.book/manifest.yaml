@@ -122,13 +122,16 @@ owner_tools:
 config:
   - key: working_hours_start
     label: Working hours start
+    # A string/time default is a BARE value in the manifest (defaultOf JSON-quotes it on read).
+    # It used to be written as a JSON literal ('"09:00"'); once defaultOf started quoting, that
+    # double-quoted to "\"09:00\"", which parseHHMM couldn't read → every booking failed policy.
     type: time
-    default: '"09:00"'
+    default: "09:00"
     description: Earliest time of day a visitor may book.
   - key: working_hours_end
     label: Working hours end
     type: time
-    default: '"18:00"'
+    default: "18:00"
     description: Latest time of day a visitor may book.
   - key: allowed_weekdays
     label: Bookable weekdays
