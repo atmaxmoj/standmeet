@@ -36,7 +36,7 @@ import "context"
 // everything the role allows.
 type BundleGate func(
 	ctx context.Context, ownerID, codeID string,
-) (members map[string]bool, bound bool)
+) (members map[string]bool, bundleID string, bound bool)
 
 // SetBundleGate — composition root injects the bundle resolver.
 func (r *Registry) SetBundleGate(g BundleGate) {
@@ -70,8 +70,29 @@ func (r *Registry) bundleMembers(
 	if gate == nil {
 		return map[string]bool{}, false
 	}
-	in.bundleMembers, in.bundleBound = gate(ctx, in.OwnerID, in.Subject.ID)
+	in.bundleMembers, in.bundleID, in.bundleBound = gate(ctx, in.OwnerID, in.Subject.ID)
 	return in.bundleMembers, in.bundleBound
+}
+
+// FiberID — the composition identity this session's block storage is keyed by (rule 3, "one
+// schema per bundle/fiber"). The code's bundle when it carries one, else a per-owner root
+// sentinel so no-bundle sessions stay unified per owner (and are no longer the cross-owner
+// shared bucket that mcp_<block> was).
+//
+// Reads the cached bundle fields, resolved earlier in the same assembly by the exposure walk
+// (bundleMembers) — the same fields BundleGrants reads. Not yet resolved (a path that never
+// gates on a bundle) → the safe unbundled default, root_<owner>. Never returns empty.
+func (in *AssembleInput) FiberID() string {
+	if in == nil {
+		return "root"
+	}
+	if in.bundleBound && in.bundleID != "" {
+		return "b_" + in.bundleID
+	}
+	if in.OwnerID == "" {
+		return "root"
+	}
+	return "root_" + in.OwnerID
 }
 
 // bundleGateFor — the gate to ask, or nil when this assembly has no bundle to read.

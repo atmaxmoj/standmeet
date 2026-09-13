@@ -22,6 +22,10 @@ func sessionMetaFor(m *plugin.Manifest, in *registry.AssembleInput) *mcpclient.S
 	}
 	return &mcpclient.SessionContext{
 		OwnerID: in.OwnerID,
+		// FiberID —— the composition this session runs as; a storing block's host op keys its
+		// schema by it (rule 3). Derived from the session's bundle, resolved earlier in this
+		// assembly; a no-bundle session gets a per-owner root sentinel.
+		FiberID: in.FiberID(),
 		// The subject is passed across the boundary whole (kind + id). The plugin records
 		// it into whatever row it writes, and the host counts usage against that — if only
 		// id were passed, two different paths' subjects would look identical in the same

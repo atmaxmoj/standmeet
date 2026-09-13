@@ -170,6 +170,9 @@ type Subject struct {
 // session context.
 type SessionContext struct {
 	OwnerID string
+	// FiberID —— the composition this session runs as; a storing block's schema is keyed by it
+	// (rule 3). Host-derived, trusted like OwnerID (see docs/design/plugin/per-fiber-schema.md).
+	FiberID string
 	// Subject —— whose identity this session runs as (an access code / an outbound
 	// key). Plugins record it into the rows they write, and the host counts usage
 	// against it. This used to be called CodeID, so rows written on the key path had
@@ -206,6 +209,8 @@ func (s *SessionContext) meta() map[string]any {
 	}
 	return map[string]any{"standmeet/session": map[string]any{
 		"owner_id": s.OwnerID,
+		"fiber_id": s.FiberID, // the composition; a storing block's host op keys its schema by it
+
 		// subject_kind / subject_id —— the subject crosses the boundary as a whole
 		// pair. **No longer sends `code_id`**: keeping it around would be a second
 		// copy of the same fact, and a second copy sooner or later says something

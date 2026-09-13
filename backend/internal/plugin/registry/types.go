@@ -62,8 +62,11 @@ type AssembleInput struct {
 	// assembly and cached here (bundle_gate.go). Unexported: this is scratch space for
 	// one walk, not something a caller fills in. Read through BundleGrants.
 	bundleMembers map[string]bool
-	OwnerID       string
-	Mode          string
+	// bundleID —— the code's bundle id, resolved alongside bundleMembers (bundle_gate.go) and
+	// cached here. Read through FiberID, which keys per-fiber block storage by it.
+	bundleID string
+	OwnerID  string
+	Mode     string
 	// Subject —— **whose identity** this session runs as. Every "N times per
 	// subject" rule (block quota) hangs off this. This field used to hold
 	// only `CodeID`, so the external API-key path had no subject to count

@@ -24,23 +24,23 @@ import (
 // visitor holding a recruiter code reading whatever the role happened to allow.
 func BundleGate(d *deps.Runtime) {
 	d.AgentSkills.SetBundleGate(
-		func(ctx context.Context, ownerID, codeID string) (map[string]bool, bool) {
+		func(ctx context.Context, ownerID, codeID string) (map[string]bool, string, bool) {
 			bundleID, err := d.CodeRepo.BundleID(ctx, ownerID, codeID)
 			if err != nil {
 				d.Log.Warn("bundle gate: resolve code bundle",
 					"err", err, "code", codeID)
-				return map[string]bool{}, true
+				return map[string]bool{}, "", true
 			}
 			if bundleID == "" {
 				// This code carries no bundle: the role ACL answers, exactly as before.
-				return nil, false
+				return nil, "", false
 			}
 			members, merr := d.Assembly.Members(ctx, bundleID)
 			if merr != nil {
 				d.Log.Warn("bundle gate: read members", "err", merr, "bundle", bundleID)
-				return map[string]bool{}, true
+				return map[string]bool{}, bundleID, true
 			}
-			return asSet(members), true
+			return asSet(members), bundleID, true
 		})
 }
 
