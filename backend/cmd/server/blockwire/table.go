@@ -17,10 +17,10 @@ import (
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
-	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 	"github.com/atmaxmoj/standmeet/internal/plugin/assembly"
 	"github.com/atmaxmoj/standmeet/internal/plugin/blockstore"
+	"github.com/atmaxmoj/standmeet/internal/plugin/blockwarn"
 	"github.com/atmaxmoj/standmeet/internal/plugin/credentials"
 	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
 )
@@ -41,13 +41,15 @@ type blockOps struct {
 	suppliers *credentials.Repo
 	assembly  *assembly.Repo
 	store     *blockstore.Store
+	warn      *blockwarn.Store
 }
 
 func newBlockOps(d *deps.Runtime) blockOps {
+	store := blockstore.New(d.DB)
 	return blockOps{
 		registry: d.AgentSkills, settings: d.BlockEnableRepo,
 		skills: d.SkillRepo, suppliers: d.Credentials,
-		assembly: d.Assembly, store: blockstore.New(d.DB),
+		assembly: d.Assembly, store: store, warn: blockwarn.New(store),
 	}
 }
 
@@ -85,46 +87,6 @@ func (a blockOps) SetEnabled(ctx context.Context, ownerID, id string, enabled bo
 	}
 	if _, err := a.skills.SetEnabled(ctx, ownerID, id, enabled); err != nil {
 		return fmt.Errorf("set skill enabled: %w", err)
-	}
-	return nil
-}
-
-// Delete — only an owner-authored skill can be deleted. Registry blocks
-// (builtin/managed) and supplier rows are both rejected.
-func (a blockOps) Delete(ctx context.Context, ownerID, id string) error {
-	// A block the owner installed is deletable, and deleting it means uninstalling it.
-	//
-	// This branch is why the row's `deletable` and this method can be trusted to agree.
-	// Before owners could install blocks, every registry entry was built in and the two
-	// answers matched by accident: the row said `origin.Deletable()` while this method
-	// refused anything the registry knew. An installed block is origin=owner, so the
-	// panel offered a delete button that always failed — a control that lies.
-	if a.ownerInstalled(id) {
-		return a.uninstall(ctx, ownerID, id)
-	}
-	if !a.deletable(id) {
-		return fp.BadInput("this block is built in and cannot be deleted")
-	}
-	if err := a.skills.Delete(ctx, ownerID, id); err != nil {
-		return fmt.Errorf("delete owner skill: %w", err)
-	}
-	return nil
-}
-
-// uninstall — remove an owner-installed block: drop its schema, then delete the row.
-//
-// The schema name is recomputed from the durable binding (the block id), not held in
-// memory — a remount would find the same id → same schema (design rule "persistence").
-// Drop first so a failed drop leaves the row installed and the uninstall retriable; the
-// drop is idempotent (DROP SCHEMA IF EXISTS), so a block that had no schema is a no-op.
-// This closes the orphan-schema leak: Uninstall used to delete only the installed_blocks
-// row (the measured `mcp_acme_widget_zzfixture` leak). See everything-is-a-block.md rule 3.
-func (a blockOps) uninstall(ctx context.Context, ownerID, id string) error {
-	if err := a.store.Drop(ctx, blockstore.KindMCP, id); err != nil {
-		return fmt.Errorf("drop block schema: %w", err)
-	}
-	if err := a.assembly.Uninstall(ctx, ownerID, id); err != nil {
-		return fmt.Errorf("uninstall block: %w", err)
 	}
 	return nil
 }

@@ -130,6 +130,9 @@ func blockModelResources(d *deps.Runtime) []dispatcher.Resource {
 		// subtractive ACL (frontend.md §1, §3).
 		blockwire.BlockResource(d),
 		blockwire.BundleResource(d),
+		// Standing block-lifecycle warnings (data loss on uninstall-with-data). Owner-read only;
+		// the write side is internal to the delete path.
+		blockwire.WarningsResource(d),
 	}
 }
 

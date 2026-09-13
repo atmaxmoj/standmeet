@@ -47,6 +47,10 @@ func (h *Handlers) MountBlocks(r chi.Router) {
 
 	h.mountBlockPanel(r, face)
 
+	// Standing block-lifecycle warnings (e.g. data loss when a block that held data was
+	// uninstalled). A sibling of /blocks, not under it: a warning is not a block.
+	r.Get("/warnings", h.dispatchOp(face, "warnings.list", emptyArgs, jsonOK))
+
 	r.Get("/blocks/{block_id}/config",
 		h.dispatchOp(face, "block_config.get", urlParamArgs("block_id"), jsonOK))
 	r.Patch("/blocks/{block_id}/config",

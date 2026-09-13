@@ -216,6 +216,8 @@ components:
     in: internal/plugin/nativekey                  # the native key: a backend-issued capability credential a fiber uses for privileged reach-back (db bridge / host_ops); self-redacting value type, leaf (no imports)
   credmgr:
     in: internal/plugin/credmgr                    # the credential-manager block: stores a non-native secret (telegram/smtp/api token) AES-GCM-sealed in the db block's storage, keyed by (owner, name); in-process host infra (holds the instance secret)
+  blockwarn:
+    in: internal/plugin/blockwarn                  # persistent owner warnings raised by block lifecycle events (first: data loss on uninstall of a block that held data); ordinary data in the db block's storage, keyed by owner
   retry:
     in: internal/infra/retry                    # #132 generic configurable-retry infra (backoff/cap/retryable/ctx cancel); leaf, supplier call-relaying builds on it
   httpx:
@@ -424,6 +426,13 @@ deps:
     mayDependOn:
       - blockstore
       - cryptobox
+    anyVendorDeps: true
+
+  # blockwarn — persistent owner warnings. Knows only blockstore (where they land, in the db
+  # block's storage); it recognizes no business term beyond a warning's kind + message.
+  blockwarn:
+    mayDependOn:
+      - blockstore
     anyVendorDeps: true
   # hostop — the inbound vocabulary. Leaf: it knows no domain, so a domain can speak through it without
   # importing routes.
@@ -1622,6 +1631,7 @@ deps:
       - owner
       - corpus
       - pgstore
+      - blockwarn         # standing owner warnings (data loss on uninstall-with-data): the delete path raises, the warnings resource reads
     anyVendorDeps: true
 
   cmdwire:
