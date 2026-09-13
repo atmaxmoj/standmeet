@@ -1,4 +1,8 @@
 {
+  "fibers": {
+    "empty": "aucun bloc pour l'instant",
+    "error": "impossible de charger le graphe des blocs"
+  },
   "blocks": {
     "installKicker": "installer",
     "installHeading": "ajouter un bloc",

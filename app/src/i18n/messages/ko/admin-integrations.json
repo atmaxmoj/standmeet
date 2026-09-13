@@ -1,4 +1,8 @@
 {
+  "fibers": {
+    "empty": "아직 블록이 없습니다",
+    "error": "블록 그래프를 불러오지 못했습니다"
+  },
   "blocks": {
     "installKicker": "설치",
     "installHeading": "블록 추가",

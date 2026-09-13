@@ -13,7 +13,7 @@ export type AdminSlug =
   | 'skills' | 'writings' | 'drafts' | 'applications'
   | 'dashboard' | 'sources' | 'listings' | 'system'
   | 'preview' | 'obsidian' | 'embeds' | 'assets' | 'data'
-  | 'roles' | 'prompts' | 'ip-bans' | 'monitor' | 'blocks';
+  | 'roles' | 'prompts' | 'ip-bans' | 'monitor' | 'blocks' | 'fibers';
 
 export type NavGroupID =
   | 'overview' | 'corpus' | 'access' | 'resources' | 'jobs' | 'plugins' | 'integrations' | 'settings';
@@ -77,7 +77,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     // that group them. Its own group, distinct from `integrations` (external supplier connections):
     // a block is a unit the owner composes, a supplier is a third party they connect to.
     id: 'plugins',
-    items: [{ slug: 'blocks' }],
+    items: [{ slug: 'blocks' }, { slug: 'fibers' }],
   },
   {
     id: 'integrations',

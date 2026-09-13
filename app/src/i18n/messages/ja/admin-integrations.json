@@ -1,4 +1,8 @@
 {
+  "fibers": {
+    "empty": "まだブロックがありません",
+    "error": "ブロックグラフを読み込めませんでした"
+  },
   "blocks": {
     "installKicker": "インストール",
     "installHeading": "ブロックを追加",

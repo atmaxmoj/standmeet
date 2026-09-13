@@ -1,4 +1,8 @@
 {
+  "fibers": {
+    "empty": "अभी कोई ब्लॉक नहीं",
+    "error": "ब्लॉक ग्राफ़ लोड नहीं हो सका"
+  },
   "blocks": {
     "installKicker": "इंस्टॉल",
     "installHeading": "एक ब्लॉक जोड़ें",
