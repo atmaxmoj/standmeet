@@ -51,16 +51,12 @@ while IFS= read -r f; do
 	rel="${f#"$BK"/}"
 	echo "$rel" | grep -qE "$ALLOWED" && continue
 	if [ -f "$BASELINE" ] && grep -qxF "$rel" "$BASELINE"; then continue; fi
-	echo "check-register-via-door: WARN — $rel registers a plugin outside the door (internal/routes/blockload). Move it behind the door."
+	echo "check-register-via-door: $rel registers a plugin outside the door (internal/routes/blockload). Move it behind the door."
 	fail=1
 done < <(printf '%s\n' "$hits")
 
-# WRAP-UP TODO: while the everything-is-a-block migration is in flight this guard is WARN (exit 0) so
-# intermediate commits are not blocked. At the final wrap-up, delete this block and restore the
-# hard gate:  [ "$fail" -eq 0 ] || exit 1
-if [ "$fail" -ne 0 ]; then
-	echo "check-register-via-door: (WARN mode — not blocking; flip to error at migration wrap-up)"
-	exit 0
-fi
+# ERROR mode (flipped from WARN at the everything-is-a-block wrap-up): registration outside the door
+# blocks the commit. The baseline above still grandfathers pre-existing call-sites and only shrinks.
+[ "$fail" -eq 0 ] || exit 1
 
 echo "check-register-via-door: plugin registration converges on internal/routes/blockload."

@@ -74,15 +74,12 @@ fi
 fail=0
 while IFS= read -r rel; do
 	[ -n "$rel" ] || continue
-	echo "check-native-key-confined: WARN — $rel unwraps a native key (.Reveal()) outside the auth boundary. Confine it."
+	echo "check-native-key-confined: $rel unwraps a native key (.Reveal()) outside the auth boundary. Confine it."
 	fail=1
 done < <(offenders)
 
-# WRAP-UP TODO: WARN (exit 0) while the everything-is-a-block migration is in flight so intermediate
-# commits are not blocked. At the final wrap-up, delete this block and restore:  [ "$fail" -eq 0 ] || exit 1
-if [ "$fail" -ne 0 ]; then
-	echo "check-native-key-confined: (WARN mode — not blocking; flip to error at migration wrap-up)"
-	exit 0
-fi
+# ERROR mode (flipped from WARN at the everything-is-a-block wrap-up): an unwrap outside the auth
+# boundary blocks the commit. The baseline above still grandfathers pre-existing call-sites.
+[ "$fail" -eq 0 ] || exit 1
 
 echo "check-native-key-confined: native-key unwrap (.Reveal()) stays at the auth boundary (self-test passed)."
