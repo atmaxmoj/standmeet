@@ -9,8 +9,10 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
+	"github.com/atmaxmoj/standmeet/internal/plugin"
 	"github.com/atmaxmoj/standmeet/internal/plugin/blockstore"
 	"github.com/atmaxmoj/standmeet/internal/plugin/blockwarn"
 )
@@ -26,6 +28,16 @@ func (a blockOps) Delete(ctx context.Context, ownerID, id string) error {
 	// refused anything the registry knew. An installed block is origin=owner, so the
 	// panel offered a delete button that always failed — a control that lies.
 	if a.ownerInstalled(id) {
+		// Refuse if a fiber relies on this block: it provides a seam another installed block
+		// requires. Delete drops the schema and the row — irreversible — so a relied-upon block
+		// must not go, or its dependents are left with an unmet dependency and no undo. This is
+		// stronger than the disable toggle's relied-lock (that switch is reversible; this is not).
+		dep := plugin.RequiredBy(currentManifestSet(ctx, a.assembly, ownerID), id)
+		if len(dep) > 0 {
+			return fp.BadInput(fmt.Sprintf(
+				"cannot delete %q: %s relies on it — remove the dependent first",
+				id, strings.Join(dep, ", ")))
+		}
 		return a.uninstall(ctx, ownerID, id)
 	}
 	if !a.deletable(id) {

@@ -11,12 +11,14 @@ package blockwire
 
 import (
 	"context"
+	"log/slog"
 	"strings"
 
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
 
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 	"github.com/atmaxmoj/standmeet/internal/plugin"
+	"github.com/atmaxmoj/standmeet/internal/plugin/assembly"
 )
 
 // refuseIfCycle — BadInput naming the cycle if installing m would create one; nil otherwise.
@@ -32,7 +34,7 @@ func refuseIfCycle(ctx context.Context, d *deps.Runtime, ownerID string, m *plug
 func manifestSetWith(
 	ctx context.Context, d *deps.Runtime, ownerID string, m *plugin.Manifest,
 ) []plugin.Manifest {
-	set := currentManifestSet(ctx, d, ownerID)
+	set := currentManifestSet(ctx, d.Assembly, ownerID)
 	out := make([]plugin.Manifest, 0, len(set)+1)
 	for i := range set {
 		if set[i].ID == m.ID {
@@ -46,11 +48,11 @@ func manifestSetWith(
 // currentManifestSet — builtins + this owner's installed blocks. A stored manifest that no longer
 // parses is skipped, not fatal: one bad prior paste must not break the graph, and it contributes no
 // edges anyway.
-func currentManifestSet(ctx context.Context, d *deps.Runtime, ownerID string) []plugin.Manifest {
+func currentManifestSet(ctx context.Context, asm *assembly.Repo, ownerID string) []plugin.Manifest {
 	out := append([]plugin.Manifest{}, BuiltinManifests()...)
-	rows, err := d.Assembly.ListInstalled(ctx, ownerID)
+	rows, err := asm.ListInstalled(ctx, ownerID)
 	if err != nil {
-		d.Log.Warn("manifest set: list installed failed; builtins only", "err", err)
+		slog.Default().Warn("manifest set: list installed failed; builtins only", "err", err)
 	}
 	for i := range rows {
 		parsed, perr := plugin.ParseManifest([]byte(rows[i].Manifest))

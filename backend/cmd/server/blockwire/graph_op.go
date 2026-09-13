@@ -39,7 +39,7 @@ func blockGraphOp(d *deps.Runtime) fp.Op {
 
 func blockGraph(d *deps.Runtime) fp.Invoke {
 	return func(ctx context.Context, ownerID string, _ json.RawMessage) (json.RawMessage, error) {
-		nodes := plugin.Graph(currentManifestSet(ctx, d, ownerID))
+		nodes := plugin.Graph(currentManifestSet(ctx, d.Assembly, ownerID))
 		out, err := json.Marshal(graphOut{Nodes: nodes})
 		if err != nil {
 			return nil, fmt.Errorf("marshal block graph: %w", err)

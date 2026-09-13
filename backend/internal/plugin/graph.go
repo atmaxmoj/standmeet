@@ -35,6 +35,20 @@ func Graph(manifests []Manifest) []GraphNode {
 	return out
 }
 
+// RequiredBy — the ids of blocks that rely on the block `id` (they require a seam it provides).
+// Empty when `id` provides nothing, nothing needs it, or `id` is not in the set. The delete guard
+// reads this: a block relied upon must not be removed, or its dependents lose the seam they need
+// and there is no undo for a dropped block (everything-is-a-block.md — "relied upon → refuse").
+func RequiredBy(manifests []Manifest, id string) []string {
+	requirers := requirerIndex(manifests)
+	for i := range manifests {
+		if manifests[i].ID == id {
+			return reliedBy(&manifests[i], requirers)
+		}
+	}
+	return []string{}
+}
+
 // requirerIndex — seam → the ids of blocks that require it.
 func requirerIndex(manifests []Manifest) map[string][]string {
 	out := map[string][]string{}

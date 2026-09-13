@@ -66,6 +66,10 @@ test.describe('a relied-upon block cannot be disabled (relied-lock)', () => {
       // The provider's enable toggle is disabled — it cannot be switched off while relied upon.
       await expect(row.getByTestId('block-enabled-toggle')).toBeDisabled();
 
+      // Delete is locked too: dropping a relied-upon block is irreversible (its schema goes), so
+      // the control is disabled rather than offering a delete the backend would refuse (item 32).
+      await expect(row.getByTestId('delete-rlprovider')).toBeDisabled();
+
       await adminPage.screenshot({ path: 'test-results/relied-lock.png', fullPage: true });
     });
 });

@@ -124,7 +124,7 @@ function BlockItem(
         </div>
         <ConfigureBtn row={row} open={configuring} onToggle={() => setConfiguring((v) => !v)} />
         <EnableToggle row={row} hook={hook} reliedBy={reliedBy} />
-        <DeleteBtn row={row} hook={hook} />
+        <DeleteBtn row={row} hook={hook} reliedBy={reliedBy} />
       </div>
       {configuring && <BlockConfigForm id={row.id} onClose={() => setConfiguring(false)} />}
     </li>
@@ -228,18 +228,25 @@ function EnableToggle(
   );
 }
 
-function DeleteBtn({ row, hook }: { row: BlockRow; hook: BlocksHook }) {
+function DeleteBtn(
+  { row, hook, reliedBy }: { row: BlockRow; hook: BlocksHook; reliedBy: readonly string[] },
+) {
   const run = useAction();
   const t = useTranslations('adminIntegrations.common');
   const tc = useTranslations('adminIntegrations.blockPanel');
+  // Locked while something relies on this block: delete drops its schema irreversibly, so a
+  // relied-upon block must not be removable (the backend refuses it too — this keeps the control
+  // from lying). The reason is already shown by ReliedLock, so the title carries it here.
+  const relied = reliedBy.length > 0;
   return row.deletable
     ? (
       <button
         type="button"
         data-testid={`delete-${row.id}`}
-        title={tc('removeTitle')}
+        disabled={relied}
+        title={relied ? tc('reliedLock', { who: reliedBy.join(', ') }) : tc('removeTitle')}
         onClick={() => { void run(() => hook.remove(row.id), { success: tc('removedToast') }); }}
-        className="w-6 shrink-0 text-(--color-muted) hover:text-(--color-accent) transition-colors"
+        className="w-6 shrink-0 text-(--color-muted) hover:text-(--color-accent) transition-colors disabled:opacity-40 disabled:hover:text-(--color-muted)"
       >
         {t('close')}
       </button>

@@ -59,3 +59,19 @@ func TestGraph_NoRequiresIsEmptyNotNil(t *testing.T) {
 	requireEmpty(t, "solo.Requires", n.Requires)
 	requireEmpty(t, "solo.RequiredBy", n.RequiredBy)
 }
+
+func TestRequiredBy(t *testing.T) {
+	t.Parallel()
+	set := []plugin.Manifest{
+		mani("provider", "seam"),
+		mani("consumer", "app", "seam"),
+		mani("leaf", ""),
+	}
+	// the provider is relied upon by the consumer, and named.
+	requireHas(t, "RequiredBy(provider)", plugin.RequiredBy(set, "provider"), "consumer")
+	// a leaf nothing needs, and a provider-less block, are relied upon by no one.
+	requireEmpty(t, "RequiredBy(consumer)", plugin.RequiredBy(set, "consumer"))
+	requireEmpty(t, "RequiredBy(leaf)", plugin.RequiredBy(set, "leaf"))
+	// an id not in the set is empty, never nil.
+	requireEmpty(t, "RequiredBy(absent)", plugin.RequiredBy(set, "absent"))
+}
