@@ -17,6 +17,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/infra/mcpclient"
 	"github.com/atmaxmoj/standmeet/internal/plugin"
+	"github.com/atmaxmoj/standmeet/internal/plugin/nativekey"
 	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
 )
 
@@ -150,9 +151,21 @@ func (c *mcpAppFiber) VisitorBinding(
 	return &registry.Binding{
 		Tools:     wrapMCPAppTools(ctx, &c.m, ds.sess, ds.tools, sessionMetaFor(&c.m, in)),
 		State:     c.stateFor(ctx, in),
-		Close:     ds.sess.Close,
+		Close:     closeAndRevoke(ds.sess, ds.nativeKey),
 		ClaimGate: claimGateOf(&c.m),
 	}, nil
+}
+
+// closeAndRevoke —— close the dialed session and retire its per-mount native key. The key is a
+// per-dial access token; when this binding closes the fiber is done reaching back, so the key must
+// not resolve any longer (rule 4: minted at mount, revoked at unmount).
+func closeAndRevoke(sess *mcpclient.Session, key nativekey.Key) func() {
+	return func() {
+		if key != "" && nativeKeyIssuer != nil {
+			nativeKeyIssuer.Revoke(key)
+		}
+		sess.Close()
+	}
 }
 
 // dialWithCachedSpecs —— dial once; if the tool specs are already cached, skip ListTools.
@@ -170,15 +183,41 @@ func (c *mcpAppFiber) dialWithCachedSpecs(
 	ctx context.Context, in *registry.AssembleInput,
 ) (*dialedApp, error) {
 	workspace := provisionWorkspaceFor(&c.m, in.ConversationID)
+	// Mint this dial's native key bound to the fiber and dial a copy of the manifest carrying it
+	// in this sandbox's env (rule 4). dm is a copy so the per-dial secret never touches the shared
+	// manifest; key is revoked on Close (or here if the dial fails).
+	dm, key := withNativeKey(&c.m, in.FiberID())
 	if cached, known := c.knownToolSpecs(); known {
-		return dialOnly(ctx, &c.m, workspace, c.dialErrLog, cached)
+		return finishDial(dialOnly(ctx, &dm, workspace, c.dialErrLog, cached))(key)
 	}
-	ds, derr := dialAndList(ctx, &c.m, workspace, c.dialErrLog)
+	ds, derr := dialAndList(ctx, &dm, workspace, c.dialErrLog)
 	if derr != nil {
+		revokeIfUnclosed(key)
 		return nil, derr
 	}
 	ds.tools = c.cachedToolSpecs(ds.tools)
+	ds.nativeKey = key
 	return ds, nil
+}
+
+// finishDial —— attach the minted key to a successful dial, or revoke it if the dial failed (no
+// Close will run to revoke it). Curried so it composes with a `(ds, err)` dial result.
+func finishDial(ds *dialedApp, derr error) func(nativekey.Key) (*dialedApp, error) {
+	return func(key nativekey.Key) (*dialedApp, error) {
+		if derr != nil {
+			revokeIfUnclosed(key)
+			return nil, derr
+		}
+		ds.nativeKey = key
+		return ds, nil
+	}
+}
+
+// revokeIfUnclosed —— retire a minted key when no session Close will (dial/mint failure paths).
+func revokeIfUnclosed(key nativekey.Key) {
+	if key != "" && nativeKeyIssuer != nil {
+		nativeKeyIssuer.Revoke(key)
+	}
 }
 
 // cachedToolSpecs —— cache the tool specs (including _meta) from the first dial and always
@@ -232,8 +271,9 @@ func (c *mcpAppFiber) stateFor(
 // dialedApp —— dialAndList's result (the session + its tool list), bundled into a single
 // return value (revive function-result-limit ≤ 2).
 type dialedApp struct {
-	sess  *mcpclient.Session
-	tools []mcpclient.Tool
+	sess      *mcpclient.Session
+	nativeKey nativekey.Key // this dial's per-mount native key; revoked when the binding closes
+	tools     []mcpclient.Tool
 }
 
 // dialAndList —— dial the transport + ListTools. Dial / list failure / empty tool list all

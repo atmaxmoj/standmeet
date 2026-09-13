@@ -127,6 +127,11 @@ func parseAndValidate(raw []byte, dir string) (Manifest, error) {
 // a path. A declaration now only says *which ops it needs*.
 const HostSocketEnv = "STANDMEET_HOST_SOCKET"
 
+// NativeKeyEnv — the env var the host puts a block's per-mount native key in (rule 4: a keyed
+// reach-back). Minted at dial bound to the fiber, delivered only into this sandbox's env, revoked
+// at unmount; the block presents it on each reach-back and the socket dispatch resolves it.
+const NativeKeyEnv = "STANDMEET_NATIVE_KEY"
+
 // injectHostSocket — a block that ordered host ops is told where its socket is.
 //
 // The manifest never writes a path: `host_ops` is the whole declaration, and the

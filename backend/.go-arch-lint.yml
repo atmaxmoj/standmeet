@@ -553,6 +553,7 @@ deps:
       - conversation
       - access
       - marketplace
+      - nativekey
       # hostop — mount derives this block's socket path by the same rule (the manifest only says
       # which ops it needs, never a path).
       - hostop

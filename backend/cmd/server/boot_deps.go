@@ -33,6 +33,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/plugin/blockstore"
 	"github.com/atmaxmoj/standmeet/internal/plugin/credentials"
 	"github.com/atmaxmoj/standmeet/internal/plugin/credmgr"
+	"github.com/atmaxmoj/standmeet/internal/plugin/nativekey"
 	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
 	security "github.com/atmaxmoj/standmeet/internal/security/facade"
@@ -187,6 +188,9 @@ func assembleRuntimeDeps(
 		MicrositeDocs: newMicrositeDocStore(blockstore.New(c.db)),
 		SearchClient:  searchClient,
 		CorpusIndexer: corpusIndexer,
+		// NativeKeys — one issuer for the instance; mount mints per-dial keys off it, the
+		// reach-back dispatch resolves them (rule 4: the reach-back is a keyed channel).
+		NativeKeys: nativekey.NewIssuer(),
 	}
 	setRuntimeRepos(&rt, repos)
 	return rt

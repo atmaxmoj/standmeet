@@ -10,6 +10,7 @@ import (
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
 	"github.com/atmaxmoj/standmeet/cmd/server/port"
 	"github.com/atmaxmoj/standmeet/cmd/server/wire"
+	"github.com/atmaxmoj/standmeet/internal/plugin/mount"
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
@@ -160,6 +161,9 @@ func buildDiagSessionDeps(d *deps.Runtime) sysroutes.DiagSessionDeps {
 // the block closures hold these deps unchanged for the rest of the server's run.
 func registerAgentSkills(ctx context.Context, d *deps.Runtime) {
 	blockwire.SandboxWorkspaces(d)
+	// The native-key issuer feeds mount: each sandboxed reach-back block gets a per-mount key in
+	// its env, resolved back at the socket dispatch (rule 4). Injected before any block mounts.
+	mount.SetNativeKeyIssuer(d.NativeKeys)
 	// The seam-name dependency registry is built and set in one place: the ext-mcp
 	// dep-grant gate (a tool's _meta.requires passes on grant+connected) and
 	// registerDiscoveredPlugins's Requires check share this same instance.

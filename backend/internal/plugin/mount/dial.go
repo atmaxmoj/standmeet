@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 
 	"github.com/mark3labs/mcp-go/server"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/mcpclient"
 	"github.com/atmaxmoj/standmeet/internal/infra/sandbox"
 	"github.com/atmaxmoj/standmeet/internal/plugin"
+	"github.com/atmaxmoj/standmeet/internal/plugin/nativekey"
 )
 
 // transportDialers —— one dialer per transport kind; dialMCPApp dispatches via this table.
@@ -140,6 +142,52 @@ func hostSocketsFor(m *plugin.Manifest) []string {
 		return []string{}
 	}
 	return []string{hostop.SocketPath(m.ID)}
+}
+
+// nativeKeyIssuer —— injected by the composition root; mints/revokes the per-mount native key a
+// sandboxed block presents on its reach-back (rule 4). nil = not configured (eval), so no key is
+// minted and the reach-back is unauthenticated (still socket-confined) — enforcement flips on once
+// every block presents its key.
+var nativeKeyIssuer *nativekey.Issuer
+
+// SetNativeKeyIssuer —— composition root injects the issuer.
+func SetNativeKeyIssuer(i *nativekey.Issuer) { nativeKeyIssuer = i }
+
+// withNativeKey —— for a sandboxed block that reaches back (declares host ops), mint a native key
+// bound to fiberID and return a COPY of the manifest carrying it in this dial's env, plus the key
+// (the caller revokes it when the dial closes). No issuer / not a reach-back block → the manifest
+// unchanged and an empty key. The manifest is copied (its Env cloned) so the per-dial secret never
+// lands on the shared manifest — two sessions of one block get two keys.
+func withNativeKey(m *plugin.Manifest, fiberID string) (plugin.Manifest, nativekey.Key) {
+	if !reachBackKeyWanted(m) {
+		return *m, ""
+	}
+	k, err := nativeKeyIssuer.Issue(fiberID)
+	if err != nil {
+		return *m, "" // mint failed → dial without a key; the reach-back stays socket-confined
+	}
+	dialed := *m
+	// Reveal() here is the delivery into the block's own confined sandbox env — the one place the
+	// value leaves the type. check-native-key-confined allowlists this caller.
+	dialed.Transport.Env = clonedEnvWith(m.Transport.Env, plugin.NativeKeyEnv, k.Reveal())
+	return dialed, k
+}
+
+// reachBackKeyWanted —— a block gets a native key only if an issuer is configured and it declares
+// host ops (it reaches back). A non-reach-back or third-party block gets none.
+func reachBackKeyWanted(m *plugin.Manifest) bool {
+	s := m.Transport.Sandbox
+	return nativeKeyIssuer != nil && s != nil && len(s.HostOps) > 0
+}
+
+// clonedEnvWith —— a copy of env with one key set (never mutates the caller's map).
+func clonedEnvWith(env map[string]string, key, val string) map[string]string {
+	out := maps.Clone(env)
+	if out == nil {
+		out = map[string]string{}
+	}
+	out[key] = val
+	return out
 }
 
 // workspaceProvisioner —— the per-session workspace allocator injected by the composition

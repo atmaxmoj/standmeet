@@ -30,6 +30,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/plugin/assembly"
 	"github.com/atmaxmoj/standmeet/internal/plugin/blockstore"
 	"github.com/atmaxmoj/standmeet/internal/plugin/credentials"
+	"github.com/atmaxmoj/standmeet/internal/plugin/nativekey"
 	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
@@ -101,7 +102,11 @@ type Runtime struct {
 	// Held next to the dispatcher because the two are one mechanism split by direction:
 	// boot writes into this table, and every call reads through the dispatcher's lookup
 	// into it. It used to be a registry type in a package of its own.
-	BlockSuppliers    *adapters.Suppliers
+	BlockSuppliers *adapters.Suppliers
+	// NativeKeys — mints/resolves the per-mount native key a sandboxed block presents on its
+	// reach-back (rule 4: the reach-back is a keyed channel). Minted bound to the fiber at dial,
+	// revoked at unmount; the socket dispatch resolves a presented key back to its fiber.
+	NativeKeys        *nativekey.Issuer
 	VaultSyncRepo     *corpus.VaultSyncRepo
 	StorageClient     *storage.Client
 	JobCachePool      *jobcache.Pool

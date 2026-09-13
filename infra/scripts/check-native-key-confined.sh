@@ -32,9 +32,11 @@ if [ "$scanned" -lt 100 ]; then
 	exit 2
 fi
 
-# ALLOWED —— packages that may unwrap a native key (the reach-back auth boundary). The db bridge and
-# host-socket auth land here as they are built; add their path when they do.
-ALLOWED='^internal/plugin/nativekey/'
+# ALLOWED —— the reach-back auth boundary: the only places that may unwrap a native key. Two halves:
+# the issuer itself, and the mint→deliver point that hands the freshly-issued key into the block's
+# own confined sandbox env (mount/dial.go). The db bridge / host-socket verify land here as built.
+# This is the auth boundary's definition, not a debt carve-out — Reveal() is legitimate only here.
+ALLOWED='^internal/plugin/nativekey/|^internal/plugin/mount/dial\.go$'
 IMPORT='atmaxmoj/standmeet/internal/plugin/nativekey'
 
 # offenders —— files that import nativekey AND call .Reveal(, outside ALLOWED, not baselined.
