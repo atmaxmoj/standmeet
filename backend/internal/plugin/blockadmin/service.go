@@ -124,7 +124,11 @@ func (s *Service) Connect(ctx context.Context, ownerID, id string) (ConnectResul
 	if merr != nil {
 		return ConnectResult{}, merr
 	}
-	if m.Kind == "protocol" { // caldav/smtp, no spec: connect = connection test, no dance
+	// No spec → no OAuth dance: a protocol supplier (caldav/smtp) connects via a connection test, a
+	// credential-only supplier (a token holder) has no test at all — connecting just marks it
+	// connected (verifyAndConnect is a no-op with no Verifier, the "no verify step for telegram"
+	// case). Only openapi suppliers parse a spec / run the dance.
+	if specLessKind(m.Kind) {
 		return s.verifyAndConnect(ctx, ownerID, id)
 	}
 	return s.connectOpenAPI(ctx, ownerID, id, m)
@@ -198,6 +202,11 @@ func (s *Service) Status(
 
 // manifestFor — resolve the manifest for an id: built-in (embedded) takes priority, otherwise
 // an uploaded supplier (spec/binding archived in the DB). Neither → ErrNotFound.
+// specLessKind — kinds that legitimately carry no openapi spec: a protocol supplier (smtp/caldav)
+// and a credential-only supplier (a token holder, e.g. telegram). They declare their seam directly
+// and connect without an OAuth dance; only openapi parses a spec.
+func specLessKind(kind string) bool { return kind == "protocol" || kind == "credential" }
+
 func (s *Service) manifestFor(
 	ctx context.Context, ownerID, id string,
 ) (*adapters.Manifest, error) {
@@ -208,9 +217,9 @@ func (s *Service) manifestFor(
 	if err != nil {
 		return nil, fmt.Errorf("load uploaded manifest: %w", err)
 	}
-	// Empty spec and not protocol = not an owner-created supplier (no row / built-in). A
-	// protocol supplier's spec is empty by nature.
-	if len(um.Spec) == 0 && um.Kind != "protocol" {
+	// Empty spec is legitimate only for the spec-less kinds (protocol, credential); any OTHER kind
+	// with an empty spec is not an owner-created supplier (no row / built-in) → ErrNotFound.
+	if len(um.Spec) == 0 && !specLessKind(um.Kind) {
 		return nil, ErrNotFound
 	}
 	return &adapters.Manifest{

@@ -203,6 +203,9 @@ func createByKind(
 	if in.Kind == "protocol" {
 		return ops.svc.CreateProtocol(ctx, ownerID, in.Seam, in.Protocol)
 	}
+	if in.Kind == "credential" {
+		return ops.svc.CreateCredential(ctx, ownerID, in.Seam)
+	}
 	return ops.svc.CreateUploaded(ctx, ownerID, in.uploaded())
 }
 

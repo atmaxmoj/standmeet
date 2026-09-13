@@ -43,14 +43,15 @@ func TestDeriveCredentialForm_CalDAVProtocol(t *testing.T) {
 	require.Subset(t, form.Fields, []string{"url", "username", "password"})
 }
 
-// telegram is a protocol with a single credential (the BotFather token). The field key
-// must be "token" — that's what /internal/im/config reads back for the im-bridge.
-func TestDeriveCredentialForm_TelegramProtocol(t *testing.T) {
+// A credential-only supplier (kind=credential — where telegram lives now, no longer a host
+// protocol) asks for a single opaque secret. The field key must be "token" — that's what
+// /internal/im/config reads back for the im-bridge — and the host names no specific block.
+func TestDeriveCredentialForm_Credential(t *testing.T) {
 	t.Parallel()
 	form, err := credform.DeriveCredentialForm(&credform.Source{
-		ID: "telegram", Kind: "protocol", Protocol: "telegram",
+		ID: "up-telegram", Kind: "credential",
 	})
 	require.NoError(t, err)
-	require.Equal(t, "telegram", form.AuthType)
+	require.Equal(t, "credential", form.AuthType)
 	require.Equal(t, []string{"token"}, form.Fields)
 }

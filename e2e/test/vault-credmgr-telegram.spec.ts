@@ -49,7 +49,7 @@ test.describe('supplier credential stored via credential-manager, not the vault 
     async ({ request }) => {
       const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
       const created = await api(request, csrf, 'post', '/',
-        { kind: 'protocol', protocol: 'telegram', seam: 'im' });
+        { kind: 'credential', seam: 'im' });
       expect(created.status, 'create telegram supplier').toBeLessThan(300);
       const id = created.body['id'] as string;
       expect(id).toBeTruthy();

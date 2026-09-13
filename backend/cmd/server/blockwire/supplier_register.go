@@ -218,7 +218,9 @@ func connectedIDs(conns []credentials.Connection) []string {
 
 // manifestSeam —— openapi's seam comes from the Binding; protocol uses the declared Seam.
 func manifestSeam(m *adapters.Manifest) (string, error) {
-	if m.Kind == "protocol" {
+	// protocol (smtp/caldav) and credential (a token holder, e.g. telegram's `im`) declare their
+	// seam directly — no binding to parse. Only openapi derives its seam from the binding.
+	if m.Kind == "protocol" || m.Kind == "credential" {
 		return m.Seam, nil
 	}
 	if len(m.Binding) == 0 {
@@ -267,16 +269,28 @@ func loadBuiltinSupplierManifests(_ *deps.Runtime) []adapters.Manifest {
 func assembleSupplier(m *adapters.Manifest, d *assembleDeps) (adapters.Supplier, error) {
 	switch m.Kind {
 	case "openapi":
-		c, err := adapters.AssembleOpenAPI(m, d.doer, d.store, d.allow)
-		if err != nil {
-			return nil, fmt.Errorf("assemble openapi supplier: %w", err)
-		}
-		return c, nil
+		return assembleOpenAPISupplier(m, d)
 	case "protocol":
 		return assembleProtocolSupplier(m, d)
+	case "credential":
+		// A credential-only supplier: the owner stores a credential and something else consumes it
+		// out of band (the `im` seam's token, read by im-bridge). No host client, no protocol name;
+		// the manifest declaring `kind: credential` is the whole selection, so the host stays blind
+		// to which block this is. telegram lives here now (it was a `case "telegram"`).
+		return adapters.NewCredentialOnlySupplier(m.ID, d.telegramVault), nil
 	default:
 		return nil, fmt.Errorf("unknown supplier kind %q for %q", m.Kind, m.ID)
 	}
+}
+
+// assembleOpenAPISupplier —— the openapi arm of assembleSupplier, split out so the dispatch
+// switch stays under the complexity limit.
+func assembleOpenAPISupplier(m *adapters.Manifest, d *assembleDeps) (adapters.Supplier, error) {
+	c, err := adapters.AssembleOpenAPI(m, d.doer, d.store, d.allow)
+	if err != nil {
+		return nil, fmt.Errorf("assemble openapi supplier: %w", err)
+	}
+	return c, nil
 }
 
 // assembleProtocolSupplier —— for protocol kind, picks the built-in impl by Protocol.
@@ -288,8 +302,6 @@ func assembleProtocolSupplier(
 		return adapters.NewSMTPSupplier(m.ID, d.smtpVault), nil
 	case "caldav":
 		return adapters.NewCalDAVSupplier(m.ID, d.caldavVault, d.doer), nil
-	case "telegram":
-		return adapters.NewTelegramSupplier(m.ID, d.telegramVault), nil
 	default:
 		return nil, fmt.Errorf("unknown protocol %q for supplier %q", m.Protocol, m.ID)
 	}

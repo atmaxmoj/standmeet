@@ -2,9 +2,13 @@ id: telegram
 title: Telegram
 provides: im
 
+# kind: credential — a credential-only supplier: the owner stores a bot token and this block does
+# nothing itself. No host client, no protocol impl compiled into the host (it used to be
+# transport.kind=protocol + protocol=telegram, picked by a `switch m.Protocol` in the host — the host
+# naming a block, which everything-is-a-block forbids). The token is a non-native secret in the
+# credential store; the im-bridge reads it from GET /internal/im/config and runs the bot.
 transport:
-  kind: protocol
-  protocol: telegram
+  kind: credential
 
 # No owner_ops and no seam contract: a telegram supplier stores a bot token and does
 # nothing itself. The separate im-bridge service reads that token from GET /internal/im/config

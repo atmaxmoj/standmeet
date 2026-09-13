@@ -39,7 +39,7 @@ test.describe('telegram supplier → /internal/im/config', () => {
       //    admin UI's ProtocolSupplierForm drives).
       const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
       const created = await api(request, csrf, 'post', '/',
-        { kind: 'protocol', protocol: 'telegram', seam: 'im' });
+        { kind: 'credential', seam: 'im' });
       expect(created.status, 'create telegram supplier').toBeLessThan(300);
       const id = created.body['id'] as string;
       expect(id, 'create returns a supplier id').toBeTruthy();

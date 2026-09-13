@@ -18,6 +18,10 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/openapi"
 )
 
+// credentialTokenField —— the single field a credential-only supplier asks for: one opaque
+// secret. Read back by its consumer (im-bridge reads `credentials_enc.token`, boot_im.go).
+const credentialTokenField = "token"
+
 // errNoUsableScheme —— the chosen securityScheme has no usable form (no such name / multiple
 // schemes and none picked). An assembled supplier's scheme is always backed by authform, so
 // this error is actually unreachable; kept as an explicit fallback rather than a silent empty
@@ -119,6 +123,14 @@ func DeriveCredentialForm(m *Source) (CredentialForm, error) {
 	if m.Kind == "protocol" {
 		return protocolCredentialForm(m.Protocol)
 	}
+	if m.Kind == "credential" {
+		// A credential-only supplier holds one opaque secret (a bot token, a webhook secret) and
+		// does nothing itself — some other service consumes it (the `im` seam's token, read by
+		// im-bridge). One generic field, and the host names no specific block: this is where the
+		// telegram case used to live (`case "telegram"` → {token}). AuthType "credential" renders
+		// the frontend's generic-field branch, same as the protocol names did.
+		return CredentialForm{AuthType: "credential", Fields: []string{credentialTokenField}}, nil
+	}
 	spec, err := openapi.ParseSpec(m.Spec)
 	if err != nil {
 		return CredentialForm{}, fmt.Errorf(errBlockWrap, m.ID, err)
@@ -157,12 +169,6 @@ func protocolCredentialForm(protocol string) (CredentialForm, error) {
 		return CredentialForm{
 			AuthType: "caldav",
 			Fields:   []string{"url", "username", "password"},
-		}, nil
-	case "telegram":
-		// One field: the BotFather token. The save path parses it as telegramCredJSON{token}.
-		return CredentialForm{
-			AuthType: "telegram",
-			Fields:   []string{"token"},
 		}, nil
 	default:
 		return CredentialForm{}, fmt.Errorf("%w: %q", errUnknownProtocol, protocol)

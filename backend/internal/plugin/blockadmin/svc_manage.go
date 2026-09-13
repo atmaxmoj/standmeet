@@ -144,6 +144,30 @@ func (s *Service) CreateProtocol(
 	return m.ID, nil
 }
 
+// CreateCredential — an owner self-creating a credential-only supplier (a token holder: no spec, no
+// protocol impl). Assemble the generic credential-only supplier + register + persist; credentials
+// is filled in afterward via SaveCredentials, and some other service consumes it (the `im` seam's
+// token, read by im-bridge). Mirrors CreateProtocol, minus the protocol name the host cannot know.
+func (s *Service) CreateCredential(ctx context.Context, ownerID, seam string) (string, error) {
+	id, err := randomState()
+	if err != nil {
+		return "", err
+	}
+	m := &adapters.Manifest{ID: "up-" + id, Kind: "credential", Seam: seam}
+	installed, ierr := s.d.Installer.Install(m)
+	if ierr != nil {
+		return "", fmt.Errorf(wrapSentinel, ErrInvalidManifest, ierr)
+	}
+	if serr := s.d.Repo.SaveUploaded(ctx, &credentials.SaveUploadedInput{
+		OwnerID: ownerID, BlockID: m.ID, Seam: installed, Kind: "credential",
+		// credential-only has no spec/binding, given empty bytea (column is NOT NULL)
+		Spec: []byte{}, Binding: []byte{},
+	}); serr != nil {
+		return "", fmt.Errorf("persist credential supplier: %w", serr)
+	}
+	return m.ID, nil
+}
+
 // UpdateUploaded — edit an already-created uploaded supplier's spec/binding (change auth type,
 // etc.) → reassemble (validate+SSRF) + re-register + persist. A built-in supplier
 // can't be edited (its spec comes from embedded data) → ErrBuiltinReadonly.

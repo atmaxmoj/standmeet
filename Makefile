@@ -400,6 +400,13 @@ dev-rebuild-backend:
 	@docker compose -p $(DEV_PROJECT) -f docker-compose.dev.yml build --no-cache backend
 	@docker compose -p $(DEV_PROJECT) -f docker-compose.dev.yml up -d --no-deps backend
 
+# dev-rebuild-backend-cached —— rebuild + swap the backend using the layer cache (fast). Use after a
+# Go source / manifest / Dockerfile change, reusing go-mod-download + unchanged layers.
+# dev-rebuild-backend (--no-cache) stays for the rare "served a stale binary" case.
+dev-rebuild-backend-cached:
+	@docker compose -p $(DEV_PROJECT) -f docker-compose.dev.yml build backend
+	@docker compose -p $(DEV_PROJECT) -f docker-compose.dev.yml up -d --no-deps backend
+
 # dev-recreate-backend —— recreate the backend container on the EXISTING image, no rebuild. For when
 # the image is already built (a manual build, or a container-name conflict left the service down)
 # and dev-rebuild-backend's --no-cache rebuild would be wasted minutes.
