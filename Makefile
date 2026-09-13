@@ -406,6 +406,14 @@ dev-rebuild-backend:
 dev-recreate-backend:
 	@docker compose -p $(DEV_PROJECT) -f docker-compose.dev.yml up -d --no-deps --no-build backend
 
+# dev-restart-backend —— restart the backend PROCESS on the existing container. `up` won't recreate
+# when only a MOUNTED file changed (dev-plugins.json, mounted plugin code) because the container spec
+# is unchanged, so the running process keeps its boot-time view. A restart re-reads STANDMEET_PLUGINS
+# and re-discovers plugins. Use after editing infra/dev-plugins.json or infra/plugins/<id>/ code.
+dev-restart-backend:
+	@docker compose -p $(DEV_PROJECT) -f docker-compose.dev.yml restart backend
+	@docker compose -p $(DEV_PROJECT) -f docker-compose.dev.yml up -d --no-deps --no-build --wait backend
+
 # dev-rebuild-app —— force a CLEAN app image rebuild + swap (when dev-up cached the .next COPY layer
 # and served a stale UI after a source change). Runs app-build first so .next is current.
 dev-rebuild-app: app-build

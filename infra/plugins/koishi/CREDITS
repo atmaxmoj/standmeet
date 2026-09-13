@@ -1,0 +1,23 @@
+This block wraps third-party code, used unmodified. Credit to its authors:
+
+koishi-plugin-base64
+  Author: windbullet
+  License: MIT
+  https://www.npmjs.com/package/koishi-plugin-base64
+  The base64 encode/decode result surfaced by this block is computed entirely by
+  this plugin. We only translate MCP tool calls into its Koishi command and pass
+  the reply back.
+
+Koishi (koishi core, @koishijs/plugin-mock, @koishijs/plugin-database-memory)
+  https://koishi.chat
+  License: MIT
+  The chatbot framework the plugin runs on. plugin-mock drives the plugin
+  headlessly (no chat platform); plugin-database-memory backs command authority.
+
+Model Context Protocol TypeScript SDK (@modelcontextprotocol/sdk)
+  https://github.com/modelcontextprotocol/typescript-sdk
+  License: MIT
+  Provides the stdio MCP server this wrapper speaks.
+
+Only koishi-mcp.js and package.json in this directory are StandMeet's own code.
+node_modules/ is provisioned by infra/plugins/provision.sh and not committed.

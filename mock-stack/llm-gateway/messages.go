@@ -311,6 +311,7 @@ func (s *server) emitEmptyBudgetStop(sse *sseWriter) {
 var echoToolPrefixes = []string{
 	"skill_", "ext_", // Phase C skills + third-party ext-mcp
 	"everything_", "fsmcp_", "netfetch_", "cagedfetch_", "escapee_", // e2e's real third-party sandboxed plugins
+	"koishi_", // the Koishi POC: a sandboxed third-party plugin — its result must echo so specs see the real value
 }
 
 // shouldEchoResult —— whether this tool result should be echoed into the mock reply

@@ -249,8 +249,13 @@ concrete services (database / bot / http …); our host is Go. Two paths:
   larger, a `koishi-host` adapter block (a Cordis/Node runtime bridging our seams to Koishi services).
   The shared Cordis lineage makes the adapter a translation, not a rewrite.
 
-A working proof-of-concept (a real third-party Koishi plugin as a stdio-MCP block, used by an agent,
-with an e2e) is being built to validate the works-today path; credit the plugin author.
+A working proof-of-concept validates the works-today path: `infra/plugins/koishi` wraps the real
+third-party **`koishi-plugin-base64`** (by **windbullet**, MIT) as a stdio-MCP block. Its wrapper
+(`koishi-mcp.js`) boots Koishi headlessly with `@koishijs/plugin-mock` and exposes the plugin's
+command as an MCP tool; the base64 result a visitor agent gets is computed by the Koishi plugin,
+unmodified. Driven end to end by `e2e/test/koishi-poc.spec.ts` over the same `sandbox_stdio` path as
+any third-party MCP server. Credit: windbullet (koishi-plugin-base64) and the Koishi project
+(koishi.chat) — see `infra/plugins/koishi/CREDITS`.
 
 ## Details still to pin
 

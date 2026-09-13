@@ -77,6 +77,18 @@
         "args": ["/plugin/node_modules/@modelcontextprotocol/server-filesystem/dist/index.js", "/"],
         "sandbox": { "plugin_dir": "/srv/plugins/fsmcp", "allow_net": false }
       }
+    },
+    {
+      "_comment": "koishi —— the Koishi POC (item 28): our stdio-MCP wrapper (koishi-mcp.js) boots Koishi headlessly and exposes the third-party koishi-plugin-base64 (by windbullet, MIT). base64_encode/base64_decode results are computed by the real plugin — a correct result proves a plugin from another ecosystem runs unmodified as a StandMeet block. Pure compute, so allow_net:false. Credit: infra/plugins/koishi/CREDITS.",
+      "id": "koishi",
+      "version": "1",
+      "shape": "visitor_only",
+      "transport": {
+        "kind": "sandbox_stdio",
+        "command": "node",
+        "args": ["/plugin/koishi-mcp.js"],
+        "sandbox": { "plugin_dir": "/srv/plugins/koishi", "allow_net": false }
+      }
     }
   ]
 }

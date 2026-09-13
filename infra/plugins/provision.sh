@@ -53,6 +53,33 @@ install_into() {
   echo "[provision] $plugin <- $pkg"
 }
 
+# install_project_into —— a node MCP server that is OUR OWN wrapper source (committed
+# <plugin>/koishi-mcp.js) plus its npm dependencies declared in <plugin>/package.json.
+# Unlike install_into (one third-party package run directly), here the deps are a set, so
+# we install from the committed package.json. Same temp-dir dance (a bare npm install under
+# infra/ walks up to the pnpm workspace root and dies), same in-bundle spec stamp — here the
+# stamp is a hash of package.json, so an edited dependency set reinstalls.
+install_project_into() {
+  local plugin="$1"
+  local pkgjson="$DIR/$plugin/package.json"
+  local stamp
+  stamp="$(shasum "$pkgjson" | cut -d' ' -f1)"
+  if [ -d "$DIR/$plugin/node_modules" ] \
+      && [ "$(cat "$DIR/$plugin/node_modules/.provision-spec" 2>/dev/null)" = "$stamp" ]; then
+    echo "[provision] $plugin: up to date (package.json $stamp), skip"
+    return
+  fi
+  rm -rf "$DIR/$plugin/node_modules"
+  local tmp
+  tmp="$(mktemp -d)"
+  cp "$pkgjson" "$tmp/package.json"
+  ( cd "$tmp" && npm install --no-audit --no-fund >/dev/null )
+  cp -R "$tmp/node_modules" "$DIR/$plugin/"
+  rm -rf "$tmp"
+  echo "$stamp" > "$DIR/$plugin/node_modules/.provision-spec"
+  echo "[provision] $plugin (node project) <- $pkgjson"
+}
+
 # install_python_into —— Python MCP server. Installed via a one-shot container
 # whose interpreter MATCHES the backend's: python:3.12-ALPINE (musl libc, same as
 # the alpine backend image). A glibc (debian) wheel's native .so (regex._regex,
@@ -94,6 +121,9 @@ build_go_into summarize   "mcp-servers/summarize"  .
 build_go_into booker      "mcp-servers/booker"     .
 build_go_into retrieval   "mcp-servers/retrieval"  .
 build_go_into mail-sender "mcp-servers/mail-sender" .
+# koishi —— our stdio-MCP wrapper (koishi-mcp.js) around the third-party koishi-plugin-base64.
+# Deps declared in infra/plugins/koishi/package.json. The Koishi POC (everything-is-a-block).
+install_project_into koishi
 install_into everything "@modelcontextprotocol/server-everything@2026.1.26"
 install_into fsmcp      "@modelcontextprotocol/server-filesystem@2026.1.14"
 # fetch —— shared by both netfetch (allow_net) and cagedfetch (--network=none);
