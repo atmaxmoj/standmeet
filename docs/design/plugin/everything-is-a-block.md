@@ -82,7 +82,8 @@ has an edge and an error path with a **correct reaction**, never a raw stack tra
 
 **Blocks.**
 - *Create* — built-in (shipped), marketplace (install), or **owner-written** (author a declaration →
-  validate → install). Errors: invalid manifest → rejected with a specific message; duplicate id →
+  validate → install; reuses the existing `installed_blocks` store + install-time validation). Errors:
+  invalid manifest → rejected with a specific message; duplicate id →
   conflict; a declaration whose `requires` nobody provides installs but stays inactive with "needs X".
 - *Read* — list every block with origin, provides/requires, connected/enabled, and whether a fiber
   uses it.
@@ -177,10 +178,10 @@ The admin carries a plugin **nav group** with two views:
   summarize, ask-visitor), not only owner-assembled ones.
 - **Access codes attach fibers.** Which fibers a code admits is which tools its visitors get; the codes
   section wires fibers onto a code.
-- **Microsites attach fibers too.** Like codes. At minimum a microsite attaches the **db fiber** —
-  that is the microsite store (today `blockstore`'s `KindMicrosite`; under this model, the microsite's
-  own db fiber + schema). A microsite may attach other fibers (corpus search, a form handler) to power
-  the page.
+- **Microsites attach fibers too**, via a simple **dropdown of the active fibers** — the owner picks
+  which active fibers the page uses. At minimum a microsite attaches the **db fiber** — that is the
+  microsite store (today `blockstore`'s `KindMicrosite`; under this model, the microsite's own db fiber
+  + schema). Others (corpus search, a form handler) are picked from the same dropdown.
 - **Config GUI is data-driven; custom GUI is an MCP-App card.** Most blocks need no bespoke UI: the
   manifest declares `config` (typed fields — time / int / bool / string_list / text / password /
   scopes) and one generic form (`BlockConfigForm`, "one form, every block") renders it; values live in

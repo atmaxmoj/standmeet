@@ -129,6 +129,29 @@ the *correct* reaction; each error is user-friendly, never a stack trace):
 
 The destructive / edge ops run over the owner MCP too, with the same reactions.
 
+## Adversarial isolation — actively attempt lateral breakout
+
+Every isolation boundary gets an **attacker**, not a happy path. Model on the existing `escapee` /
+`real-third-party-mcp-escape` / `supplier-security` specs. The whole native-key + per-schema + sandbox
+design exists to pass these, so each must actively try to break it (RED-first: show the boundary would
+leak without the guard, then that it holds).
+
+41. **db, cross-schema (RED-first).** A fiber actively tries to reach another fiber's schema — a query
+    naming `other_schema.table`, `SET search_path`, enumerating `information_schema` / `pg_catalog` for
+    other schemas, `DROP`ing a schema it did not open, guessing or forging a schema name. All refused;
+    the native key + per-schema grant confine it to its own. RED: without confinement the cross-schema
+    read returns rows.
+42. **native key, theft / misuse (RED-first).** A fiber tries to obtain another fiber's native key
+    (no get-by-id; the name is not computable), reuse a post-unmount key (revoked), or present another
+    fiber's identity. All refused.
+43. **sandbox escape (adversarial).** A sandboxed block actively attempts known breakout vectors — host
+    config, `docker.sock`, path traversal outside its mounts, spawning, reaching the host beyond its
+    declared `host_ops`. All unreachable (bwrap). Mirrors `real-third-party-mcp-escape` / `escapee`.
+44. **cross-block socket.** A block tries to dial another block's reach-back socket (the path is
+    host-derived from the trusted id; a block cannot name another's). Refused.
+45. **egress / SSRF.** A supplier block tries to reach an internal host not in `SUPPLIER_EGRESS_ALLOW`
+    (127.0.0.1, the LAN, a cloud metadata endpoint). Blocked.
+
 ## Koishi POC (validate the works-today piggyback)
 
 28. **A real third-party Koishi plugin, used by an agent, for real.** Wrap a real `koishi-plugin-*` as
