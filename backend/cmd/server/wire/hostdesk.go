@@ -22,7 +22,9 @@ import (
 
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
+	"github.com/atmaxmoj/standmeet/internal/infra/hostsocket"
 	"github.com/atmaxmoj/standmeet/internal/plugin"
+	"github.com/atmaxmoj/standmeet/internal/plugin/nativekey"
 	"github.com/atmaxmoj/standmeet/internal/routes/hostdesk"
 )
 
@@ -65,12 +67,24 @@ func serveHostOps(
 			m.ID, len(want), plugin.HostSocketEnv))
 	}
 	per := blockwire.PerBlockDeps(d, m)
-	srv, serr := hostdesk.Serve(ctx, d.Log, m.ID, want, hostdesk.Collect(shared, per))
+	srv, serr := hostdesk.ServeAt(ctx, d.Log, &hostdesk.ServeInput{
+		PluginID: m.ID, Want: want, All: hostdesk.Collect(shared, per),
+		SockPath: hostdesk.SocketPath(m.ID), Verify: nativeKeyVerify(d),
+	})
 	if serr != nil {
 		// Declaring an op the host doesn't provide = the manifest is lying; crash at startup.
 		panic(serr)
 	}
 	_ = srv
+}
+
+// nativeKeyVerify — a block socket's reach-back auth check: resolve the presented native key to its
+// fiber via the instance issuer (rule 4). nil issuer → nil verifier (no check).
+func nativeKeyVerify(d *deps.Runtime) hostsocket.KeyVerifier {
+	if d.NativeKeys == nil {
+		return nil
+	}
+	return func(k string) (string, bool) { return d.NativeKeys.Resolve(nativekey.Key(k)) }
 }
 
 // sharedHostDeps — the handful of things that don't depend on the block (corpus,

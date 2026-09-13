@@ -34,7 +34,8 @@ func StartRetrievalSocket(ctx context.Context, d Driver, sockPath string) (func(
 	for i := range ops {
 		handlers[ops[i].Name] = hostsocket.Handler(ops[i].Invoke)
 	}
-	srv, err := hostsocket.ListenWith(ctx, sockPath, handlers, slog.Default())
+	// eval's mini-host does not issue native keys; no reach-back verification here.
+	srv, err := hostsocket.ListenWith(ctx, sockPath, handlers, nil, slog.Default())
 	if err != nil {
 		return nil, fmt.Errorf("retrieval socket listen: %w", err)
 	}

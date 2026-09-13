@@ -416,6 +416,10 @@ linters:
       # time logic worth white-box unit-testing; exempt testpackage as above.
       - path: internal/stats/ops/
         linters: [testpackage]
+      # hostsocket's dispatch + checkKey (native-key reach-back verification, rule 4) is unexported
+      # and worth white-box unit-testing directly; exempt testpackage as above.
+      - path: internal/infra/hostsocket/
+        linters: [testpackage]
       # (The dockerstat unsecure-url-scheme exemption is gone with its subject: that reader
       # talked to the Docker Engine API over a unix socket, and selfstat replaced it with a
       # cgroup read that makes no HTTP request at all. An exemption whose code no longer

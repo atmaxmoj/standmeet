@@ -42,12 +42,18 @@ const (
 // so handlers — which live next to their usecase deps — stay typed.
 type Handler func(ctx context.Context, req json.RawMessage) (json.RawMessage, error)
 
+// KeyVerifier —— resolves a presented native key to its owning fiber (rule 4). Injected (not
+// imported) so this leaf transport never depends on the nativekey package; nil = no verification
+// (eval / not configured). Returns ("", false) for a forged or stale key.
+type KeyVerifier func(nativeKey string) (fiberID string, ok bool)
+
 // Server —— a unix-socket listener dispatching line-delimited JSON requests to
 // per-op handlers. One Server per builtin socket.
 type Server struct {
 	ln       net.Listener
 	log      *slog.Logger
 	handlers map[string]Handler
+	verify   KeyVerifier
 	path     string
 }
 
@@ -60,7 +66,7 @@ type Server struct {
 // enumerate what a sandbox may call. The vocabulary now lives in one place
 // (internal/routes/hostdesk); this constructor only serves what that place handed over.
 func ListenWith(
-	ctx context.Context, path string, ops map[string]Handler, log *slog.Logger,
+	ctx context.Context, path string, ops map[string]Handler, verify KeyVerifier, log *slog.Logger,
 ) (*Server, error) {
 	if err := clearStale(path); err != nil {
 		return nil, err
@@ -77,7 +83,7 @@ func ListenWith(
 	// the set already serving.
 	handlers := make(map[string]Handler, len(ops))
 	maps.Copy(handlers, ops)
-	return &Server{ln: ln, log: log, handlers: handlers, path: path}, nil
+	return &Server{ln: ln, log: log, handlers: handlers, verify: verify, path: path}, nil
 }
 
 func clearStale(path string) error {
@@ -139,6 +145,9 @@ func (s *Server) handleConn(ctx context.Context, conn net.Conn) {
 
 type opEnvelope struct {
 	Op string `json:"op"`
+	// NativeKey —— the per-mount native key the block presents to authenticate its reach-back
+	// (rule 4). The host delivered it into the block's sandbox env; the block echoes it here.
+	NativeKey string `json:"native_key"`
 }
 
 // dispatch —— route one request to its handler; unknown op or handler error
@@ -147,6 +156,9 @@ func (s *Server) dispatch(ctx context.Context, raw []byte) json.RawMessage {
 	var env opEnvelope
 	if err := json.Unmarshal(raw, &env); err != nil {
 		return errResp("bad request: " + err.Error())
+	}
+	if kerr := s.checkKey(env.NativeKey); kerr != nil {
+		return errResp(kerr.Error())
 	}
 	h, ok := s.handlers[env.Op]
 	if !ok {
@@ -162,6 +174,23 @@ func (s *Server) dispatch(ctx context.Context, raw []byte) json.RawMessage {
 		return faultResp(err)
 	}
 	return out
+}
+
+// checkKey —— authenticate the reach-back by its native key (rule 4). PRESENT but unresolvable = a
+// forged/stale credential → refused. ABSENT = tolerated for now (blocks roll on one at a time,
+// warning→error; later absence is refused too). No verifier configured → no check (eval).
+func (s *Server) checkKey(nativeKey string) error {
+	if s.verify == nil {
+		return nil
+	}
+	if nativeKey == "" {
+		return nil // transitional: not yet every block presents a key
+	}
+	if _, ok := s.verify(nativeKey); !ok {
+		s.log.Warn("hostsocket: reach-back presented an unresolvable native key")
+		return errors.New("unauthorized reach-back: native key not recognized")
+	}
+	return nil
 }
 
 func errResp(msg string) json.RawMessage {

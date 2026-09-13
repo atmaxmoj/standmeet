@@ -83,21 +83,11 @@ func Collect(d *Deps, per *PerBlock) []hostop.Op {
 	return ops
 }
 
-// Serve — opens, for one block, the ops it **ordered by name**; the socket path is
-// derived from the id.
+// ServeAt — open, for one block, the ops it **ordered by name**, on the given socket path.
 //
-// Ordering a name the convergence point doesn't have → an error (the assembly root uses this
-// to blow up at startup). Leaving out a name means that call is unreachable — never that it
-// can still be called on the sly. Default is off.
-func Serve(
-	ctx context.Context, log *slog.Logger, pluginID string, want []string, all []hostop.Op,
-) (*hostsocket.Server, error) {
-	return ServeAt(ctx, log, &ServeInput{
-		PluginID: pluginID, Want: want, All: all, SockPath: SocketPath(pluginID),
-	})
-}
-
-// ServeAt — same as above, but the caller supplies the socket path.
+// Ordering a name the convergence point doesn't have → an error (the assembly root uses this to
+// blow up at startup). Leaving out a name means that call is unreachable — not callable on the sly.
+// Default is off.
 //
 // Built for eval's mini-host: it runs on macOS, which has no /run, but the step of **picking
 // which ops** must still be this same one — the vocabulary and the "error on an unlisted
@@ -107,7 +97,7 @@ func ServeAt(ctx context.Context, log *slog.Logger, in *ServeInput) (*hostsocket
 	if err != nil {
 		return nil, err
 	}
-	srv, lerr := hostsocket.ListenWith(ctx, in.SockPath, handlers, log)
+	srv, lerr := hostsocket.ListenWith(ctx, in.SockPath, handlers, in.Verify, log)
 	if lerr != nil {
 		return nil, fmt.Errorf("hostdesk: %w", lerr)
 	}
@@ -120,8 +110,10 @@ func ServeAt(ctx context.Context, log *slog.Logger, in *ServeInput) (*hostsocket
 type ServeInput struct {
 	PluginID string
 	SockPath string
-	Want     []string
-	All      []hostop.Op
+	// Verify —— resolves a presented native key to its fiber (rule 4); nil = no check.
+	Verify hostsocket.KeyVerifier
+	Want   []string
+	All    []hostop.Op
 }
 
 // SocketPath — where one block’s socket lands. The host derives it; the manifest never
