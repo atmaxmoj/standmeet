@@ -167,6 +167,7 @@
     "bufferMin": "बफ़र मिनट (मौजूदा इवेंट के आसपास)"
   },
   "blockPanel": {
+    "reliedLock": "लॉक · {who} इस पर निर्भर हैं",
     "kicker": "availability",
     "heading": "ब्लॉक",
     "intro": "Turn a block off and its tools vanish from every visitor session. Built-in blocks can be disabled but not deleted; only the ones you authored can be removed.",

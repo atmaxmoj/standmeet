@@ -167,6 +167,7 @@
     "bufferMin": "minutos de margen (alrededor de eventos existentes)"
   },
   "blockPanel": {
+    "reliedLock": "bloqueado · del que dependen {who}",
     "kicker": "disponibilidad",
     "heading": "bloques",
     "intro": "Desactive un bloque y sus herramientas desaparecen de todas las sesiones de visitantes. Los bloques integrados se pueden deshabilitar pero no eliminar; solo los que ha escrito se pueden quitar.",

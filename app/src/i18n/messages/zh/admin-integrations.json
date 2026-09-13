@@ -167,6 +167,7 @@
     "bufferMin": "缓冲分钟数（现有事件前后）"
   },
   "blockPanel": {
+    "reliedLock": "已锁定 · 被 {who} 依赖",
     "kicker": "可用性",
     "heading": "block",
     "intro": "关掉一个 block，它的工具就从每个访客会话中消失。内置 block 可停用但不可删除；只有你自己写的才能移除。",

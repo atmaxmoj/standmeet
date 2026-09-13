@@ -17,13 +17,25 @@ import {
   useBlocks, dependencyHint,
   type BlockRow, type BlocksHook,
 } from '@/lib/admin/use-blocks';
+import { useBlockGraph } from '@/lib/admin/use-block-graph';
 import { useAction } from '@/lib/ui/use-action';
 import { useReportError } from '@/lib/ui/use-report-error';
+
+// RowRelied —— per-block-row lookup of what relies on it (from blocks.graph). A block relied upon
+// cannot be disabled — doing so would break its dependents — so its toggle locks with the reason.
+type RowRelied = (id: string) => readonly string[];
 
 export function BlocksPanel() {
   const hook = useBlocks();
   const { ensureLoaded } = hook;
+  const graph = useBlockGraph();
+  const graphLoad = graph.ensureLoaded;
   useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
+  useEffect(() => { void graphLoad(); }, [graphLoad]);
+  // A plain lookup (no useMemo — the presentation layer forbids it): find the block's graph node
+  // and return what relies on it. O(rows) per call; the block set is small, so an index isn't worth it.
+  const nodes = graph.nodes;
+  const relied: RowRelied = (id) => nodes.find((n) => n.id === id)?.required_by ?? [];
   return (
     <section
       className="crosshair border border-(--color-rule) rounded-sm bg-(--color-surface)/30 p-5"
@@ -31,7 +43,7 @@ export function BlocksPanel() {
     >
       <span className="ch-tl" /><span className="ch-br" />
       <Header />
-      <Body hook={hook} />
+      <Body hook={hook} relied={relied} />
     </section>
   );
 }
@@ -53,7 +65,7 @@ function Header() {
 // is correct today, but nothing keeps hand-written correctness intact through the next change.
 // Once the ordering lives in one place, this is down to two sentences: what to show while
 // loading, and what to say when it's really empty (F-N-7).
-function Body({ hook }: { hook: BlocksHook }) {
+function Body({ hook, relied }: { hook: BlocksHook; relied: RowRelied }) {
   const t = useTranslations('adminIntegrations.blockPanel');
   return (
     <ListPane
@@ -62,7 +74,7 @@ function Body({ hook }: { hook: BlocksHook }) {
       empty={<Msg text={t('empty')} />}
       skeleton={<Msg text={t('loading')} />}
     >
-      <BlockList hook={hook} />
+      <BlockList hook={hook} relied={relied} />
     </ListPane>
   );
 }
@@ -83,17 +95,19 @@ function available(row: BlockRow): boolean {
   return !row.dependency || row.dependency.connected;
 }
 
-function BlockList({ hook }: { hook: BlocksHook }) {
+function BlockList({ hook, relied }: { hook: BlocksHook; relied: RowRelied }) {
   return (
     <ul className="divide-y divide-(--color-rule)/60">
       {hook.rows.filter(available).map((row) => (
-        <BlockItem key={row.id} row={row} hook={hook} />
+        <BlockItem key={row.id} row={row} hook={hook} reliedBy={relied(row.id)} />
       ))}
     </ul>
   );
 }
 
-function BlockItem({ row, hook }: { row: BlockRow; hook: BlocksHook }) {
+function BlockItem(
+  { row, hook, reliedBy }: { row: BlockRow; hook: BlocksHook; reliedBy: readonly string[] },
+) {
   const hint = dependencyHint(row);
   const [configuring, setConfiguring] = useState(false);
   return (
@@ -106,14 +120,28 @@ function BlockItem({ row, hook }: { row: BlockRow; hook: BlocksHook }) {
             <KindBadge row={row} />
           </div>
           {hint && <p className="mt-0.5 mono text-[10px] text-(--color-accent)">{hint}</p>}
+          <ReliedLock row={row} reliedBy={reliedBy} />
         </div>
         <ConfigureBtn row={row} open={configuring} onToggle={() => setConfiguring((v) => !v)} />
-        <EnableToggle row={row} hook={hook} />
+        <EnableToggle row={row} hook={hook} reliedBy={reliedBy} />
         <DeleteBtn row={row} hook={hook} />
       </div>
       {configuring && <BlockConfigForm id={row.id} onClose={() => setConfiguring(false)} />}
     </li>
   );
+}
+
+// ReliedLock —— the reason a block's Active toggle is locked: the blocks that rely on it. Shown
+// only when something does; a block nothing relies on toggles freely.
+function ReliedLock({ row, reliedBy }: { row: BlockRow; reliedBy: readonly string[] }) {
+  const t = useTranslations('adminIntegrations.blockPanel');
+  return reliedBy.length > 0
+    ? (
+      <p data-testid={`block-relied-lock-${row.id}`} className="mt-0.5 mono text-[10px] text-(--color-muted)">
+        {t('reliedLock', { who: reliedBy.join(', ') })}
+      </p>
+    )
+    : null;
 }
 
 // ConfigureBtn — opens the block's own settings.
@@ -175,9 +203,13 @@ function KindBadge({ row }: { row: BlockRow }) {
 
 // A supplier row's `enabled` reflects connection state and can't be toggled by hand (connect /
 // disconnect happens on that supplier's own card), so it renders locked.
-function EnableToggle({ row, hook }: { row: BlockRow; hook: BlocksHook }) {
+function EnableToggle(
+  { row, hook, reliedBy }: { row: BlockRow; hook: BlocksHook; reliedBy: readonly string[] },
+) {
   const report = useReportError();
-  const locked = row.kind === 'supplier';
+  // Locked for a supplier (connect/disconnect happens on its card) OR when something relies on this
+  // block — disabling a relied-upon block would break its dependents (the relied-lock).
+  const locked = row.kind === 'supplier' || reliedBy.length > 0;
   // Pessimistic toggle: store-driven (no optimistic mutate), only moves once the server
   // confirms. Never swallow a failure (the old `void` swallowed it → a "disabled" block
   // could still be live, a safety hole); no success toast either — the toggle moving is

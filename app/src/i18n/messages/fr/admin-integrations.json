@@ -167,6 +167,7 @@
     "bufferMin": "minutes tampon (autour des événements existants)"
   },
   "blockPanel": {
+    "reliedLock": "verrouillé · requis par {who}",
     "kicker": "disponibilité",
     "heading": "blocs",
     "intro": "Désactivez un bloc et ses outils disparaîtront de chaque session visiteur. Les blocs intégrés peuvent être désactivés mais non supprimés ; seuls ceux que vous avez créés peuvent être supprimés.",

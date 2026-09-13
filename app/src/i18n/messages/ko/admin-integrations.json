@@ -167,6 +167,7 @@
     "bufferMin": "버퍼 분 (기존 일정 전후)"
   },
   "blockPanel": {
+    "reliedLock": "잠김 · {who}이(가) 의존",
     "kicker": "availability",
     "heading": "블록",
     "intro": "블록을 끄면 그 도구가 모든 방문자 세션에서 사라집니다. 내장 블록은 비활성화할 수 있지만 삭제할 수는 없습니다. 직접 작성한 것만 제거할 수 있습니다.",

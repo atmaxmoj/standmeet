@@ -167,6 +167,7 @@
     "bufferMin": "buffer min (around existing events)"
   },
   "blockPanel": {
+    "reliedLock": "locked · relied on by {who}",
     "kicker": "availability",
     "heading": "blocks",
     "intro": "Turn a block off and its tools vanish from every visitor session. Built-in blocks can be disabled but not deleted; only the ones you authored can be removed.",

@@ -167,6 +167,7 @@
     "bufferMin": "pufferminuten (um bestehende Termine)"
   },
   "blockPanel": {
+    "reliedLock": "gesperrt · benötigt von {who}",
     "kicker": "verfügbarkeit",
     "heading": "blöcke",
     "intro": "Schalten Sie einen Block aus und seine Tools verschwinden aus jeder Visitor-Sitzung. Integrierte Blöcke können deaktiviert, aber nicht gelöscht werden; nur die, die Sie verfasst haben, können entfernt werden.",
