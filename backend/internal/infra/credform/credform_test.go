@@ -32,15 +32,19 @@ func TestDeriveCredentialForm_SMTPProtocol(t *testing.T) {
 		"smtp form must expose the fields the supplier reads on save")
 }
 
-// caldav is another protocol — it must also produce a form (url/username/password).
-func TestDeriveCredentialForm_CalDAVProtocol(t *testing.T) {
+// caldav is no longer a protocol — it is a `block` (a Koishi plugin composing the http hand). Its
+// form is derived from the block's declared config field keys (Source.Fields), not from a
+// host-side protocol case, so the host names no caldav-specific form. AuthType "block" renders the
+// generic-field branch, same as smtp/credential.
+func TestDeriveCredentialForm_Block(t *testing.T) {
 	t.Parallel()
 	form, err := credform.DeriveCredentialForm(&credform.Source{
-		ID: "caldav", Kind: "protocol", Protocol: "caldav",
+		ID: "caldav", Kind: "block", Fields: []string{"url", "username", "password"},
 	})
 	require.NoError(t, err)
-	require.Equal(t, "caldav", form.AuthType)
-	require.Subset(t, form.Fields, []string{"url", "username", "password"})
+	require.Equal(t, "block", form.AuthType)
+	require.Equal(t, []string{"url", "username", "password"}, form.Fields,
+		"a block's form is exactly its declared config field keys")
 }
 
 // A credential-only supplier (kind=credential — where telegram lives now, no longer a host

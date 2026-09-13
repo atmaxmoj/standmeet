@@ -42,10 +42,28 @@ function parseFreeBusy(body) {
   } catch (e) {
     throw new Error(`free-busy response could not be parsed: ${e.message}`)
   }
+  const vfbs = comp.getAllSubcomponents('vfreebusy')
   const out = []
-  for (const fb of comp.getAllSubcomponents('vfreebusy')) {
-    for (const prop of fb.getAllProperties('freebusy')) {
-      // FREEBUSY holds one or more periods; each is a { start, duration|end }.
+  for (const fb of vfbs) {
+    for (const iv of vfreebusyIntervals(fb)) out.push(iv)
+  }
+  // F-C-50: "unreadable" and "no busy time" are OPPOSITE facts. Zero VFREEBUSY components = an empty
+  // calendar (an answer) → []. But components present that we could not read any interval out of =
+  // we failed to read the response → throw, never silently report the calendar as free.
+  if (vfbs.length > 0 && out.length === 0) {
+    throw new Error('free-busy components present but no interval parsed (unreadable ≠ empty)')
+  }
+  return out
+}
+
+// vfreebusyIntervals — the two real-world encodings of a busy interval inside one VFREEBUSY:
+//   FREEBUSY[;params]:<start>/<end|dur>   the property form (Google / Fastmail family)
+//   DTSTART / DTEND on the VFREEBUSY      the component form (Radicale family) — no FREEBUSY line
+function vfreebusyIntervals(fb) {
+  const out = []
+  const props = fb.getAllProperties('freebusy')
+  if (props.length > 0) {
+    for (const prop of props) {
       for (const period of prop.getValues()) {
         const start = period.start.toJSDate()
         const end = period.end
@@ -54,6 +72,12 @@ function parseFreeBusy(body) {
         out.push({ start: start.toISOString(), end: end.toISOString() })
       }
     }
+    return out
+  }
+  const dtstart = fb.getFirstPropertyValue('dtstart')
+  const dtend = fb.getFirstPropertyValue('dtend')
+  if (dtstart && dtend) {
+    out.push({ start: dtstart.toJSDate().toISOString(), end: dtend.toJSDate().toISOString() })
   }
   return out
 }

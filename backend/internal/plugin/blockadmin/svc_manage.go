@@ -204,7 +204,8 @@ func (s *Service) CredentialForm(
 		return credform.CredentialForm{}, merr
 	}
 	form, derr := credform.DeriveCredentialForm(&credform.Source{
-		ID: m.ID, Kind: m.Kind, Protocol: m.Protocol, Spec: m.Spec, AuthScheme: m.AuthScheme,
+		ID: m.ID, Kind: m.Kind, Protocol: m.Protocol, Spec: m.Spec,
+		AuthScheme: m.AuthScheme, Fields: m.Fields,
 	})
 	if derr != nil {
 		return credform.CredentialForm{}, fmt.Errorf(wrapSentinel, ErrInvalidManifest, derr)

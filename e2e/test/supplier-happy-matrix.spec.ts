@@ -48,6 +48,7 @@ import { activateSupplier } from '@/fixtures/supplier-card';
 import {
   setCalDAVBusy, busyStyleComponent, busyStyleProperty,
   getCalDAVEvents as getCalDAVEventsIn, resetCalDAV as resetCalDAVIn,
+  connectCalDAVBlock as connectCalDAVBlockFixture,
 } from '@/fixtures/caldav-mock';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
@@ -329,35 +330,33 @@ async function bookAndAssert(
   expect(events[0]!.attendees ?? []).toContain('rachel@example.com');
 }
 
-const CALDAV_COLL = 'hmcal';
+// The built-in CalDAV block's collection = its manifest id (the block dials ${url}/caldav/caldav).
+const CALDAV_COLL = 'caldav';
 
 // The CalDAV mock helpers live in fixtures/caldav-mock.ts — since this spec's collection is
 // fixed, they're wrapped locally here to avoid passing the same two parameters every time.
 const getCalDAVEvents = (r: APIRequestContext) => getCalDAVEventsIn(r, MOCK, CALDAV_COLL);
 const resetCalDAV = (r: APIRequestContext) => resetCalDAVIn(r, MOCK, CALDAV_COLL);
 
-// caldavComboBooks — the protocol · calendar · CalDAV cell: assemble → activate → really
-// book once, landing in its collection. **Must explicitly activate**: an earlier combo has
-// already claimed the calendar slot, and connecting doesn't automatically take it over —
-// otherwise the booker would still hit the old gcal supplier and the event would land in
-// the gcal store instead of the CalDAV collection.
-async function caldavComboBooks(page: Page, request: APIRequestContext): Promise<void> {
+// caldavComboBooks — the block · calendar · CalDAV cell: connect the built-in CalDAV block →
+// activate → really book once, landing in its collection. **Must explicitly activate**: an earlier
+// combo has already claimed the calendar slot, and connecting doesn't automatically take it over —
+// otherwise the booker would still hit the old gcal supplier and the event would land in the gcal
+// store instead of the CalDAV collection.
+async function caldavComboBooks(request: APIRequestContext): Promise<void> {
   const { csrf } = await login(request, OWNER.email, OWNER.password);
   await resetCalDAV(request);
-  const conn = await assembleCalDAV(page, request);
+  const conn = await connectCalDAVBlock(request, csrf);
   await activateSupplier(request, csrf, conn.id);
   await bookAndAssert(request, csrf, 9, getCalDAVEvents);
 }
 
-// assembleCalDAV — the built-in CalDAV card + fixed fields; url points at the collection
-// (the backend container reaches it through MOCK_API).
-async function assembleCalDAV(page: Page, request: APIRequestContext): Promise<ConnRef> {
-  return assembleProtocol(page, request, {
-    seam: 'calendar',
-    fields: {
-      url: `${MOCK_API}/caldav/${CALDAV_COLL}`, username: 'owner', password: 'pw', tls: 'none',
-    },
+// connectCalDAVBlock — connect the shipped CalDAV block (helper in fixtures/caldav-mock.ts).
+async function connectCalDAVBlock(request: APIRequestContext, csrf: string): Promise<ConnRef> {
+  const { id } = await connectCalDAVBlockFixture(request, {
+    backend: BACKEND, mockApi: MOCK_API, csrf, coll: CALDAV_COLL,
   });
+  return { id, seam: 'calendar', kind: 'block', connected: true };
 }
 
 // busyWindowBlocksEitherShape — three steps, carries its own positive control:
@@ -367,10 +366,10 @@ async function assembleCalDAV(page: Page, request: APIRequestContext): Promise<C
 //      "booking is entirely broken")
 //   ③ the same hour, in the real server's shape, must still block — a red here can only mean
 //      "that shape of response wasn't parsed"
-async function busyWindowBlocksEitherShape(page: Page, request: APIRequestContext): Promise<void> {
+async function busyWindowBlocksEitherShape(request: APIRequestContext): Promise<void> {
   const { csrf } = await login(request, OWNER.email, OWNER.password);
   await resetCalDAV(request);
-  const conn = await assembleCalDAV(page, request);
+  const conn = await connectCalDAVBlock(request, csrf);
   await activateSupplier(request, csrf, conn.id);
 
   const busy = futureSlot(10, 10);
@@ -506,13 +505,13 @@ test.describe('supplier · happy combination matrix (kind × seam × auth full l
       await bookAndAssert(request, csrf, 8);
     });
 
-  // combo 3 —— protocol · calendar · CalDAV: built-in card → fixed form → connect →
-  // explicit activate → book. An earlier combo has already claimed the calendar slot
-  // (connecting doesn't auto-take-over), so this test explicitly activates this caldav and
-  // confirms it — only then does the booker actually use it (landing in the CalDAV mock's
-  // collection, not the gcal store).
-  test('protocol calendar (CalDAV): pick built-in card → fixed form → booker books',
-    ({ adminPage: page }) => caldavComboBooks(page, request));
+  // combo 3 —— block · calendar · CalDAV: connect the shipped CalDAV block (a Koishi plugin
+  // composing the http hand) → explicit activate → book. An earlier combo has already claimed the
+  // calendar slot (connecting doesn't auto-take-over), so this test explicitly activates this
+  // caldav and confirms it — only then does the booker actually use it (landing in the CalDAV
+  // mock's collection, not the gcal store). free_busy + insert route through the block's MCP tools.
+  test('CalDAV block: connect shipped block → activate → booker books',
+    () => caldavComboBooks(request));
 
   // F-C-50 —— **a real server writes a busy time as a VFREEBUSY component (DTSTART/DTEND),
   // and the product treats it as "the whole day is free".**
@@ -537,7 +536,7 @@ test.describe('supplier · happy combination matrix (kind × seam × auth full l
   // to book into the busy one. Without that first step, "couldn't book" for any reason at
   // all would make this test go green ([[red-in-the-wrong-place]]).
   test('a busy window reported as VFREEBUSY components still blocks that slot (F-C-50)',
-    ({ adminPage: page }) => busyWindowBlocksEitherShape(page, request));
+    () => busyWindowBlocksEitherShape(request));
 
   // combo 4 —— openapi · mail · bearer: spec → bearer form → connect → mail.send really sends.
   test('openapi mail + bearer: assemble → bearer form → MailContract.Send delivers',

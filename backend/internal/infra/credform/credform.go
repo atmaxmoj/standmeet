@@ -112,6 +112,9 @@ type Source struct {
 	Protocol   string
 	AuthScheme string
 	Spec       []byte
+	// Fields — for a `block` supplier, the owner-connect field keys taken from the block's
+	// declared `config:`. The form is derived from these, so the host names no block form.
+	Fields []string
 }
 
 // DeriveCredentialForm — derive the credential form the owner has to fill in. An openapi
@@ -120,17 +123,29 @@ type Source struct {
 // ParseSpec unconditionally → a protocol supplier got a 400 "unsupported openapi version",
 // and the configure form couldn't render at all).
 func DeriveCredentialForm(m *Source) (CredentialForm, error) {
-	if m.Kind == "protocol" {
+	switch m.Kind {
+	case "protocol":
 		return protocolCredentialForm(m.Protocol)
-	}
-	if m.Kind == "credential" {
+	case "credential":
 		// A credential-only supplier holds one opaque secret (a bot token, a webhook secret) and
 		// does nothing itself — some other service consumes it (the `im` seam's token, read by
 		// im-bridge). One generic field, and the host names no specific block: this is where the
 		// telegram case used to live (`case "telegram"` → {token}). AuthType "credential" renders
 		// the frontend's generic-field branch, same as the protocol names did.
 		return CredentialForm{AuthType: "credential", Fields: []string{credentialTokenField}}, nil
+	case "block":
+		// A block that supplies a seam (e.g. the CalDAV block — a Koishi plugin composing the http
+		// hand). The owner-connect fields come from the block's declared `config:` (Source.Fields),
+		// so the host names no block-specific form. AuthType "block" renders the generic-field
+		// branch, same as the protocol/credential names do.
+		return CredentialForm{AuthType: "block", Fields: m.Fields}, nil
+	default:
+		return openapiCredentialForm(m)
 	}
+}
+
+// openapiCredentialForm — derive the form for an openapi supplier from its spec's securityScheme.
+func openapiCredentialForm(m *Source) (CredentialForm, error) {
 	spec, err := openapi.ParseSpec(m.Spec)
 	if err != nil {
 		return CredentialForm{}, fmt.Errorf(errBlockWrap, m.ID, err)
@@ -152,10 +167,11 @@ const errBlockWrap = "block %q: %w"
 var errUnknownProtocol = errors.New("unknown protocol supplier")
 
 // protocolCredentialForm — the credential form for a built-in protocol supplier. Field keys
-// must match the JSON shape the save path parses (smtp: cmd/server smtpCredJSON; caldav:
-// caldavCredJSON), otherwise filling in the form still can't get the values into the supplier.
-// AuthType uses the protocol name (the frontend renders the generic-field branch off it, not
-// the oauth2/apiKey branch).
+// must match the JSON shape the save path parses (smtp: cmd/server smtpCredJSON), otherwise
+// filling in the form still can't get the values into the supplier. AuthType uses the protocol
+// name (the frontend renders the generic-field branch off it, not the oauth2/apiKey branch).
+// Only smtp now — CalDAV left "protocol" to become a `block` (its form comes from the block's
+// declared config, the Kind=="block" branch above).
 func protocolCredentialForm(protocol string) (CredentialForm, error) {
 	switch protocol {
 	case "smtp":
@@ -164,11 +180,6 @@ func protocolCredentialForm(protocol string) (CredentialForm, error) {
 			Fields: []string{
 				"host", "port", "username", "password", "from_address", "from_name", "tls",
 			},
-		}, nil
-	case "caldav":
-		return CredentialForm{
-			AuthType: "caldav",
-			Fields:   []string{"url", "username", "password"},
 		}, nil
 	default:
 		return CredentialForm{}, fmt.Errorf("%w: %q", errUnknownProtocol, protocol)

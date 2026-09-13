@@ -23,15 +23,22 @@ const errSupplierWrap = "supplier %q: %w"
 // protocol runtime (P3). Built-in and uploaded share the same shape, only the data
 // source differs.
 type Manifest struct {
-	ID       string
-	Kind     string // "openapi" | "protocol"
-	Seam     string
-	Protocol string // protocol kind: "smtp" | "caldav"
+	ID   string
+	Kind string // "openapi" | "protocol" | "credential" | "block"
+	Seam string
+	// Protocol — the built-in wire protocol a `protocol` supplier speaks. Only "smtp" now:
+	// CalDAV moved off "protocol" and became a `block` (a Koishi plugin composing the http hand),
+	// so the host no longer speaks CalDAV as a wire protocol.
+	Protocol string
 	// AuthScheme — openapi: the securityScheme key the owner picked (empty = the
 	// sole one in the spec).
 	AuthScheme string
-	Spec       []byte
-	Binding    []byte
+	// Fields — for a `block` supplier, the owner-connect field keys taken from the block's
+	// declared `config:` (e.g. a CalDAV block declares url/username/password). The credential
+	// form is derived from these, so the host names no block-specific form.
+	Fields  []string
+	Spec    []byte
+	Binding []byte
 	// OwnerOps — the owner-side operations this supplier declares for itself (see
 	// owner_op.go). Empty = it only has the generic registry set (list/connect/
 	// disconnect/delete), no seam-specific actions.

@@ -62,11 +62,33 @@ func seamTitles() map[string]string {
 // toSupplierManifest — one block declaration → the adapter shape.
 func toSupplierManifest(m *plugin.Manifest) adapters.Manifest {
 	return adapters.Manifest{
-		ID: m.ID, Kind: m.Transport.Kind, Seam: m.Provides,
+		ID: m.ID, Kind: supplierKind(m), Seam: m.Provides,
 		Protocol: m.Transport.Protocol, AuthScheme: m.Transport.AuthScheme,
 		Spec: m.Transport.SpecBytes, Binding: m.Transport.BindingBytes,
+		Fields:   configFieldKeys(m.Config),
 		OwnerOps: declaredOwnerOps(m.OwnerTools),
 	}
+}
+
+// supplierKind — the supplier-domain kind the admin layer sees. A seam-providing block dialed over
+// sandbox_stdio is kind "block" (matching blockCalendarProxy.Kind()); every other supplier uses its
+// transport kind directly (openapi / protocol) or its declared credential kind. The host branches
+// on this generic kind, never on which block it is.
+func supplierKind(m *plugin.Manifest) string {
+	if m.Transport.Kind == plugin.TransportSandboxStdio {
+		return "block"
+	}
+	return m.Transport.Kind
+}
+
+// configFieldKeys — the owner-connect field keys a block declares in its `config:`. The credential
+// form for a block supplier is derived from these, so the host names no block-specific form.
+func configFieldKeys(cfg []plugin.ConfigField) []string {
+	out := make([]string, 0, len(cfg))
+	for i := range cfg {
+		out = append(out, cfg[i].Key)
+	}
+	return out
 }
 
 // declaredOwnerOps — the owner-facing declarations, unchanged in meaning.

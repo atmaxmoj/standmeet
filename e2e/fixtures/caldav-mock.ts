@@ -47,6 +47,26 @@ export async function getCalDAVEvents(
   return (await res.json() as { events: CalDAVEvent[] }).events;
 }
 
+/** connectCalDAVBlock —— connect the shipped **CalDAV block** (kind "block", a Koishi plugin
+ *  composing the http hand): save its url/user/pass, then connect (its Verify tool runs against
+ *  the collection). CalDAV is no longer an owner-assembled `protocol` supplier — it's a shipped
+ *  block whose manifest id is the collection name. Returns that fixed id. */
+export async function connectCalDAVBlock(
+  request: APIRequestContext,
+  opts: { backend: string; mockApi: string; csrf: string; coll: string },
+): Promise<{ id: string }> {
+  const { backend, mockApi, csrf, coll } = opts;
+  await request.post(`${backend}/api/admin/suppliers/${coll}/credentials`, {
+    headers: { 'X-Csrftoken': csrf },
+    data: { url: `${mockApi}/caldav/${coll}`, username: 'owner', password: 'pw' },
+  });
+  const res = await request.post(`${backend}/api/admin/suppliers/${coll}/connect`, {
+    headers: { 'X-Csrftoken': csrf }, data: {},
+  });
+  if (res.status() !== 200) throw new Error(`connect caldav block: ${res.status()}`);
+  return { id: coll };
+}
+
 /** resetCalDAV —— clear a collection's events / busy times / fault injection. */
 export async function resetCalDAV(
   request: APIRequestContext, mockBase: string, coll: string,

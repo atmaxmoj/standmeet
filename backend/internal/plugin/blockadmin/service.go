@@ -202,10 +202,13 @@ func (s *Service) Status(
 
 // manifestFor — resolve the manifest for an id: built-in (embedded) takes priority, otherwise
 // an uploaded supplier (spec/binding archived in the DB). Neither → ErrNotFound.
-// specLessKind — kinds that legitimately carry no openapi spec: a protocol supplier (smtp/caldav)
-// and a credential-only supplier (a token holder, e.g. telegram). They declare their seam directly
-// and connect without an OAuth dance; only openapi parses a spec.
-func specLessKind(kind string) bool { return kind == "protocol" || kind == "credential" }
+// specLessKind — kinds that legitimately carry no openapi spec: a protocol supplier (smtp), a
+// credential-only supplier (a token holder, e.g. telegram), and a block supplier (a seam served by
+// an MCP block, e.g. the CalDAV block). They declare their seam directly and connect without an
+// OAuth dance (a block connects via its Verify tool); only openapi parses a spec.
+func specLessKind(kind string) bool {
+	return kind == "protocol" || kind == "credential" || kind == "block"
+}
 
 func (s *Service) manifestFor(
 	ctx context.Context, ownerID, id string,

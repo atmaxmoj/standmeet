@@ -37,6 +37,15 @@ var transportDialers = map[string]func(
 	plugin.TransportSandboxStdio: dialSandboxStdio,
 }
 
+// DialBlock —— dial a block's transport into an initialized session, for a HOST-side caller that
+// invokes the block's tools directly rather than exposing them to the visitor agent. This is what
+// lets a block SERVE a seam: a supplier (e.g. the CalDAV block backing the calendar seam) dials the
+// block and calls its tools. Same dial the visitor path uses; the caller owns Close. No per-session
+// workspace (a seam call is stateless), so workspaceDir is empty.
+func DialBlock(ctx context.Context, m *plugin.Manifest) (*mcpclient.Session, error) {
+	return dialMCPApp(ctx, m, "")
+}
+
 // dialMCPApp —— looks up transportDialers and dispatches. Unknown kind → error. The error
 // is folded into ErrHidden by VisitorBinding; this function is only responsible for dialing.
 func dialMCPApp(

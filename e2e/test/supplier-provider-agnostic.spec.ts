@@ -191,26 +191,24 @@ async function runDepGating(request: APIRequestContext): Promise<void> {
   await expectCalendarBookExposed(request, (await newSession('C')).session_token, true);
 }
 
-// connectCalDAVCalendar -- installs a **non-Google** calendar supplier (CalDAV,
-// kind=protocol) into the calendar seam slot and connects it (saving credentials
-// connects it immediately, no OAuth dance). Returns the supplier reference.
-// Idempotent: reuses an existing one -- multiple tests share the same owner instance.
+// connectCalDAVCalendar -- connects the built-in **CalDAV block** (a Koishi plugin composing the
+// http hand) into the calendar seam slot. CalDAV is no longer a `protocol` KIND the owner creates;
+// it is a shipped block (id "caldav", like google-calendar is a shipped block), connected by saving
+// its url/user/pass and running its Verify tool (no OAuth dance). Returns the supplier reference.
+// Idempotent: the built-in id is fixed, so re-connecting just re-saves.
 async function connectCalDAVCalendar(
   request: APIRequestContext, csrf: string,
 ): Promise<ConnRef> {
-  const id = await ensureSupplier(request, csrf, {
-    kind: 'protocol', protocol: 'caldav', seam: 'calendar',
-  });
+  const id = 'caldav'; // the shipped CalDAV block's manifest id
   // Clear this collection's mock state (events/busy/fail) -- multiple tests share the same supplier, so absolute counts must start clean.
   await request.post(`${CALDAV_MOCK}/__mock/caldav/${id}/reset`, { data: {} }).catch(() => undefined);
   // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: connector connect flow (save caldav credentials) this spec exercises
   await request.post(`${BACKEND}/api/admin/suppliers/${id}/credentials`, {
     headers: { 'X-Csrftoken': csrf },
-    data: {
-      url: `${CALDAV_API}/caldav/${id}`, username: 'owner', password: 'pw', tls: 'none',
-    },
+    data: { url: `${CALDAV_API}/caldav/${id}`, username: 'owner', password: 'pw' },
   });
-  return connectAndRead(request, csrf, id);
+  const conn = await connectAndRead(request, csrf, id);
+  return { ...conn, id }; // the mock collection is keyed by this id — pin it, don't trust status echo
 }
 
 // connectSMTPMail -- installs SMTP (protocol) into the mail seam slot and connects it.

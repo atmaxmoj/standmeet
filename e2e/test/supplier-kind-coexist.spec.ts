@@ -93,8 +93,9 @@ function futureSlot(daysAhead: number, hour: number): string {
 
 test.describe('supplier · one seam, two kinds coexisting (§1 kind-axis branch)', () => {
   // #155 §1 has landed: same-seam dual-kind coexistence (Google openapi + CalDAV
-  // protocol) + single active-slot arbitration + switching + disconnect-active
-  // fallback (promoteFallback).
+  // block) + single active-slot arbitration + switching + disconnect-active
+  // fallback (promoteFallback). (CalDAV moved off "protocol" to a block; the coexistence
+  // premise — one seam, two kinds — is unchanged, only the second kind is now "block".)
 
   let request: APIRequestContext;
   test.beforeAll(async ({ playwright }) => {
@@ -103,10 +104,10 @@ test.describe('supplier · one seam, two kinds coexisting (§1 kind-axis branch)
   test.afterAll(async () => { await request?.dispose(); });
 
   // Coexistence + default active: install BOTH calendar suppliers (Google openapi +
-  // CalDAV protocol), both connected.
+  // CalDAV block), both connected.
   // Asserts "only one active at a time", booker lands on the active one, the other
   // receives no event.
-  test('Google(openapi) + CalDAV(protocol) both fill calendar → exactly one active, booker only lands on active',
+  test('Google(openapi) + CalDAV(block) both fill calendar → exactly one active, booker only lands on active',
     async () => { await runBothConnectedOneActive(request); });
 
   // switch/replace: active switches from Google to CalDAV → slot handover, booker
@@ -142,7 +143,7 @@ async function runBothConnectedOneActive(request: APIRequestContext): Promise<vo
   // Both calendar suppliers are configured + connected, but the owner has set Google
   // as active.
   const gcal = await connectGoogleCalendar(request, csrf);     // openapi
-  const caldav = await connectCalDAVCalendar(request, csrf);   // protocol
+  const caldav = await connectCalDAVCalendar(request, csrf);   // block
   await activateSupplier(request, csrf, gcal.id);
 
   // Both same-seam suppliers are listed, but exactly one has status.active true.
@@ -325,38 +326,22 @@ async function connectGoogleCalendar(
   return await st.json() as ConnRef;
 }
 
-// connectCalDAVCalendar —— installs a non-Google **protocol** calendar supplier
-// (CalDAV) filling the same seam slot.
+// connectCalDAVCalendar —— connects the built-in **CalDAV block** (kind "block", a Koishi plugin
+// composing the http hand) into the same calendar seam slot as the Google openapi supplier. The
+// coexistence premise is unchanged — one seam, two KINDS — only the second kind moved from
+// "protocol" to "block" (CalDAV is an app on HTTP, not a base protocol).
 async function connectCalDAVCalendar(
   request: APIRequestContext, csrf: string,
 ): Promise<ConnRef> {
-  const id = await ensureProtocolSupplier(request, csrf, {
-    kind: 'protocol', protocol: 'caldav', seam: 'calendar',
-  });
+  const id = 'caldav'; // the shipped CalDAV block's manifest id
   await request.post(`${CALDAV_MOCK}/__mock/caldav/${id}/reset`, { data: {} }).catch(() => undefined);
   // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: connector connect flow (save caldav credentials) the coexistence tests exercise
   await request.post(`${BACKEND}/api/admin/suppliers/${id}/credentials`, {
     headers: { 'X-Csrftoken': csrf },
-    data: { url: `${CALDAV_API}/caldav/${id}`, username: 'owner', password: 'pw', tls: 'none' },
+    data: { url: `${CALDAV_API}/caldav/${id}`, username: 'owner', password: 'pw' },
   });
-  return connectAndRead(request, csrf, id);
-}
-
-interface ProtocolCreateBody { kind: string; protocol: string; seam: string }
-
-// ensureProtocolSupplier —— creates a protocol supplier, reusing one that already
-// exists for the same (seam,kind).
-async function ensureProtocolSupplier(
-  request: APIRequestContext, csrf: string, body: ProtocolCreateBody,
-): Promise<string> {
-  const hit = await findExisting(request, body.seam, body.kind);
-  if (hit) return hit;
-  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: bespoke protocol connector build the coexistence tests inspect
-  const res = await request.post(`${BACKEND}/api/admin/suppliers`, {
-    headers: { 'X-Csrftoken': csrf }, data: body,
-  });
-  if (res.status() !== 201) throw new Error(`create protocol supplier: ${res.status()}`);
-  return (await res.json() as { id: string }).id;
+  const conn = await connectAndRead(request, csrf, id);
+  return { ...conn, id }; // the mock collection is keyed by this id — pin it, don't trust status echo
 }
 
 // findExisting —— reuses the supplier for the same (seam,kind) (idempotent when

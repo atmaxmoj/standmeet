@@ -17,6 +17,7 @@ import (
 
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/usecase"
 	"github.com/atmaxmoj/standmeet/internal/infra/egress"
+	"github.com/atmaxmoj/standmeet/internal/plugin"
 	"github.com/atmaxmoj/standmeet/internal/plugin/adapters"
 	"github.com/atmaxmoj/standmeet/internal/plugin/credentials"
 	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
@@ -70,46 +71,108 @@ func EnsureBlockDispatch(d *deps.Runtime) {
 func RegisterDiscoveredSuppliers(
 	ctx context.Context, d *deps.Runtime, depReg *registry.DepRegistry,
 ) error {
-	manifests := supplierManifests()
 	EnsureBlockDispatch(d)
 	adeps := newAssembleDeps(d.Credentials)
-	for i := range manifests {
-		c, aerr := assembleSupplier(&manifests[i], adeps)
+	// Iterate the FULL manifests (not the thin supplier shape): a sandbox_stdio block that serves a
+	// seam needs its transport (command/sandbox) to be dialable, which the thin adapters.Manifest
+	// drops. Each supplying manifest yields one Supplier + one thin manifest for seam declaration.
+	full := BuiltinManifests()
+	thin := make([]adapters.Manifest, 0, len(full))
+	for i := range full {
+		if full[i].Provides == "" {
+			continue
+		}
+		sup, aerr := assembleBuiltinSupplier(&full[i], adeps)
 		if aerr != nil {
 			return aerr
 		}
-		d.BlockSuppliers.Put(c)
+		d.BlockSuppliers.Put(sup)
+		thin = append(thin, toSupplierManifest(&full[i]))
 	}
-	registerSeams(d, depReg, manifests)
+	registerSeams(d, depReg, thin)
 	registerUploadedSuppliers(ctx, d.BlockSuppliers, d.Credentials, adeps, d.Log)
 	return nil
 }
 
-// registerSeams —— declare each supplied seam, from the manifests and nothing else.
-//
-// Two shapes, and which one a seam gets is read off the declaration rather than chosen
-// here: a supplier that can answer per-operation questions gets the richer provider, so
-// `calendar.readonly` still lists free slots while booking fails (F-B-8); one that
-// cannot only answers "connected". A protocol supplier has no notion of scope, and
-// asking it would be asking a question with no answer.
-func registerSeams(d *deps.Runtime, depReg *registry.DepRegistry, ms []adapters.Manifest) {
-	for i := range ms {
-		if ms[i].Seam == "" {
-			continue
-		}
-		depReg.Register(seamProvider(d, ms[i].Seam, ms[i].Kind))
+// assembleBuiltinSupplier — one built-in supplier block. A sandbox_stdio block SERVES its seam via
+// an MCP block (dialed on demand); every other kind (openapi / protocol) is assembled in-host from
+// the thin manifest. The host names no block — it branches on the transport kind, generically.
+func assembleBuiltinSupplier(m *plugin.Manifest, adeps *assembleDeps) (adapters.Supplier, error) {
+	if m.Transport.Kind == plugin.TransportSandboxStdio {
+		return blockSeamSupplier(m, adeps)
+	}
+	thin := toSupplierManifest(m)
+	return assembleSupplier(&thin, adeps)
+}
+
+// blockSeamSupplier — build the MCP-block-backed supplier for the seam a sandbox_stdio block
+// provides. Only calendar today (the CalDAV block); a new seam adds a case with its own contract
+// proxy over the block's tools. Names the SEAM (a swappable capability), never a block id.
+func blockSeamSupplier(m *plugin.Manifest, adeps *assembleDeps) (adapters.Supplier, error) {
+	switch m.Provides {
+	case "calendar":
+		return newBlockCalendarProxy(m, adeps.caldavVault), nil
+	default:
+		return nil, fmt.Errorf("sandbox_stdio supplier %q provides seam %q, "+
+			"which has no block-backed proxy", m.ID, m.Provides)
 	}
 }
 
-// seamProvider —— one seam's provider, of whichever of the two shapes its kind can fill.
-func seamProvider(d *deps.Runtime, seam, kind string) registry.DepProvider {
-	connected := seamConnectedFn(d, seam)
-	if kind != "openapi" {
-		return registry.NamedProvider(seam, connected)
+// registerSeams —— declare each supplied seam ONCE, from the manifests and nothing else.
+//
+// A seam may be supplied by several blocks (a Google calendar and a CalDAV one); its DepProvider
+// is registered once and resolves whichever supplier is active at call time. Registering it twice
+// panics (DepRegistry.Register), so the dedupe is load-bearing, not cosmetic.
+//
+// Two shapes, and which one a seam gets is read off the declarations: if ANY supplier of the seam
+// can answer per-operation questions (an openapi supplier compares the spec's per-op scope against
+// the grant) it gets the richer provider, so `calendar.readonly` still lists free slots while
+// booking fails (F-B-8); a seam with no such supplier only answers "connected" (the active
+// supplier is asked at call time regardless — CanPerform allows a supplier that cannot answer).
+func registerSeams(d *deps.Runtime, depReg *registry.DepRegistry, ms []adapters.Manifest) {
+	for _, sh := range distinctSeamShapes(ms) {
+		depReg.Register(seamProvider(d, sh))
 	}
-	return registry.NamedOpProvider(seam, connected,
+}
+
+// seamShape —— one seam and whether any of its suppliers can answer per-operation questions.
+type seamShape struct {
+	seam      string
+	opCapable bool
+}
+
+// distinctSeamShapes —— dedupe the manifests to one entry per seam (first appearance keeps
+// declaration order), marking a seam op-capable if ANY supplier of it is openapi.
+func distinctSeamShapes(ms []adapters.Manifest) []seamShape {
+	idx := make(map[string]int)
+	out := make([]seamShape, 0, len(ms))
+	for i := range ms {
+		seam := ms[i].Seam
+		if seam == "" {
+			continue
+		}
+		j, seen := idx[seam]
+		if !seen {
+			j = len(out)
+			idx[seam] = j
+			out = append(out, seamShape{seam: seam})
+		}
+		if ms[i].Kind == "openapi" {
+			out[j].opCapable = true
+		}
+	}
+	return out
+}
+
+// seamProvider —— one seam's provider, of whichever of the two shapes the seam's suppliers fill.
+func seamProvider(d *deps.Runtime, sh seamShape) registry.DepProvider {
+	connected := seamConnectedFn(d, sh.seam)
+	if !sh.opCapable {
+		return registry.NamedProvider(sh.seam, connected)
+	}
+	return registry.NamedOpProvider(sh.seam, connected,
 		func(ctx context.Context, ownerID, op string) (bool, error) {
-			return d.BlockDispatch.CanPerform(ctx, ownerID, seam, op)
+			return d.BlockDispatch.CanPerform(ctx, ownerID, sh.seam, op)
 		},
 	)
 }
@@ -216,11 +279,13 @@ func connectedIDs(conns []credentials.Connection) []string {
 	return out
 }
 
-// manifestSeam —— openapi's seam comes from the Binding; protocol uses the declared Seam.
+// manifestSeam —— openapi's seam comes from the Binding; protocol/credential/block use the
+// declared Seam.
 func manifestSeam(m *adapters.Manifest) (string, error) {
-	// protocol (smtp/caldav) and credential (a token holder, e.g. telegram's `im`) declare their
-	// seam directly — no binding to parse. Only openapi derives its seam from the binding.
-	if m.Kind == "protocol" || m.Kind == "credential" {
+	// protocol (smtp), credential (a token holder, e.g. telegram's `im`), and block (a seam served
+	// by an MCP block, e.g. the CalDAV block's `calendar`) declare their seam directly — no binding
+	// to parse. Only openapi derives its seam from the binding.
+	if directSeamKind(m.Kind) {
 		return m.Seam, nil
 	}
 	if len(m.Binding) == 0 {
@@ -232,6 +297,13 @@ func manifestSeam(m *adapters.Manifest) (string, error) {
 		return "", fmt.Errorf("binding seam: %w", serr)
 	}
 	return seam, nil
+}
+
+// directSeamKind —— kinds that declare their seam directly (no openapi binding to parse): a
+// protocol supplier (smtp), a credential-only one (telegram's im), and a block one (the CalDAV
+// block's calendar).
+func directSeamKind(kind string) bool {
+	return kind == "protocol" || kind == "credential" || kind == "block"
 }
 
 // assembleDeps —— dependencies to assemble one supplier (openapi and protocol share the set).
@@ -293,15 +365,14 @@ func assembleOpenAPISupplier(m *adapters.Manifest, d *assembleDeps) (adapters.Su
 	return c, nil
 }
 
-// assembleProtocolSupplier —— for protocol kind, picks the built-in impl by Protocol.
+// assembleProtocolSupplier —— for protocol kind, picks the built-in impl by Protocol. Only smtp
+// now: CalDAV left "protocol" and became a `block` (assembled by blockSeamSupplier, not here).
 func assembleProtocolSupplier(
 	m *adapters.Manifest, d *assembleDeps,
 ) (adapters.Supplier, error) {
 	switch m.Protocol {
 	case "smtp":
 		return adapters.NewSMTPSupplier(m.ID, d.smtpVault), nil
-	case "caldav":
-		return adapters.NewCalDAVSupplier(m.ID, d.caldavVault, d.doer), nil
 	default:
 		return nil, fmt.Errorf("unknown protocol %q for supplier %q", m.Protocol, m.ID)
 	}

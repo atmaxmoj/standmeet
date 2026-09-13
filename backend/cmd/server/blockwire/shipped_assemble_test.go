@@ -19,29 +19,36 @@ import (
 // block cannot boot. And this test fails the same break in seconds, at the place where the
 // data is declared, without waiting for a container to come up.
 //
-// It uses the real `supplierManifests()` and the real `assembleSupplier` — nothing about
-// the manifest shape is restated here. Restating it is how a test keeps passing against a
-// field the product no longer reads, which is the very bug being guarded.
+// It uses the real `BuiltinManifests()` and the real `assembleBuiltinSupplier` — the exact
+// entry point boot uses — nothing about the manifest shape is restated here. Restating it is how
+// a test keeps passing against a field the product no longer reads, which is the very bug being
+// guarded. Assembling through assembleBuiltinSupplier (not assembleSupplier directly) is
+// deliberate: a seam served by a block (kind "block", e.g. CalDAV) routes to blockSeamSupplier,
+// exactly as at boot, so this guard covers the block path too.
 //
 // Rename `seam:` back to `category:` in backend/blocks/google-calendar/binding.yaml and
 // this goes RED.
 func TestShippedSuppliersAssemble(t *testing.T) {
 	t.Parallel()
 
-	manifests := supplierManifests()
-	require.NotEmpty(t, manifests,
-		"no shipped block declares a seam — the scan is blind, not the tree clean")
-
+	manifests := BuiltinManifests()
 	adeps := newAssembleDeps(nil)
+	supplying := 0
 	for i := range manifests {
+		if manifests[i].Provides == "" {
+			continue
+		}
+		supplying++
 		m := &manifests[i]
 		t.Run(m.ID, func(t *testing.T) {
 			t.Parallel()
-			require.NotEmpty(t, m.Seam,
+			require.NotEmpty(t, m.Provides,
 				"%s supplies a seam in its manifest but the assembled seam is empty —"+
 					" a declaration field the loader does not read", m.ID)
-			_, err := assembleSupplier(m, adeps)
+			_, err := assembleBuiltinSupplier(m, adeps)
 			require.NoError(t, err, "shipped supplier %s does not assemble", m.ID)
 		})
 	}
+	require.NotZero(t, supplying,
+		"no shipped block declares a seam — the scan is blind, not the tree clean")
 }

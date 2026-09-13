@@ -1,0 +1,36 @@
+id: caldav
+title: CalDAV
+# provides the calendar seam, beside google-calendar. A consumer says requires:[calendar] and
+# never names caldav; the owner chooses which calendar supplier is live.
+provides: calendar
+
+# CalDAV is an app on HTTP, not a base protocol — so it is a BLOCK: a Koishi plugin
+# (infra/plugins/caldav) wrapped as a stdio-MCP server, carrying no Go. It composes Koishi's http
+# hand for the WebDAV requests and parses iCalendar with ical.js. The substrate dials it and routes
+# the calendar seam's ops (free_busy / insert_event / delete_event / verify) to its tools
+# (blockCalendarProxy); allow_net because it reaches the owner's own CalDAV server.
+transport:
+  kind: sandbox_stdio
+  command: node
+  # plugin_dir (/srv/plugins/caldav) is bound read-only at /plugin inside the sandbox, so the
+  # wrapper is /plugin/koishi-mcp.js (not /plugin/caldav/…).
+  args: ["/plugin/koishi-mcp.js"]
+  sandbox:
+    plugin_dir: /srv/plugins/caldav
+    allow_net: true
+
+# config — the credential fields the owner fills in to connect. The generic settings form renders
+# BY these declarations (credform reads them), so the host names no caldav-specific form.
+config:
+  - key: url
+    label: CalDAV collection URL
+    type: string
+    description: The calendar collection URL (e.g. https://dav.example.com/cal/).
+  - key: username
+    label: Username
+    type: string
+    description: CalDAV account username.
+  - key: password
+    label: Password
+    type: string
+    description: CalDAV account password.
