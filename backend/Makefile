@@ -7,7 +7,7 @@
 # (no `wire-check` / `wire` targets). schema lives in db/schema.sql
 # applied at db volume init—no goose migration runner.
 
-.PHONY: lint build test arch fmt-check max-lines routes-cyclo boundary-thin no-nil-container build-check secrets golangci-config escape-lint supplier-boundary core-agnostic core-seals-only internal-dirs domain-acyclic infra-not-domain routes-not-imported domain-facade-boundary domain-layering hostops-via-desk periodic-via-scheduler blocks-declare-in-data host-blind-to-blocks register-via-door
+.PHONY: lint build test arch fmt-check max-lines routes-cyclo boundary-thin no-nil-container build-check secrets golangci-config escape-lint supplier-boundary core-agnostic core-seals-only internal-dirs domain-acyclic infra-not-domain routes-not-imported domain-facade-boundary domain-layering hostops-via-desk periodic-via-scheduler blocks-declare-in-data host-blind-to-blocks register-via-door native-key-confined
 
 # sqlc generation lives in the root Makefile (`make sqlc-gen`) so it works
 # the same way for app/sdk/backend devs. Don't duplicate it here.
@@ -17,7 +17,7 @@
 # typo dies before the slow arch scan.  Everything that gates a
 # commit lives here — there are no "also run X" steps anywhere else,
 # so the lefthook pre-commit and CI both just call `make lint`.
-lint: fmt-check golangci-config max-lines routes-cyclo routes-via-dispatcher hostops-via-desk periodic-via-scheduler blocks-declare-in-data boundary-thin no-nil-container no-raw-http arch supplier-boundary core-agnostic host-blind-to-blocks register-via-door core-seals-only internal-dirs domain-acyclic infra-not-domain routes-not-imported domain-facade-boundary domain-layering build-check golangci escape-lint
+lint: fmt-check golangci-config max-lines routes-cyclo routes-via-dispatcher hostops-via-desk periodic-via-scheduler blocks-declare-in-data boundary-thin no-nil-container no-raw-http arch supplier-boundary core-agnostic host-blind-to-blocks register-via-door native-key-confined core-seals-only internal-dirs domain-acyclic infra-not-domain routes-not-imported domain-facade-boundary domain-layering build-check golangci escape-lint
 
 # gofmt diff is instant — anything malformed fails here first.
 fmt-check:
@@ -63,6 +63,11 @@ hostops-via-desk:
 # root self-registers. WARN during the everything-is-a-block migration (flip to error at wrap-up).
 register-via-door:
 	@bash ../infra/scripts/check-register-via-door.sh
+
+# The native key is unwrapped (.Reveal()) only at the reach-back auth boundary; the redacting type
+# may travel freely. WARN during the migration (flip to error at wrap-up).
+native-key-confined:
+	@bash ../infra/scripts/check-native-key-confined.sh
 
 # Anything on a timer runs through the one scheduler (internal/infra/periodic).
 # A hand-written loop carries its own bookkeeping, and the bookkeeping is what
