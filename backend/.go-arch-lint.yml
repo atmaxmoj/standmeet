@@ -180,6 +180,8 @@ components:
     in: internal/plugin/registry           # the fiber registry: the single registration point consumed by all three (visitor + owner MCP)
   seamctx:
     in: internal/plugin/seamctx            # per-owner seam resolution as coeffect context (effect.Table per owner): provide/resolve, replacing the adapters supplier machine's lookup
+  blockseam:
+    in: internal/plugin/blockseam          # the block-backed seam provider (seamctx.Provider): merge owner creds → dial the block → call the verb as a tool. Generic (names no seam/block); replaces the per-provider blockCalendarProxy as the supplier layer folds onto the block mechanism
   mount:
     in: internal/plugin/mount              # turns a manifest into a mounted fiber (dial / tool wrap / state / gates)
   assembly:
@@ -428,6 +430,16 @@ deps:
     mayDependOn:
       - blockstore
       - cryptobox
+    anyVendorDeps: true
+
+  # blockseam — the block-backed seam provider. Knows the block-dial primitives (mcpclient session),
+  # the manifest (plugin), and the inbound fault vocabulary (hostop) to classify a failure as
+  # `unavailable`. Injected a Dial + CredVault, so it does NOT depend on mount or credentials.
+  blockseam:
+    mayDependOn:
+      - plugin
+      - mcpclient
+      - hostop
     anyVendorDeps: true
 
   # blockwarn — persistent owner warnings. Knows only blockstore (where they land, in the db
