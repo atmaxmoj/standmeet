@@ -197,11 +197,19 @@ The externalize half is done (every capability is a block; blocks are sandboxed 
 work. Each item's "done" is a **behavioral** acceptance (the net stays green + a host-blindness marker),
 never "the code looks folded."
 
-1. **Fold the supplier layer (biggest).** The separate supplier abstraction (its typed contracts, its
-   dispatch, its credential vault, its boundary guard) collapses into the one block mechanism.
-   *Done when:* the entire §D family + `supplier-provider-agnostic` stay green **verbatim**, and the
-   host-blindness marker (below) reaches zero — i.e. there is no second path a seam can be served by.
-   No new behavior is owed; the proof is the net holding while the parallel layer disappears.
+1. **Fold the supplier layer onto the block mechanism — partially done; full unify is a large arc.**
+   *Correction (grounded 2026-09-14):* the typed `CalendarProxy`/`MailProxy` are **not** a star-topology
+   to delete — they are the seam *definition*, implemented by **three supplier kinds**: block
+   (`caldav`, sandbox_stdio → `blockCalendarProxy`), **openapi** (`google-calendar`, kind=openapi →
+   `calendarAdapter`, in-host HTTP), and **protocol** (SMTP → in-host). Collapsing the contract to a
+   generic `CallVerb` would break the openapi and protocol paths (they have no block to dial).
+   - **Done:** the *block* kind now serves its seam through the generic `blockseam.Provider` (CallVerb;
+     `blockCalendarProxy` delegates to it, §D green). That is the real, shippable fold increment.
+   - **The full "one mechanism for every seam"** requires externalizing the openapi engine and SMTP as
+     blocks too (so *every* supplier is a block behind CallVerb) — a much larger re-architecture, not a
+     deletion. Only then do the typed contracts, the `case "calendar"` literal, and the `smtp`
+     host-blindness residue actually go. This is a north-star arc to scope deliberately, not a quick
+     fold. `supplier-provider-agnostic` + §D remain the net at every step.
 2. **Host-blind to zero.** Today the host still names one block by literal (`smtp`). *Done when:* the
    host-blind marker is 0 — host code names no block or protocol. Behavioral because a named block is one
    the host treats specially, which the next pasted block silently misses.
