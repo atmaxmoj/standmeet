@@ -202,14 +202,6 @@ func (s *Service) Status(
 
 // manifestFor — resolve the manifest for an id: built-in (embedded) takes priority, otherwise
 // an uploaded supplier (spec/binding archived in the DB). Neither → ErrNotFound.
-// specLessKind — kinds that legitimately carry no openapi spec: a protocol supplier (smtp), a
-// credential-only supplier (a token holder, e.g. telegram), and a block supplier (a seam served by
-// an MCP block, e.g. the CalDAV block). They declare their seam directly and connect without an
-// OAuth dance (a block connects via its Verify tool); only openapi parses a spec.
-func specLessKind(kind string) bool {
-	return kind == "protocol" || kind == "credential" || kind == "block"
-}
-
 func (s *Service) manifestFor(
 	ctx context.Context, ownerID, id string,
 ) (*adapters.Manifest, error) {
@@ -266,13 +258,6 @@ const noCredentialsReason = "fill in this supplier's credentials above, then con
 
 // verifyReason — an owner-friendly reason for a failed connection test (classified
 // connect/tls/auth; unrecognized → generic).
-func verifyReason(err error) string {
-	if r := adapters.FriendlyVerifyError(err); r != "" {
-		return r
-	}
-	return "the connection test failed — check the host, port, and credentials"
-}
-
 // markConnected — mark connected. **If the write didn't land, say so.**
 //
 // The UPDATE below only updates an existing row, and the row is created by the "save
@@ -338,15 +323,6 @@ func (s *Service) claimSlotIfFree(ctx context.Context, ownerID, id, seam string)
 		return fmt.Errorf("auto-activate: %w", serr)
 	}
 	return nil
-}
-
-func hasActive(conns []credentials.Connection) bool {
-	for i := range conns {
-		if conns[i].Active {
-			return true
-		}
-	}
-	return false
 }
 
 // initDance / openDance are in svc_oauth.go — the dance's internal pieces all live there.
