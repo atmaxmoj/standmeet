@@ -96,6 +96,41 @@ func TestSeamActiveProviderIsSingleBinding(t *testing.T) {
 	require.Equal(t, []string{"caldav"}, cal.FreeBusy("owner1"), "active after swap")
 }
 
+// TestSeamPerOwnerByRealm — two owners resolve the SAME seam to DIFFERENT active providers with no
+// per-owner table and no owner_id column threaded through dispatch: each owner's context is a realm
+// isolation (Def-24) of the shared seam key. This is what "owner A's calendar is Google, owner B's
+// is CalDAV" becomes — one seam name, resolved independently per realm.
+func TestSeamPerOwnerByRealm(t *testing.T) {
+	t.Parallel()
+	shared := &effect.Table{} // the instance's shared context
+
+	// Owner A isolates `calendar` into their own realm and provides CalDAV there.
+	ownerA := shared.Isolate(calendar, "owner-A")
+	_, err := ownerA.Set(calendar, calendarSeam(fakeCalendar{busy: []string{"caldav"}}))
+	require.NoError(t, err)
+
+	// Owner B isolates the same seam into a different realm and provides Google.
+	ownerB := shared.Isolate(calendar, "owner-B")
+	_, err = ownerB.Set(calendar, calendarSeam(fakeCalendar{busy: []string{"google"}}))
+	require.NoError(t, err)
+
+	// Each owner injects the same seam name and gets THEIR provider — resolution is per realm.
+	va, err := ownerA.Get(calendar)
+	require.NoError(t, err)
+	calA, ok := va.(calendarSeam)
+	require.True(t, ok)
+	require.Equal(t, []string{"caldav"}, calA.FreeBusy("owner-A"))
+
+	vb, err := ownerB.Get(calendar)
+	require.NoError(t, err)
+	calB, ok := vb.(calendarSeam)
+	require.True(t, ok)
+	require.Equal(t, []string{"google"}, calB.FreeBusy("owner-B"))
+
+	// The shared context itself still has no calendar provider — neither owner's choice leaked up.
+	require.False(t, shared.Satisfied(effect.Spec{calendar}), "owner realms do not leak to shared")
+}
+
 // TestSeamActivationIsReactive — a consumer need not poll: the transition into/out of satisfaction
 // is observable at the effect boundary (Def-22), which is how "the tool appears when the owner
 // connects a provider, disappears when they disconnect" falls out of the model, not from wiring.
