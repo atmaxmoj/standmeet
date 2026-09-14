@@ -15,7 +15,7 @@
 # description — that description travels with the tool and leaves with it, so it can never lie.
 #
 # Scope (two places, both "instructions that don't vary by session"):
-#   · the Go constant named `instructions` in `mcp-servers/*/…` (each plugin's own fragment);
+#   · the `const instructions` template literal in each block `infra/plugins/*/*-mcp.js`;
 #   · `backend/internal/prompts/**.md` (the embedded fragment).
 # Code is out of scope: a tool obviously has to spell out its own name on the line that
 # registers it, and a card's testid carries it too.
@@ -57,14 +57,21 @@ conditional_tools() {
 
 # ── scope: the body of the session-independent instructions ──
 #
-# The Go half only takes the span between `const instructions = ` and the closing backtick, not
+# The block half takes only the span between `const instructions = ` and the CLOSING backtick, not
 # the whole file: the same file also has card HTML, and `tool-card-calendar_book` inside it is a
-# testid, not something said to the model.
+# testid, not something said to the model. The blocks are node MCP servers now
+# (infra/plugins/<name>/<name>-mcp.js), so the const is a JS template literal.
+#
+# JS template literals can hold ESCAPED backticks mid-body (\`radio\` etc.) — the old Go raw strings
+# never could. So "line ends in a backtick" is not enough to mark the close: a line ending in an
+# ESCAPED backtick would slam `inside` shut early and leave the rest of the instructions unscanned
+# (a blind gate, [[gate-can-go-blind]]). The end condition therefore requires an UNescaped closing
+# backtick (optionally followed by `;`), i.e. not preceded by a backslash.
 instruction_text() {
-  for f in $(find mcp-servers -name '*.go' -not -name '*_test.go' 2>/dev/null | sort); do
+  for f in $(find infra/plugins -name '*-mcp.js' 2>/dev/null | sort); do
     awk -v src="$f" '
       /^const instructions = `/ { inside = 1; next }
-      inside && /`$/ { inside = 0; next }
+      inside && /`;?[[:space:]]*$/ && !/\\`;?[[:space:]]*$/ { inside = 0; next }
       inside { print src ": " $0 }
     ' "$f"
   done

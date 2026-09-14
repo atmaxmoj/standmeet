@@ -88,6 +88,10 @@ const GOLDEN_INWARD: readonly Cap[] = [
   // actively attempt escape (reading docker.sock / host config / path traversal), proving
   // bwrap blocks all of it.
   { id: 'escapee', shape: 'visitor_only', origin: 'managed' },
+  // koishi — a REAL third-party Koishi plugin (koishi-plugin-base64) booted headlessly and wrapped
+  // as a stdio-MCP block (item 28, koishi-poc.spec). Declared in dev-plugins.json, loaded through
+  // the same managed sandbox as the other third parties; last in registration order.
+  { id: 'koishi', shape: 'visitor_only', origin: 'managed' },
 ];
 
 test.describe('能力归一化 · 【对内】agent 能力黄金快照', () => {

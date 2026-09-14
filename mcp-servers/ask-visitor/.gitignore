@@ -1,3 +1,0 @@
-# go build artifact (binary name = module dir name). In-process loading
-# compiles this module into backend; the standalone binary is never needed — don't commit.
-/ask-visitor

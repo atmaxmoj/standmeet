@@ -56,7 +56,7 @@ services:
   backend:
     build:
       # context = repo root (NOT ./backend): backend/Dockerfile does
-      # `COPY backend/... / infra/scripts` + links mcp-servers/* in-process, so it
+      # `COPY backend/... / infra/scripts` and the plugins stage bakes infra/plugins/*, so it
       # needs the whole repo — same as docker-compose.dev.yml. ./backend fails the COPYs.
       context: .
       dockerfile: backend/Dockerfile

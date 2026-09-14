@@ -128,18 +128,25 @@ interface VisitorBlocksResp {
 export async function expectCalendarBookExposed(
   request: APIRequestContext, sessionToken: string, exposed: boolean,
 ): Promise<void> {
-  const res = await request.get(
-    `${BACKEND}/internal/diag/session`,
-    { headers: { 'X-Session-Token': sessionToken } },
-  );
-  if (res.status() !== 200) throw new Error(`visitor-blocks: ${res.status()}`);
-  const body = await res.json() as VisitorBlocksResp;
-  const names = body.tool_specs.map((t) => t.name);
-  const has = names.includes('calendar_book');
-  if (has !== exposed) {
-    throw new Error(
-      `expected calendar_book ${exposed ? 'exposed' : 'absent'}, ` +
-      `got tools=${names.join(',')}`,
+  // Blocks now bind ASYNCHRONOUSLY: a JS block's tool specs are cached by a background warm dial
+  // (~2s node cold-start) kicked off at session assembly, so the tool appears a beat after the
+  // session is created (overlapping the visitor typing). Poll until the assembled tool list matches
+  // rather than checking once. `exposed:false` (un-granted) is the stable state and returns on the
+  // first read; `exposed:true` waits for the warm to land.
+  const deadline = Date.now() + 15_000;
+  let names: string[] = [];
+  for (;;) {
+    const res = await request.get(
+      `${BACKEND}/internal/diag/session`,
+      { headers: { 'X-Session-Token': sessionToken } },
     );
+    if (res.status() !== 200) throw new Error(`visitor-blocks: ${res.status()}`);
+    names = (await res.json() as VisitorBlocksResp).tool_specs.map((t) => t.name);
+    if (names.includes('calendar_book') === exposed) return;
+    if (Date.now() > deadline) break;
+    await new Promise((r) => setTimeout(r, 400));
   }
+  throw new Error(
+    `expected calendar_book ${exposed ? 'exposed' : 'absent'} within 15s, got tools=${names.join(',')}`,
+  );
 }

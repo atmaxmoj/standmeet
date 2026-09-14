@@ -1,4 +1,0 @@
-# go build artifact (binary name = module dir name). The sandbox plugin is built
-# from source into infra/plugins/<id>/ by infra/plugins/provision.sh (that dir is
-# also ignored) — nobody reads this copy here, don't commit it.
-/booker

@@ -1,12 +1,12 @@
 # syntax=docker/dockerfile:1
-# The backend imports NO plugin code: mcp-servers/* are pure runtime artifacts
-# (static binaries built from their own Go modules). The host↔plugin contract is
-# the manifest + the runtime MCP protocol, never a Go dependency. In dev they are
-# bind-mounted from infra/plugins (built by provision.sh); here in prod they are
-# BAKED into /srv/plugins in the builder stage (Stage 2) — they are product
-# artifacts and must ship with the image, else the bwrap sandbox can't spawn
-# retrieval and visitor grounding is dead (F-A-1). The build context is repo-root
-# (docker-compose: context: .) so mcp-servers/ is reachable.
+# The backend imports NO plugin code: the blocks are node MCP servers (infra/plugins/<name>), pure
+# runtime artifacts. The host↔plugin contract is the manifest + the runtime MCP protocol, never a
+# code dependency — and the blocks are JS precisely so a block cannot import the Go backend at all.
+# In dev they are bind-mounted from infra/plugins (deps installed by provision.sh); here in prod the
+# `plugins` stage npm-installs each into /srv/plugins, and the production stage bakes that in — they
+# are product artifacts and must ship with the image, else the bwrap sandbox can't spawn and visitor
+# grounding is dead (F-A-1). The build context is repo-root (docker-compose: context: .) so
+# infra/plugins is reachable (re-included in .dockerignore).
 
 # Stage 1: Deps
 #
@@ -74,21 +74,24 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     -o /out/standmeet \
     ./cmd/server
 
-# Builtin block plugins (mcp-servers/*) → static binaries at /srv/plugins.
-# These are PRODUCT artifacts (retrieval / booker / summarize / ask_visitor /
-# mail-sender), each its own Go module, loaded at runtime by the bwrap
-# sandbox_stdio path (ro-bind /srv/plugins/<name>, exec /plugin/<name>). Dev
-# bind-mounts infra/plugins; prod bakes them — without them the retrieval
-# sandbox can't spawn and every visitor turn binds zero tools (F-A-1).
-WORKDIR /app
-COPY mcp-servers ./mcp-servers
-RUN --mount=type=cache,target=/root/.cache/go-build \
-    for p in ask-visitor summarize booker retrieval mail-sender; do \
-      (cd /app/mcp-servers/"$p" && \
-        GOARCH=$TARGETARCH go build -trimpath -ldflags='-s -w' \
-          -o /srv/plugins/"$p"/"$p" .) || exit 1; \
+# Stage 2a: block plugins (node MCP servers) → /srv/plugins.
+# These are PRODUCT artifacts — the visitor-facing blocks (ask_visitor / calendar.book /
+# corpus.retrieval / summarize_conversation / mail.send / caldav) plus the fetch server declared by
+# prod-plugins.json. Each is our own JS (infra/plugins/<name>/<name>-mcp.js + deps in package.json),
+# loaded at runtime by the bwrap sandbox_stdio path (ro-bind /srv/plugins/<name>, exec
+# `node /plugin/<name>-mcp.js`). JS not Go: a block runs in a node sandbox and has no import path
+# back into the backend — the isolation is structural. Dev bind-mounts infra/plugins; prod bakes
+# them here (npm install flat, bwrap-safe), else the sandbox can't spawn and every visitor turn
+# binds zero tools (F-A-1). The koishi/everything/fsmcp demos are NOT baked — they're dev-only
+# fixtures under infra/dsh-acceptance, excluded from the build context.
+FROM node:22-alpine AS plugins
+WORKDIR /build
+COPY infra/plugins ./infra/plugins
+RUN for p in ask-visitor booker retrieval summarize mail-sender caldav fetch; do \
+      mkdir -p /srv/plugins/"$p" && \
+      cp -R /build/infra/plugins/"$p"/. /srv/plugins/"$p"/ && \
+      (cd /srv/plugins/"$p" && npm install --omit=dev --no-audit --no-fund --silent) || exit 1; \
     done
-WORKDIR /app/backend
 
 # Stage 2b: geoip database (db-ip City Lite, CC-BY) — resolves a visitor IP to country/city when no
 # CDN header sets one (the bare self-hosted case; umami does the same). A separate stage so the
@@ -128,8 +131,8 @@ RUN addgroup --system --gid 1001 standmeet && \
 COPY --from=builder --chown=standmeet:standmeet /out/standmeet /app/standmeet
 COPY --from=builder --chown=standmeet:standmeet /app/backend/entrypoint.sh /app/entrypoint.sh
 RUN mkdir -p /srv && chown standmeet:standmeet /srv
-# Bake the builtin block plugins so the bwrap sandbox finds them at /srv/plugins/<name>.
-COPY --from=builder --chown=standmeet:standmeet /srv/plugins /srv/plugins
+# Bake the block plugins (node MCP servers) so the bwrap sandbox finds them at /srv/plugins/<name>.
+COPY --from=plugins --chown=standmeet:standmeet /srv/plugins /srv/plugins
 # Bundle the geoip database (default path matches monitor_geoip.go's geoDefaultPath), so the monitor
 # resolves visitor country/city from the IP even when no CDN header carried one.
 COPY --from=geoip --chown=standmeet:standmeet /srv/geoip /srv/geoip

@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"time"
 
 	"github.com/atmaxmoj/standmeet/cmd/server/blockwire"
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
@@ -206,6 +207,17 @@ func registerAgentSkills(ctx context.Context, d *deps.Runtime) {
 	// the paste that first installed them. A block that worked until the process died
 	// is worse than one that never worked: the owner has no reason to look.
 	restoreOwnerBlocks(ctx, d)
+	// Prime each externalized block's shared spec + UI cache now that every block (builtin,
+	// deploy-declared, owner-installed) is registered — BEFORE the server serves (this runs at
+	// boot, ahead of ListenAndServe). The fibers are process-lifetime singletons, so this one warm
+	// per block serves every later visitor session: assembly then returns full tool_specs (with the
+	// ui:// card HTML) with no dial, and no session — not even the first — pays the ~2s node
+	// cold-start or misses a tool/card on turn one. Blocks concurrently, bounded so a block that
+	// can't warm in time is left to the cold self-heal path rather than holding boot open. The boot
+	// delay (server not serving visitors yet) sits well inside the healthcheck's start budget.
+	warmCtx, cancelWarm := context.WithTimeout(ctx, 20*time.Second)
+	d.AgentSkills.WarmVisitorBlocks(warmCtx)
+	cancelWarm()
 	// Periodic jobs: declared all over, scheduled from one place. Last on purpose —
 	// declarations complete only once every plugin has registered.
 	wire.PeriodicJobs(ctx, d)

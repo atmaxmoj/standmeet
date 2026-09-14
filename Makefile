@@ -6,8 +6,8 @@
 # lefthook doesn't get blocked by a subproject that isn't wired up yet during early
 # incremental development.
 
-.PHONY: lint secrets secrets-image release-build release-assert-stripped release-assert-multiarch release-assert-version release-push release-gc release-repro release-repro-logs release-repro-down backend-lint backend-test plugin-test backend-no-mock app-lint sdk-lint e2e-lint env-lint updater-e2e im-bridge-lint im-bridge-test im-bridge-up im-bridge-logs
-.PHONY: deps stack stack-init stack-ready stack-test stack-retire dev dev-up dev-rebuild dev-down prod-up prod-down prod-logs build clean test test-fresh test-only test-asis dsh-plugin-test test-red test-captcha test-boundary mobile-shots mobile-shots-asis archive-failures sdk-build builder-vendor dev-rebuild-builder app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-blocks eval-owner-mcp verify-round schema-drift i18n-keys
+.PHONY: lint secrets secrets-image release-build release-assert-stripped release-assert-multiarch release-assert-version release-push release-gc release-repro release-repro-logs release-repro-down backend-lint backend-test backend-no-mock app-lint sdk-lint e2e-lint env-lint updater-e2e im-bridge-lint im-bridge-test im-bridge-up im-bridge-logs
+.PHONY: deps stack stack-init stack-ready stack-test stack-retire dev dev-up dev-rebuild dev-down prod-up prod-down prod-logs build clean test test-fresh test-only test-asis dsh-plugin-test test-red test-captcha test-boundary mobile-shots mobile-shots-asis archive-failures sdk-build builder-vendor dev-rebuild-builder dev-restart-gotenberg app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-blocks eval-owner-mcp verify-round schema-drift i18n-keys
 
 # ── per-checkout dev stack ──────────────────────────────────────
 # One machine, N checkouts, N stacks. Without this every worktree drives the SAME
@@ -156,19 +156,10 @@ backend-lint:
 	@$(MAKE) -C backend lint
 
 # backend-test —— Go unit/integration tests (testify, no DB/docker). e2e runs via `make test`.
-# Also runs each plugin module's own tests under mcp-servers/: they're independent go modules,
-# so `go test ./...` inside backend/ can't reach them — which is why the ask-visitor test **never
-# ran, from the day it was written**.
-backend-test: plugin-test
+# The blocks are node MCP servers now (infra/plugins/*), not Go modules — they carry no `go test`;
+# they're exercised by `make dsh-plugin-test` (real DSH lifecycle) and the e2e suite.
+backend-test:
 	@$(MAKE) -C backend test
-
-# plugin-test —— each mcp-servers/<plugin> is its own module; run each one's go test separately.
-plugin-test:
-	@for d in mcp-servers/*/; do \
-		[ -f "$$d/go.mod" ] || continue; \
-		echo "[plugin-test] $$d"; \
-		(cd "$$d" && go test ./...) || exit 1; \
-	done
 
 # backend-no-mock —— the G-Y gate: no mock-only / test-only code allowed anywhere in backend/
 # (MockProvider / INFERENCE_MOCK_ env / /__mock URL / routes/sys/test_*).
@@ -407,6 +398,12 @@ dev-rebuild-backend-cached:
 	@docker compose -p $(DEV_PROJECT) -f docker-compose.dev.yml build backend
 	@docker compose -p $(DEV_PROJECT) -f docker-compose.dev.yml up -d --no-deps backend
 
+# dev-restart-gotenberg —— recycle the gotenberg PDF sidecar. Its headless-Chromium "pinning proxy"
+# can wedge after a long uptime ("pinning proxy already started" → every convert 500s); a normal
+# dev-up leaves the unchanged sidecar as-is, so restart it explicitly.
+dev-restart-gotenberg:
+	@docker compose -p $(DEV_PROJECT) -f docker-compose.dev.yml restart gotenberg
+
 # dev-recreate-backend —— recreate the backend container on the EXISTING image, no rebuild. For when
 # the image is already built (a manual build, or a container-name conflict left the service down)
 # and dev-rebuild-backend's --no-cache rebuild would be wasted minutes.
@@ -474,11 +471,11 @@ prod-app: app-build
 # swaps the container **without building an image** — using either of those after a Go code
 # change still runs the old binary. Verified this the hard way today on F-C-41's step ⑤: the
 # screen looked unchanged and I almost concluded the fix hadn't taken.
-# ⚠️ provision.sh must run here. Prod mounts `./infra/plugins` onto `/srv/plugins` (compose:138),
-# **which shadows what was just compiled into the image**. So after changing `mcp-servers/*`,
-# building the image alone still runs the old binary on the host — while this command prints
-# "backend rebuilt" as if nothing were wrong. Hit this on 2026-08-18 on booker's cancel button:
-# built the image three times, screen never changed, and the new class wasn't in the binary at all.
+# ⚠️ provision.sh must run here. The local prod-test stack mounts `./infra/plugins` onto
+# `/srv/plugins`, **which shadows what the image baked**. So after changing a block under
+# `infra/plugins/*`, building the image alone still runs the old code on the host — while this
+# command prints "backend rebuilt" as if nothing were wrong. Hit this on 2026-08-18 on booker's
+# cancel button: built the image three times, screen never changed, and the new code wasn't live.
 # Same family: `prod-app` needs `app-build` first (the image COPYs a host artifact). **Produce the
 # artifact where it's consumed, first.**
 prod-backend:

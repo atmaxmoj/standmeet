@@ -20,7 +20,8 @@ visitor_tools:
 
 transport:
   kind: sandbox_stdio
-  command: /plugin/retrieval
+  command: node
+  args: ["/plugin/retrieval-mcp.js"]
   sandbox:
     plugin_dir: /srv/plugins/retrieval
     # To reach backend corpus data, name one of these eight ops. The socket path is derived from the id; the manifest does not write it.

@@ -60,23 +60,31 @@ install_into() {
 # infra/ walks up to the pnpm workspace root and dies), same in-bundle spec stamp — here the
 # stamp is a hash of package.json, so an edited dependency set reinstalls.
 install_project_into() {
-  local plugin="$1"
-  local pkgjson="$DIR/$plugin/package.json"
+  install_project_dir "$DIR/$1"
+}
+
+# install_project_dir —— the same flat-npm materialization as install_project_into, for an ABSOLUTE
+# plugin dir (so it also serves the dsh-acceptance demo blocks, which live outside infra/plugins).
+install_project_dir() {
+  local pdir="$1"
+  local plugin
+  plugin="$(basename "$pdir")"
+  local pkgjson="$pdir/package.json"
   local stamp
   stamp="$(shasum "$pkgjson" | cut -d' ' -f1)"
-  if [ -d "$DIR/$plugin/node_modules" ] \
-      && [ "$(cat "$DIR/$plugin/node_modules/.provision-spec" 2>/dev/null)" = "$stamp" ]; then
+  if [ -d "$pdir/node_modules" ] \
+      && [ "$(cat "$pdir/node_modules/.provision-spec" 2>/dev/null)" = "$stamp" ]; then
     echo "[provision] $plugin: up to date (package.json $stamp), skip"
     return
   fi
-  rm -rf "$DIR/$plugin/node_modules"
+  rm -rf "$pdir/node_modules"
   local tmp
   tmp="$(mktemp -d)"
   cp "$pkgjson" "$tmp/package.json"
   ( cd "$tmp" && npm install --no-audit --no-fund >/dev/null )
-  cp -R "$tmp/node_modules" "$DIR/$plugin/"
+  cp -R "$tmp/node_modules" "$pdir/"
   rm -rf "$tmp"
-  echo "$stamp" > "$DIR/$plugin/node_modules/.provision-spec"
+  echo "$stamp" > "$pdir/node_modules/.provision-spec"
   echo "[provision] $plugin (node project) <- $pkgjson"
 }
 
@@ -116,28 +124,36 @@ build_go_into() {
   echo "[provision] $plugin (go static) <- $mod $pkg"
 }
 
-build_go_into ask-visitor "mcp-servers/ask-visitor" .
-build_go_into summarize   "mcp-servers/summarize"  .
-build_go_into booker      "mcp-servers/booker"     .
-build_go_into retrieval   "mcp-servers/retrieval"  .
-build_go_into mail-sender "mcp-servers/mail-sender" .
+# The five builtin capabilities are node MCP servers (committed <plugin>/<plugin>-mcp.js +
+# package.json), run as `node /plugin/<plugin>-mcp.js`. They used to be Go binaries built into
+# the image; they were rewritten to JS so a block is a plain dsh/cordis plugin that CANNOT reach
+# back into the Go backend (no import path exists from JS), the same isolation the sandbox gives.
+install_project_into ask-visitor
+install_project_into summarize
+install_project_into booker
+install_project_into retrieval
+install_project_into mail-sender
 # caldav —— CalDAV as a Koishi plugin (caldav-plugin.js) wrapped as a stdio-MCP block: injects
 # Koishi's http hand for the WebDAV requests, parses iCalendar with ical.js. CalDAV is an app on
 # HTTP → a block (pluggable into Koishi), not a base protocol, and carries no Go. Deps in
 # infra/plugins/caldav/package.json. Credit: infra/plugins/caldav/CREDITS.
 install_project_into caldav
-# NOTE: koishi / everything / fsmcp moved to infra/dsh-acceptance/ (they are dsh-acceptance
-# demos — proofs that the substrate can host a Koishi-ecosystem plugin / a third-party MCP
-# server — not production capabilities, and were never registered blocks). They are NOT
-# provisioned into any image, and infra/dsh-acceptance is excluded from every docker build
-# context (root .dockerignore drops infra/* except scripts+updater) and never bind-mounted.
+# koishi / everything / fsmcp live in infra/dsh-acceptance/ (dsh-acceptance demos — proofs that the
+# substrate can host a Koishi-ecosystem plugin / a third-party MCP server; not production
+# capabilities). They are NOT baked into any product image (root .dockerignore drops
+# infra/dsh-acceptance from every docker build context). But the dev sandbox-isolation e2e specs
+# (koishi-poc / real-third-party-mcp-* / norm-inward-blocks / sandbox-workspace-ttl-cron /
+# acl-global-master) use them as third-party fixtures: dev-plugins.json declares them at
+# /srv/plugins/<name>, and docker-compose.dev.yml bind-mounts each demo dir there. So their
+# node_modules must be materialized here too (flat npm, bwrap-safe), same as the real blocks.
+DSH_DEMOS="$DIR/../dsh-acceptance"
+for demo in koishi everything fsmcp; do
+  install_project_dir "$DSH_DEMOS/$demo"
+done
 # fetch —— shared by both netfetch (allow_net) and cagedfetch (--network=none);
-# they read the same immutable code, differ only in network policy.
-# 2026.8.18, NOT 2026.6.4: 2026.6.4 declares `mcp>=1.1.3` with no upper bound, so pip
-# resolves mcp 2.x — which renamed `McpError` to `MCPError`, the very name this
-# server's `server.py` imports. The bundle installs clean and dies at import.
-# Upstream fixed it by capping the dependency: 2026.8.18 declares `mcp<2,>=1.29.0`
-# (PyPI requires_dist), so pip picks an mcp that still exports `McpError`. The
-# constraint belongs upstream in the package metadata, not duplicated here.
-install_python_into fetch "mcp-server-fetch==2026.8.18"
+# they read the same immutable code (fetch-mcp.js), differ only in network policy.
+# Our own JS port of the reference python fetch server: global fetch + node-html-markdown
+# + robots-parser, honoring robots.txt unless DSH_FETCH_IGNORE_ROBOTS=1. JS not python so a
+# block cannot reach back into the Go backend.
+install_project_into fetch
 echo "[provision] done"

@@ -32,7 +32,19 @@ type mcpAppFiber struct {
 	// from the cache, eliminating the per-dial `_meta` read race.
 	toolsOnce *sync.Once
 	tools     *[]mcpclient.Tool
-	gate      registry.SessionGate
+	// uiReady/ui —— cache the ui:// card HTML (per tool _meta.ui_resource) so the LISTING path
+	// (VisitorListBinding) can build the whole tool list from cache with NO live session. Only the
+	// warm dial fills this (VisitorBinding fills `tools` but NOT `ui`), so readiness gets its OWN
+	// atomic flag rather than being inferred from `tools` — otherwise a tool CALL that populated
+	// `tools` first would make listing report the ui cache "known" while still empty, dropping
+	// every card for the session. uiReady: 0=not cached, 1=cached (set once by cacheUI).
+	uiReady *int32
+	ui      *map[string]string
+	// warming —— atomic single-flight guard for the background warm dial (0=idle, 1=in-flight): one
+	// cold-start at a time, not one per poll. On failure it resets to idle so a later poll retries;
+	// once specs+UI are cached, knownToolSpecs/knownUI short-circuit and no warm is ever started.
+	warming *int32
+	gate    registry.SessionGate
 	// fragmentGate —— optional per-session predicate for whether this block is "actually
 	// active": gates SystemPromptFragment output and FiberState.Enabled. Tool exposure is
 	// unaffected (retrieval: no corpus scope → enabled=false, no prompt entry, but its 3 tools
@@ -66,6 +78,7 @@ func newMCPAppFiber(m *plugin.Manifest) *mcpAppFiber {
 	return &mcpAppFiber{
 		m: *m, instrOnce: &sync.Once{}, instr: new(string),
 		toolsOnce: &sync.Once{}, tools: new([]mcpclient.Tool),
+		ui: &map[string]string{}, uiReady: new(int32), warming: new(int32),
 	}
 }
 
@@ -154,27 +167,6 @@ func (c *mcpAppFiber) VisitorBinding(
 		Close:     closeAndRevoke(ds.sess, ds.nativeKey),
 		ClaimGate: claimGateOf(&c.m),
 	}, nil
-}
-
-// cachedToolSpecs —— cache the tool specs (including _meta) from the first dial and always
-// return the cache after: once cached, a cold-start high-load ListTools can no longer drop
-// return_directly/progress_label. Execution still uses this dial's live session; only the
-// specs come from the cache.
-func (c *mcpAppFiber) cachedToolSpecs(dialed []mcpclient.Tool) []mcpclient.Tool {
-	c.toolsOnce.Do(func() {
-		*c.tools = dialed
-		reportToolDrift(&c.m, dialed)
-	})
-	return *c.tools
-}
-
-// knownToolSpecs —— returns (specs, true) if cached. Read-only, does not trigger Once — that
-// would let the first call cache an empty slice as "known", leaving no tools forever after.
-func (c *mcpAppFiber) knownToolSpecs() ([]mcpclient.Tool, bool) {
-	if len(*c.tools) == 0 {
-		return []mcpclient.Tool{}, false
-	}
-	return *c.tools, true
 }
 
 // dialOnly —— dial without calling ListTools (specs come from the cache). On failure, still

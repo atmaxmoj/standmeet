@@ -11,7 +11,8 @@ visitor_tools:
 
 transport:
   kind: sandbox_stdio
-  command: /plugin/summarize
+  command: node
+  args: ["/plugin/summarize-mcp.js"]
   sandbox:
     plugin_dir: /srv/plugins/summarize
     # Summarizing one conversation needs: read the transcript, ask what the owner is called,

@@ -41,7 +41,8 @@ visitor_tools:
 
 transport:
   kind: sandbox_stdio
-  command: /plugin/booker
+  command: node
+  args: ["/plugin/booker-mcp.js"]
   sandbox:
     plugin_dir: /srv/plugins/booker
     # 约一场会要：找 owner 的日历连接器、存自己那份预约记录、读自己的配置、读 owner 的时区。

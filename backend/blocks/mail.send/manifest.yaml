@@ -19,7 +19,8 @@ visitor_tools:
 
 transport:
   kind: sandbox_stdio
-  command: /plugin/mail-sender
+  command: node
+  args: ["/plugin/mail-sender-mcp.js"]
   sandbox:
     plugin_dir: /srv/plugins/mail-sender
     # Sending itself goes through the supplier (seam contract — the plugin

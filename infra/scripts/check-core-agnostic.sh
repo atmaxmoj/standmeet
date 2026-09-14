@@ -22,8 +22,8 @@
 #
 # Excluded: _test.go, and comment lines starting with `//` or `*`. CORE_DIRS holds only the three
 # kernel packages; the supplier layer (plugin adapters), postgres, mailer, the composition
-# root (cmd/server), the owner-side cap bundles (internal/owner/{ownercore,jobs}), and mcp-servers/ are **not** the
-# kernel —— block names there are legal.
+# root (cmd/server), the owner-side cap bundles (internal/owner/{ownercore,jobs}), and the node
+# blocks under infra/plugins/ are **not** the kernel —— block names there are legal.
 #
 # Usage:
 #   check-core-agnostic.sh          check (default). Exit code 0=clean, 1=has violations.

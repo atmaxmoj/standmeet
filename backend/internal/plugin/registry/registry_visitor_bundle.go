@@ -98,7 +98,17 @@ func accumVisitorFiber(
 	ctx context.Context, c Fiber, in *AssembleInput, b *VisitorBundle,
 ) {
 	appendPromptPart(ctx, c, in, b)
-	binding, err := c.VisitorBinding(ctx, in)
+	// LISTING uses the cache-aware, dial-free path when the fiber offers one (mcpAppFiber): the
+	// tools here are only read for their specs, never called (calls go via AssembleVisitorForTool),
+	// so a per-poll assembly need not pay the block's ~2s cold-start dial. Fibers without it
+	// (in-process composed / owner fibers, which are fast) fall back to VisitorBinding.
+	var binding *Binding
+	var err error
+	if lister, ok := c.(visitorListBinder); ok {
+		binding, err = lister.VisitorListBinding(ctx, in)
+	} else {
+		binding, err = c.VisitorBinding(ctx, in)
+	}
 	if isHiddenBinding(binding, err) {
 		return
 	}
@@ -147,4 +157,35 @@ func accumActiveBinding(
 	if binding.Close != nil {
 		binding.Close()
 	}
+}
+
+// visitorListBinder —— an OPTIONAL fiber capability: a listing-only binding that returns cached
+// tool specs (+ UI HTML) without dialing a live session, and warms that cache in the background
+// on a miss. A fiber that dials an external process (mcpAppFiber) implements it so a per-poll
+// bundle assembly does not pay its cold-start; in-process fibers don't and use VisitorBinding.
+type visitorListBinder interface {
+	VisitorListBinding(ctx context.Context, in *AssembleInput) (*Binding, error)
+}
+
+// VisitorBlockWarmer —— an OPTIONAL fiber capability: prime its shared spec + UI cache at startup
+// so the first visitor session's assembly is already hot (no per-session cold dial, and the ui://
+// card HTML present on the very first turn). Only externalized blocks (mcpAppFiber) implement it;
+// in-process fibers are already instant. WarmVisitorBlock dials synchronously, returns when done.
+type VisitorBlockWarmer interface {
+	WarmVisitorBlock(ctx context.Context)
+}
+
+// WarmVisitorBlocks —— call once after registration, BEFORE the server serves: dial every warmable
+// fiber concurrently and BLOCK until all have warmed or ctx elapses. Blocking briefly at boot (the
+// server isn't serving visitors yet) is what guarantees no session — not even the first — hits a
+// cold cache; a per-session wait was measured to stack across cold blocks and time out assemblies.
+// Bound with ctx: a block that can't warm in time falls to the cold self-heal, not held boot.
+func (r *Registry) WarmVisitorBlocks(ctx context.Context) {
+	var wg sync.WaitGroup
+	for _, c := range r.fibers {
+		if w, ok := c.(VisitorBlockWarmer); ok {
+			wg.Go(func() { w.WarmVisitorBlock(ctx) })
+		}
+	}
+	wg.Wait()
 }

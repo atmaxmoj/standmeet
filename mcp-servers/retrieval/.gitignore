@@ -1,4 +1,0 @@
-# go build output (binary name = module directory name). The sandboxed plugin is compiled
-# from source into infra/plugins/<id>/ by infra/plugins/provision.sh (that directory is also
-# ignored); nothing reads this copy here — don't commit it.
-/retrieval

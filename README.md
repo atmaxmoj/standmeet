@@ -178,7 +178,7 @@ Suspect a flaky test? `REPEAT=5`. One pass is not evidence.
 | `sdk/` | `@standmeet/sdk` — embed chat and corpus reading in your own site |
 | `builder/` | Sandboxed build of owner-written microsites |
 | `im-bridge/` | Talk to the owner's AI from a chat app, on an access code |
-| `mcp-servers/` | Block plugins, linked into the backend |
+| `infra/plugins/` | The block plugins — standalone node MCP servers the sandbox spawns; the host never imports them |
 | `infra/` | Deployment: the image-based compose (`infra/deploy/`), updater, plugin manifests, lint tooling |
 | `e2e/` | Playwright. The suite the whole product is judged by |
 | `docs/design/` | The canonical visual and product spec |

@@ -15,7 +15,7 @@
         "kind": "sandbox_stdio",
         "command": "node",
         "args": ["/plugin/node_modules/@modelcontextprotocol/server-everything/dist/index.js", "stdio"],
-        "sandbox": { "plugin_dir": "/srv/plugins/everything", "allow_net": false }
+        "sandbox": { "plugin_dir": "/srv/plugins-demos/everything", "allow_net": false }
       }
     },
     {
@@ -26,7 +26,7 @@
         "kind": "sandbox_stdio",
         "command": "node",
         "args": ["/plugin/node_modules/@modelcontextprotocol/server-filesystem/dist/index.js", "/plugin"],
-        "sandbox": { "plugin_dir": "/srv/plugins/fsmcp", "allow_net": false }
+        "sandbox": { "plugin_dir": "/srv/plugins-demos/fsmcp", "allow_net": false }
       }
     },
     {
@@ -38,7 +38,7 @@
         "kind": "sandbox_stdio",
         "command": "node",
         "args": ["/plugin/node_modules/@modelcontextprotocol/server-filesystem/dist/index.js", "/workspace"],
-        "sandbox": { "plugin_dir": "/srv/plugins/fsmcp", "allow_net": false, "workspace": true }
+        "sandbox": { "plugin_dir": "/srv/plugins-demos/fsmcp", "allow_net": false, "workspace": true }
       }
     },
     {
@@ -48,9 +48,9 @@
       "shape": "visitor_only",
       "transport": {
         "kind": "sandbox_stdio",
-        "command": "python",
-        "args": ["-m", "mcp_server_fetch", "--ignore-robots-txt"],
-        "env": { "PYTHONPATH": "/plugin/pkg" },
+        "command": "node",
+        "args": ["/plugin/fetch-mcp.js"],
+        "env": { "DSH_FETCH_IGNORE_ROBOTS": "1" },
         "sandbox": { "plugin_dir": "/srv/plugins/fetch", "allow_net": true }
       }
     },
@@ -60,9 +60,9 @@
       "shape": "visitor_only",
       "transport": {
         "kind": "sandbox_stdio",
-        "command": "python",
-        "args": ["-m", "mcp_server_fetch", "--ignore-robots-txt"],
-        "env": { "PYTHONPATH": "/plugin/pkg" },
+        "command": "node",
+        "args": ["/plugin/fetch-mcp.js"],
+        "env": { "DSH_FETCH_IGNORE_ROBOTS": "1" },
         "sandbox": { "plugin_dir": "/srv/plugins/fetch", "allow_net": false }
       }
     },
@@ -75,7 +75,7 @@
         "kind": "sandbox_stdio",
         "command": "node",
         "args": ["/plugin/node_modules/@modelcontextprotocol/server-filesystem/dist/index.js", "/"],
-        "sandbox": { "plugin_dir": "/srv/plugins/fsmcp", "allow_net": false }
+        "sandbox": { "plugin_dir": "/srv/plugins-demos/fsmcp", "allow_net": false }
       }
     },
     {
@@ -87,7 +87,7 @@
         "kind": "sandbox_stdio",
         "command": "node",
         "args": ["/plugin/koishi-mcp.js"],
-        "sandbox": { "plugin_dir": "/srv/plugins/koishi", "allow_net": false }
+        "sandbox": { "plugin_dir": "/srv/plugins-demos/koishi", "allow_net": false }
       }
     }
   ]

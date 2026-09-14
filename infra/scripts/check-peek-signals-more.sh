@@ -24,7 +24,9 @@
 set -eu
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-TARGET="$ROOT/mcp-servers/summarize/content.go"
+# summarize is a node MCP block now (summarize-mcp.js); the report card template (the fixed-height
+# preview iframe + its fade-at-the-cut) lives inline there, ported verbatim from the old Go content.go.
+TARGET="$ROOT/infra/plugins/summarize/summarize-mcp.js"
 
 fail=0
 

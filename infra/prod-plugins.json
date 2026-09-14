@@ -8,14 +8,12 @@
       "shape": "visitor_only",
       "transport": {
         "kind": "sandbox_stdio",
-        "command": "python",
+        "command": "node",
         "args": [
-          "-m",
-          "mcp_server_fetch",
-          "--ignore-robots-txt"
+          "/plugin/fetch-mcp.js"
         ],
         "env": {
-          "PYTHONPATH": "/plugin/pkg"
+          "DSH_FETCH_IGNORE_ROBOTS": "1"
         },
         "sandbox": {
           "plugin_dir": "/srv/plugins/fetch",
@@ -29,14 +27,12 @@
       "shape": "visitor_only",
       "transport": {
         "kind": "sandbox_stdio",
-        "command": "python",
+        "command": "node",
         "args": [
-          "-m",
-          "mcp_server_fetch",
-          "--ignore-robots-txt"
+          "/plugin/fetch-mcp.js"
         ],
         "env": {
-          "PYTHONPATH": "/plugin/pkg"
+          "DSH_FETCH_IGNORE_ROBOTS": "1"
         },
         "sandbox": {
           "plugin_dir": "/srv/plugins/fetch",

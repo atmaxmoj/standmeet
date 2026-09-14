@@ -1,12 +1,10 @@
 # Root build context for the backend image (docker-compose backend: context: .).
-# Needed: the backend module + the externalized block modules (mcp-servers/*,
-# provisioned separately but their go.mod resolves) + infra/scripts (the lint tools
-# live OUTSIDE backend — make lint reaches ../infra/scripts). Everything else (app/,
-# e2e/, docs/, .git, node_modules, other modules) bloats the context — exclude it
-# all, then re-include just what the build needs.
+# Needed: the backend module + the block sources (infra/plugins/* — node MCP servers, baked into
+# /srv/plugins in the plugins stage) + infra/scripts (the lint tools live OUTSIDE backend — make
+# lint reaches ../infra/scripts). Everything else (app/, e2e/, docs/, .git, node_modules, other
+# modules) bloats the context — exclude it all, then re-include just what the build needs.
 *
 !backend
-!mcp-servers
 # infra/scripts holds the lint tooling (shell checks + the check-no-nil-container Go
 # module); infra/updater holds the updater sidecar's script (its image COPYs it in). Nested
 # re-include: descend into infra, drop the rest, keep just those two.
@@ -14,6 +12,11 @@
 infra/*
 !infra/scripts
 !infra/updater
+# infra/plugins holds the node MCP block sources (ask-visitor / booker / retrieval / summarize /
+# mail-sender / caldav / fetch): the plugins stage npm-installs each into /srv/plugins. Their
+# node_modules is excluded by the global rule below (installed in the image, not carried in).
+# infra/dsh-acceptance (the koishi/everything/fsmcp demos) stays excluded — dev-only test fixtures.
+!infra/plugins
 
 # im-bridge also uses the root context (it needs @standmeet/sdk-core, which lives under sdk/ —
 # outside its own directory). Pull in only the source and pnpm's three manifests; node_modules

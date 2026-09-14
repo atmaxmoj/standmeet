@@ -11,7 +11,8 @@ visitor_tools:
 
 transport:
   kind: sandbox_stdio
-  command: /plugin/ask-visitor
+  command: node
+  args: ["/plugin/ask-visitor-mcp.js"]
   sandbox:
     plugin_dir: /srv/plugins/ask-visitor
     # host_ops 一个都不点 —— 这个能力不要任何后端数据，所以它连一根回头的 socket 都没有，

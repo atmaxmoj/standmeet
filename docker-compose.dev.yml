@@ -58,7 +58,7 @@ services:
       driver: json-file
       options: { max-size: "200m", max-file: "3" }
     build:
-      context: .                   # repo root: backend links mcp-servers/* in-process
+      context: .                   # repo root: the plugins stage bakes infra/plugins/* into /srv/plugins
       dockerfile: backend/Dockerfile
       target: production           # build stage 已经跑了 lint；dev 走完整链
       args:
@@ -234,6 +234,15 @@ services:
       - ./infra/dev-plugins.json:/etc/standmeet/plugins.json:ro
       # 沙箱第三方 MCP 插件代码（dev：host 上 npm 装好的目录；bwrap 只读挂进沙箱）。
       - ./infra/plugins:/srv/plugins:ro
+      # dsh-acceptance 里的 demo block（koishi / everything / fsmcp）—— 它们只活在自己的测试栈里，
+      # docker build 不带（.dockerignore 丢掉 infra/dsh-acceptance）。可 dev 的 sandbox-isolation
+      # e2e（koishi-poc / real-third-party-mcp-* / norm-inward-blocks / sandbox-workspace-ttl-cron /
+      # acl-global-master）用它们当第三方 MCP 隔离夹具。挂到 /srv/plugins-demos（不能嵌进只读的
+      # /srv/plugins —— 只读挂载里建不了挂载点），dev-plugins.json 的 plugin_dir 指到这里；各 demo
+      # 自带 node_modules（provision.sh 装成扁平的，bwrap 安全）。
+      - ./infra/dsh-acceptance/koishi:/srv/plugins-demos/koishi:ro
+      - ./infra/dsh-acceptance/everything:/srv/plugins-demos/everything:ro
+      - ./infra/dsh-acceptance/fsmcp:/srv/plugins-demos/fsmcp:ro
       # external-mock 现签的证书 + 合并根包(SSL_CERT_FILE 指到 bundle.crt)。
       - mocktls:/mock-tls:ro
     healthcheck:

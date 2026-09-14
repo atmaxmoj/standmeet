@@ -2,8 +2,8 @@
 # check-host-blind-to-blocks.sh —— the host must not know WHICH blocks ship.
 #
 # A built-in block has no standing an installed one lacks. It is a plugin somebody wrote
-# ahead of time, and its implementation lives outside the host (mcp-servers/<name>, started
-# at runtime). If host code names one, that block is no longer equivalent to a block the
+# ahead of time, and its implementation lives outside the host (a node MCP server under
+# infra/plugins/<name>, started at runtime). If host code names one, that block is no longer equivalent to a block the
 # owner installs: the host does for it something it will not do for the others, and the next
 # plugin — shipped or pasted — silently misses whatever that was.
 #
@@ -27,7 +27,7 @@
 #   - backend/blocks/              the declarations themselves
 #   - internal/plugin/adapters/    the supplier layer: protocols ARE its subject
 #   - *_test.go                    a test names what it tests
-#   - eval-harness/, mcp-servers/  outside the host
+#   - eval-harness/, infra/plugins/  outside the host (the node blocks)
 #
 # Usage:
 #   check-host-blind-to-blocks.sh        check (0 = clean, 1 = violations)

@@ -99,6 +99,49 @@ func wrapMCPAppTools(
 	return out
 }
 
+// wrapMCPAppToolsCached —— the LISTING variant of wrapMCPAppTools: build BindingTools from CACHED
+// specs + cached UI HTML, with NO live session. Used only by VisitorListBinding, whose tools are
+// only ever read for spec/UIHTML (app-state / tool-list) and never CALLED through this binding
+// (calls go via AssembleVisitorForTool → its own dial). The run closure therefore gets a nil
+// session and must never execute — the invariant that lets listing skip the dial entirely.
+func wrapMCPAppToolsCached(
+	m *plugin.Manifest, tools []mcpclient.Tool,
+	uiHTML map[string]string, sessionMeta *mcpclient.SessionContext,
+) []registry.BindingTool {
+	out := make([]registry.BindingTool, 0, len(tools))
+	for i := range tools {
+		if bt, ok := cachedBindingTool(m, &tools[i], uiHTML, sessionMeta); ok {
+			out = append(out, bt)
+		}
+	}
+	return out
+}
+
+// cachedBindingTool —— one tool's BindingTool from the cache (nil run session: never called here).
+// (bt, false) when the tool composes to an empty name (dropped, matching wrapMCPAppTools).
+func cachedBindingTool(
+	m *plugin.Manifest, t *mcpclient.Tool,
+	uiHTML map[string]string, sessionMeta *mcpclient.SessionContext,
+) (registry.BindingTool, bool) {
+	name := composeMCPAppToolName(m, t.Name)
+	if name == "" {
+		return registry.BindingTool{}, false
+	}
+	bt := registry.NewTool(
+		name,
+		mcpAppToolDescription(m.ID, t),
+		toolProgressLabel(m, t),
+		t.InputSchema,
+		MakeMCPRun(nil, t.Name, sessionMeta, toolCallBudget(t)), // never called via this binding
+	)
+	bt.ReturnDirectly = toolReturnsDirectly(t)
+	if uri, ok := t.Meta["ui_resource"].(string); ok && uri != "" {
+		bt.UIHTML = uiHTML[uri] // from the warm's cache, not a live resources/read
+	}
+	bt.ReadOnly = t.ReadOnly
+	return bt, true
+}
+
 // toolReturnsDirectly —— reads the return_directly a server declares in a tool's `_meta`.
 func toolReturnsDirectly(t *mcpclient.Tool) bool {
 	v, ok := t.Meta["return_directly"].(bool)
