@@ -1,168 +1,235 @@
-# Everything is a block — test plan
+# Everything-is-a-block — the test suite
 
-Companion to `everything-is-a-block.md`. Test-first, small commits: each item states its **RED**
-(what makes it fail before the code exists) and its **assertion** (the observable marker). Discipline
-from `CLAUDE.md` + memory: **black-box e2e is primary** (drive a real owner/visitor/MCP action, assert
-a rendered or queried marker — never "didn't crash"); **guards self-test** (a planted violation must go
-red); **no absence tests**; **agent-use parity** (built-in-fiber specs stay green verbatim). One stage,
-one commit or a few; bottom-up.
+Authoritative, **behavior-decoupled** map of the eiab test set. Companion to `everything-is-a-block.md`
+(the design — which drifts as the code moves; this doc does not, because it names observable markers,
+not internals).
 
-## Stage 1 — the door + the lint
+**How to read it.** Every entry is an *observable behavior* — something an owner, a visitor, an agent,
+or a durable query can see — and the spec(s) that hold it. The contract is the marker, never the
+mechanism: rewriting *how* a block is built (Go→node, one seam impl→another) must leave these specs
+green **verbatim**. That is the whole point of the decoupling, and it is what let the Go→node block
+rewrite land with zero behavior-spec edits.
 
-Registration lives in one place; a guard forbids it anywhere else.
+**Status is grounded 2026-09-14.** ✅ = in the suite and green. ⬜ = owed. ✏️ = present but slated to
+be *rewritten* when a named model changes (the rewrite is a product-rule change, never an edit to make
+a run go green).
 
-1. **`check-register-via-door` guard (RED-first).** New guard scans for `reg.Register(` /
-   `reg.MustRegister(` / `depReg.Register(` outside `internal/routes/blockload` and the `registry`
-   package. Self-test: plant such a call in a non-door package → guard red; remove → green. Baseline is
-   shrink-only. RED today: it flags `cmd/server/blockwire/supplier_register.go:100` and
-   `internal/owner/jobs/jobs.go:106-108`.
-2. **Registration moved behind the door.** Move the seam-provider registration (blockwire) and the job
-   fibers (owner/jobs) into `blockload`. GREEN: guard baseline reaches 0.
-3. **No behaviour change (black-box).** The whole agent-use + owner suite stays green **verbatim** —
-   registration moved, not what is registered.
+**The discipline (load-bearing, unchanged):** black-box e2e is primary (drive a real
+owner/visitor/MCP/agent action; assert a rendered or queried marker — never "didn't crash"); guards
+self-test (a planted violation must go red); **no absence assertions** (a spec that asserts a tool is
+*gone* also passes when the page rendered nothing — fetch the list and name what must survive beside
+what must go); **red-first** (a new guard's first green means nothing until the mutation that should
+break it has been shown to break it); **agent-use parity** (a built-in-fiber spec must not be edited to
+pass — that is a behavior leak).
 
-## Stage 2 — db block + native key + credential-manager
+---
 
-The foundation everything stateful stands on. This wires the effect calculus (`internal/plugin/effect`
-is contract-only today) far enough to provision/drop a schema as an `Effect`.
+## The thesis these tests pin
 
-Unit / guard:
+1. A capability **is a block**; a built-in has no standing an installed one lacks.
+2. The host is **blind to which blocks ship** — no block or protocol name in host code.
+3. A **seam** is a definition/provider split: swap the provider, the consumer is untouched.
+4. Nothing **parallel** to the block mechanism survives (no separate supplier/vault/ACL layer).
+5. State a block keeps is **its own** (per-fiber), and isolation holds under **active attack**.
 
-4. **Native-key type redacts (unit).** `String()` / `MarshalJSON()` / `MarshalText()` on the native-key
-   type return `***`. RED: a plain `string` alias leaks the value; assert the redaction.
-5. **Native-key confinement guard (RED-first).** New guard (modeled on `check-core-seals-only`, with a
-   self-test): the native-key type may appear only in the reach-back auth package. Plant a use in a
-   response / log / serializer package → red.
+Points 1–3 and 5 are largely proven below. Point 4 is the **main outstanding work** — see *What's left*.
 
-e2e (real Postgres, real mount):
+---
 
-6. **Schema is per bundle/fiber, named by the fiber.** Mount two fibers of a storing block for one
-   owner → two distinct schemas. `querySQL` asserts two schemas exist, each named from its fiber id.
-7. **Native-key isolation (RED-first).** A fiber that tries to read or drop a schema it did **not** open
-   is refused (assert the op errors / returns empty). A block cannot obtain another fiber's native key
-   — there is no get-by-id; assert the attempt has no path to succeed.
-8. **Uninstall drops the schema, no orphan (RED-first).** Install a storing block, write a doc,
-   uninstall → its schema is gone (`querySQL`: schema absent). RED today: `assembly.Repo.Uninstall`
-   leaves it (the measured `mcp_acme_widget_zzfixture` leak). GREEN once Dispose = `blockstore.Store.Drop`.
-9. **Data-loss warning is a block.** Uninstall-with-data → the owner sees a persistent warning surfaced
-   by the warning block; assert it renders in admin.
-10. **Upgrade path.** An existing owner's stored connection/token survives the blockstore→db-block move:
-    seed on the old shape, `restartBackend` (= deploy), the data still resolves.
-11. **credential-manager is a block requiring db.** A non-native secret (a token) stored via
-    credential-manager → db round-trips: write then read back the same value. RED: the old per-supplier
-    vault path.
+## A. The block as a thing the owner manages — lifecycle ✅
 
-## Stage 3 — telegram → plugin
+| behavior (observable) | spec |
+|---|---|
+| the panel lists every block with an origin badge | `block-panel-lists-all`, `block-list-by-origin` |
+| every row says what it is (its skills/purpose) | `block-panel-names-skills` |
+| a block that exists only as data (no code) appears with a settings form rendered from its declared config — *the acceptance test for the whole design* | `block-costs-no-code` |
+| install / connect / config-save-then-read-back / enable / delete a non-built-in, end to end | `block-costs-no-code` + the connect/config specs under §D |
+| a built-in cannot be deleted (control absent / op refused) | `block-builtin-cannot-delete` |
+| owner-disable beats an ACL grant (disabled ⇒ not exposed) | `block-enable-disable`, `block-disable-while-attached` |
+| enable/disable is consistent under concurrency | `block-enable-disable-concurrency` |
 
-12. **Declared, Go shell gone.** `blocks/telegram/manifest.yaml` present; no `telegramSupplier` /
-    `telegramVaultAdapter` Go; host-blind baseline drops `telegram`.
-13. **Parity: telegram still works.** `im-config-telegram` stays green **verbatim** — owner saves a
-    token (now a non-native secret via credential-manager → db), the im-bridge reads it, the bot runs.
+The same destructive/edge ops are exercised over the owner MCP as well as the GUI (`visitor-mcp` /
+owner MCP paths); neither surface substitutes for the other.
 
-## Stage 4 — caldav → plugin
+## B. Composition — fiber / mount / dependency graph ✅
 
-14. **caldav gets the manifest it never had.** `blocks/caldav/manifest.yaml` (provides `calendar`); the
-    CalDAV client enters as a block (library-as-block). Host-blind: no `caldav` literal in host.
-15. **Parity: calendar still works.** Calendar connect + `chat-book-*` stay green **verbatim**, caldav a
-    block beside `google-calendar` on the same seam.
+| behavior | spec |
+|---|---|
+| mount a block → it goes **Active**; unmount → its tool is uncallable at once, an in-flight call fails | `block-unmount-is-immediate` |
+| the fiber view draws the dependency graph (provides/requires, what relies on each) | `block-fiber-view`, `block-graph` |
+| installing a block that would form a dependency **cycle** is refused | `block-install-cycle-refused` |
+| assemble with an unmet dep → the "还差 X — not connected" prompt, no mount | `block-dependency-greyed` |
+| a relied-upon block cannot be **deleted** (the dependent is named) | `block-delete-relied-refused` |
+| a relied-upon block cannot be **disabled** (toggle locked, dependent named) | `block-relied-lock` |
 
-## Stage 5 — smtp → plugin
+## C. Exposure / ACL — what a code can do ✅ (model-collapse ✏️ owed)
 
-16. **smtp as a block.** provides `mail`; credentials via credential-manager; no base-provided mail path
-    survives. Host-blind baseline reaches 0.
-17. **Parity: mail still works.** `supplier-happy-matrix` / `-send-confirmation` / `mail-supplier` /
-    `booking-confirmation-email` stay green **verbatim**.
+| behavior | spec |
+|---|---|
+| "what can this code do" is a **list, read** — not simulated over layers | `block-acl-is-a-list` |
+| block deny matrix (granted? × code-deny?) over the full truth table | `block-acl-matrix` *(file: `acl-block-matrix`)* |
+| skill deny matrix incl. name/description injection | `acl-skill-matrix` |
+| global is the **top ban master** — can only narrow, never widen | `acl-global-master` |
+| a code-deny removes the whole **frozen product**, not just the tool name | `acl-frozen-product` |
+| freeze-vs-live + per-code isolation | `acl-freeze-isolation` |
+| corner cases + the error stream | `acl-corner-errors` |
 
-## Cross-cutting (assert across the whole refactor)
+✏️ **Owed change (only when the exposure model collapses):** `acl-block-matrix` and `block-enable-disable`
+still spell the model as a five-way conjunction (*exists ∧ owner-enabled ∧ deps-met ∧ role-acl ∧ quota*).
+The design collapses that to one predicate — **mounted, or not mounted**. When that lands, these two are
+**rewritten deliberately** as the product rule changing. The *outcomes* are invariant (a denied tool is
+absent, a granted one present); only the internal model changes — so the rewrite must not weaken what is
+asserted, only restate why. These are the "red-by-design" specs: they encode the rule being replaced,
+and are the only check on the ACL model, so a quiet weakening here is the dangerous edit.
 
-18. **Agent-use parity.** Built-in-fiber specs — `chat-book-success` / `chat-book-conflict-*`,
-    `visitor-chat-*`, `supplier-happy-matrix` / `-send-confirmation` / `-provider-agnostic`, `block-*`
-    lifecycle, and the `norm-outward-toolset` tools/list golden — stay green **verbatim** (editing one
-    to pass is a behaviour leak). Exception: a spec that assembles its own non-built-in fiber must mount
-    it first.
-19. **Agent sees only Active fibers (new).** An unmounted / inactive fiber's tools are absent from the
-    agent's list and un-invokable; mounting makes them appear.
-20. **Cyclic composition refused (RED-first).** Declare a cycle in `requires` → resolution detects it,
-    warns, refuses to mount. Never silently mounted.
-21. **Seam resolution is order-independent.** Register providers in different orders → identical
-    resolved set; a block goes Active when its `requires` are supplied, regardless of registration order.
-22. **Host-blind guard at 0.** No protocol or block literal in host Go.
-23. **Supplier layer folded.** As members move to the uniform block mechanism, the `Supplier` type and
-    `check-supplier-boundary` are removed; no supplier-only path is reintroduced.
+## D. Seam = definition/provider — swap the provider, the consumer is untouched ✅
 
-## Owner UI (block / fiber panel)
+**The single most valuable guard for the whole refactor:** install a *non-Google* calendar provider
+(CalDAV, a different kind) into the `calendar` slot → a session granted `calendar.book` still assembles
+`calendar_book` and booking actually works. `supplier-provider-agnostic`. It must be green at **every**
+commit of any block/seam change.
 
-24. **block view — GUI e2e.** Drive the real panel: list blocks; connect (fill credentials); config (a
-    manifest-declared field saved then read back); enable/disable; **write your own** (author a block
-    from a declaration and see it listed). Assert real effects, not just visibility.
-25. **fiber view — GUI e2e.** New fiber: pick a block, mount, assert it goes **Active**; resolve-missing
-    (a block whose `requires` is unmet → the "还差 X" prompt appears); the dependency graph renders
-    (mermaid node present). Assert markers.
-26. **owner MCP — e2e.** The same block/fiber operations through the owner's MCP toolset (list / install
-    / connect / assemble / mount). Both surfaces; neither substitutes for the other.
-27. **(?) tooltips render** the how-to steps.
+| behavior | spec |
+|---|---|
+| one seam, two provider *kinds* coexisting | `supplier-kind-coexist` |
+| credentials never reach the consumer (the block gets a handle, never the secret) | `supplier-booker-handle-no-leak`, `supplier-secret-no-leak` |
+| a refresh that omits `scope` leaves granted scopes byte-identical | `supplier-scope-readback`, `supplier-refresh-keeps-scopes` |
+| a read-only grant must not put booking in front of a visitor | `supplier-scope-gates-block` |
+| connect / rotate-creds-reverify / config-non-identity-no-disconnect / typing-isn't-committing | `supplier-connect-flow`, `supplier-gcal-rotate-creds-reverify`, `supplier-mail-rotate-creds-reverify`, `supplier-config-nonidentity-no-disconnect`, `supplier-credsave-keeps-connection`, `supplier-typing-does-not-disconnect` |
+| owner disconnect/reconnect between turns hides/reveals the dependent tool (all concurrent sessions) | `supplier-dep-disconnect-mid-session`, `supplier-dep-reconnect-mid-session`, `supplier-dep-disconnect-concurrent`, `supplier-dep-revoke-then-gate`, `supplier-single-gate-consistency` |
+| a lowest-trust ext-mcp block is **not** auto-injected a dependency handle | `supplier-ext-mcp-no-dep` |
+| retry is each block's own criterion: invalid_grant never retried; transient recovers; inserts/sends idempotent under transient error | `supplier-retry-invalid-grant-no-retry`, `supplier-retry-read-transient-recovers`, `supplier-retry-insert-idempotent`, `supplier-retry-send-idempotent`, `supplier-retry-exhausted-degrades`, `supplier-retry-async-owner-notify-nonblocking` |
+| the error stream degrades friendly, never rolls a booking back wrongly, never double-sends | `supplier-err-*` (google-5xx, smtp-fail, refresh-network, confirmation-fail-booking-kept, confirmation-idempotent, owner-notify-fail-no-rollback, mcp-ui-tool-dispatch, midstream-sse-cut) |
+| a spec fetched from a URL / a real vendor spec assembles into a working provider | `supplier-spec-from-url-assembles`, `supplier-vendor-spec-assembles`, `supplier-spec-ingest`, `supplier-spec-fetch-names-the-refusal` |
+| the card is a `ui://` sandbox iframe, not a hardcoded card in the main DOM; mcp-ui:tool round-trips | `supplier-booked-card-sandbox`, `supplier-non-sandbox-cards-empty`, `supplier-mcp-ui-tool-protocol`, `supplier-mcp-app-state` |
 
-## Block & fiber CRUD — happy, edge, error (e2e, black-box, both GUI and owner MCP)
+*Reading durable state is not implementation coupling* — this family is architecture-independent, which
+is exactly what makes it the safety net across the fold.
 
-Happy flow (drive the real panel / MCP; assert the real effect, not visibility):
+## E. Per-session realm isolation ✅
 
-29. Block **install / connect / config / enable / delete a non-built-in** each work end to end — block
-    appears / disappears, connected badge flips, a config value is saved then read back.
-30. Fiber **assemble → Active**, **unmount → gone**.
+| behavior | spec |
+|---|---|
+| two sessions run side by side, each seeing only its own tools; the registry is not copied | `block-realm-per-session` |
+| MCP app cross-refresh state is per-session isolated | `supplier-mcp-app-state` |
 
-Edge / error (RED-first: prove the *wrong* reaction — allowing it — fails before the guard; then assert
-the *correct* reaction; each error is user-friendly, never a stack trace):
+## F. Failure has three faces ✅
 
-31. **Delete a built-in** → the delete control is absent / the op is refused.
-32. **Delete a block a fiber uses** → refused, the fiber named.
-33. **Unmount or deactivate a relied-upon fiber** → refused / toggle locked, the dependent named.
-34. **Delete or unmount with data** → data-loss modal; confirm Drops the schema (`querySQL`: gone),
-    cancel keeps it.
-35. **Assemble with unmet deps** → "还差 X", no mount.
-36. **Assemble a cycle** → refused.
-37. **Bad credential on connect** → friendly error, stays disconnected.
-38. **Invalid owner-written declaration** → validation error, not installed.
-39. **Disable a block under a mounted fiber** → the fiber loses it, dependents go inactive, a warning
-    shows.
-40. **A block dies mid-action** → the three faces: tool absent from the agent, visitor told honestly,
-    owner gets a persistent entry (`block-failure-three-faces`).
+| behavior | spec |
+|---|---|
+| a dead block → tool absent from the agent list · visitor told honestly · owner gets a persistent entry naming the block (with the child stderr) | `block-failure-three-faces` |
+| a caged (no-net) block's outbound call cannot be made; the turn survives, leaks no machinery | `block-omission-fails-closed` |
 
-The destructive / edge ops run over the owner MCP too, with the same reactions.
+## G. Per-fiber persistence ✅ / ⬜
 
-## Adversarial isolation — actively attempt lateral breakout
+| behavior | spec |
+|---|---|
+| uninstall a storing block drops its schema — no orphan leak | `block-uninstall-drops-schema` |
+| per-session sandbox workspace is provisioned, TTL-swept by cron; a fresh one survives | `sandbox-workspace-ttl-cron` |
+| an owner's stored data survives a schema/vocabulary/column move across a deploy | `upgrade-block-vocabulary`, `upgrade-embed-schema`, `upgrade-access-code-slug`, `upgrade-pending-email-columns`, `upgrade-monitoring-enabled-column`, `upgrade-homepage-seo-columns`, `upgrade-application-code-unique`, `upgrade-code-entropy-compat` |
+| ⬜ **credential-manager is itself a block requiring db**: a non-native secret written through it round-trips (write, read back the same value) | **owed** — creds still flow through the built-in supplier vault, not a block |
 
-Every isolation boundary gets an **attacker**, not a happy path. Model on the existing `escapee` /
-`real-third-party-mcp-escape` / `supplier-security` specs. The whole native-key + per-schema + sandbox
-design exists to pass these, so each must actively try to break it (RED-first: show the boundary would
-leak without the guard, then that it holds).
+## H. The blocks themselves — behavior, not build ✅
 
-41. **db, cross-schema (RED-first).** A fiber actively tries to reach another fiber's schema — a query
-    naming `other_schema.table`, `SET search_path`, enumerating `information_schema` / `pg_catalog` for
-    other schemas, `DROP`ing a schema it did not open, guessing or forging a schema name. All refused;
-    the native key + per-schema grant confine it to its own. RED: without confinement the cross-schema
-    read returns rows.
-42. **native key, theft / misuse (RED-first).** A fiber tries to obtain another fiber's native key
-    (no get-by-id; the name is not computable), reuse a post-unmount key (revoked), or present another
-    fiber's identity. All refused.
-43. **sandbox escape (adversarial).** A sandboxed block actively attempts known breakout vectors — host
-    config, `docker.sock`, path traversal outside its mounts, spawning, reaching the host beyond its
-    declared `host_ops`. All unreachable (bwrap). Mirrors `real-third-party-mcp-escape` / `escapee`.
-44. **cross-block socket.** A block tries to dial another block's reach-back socket (the path is
-    host-derived from the trusted id; a block cannot name another's). Refused.
-45. **egress / SSRF.** A supplier block tries to reach an internal host not in `SUPPLIER_EGRESS_ALLOW`
-    (127.0.0.1, the LAN, a cloud metadata endpoint). Blocked.
+Each capability below is a block; that they now run as sandboxed **node** MCP servers is an
+implementation detail these specs do not name (the Go→node rewrite left them green verbatim — the parity
+guarantee).
 
-## Koishi POC (validate the works-today piggyback)
+| block | behavior specs |
+|---|---|
+| **ask_visitor** | radio/yes_no/multi widget renders in the sandbox card → selection returns as the next turn (`visitor-ask-visitor`) |
+| **calendar.book** | book / conflicts (busy, policy hours/leadtime/weekend) / quota / not-connected / public-denied / byoai-denied / skill-not-granted / partial-schema / token-refresh / session-email-default (`chat-book-*`); the booked card iframe (`visitor-chat-book-card`), slot listing (`visitor-chat-list-slots`, `visitor-chat-slots-readonly`), cancel/reschedule (`visitor-cancel-booking`, `visitor-reschedule-booking`); owner-notify + invite truth + slot race (`booking-owner-notify`, `booking-invite-truth`, `booking-slot-race`) |
+| **corpus.retrieval** | ACL-scoped retrieval, degrade, links, search box/consistency, block-state contract (`retrieval-acl`, `retrieval-degrade`, `retrieval-links`, `retrieval-search-*`, `retrieval-block-state`); many corpus_* calls collapse to one summary row, citations survive (`visitor-chat-retrieval-collapse`, `visitor-retrieval-summary-counts-every-tool`, `visitor-chat-cited-*`) |
+| **summarize_conversation** | AI tool call → report card inline + its own route + real PDF (`visitor-summarize-conversation`) |
+| **mail.send** | confirmation email (schema.org), recipient hardening, per-recipient throttle, supplier wiring (`booking-confirmation-email`, `mail-throttle-recipient`, `mail-supplier`, `supplier-send-confirmation-tool`) |
+| **fetch** (netfetch/cagedfetch) | the same server proven both ways — egress allowed vs `--network=none` blocked (`real-third-party-mcp-network`) |
+| **caldav** | enters the `calendar` seam beside google-calendar as a provider (`supplier-provider-agnostic`) |
 
-28. **A real third-party Koishi plugin, used by an agent, for real.** Wrap a real `koishi-plugin-*` as
-    a stdio-MCP server (Koishi core + `@koishijs/plugin-mock` to drive it headlessly + the MCP SDK);
-    declare it in `infra/dev-plugins.json` like `server-everything`; grant it to a code; drive the agent
-    to call its tool; assert the real Koishi-computed result surfaces (the scripted reply renders only if
-    the real tool ran — the `real-third-party-mcp-loader` pattern). Credit the plugin author in the
-    wrapper header, a `CREDITS`, and `everything-is-a-block.md`.
+## I. Third-party piggyback — works today ✅
 
-## How each stage lands
+| behavior | spec |
+|---|---|
+| a real third-party MCP server loads via the managed sandbox and is invoked; the loader is correct | `real-third-party-mcp-sandboxed`, `real-third-party-mcp-loader` |
+| a real Koishi plugin, wrapped as stdio-MCP, is used by a visitor's agent and its computed result surfaces | `koishi-poc` |
 
-Bottom-up, test-first, small commits: **1 → 2 → 3 → 4 → 5**, cross-cutting asserted continuously, owner
-UI after its backend exists, Koishi POC independently (it rides the existing external-MCP path). A stage
-is done when its own tests are green **and** the parity suite is green verbatim.
+## J. Adversarial isolation — attacker, not happy path ✅ / ⬜
+
+Every isolation boundary gets an attacker that actively tries to break it (red-first: the boundary would
+leak without the guard, then it holds).
+
+| boundary | spec / status |
+|---|---|
+| sandbox escape (host config, docker.sock, path traversal, spawning, reaching beyond declared host-ops) — bwrap holds | ✅ `real-third-party-mcp-escape` |
+| SSRF / egress: a block cannot reach an internal host / cloud-metadata endpoint outside the allow-list; no credential leak; per-owner isolation | ✅ `supplier-security`, `security-byoai-endpoint-ssrf`, `security-inference-models-ssrf` |
+| ⬜ **native-key theft/misuse**: a block tries to obtain another fiber's reach-back key (no get-by-id, name not computable), reuse a post-unmount key, or present another identity — all refused | **owed** |
+| ⬜ **cross-block socket**: a block tries to dial another block's reach-back socket (the path is host-derived from the trusted id; a block cannot name another's) — refused | **owed** |
+| ⬜ **db cross-schema**: a storing block actively tries another fiber's schema (`SET search_path`, `information_schema`/`pg_catalog` enumeration, `DROP` a schema it did not open, forging a name) — all refused | **owed** |
+
+## K. The golden faces (regression nets for "what the agent/client sees") ✅
+
+| behavior | spec |
+|---|---|
+| inward agent-capability golden (id · shape · origin · order, byte-exact) | `norm-inward-blocks` |
+| outward tools/list golden via the real client discovery path + zero-coverage net | `norm-outward-toolset`, `norm-outward-tools-coverage` |
+| visitor assembly golden | `norm-visitor-assembly` |
+
+Adding or externalizing a block updates these goldens deliberately (a new managed block appears in the
+inward golden — as koishi did); editing one to pass without an intended block-set change is a leak.
+
+## L. Cross-platform substrate (dsh) ✅ / ⬜ — the North Star
+
+| behavior | status |
+|---|---|
+| each of our blocks passes a **real DSH lifecycle** (install → boot → register → exercise → uninstall) via dsh-testkit, cross-platform, no skips | ✅ `make dsh-plugin-test` — the 7 real blocks + demos, in `infra/dsh-acceptance/*.dsh-testkit.yaml` |
+| ⬜ **reciprocity**: our substrate's loader loads a *dsh* block unchanged | owed |
+| ⬜ grab dsh's popular blocks/groups and mount them here; ride the dsh marketplace | owed |
+
+The demo third parties used as fixtures (koishi / everything / fsmcp) live in `infra/dsh-acceptance/` and
+are **never** shipped in a product image (excluded from the build context); dev mounts them for the
+sandbox-isolation specs.
+
+---
+
+## What's left — the residue to fold, and how it's proven done
+
+The externalize half is done (every capability is a block; blocks are sandboxed node servers). The
+**subtract** half — collapsing the layers that ran *parallel* to the block mechanism — is the outstanding
+work. Each item's "done" is a **behavioral** acceptance (the net stays green + a host-blindness marker),
+never "the code looks folded."
+
+1. **Fold the supplier layer (biggest).** The separate supplier abstraction (its typed contracts, its
+   dispatch, its credential vault, its boundary guard) collapses into the one block mechanism.
+   *Done when:* the entire §D family + `supplier-provider-agnostic` stay green **verbatim**, and the
+   host-blindness marker (below) reaches zero — i.e. there is no second path a seam can be served by.
+   No new behavior is owed; the proof is the net holding while the parallel layer disappears.
+2. **Host-blind to zero.** Today the host still names one block by literal (`smtp`). *Done when:* the
+   host-blind marker is 0 — host code names no block or protocol. Behavioral because a named block is one
+   the host treats specially, which the next pasted block silently misses.
+3. **credential-manager becomes a block requiring db** (§G row). *Done when:* the round-trip spec is
+   green and the built-in vault path is gone.
+4. **Collapse the ACL model** to "mounted, or not" and rewrite the two ✏️ specs in §C accordingly
+   (outcomes preserved).
+5. **The three adversarial security e2e** in §J (native-key theft, cross-block socket, db cross-schema).
+   These guard exactly the leak boundaries the whole native-key + per-schema + sandbox design exists for,
+   so each is written red-first against a boundary shown to leak without the guard.
+6. **dsh reciprocity + marketplace** (§L) — after the above.
+
+### Still owed on the microsite side (tracked with that workstream)
+- **wrapping runs no install scripts**: wrap a package carrying a `postinstall`; assert the script did
+  not run.
+- **a page uses something we did not ship**: a microsite mounts a block carrying a font/chart lib that is
+  not one of the builder's shipped set, and the built page resolves it — checked through *computed style*
+  (as `microsite-design-system` checks the Newsreader token), not "the build succeeded".
+
+---
+
+## Two traps that already bit — keep them written
+
+- **Absence.** Half the isolation rows read naturally as "the tool is not there", and a spec that asserts
+  absence also passes on a session that assembled nothing. Fetch the list and name the block that must
+  **survive** beside the one that must go. (Three realm rows first read `.not.toEqual([...])` alone and
+  would have passed on an empty session.)
+- **A string from two sources proves neither.** A code-carries-its-bundle assertion was `toContainText(bundle)`,
+  but the code's *label* is the bundle's name too, so it went green against a code carrying nothing. Tighten
+  to a control that exists **only** when the thing is genuinely attached — that is what exposed the frontend
+  dropping the field.

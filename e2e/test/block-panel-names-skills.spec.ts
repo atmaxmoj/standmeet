@@ -15,7 +15,7 @@
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
-import { gotoAdminSection } from '@/fixtures/navigate';
+import { gotoAdminSection, BLOCKS_SECTION } from '@/fixtures/navigate';
 import { test, expect } from '@/fixtures/test';
 
 const OWNER = {
@@ -45,7 +45,7 @@ test.describe('blocks · every row says what it is', () => {
   });
 
   test('an owner skill shows its name, and no row wears a bare UUID', async ({ adminPage }) => {
-    await gotoAdminSection(adminPage, 'suppliers');
+    await gotoAdminSection(adminPage, BLOCKS_SECTION);
     const panel = adminPage.getByTestId('blocks-panel');
     await expect(panel).toBeVisible();
 
