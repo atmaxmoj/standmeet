@@ -1,0 +1,22 @@
+schemaVersion: 1
+name: standmeet-booker-mcp-quick
+subject:
+  source: ../plugins/booker
+dsh:
+  version: 0.1.1-rc.2
+expect:
+  boot: success
+  rows:
+    - booker
+  services: []
+  tools:
+    - mcp__booker__bookings_list
+    - mcp__booker__calendar_book
+    - mcp__booker__calendar_cancel
+    - mcp__booker__calendar_cancel_booking
+    - mcp__booker__calendar_list_slots
+    - mcp__booker__calendar_reschedule
+    - mcp__booker__send_confirmation
+# No exercise: every booker tool reaches back to the StandMeet host over STANDMEET_HOST_SOCKET.
+# Registering the tools on real dsh is what this gate proves; exercising a booking needs a live host
+# (a separate integration), so we do NOT fake one here.

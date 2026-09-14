@@ -1,0 +1,18 @@
+schemaVersion: 1
+name: standmeet-ask-visitor-mcp-quick
+subject:
+  source: ../plugins/ask-visitor
+dsh:
+  version: 0.1.1-rc.2
+expect:
+  boot: success
+  rows:
+    - ask-visitor
+  services: []
+  tools:
+    - mcp__ask-visitor__ask_visitor
+exercise:
+  - tool: mcp__ask-visitor__ask_visitor
+    arguments:
+      question: "Proceed?"
+      kind: yes_no

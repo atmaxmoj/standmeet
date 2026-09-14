@@ -2,13 +2,20 @@
   "name": "standmeet-caldav-mcp",
   "version": "1.0.0",
   "private": true,
-  "description": "A CalDAV block as a Koishi plugin: it injects Koishi's `http` service (the HTTP hand) for the WebDAV requests and parses iCalendar with ical.js (a real library, unmodified). CalDAV is an app on HTTP, so it is a block — pluggable into Koishi like every other block — not a base protocol, and it carries no Go. Wrapped as a stdio-MCP block the same way infra/plugins/koishi wraps koishi-plugin-base64.",
-  "main": "koishi-mcp.js",
+  "description": "A CalDAV block as a standalone cordis/koishi plugin: it does the WebDAV requests over the runtime's global fetch (no injected service, so it boots on a bare cordis host) and parses iCalendar with ical.js (a real library, unmodified). CalDAV is an app on HTTP, so it is a block — pluggable into any cordis host like every other block — not a base protocol, and it carries no Go. Wrapped as a stdio-MCP block the same way infra/plugins/koishi wraps koishi-plugin-base64.",
+  "main": "caldav-plugin.js",
   "dependencies": {
-    "@koishijs/plugin-http": "^0.6.3",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "ical.js": "^2.1.0",
     "koishi": "^4.18.11",
     "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "dsh-testkit": "^0.4.4"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
   }
 }

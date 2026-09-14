@@ -1,0 +1,29 @@
+schemaVersion: 1
+name: standmeet-fsmcp-mcp-quick
+subject:
+  source: ./fsmcp
+dsh:
+  version: 0.1.1-rc.2
+expect:
+  boot: success
+  rows:
+    - fsmcp
+  services: []
+  tools:
+    - mcp__fsmcp__read_file
+    - mcp__fsmcp__read_text_file
+    - mcp__fsmcp__read_media_file
+    - mcp__fsmcp__read_multiple_files
+    - mcp__fsmcp__write_file
+    - mcp__fsmcp__edit_file
+    - mcp__fsmcp__create_directory
+    - mcp__fsmcp__list_directory
+    - mcp__fsmcp__list_directory_with_sizes
+    - mcp__fsmcp__directory_tree
+    - mcp__fsmcp__move_file
+    - mcp__fsmcp__search_files
+    - mcp__fsmcp__get_file_info
+    - mcp__fsmcp__list_allowed_directories
+exercise:
+  - tool: mcp__fsmcp__list_allowed_directories
+    arguments: {}

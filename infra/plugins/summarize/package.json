@@ -1,0 +1,19 @@
+{
+  "name": "standmeet-summarize-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "summarize block (JS, cross-platform — replaces the former Go binary): a stdio-MCP server whose summarize_conversation tool owns the report prompt + assembly and reaches the host over STANDMEET_HOST_SOCKET (conversation.read / inference.generate / report.store). Owns no data. As JS it cannot import host/Go internals — host-blindness is structural.",
+  "main": "summarize-mcp.js",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "dsh-testkit": "0.4.4"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

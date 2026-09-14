@@ -1,0 +1,16 @@
+# ask-visitor block — its mountable declaration for a dsh bundle. This block is a JS stdio-MCP server
+# (ask-visitor-mcp.js), bridged onto dsh through dsh's own @deepseek-ai/dsh-mcp-client: the patch
+# inserts one mcp-client row that runs the server with node; its tool registers on ctx.tools as
+# `mcp__ask-visitor__ask_visitor`. Same bridge as every MCP-server block — zero per-plugin glue.
+# Being JS it is cross-platform (no per-arch binary), so this runs on any runner with no host build.
+- insert:
+    - id: ask-visitor
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        transport: stdio
+        serverName: ask-visitor
+        command: node
+        args:
+          - ask-visitor-mcp.js
+        cwd: !!js dshHomePath('profiles/dsh-testkit/node_modules/standmeet-ask-visitor-mcp')
+        failOnStartupError: true

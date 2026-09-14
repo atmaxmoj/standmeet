@@ -1,0 +1,16 @@
+# group-compose — the group-composition acceptance test's mountable declaration. It inserts one
+# cordis:group (the dsh/koishi mechanism for composing a sub-tree of blocks that load and unload as
+# one unit — docs/cordis-tutorial/06-composition-and-hmr.md). The group's two members have a real
+# provide/inject dependency: group-consumer injects demoBase (published by group-provider) and only
+# then publishes demoDerived. The consumer is listed FIRST on purpose — the loader must resolve by
+# dependency (hold the consumer in PENDING until demoBase is ACTIVE), not by list order, so a green
+# run proves group composition + dependency-ordered activation on a real DSH.
+- insert:
+    - id: group-compose
+      name: cordis:group
+      group: true
+      config:
+        - id: group-consumer
+          name: standmeet-group-compose/group-consumer
+        - id: group-provider
+          name: standmeet-group-compose/group-provider

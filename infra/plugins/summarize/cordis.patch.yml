@@ -1,0 +1,16 @@
+# summarize block — its mountable declaration for a dsh bundle. A JS stdio-MCP server bridged onto dsh
+# through @deepseek-ai/dsh-mcp-client: the patch inserts one mcp-client row that runs the server with
+# node; its tool registers on ctx.tools as `mcp__summarize__summarize_conversation`. Cross-platform
+# (JS). It reaches the host over STANDMEET_HOST_SOCKET only at CALL time, so it boots + lists tools on
+# a bare DSH with no socket present.
+- insert:
+    - id: summarize
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        transport: stdio
+        serverName: summarize
+        command: node
+        args:
+          - summarize-mcp.js
+        cwd: !!js dshHomePath('profiles/dsh-testkit/node_modules/standmeet-summarize-mcp')
+        failOnStartupError: true

@@ -1,0 +1,15 @@
+# everything block — its mountable declaration for a dsh bundle. The MCP reference 'everything' demo
+# server is bridged onto dsh through @deepseek-ai/dsh-mcp-client: the patch inserts one mcp-client row
+# that runs the installed server over stdio; its tools register on ctx.tools as `mcp__everything__<raw>`.
+- insert:
+    - id: everything
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        transport: stdio
+        serverName: everything
+        command: node
+        args:
+          - dist/index.js
+          - stdio
+        cwd: !!js dshHomePath('profiles/dsh-testkit/node_modules/@modelcontextprotocol/server-everything')
+        failOnStartupError: true

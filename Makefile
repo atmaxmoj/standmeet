@@ -7,7 +7,7 @@
 # incremental development.
 
 .PHONY: lint secrets secrets-image release-build release-assert-stripped release-assert-multiarch release-assert-version release-push release-gc release-repro release-repro-logs release-repro-down backend-lint backend-test plugin-test backend-no-mock app-lint sdk-lint e2e-lint env-lint updater-e2e im-bridge-lint im-bridge-test im-bridge-up im-bridge-logs
-.PHONY: deps stack stack-init stack-ready stack-test stack-retire dev dev-up dev-rebuild dev-down prod-up prod-down prod-logs build clean test test-fresh test-only test-red test-captcha test-boundary mobile-shots mobile-shots-asis archive-failures sdk-build builder-vendor dev-rebuild-builder app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-blocks eval-owner-mcp verify-round schema-drift i18n-keys
+.PHONY: deps stack stack-init stack-ready stack-test stack-retire dev dev-up dev-rebuild dev-down prod-up prod-down prod-logs build clean test test-fresh test-only test-asis dsh-plugin-test test-red test-captcha test-boundary mobile-shots mobile-shots-asis archive-failures sdk-build builder-vendor dev-rebuild-builder app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-blocks eval-owner-mcp verify-round schema-drift i18n-keys
 
 # ── per-checkout dev stack ──────────────────────────────────────
 # One machine, N checkouts, N stacks. Without this every worktree drives the SAME
@@ -1207,6 +1207,29 @@ test-asis:
 		|| (echo "[test-asis] dev backend is not running — run 'make dev-up' first"; exit 2)
 	@cd e2e && pnpm exec playwright test $(SPEC) $(if $(GREP),-g "$(GREP)") $(if $(REPEAT),--repeat-each=$(REPEAT)); \
 		st=$$?; cd .. && $(MAKE) archive-failures; exit $$st
+
+# dsh-plugin-test —— the SEPARATE dsh-integration suite. Run each of our dsh-declared plugins through
+# a REAL DSH lifecycle (install → boot → register → exercise → uninstall) via dsh-testkit, with the
+# LOCAL runner (--runner local: no docker — the docker runner-build blows dsh-testkit's 10-min
+# watchdog on this host). A plugin is dsh-declared when it carries `dsh.bundle.patch` →
+# `cordis.patch.yml` (its mountable cordis declaration) and a `dsh-testkit.yaml` (from
+# `pnpm dsh-test init`). A pass proves that declaration registers on a real DSH and its capability
+# works — the SAME loading mechanism as dsh; we just run it sandboxed at runtime (declaration ⊥
+# runtime). dsh-testkit's lifecycle ends in uninstall, so the plugin is torn down, not left in the
+# stack. Kept out of `make test`/`lint` (really boots DSH; heavy). One plugin per run today (caldav);
+# it loops over every set-up plugin. TODO(resident): keep ONE DSH host up + check-alive-reuse instead
+# of boot-per-run (owner: the dsh stack should be resident, ask-if-alive before bringing it up).
+dsh-plugin-test:
+	@acc="$$(pwd)/infra/dsh-acceptance"; \
+	[ -x "$$acc/node_modules/.bin/dsh-test" ] || { echo "[dsh-plugin-test] installing dsh-testkit in infra/dsh-acceptance"; ( cd "$$acc" && npm install --no-audit --no-fund ) || exit 1; }; \
+	found=0; for cfg in "$$acc"/*.dsh-testkit.yaml; do \
+		[ -f "$$cfg" ] || continue; \
+		name=$$(basename "$$cfg" .dsh-testkit.yaml); found=1; \
+		out="$$acc/out/$$name"; rm -rf "$$out"; mkdir -p "$$out"; \
+		echo "[dsh-plugin-test] $$name — local runner, real DSH → evidence $$out"; \
+		( cd "$$acc" && pnpm dsh-test --runner local --unsafe-local --config "$$name.dsh-testkit.yaml" --output "$$out" ) || exit 1; \
+	done; \
+	[ "$$found" = 1 ] || { echo "no dsh acceptance configs in infra/dsh-acceptance/*.dsh-testkit.yaml"; exit 2; }
 
 # test-captcha —— bring the dev stack up WITH captcha on, using Cloudflare's published test keys,
 # and run the captcha specs against it.

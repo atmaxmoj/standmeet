@@ -1,10 +1,10 @@
 // koishi-mcp.js — wraps the CalDAV Koishi plugin (caldav-plugin.js) as a stdio-MCP block, the
 // same shape infra/plugins/koishi uses for koishi-plugin-base64.
 //
-// It boots Koishi core with the `http` service (the HTTP hand the CalDAV plugin composes) and the
-// CalDAV plugin (which provides `ctx.caldav`), then exposes the four calendar-seam operations as
-// MCP tools. The WebDAV + iCalendar work is done by the Koishi plugin + ical.js — nothing here (and
-// no Go) reimplements CalDAV; a correct result proves the real plugin ran.
+// It boots Koishi core with the CalDAV plugin (which provides `ctx.caldav` and does its WebDAV over
+// the runtime's global fetch — no injected service), then exposes the four calendar-seam operations
+// as MCP tools. The WebDAV + iCalendar work is done by the Koishi plugin + ical.js — nothing here
+// (and no Go) reimplements CalDAV; a correct result proves the real plugin ran.
 //
 // The connection (url/username/password) is passed per call by the caller: the substrate resolves
 // the owner's stored CalDAV credentials and hands them in when it dispatches the calendar seam. The
@@ -15,16 +15,13 @@ const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js')
 const { StdioServerTransport } = require('@modelcontextprotocol/sdk/server/stdio.js')
 const { z } = require('zod')
 
-const load = (m) => m.default ?? m
-const httpService = load(require('@koishijs/plugin-http'))
 const caldav = require('./caldav-plugin.js')
 
 // Boot Koishi once; a stdio server is long-lived, so reuse the app + its `caldav` service.
 let ready
 async function boot() {
   const app = new Context()
-  app.plugin(httpService) // provides ctx.http — the HTTP hand the CalDAV plugin injects
-  app.plugin(caldav) // the block: provides ctx.caldav, does WebDAV over http + parses via ical.js
+  app.plugin(caldav) // the block: provides ctx.caldav, does WebDAV over global fetch + parses via ical.js
   await app.start() // services are not live until start resolves
   return app
 }

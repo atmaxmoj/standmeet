@@ -1,0 +1,19 @@
+{
+  "name": "standmeet-mail-sender-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "mail-sender block (JS, cross-platform — replaces the former Go binary): a stdio-MCP server whose send_email tool reaches back to the host over STANDMEET_HOST_SOCKET (supplier.invoke mail/send) to do the actual send. Owns no credentials; recipient is hard-controlled sandbox-side. As JS it cannot import host/Go internals — host-blindness is structural.",
+  "main": "mail-sender-mcp.js",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "dsh-testkit": "0.4.4"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

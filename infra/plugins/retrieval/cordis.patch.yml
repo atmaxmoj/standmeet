@@ -1,0 +1,15 @@
+# retrieval block — its mountable declaration for a dsh bundle. A JS stdio-MCP server bridged onto dsh
+# through @deepseek-ai/dsh-mcp-client: the patch inserts one mcp-client row that runs the server with
+# node; its 8 tools register on ctx.tools as `mcp__retrieval__corpus_*`. Cross-platform (JS). Tools
+# reach the host over STANDMEET_HOST_SOCKET only at CALL time, so it boots + lists tools on a bare DSH.
+- insert:
+    - id: retrieval
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        transport: stdio
+        serverName: retrieval
+        command: node
+        args:
+          - retrieval-mcp.js
+        cwd: !!js dshHomePath('profiles/dsh-testkit/node_modules/standmeet-retrieval-mcp')
+        failOnStartupError: true

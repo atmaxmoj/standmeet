@@ -1,0 +1,19 @@
+{
+  "name": "standmeet-ask-visitor-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ask-visitor block (JS, cross-platform — replaces the former Go binary): a stdio-MCP server that echoes a structured clarifying question back for the frontend widget. Network-isolated, owns no host data. As JS it cannot import host/Go internals, so host-blindness is structural.",
+  "main": "ask-visitor-mcp.js",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "dsh-testkit": "0.4.4"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

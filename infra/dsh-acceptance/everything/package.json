@@ -1,0 +1,22 @@
+{
+  "name": "standmeet-everything-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "everything block as a dsh plugin: the MCP reference 'everything' server (a Node stdio-MCP demo server) bridged onto dsh through @deepseek-ai/dsh-mcp-client. This subject package is a thin shell — it declares the server as a dependency (so dsh installs it into the profile) and carries the mcp-client patch; index.js is a stub only so dsh's package-entry resolution succeeds.",
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "cordis.patch.yml"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/server-everything": "2026.1.26"
+  },
+  "devDependencies": {
+    "dsh-testkit": "^0.4.4"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

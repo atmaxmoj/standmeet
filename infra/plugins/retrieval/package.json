@@ -1,0 +1,19 @@
+{
+  "name": "standmeet-retrieval-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "retrieval block (JS, cross-platform — replaces the former Go binary): a stdio-MCP server exposing 8 corpus read tools that forward to the host over STANDMEET_HOST_SOCKET (search/read/list/links/map/resolve/peek/grep), carrying the opaque frozen corpus-ACL scope. Owns no data. As JS it cannot import host/Go internals — host-blindness is structural.",
+  "main": "retrieval-mcp.js",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "dsh-testkit": "0.4.4"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

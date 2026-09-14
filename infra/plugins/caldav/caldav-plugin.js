@@ -1,11 +1,13 @@
-// caldav-plugin.js — CalDAV as a Koishi plugin.
+// caldav-plugin.js — CalDAV as a standalone cordis/koishi plugin.
 //
 // This is the whole point of "caldav is a block, not a base protocol": it is an application on
-// HTTP, so it plugs into Koishi like any other block and COMPOSES the http hand. Here that hand is
-// Koishi's own `http` service (`inject: ['http']`), used for the WebDAV requests (PROPFIND / REPORT
-// free-busy-query / PUT a VEVENT / DELETE). The iCalendar it gets back is parsed by **ical.js** — a
-// real library, unmodified — not a hand-written line-scanner. No Go anywhere: the block is this
-// Koishi plugin; Go lives only in the substrate that runs it.
+// HTTP. The HTTP hand is the runtime's own global `fetch` (undici, built into Node 18+), which
+// takes arbitrary methods (PROPFIND / REPORT free-busy-query / PUT a VEVENT / DELETE), custom
+// headers, a body, and does not throw on 4xx/5xx. Depending on `fetch` — not on any host service —
+// is what lets this plugin boot on a bare cordis host (real DSH included): it injects nothing, so
+// there is no service to wait for. The iCalendar it gets back is parsed by **ical.js** — a real
+// library, unmodified — not a hand-written line-scanner. No Go anywhere: the block is this plugin;
+// Go lives only in the substrate that runs it.
 //
 // It provides the `caldav` service with the four calendar-seam operations. A connection
 // (url/username/password) is passed per call by the caller — the plugin holds no credentials.
@@ -82,44 +84,39 @@ function vfreebusyIntervals(fb) {
   return out
 }
 
-// caldavRequest — one WebDAV request through Koishi's http hand, with basic auth. Returns
-// { status, body }.
-async function caldavRequest(http, conn, method, url, body, contentType) {
+// caldavRequest — one WebDAV request via the runtime's global fetch, with basic auth. Returns
+// { status, body }. fetch accepts arbitrary methods (REPORT, PROPFIND) and does not throw on
+// 4xx/5xx (only on transport failure), so the status comes back for the callers to check.
+async function caldavRequest(conn, method, url, body, contentType) {
   const headers = {}
   if (contentType) headers['Content-Type'] = contentType
   if (conn.username) {
     const tok = Buffer.from(`${conn.username}:${conn.password || ''}`).toString('base64')
     headers.Authorization = `Basic ${tok}`
   }
-  // ctx.http(method, url, config) — undici under the hood accepts arbitrary methods (REPORT,
-  // PROPFIND). validateStatus:true so a 4xx/5xx comes back as a status, not a throw.
-  const resp = await http(method, url, {
-    headers,
-    data: body,
-    responseType: 'text',
-    validateStatus: () => true,
-  })
-  return { status: resp.status, body: typeof resp.data === 'string' ? resp.data : String(resp.data) }
+  const resp = await fetch(url, { method, headers, body: body || undefined })
+  return { status: resp.status, body: await resp.text() }
 }
 
 const XML = 'application/xml; charset=utf-8'
 const ICS = 'text/calendar; charset=utf-8'
 
-// apply — register the `caldav` service. Koishi calls this with the plugin's context; `inject`
-// guarantees `ctx.http` is present before it runs.
+// apply — register the `caldav` service. The cordis/koishi host calls this with the plugin's
+// context. It injects nothing: the HTTP hand is the runtime's global fetch, always present.
+// `ctx.provide(name, value)` both declares and sets the service — cordis 4.x refuses a bare
+// `ctx.set` for a name that was never provided (koishi's `set` auto-provides; cordis does not).
 function apply(ctx) {
-  const http = ctx.http
-  ctx.set('caldav', {
+  ctx.provide('caldav', {
     // verify — one PROPFIND against the collection (no write). Throws on a 4xx/5xx.
     async verify(conn) {
-      const r = await caldavRequest(http, conn, 'PROPFIND', conn.url, '', XML)
+      const r = await caldavRequest(conn, 'PROPFIND', conn.url, '', XML)
       if (r.status >= 400) throw new Error(`caldav verify: status ${r.status}`)
       return { ok: true }
     },
     // freeBusy — REPORT free-busy-query → busy intervals (via ical.js).
     async freeBusy(conn, timeMin, timeMax) {
       const r = await caldavRequest(
-        http, conn, 'REPORT', conn.url, freeBusyQuery(new Date(timeMin), new Date(timeMax)), XML,
+        conn, 'REPORT', conn.url, freeBusyQuery(new Date(timeMin), new Date(timeMax)), XML,
       )
       if (r.status >= 400) throw new Error(`caldav free-busy: status ${r.status}`)
       return { busy: parseFreeBusy(r.body) }
@@ -129,7 +126,7 @@ function apply(ctx) {
       const uid = (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`).replace(/[^a-zA-Z0-9-]/g, '')
       const url = `${conn.url.replace(/\/$/, '')}/${uid}.ics`
       const r = await caldavRequest(
-        http, conn, 'PUT', url,
+        conn, 'PUT', url,
         vevent(uid, ev.summary, new Date(ev.start), new Date(ev.end), ev.visitorEmail), ICS,
       )
       if (r.status >= 400) throw new Error(`caldav insert: status ${r.status}`)
@@ -138,11 +135,11 @@ function apply(ctx) {
     // deleteEvent — DELETE the event's .ics.
     async deleteEvent(conn, eventId) {
       const url = `${conn.url.replace(/\/$/, '')}/${eventId}.ics`
-      const r = await caldavRequest(http, conn, 'DELETE', url, '', '')
+      const r = await caldavRequest(conn, 'DELETE', url, '', '')
       if (r.status >= 400 && r.status !== 404) throw new Error(`caldav delete: status ${r.status}`)
       return { ok: true }
     },
   })
 }
 
-module.exports = { inject: ['http'], apply }
+module.exports = { apply }

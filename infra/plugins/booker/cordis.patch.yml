@@ -1,0 +1,15 @@
+# booker block — its mountable declaration for a dsh bundle. A JS stdio-MCP server bridged onto dsh
+# through @deepseek-ai/dsh-mcp-client: the patch inserts one mcp-client row that runs the server with
+# node; its 7 tools register on ctx.tools as `mcp__booker__*`. Cross-platform (JS). Tools reach the
+# host over STANDMEET_HOST_SOCKET only at CALL time, so it boots + lists tools on a bare DSH.
+- insert:
+    - id: booker
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        transport: stdio
+        serverName: booker
+        command: node
+        args:
+          - booker-mcp.js
+        cwd: !!js dshHomePath('profiles/dsh-testkit/node_modules/standmeet-booker-mcp')
+        failOnStartupError: true

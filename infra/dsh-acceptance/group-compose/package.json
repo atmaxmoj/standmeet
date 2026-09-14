@@ -1,0 +1,26 @@
+{
+  "name": "standmeet-group-compose",
+  "version": "1.0.0",
+  "private": true,
+  "description": "The group-composition acceptance test: two minimal cordis blocks (group-provider provides demoBase; group-consumer injects demoBase and derives demoDerived) composed by a cordis:group. Proves dsh loads a composed block group and resolves provide/inject by dependency (not list order) on a real DSH — the composition the single-block gates do not exercise. Exports the two blocks as subpaths so the group entries resolve them by name.",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./group-provider": "./group-provider.js",
+    "./group-consumer": "./group-consumer.js"
+  },
+  "files": [
+    "index.js",
+    "group-provider.js",
+    "group-consumer.js",
+    "cordis.patch.yml"
+  ],
+  "devDependencies": {
+    "dsh-testkit": "^0.4.4"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

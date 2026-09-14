@@ -1,0 +1,8 @@
+# CalDAV block — its mountable declaration for a dsh bundle. caldav provides the calendar capability
+# by doing WebDAV-on-HTTP (parses iCalendar with ical.js). It injects nothing: the HTTP hand is the
+# runtime's global fetch, so there is no service to provide first. The patch inserts caldav alone and
+# cordis activates it immediately. No host glue: dsh's loader requires the package and ctx.plugins it.
+- insert:
+    - id: caldav
+      name: standmeet-caldav-mcp
+      config: {}

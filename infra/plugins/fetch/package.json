@@ -1,0 +1,21 @@
+{
+  "name": "standmeet-fetch-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "fetch block (JS, cross-platform — replaces the vendored Python mcp-server-fetch and its Linux-musl wheels): a stdio-MCP server whose fetch tool GETs a URL, converts HTML→markdown, and honors robots.txt. Owns no data; its only egress is the fetch itself (network posture is the manifest's, unchanged). As JS it cannot import host/Go internals — host-blindness is structural, and there is no more per-arch native dependency, so it runs on any runner.",
+  "main": "fetch-mcp.js",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "node-html-markdown": "^1.3.0",
+    "robots-parser": "^3.0.1",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "dsh-testkit": "0.4.4"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

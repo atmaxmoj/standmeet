@@ -1,0 +1,20 @@
+schemaVersion: 1
+name: standmeet-group-compose-quick
+subject:
+  source: ./group-compose
+dsh:
+  version: 0.1.1-rc.2
+expect:
+  boot: success
+  rows:
+    - group-compose
+    - group-consumer
+    - group-provider
+  # demoBase (provider) + demoDerived (consumer, only publishable after its demoBase inject resolves)
+  # must BOTH register — demoDerived is the proof the group resolved provide/inject by dependency.
+  services:
+    - demoBase
+    - demoDerived
+  tools: []
+# No exercise: the two services registering IS the assertion. A tool round-trip would add nothing the
+# service assertions do not already prove.

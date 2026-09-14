@@ -1,0 +1,23 @@
+schemaVersion: 1
+name: standmeet-retrieval-mcp-quick
+subject:
+  source: ../plugins/retrieval
+dsh:
+  version: 0.1.1-rc.2
+expect:
+  boot: success
+  rows:
+    - retrieval
+  services: []
+  tools:
+    - mcp__retrieval__corpus_grep
+    - mcp__retrieval__corpus_links
+    - mcp__retrieval__corpus_list
+    - mcp__retrieval__corpus_map
+    - mcp__retrieval__corpus_peek
+    - mcp__retrieval__corpus_read
+    - mcp__retrieval__corpus_resolve
+    - mcp__retrieval__corpus_search
+# No exercise: every retrieval tool reads corpus data from the StandMeet host over STANDMEET_HOST_SOCKET.
+# Registering the tools on real dsh is what this gate proves; reading corpus needs a live host (a
+# separate integration), so we do NOT fake one here.

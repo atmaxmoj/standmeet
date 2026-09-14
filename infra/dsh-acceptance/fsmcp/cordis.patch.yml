@@ -1,0 +1,16 @@
+# fsmcp block — its mountable declaration for a dsh bundle. The third-party filesystem MCP server is
+# bridged onto dsh through @deepseek-ai/dsh-mcp-client: the patch inserts one mcp-client row that runs
+# the installed server; its tools register on ctx.tools as `mcp__fsmcp__<rawName>`. cwd = the installed
+# dependency dir, and it doubles as the server's single allowed directory (args: ['dist/index.js', '.']).
+- insert:
+    - id: fsmcp
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        transport: stdio
+        serverName: fsmcp
+        command: node
+        args:
+          - dist/index.js
+          - .
+        cwd: !!js dshHomePath('profiles/dsh-testkit/node_modules/@modelcontextprotocol/server-filesystem')
+        failOnStartupError: true

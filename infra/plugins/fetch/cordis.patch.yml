@@ -1,0 +1,16 @@
+# fetch block — its mountable declaration for a dsh bundle. A JS stdio-MCP server bridged onto dsh
+# through @deepseek-ai/dsh-mcp-client: the patch inserts one mcp-client row that runs the server with
+# node; its tool registers on ctx.tools as `mcp__fetch__fetch`. Cross-platform (JS, no per-arch native
+# wheels — this is why it no longer needs the Linux runner). The fetch itself is the only egress, at
+# CALL time, so it boots + lists its tool on a bare DSH.
+- insert:
+    - id: fetch
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        transport: stdio
+        serverName: fetch
+        command: node
+        args:
+          - fetch-mcp.js
+        cwd: !!js dshHomePath('profiles/dsh-testkit/node_modules/standmeet-fetch-mcp')
+        failOnStartupError: true

@@ -1,0 +1,20 @@
+{
+  "name": "standmeet-booker-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "booker block (JS, cross-platform — replaces the former Go binary): the calendar.book stdio-MCP server. Booking logic (policy/slots/concurrency) lives in the sandbox; calendar/mail/storage are reached over STANDMEET_HOST_SOCKET via a fixed reach-back vocabulary. Owns no data. Timezone/policy via luxon. As JS it cannot import host/Go internals — host-blindness is structural.",
+  "main": "booker-mcp.js",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "luxon": "^3.5.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "dsh-testkit": "0.4.4"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

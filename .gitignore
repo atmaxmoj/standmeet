@@ -107,6 +107,35 @@ infra/plugins/summarize/summarize
 infra/plugins/booker/booker
 infra/plugins/retrieval/retrieval
 infra/plugins/mail-sender/mail-sender
+# dsh-testkit builds a HOST-arch copy of each Go block under a distinct name so it never clobbers the
+# Linux binary the dev/prod sandbox runs from the same bind-mounted dir (that clobber = bwrap "Exec
+# format error"). Host copies are throwaway build artifacts.
+infra/plugins/*/*.dsh-host
+
+# dsh-testkit (real-DSH plugin acceptance suite) artifacts — evidence + logs + installed deps, not
+# committed. The scenario/declaration files (dsh-testkit.yaml, cordis.patch.yml, package.json, the
+# block/demo source) ARE committed. The suite lives in infra/dsh-acceptance/ (see its README).
+.dsh-testkit-out/
+.dsh-testkit*.log
+.dsh-reorg-verify.log
+.dsh-*.log
+.caldav-e2e.log
+infra/plugins/*/.dsh-testkit/
+infra/dsh-acceptance/out/
+infra/dsh-acceptance/node_modules/
+infra/dsh-acceptance/*/node_modules/
+infra/dsh-acceptance/*/pkg/
+# npm/pnpm lockfiles in block/acceptance dirs are throwaway (provision.sh + the acceptance harness do
+# their own install); don't commit.
+infra/plugins/*/package-lock.json
+infra/plugins/*/pnpm-lock.yaml
+infra/dsh-acceptance/package-lock.json
+infra/dsh-acceptance/pnpm-lock.yaml
+infra/dsh-acceptance/*/package-lock.json
+infra/dsh-acceptance/*/pnpm-lock.yaml
+# dsh-testkit `init` byproducts referencing the old per-block layout — superseded by infra/dsh-acceptance.
+.agents/skills/dsh-testkit/
+.github/workflows/dsh-lifecycle.yml
 render-*.png
 e2e/test-results-archive/
 # One directory per manual real-env verification round (run sheet + trajectories + shots).

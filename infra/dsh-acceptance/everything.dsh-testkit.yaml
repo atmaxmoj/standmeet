@@ -1,0 +1,20 @@
+schemaVersion: 1
+name: standmeet-everything-mcp-quick
+subject:
+  source: ./everything
+dsh:
+  version: 0.1.1-rc.2
+expect:
+  boot: success
+  rows:
+    - everything
+  services: []
+  tools:
+    - mcp__everything__echo
+exercise:
+  - tool: mcp__everything__echo
+    arguments:
+      message: "hi"
+# Assert + exercise the hyphen-free `echo` tool (a real round-trip through the bridge). The demo
+# server's other tools carry hyphens (get-sum, get-env, …) whose mcp-client public-name normalization
+# is not asserted here to avoid guessing the normalized form; echo proves the bridge registers and works.

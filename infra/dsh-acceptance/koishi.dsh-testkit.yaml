@@ -1,0 +1,18 @@
+schemaVersion: 1
+name: standmeet-koishi-mcp-quick
+subject:
+  source: ./koishi
+dsh:
+  version: 0.1.1-rc.2
+expect:
+  boot: success
+  rows:
+    - koishi-base64
+  services: []
+  tools:
+    - mcp__koishi-base64__base64_encode
+    - mcp__koishi-base64__base64_decode
+exercise:
+  - tool: mcp__koishi-base64__base64_encode
+    arguments:
+      text: hi

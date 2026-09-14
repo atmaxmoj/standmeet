@@ -1,0 +1,24 @@
+# Koishi-base64 block — its mountable declaration for a dsh bundle. This block is a stdio-MCP server
+# (koishi-mcp.js), not itself a cordis plugin. dsh mounts an external MCP server through its own
+# cordis plugin `@deepseek-ai/dsh-mcp-client`: the patch inserts one mcp-client row whose `command`
+# spawns this package's server; mcp-client connects over stdio and registers the server's tools on
+# ctx.tools as `mcp__<serverName>__<rawName>`. This is the SAME bridge for every MCP-server block —
+# zero per-plugin glue, and it is dsh's own way to adopt an MCP server. (declaration ⊥ runtime: the
+# cordis-mountable declaration is this mcp-client row; the runtime is the spawned stdio subprocess.)
+- insert:
+    - id: koishi-base64
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        transport: stdio
+        serverName: koishi-base64
+        # Run the installed package's main (koishi-mcp.js) by name, so no absolute profile path is
+        # baked in: node resolves standmeet-koishi-mcp from the profile's node_modules.
+        # The child spawns with cwd = the installed package dir (dsh installs the subject +
+        # its deps under the profile), so `node koishi-mcp.js` runs the server and resolves its
+        # deps from the profile's node_modules up the tree. dshHomePath() (a dsh-provided binding
+        # in !!js scope) points at the run's home; the profile is the scenario's `profile` name.
+        command: node
+        args:
+          - koishi-mcp.js
+        cwd: !!js dshHomePath('profiles/dsh-testkit/node_modules/standmeet-koishi-mcp')
+        failOnStartupError: true
