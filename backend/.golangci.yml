@@ -326,6 +326,12 @@ linters:
       #    somebody could not be bothered to write.
       - path: internal/plugin/effect/
         linters: [forbidigo]
+      # internal/plugin/seamctx is the same heterogeneous coeffect boundary as effect, one layer up:
+      # a seam's value (calendar vs mail proxy) has its own type per key, so Provide(v any) / Resolve
+      # → any is the generic container at the edge of the type system — the consumer type-asserts to
+      # the seam's contract. Same justification as effect above, not a lazy `any`.
+      - path: internal/plugin/seamctx/
+        linters: [forbidigo]
       # A domain's guts (entity/repo/usecase) have package names that happen to be the
       # common local-variable names from before the split (repo/entity). Domain-internal
       # code naming "this repo" as repo is clear; the shadow here is a pre-existing product

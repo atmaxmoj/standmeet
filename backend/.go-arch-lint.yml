@@ -178,6 +178,8 @@ components:
     in: internal/plugin/effect             # the revertible-effect mechanism (arXiv:2608.25512 §3/§4): Scope + accumulator, coeffect table, fiber calculus. A LEAF — it knows nothing of blocks, seams or postgres, and must keep knowing nothing, which is what lets its 119 properties be stated against the paper rather than against this codebase
   registry:
     in: internal/plugin/registry           # the fiber registry: the single registration point consumed by all three (visitor + owner MCP)
+  seamctx:
+    in: internal/plugin/seamctx            # per-owner seam resolution as coeffect context (effect.Table per owner): provide/resolve, replacing the adapters supplier machine's lookup
   mount:
     in: internal/plugin/mount              # turns a manifest into a mounted fiber (dial / tool wrap / state / gates)
   assembly:
@@ -595,6 +597,11 @@ deps:
   # exactly the re-derivation `effects.md` exists to avoid. Wiring happens in the packages above it.
   effect:
     mayDependOn: []
+    anyVendorDeps: true
+
+  seamctx:
+    mayDependOn:
+      - effect
     anyVendorDeps: true
 
   registry:
