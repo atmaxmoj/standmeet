@@ -1,12 +1,14 @@
 package seamctx_test
 
-// seamctx_test.go — the batch's test, written first. It specifies the foundational 零件 the
-// supplier-elimination wires onto: a per-owner seam context. It is the model
-// (effect/seam_as_coeffect_test.go) made into the small API the live path uses —
-// connect → Provide, seam-invoke → Resolve, disconnect → the dispose. No adapters, no Dispatcher,
-// no Suppliers table, no active-column: those are what this replaces.
+// seamctx_test.go — the batch's test, written first. It pins the model the supplier-elimination
+// wires onto: a per-owner seam context whose values are generic verb-invokers (string verb + JSON),
+// NOT typed contracts. connect=Provide, seam-invoke=Resolve+CallVerb, disconnect=the dispose. No
+// adapters, no Dispatcher, no Suppliers table, no active-column, no "calendar" type: the substrate
+// sees only a seam name, a verb name, and JSON.
 
 import (
+	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -21,12 +23,25 @@ const (
 	calendar = "calendar"
 )
 
-// a stand-in seam value: what a provider provides at a seam key has methods the consumer calls.
-type calSvc interface{ FreeBusy() string }
+// fakeProvider — a seam provider is just a verb-invoker (a block's tool-call shape). It echoes its
+// id as the verb result, so a test can tell which provider answered.
+type fakeProvider struct{ id string }
 
-type fakeCal struct{ id string }
+func (f fakeProvider) CallVerb(
+	_ context.Context, _, _ string, _ json.RawMessage,
+) (json.RawMessage, error) {
+	b, err := json.Marshal(f.id)
+	return b, err
+}
 
-func (f fakeCal) FreeBusy() string { return f.id }
+func call(t *testing.T, p seamctx.Provider) string {
+	t.Helper()
+	out, err := p.CallVerb(context.Background(), owner1, "free_busy", nil)
+	require.NoError(t, err)
+	var got string
+	require.NoError(t, json.Unmarshal(out, &got))
+	return got
+}
 
 func TestResolveUnprovidedSeamMisses(t *testing.T) {
 	t.Parallel()
@@ -39,16 +54,14 @@ func TestProvideThenResolveThenRevoke(t *testing.T) {
 	t.Parallel()
 	c := seamctx.New()
 
-	// provider block connects → provides its seam value for this owner.
-	dispose, err := c.Provide(owner1, calendar, calSvc(fakeCal{id: "google"}))
+	// provider block connects → provides itself for this owner's seam.
+	dispose, err := c.Provide(owner1, calendar, fakeProvider{id: "google"})
 	require.NoError(t, err)
 
-	// seam-invoke resolves the owner's active provider and calls it — this IS the dispatch.
-	v, ok := c.Resolve(owner1, calendar)
+	// seam-invoke resolves the owner's active provider and calls a verb by name — this IS dispatch.
+	p, ok := c.Resolve(owner1, calendar)
 	require.True(t, ok)
-	cal, ok := v.(calSvc)
-	require.True(t, ok)
-	require.Equal(t, "google", cal.FreeBusy())
+	require.Equal(t, "google", call(t, p))
 
 	// disconnect → dispose → the seam no longer resolves (Def-29 check fails, nothing supervising).
 	require.NoError(t, dispose())
@@ -59,32 +72,28 @@ func TestProvideThenResolveThenRevoke(t *testing.T) {
 func TestOneActiveProviderPerOwnerSeam(t *testing.T) {
 	t.Parallel()
 	c := seamctx.New()
-	_, err := c.Provide(owner1, calendar, calSvc(fakeCal{id: "google"}))
+	_, err := c.Provide(owner1, calendar, fakeProvider{id: "google"})
 	require.NoError(t, err)
 
 	// a second provider of the same owner+seam is refused — activation is single, enforced by the
 	// model, not by a hand-written "set the others inactive".
-	_, err = c.Provide(owner1, calendar, calSvc(fakeCal{id: "caldav"}))
+	_, err = c.Provide(owner1, calendar, fakeProvider{id: "caldav"})
 	require.Error(t, err, "two providers must not co-occupy one owner's seam")
 }
 
 func TestOwnersAreIndependent(t *testing.T) {
 	t.Parallel()
 	c := seamctx.New()
-	_, err := c.Provide(ownerA, calendar, calSvc(fakeCal{id: "caldav"}))
+	_, err := c.Provide(ownerA, calendar, fakeProvider{id: "caldav"})
 	require.NoError(t, err)
-	_, err = c.Provide(ownerB, calendar, calSvc(fakeCal{id: "google"}))
+	_, err = c.Provide(ownerB, calendar, fakeProvider{id: "google"})
 	require.NoError(t, err)
 
-	va, ok := c.Resolve(ownerA, calendar)
+	pa, ok := c.Resolve(ownerA, calendar)
 	require.True(t, ok)
-	ca, ok := va.(calSvc)
-	require.True(t, ok)
-	require.Equal(t, "caldav", ca.FreeBusy())
+	require.Equal(t, "caldav", call(t, pa))
 
-	vb, ok := c.Resolve(ownerB, calendar)
+	pb, ok := c.Resolve(ownerB, calendar)
 	require.True(t, ok)
-	cb, ok := vb.(calSvc)
-	require.True(t, ok)
-	require.Equal(t, "google", cb.FreeBusy(), "owner B resolves the same seam to its own provider")
+	require.Equal(t, "google", call(t, pb), "owner B resolves the same seam to its own provider")
 }
