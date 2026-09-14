@@ -16,11 +16,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"maps"
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/plugin"
 	"github.com/atmaxmoj/standmeet/internal/plugin/adapters"
+	"github.com/atmaxmoj/standmeet/internal/plugin/blockseam"
 	"github.com/atmaxmoj/standmeet/internal/plugin/mount"
 )
 
@@ -32,16 +32,21 @@ type blockCredVault interface {
 	Credentials(ctx context.Context, blockID, ownerID string) (json.RawMessage, error)
 }
 
-// blockCalendarProxy — a calendar-seam supplier backed by an MCP block. Holds the full manifest (to
-// dial the block) + the opaque-credential vault. Nothing here is provider-specific.
+// blockCalendarProxy — a calendar-seam supplier backed by an MCP block. It is still a typed
+// CalendarProxy (so booker's supplier.invoke("calendar",…) resolves to it), but the merge→dial→call
+// plumbing now lives in the generic blockseam.Provider — this proxy is only the typed translation
+// layer on top of it (the layer the fold will next remove). Nothing here is provider-specific.
 type blockCalendarProxy struct {
-	vault    blockCredVault
-	id       string
-	manifest plugin.Manifest
+	vault blockCredVault
+	seam  *blockseam.Provider
+	id    string
 }
 
 func newBlockCalendarProxy(m *plugin.Manifest, vault blockCredVault) *blockCalendarProxy {
-	return &blockCalendarProxy{vault: vault, id: m.ID, manifest: *m}
+	dial := func(ctx context.Context, mm *plugin.Manifest) (blockseam.Session, error) {
+		return mount.DialBlock(ctx, mm)
+	}
+	return &blockCalendarProxy{vault: vault, seam: blockseam.New(m, vault, dial), id: m.ID}
 }
 
 // freeBusyArgs / insertArgs / deleteArgs — the SEAM operation's own fields (the owner's credentials
@@ -162,64 +167,12 @@ func (p *blockCalendarProxy) DeleteEvent(ctx context.Context, ownerID, eventID, 
 	return err
 }
 
-// call — one op: read the owner's opaque stored creds, merge the op's args on top, dial the block,
-// call the tool. A tool-level failure (IsError) becomes a Go error carrying the block's text.
+// call — one op via the generic block-seam provider: merge the owner's opaque creds into the op's
+// args, dial the block, call the tool `tool` (a dial/call/tool-level failure becomes an unavailable
+// fault carrying the block's text). The typed methods above marshal their request into opArgs and
+// decode the tool's reply; this line is the whole of the block plumbing now.
 func (p *blockCalendarProxy) call(
 	ctx context.Context, ownerID, tool string, opArgs json.RawMessage,
 ) (json.RawMessage, error) {
-	creds, cerr := p.vault.Credentials(ctx, p.id, ownerID)
-	if cerr != nil {
-		return nil, fmt.Errorf("block %q credentials: %w", p.id, cerr)
-	}
-	args, aerr := mergeJSONObjects(creds, opArgs)
-	if aerr != nil {
-		return nil, aerr
-	}
-	return p.dialCall(ctx, tool, args)
-}
-
-// dialCall — dial the block and call one tool with the fully-merged args.
-func (p *blockCalendarProxy) dialCall(
-	ctx context.Context, tool string, args json.RawMessage,
-) (json.RawMessage, error) {
-	sess, derr := mount.DialBlock(ctx, &p.manifest)
-	if derr != nil {
-		return nil, fmt.Errorf("dial block %q: %w", p.id, derr)
-	}
-	defer sess.Close()
-	res, terr := sess.CallToolChecked(ctx, tool, args, nil, 0)
-	if terr != nil {
-		return nil, fmt.Errorf("block %q %s: %w", p.id, tool, terr)
-	}
-	if res.IsError {
-		return nil, fmt.Errorf("block %q %s failed: %s", p.id, tool, res.Text)
-	}
-	return json.RawMessage(res.Text), nil
-}
-
-// mergeJSONObjects — shallow-merge two JSON objects (extra overrides base), staying at the JSON
-// level so the host never names a field. Empty inputs are treated as {}.
-func mergeJSONObjects(base, extra json.RawMessage) (json.RawMessage, error) {
-	merged, err := decodeMap(base)
-	if err != nil {
-		return nil, fmt.Errorf("merge credentials: %w", err)
-	}
-	over, oerr := decodeMap(extra)
-	if oerr != nil {
-		return nil, fmt.Errorf("merge op args: %w", oerr)
-	}
-	maps.Copy(merged, over)
-	return json.Marshal(merged)
-}
-
-// decodeMap — decode a JSON object into a field map; empty input → an empty map, not an error.
-func decodeMap(raw json.RawMessage) (map[string]json.RawMessage, error) {
-	m := map[string]json.RawMessage{}
-	if len(raw) == 0 {
-		return m, nil
-	}
-	if err := json.Unmarshal(raw, &m); err != nil {
-		return nil, err
-	}
-	return m, nil
+	return p.seam.CallVerb(ctx, ownerID, tool, opArgs)
 }

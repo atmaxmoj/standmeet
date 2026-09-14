@@ -1648,6 +1648,7 @@ deps:
       - hostsocket
       - blockstore
       - adapters
+      - blockseam         # the block-backed seam provider the block-seam suppliers delegate their dial+merge+call to
       - sandboxws
       - search
       - conversation
