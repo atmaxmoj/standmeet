@@ -126,8 +126,8 @@ is exactly what makes it the safety net across the fold.
 |---|---|
 | uninstall a storing block drops its schema — no orphan leak | `block-uninstall-drops-schema` |
 | per-session sandbox workspace is provisioned, TTL-swept by cron; a fresh one survives | `sandbox-workspace-ttl-cron` |
-| an owner's stored data survives a schema/vocabulary/column move across a deploy | `upgrade-block-vocabulary`, `upgrade-embed-schema`, `upgrade-access-code-slug`, `upgrade-pending-email-columns`, `upgrade-monitoring-enabled-column`, `upgrade-homepage-seo-columns`, `upgrade-application-code-unique`, `upgrade-code-entropy-compat` |
-| ⬜ **credential-manager is itself a block requiring db**: a non-native secret written through it round-trips (write, read back the same value) | **owed** — creds still flow through the built-in supplier vault, not a block |
+| an owner's stored data survives a schema/vocabulary/column move across a deploy — incl. the credential value surviving in credmgr through the cap→block vocabulary rename | `upgrade-block-vocabulary`, `upgrade-embed-schema`, `upgrade-access-code-slug`, `upgrade-pending-email-columns`, `upgrade-monitoring-enabled-column`, `upgrade-homepage-seo-columns`, `upgrade-application-code-unique`, `upgrade-code-entropy-compat` |
+| **credential-manager (credmgr) is the vault-off-bespoke store**: a non-native secret (telegram token, SMTP password, API key) is sealed in credmgr's own db-block schema (`mcp_credential_manager`, rule 3), keyed by (owner, block id); block_connections keeps metadata only, `credentials_enc` empty | ✅ `vault-credmgr-telegram` (e2e) · `credentials/upgrade_test.go` (resolveCreds fallback + self-heal, UT) |
 
 ## H. The blocks themselves — behavior, not build ✅
 
@@ -205,8 +205,10 @@ never "the code looks folded."
 2. **Host-blind to zero.** Today the host still names one block by literal (`smtp`). *Done when:* the
    host-blind marker is 0 — host code names no block or protocol. Behavioral because a named block is one
    the host treats specially, which the next pasted block silently misses.
-3. **credential-manager becomes a block requiring db** (§G row). *Done when:* the round-trip spec is
-   green and the built-in vault path is gone.
+3. **credential-manager (credmgr) — largely done.** The vault-off-bespoke move is built and tested
+   (§G): secrets are sealed in credmgr's own db-block schema, block_connections is metadata-only, a
+   legacy row self-heals to credmgr via `resolveCreds`. *Remaining:* confirm no bespoke-vault path
+   still writes/reads credentials outside credmgr (part of the supplier-fold sweep, #1).
 4. **Collapse the ACL model** to "mounted, or not" and rewrite the two ✏️ specs in §C accordingly
    (outcomes preserved).
 5. **The three adversarial security e2e** in §J (native-key theft, cross-block socket, db cross-schema).

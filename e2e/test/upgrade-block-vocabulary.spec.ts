@@ -222,10 +222,10 @@ test.describe('upgrade · deploying renames the block tables and loses no row', 
     // what makes "the row survived" mean the product's row, in the product's shape.
     await setBlockEnabled(request, csrf, DISABLED_BLOCK, false);
     await setCodeBlockDenial(request, csrf, codeID, DENIED_BLOCK);
-    // block_connections is the table with the most to lose: it holds encrypted credentials, a
-    // token, granted scopes and the seam, and it is the only one the migration renames TWO
-    // columns on. A count-only assertion here would miss a rename that kept the rows and dropped
-    // what is in them.
+    // block_connections is the connection METADATA row (seam, kind, connected, oauth tokens) and the
+    // only one the migration renames TWO columns on (category → seam, capability_id → block_id). The
+    // credential VALUE itself moved to credmgr (below); a count-only assertion would miss a rename
+    // that kept the row and dropped what is in it, so the seam is read back by value.
     await saveGCalCredentials(request, csrf, MOCK_GCAL_CREDS);
     // …and a block config value, which is not a row in a core table at all: blockconfig writes it
     // into the block's OWN schema, tagged with a `collection` name the migration rewrites with
@@ -248,13 +248,20 @@ test.describe('upgrade · deploying renames the block tables and loses no row', 
         `SELECT count(*) FROM code_block_denials WHERE block_id = '${DENIED_BLOCK}'`);
       const supplierSeamBefore = querySQL(
         `SELECT seam FROM block_connections WHERE block_id = '${SUPPLIER}'`);
-      const credLenBefore = querySQL(
-        `SELECT length(credentials_enc) FROM block_connections WHERE block_id = '${SUPPLIER}'`);
+      // The credential VALUE no longer lives in block_connections.credentials_enc — it moved to the
+      // credential-manager block (credmgr), sealed in its own blockstore schema
+      // mcp_credential_manager.records, collection 'secrets' (everything-is-a-block.md rule 3). So
+      // "the owner's saved credential survived the deploy" is read from credmgr, not the (now empty,
+      // metadata-only) connection row. This migration renames the cap→block vocabulary and does not
+      // touch credmgr's schema/collection, so the seed must land there and still be there after.
+      const credSecretBefore = count(
+        `SELECT count(*) FROM mcp_credential_manager.records WHERE collection = 'secrets'`);
       const configCollectionsBefore = configCollections();
       expect(enabledBefore, 'the owner disabled a block → a block_enabled row exists').toBe(1);
       expect(denialsBefore, 'the owner denied a block to a code → a denial row exists').toBe(1);
       expect(supplierSeamBefore, 'the owner saved supplier credentials → a connection row exists')
         .not.toBe('');
+      expect(credSecretBefore, 'the saved credential value landed in credmgr').toBeGreaterThan(0);
       expect(bookerBufferMin(), 'the owner set a block config value').toBe(String(BUFFER_MIN));
 
       downgradeAndProveItTook();
@@ -281,18 +288,17 @@ test.describe('upgrade · deploying renames the block tables and loses no row', 
         `SELECT enabled FROM block_enabled WHERE block_id = '${DISABLED_BLOCK}'`),
       'and it still says what the owner set').toBe('f');
 
-      // block_connections carried real payload across a table rename AND two column renames.
+      // block_connections carried real metadata across a table rename AND two column renames.
       // Counting rows would not notice a rename that kept the row and lost what is in it, so the
-      // credential bytes, the seam and the id are all read back by value.
+      // seam is read back by value. (The encrypted credential VALUE is no longer here — it is in
+      // credmgr; checked below by its own store surviving.)
       expect(querySQL(
         `SELECT seam FROM block_connections WHERE block_id = '${SUPPLIER}'`),
       'the seam value rode through category → seam').toBe(supplierSeamBefore);
-      expect(querySQL(
-        `SELECT length(credentials_enc) FROM block_connections WHERE block_id = '${SUPPLIER}'`),
-      'the encrypted credentials are the same bytes, not a re-initialised empty').
-        toBe(credLenBefore);
-      expect(Number(credLenBefore), 'and there were credentials to lose in the first place')
-        .toBeGreaterThan(0);
+      // The owner's saved credential value survived the deploy — read from credmgr, its real home.
+      // A rename that dropped or collateral-damaged the credential-manager schema would show here.
+      expect(count(`SELECT count(*) FROM mcp_credential_manager.records WHERE collection = 'secrets'`),
+        'the credential in credmgr survived the vocabulary migration').toBe(credSecretBefore);
 
       // The collection rewrite is the only step that edits a VALUE rather than moving a name:
       // `'block' || substring(collection from 4)`. Off-by-one there would silently produce
