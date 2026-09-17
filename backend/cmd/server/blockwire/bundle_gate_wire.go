@@ -35,7 +35,7 @@ func BundleGate(d *deps.Runtime) {
 				// This code carries no bundle: the role ACL answers, exactly as before.
 				return nil, "", false
 			}
-			members, merr := d.Assembly.Members(ctx, bundleID)
+			members, merr := d.Assembly.ResolveMembers(ctx, bundleID)
 			if merr != nil {
 				d.Log.Warn("bundle gate: read members", "err", merr, "bundle", bundleID)
 				return map[string]bool{}, bundleID, true

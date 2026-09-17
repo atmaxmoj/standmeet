@@ -165,6 +165,10 @@ const GOLDEN_TOOLSET: readonly string[] = [
   'warnings.list',
   'bundles.list', 'bundles.create', 'bundles.delete',
   'bundles.add_block', 'bundles.remove_block',
+  // bundles.set_includes / delete_by_id -- the additive-ACL surface (access-control.md):
+  // a bundle includes other bundles by reference (a code resolves to the recursive union),
+  // and a bundle is deletable by id. add_block doubles as set-the-whole-list by id.
+  'bundles.set_includes', 'bundles.delete_by_id',
   // writings
   // save is still writing_create (the multipart half hasn't moved -- see the
   // note in res_writings.go); the other four are named writings.* uniformly

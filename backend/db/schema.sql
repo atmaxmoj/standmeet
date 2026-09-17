@@ -1342,6 +1342,21 @@ CREATE TABLE block_failures (
 
 CREATE INDEX bundle_blocks_block_idx ON bundle_blocks (block_id);
 
+-- bundle_includes —— a bundle may include other bundles (access-control.md nesting). The
+-- code bound to the outer bundle resolves to the recursive, deduped union. By reference,
+-- like every other binding here: editing an included bundle moves everything that reaches
+-- it. PK forbids a duplicate edge, CHECK forbids the one-hop self-cycle; a longer cycle is
+-- refused at write by a reachability walk in Go (see assembly.SetIncludes).
+CREATE TABLE bundle_includes (
+    bundle_id   uuid        NOT NULL REFERENCES bundles(id) ON DELETE CASCADE,
+    includes_id uuid        NOT NULL REFERENCES bundles(id) ON DELETE CASCADE,
+    position    int         NOT NULL DEFAULT 0,
+    added_at    timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (bundle_id, includes_id),
+    CHECK (bundle_id <> includes_id)
+);
+CREATE INDEX idx_bundle_includes_includes ON bundle_includes (includes_id);
+
 -- access_codes.bundle_id 的外键：bundles 在 access_codes 之后建，约束补在这里。
 -- SET NULL —— 删掉一捆不该连带删掉已经发出去的码：拿着码的访客退回 role，
 -- owner 在面板上看得见这件事发生过。

@@ -88,12 +88,21 @@ func (h *Handlers) mountBlockPanel(r chi.Router, face *dispatcher.Face) {
 // screen; making the URL say the same thing means a bug report can be read off the
 // address bar.
 func (h *Handlers) mountBundles(r chi.Router, face *dispatcher.Face) {
+	// The whole subtree keys on {name} (chi forbids a differing param name at one path
+	// position). For the additive-surface routes that segment carries a bundle id; the op
+	// treats it as such. GUI routes send a bundle name in the same slot.
 	r.Route("/bundles", func(r chi.Router) {
 		r.Get("/", h.dispatchOp(face, "bundles.list", emptyArgs, jsonOK))
 		r.Post("/", h.dispatchOp(face, "bundles.create", bodyArgs, jsonCreated))
 		r.Delete("/{name}", h.dispatchOp(face, "bundles.delete", urlParamArgs("name"), jsonOK))
+		// One route, two shapes: {blocks:[…]} sets the whole list by id (additive), {block_id}
+		// adds one by name (GUI). The op tells them apart by the body.
 		r.Post("/{name}/blocks",
 			h.dispatchOp(face, "bundles.add_block", bodyWithURLParam("name"), jsonOK))
+		r.Post("/{name}/includes",
+			h.dispatchOp(face, "bundles.set_includes", bodyWithURLParam("name"), jsonOK))
+		r.Post("/{name}/delete",
+			h.dispatchOp(face, "bundles.delete_by_id", urlParamArgs("name"), jsonOK))
 		r.Delete("/{name}/blocks/{block_id}",
 			h.dispatchOp(face, "bundles.remove_block",
 				twoURLParams("name", "block_id"), jsonOK))

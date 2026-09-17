@@ -22,10 +22,17 @@ const OWNER = {
   email: 'bundle-acl@example.com', password: 'correct-horse-battery-staple',
   handle: 'bundleowner', fullName: 'Bundle Owner',
 };
+// Two deps-free builtin blocks that assemble for a fresh owner (no connected supplier, no
+// corpus needed) — the same pair block-unmount-is-immediate uses. calendar.book was wrong
+// here: it requires:[calendar], so it stays hidden without a connected calendar supplier,
+// regardless of bundle membership, and would falsify every grant assertion for a dep reason.
 const RETRIEVAL = 'corpus.retrieval';
 const RETRIEVAL_TOOL = 'corpus_search';
-const BOOK = 'calendar.book';
-const BOOK_TOOL = 'calendar_book';
+const BOOK = 'summarize_conversation';
+const BOOK_TOOL = 'summarize_conversation';
+// A deps-free builtin the fresh owner's role grants but the test bundles never contain —
+// the witness for "fell back to the role" (present) vs "constrained to the bundle" (absent).
+const ROLE_ONLY_TOOL = 'ask_visitor';
 
 let admin: APIRequestContext;
 let csrf = '';
@@ -60,12 +67,15 @@ test.describe('ACL bundle · membership — the session is exactly the bundle\'s
     expect(tools, 'not in the list → absent').not.toContain(BOOK_TOOL);
   });
 
-  test('a code bound to no bundle is denied everything', async () => {
+  // Bundles are opt-in, not mandatory: a code with none keeps the role ACL it always had
+  // (access-control.md "A code with no bundle behaves exactly as before"; two models stand
+  // side by side). So it is NOT restricted to a bundle's list — it gets the role's grant,
+  // which for a fresh owner includes ask_visitor (a builtin the role grants).
+  test('a code bound to no bundle falls back to its role grant', async () => {
     const code = await createCode('NO-BUNDLE', undefined);
     const sess = await session(code, 'V');
     const tools = await sessionToolNames(admin, sess);
-    expect(tools).not.toContain(RETRIEVAL_TOOL);
-    expect(tools).not.toContain(BOOK_TOOL);
+    expect(tools, 'the role answers when no bundle is bound').toContain(ROLE_ONLY_TOOL);
   });
 });
 
@@ -102,10 +112,14 @@ test.describe('ACL bundle · nesting', () => {
   });
 });
 
-test.describe('ACL bundle · master rules (freeze / owner-disable / delete)', () => {
-  // session freeze — dsh rule: an application applies its layers once at start.
-  test('a live session freezes its bundle; a new session sees the owner\'s edit',
-    () => runSessionFreeze());
+test.describe('ACL bundle · master rules (live edit / owner-disable / delete)', () => {
+  // Contents stay live (access-control.md "the name, not the contents … contents stay live";
+  // block-model.md's immediate unmount — no frozen-at-issue model). Editing the bundle a code
+  // is bound to bites the OPEN session at once, which is the by-reference property on a live
+  // session and what an owner revoking access in a hurry needs. (block-unmount-is-immediate
+  // pins the same rule from the GUI side.)
+  test('a live session sees a bundle edit at once (contents stay live)',
+    () => runLiveBundleEdit());
 
   // ── the "mounted, or not" master still wins over bundle membership ──
   test('owner-disabling a block removes it even while it is in the bundle', async () => {
@@ -117,15 +131,20 @@ test.describe('ACL bundle · master rules (freeze / owner-disable / delete)', ()
     await setBlockEnabled(admin, csrf, BOOK, true);
   });
 
-  // ── deleting the bundle a code is bound to re-gates it ──
-  test('deleting a bundle re-gates every code bound to it', async () => {
+  // ── deleting the bundle a code is bound to re-gates it to the role ──
+  // access-control.md / bundles.delete: a deleted bundle does not revoke its codes; the
+  // binding clears (ON DELETE SET NULL) and each code falls back to its role's grant. The
+  // proof is that a role-only tool the bundle did NOT grant appears after the delete.
+  test('deleting a bundle re-gates every bound code to its role', async () => {
     const b = await createBundle('doomed', [RETRIEVAL, BOOK]);
     const code = await createCode('DOOMED', b.id);
-    expect(await sessionToolNames(admin, await session(code, 'B'))).toContain(BOOK_TOOL);
+    const bound = await sessionToolNames(admin, await session(code, 'B'));
+    expect(bound, 'bundle-bound: has the bundle block').toContain(BOOK_TOOL);
+    expect(bound, 'bundle-bound: NOT the role tools outside the bundle')
+      .not.toContain(ROLE_ONLY_TOOL);
     await deleteBundle(b.id);
-    const tools = await sessionToolNames(admin, await session(code, 'A'));
-    expect(tools, 'a code bound to a deleted bundle can do nothing').not.toContain(BOOK_TOOL);
-    expect(tools).not.toContain(RETRIEVAL_TOOL);
+    const after = await sessionToolNames(admin, await session(code, 'A'));
+    expect(after, 're-gated to the role, which grants it').toContain(ROLE_ONLY_TOOL);
   });
 });
 
@@ -155,17 +174,16 @@ async function runGrantByReference(): Promise<void> {
   expect(await sessionToolNames(admin, await session(c, 'B2')), 'B gained it too').toContain(BOOK_TOOL);
 }
 
-async function runSessionFreeze(): Promise<void> {
-  const b = await createBundle('frozen', [RETRIEVAL, BOOK]);
-  const code = await createCode('FREEZE', b.id);
+async function runLiveBundleEdit(): Promise<void> {
+  const b = await createBundle('live-edit', [RETRIEVAL, BOOK]);
+  const code = await createCode('LIVE', b.id);
   const live = await session(code, 'L');
   expect(await sessionToolNames(admin, live)).toContain(BOOK_TOOL);
   await setBundleBlocks(b.id, [RETRIEVAL]);
   expect(await sessionToolNames(admin, live),
-    'the live session froze its bundle at start').toContain(BOOK_TOOL);
-  const fresh = await session(code, 'F');
-  expect(await sessionToolNames(admin, fresh),
-    'a fresh session sees the edited bundle').not.toContain(BOOK_TOOL);
+    'the bundle is read live — the open session loses the removed block at once')
+    .not.toContain(BOOK_TOOL);
+  expect(await sessionToolNames(admin, live), 'the kept block stays').toContain(RETRIEVAL_TOOL);
 }
 
 // ─── helpers (hit the DESIGNED bundle endpoints — RED until they exist) ───

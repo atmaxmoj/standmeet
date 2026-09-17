@@ -135,7 +135,9 @@ var (
 			"provider_id":{"type":"string",
 				"description":"Inference provider. Omit to inherit the role's, then the default."},
 			"bundle":{"type":"string",
-				"description":"Bundle this code carries, read live. Omit to use the role's grant."}
+				"description":"Bundle this code carries, read live. Omit to use the role's grant."},
+			"bundle_id":{"type":"string",
+				"description":"Bundle id this code carries (id wins over the bundle name)."}
 		},
 		"required":[]
 	}`)

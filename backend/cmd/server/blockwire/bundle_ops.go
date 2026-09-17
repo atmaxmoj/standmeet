@@ -50,9 +50,17 @@ func BlockResource(d *deps.Runtime) dispatcher.Resource {
 	}...)}
 }
 
-// BundleResource — the assembler: create, delete, add, remove, list.
+// BundleResource — the assembler: create, delete, add, remove, list (bundleCoreOps) plus
+// the additive-surface writes (bundleWriteOps: set-list, include, delete-by-id).
 func BundleResource(d *deps.Runtime) dispatcher.Resource {
-	return dispatcher.Resource{Name: "bundles", Ops: []fp.Op{
+	return dispatcher.Resource{
+		Name: "bundles",
+		Ops:  append(bundleCoreOps(d), bundleWriteOps(d)...),
+	}
+}
+
+func bundleCoreOps(d *deps.Runtime) []fp.Op {
+	return []fp.Op{
 		{
 			ID: "bundles.list",
 			Description: "List the owner's bundles, each with the blocks it contains and " +
@@ -64,9 +72,9 @@ func BundleResource(d *deps.Runtime) dispatcher.Resource {
 		},
 		{
 			ID: "bundles.create",
-			Description: "Create an empty bundle by name. A code bound to it can use " +
-				"exactly the blocks it contains.",
-			InputSchema: bundleNameSchema,
+			Description: "Create a bundle by name, optionally with an initial block list and " +
+				"included bundles. A code bound to it can use exactly the blocks it resolves to.",
+			InputSchema: bundleCreateSchema,
 			Kind:        fp.Action,
 			Reach:       fp.OwnerAction(),
 			Invoke:      createBundle(d),
@@ -82,12 +90,13 @@ func BundleResource(d *deps.Runtime) dispatcher.Resource {
 		},
 		{
 			ID: "bundles.add_block",
-			Description: "Put a block in a bundle. Every code bound to that bundle gains it " +
-				"immediately, including sessions already open.",
-			InputSchema: bundleMemberSchema,
+			Description: "Set a bundle's whole block list (by id, {blocks:[…]}) or add one " +
+				"block (by name, {block_id}). Read live: an open session's grant changes on its " +
+				"next turn.",
+			InputSchema: bundleWriteBlocksSchema,
 			Kind:        fp.Action,
 			Reach:       fp.OwnerAction(),
-			Invoke:      addBundleBlock(d),
+			Invoke:      writeBundleBlocks(d),
 		},
 		{
 			ID: "bundles.remove_block",
@@ -98,7 +107,30 @@ func BundleResource(d *deps.Runtime) dispatcher.Resource {
 			Reach:       fp.OwnerAction(),
 			Invoke:      removeBundleBlock(d),
 		},
-	}}
+	}
+}
+
+func bundleWriteOps(d *deps.Runtime) []fp.Op {
+	return []fp.Op{
+		{
+			ID: "bundles.set_includes",
+			Description: "Set the bundles a bundle includes (by id). A code resolves to the " +
+				"recursive, deduped union. An edge that would create a cycle is refused.",
+			InputSchema: bundleIncludesSchema,
+			Kind:        fp.Action,
+			Reach:       fp.OwnerAction(),
+			Invoke:      setBundleIncludes(d),
+		},
+		{
+			ID: "bundles.delete_by_id",
+			Description: "Delete a bundle by id. Codes bound to it fall back to their role's " +
+				"grant; they are not revoked.",
+			InputSchema: bundleIDSchema,
+			Kind:        fp.Action,
+			Reach:       fp.OwnerAction(),
+			Invoke:      deleteBundleByID(d),
+		},
+	}
 }
 
 var (
@@ -123,6 +155,48 @@ var (
 			"block_id":{"type":"string","description":"The block's declared id."}
 		},
 		"required":["name","block_id"]
+	}`)
+
+	// bundleCreateSchema — name required; blocks / include_bundles optional initial content.
+	bundleCreateSchema = json.RawMessage(`{
+		"type":"object",
+		"properties":{
+			"name":{"type":"string","description":"The bundle's name."},
+			"blocks":{"type":"array","items":{"type":"string"},
+				"description":"Optional initial block ids."},
+			"include_bundles":{"type":"array","items":{"type":"string"},
+				"description":"Optional initial included bundle ids."}
+		},
+		"required":["name"]
+	}`)
+
+	// bundleWriteBlocksSchema — name is the bundle id (set) or the bundle name (add). blocks
+	// present → replace the whole list; block_id present → add one.
+	bundleWriteBlocksSchema = json.RawMessage(`{
+		"type":"object",
+		"properties":{
+			"name":{"type":"string","description":"Bundle id (set) or name (add)."},
+			"block_id":{"type":"string","description":"Block id to add."},
+			"blocks":{"type":"array","items":{"type":"string"},
+				"description":"The whole block list to set."}
+		},
+		"required":["name"]
+	}`)
+
+	bundleIncludesSchema = json.RawMessage(`{
+		"type":"object",
+		"properties":{
+			"name":{"type":"string","description":"The bundle's id."},
+			"include_bundles":{"type":"array","items":{"type":"string"},
+				"description":"The bundle ids this bundle includes."}
+		},
+		"required":["name"]
+	}`)
+
+	bundleIDSchema = json.RawMessage(`{
+		"type":"object",
+		"properties":{"name":{"type":"string","description":"The bundle's id."}},
+		"required":["name"]
 	}`)
 )
 

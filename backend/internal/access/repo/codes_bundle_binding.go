@@ -66,6 +66,40 @@ func (r *CodeRepo) SetBundle(
 	return bound, nil
 }
 
+// setCodeBundleByIDSQL — bind by bundle id (the additive surface addresses bundles by id,
+// not name). The subquery is owner-scoped, so a bundle id from another owner resolves to
+// NULL and the code stays unbound — reported as "no such bundle" the same as SetBundle.
+const setCodeBundleByIDSQL = `
+	UPDATE access_codes SET bundle_id = (
+		SELECT id FROM bundles WHERE id = $3 AND owner_id = $2
+	)
+	WHERE id = $1 AND owner_id = $2
+	RETURNING bundle_id IS NOT NULL`
+
+// SetBundleByID — bind this code to a bundle by id. A bundle that is not this owner's (or
+// does not exist) is ErrCodeInvalid: the code was issued but carries no bundle, the same
+// shape as SetBundle naming an unknown bundle.
+func (r *CodeRepo) SetBundleByID(ctx context.Context, ownerID, codeID, bundleID string) error {
+	ids, perr := parseCodeAndOwner(ownerID, codeID)
+	if perr != nil {
+		return perr
+	}
+	bundleUUID, berr := pgstore.ParseUUID(bundleID)
+	if berr != nil {
+		return entity.ErrCodeInvalid
+	}
+	var bound bool
+	if err := r.pool.QueryRow(
+		ctx, setCodeBundleByIDSQL, ids.code, ids.owner, bundleUUID,
+	).Scan(&bound); err != nil {
+		return bindErr(err)
+	}
+	if !bound {
+		return entity.ErrCodeInvalid
+	}
+	return nil
+}
+
 // bindErr — no row means the code is not this owner's (or does not exist); anything else is
 // the database failing, and the two must not read alike.
 func bindErr(err error) error {

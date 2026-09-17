@@ -50,9 +50,12 @@ func createCode(deps usecase.CodesDeps, extras CodeExtras) fp.Invoke {
 	}
 }
 
-// bundleArgs — the one field this file reads out of the create body on its own.
+// bundleArgs — the bundle-binding fields this file reads out of the create body on its own:
+// by name (bundle) or by id (bundle_id, the additive surface's addressing). At most one is
+// set; id wins if both are given.
 type bundleArgs struct {
-	Bundle string `json:"bundle"`
+	Bundle   string `json:"bundle"`
+	BundleID string `json:"bundle_id"`
 }
 
 // bindBundle — bind the freshly issued code to the bundle the owner picked.
@@ -70,31 +73,38 @@ func bindBundle(
 	ctx context.Context, deps usecase.CodesDeps, ownerID string,
 	code *entity.Code, raw json.RawMessage,
 ) error {
-	want := bundleNameIn(raw)
-	if want == "" {
+	sel := bundleSelIn(raw)
+	if sel.BundleID != "" {
+		if berr := deps.Codes.SetBundleByID(ctx, ownerID, code.ID, sel.BundleID); berr != nil {
+			return fp.BadInput("no bundle with that id" +
+				" — the code was issued but carries no bundle")
+		}
 		return nil
 	}
-	name, berr := deps.Codes.SetBundle(ctx, ownerID, code.ID, want)
+	if sel.Bundle == "" {
+		return nil
+	}
+	name, berr := deps.Codes.SetBundle(ctx, ownerID, code.ID, sel.Bundle)
 	if berr != nil {
-		return fp.BadInput("no bundle called " + want +
+		return fp.BadInput("no bundle called " + sel.Bundle +
 			" — the code was issued but carries no bundle")
 	}
 	code.Bundle = name
 	return nil
 }
 
-// bundleNameIn — the bundle the caller named, or "" for "named none".
+// bundleSelIn — the bundle the caller picked (by id or name), or the zero value for "none".
 //
 // A decode failure is the same fact as naming none: these are the same bytes the caller
 // already decoded into the create args, so the only way this fails is a shape that carried no
-// `bundle` field at all. Saying that here, once, keeps the caller free of an
+// bundle field at all. Saying that here, once, keeps the caller free of an
 // `err != nil || …` that reads as if a real error were being dropped.
-func bundleNameIn(raw json.RawMessage) string {
+func bundleSelIn(raw json.RawMessage) bundleArgs {
 	var in bundleArgs
 	if err := json.Unmarshal(raw, &in); err != nil {
-		return ""
+		return bundleArgs{}
 	}
-	return in.Bundle
+	return in
 }
 
 // decodeCodeCreate — decode args. Leaving code empty or assumed_role_id empty are both valid:

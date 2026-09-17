@@ -78,21 +78,170 @@ type bundleMemberArgs struct {
 	BlockID string `json:"block_id"`
 }
 
+// bundleCreateArgs — name, plus optional initial content the additive surface sends in one
+// call. A nil Blocks means "not given" (the GUI's name-only create); a present-but-empty
+// list means "an empty bundle", and both are legal.
+type bundleCreateArgs struct {
+	Name           string   `json:"name"`
+	Blocks         []string `json:"blocks"`
+	IncludeBundles []string `json:"include_bundles"`
+}
+
+// bundleCreatedOut — the receipt carries the id, because the additive surface addresses the
+// bundle by id from here on (set its blocks, include it, bind a code to it).
+type bundleCreatedOut struct {
+	ID string `json:"id"`
+	OK bool   `json:"ok"`
+}
+
 func createBundle(d *deps.Runtime) fp.Invoke {
 	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
-		in, err := decodeBundleName(raw)
-		if err != nil {
-			return nil, err
+		var in bundleCreateArgs
+		if uerr := json.Unmarshal(raw, &in); uerr != nil {
+			return nil, fp.BadInput("invalid arguments: " + uerr.Error())
 		}
-		if _, cerr := d.Assembly.CreateBundle(ctx, ownerID, in.Name); cerr != nil {
-			// A name they already used is something the owner can fix; anything else is ours.
-			if errors.Is(cerr, assembly.ErrNameTaken) {
-				return nil, fp.BadInput("a bundle called " + in.Name + " already exists")
-			}
-			return nil, fp.OpErr("create bundle", cerr)
+		if rerr := fp.RequireArgs([2]string{"name", in.Name}); rerr != nil {
+			return nil, rerr
+		}
+		id, cerr := newBundle(ctx, d, ownerID, &in)
+		if cerr != nil {
+			return nil, cerr
+		}
+		return json.Marshal(bundleCreatedOut{ID: id, OK: true})
+	}
+}
+
+// newBundle — create the row, then apply any initial content, mapping the failures.
+func newBundle(
+	ctx context.Context, d *deps.Runtime, ownerID string, in *bundleCreateArgs,
+) (string, error) {
+	id, cerr := d.Assembly.CreateBundle(ctx, ownerID, in.Name)
+	if cerr != nil {
+		// A name they already used is something the owner can fix; anything else is ours.
+		if errors.Is(cerr, assembly.ErrNameTaken) {
+			return "", fp.BadInput("a bundle called " + in.Name + " already exists")
+		}
+		return "", fp.OpErr("create bundle", cerr)
+	}
+	if aerr := applyInitialContent(ctx, d, ownerID, id, in); aerr != nil {
+		return "", aerr
+	}
+	return id, nil
+}
+
+// applyInitialContent — set the initial block list and included bundles a create call
+// carried, if any. Blocks non-nil (even empty) means the caller stated the list.
+func applyInitialContent(
+	ctx context.Context, d *deps.Runtime, ownerID, id string, in *bundleCreateArgs,
+) error {
+	if in.Blocks != nil {
+		if err := d.Assembly.ReplaceBlocks(ctx, ownerID, id, in.Blocks); err != nil {
+			return fp.OpErr("set bundle blocks", err)
+		}
+	}
+	if len(in.IncludeBundles) > 0 {
+		if err := d.Assembly.SetIncludes(ctx, ownerID, id, in.IncludeBundles); err != nil {
+			return bundleIncludeErr(err)
+		}
+	}
+	return nil
+}
+
+// bundleWriteBlocksArgs — name is the bundle id (set) or name (add). Blocks is a pointer so
+// "the caller sent a list" (set the whole thing, even to empty) is distinguishable from "the
+// caller sent block_id" (add one).
+type bundleWriteBlocksArgs struct {
+	Blocks  *[]string `json:"blocks"`
+	Name    string    `json:"name"`
+	BlockID string    `json:"block_id"`
+}
+
+// writeBundleBlocks — the one route POST /bundles/{name}/blocks serves both the additive
+// surface (blocks[] → replace the whole list, name is the bundle id) and the GUI (block_id →
+// add one, name is the bundle name), told apart by which field the body carried.
+func writeBundleBlocks(d *deps.Runtime) fp.Invoke {
+	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
+		var in bundleWriteBlocksArgs
+		if uerr := json.Unmarshal(raw, &in); uerr != nil {
+			return nil, fp.BadInput("invalid arguments: " + uerr.Error())
+		}
+		if in.Blocks != nil {
+			return setBundleBlockList(ctx, d, ownerID, in.Name, *in.Blocks)
+		}
+		return addOneBundleBlock(ctx, d, ownerID, &in)
+	}
+}
+
+// setBundleBlockList — the additive path: replace the whole membership by id.
+func setBundleBlockList(
+	ctx context.Context, d *deps.Runtime, ownerID, id string, blocks []string,
+) (json.RawMessage, error) {
+	if err := d.Assembly.ReplaceBlocks(ctx, ownerID, id, blocks); err != nil {
+		return nil, bundleWriteErr("set bundle blocks", err)
+	}
+	return json.Marshal(okOut{OK: true})
+}
+
+// addOneBundleBlock — the GUI path: add one block by bundle name + block id.
+func addOneBundleBlock(
+	ctx context.Context, d *deps.Runtime, ownerID string, in *bundleWriteBlocksArgs,
+) (json.RawMessage, error) {
+	if rerr := fp.RequireArgs(
+		[2]string{"name", in.Name}, [2]string{"block_id", in.BlockID},
+	); rerr != nil {
+		return nil, rerr
+	}
+	if aerr := d.Assembly.AddBlock(ctx, ownerID, in.Name, in.BlockID); aerr != nil {
+		return nil, bundleWriteErr("add block to bundle", aerr)
+	}
+	return json.Marshal(okOut{OK: true})
+}
+
+// bundleIncludesArgs — name is the bundle id (from the path). IncludeBundles is the whole set.
+type bundleIncludesArgs struct {
+	Name           string   `json:"name"`
+	IncludeBundles []string `json:"include_bundles"`
+}
+
+func setBundleIncludes(d *deps.Runtime) fp.Invoke {
+	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
+		var in bundleIncludesArgs
+		if uerr := json.Unmarshal(raw, &in); uerr != nil {
+			return nil, fp.BadInput("invalid arguments: " + uerr.Error())
+		}
+		if rerr := fp.RequireArgs([2]string{"name", in.Name}); rerr != nil {
+			return nil, rerr
+		}
+		if err := d.Assembly.SetIncludes(ctx, ownerID, in.Name, in.IncludeBundles); err != nil {
+			return nil, bundleIncludeErr(err)
 		}
 		return json.Marshal(okOut{OK: true})
 	}
+}
+
+func deleteBundleByID(d *deps.Runtime) fp.Invoke {
+	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
+		in, err := decodeBundleName(raw) // "name" here carries the bundle id (from the path)
+		if err != nil {
+			return nil, err
+		}
+		if derr := d.Assembly.DeleteBundleByID(ctx, ownerID, in.Name); derr != nil {
+			return nil, bundleWriteErr("delete bundle", derr)
+		}
+		return json.Marshal(okOut{OK: true})
+	}
+}
+
+// bundleIncludeErr — a cycle or an unknown bundle is the owner's wrong address (4xx), not a
+// broken instance.
+func bundleIncludeErr(err error) error {
+	if errors.Is(err, assembly.ErrCycle) {
+		return fp.BadInput("that would make a bundle include itself")
+	}
+	if errors.Is(err, assembly.ErrNotFound) {
+		return fp.BadInput("no such bundle")
+	}
+	return fp.OpErr("set bundle includes", err)
 }
 
 func deleteBundle(d *deps.Runtime) fp.Invoke {
@@ -103,19 +252,6 @@ func deleteBundle(d *deps.Runtime) fp.Invoke {
 		}
 		if derr := d.Assembly.DeleteBundle(ctx, ownerID, in.Name); derr != nil {
 			return nil, fp.OpErr("delete bundle", derr)
-		}
-		return json.Marshal(okOut{OK: true})
-	}
-}
-
-func addBundleBlock(d *deps.Runtime) fp.Invoke {
-	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
-		in, err := decodeBundleMember(raw)
-		if err != nil {
-			return nil, err
-		}
-		if aerr := d.Assembly.AddBlock(ctx, ownerID, in.Name, in.BlockID); aerr != nil {
-			return nil, bundleWriteErr("add block to bundle", aerr)
 		}
 		return json.Marshal(okOut{OK: true})
 	}
