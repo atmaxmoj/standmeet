@@ -1,0 +1,28 @@
+seam: calendar
+kind: openapi
+operations:
+  list_busy:
+    op: freebusy.query
+    request: '{ "timeMin": timeMin, "timeMax": timeMax, "items": [{"id": "primary"}] }'
+    response: '{ "busy": calendars.primary.busy }'
+  create_event:
+    op: events.insert
+    request: >-
+      {
+        "id": idempotencyKey,
+        "summary": summary,
+        "description": description,
+        "start": { "dateTime": start, "timeZone": timeZone },
+        "end": { "dateTime": end, "timeZone": timeZone },
+        "attendees": [visitorEmail ? { "email": visitorEmail }]
+      }
+    # Adding a guest to the attendee list does NOT notify them — Google only sends the
+    # invite email when sendUpdates=all is set; by default it sends nothing. No email
+    # means no one to notify, so this is conditional (F-B-7).
+    query: '{ "sendUpdates": visitorEmail ? "all" }'
+    response: '{ "id": id, "htmlLink": htmlLink }'
+  cancel_event:
+    op: events.delete
+    # eventId is a path substitution (/events/{eventId}); DELETE has no body.
+    # If people are on the meeting, they must be told it's gone; omit this param when there are no attendees.
+    query: '{ "sendUpdates": attendeeEmail ? "all" }'

@@ -1,0 +1,17 @@
+# google-calendar block — its mountable declaration for a dsh bundle. A JS stdio-MCP block bridged
+# onto dsh through @deepseek-ai/dsh-mcp-client: the patch inserts one mcp-client row that runs the
+# openapi wrapper with node; the shared engine reads this dir's spec.yaml + binding.yaml and
+# registers the calendar seam's verbs as `mcp__google-calendar__free_busy` / `insert_event` /
+# `delete_event` / `verify`. Cross-platform (JS). It reaches Google over HTTPS with the OAuth bearer
+# the host merges into each call — it stores no token and does no OAuth dance.
+- insert:
+    - id: google-calendar
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        transport: stdio
+        serverName: google-calendar
+        command: node
+        args:
+          - openapi-mcp.js
+        cwd: !!js dshHomePath('profiles/dsh-testkit/node_modules/standmeet-google-calendar-mcp')
+        failOnStartupError: true

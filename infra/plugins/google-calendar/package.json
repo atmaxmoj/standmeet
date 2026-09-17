@@ -1,0 +1,10 @@
+{
+  "name": "standmeet-google-calendar-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Google Calendar as a BLOCK: data (spec.yaml + binding.yaml) + a two-line wrapper over the shared generic openapi-runtime engine (standmeet-openapi-mcp). No provider-specific code, no Go. The host merges the owner's OAuth access token into each call; this block does the HTTP. Replaces the in-host calendarAdapter (docs/design/plugin/openapi-runtime-block.md).",
+  "main": "openapi-mcp.js",
+  "dependencies": {
+    "standmeet-openapi-mcp": "file:../openapi"
+  }
+}

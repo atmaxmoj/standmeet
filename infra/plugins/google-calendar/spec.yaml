@@ -1,0 +1,58 @@
+openapi: 3.0.3
+info:
+  title: Google Calendar
+  version: v3
+servers:
+  - url: "${GOOGLE_CALENDAR_BASE:-https://www.googleapis.com/calendar/v3}"
+# Each operation declares **which scope it needs** (`security`) itself.
+#
+# Why these lines are required (F-B-8 star star): the two scopes under
+# `securitySchemes` below say "what this supplier **might** need" — **not**
+# "what this specific action needs". Without this layer, the host only has
+# "what the owner granted" (the scopes on the connection row), with no
+# "what this step needs" to check it against — **the other half of the
+# comparison doesn't exist in the data**, so an instance granted only
+# readonly still offers "book a meeting" to visitors, every insert returns
+# 403, and the visitor is told "try again later" — a promise that never
+# comes true.
+#
+# This is declared here instead of in Go: which action needs which scope is
+# a fact Google owns, so it follows the spec. Copying it into code would
+# create a second source of truth, and it would eventually drift from the
+# spec ([[vocabulary-must-not-diverge]]).
+paths:
+  /freeBusy:
+    post:
+      operationId: freebusy.query
+      summary: Query free/busy windows for the owner's primary calendar
+      security:
+        - oauth2:
+            - https://www.googleapis.com/auth/calendar.readonly
+  /calendars/primary/events:
+    post:
+      operationId: events.insert
+      summary: Create an event on the owner's primary calendar
+      security:
+        - oauth2:
+            - https://www.googleapis.com/auth/calendar.events
+  /calendars/primary/events/{eventId}:
+    delete:
+      operationId: events.delete
+      summary: Cancel an event on the owner's primary calendar
+      security:
+        - oauth2:
+            - https://www.googleapis.com/auth/calendar.events
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: "${GOOGLE_AUTH_URL:-https://accounts.google.com/o/oauth2/v2/auth}"
+          tokenUrl: "${GOOGLE_TOKEN_URL:-https://oauth2.googleapis.com/token}"
+          scopes:
+            # Google requires the FULL scope URL in the authorize request; bare
+            # names (calendar.readonly) → "invalid_scope" at accounts.google.com
+            # (F-B-3, only visible against real Google — the mock accepts anything).
+            https://www.googleapis.com/auth/calendar.readonly: Read the owner's calendar (free/busy)
+            https://www.googleapis.com/auth/calendar.events: Create and manage events on the owner's calendar
