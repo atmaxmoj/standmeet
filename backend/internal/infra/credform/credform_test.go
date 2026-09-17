@@ -1,10 +1,10 @@
-// credform_test.go — guard for DeriveCredentialForm against protocol suppliers (F-C-2).
+// credform_test.go — guard for DeriveCredentialForm against spec-less suppliers (F-C-2).
 //
 // Real-environment verification found GET /suppliers/smtp/credential-form → 400
 // "invalid_manifest: unsupported openapi version \"\"": DeriveCredentialForm unconditionally ran
-// openapi.ParseSpec, but protocol suppliers (smtp/caldav) have no spec at all. The result: the
-// built-in "mail" supplier's config form couldn't render at all. e2e was all green before this —
-// because no spec covered credential-form for a built-in protocol supplier (they all targeted
+// openapi.ParseSpec, but spec-less suppliers (the smtp/caldav blocks) have no spec at all. The
+// result: the built-in "mail" supplier's config form couldn't render at all. e2e was all green
+// before this — because no spec covered credential-form for a spec-less supplier (they all targeted
 // openapi suppliers).
 
 package credform_test
@@ -16,26 +16,29 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// F-C-2 — a protocol(smtp) supplier must be able to derive a credential form (no openapi
-// assembly, no error). Field keys must line up with the save path (smtpCredJSON), otherwise
-// filling in the form still can't get the values into the supplier.
-func TestDeriveCredentialForm_SMTPProtocol(t *testing.T) {
+// F-C-2 — the smtp supplier (now a `block`, like caldav) must derive a credential form with no
+// openapi assembly and no error. Its fields are the block's declared config keys (Source.Fields),
+// which must line up with what the block's tools read, otherwise filling in the form still can't
+// get the values into the supplier.
+func TestDeriveCredentialForm_SMTPBlock(t *testing.T) {
 	t.Parallel()
 	form, err := credform.DeriveCredentialForm(&credform.Source{
-		ID: "smtp", Kind: "protocol", Protocol: "smtp",
+		ID: "smtp", Kind: "block",
+		Fields: []string{
+			"host", "port", "username", "password", "from_address", "from_name", "tls",
+		},
 	})
-	require.NoError(t, err, "protocol supplier must derive a form, not 400 on openapi parse")
-	require.Equal(t, "smtp", form.AuthType)
-	// keys mirror smtpCredJSON (host/port/username/password/from_address/from_name/tls).
+	require.NoError(t, err, "a block supplier must derive a form, not 400 on openapi parse")
+	require.Equal(t, "block", form.AuthType)
 	require.Subset(t, form.Fields,
 		[]string{"host", "port", "username", "password", "from_address", "from_name"},
-		"smtp form must expose the fields the supplier reads on save")
+		"smtp form must expose the fields the block's tools read on send")
 }
 
-// caldav is no longer a protocol — it is a `block` (a Koishi plugin composing the http hand). Its
-// form is derived from the block's declared config field keys (Source.Fields), not from a
-// host-side protocol case, so the host names no caldav-specific form. AuthType "block" renders the
-// generic-field branch, same as smtp/credential.
+// caldav is a `block` (a Koishi plugin composing the http hand). Its form is derived from the
+// block's declared config field keys (Source.Fields), not from a host-side protocol case, so the
+// host names no caldav-specific form. AuthType "block" renders the generic-field branch, same as
+// smtp/credential.
 func TestDeriveCredentialForm_Block(t *testing.T) {
 	t.Parallel()
 	form, err := credform.DeriveCredentialForm(&credform.Source{

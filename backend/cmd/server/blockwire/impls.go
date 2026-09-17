@@ -23,6 +23,7 @@ import (
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
 
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
+	"github.com/atmaxmoj/standmeet/internal/infra/hostop"
 	"github.com/atmaxmoj/standmeet/internal/plugin/adapters"
 )
 
@@ -158,13 +159,24 @@ func mailFailureReason(err error) string {
 	switch {
 	case errors.Is(err, adapters.ErrMailNotConfigured):
 		return "no mail supplier is set up yet — connect one first"
-	case errors.Is(err, adapters.ErrMailRejected):
+	case isMailRejected(err):
 		return "the mail provider rejected this message — check the recipient address"
 	default:
 		// covers ErrMailUnavailable, and anything not yet classified: both are
 		// the same thing to the owner — nothing he can fix, try again later.
 		return "couldn't reach the mail provider — please try again later"
 	}
+}
+
+// isMailRejected — a permanent, non-retryable mail failure ("change the recipient", not "wait"). A
+// block-backed supplier carries it as the FaultRejected code (the SMTP block marks a 5xx reply); an
+// in-host supplier returns the ErrMailRejected sentinel.
+func isMailRejected(err error) bool {
+	if errors.Is(err, adapters.ErrMailRejected) {
+		return true
+	}
+	var fe *hostop.FaultError
+	return errors.As(err, &fe) && fe.Code == hostop.FaultRejected
 }
 
 type mailTestSendArgs struct {

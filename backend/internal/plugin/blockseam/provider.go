@@ -11,8 +11,10 @@ package blockseam
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
+	"strings"
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/hostop"
@@ -83,16 +85,48 @@ func (p *Provider) dialAndCall(
 	defer sess.Close()
 	out, terr := sess.CallToolChecked(ctx, verb, args, nil, 0)
 	if terr != nil {
-		return nil, unavailable(fmt.Errorf("block %q %s: %w", p.manifest.ID, verb, terr))
+		return nil, unavailable(fmt.Errorf("dial block %q %s: %w", p.manifest.ID, verb, terr))
 	}
 	if out.IsError {
-		return nil, unavailable(fmt.Errorf("block %q %s: %s", p.manifest.ID, verb, out.Text))
+		// A tool-level IsError is the block's DELIBERATE, user-facing message: a block owns its own
+		// error classification (e.g. the SMTP block's friendly auth/tls/connect sentence). Keep it
+		// verbatim, with no "block X verb:" prefix, so the admin/card surfaces the block's own
+		// sentence (verifyReason reads a fault's message). Transport failures above keep the
+		// diagnostic prefix — they are infra, not a block's chosen words.
+		//
+		// A block may lead its error with a "[fault:<code>]" token to name its fault CLASS (a mail
+		// block marks a 5xx rejection "rejected", so the host says "change the recipient" not "try
+		// again"). The token is stripped from the sentence; no token ⇒ the retryable class.
+		return nil, toolFault(out.Text)
 	}
 	return json.RawMessage(out.Text), nil
 }
 
 func unavailable(err error) error {
 	return &hostop.FaultError{Code: hostop.FaultUnavailable, Err: err}
+}
+
+// toolFault — turn a block's tool-error text into a classified fault. An optional leading
+// "[fault:<code>]" token names the class (only "rejected" is honored as a distinct, non-retryable
+// class today; anything else, or no token, is the retryable "unavailable" class). The token is
+// stripped so the surfaced sentence is the block's own words.
+func toolFault(text string) error {
+	// mcpclient frames an error tool result as "[error] <message>" (client.go). Strip that first so
+	// the fault token — and the surfaced sentence — are the block's own words.
+	text = strings.TrimPrefix(text, "[error] ")
+	after, ok := strings.CutPrefix(text, "[fault:")
+	if !ok {
+		return unavailable(errors.New(text))
+	}
+	tok, rest, found := strings.Cut(after, "] ")
+	if !found {
+		return unavailable(errors.New(text))
+	}
+	code := hostop.FaultUnavailable
+	if tok == hostop.FaultRejected {
+		code = hostop.FaultRejected
+	}
+	return &hostop.FaultError{Code: code, Err: errors.New(rest)}
 }
 
 // mergeJSONObjects — the owner's opaque creds as the base, the verb's args merged on top. Both are

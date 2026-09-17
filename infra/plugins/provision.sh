@@ -133,6 +133,9 @@ install_project_into summarize
 install_project_into booker
 install_project_into retrieval
 install_project_into mail-sender
+# smtp —— the mail supplier as a stdio-MCP block wrapping nodemailer (smtp-mcp.js). Replaces the
+# old in-host protocol(smtp) supplier: SMTP is an app on a protocol, so it is a block like caldav.
+install_project_into smtp
 # caldav —— CalDAV as a Koishi plugin (caldav-plugin.js) wrapped as a stdio-MCP block: injects
 # Koishi's http hand for the WebDAV requests, parses iCalendar with ical.js. CalDAV is an app on
 # HTTP → a block (pluggable into Koishi), not a base protocol, and carries no Go. Deps in

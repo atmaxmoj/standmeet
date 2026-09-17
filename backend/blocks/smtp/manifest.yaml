@@ -1,15 +1,61 @@
 id: smtp
 title: SMTP
+# provides the mail seam, beside any openapi mail supplier (Mailgun/SendGrid). A consumer says
+# requires:[mail] and never names smtp; the owner chooses which mail supplier is live.
 provides: mail
 
+# SMTP is an app on a protocol, not something the host special-cases — so it is a BLOCK: a small
+# stdio-MCP server (infra/plugins/smtp) wrapping nodemailer, carrying no Go. The substrate dials it
+# and routes the mail seam's ops (send / verify) to its tools (blockMailProxy); allow_net because it
+# reaches the owner's own SMTP server. The block OWNS its error classification — the friendly
+# auth/tls/connect sentence rides in the tool error, and the host surfaces it verbatim.
 transport:
-  kind: protocol
-  protocol: smtp
+  kind: sandbox_stdio
+  command: node
+  # plugin_dir (/srv/plugins/smtp) is bound read-only at /plugin inside the sandbox, so the
+  # wrapper is /plugin/smtp-mcp.js.
+  args: ["/plugin/smtp-mcp.js"]
+  sandbox:
+    plugin_dir: /srv/plugins/smtp
+    allow_net: true
 
-# owner_ops —— the owner-side operations this supplier exposes itself. Sending a
-# test email is the **mail supplier's** business, so it's declared here rather
-# than living in the generic supplier registry (that layer shouldn't know about mail).
-# op refers to the operation on the seam contract; the host wires the implementation to it.
+# config — the credential fields the owner fills in to connect. The generic settings form renders BY
+# these declarations (credform reads them), so the host names no smtp-specific form. Keys match what
+# the block's tools consume (and what smtpCredJSON stored before the block took over).
+config:
+  - key: host
+    label: SMTP host
+    type: string
+    description: The SMTP server hostname (e.g. smtp.example.com).
+  - key: port
+    label: Port
+    type: string
+    description: The SMTP port (e.g. 587 for STARTTLS, 465 for implicit TLS, 25 for plaintext).
+  - key: username
+    label: Username
+    type: string
+    description: SMTP account username (leave blank for an unauthenticated relay).
+  - key: password
+    label: Password
+    type: string
+    description: SMTP account password.
+  - key: from_address
+    label: From address
+    type: string
+    description: The address messages are sent from.
+  - key: from_name
+    label: From name
+    type: string
+    description: The display name shown on sent messages.
+  - key: tls
+    label: TLS
+    type: string
+    description: 'TLS mode: "tls" (implicit), "starttls", or "none" (plaintext).'
+
+# owner_ops —— the owner-side operations this supplier exposes itself. Sending a test email is the
+# mail supplier's business, so it's declared here rather than living in the generic supplier registry
+# (that layer shouldn't know about mail). op refers to the operation on the seam contract; the host
+# wires the implementation to it.
 owner_tools:
   - name: suppliers.mail_test_send
     tool: mail.test_send

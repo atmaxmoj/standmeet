@@ -2,11 +2,12 @@
 //
 // Real-env verification found GET /api/admin/suppliers/smtp/credential-form
 // → 400 "invalid_manifest: unsupported openapi version \"\"": the builtin SMTP
-// supplier is kind=protocol (no OpenAPI spec), but DeriveCredentialForm ran
-// openapi.ParseSpec unconditionally → the whole mail supplier setup form
-// couldn't render. Every existing supplier-cred-form spec uploads an OpenAPI
-// 3.0 spec; none loads the BUILTIN protocol supplier's form — so it 400'd
-// unnoticed while e2e stayed green. This drives the real endpoint.
+// supplier has no OpenAPI spec, but DeriveCredentialForm ran openapi.ParseSpec
+// unconditionally → the whole mail supplier setup form couldn't render. Every
+// existing supplier-cred-form spec uploads an OpenAPI 3.0 spec; none loads the
+// BUILTIN spec-less supplier's form — so it 400'd unnoticed while e2e stayed green.
+// This drives the real endpoint. SMTP is now a block (like caldav), so its form is
+// derived from the block's declared config fields, auth_type "block".
 
 import { test, expect } from '@/fixtures/test';
 
@@ -21,7 +22,7 @@ const OWNER = {
   fullName: 'Alice Anderson',
 };
 
-test.describe('supplier · builtin protocol supplier credential-form (F-C-2)', () => {
+test.describe('supplier · builtin block supplier credential-form (F-C-2)', () => {
   test('GET /suppliers/smtp/credential-form returns the smtp field form, not a 400',
     async ({ playwright }) => {
       resetInstance();
@@ -30,9 +31,9 @@ test.describe('supplier · builtin protocol supplier credential-form (F-C-2)', (
       await login(request, OWNER.email, OWNER.password);
 
       const res = await request.get(`${BACKEND}/api/admin/suppliers/smtp/credential-form`);
-      expect(res.status(), 'protocol supplier form must 200, not 400 invalid_manifest').toBe(200);
+      expect(res.status(), 'spec-less supplier form must 200, not 400 invalid_manifest').toBe(200);
       const form = await res.json() as { auth_type: string; fields: { key: string }[] };
-      expect(form.auth_type).toBe('smtp');
+      expect(form.auth_type).toBe('block');
       const keys = form.fields.map((f) => f.key);
       // keys must mirror what the save path (smtpCredJSON) reads.
       expect(keys).toContain('host');

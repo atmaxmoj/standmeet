@@ -106,9 +106,9 @@ test.describe('supplier · provider-agnostic consumer loop (area F)', () => {
       expect(events[0]!.attendees ?? [], 'attendee comes from the session profile').toContain('rachel@example.com');
     });
 
-  // SMTP (kind=protocol) -> mailer sends via MailContract.Send, kind-agnostic. Sent via
-  // "mail as a visitor block" (mail.send, sandboxed plugin), implemented, green.
-  test('SMTP supplier (kind=protocol) → mailer sends via MailContract.Send (kind-agnostic)',
+  // SMTP (a block) -> mailer sends via MailContract.Send, kind-agnostic. Sent via the mail seam,
+  // whose active supplier is now the sandboxed SMTP block. Implemented, green.
+  test('SMTP supplier (a block) → mailer sends via MailContract.Send (kind-agnostic)',
     async () => {
       const { csrf } = await login(request, OWNER.email, OWNER.password);
       await connectSMTPMail(request, csrf);
@@ -116,12 +116,13 @@ test.describe('supplier · provider-agnostic consumer loop (area F)', () => {
       const cap = await findBlock(request, csrf, 'mail.send');
       expect(cap?.dependency?.connected, 'SMTP connected → mail seam slot connected').toBe(true);
 
-      // mailer sends one via the seam contract (here through the supplier's self-test send endpoint; assert sent + provider=protocol).
+      // mailer sends one via the seam contract (here through the supplier's self-test send endpoint;
+      // assert sent + the mailer is agnostic to what kind serves the seam underneath).
       const sent = await sendViaMailContract(request, csrf, {
         to: 'recruiter@corp.test', subject: 'PA mail', text: 'hello from SMTP',
       });
-      expect(sent.ok, 'MailContract.Send succeeds via SMTP').toBe(true);
-      expect(sent.via_kind, 'mailer neither knows nor cares it is protocol underneath').toMatch(/protocol|smtp/i);
+      expect(sent.ok, 'MailContract.Send succeeds via the SMTP block').toBe(true);
+      expect(sent.via_kind, 'mailer neither knows nor cares a block serves the seam').toMatch(/block|smtp/i);
     });
 
   // err: supplier connected but runtime API 5xx -> friendly degrade, no crash, no leaked stack, no event created.
@@ -211,41 +212,22 @@ async function connectCalDAVCalendar(
   return { ...conn, id }; // the mock collection is keyed by this id — pin it, don't trust status echo
 }
 
-// connectSMTPMail -- installs SMTP (protocol) into the mail seam slot and connects it.
+// connectSMTPMail -- connects the built-in **SMTP block** into the mail seam slot. SMTP is no longer
+// a `protocol` KIND the owner creates; it is a shipped block (id "smtp", like caldav and
+// google-calendar are shipped blocks), connected by saving its host/port/creds and running its
+// Verify tool (no OAuth dance). Idempotent: the built-in id is fixed, so re-connecting re-saves.
 async function connectSMTPMail(request: APIRequestContext, csrf: string): Promise<ConnRef> {
-  const id = await ensureSupplier(request, csrf, {
-    kind: 'protocol', protocol: 'smtp', seam: 'mail',
-  });
+  const id = 'smtp'; // the shipped SMTP block's manifest id
   const host = process.env['MAILPIT_SMTP_HOST'] ?? 'mail-mock';
   // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: connector connect flow (save smtp credentials) this spec exercises
   await request.post(`${BACKEND}/api/admin/suppliers/${id}/credentials`, {
     headers: { 'X-Csrftoken': csrf },
     data: {
-      host, port: '1025', username: '', password: '',
+      host, port: '1025', username: '', password: '', tls: 'none',
       from_address: 'noreply@standmeet.test', from_name: 'StandMeet',
     },
   });
   return connectAndRead(request, csrf, id);
-}
-
-interface CreateSupplierBody { kind: string; protocol: string; seam: string }
-
-// ensureSupplier -- creates a supplier, reusing one for the same seam if it already exists (idempotent across tests).
-async function ensureSupplier(
-  request: APIRequestContext, csrf: string, body: CreateSupplierBody,
-): Promise<string> {
-  const existing = await request.get(`${BACKEND}/api/admin/suppliers`);
-  if (existing.status() === 200) {
-    const rows = (await existing.json() as { suppliers?: ConnRef[] }).suppliers ?? [];
-    const hit = rows.find((c) => c.seam === body.seam);
-    if (hit) return hit.id;
-  }
-  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: bespoke protocol connector build this spec exercises
-  const res = await request.post(`${BACKEND}/api/admin/suppliers`, {
-    headers: { 'X-Csrftoken': csrf }, data: body,
-  });
-  if (res.status() !== 201) throw new Error(`create supplier ${body.seam}: ${res.status()}`);
-  return (await res.json() as { id: string }).id;
 }
 
 async function connectAndRead(

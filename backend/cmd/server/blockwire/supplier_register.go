@@ -1,7 +1,7 @@
 // supplier_register.go —— #155 composition root: wires supplier machinery into the running
 // system. Boot assembles built-in manifests into the supplier table and declares the seams
-// they supply; the credentials repo satisfies ConnectionStore / SMTPVault / the opaque block
-// cred vault / SeamStore through the adapters in supplier_vaults.go (decryption inside the repo).
+// they supply; the credentials repo satisfies ConnectionStore / the opaque block cred vault /
+// SeamStore through the adapters in supplier_vaults.go (decryption inside the repo).
 
 package blockwire
 
@@ -102,12 +102,15 @@ func assembleBuiltinSupplier(m *plugin.Manifest, adeps *assembleDeps) (adapters.
 }
 
 // blockSeamSupplier — build the MCP-block-backed supplier for the seam a sandbox_stdio block
-// provides. Only calendar today (the CalDAV block); a new seam adds a case with its own contract
-// proxy over the block's tools. Names the SEAM (a swappable capability), never a block id.
+// provides. calendar (the CalDAV block) and mail (the SMTP block) today; a new seam adds a case
+// with its own contract proxy over the block's tools. Names the SEAM (a swappable capability),
+// never a block id.
 func blockSeamSupplier(m *plugin.Manifest, adeps *assembleDeps) (adapters.Supplier, error) {
 	switch m.Provides {
 	case "calendar":
 		return newBlockCalendarProxy(m, adeps.credVault), nil
+	case "mail":
+		return newBlockMailProxy(m, adeps.credVault), nil
 	default:
 		return nil, fmt.Errorf("sandbox_stdio supplier %q provides seam %q, "+
 			"which has no block-backed proxy", m.ID, m.Provides)
@@ -207,12 +210,11 @@ func (i uploadedInstaller) Install(m *adapters.Manifest) (string, error) {
 	return seam, nil
 }
 
-// manifestSeam —— openapi's seam comes from the Binding; protocol/credential/block use the
-// declared Seam.
+// manifestSeam —— openapi's seam comes from the Binding; credential/block use the declared Seam.
 func manifestSeam(m *adapters.Manifest) (string, error) {
-	// protocol (smtp), credential (a token holder, e.g. telegram's `im`), and block (a seam served
-	// by an MCP block, e.g. the CalDAV block's `calendar`) declare their seam directly — no binding
-	// to parse. Only openapi derives its seam from the binding.
+	// credential (a token holder, e.g. telegram's `im`) and block (a seam served by an MCP block,
+	// e.g. the CalDAV block's `calendar` or the SMTP block's `mail`) declare their seam directly —
+	// no binding to parse. Only openapi derives its seam from the binding.
 	if directSeamKind(m.Kind) {
 		return m.Seam, nil
 	}
@@ -228,17 +230,16 @@ func manifestSeam(m *adapters.Manifest) (string, error) {
 }
 
 // directSeamKind —— kinds that declare their seam directly (no openapi binding to parse): a
-// protocol supplier (smtp), a credential-only one (telegram's im), and a block one (the CalDAV
-// block's calendar).
+// credential-only one (telegram's im) and a block one (the CalDAV block's calendar, the SMTP
+// block's mail).
 func directSeamKind(kind string) bool {
-	return kind == "protocol" || kind == "credential" || kind == "block"
+	return kind == "credential" || kind == "block"
 }
 
 // assembleDeps —— dependencies to assemble one supplier (openapi and protocol share the set).
 type assembleDeps struct {
 	doer          *http.Client
 	store         connectionStoreAdapter
-	smtpVault     smtpVaultAdapter
 	credVault     credVaultAdapter
 	telegramVault telegramVaultAdapter
 	allow         egress.Allow
@@ -249,7 +250,6 @@ func newAssembleDeps(repo *credentials.Repo) *assembleDeps {
 	return &assembleDeps{
 		doer:          allow.GuardedHTTPClient(),
 		store:         connectionStoreAdapter{repo: repo},
-		smtpVault:     smtpVaultAdapter{repo: repo},
 		credVault:     credVaultAdapter{repo: repo},
 		telegramVault: telegramVaultAdapter{repo: repo},
 		allow:         allow,
@@ -270,8 +270,6 @@ func assembleSupplier(m *adapters.Manifest, d *assembleDeps) (adapters.Supplier,
 	switch m.Kind {
 	case "openapi":
 		return assembleOpenAPISupplier(m, d)
-	case "protocol":
-		return assembleProtocolSupplier(m, d)
 	case "credential":
 		// A credential-only supplier: the owner stores a credential and something else consumes it
 		// out of band (the `im` seam's token, read by im-bridge). No host client, no protocol name;
@@ -279,6 +277,8 @@ func assembleSupplier(m *adapters.Manifest, d *assembleDeps) (adapters.Supplier,
 		// to which block this is. telegram lives here now (it was a `case "telegram"`).
 		return adapters.NewCredentialOnlySupplier(m.ID, d.telegramVault), nil
 	default:
+		// No `case "protocol"` any more: SMTP was the sole protocol supplier and is now a block
+		// (assembled by blockSeamSupplier, like CalDAV). A sandbox_stdio block never reaches here.
 		return nil, fmt.Errorf("unknown supplier kind %q for %q", m.Kind, m.ID)
 	}
 }
@@ -291,17 +291,4 @@ func assembleOpenAPISupplier(m *adapters.Manifest, d *assembleDeps) (adapters.Su
 		return nil, fmt.Errorf("assemble openapi supplier: %w", err)
 	}
 	return c, nil
-}
-
-// assembleProtocolSupplier —— for protocol kind, picks the built-in impl by Protocol. Only smtp
-// now: CalDAV left "protocol" and became a `block` (assembled by blockSeamSupplier, not here).
-func assembleProtocolSupplier(
-	m *adapters.Manifest, d *assembleDeps,
-) (adapters.Supplier, error) {
-	switch m.Protocol {
-	case "smtp":
-		return adapters.NewSMTPSupplier(m.ID, d.smtpVault), nil
-	default:
-		return nil, fmt.Errorf("unknown protocol %q for supplier %q", m.Protocol, m.ID)
-	}
 }

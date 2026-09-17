@@ -95,10 +95,10 @@ test.describe.serial('suppliers · a declared owner op has a face on the card (F
     await op.getByTestId('supplier-op-run').click();
 
     // the success sentence must state **which kind** of mail supplier delivered it (item check 6: "The success path says
-    // which kind delivered it") —— smtp is a protocol kind.
+    // which kind delivered it") —— smtp is a block now (an app on a protocol, sandboxed).
     const result = op.getByTestId('supplier-op-result');
     await expect(result, 'a success must name the supplier kind that served it')
-      .toContainText('protocol');
+      .toContainText('block');
 
     // the wording must not overreach what an SMTP submission can guarantee: 250 means "accepted", not "delivered". A real relay
     // (Gmail) will accept a non-existent domain and then bounce it asynchronously, so saying delivered here guarantees something it

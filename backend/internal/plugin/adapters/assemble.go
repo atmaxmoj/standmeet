@@ -30,9 +30,9 @@ type Manifest struct {
 	// named by it, so two suppliers of one seam (a Google calendar and a CalDAV one) are
 	// distinguishable rather than both reading "calendar".
 	Title string
-	// Protocol — the built-in wire protocol a `protocol` supplier speaks. Only "smtp" now:
-	// CalDAV moved off "protocol" and became a `block` (a Koishi plugin composing the http hand),
-	// so the host no longer speaks CalDAV as a wire protocol.
+	// Protocol — legacy field for the owner-create-protocol path. No built-in protocol supplier
+	// remains: SMTP and CalDAV are both blocks now (apps on a protocol, sandboxed), assembled by
+	// blockSeamSupplier, so nothing in-host speaks a wire protocol any more.
 	Protocol string
 	// AuthScheme — openapi: the securityScheme key the owner picked (empty = the
 	// sole one in the spec).

@@ -15,6 +15,7 @@ import (
 	"io"
 	"net"
 
+	"github.com/atmaxmoj/standmeet/internal/infra/hostop"
 	"github.com/atmaxmoj/standmeet/internal/infra/retry"
 )
 
@@ -60,10 +61,26 @@ func (p *RetryingMailProxy) Send(
 
 // mailTransient — retries only transient transport errors (connection
 // dropped/refused/timeout/EOF); permanent errors like ErrMailNotConfigured are not retried.
+//
+// A block-backed mail supplier reports every send failure as an "unavailable" fault
+// (hostop.FaultUnavailable — configured, but couldn't send right now: unreachable / rejected /
+// timed out). The block boundary flattens the underlying net.Error to one sentence, so the
+// net.Error branch (transientTransport) can't see it — the fault code is how transient-ness crosses
+// the socket, and owner-notify must retry it (R6: a transient owner-notify send recovers in time).
 func mailTransient(err error) bool {
 	if err == nil || errors.Is(err, ErrMailNotConfigured) {
 		return false
 	}
+	var fe *hostop.FaultError
+	if errors.As(err, &fe) {
+		return fe.Code == hostop.FaultUnavailable
+	}
+	return transientTransport(err)
+}
+
+// transientTransport — the non-fault transient signal: a net.Error (dropped/refused/timeout) or an
+// EOF. Used by mailTransient for the in-host (non-block) mail paths.
+func transientTransport(err error) bool {
 	var ne net.Error
 	if errors.As(err, &ne) {
 		return true

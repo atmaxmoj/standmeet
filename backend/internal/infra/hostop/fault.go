@@ -23,10 +23,15 @@ const (
 	// FaultNotConfigured — the owner hasn't configured this (no active supplier).
 	// The sandbox can use it to say "this path isn't set up yet".
 	FaultNotConfigured = "not_configured"
-	// FaultUnavailable — it's configured, but can't be done right now (unreachable, rejected,
+	// FaultUnavailable — it's configured, but can't be done right now (unreachable, dropped,
 	// timed out). The sandbox should say "can't do this right now, try again later" —
-	// **must not** say it was never configured.
+	// **must not** say it was never configured. This is the RETRYABLE class.
 	FaultUnavailable = "unavailable"
+	// FaultRejected — it's configured and reachable, but the request itself was permanently
+	// refused (a 5xx mail relay reply, an invalid recipient). Retrying can only fail again, so the
+	// sandbox/owner must change the input — "change the recipient", not "try again later". A
+	// distinct class because the two demand opposite actions.
+	FaultRejected = "rejected"
 )
 
 // FaultError — a host op error carrying a category.

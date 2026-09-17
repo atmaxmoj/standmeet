@@ -1,0 +1,12 @@
+{
+  "name": "standmeet-smtp-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "The SMTP mail supplier as a standalone stdio-MCP block: it delivers mail over SMTP with nodemailer (a real library, unmodified) using credentials the substrate merges in per call, so it holds none and boots on a bare host. Mail is an app on a protocol, so it is a block — pluggable behind the mail seam's CallVerb — not an in-host protocol special-case; it carries no Go, and it OWNS its own error classification (auth/tls/connect/rejected), which the host surfaces verbatim. Wrapped the same way infra/plugins/caldav wraps its calendar tool.",
+  "main": "smtp-mcp.js",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "nodemailer": "^6.9.16",
+    "zod": "^3.25.76"
+  }
+}

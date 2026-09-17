@@ -228,23 +228,6 @@ async function pickSchemeIfOffered(page: Page, scheme?: string): Promise<void> {
   if (await select.count() > 0) await select.selectOption(scheme);
 }
 
-// assembleProtocol — picks the built-in protocol card (fixed form, no spec) → fills in the
-// fixed fields → connects.
-async function assembleProtocol(
-  page: Page, request: APIRequestContext, opts: {
-    seam: string; fields: Record<string, string>;
-  },
-): Promise<ConnRef> {
-  const before = await supplierIdSet(request);
-  await openAddCard(page, opts.seam);
-  for (const [k, v] of Object.entries(opts.fields)) {
-    await page.getByTestId(`supplier-field-${k}`).fill(v);
-  }
-  await page.getByTestId('supplier-connect-button').click();
-  await expect(page.getByTestId('supplier-status')).toHaveText(/connected|已连接/i);
-  return newSupplier(request, before, opts.seam);
-}
-
 // supplierIdSet — takes a snapshot of "existing supplier ids" before assembly, so the
 // newly created one can be diffed out afterward.
 async function supplierIdSet(request: APIRequestContext): Promise<Set<string>> {
@@ -549,18 +532,33 @@ test.describe('supplier · happy combination matrix (kind × seam × auth full l
       await expectMailSent(request, csrf, 'recruiter@corp.test', 'Matrix bearer mail');
     });
 
-  // combo 5 —— protocol · mail · SMTP: built-in card → fixed form → connect → mail.send
-  // really sends.
-  test('protocol mail (SMTP): pick built-in card → fixed form → MailContract.Send delivers',
-    async ({ adminPage: page }) => {
+  // combo 5 —— block · mail · SMTP: connect the shipped SMTP block (an app on a protocol,
+  // sandboxed, like CalDAV) → activate → mail.send really sends. An earlier combo (openapi mail)
+  // may hold the mail slot, so activate explicitly, mirroring the CalDAV block combo.
+  test('SMTP block: connect shipped block → activate → MailContract.Send delivers',
+    async () => {
       const { csrf } = await login(request, OWNER.email, OWNER.password);
-      await assembleProtocol(page, request, {
-        seam: 'mail',
-        fields: {
-          host: SMTP_HOST, port: '1025', username: '', password: '',
-          from: 'noreply@standmeet.test', tls: 'none',
-        },
-      });
+      const conn = await connectSMTPBlock(request, csrf);
+      await activateSupplier(request, csrf, conn.id);
       await expectMailSent(request, csrf, 'recruiter@corp.test', 'Matrix SMTP mail');
     });
 });
+
+// connectSMTPBlock — connect the shipped SMTP block (built-in id "smtp"): save its connection
+// fields and run its Verify tool (no OAuth dance), the same way the CalDAV block connects.
+async function connectSMTPBlock(request: APIRequestContext, csrf: string): Promise<ConnRef> {
+  const id = 'smtp';
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: connect flow (save smtp block credentials) this matrix cell exercises
+  await request.post(`${BACKEND}/api/admin/suppliers/${id}/credentials`, {
+    headers: { 'X-Csrftoken': csrf },
+    data: {
+      host: SMTP_HOST, port: '1025', username: '', password: '', tls: 'none',
+      from_address: 'noreply@standmeet.test', from_name: 'StandMeet',
+    },
+  });
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: connect flow (SMTP block connection test) this matrix cell exercises
+  await request.post(`${BACKEND}/api/admin/suppliers/${id}/connect`, {
+    headers: { 'X-Csrftoken': csrf }, data: {},
+  });
+  return { id, seam: 'mail', kind: 'block', connected: true };
+}

@@ -25,6 +25,7 @@ import (
 const (
 	owner    = "o"  // the owner id the failure-path tests call under (value irrelevant to them)
 	emptyObj = "{}" // an empty JSON object, as args or a tool result
+	verb     = "v"  // the verb name the tests call (value irrelevant to them)
 )
 
 // ── fakes ───────────────────────────────────────────────────────────────────
@@ -154,7 +155,7 @@ func TestCallVerb_VaultError_UnavailableNoDial(t *testing.T) {
 	var dialed bool
 	p := blockseam.New(manifest(), vault, dialTo(&fakeSession{}, &dialed))
 
-	_, err := p.CallVerb(context.Background(), owner, "v", json.RawMessage(emptyObj))
+	_, err := p.CallVerb(context.Background(), owner, verb, json.RawMessage(emptyObj))
 	requireUnavailable(t, err)
 	require.False(t, dialed, "a vault failure short-circuits before the dial")
 }
@@ -166,7 +167,7 @@ func TestCallVerb_DialError_Unavailable(t *testing.T) {
 		func(context.Context, *plugin.Manifest) (blockseam.Session, error) {
 			return nil, errors.New("sandbox won't start")
 		})
-	_, err := p.CallVerb(context.Background(), owner, "v", json.RawMessage(emptyObj))
+	_, err := p.CallVerb(context.Background(), owner, verb, json.RawMessage(emptyObj))
 	requireUnavailable(t, err)
 }
 
@@ -176,7 +177,7 @@ func TestCallVerb_CallError_UnavailableAndClosed(t *testing.T) {
 	sess := &fakeSession{callErr: errors.New("broken pipe")}
 	p := blockseam.New(manifest(), &fakeVault{creds: json.RawMessage(emptyObj)}, dialTo(sess, nil))
 
-	_, err := p.CallVerb(context.Background(), owner, "v", json.RawMessage(emptyObj))
+	_, err := p.CallVerb(context.Background(), owner, verb, json.RawMessage(emptyObj))
 	requireUnavailable(t, err)
 	require.True(t, sess.closed, "the session is closed even on a call error")
 }
@@ -188,7 +189,38 @@ func TestCallVerb_ToolIsError_Unavailable(t *testing.T) {
 	sess := &fakeSession{out: mcpclient.ToolOutcome{Text: "rate limited", IsError: true}}
 	p := blockseam.New(manifest(), &fakeVault{creds: json.RawMessage(emptyObj)}, dialTo(sess, nil))
 
-	got, err := p.CallVerb(context.Background(), owner, "v", json.RawMessage(emptyObj))
+	got, err := p.CallVerb(context.Background(), owner, verb, json.RawMessage(emptyObj))
 	requireUnavailable(t, err)
 	require.Nil(t, got, "a tool error returns no result value")
+}
+
+// A block can lead its tool error with a "[fault:rejected]" token to name a PERMANENT failure — the
+// mail block does this for a 5xx relay reply so the host says "change the recipient", not "try
+// again". The token sets the fault code and is stripped from the surfaced sentence.
+func TestCallVerb_ToolIsError_RejectedToken(t *testing.T) {
+	t.Parallel()
+	// mcpclient frames an error result as "[error] <message>"; the block's token rides after it.
+	sess := &fakeSession{out: mcpclient.ToolOutcome{
+		Text: "[error] [fault:rejected] the mail server refused this message", IsError: true,
+	}}
+	p := blockseam.New(manifest(), &fakeVault{creds: json.RawMessage(emptyObj)}, dialTo(sess, nil))
+
+	_, err := p.CallVerb(context.Background(), owner, verb, json.RawMessage(emptyObj))
+	require.Error(t, err)
+	var fe *hostop.FaultError
+	require.ErrorAs(t, err, &fe)
+	require.Equal(t, hostop.FaultRejected, fe.Code, "[fault:rejected] names a permanent class")
+	require.Equal(t, "the mail server refused this message", fe.Err.Error(),
+		"the [error] frame and token are stripped; the block's sentence is surfaced")
+}
+
+// An unknown or malformed fault token is NOT a distinct class — it falls back to the retryable
+// `unavailable` class (a block can't invent a code the host doesn't act on).
+func TestCallVerb_ToolIsError_UnknownTokenIsUnavailable(t *testing.T) {
+	t.Parallel()
+	sess := &fakeSession{out: mcpclient.ToolOutcome{Text: "[fault:bogus] whatever", IsError: true}}
+	p := blockseam.New(manifest(), &fakeVault{creds: json.RawMessage(emptyObj)}, dialTo(sess, nil))
+
+	_, err := p.CallVerb(context.Background(), owner, verb, json.RawMessage(emptyObj))
+	requireUnavailable(t, err)
 }

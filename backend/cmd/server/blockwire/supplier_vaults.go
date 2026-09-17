@@ -2,13 +2,14 @@
 //
 // Split out of supplier_register.go, which had grown past the max-lines ceiling, and along a
 // real seam rather than wherever the lines ran out: everything here is **one adapter per
-// narrow port** (connection state, SMTP config, CalDAV config, which supplier is active for a
+// narrow port** (connection state, the opaque block cred blob, which supplier is active for a
 // seam), while the file it came from answers a different question — how a manifest becomes a
 // live supplier and which seams get declared.
 //
-// Every adapter here does the same two things and nothing else: swap the argument order, and
-// decode one JSON credential blob into the typed struct that port asks for. Decryption already
-// happened inside the repo; nothing on this side ever sees ciphertext or holds a key.
+// Every adapter here swaps the argument order and hands back what its port asks for. Decryption
+// already happened inside the repo; nothing on this side ever sees ciphertext or holds a key. A
+// block supplier's credentials stay an OPAQUE blob here — the block declares and consumes the
+// fields, so the host names none (no SMTP/CalDAV config struct on this side).
 
 package blockwire
 
@@ -16,7 +17,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
 
 	"github.com/atmaxmoj/standmeet/internal/plugin/adapters"
 	"github.com/atmaxmoj/standmeet/internal/plugin/credentials"
@@ -57,53 +57,6 @@ func (a connectionStoreAdapter) MarkDisconnected(
 		return fmt.Errorf("connection store mark disconnected: %w", err)
 	}
 	return nil
-}
-
-// smtpCredJSON —— the JSON shape inside the smtp supplier's credentials_enc.
-type smtpCredJSON struct {
-	Host        string `json:"host"`
-	Port        string `json:"port"`
-	Username    string `json:"username"`
-	Password    string `json:"password"`
-	FromAddress string `json:"from_address"`
-	FromName    string `json:"from_name"`
-	TLS         string `json:"tls"`
-}
-
-// smtpVaultAdapter —— credentials.Repo → adapters.SMTPVault (decodes the smtp config JSON).
-type smtpVaultAdapter struct{ repo *credentials.Repo }
-
-func (a smtpVaultAdapter) Connected(
-	ctx context.Context, blockID, ownerID string,
-) (bool, error) {
-	conn, err := a.repo.Get(ctx, ownerID, blockID)
-	if err != nil {
-		return false, fmt.Errorf("smtp vault connected: %w", err)
-	}
-	return conn.Connected, nil
-}
-
-func (a smtpVaultAdapter) SMTPConfig(
-	ctx context.Context, blockID, ownerID string,
-) (adapters.SMTPConfig, error) {
-	conn, err := a.repo.Get(ctx, ownerID, blockID)
-	if err != nil {
-		return adapters.SMTPConfig{}, fmt.Errorf("smtp vault config: %w", err)
-	}
-	var c smtpCredJSON
-	if len(conn.Credentials) > 0 {
-		if uerr := json.Unmarshal(conn.Credentials, &c); uerr != nil {
-			return adapters.SMTPConfig{}, fmt.Errorf("decode smtp credentials: %w", uerr)
-		}
-	}
-	port, perr := strconv.Atoi(c.Port)
-	if perr != nil {
-		port = 0 // parse failed → 0, fails at connect time (graceful degradation)
-	}
-	return adapters.SMTPConfig{
-		Host: c.Host, Port: port, Username: c.Username, Password: c.Password,
-		FromAddress: c.FromAddress, FromName: c.FromName, TLS: c.TLS,
-	}, nil
 }
 
 // credVaultAdapter —— credentials.Repo → the opaque-credential port a block-backed supplier reads

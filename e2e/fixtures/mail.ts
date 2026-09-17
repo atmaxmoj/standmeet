@@ -67,7 +67,8 @@ export interface MailEnvelope {
 // booking-confirmation sender (#122) import it.
 export const MAIL_FROM = 'noreply@standmeet.test';
 
-// SMTP_ID —— the id of the built-in SMTP protocol supplier (category=mail, kind=protocol).
+// SMTP_ID —— the id of the built-in SMTP supplier block (seam=mail, kind=block; an app on a
+// protocol, sandboxed like caldav). Connected by saving creds to this fixed id, no create.
 const SMTP_ID = 'smtp';
 
 // SMTP_FROM_NAME —— the sender display name (part of the credentials).
