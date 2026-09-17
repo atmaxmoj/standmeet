@@ -1,0 +1,17 @@
+schemaVersion: 1
+name: standmeet-smtp-mcp-quick
+subject:
+  source: ../plugins/smtp
+dsh:
+  version: 0.1.1-rc.2
+expect:
+  boot: success
+  rows:
+    - smtp
+  services: []
+  tools:
+    - mcp__smtp__verify
+    - mcp__smtp__send
+# No exercise: verify/send do live SMTP against a real server (creds merged in by the host).
+# Registering the tools on real dsh is what this gate proves; exercising the calls needs a live SMTP
+# endpoint (a separate integration), so we do NOT fake one here — the same posture as caldav.

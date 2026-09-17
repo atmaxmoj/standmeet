@@ -1,0 +1,29 @@
+schemaVersion: 1
+name: standmeet-real-blocks-group
+# Can the REAL eiab blocks compose into a dsh group (not just the synthetic group-compose demo)?
+# This composes two shipped capability blocks — caldav (calendar) + smtp (mail) — into one
+# `cordis:group` and asserts BOTH register within it. It proves the shipped blocks coexist and load
+# together under dsh's composition mechanism, the same loader koishi/cordis uses.
+#
+# RED until a group entry (a cordis:group that includes both blocks by reference, e.g.
+# infra/dsh-acceptance/real-blocks-group/) exists — see group-compose.dsh-testkit.yaml for the
+# synthetic-block precedent; this is the real-block version.
+subject:
+  source: ./real-blocks-group
+dsh:
+  version: 0.1.1-rc.2
+expect:
+  boot: success
+  # both real capability blocks mount inside the one group.
+  rows:
+    - real-blocks-group
+    - caldav
+    - smtp
+  # caldav provides its cordis service; smtp's mail tools register — both live in the group at once.
+  services:
+    - caldav
+  tools:
+    - mcp__smtp__verify
+    - mcp__smtp__send
+# No exercise: caldav/smtp calls need live external servers (creds merged by the host). Proving the
+# two shipped blocks compose + register together in a group is what this gate proves.

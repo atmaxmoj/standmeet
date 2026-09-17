@@ -1,0 +1,24 @@
+schemaVersion: 1
+name: standmeet-google-calendar-mcp-quick
+# google-calendar is now a BLOCK (not in-host Go): a thin plugin dir = spec.yaml + binding.yaml +
+# a wrapper over the shared generic openapi-runtime engine (infra/plugins/openapi). This is the test
+# that was missing while gcal ran in-host — "gcal is a block on dsh". RED until the openapi engine
+# block + the google-calendar plugin dir exist (docs/design/plugin/openapi-runtime-block.md).
+subject:
+  source: ../plugins/google-calendar
+dsh:
+  version: 0.1.1-rc.2
+expect:
+  boot: success
+  rows:
+    - google-calendar
+  services: []
+  # The block reads its binding (seam: calendar) and exposes the calendar seam's verbs as tools.
+  tools:
+    - mcp__google-calendar__free_busy
+    - mcp__google-calendar__insert_event
+    - mcp__google-calendar__delete_event
+    - mcp__google-calendar__verify
+# No exercise: the verbs do live HTTP against Google with an OAuth bearer the host merges in.
+# Registering the verbs on real dsh is what this gate proves; exercising needs a live account +
+# token (a separate integration), the same posture as caldav.

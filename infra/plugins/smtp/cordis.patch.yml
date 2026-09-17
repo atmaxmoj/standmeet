@@ -1,0 +1,17 @@
+# smtp block — its mountable declaration for a dsh bundle. A JS stdio-MCP server bridged onto dsh
+# through @deepseek-ai/dsh-mcp-client: the patch inserts one mcp-client row that runs the server with
+# node; its tools register on ctx.tools as `mcp__smtp__verify` / `mcp__smtp__send`. Cross-platform
+# (JS, no per-arch binary). Unlike mail-sender, smtp reaches NO host socket — it dials the owner's
+# SMTP server directly with the credentials the substrate merges into each call, so it boots and
+# lists tools on a bare DSH with nothing else present.
+- insert:
+    - id: smtp
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        transport: stdio
+        serverName: smtp
+        command: node
+        args:
+          - smtp-mcp.js
+        cwd: !!js dshHomePath('profiles/dsh-testkit/node_modules/standmeet-smtp-mcp')
+        failOnStartupError: true

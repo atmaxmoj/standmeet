@@ -82,6 +82,13 @@ absent, a granted one present); only the internal model changes — so the rewri
 asserted, only restate why. These are the "red-by-design" specs: they encode the rule being replaced,
 and are the only check on the ACL model, so a quiet weakening here is the dangerous edit.
 
+The **additive target** now has its own red-by-design spec: `acl-bundle-additive` (written from
+`access-control.md`, before the bundle implementation). Its headline assertion is the signature of
+the by-reference model — editing ONE bundle changes EVERY code bound to it at once — plus nesting
+and session-freeze. It is RED until the bundle feature lands; then `acl-block-matrix` /
+`block-enable-disable` are rewritten to match (outcomes invariant), and this spec becomes their
+successor rather than a parallel.
+
 ## D. Seam = definition/provider — swap the provider, the consumer is untouched ✅
 
 **The single most valuable guard for the whole refactor:** install a *non-Google* calendar provider
@@ -161,9 +168,9 @@ leak without the guard, then it holds).
 |---|---|
 | sandbox escape (host config, docker.sock, path traversal, spawning, reaching beyond declared host-ops) — bwrap holds | ✅ `real-third-party-mcp-escape` |
 | SSRF / egress: a block cannot reach an internal host / cloud-metadata endpoint outside the allow-list; no credential leak; per-owner isolation | ✅ `supplier-security`, `security-byoai-endpoint-ssrf`, `security-inference-models-ssrf` |
-| ⬜ **native-key theft/misuse**: a block tries to obtain another fiber's reach-back key (no get-by-id, name not computable), reuse a post-unmount key, or present another identity — all refused | **owed** |
-| ⬜ **cross-block socket**: a block tries to dial another block's reach-back socket (the path is host-derived from the trusted id; a block cannot name another's) — refused | **owed** |
-| ⬜ **db cross-schema**: a storing block actively tries another fiber's schema (`SET search_path`, `information_schema`/`pg_catalog` enumeration, `DROP` a schema it did not open, forging a name) — all refused | **owed** |
+| ✏️ **native-key theft/misuse**: a block tries to obtain another fiber's reach-back key (no get-by-id, name not computable), reuse a post-unmount key, or present another identity — all refused | spec written (red-by-design): `security-block-isolation-adversarial` — drives an adversary fixture block, RED until it + confinement land |
+| ✏️ **cross-block socket**: a block tries to dial another block's reach-back socket (the path is host-derived from the trusted id; a block cannot name another's) — refused | `security-block-isolation-adversarial` (same file, second attack) |
+| ✏️ **db cross-schema**: a storing block actively tries another fiber's schema (`SET search_path`, `information_schema`/`pg_catalog` enumeration, `DROP` a schema it did not open, forging a name) — all refused | `security-block-isolation-adversarial` (third attack) |
 
 ## K. The golden faces (regression nets for "what the agent/client sees") ✅
 
@@ -180,9 +187,10 @@ inward golden — as koishi did); editing one to pass without an intended block-
 
 | behavior | status |
 |---|---|
-| each of our blocks passes a **real DSH lifecycle** (install → boot → register → exercise → uninstall) via dsh-testkit, cross-platform, no skips | ✅ `make dsh-plugin-test` — the 7 real blocks + demos, in `infra/dsh-acceptance/*.dsh-testkit.yaml` |
-| ⬜ **reciprocity**: our substrate's loader loads a *dsh* block unchanged | owed |
-| ⬜ grab dsh's popular blocks/groups and mount them here; ride the dsh marketplace | owed |
+| each of our blocks passes a **real DSH lifecycle** (install → boot → register → exercise → uninstall) via dsh-testkit, cross-platform, no skips | ✅ `make dsh-plugin-test` — the real blocks + demos, in `infra/dsh-acceptance/*.dsh-testkit.yaml`. **+ `smtp` (mail block) and `google-calendar` (the openapi supplier AS a block — was in-host Go, now a block with its own dsh test)** |
+| the shipped blocks **compose into a dsh group** (not just the synthetic group-compose demo) | ✏️ `real-blocks-group.dsh-testkit.yaml` — caldav + smtp in one `cordis:group`, both register; RED until the group entry exists |
+| ✏️ **reciprocity**: our substrate's loader loads a *dsh* block unchanged | spec written (red-by-design): `dsh-reciprocity` (e2e) — mount a foreign dsh block, its capability is usable in a session; RED until a foreign block is vendored + the reciprocal path wired |
+| ✏️ grab dsh's popular blocks/groups and mount them here; **ride the dsh marketplace** | `dsh-marketplace-install` (e2e, red-by-design) — search the marketplace → install a block → its tool is usable in a session; RED until the marketplace-backed install path is wired |
 
 The demo third parties used as fixtures (koishi / everything / fsmcp) live in `infra/dsh-acceptance/` and
 are **never** shipped in a product image (excluded from the build context); dev mounts them for the
