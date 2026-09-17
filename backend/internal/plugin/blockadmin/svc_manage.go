@@ -117,37 +117,11 @@ func uploadedSaveInput(ownerID, id, seam string, in *UploadedSpec) *credentials.
 	}
 }
 
-// CreateProtocol — an owner self-creating a protocol supplier (caldav/smtp…, no spec): assemble
-// (NewXxxSupplier) + register into the live supplier table + persist. Credentials get filled in
-// afterward via SaveCredentials.
-func (s *Service) CreateProtocol(
-	ctx context.Context, ownerID, seam, protocol string,
-) (string, error) {
-	id, err := randomState()
-	if err != nil {
-		return "", err
-	}
-	m := &adapters.Manifest{
-		ID: "up-" + id, Kind: "protocol", Protocol: protocol, Seam: seam,
-	}
-	installed, ierr := s.d.Installer.Install(m)
-	if ierr != nil {
-		return "", fmt.Errorf(wrapSentinel, ErrInvalidManifest, ierr)
-	}
-	if serr := s.d.Repo.SaveUploaded(ctx, &credentials.SaveUploadedInput{
-		OwnerID: ownerID, BlockID: m.ID, Seam: installed, Kind: "protocol", Protocol: protocol,
-		// protocol has no spec/binding, given empty bytea (column is NOT NULL)
-		Spec: []byte{}, Binding: []byte{},
-	}); serr != nil {
-		return "", fmt.Errorf("persist protocol supplier: %w", serr)
-	}
-	return m.ID, nil
-}
-
 // CreateCredential — an owner self-creating a credential-only supplier (a token holder: no spec, no
 // protocol impl). Assemble the generic credential-only supplier + register + persist; credentials
 // is filled in afterward via SaveCredentials, and some other service consumes it (the `im` seam's
-// token, read by im-bridge). Mirrors CreateProtocol, minus the protocol name the host cannot know.
+// token, read by im-bridge). (There is no CreateProtocol sibling any more — CalDAV and SMTP became
+// blocks, connected from their own catalog cards, not created here.)
 func (s *Service) CreateCredential(ctx context.Context, ownerID, seam string) (string, error) {
 	id, err := randomState()
 	if err != nil {

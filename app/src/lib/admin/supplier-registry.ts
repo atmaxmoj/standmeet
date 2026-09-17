@@ -29,12 +29,7 @@ export interface SupplierEntry {
   fields: readonly SupplierField[];
   builtin?: boolean; // built-in, cannot be deleted
   docs_url?: string;
-  // protocol supplier (#155 kind=protocol): selecting it takes the "create
-  // protocol supplier + store fixed credentials + connection test" path,
-  // protocolSeam = the seam slot it fills (mail/calendar). openapi/catalog entries don't set these two.
-  protocol?: string;
-  protocolSeam?: string;
-  // assemble (#155): the unified assembly entry point (seam card) → AssembleView (OpenAPI upload or the built-in protocol form).
+  // assemble (#155): the unified assembly entry point (seam card) → AssembleView (OpenAPI upload).
   assemble?: boolean;
   assembleSeam?: string;
 }
@@ -60,20 +55,10 @@ export const SUPPLIER_REGISTRY: readonly SupplierEntry[] = [
       { k: 'smtp_pass', label: 'SMTP password', secret: true },
     ],
   },
-  {
-    // SMTP protocol supplier (#155 §8-E): kind=protocol, fixed credential form (NOT spec-derived).
-    id: 'smtp', name: 'SMTP', icon: '✉', category: 'comms', builtin: true,
-    protocol: 'smtp', protocolSeam: 'mail',
-    blurb: 'send mail through any SMTP server (the mail seam, protocol kind).',
-    fields: [
-      { k: 'host', label: 'Host' },
-      { k: 'port', label: 'Port', default: '587' },
-      { k: 'username', label: 'Username' },
-      { k: 'password', label: 'Password', secret: true },
-      { k: 'from', label: 'From address' },
-      { k: 'tls', label: 'TLS', options: ['none', 'starttls', 'tls'], default: 'starttls' },
-    ],
-  },
+  // SMTP is a shipped BLOCK now (an app on a protocol, sandboxed like CalDAV), connected from its
+  // own backend-derived catalog card (supplier-row-smtp), NOT created here. It used to sit in this
+  // add-modal as a kind=protocol entry; once SMTP moved off "protocol" that add-modal path POSTed a
+  // kind the host no longer builds, so it is gone — the same move CalDAV and Telegram made.
   // Telegram is a shipped block (kind=credential — it stores a BotFather token the im-bridge
   // reads). Like every built-in, it is connected from its own catalog card (supplier-row-telegram,
   // whose form the backend derives from the block's declared config), NOT created here. It used to

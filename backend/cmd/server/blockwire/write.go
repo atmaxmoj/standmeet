@@ -35,9 +35,9 @@ func supplierWriteOps(ops supplierOps) []fp.Op {
 	return []fp.Op{
 		{
 			ID: "suppliers.create",
-			Description: "Create a supplier. kind 'protocol' builds a protocol supplier " +
-				"(protocol caldav/smtp, explicit seam); otherwise uploads an openapi " +
-				"supplier from a spec + JSONata binding.",
+			Description: "Create a supplier. kind 'credential' builds a token-only supplier " +
+				"(explicit seam); otherwise uploads an openapi supplier from a spec + JSONata " +
+				"binding.",
 			InputSchema: supplierCreateSchema,
 			Kind:        fp.Action,
 			Reach:       fp.OwnerAction(),
@@ -95,9 +95,8 @@ var (
 	supplierCreateSchema = json.RawMessage(`{
 		"type":"object",
 		"properties":{
-			"kind":{"type":"string","description":"'protocol' or 'openapi' (default)."},
-			"protocol":{"type":"string","description":"Protocol supplier: caldav / smtp."},
-			"seam":{"type":"string","description":"Protocol supplier seam."},
+			"kind":{"type":"string","description":"'credential' or 'openapi' (default)."},
+			"seam":{"type":"string","description":"Seam a credential supplier fills."},
 			"auth_scheme":{"type":"string","description":"Selected OpenAPI auth scheme."},
 			"base_url":{"type":"string","description":"Base URL if the spec has none."},
 			"url":{"type":"string","description":"Fetch the spec from here if no text."},
@@ -154,12 +153,11 @@ func supplierIDAction(
 	}
 }
 
-// supplierCreateArgs —— kind ""/"openapi" → pass spec+binding; "protocol" → a
-// protocol supplier. URL: when the spec is fetched from a URL, the caller sends no
-// body and this layer fetches it instead.
+// supplierCreateArgs —— kind ""/"openapi" → pass spec+binding; "credential" → a token-only
+// supplier. URL: when the spec is fetched from a URL, the caller sends no body and this layer
+// fetches it instead.
 type supplierCreateArgs struct {
 	Kind               string `json:"kind"`
-	Protocol           string `json:"protocol"`
 	Seam               string `json:"seam"`
 	AuthScheme         string `json:"auth_scheme"`
 	BaseURL            string `json:"base_url"`
@@ -195,14 +193,12 @@ func createSupplier(ops supplierOps) fp.Invoke {
 	}
 }
 
-// createByKind —— protocol goes through the protocol supplier, everything else
-// goes through the uploaded spec.
+// createByKind —— credential goes through the credential supplier, everything else through the
+// uploaded spec. There is no "protocol" create path any more: CalDAV and SMTP are blocks, connected
+// from their own catalog cards, not created here.
 func createByKind(
 	ctx context.Context, ops supplierOps, ownerID string, in *supplierCreateArgs,
 ) (string, error) {
-	if in.Kind == "protocol" {
-		return ops.svc.CreateProtocol(ctx, ownerID, in.Seam, in.Protocol)
-	}
 	if in.Kind == "credential" {
 		return ops.svc.CreateCredential(ctx, ownerID, in.Seam)
 	}

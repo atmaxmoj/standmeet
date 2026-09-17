@@ -18,7 +18,6 @@ import {
 
 import { SupplierConfigForm } from '@/components/admin/SupplierConfigForm';
 import { SupplierSpecIngest } from '@/components/admin/SupplierSpecIngest';
-import { ProtocolSupplierForm } from '@/components/admin/ProtocolSupplierForm';
 import { AssembleView } from '@/components/admin/sections/suppliers/AssembleView';
 import type { AssembleInput, AssembleState } from '@/lib/admin/use-supplier-upload';
 
@@ -68,19 +67,16 @@ function PickedView({
   assemble: AssembleState;
 }) {
   return entry.assemble
-    ? <AssembleView
-        seam={entry.assembleSeam ?? ''}
-        onAssemble={onAssemble} assemble={assemble}
-      />
+    ? <AssembleView onAssemble={onAssemble} assemble={assemble} />
     : <NonAssembleView entry={entry} onBack={onBack} onConnect={onConnect} />;
 }
 
 function NonAssembleView({
   entry, onBack, onConnect,
 }: { entry: SupplierEntry; onBack: () => void; onConnect: (v: Record<string, string>) => void }) {
-  return (entry.protocol ?? '') === ''
-    ? <SupplierConfigForm entry={entry} onCancel={onBack} onSave={onConnect} />
-    : <ProtocolSupplierForm entry={entry} onClose={onBack} />;
+  // No protocol-create path any more: CalDAV and SMTP are both blocks, connected from their own
+  // backend-derived catalog cards (supplier-row-<id>), not created here.
+  return <SupplierConfigForm entry={entry} onCancel={onBack} onSave={onConnect} />;
 }
 
 function ModalOverlay({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {

@@ -89,15 +89,13 @@ func (h *Handlers) mountSupplierItem(r chi.Router, face *dispatcher.Face) {
 	})
 }
 
-// supplierWriteReq — Kind ""/"openapi" → uploads spec+binding; "protocol" → a protocol
-// block (Protocol picks caldav/smtp, Seam is the seam it provides, given explicitly;
-// an openapi block's seam comes from the binding).
+// supplierWriteReq — Kind ""/"openapi" → uploads spec+binding; "credential" → a token-only block
+// (Seam is the seam it provides, given explicitly; an openapi block's seam comes from the binding).
 type supplierWriteReq struct {
 	AuthScheme string `json:"auth_scheme"`
 	BaseURL    string `json:"base_url"` // hand-filled by the owner when the spec has no servers
 	SpecURL    string `json:"url"`      // spec fetched from a URL: no body from the panel
 	Kind       string `json:"kind"`
-	Protocol   string `json:"protocol"`
 	Seam       string `json:"seam"`
 	// raw text (JSON/YAML) pasted in the admin UI, takes priority over Spec
 	SpecText string `json:"spec_text"`
@@ -145,7 +143,6 @@ func decodeSupplierWrite(r *http.Request) (supplierWriteReq, error) {
 type supplierOpArgs struct {
 	ID                 string `json:"id,omitempty"`
 	Kind               string `json:"kind,omitempty"`
-	Protocol           string `json:"protocol,omitempty"`
 	Seam               string `json:"seam,omitempty"`
 	AuthScheme         string `json:"auth_scheme,omitempty"`
 	BaseURL            string `json:"base_url,omitempty"`
@@ -157,7 +154,7 @@ type supplierOpArgs struct {
 
 func (b *supplierWriteReq) opArgs(id string) (json.RawMessage, error) {
 	out, err := json.Marshal(supplierOpArgs{
-		ID: id, Kind: b.Kind, Protocol: b.Protocol, Seam: b.Seam,
+		ID: id, Kind: b.Kind, Seam: b.Seam,
 		AuthScheme:         b.AuthScheme,
 		BaseURL:            b.BaseURL,
 		URL:                b.SpecURL,
