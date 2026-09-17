@@ -2,9 +2,20 @@
   "name": "standmeet-google-calendar-mcp",
   "version": "1.0.0",
   "private": true,
-  "description": "Google Calendar as a BLOCK: data (spec.yaml + binding.yaml) + a two-line wrapper over the shared generic openapi-runtime engine (standmeet-openapi-mcp). No provider-specific code, no Go. The host merges the owner's OAuth access token into each call; this block does the HTTP. Replaces the in-host calendarAdapter (docs/design/plugin/openapi-runtime-block.md).",
+  "description": "Google Calendar as a BLOCK: data (spec.yaml + binding.yaml) + the generic openapi-runtime engine (engine.js / engine_call.js, vendored in-block the way socket blocks vendor gateway.js so the block is self-contained for the sandbox and dsh pack). No provider-specific code, no Go. The host merges the owner's OAuth access token into each call; this block does the HTTP. Replaces the in-host calendarAdapter (docs/design/plugin/openapi-runtime-block.md).",
   "main": "openapi-mcp.js",
   "dependencies": {
-    "standmeet-openapi-mcp": "file:../openapi"
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "jsonata": "^2.0.6",
+    "yaml": "^2.6.1",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "dsh-testkit": "0.4.4"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
   }
 }

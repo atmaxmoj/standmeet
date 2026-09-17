@@ -87,7 +87,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
 FROM node:22-alpine AS plugins
 WORKDIR /build
 COPY infra/plugins ./infra/plugins
-RUN for p in ask-visitor booker retrieval summarize mail-sender caldav smtp openapi google-calendar fetch; do \
+RUN for p in ask-visitor booker retrieval summarize mail-sender caldav smtp google-calendar fetch; do \
       mkdir -p /srv/plugins/"$p" && \
       cp -R /build/infra/plugins/"$p"/. /srv/plugins/"$p"/ && \
       (cd /srv/plugins/"$p" && npm install --omit=dev --no-audit --no-fund --silent) || exit 1; \
