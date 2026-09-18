@@ -148,6 +148,9 @@ services:
       # 在没网的机器上红得跟产品坏了一模一样。
       - STANDMEET_RELEASE_REGISTRY=http://external-mock:9000/registry
       - MARKETPLACE_SKILLSMP_BASE_URL=http://external-mock:9000/marketplace/skillsmp
+      # dsh block marketplace: point at the npm mock so search/install stay hermetic. Unset in
+      # prod → real registry.npmjs.org. The DSH_MARKET_LIVE test hits real npm regardless.
+      - BLOCK_MARKET_NPM_BASE_URL=http://external-mock:9000/npm
       # Gotenberg sidecar (headless Chromium) for resume PDF rendering.
       # applications.commit POSTs the admin /print/application URL here and
       # streams the rendered bytes back to Claude. Unset → NoopRenderer →

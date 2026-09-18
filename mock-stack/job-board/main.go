@@ -230,6 +230,11 @@ func (s *server) routes(mux *http.ServeMux) {
 	// #48-3 install: SKILL.md fetch endpoints (per-skill detail).
 	mux.HandleFunc("GET /marketplace/github/contents/skills/{id}/SKILL.md", s.serveMarketplaceGitHubSkillMD)
 	mux.HandleFunc("GET /marketplace/skillsmp/skills/{id}", s.serveMarketplaceSkillsMPSkillMD)
+	// dsh block marketplace (npm mock): search, package doc, generated tarball. More-specific
+	// paths first so the {id...} package catch-all doesn't shadow them.
+	mux.HandleFunc("GET /npm/-/v1/search", s.serveNpmSearch)
+	mux.HandleFunc("GET /npm/tarball/{id...}", s.serveNpmTarball)
+	mux.HandleFunc("GET /npm/{id...}", s.serveNpmPackage)
 
 	// OCI registry mock —— /admin/system 的「有没有新版」。真实对象是 ghcr.io;
 	// STANDMEET_RELEASE_REGISTRY 在 dev/e2e 指到这里。

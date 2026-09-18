@@ -157,10 +157,11 @@ const GOLDEN_TOOLSET: readonly string[] = [
   // block (blockOps.Delete branches on ownerInstalled), and the second verb reached
   // Assembly.Uninstall directly, skipping the built-in refusal.
   'blocks.install',
-  // blocks.install_fixture -- install a bundled example / foreign-ecosystem (dsh) block by
-  // name; the reciprocity + marketplace demos mount foreign blocks through the same loader.
-  'blocks.install_fixture',
-  // blocks.marketplace_search -- search the dsh block marketplace (id/tool + seam filter).
+  // blocks.marketplace_install -- install a dsh block from the npm-backed marketplace by its
+  // package id (fetch tarball, verify the dsh.bundle.patch marker, mount under OriginMarketplace).
+  'blocks.marketplace_install',
+  // blocks.marketplace_search -- search the dsh block marketplace (npm, @deepseek-ai/
+  // cordis-plugin-* / koishi-plugin-*) by query.
   'blocks.marketplace_search',
   // blocks.graph -- the dependency graph (provides/requires + what relies on each block); the
   // fiber view draws it and locks the Active toggle while something relies on a block.
