@@ -29,7 +29,7 @@ Type:
 
 There is ONE managed set of site widgets. Compose them; do not re-implement a chat, a corpus
 browser, or a nav by hand. `import { CorpusWidget, AgentWidget, GateWidget, PageNavWidget,
-AssetWidget } from '@standmeet/sdk'`:
+AssetWidget, BlockWidget } from '@standmeet/sdk'`:
 
 - `<CorpusWidget heading? limit? />` — every published corpus entry as a card; clicking one opens
   the note **inline** (no navigation), with a quiet "read in full ↗" to the reader.
@@ -42,6 +42,12 @@ AssetWidget } from '@standmeet/sdk'`:
   pool by id (an image, or a download link with `download="file.pdf"`). Pass the id exactly as
   `standmeet-asset:<id>`; that records the page as using the asset, so it can't be deleted from the
   pool while this page embeds it.
+- `<BlockWidget tool="…" args? runLabel? autoRun? />` — run ONE plugin (block) tool directly on the
+  page, outside the chat loop: a booking action (`calendar_book`), a corpus search (`corpus_search`),
+  an ask widget (`ask_visitor`). It runs the block over the visitor's own session (same grant as the
+  chat agent — a tool the visiting code didn't grant is refused) and renders the block's result.
+  `autoRun` fires it on load (a read-only card); otherwise it's a button (`runLabel`). For the
+  primitive, `import { useBlockTool } from '@standmeet/sdk'` → `{ call, result, error, state, granted }`.
 
 ## Lower-level pieces (only if a widget doesn't fit)
 

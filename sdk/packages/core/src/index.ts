@@ -6,6 +6,7 @@
 export { createClient, MicrositeStoreError } from './client.js';
 export type {
   BYOAIHeaders,
+  CallToolResult,
   ClientOptions,
   IssueSessionInput,
   MicrositeDoc,

@@ -115,6 +115,22 @@ export interface StandMeetClient {
   // insertMicrositeDoc —— append one document to this page's store. Throws MicrositeStoreError on a
   // refusal (the store is closed, full, the doc is invalid) so the page can tell the visitor.
   insertMicrositeDoc(slug: string, collection: string, doc: MicrositeDoc): Promise<string>;
+  // callTool —— invoke ONE block (plugin) tool directly over the adopted visitor session, outside
+  // the chat loop. The block runs server-side on the SAME code-gated endpoint the chat agent uses,
+  // so a tool the visitor's code did not grant comes back { ok:false, reason:'block_not_enabled' }.
+  // Lets a microsite USE a plugin (a booking card, a corpus search, an ask widget) without a model.
+  callTool(
+    conversationID: string, sessionToken: string, toolName: string, args: unknown,
+  ): Promise<CallToolResult>;
+}
+
+// CallToolResult —— the outcome of one direct block-tool call. `result` is the block's own JSON
+// output (opaque here); on a refusal `ok` is false and `reason`/`detail` say why.
+export interface CallToolResult {
+  ok: boolean;
+  result: unknown;
+  reason?: string;
+  detail?: string;
 }
 
 // MicrositeDoc —— an opaque JSON document a microsite stores (the SDK doesn't model its shape).
@@ -166,7 +182,29 @@ export function createClient(opts: ClientOptions = {}): StandMeetClient {
     composeSystem: (session) => composeSystem(f, baseURL, session),
     queryMicrositeDocs: (slug, collection) => queryMicrositeDocs(f, baseURL, slug, collection),
     insertMicrositeDoc: (slug, collection, doc) => insertMicrositeDoc(f, baseURL, slug, collection, doc),
+    callTool: (id, token, name, args) => callTool(f, baseURL, id, token, name, args),
   };
+}
+
+// callTool —— POST the per-tool dispatch endpoint over the adopted session. The endpoint assembles
+// the visitor's granted toolset (same ACL as chat), runs the one tool, and returns { ok, result,
+// block_state }. A non-2xx or { ok:false } is surfaced as a CallToolResult, never thrown, so a page
+// can render the refusal reason instead of crashing.
+async function callTool(
+  f: typeof fetch, baseURL: string, conversationID: string,
+  sessionToken: string, toolName: string, args: unknown,
+): Promise<CallToolResult> {
+  const url = `${baseURL}/api/v1/sessions/${encodeURIComponent(conversationID)}/tools/`
+    + encodeURIComponent(toolName);
+  const res = await f(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
+    body: JSON.stringify(args ?? {}),
+  });
+  const body = (await res.json().catch(() => ({}))) as {
+    ok?: boolean; result?: unknown; reason?: string; detail?: string;
+  };
+  return { ok: body.ok ?? res.ok, result: body.result, reason: body.reason, detail: body.detail };
 }
 
 const micrositeStoreBase = '/api/v1/pages';

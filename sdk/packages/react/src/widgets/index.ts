@@ -12,3 +12,5 @@ export { PageNavWidget } from './PageNavWidget.js';
 export type { PageNavWidgetProps } from './PageNavWidget.js';
 export { AssetWidget } from './AssetWidget.js';
 export type { AssetWidgetProps } from './AssetWidget.js';
+export { BlockWidget, useBlockTool } from './BlockWidget.js';
+export type { BlockWidgetProps, UseBlockTool } from './BlockWidget.js';
