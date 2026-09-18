@@ -1,5 +1,5 @@
 {
-  "fibers": {
+  "blockMap": {
     "empty": "no blocks yet",
     "error": "could not load the block graph"
   },
@@ -10,12 +10,12 @@
     "installPlaceholder": "id: acme.widget\ntitle: Acme Widget\nversion: \"1\"\nshape: visitor_only",
     "install": "install",
     "installedToast": "Block installed",
-    "bundlesKicker": "assemble",
-    "bundlesHeading": "bundles",
-    "bundlesIntro": "A bundle is a named set of blocks. Point a code at one and it can use exactly these — edited live, so taking a block out reaches sessions already open.",
-    "bundleNamePlaceholder": "recruiter",
+    "groupsKicker": "assemble",
+    "groupsHeading": "groups",
+    "groupsIntro": "A group is a named set of blocks. Point a code at a group and it can use exactly those — edited live, so taking a block out reaches sessions already open.",
+    "groupNamePlaceholder": "recruiter",
     "create": "create",
-    "bundleCreatedToast": "Bundle created",
+    "groupCreatedToast": "Group created",
     "remove": "remove",
     "removedToast": "Removed",
     "addBlock": "+ {id}",
@@ -26,10 +26,14 @@
     "save": "save",
     "savedToast": "Saved",
     "close": "close",
-    "codeBundleLabel": "bundle · what this code can use",
-    "codeBundleNone": "no bundle — use the role's grant",
-    "codeBundle": "bundle · {name}",
-    "blockOff": "· off"
+    "codeGroupLabel": "group · what this code can use",
+    "codeGroupNone": "no group — use the role's grant",
+    "codeGroup": "group · {name}",
+    "blockOff": "· off",
+    "help": {
+      "group": "A group is a named set of blocks. Assemble one here, then attach it to a code.",
+      "attach": "Point a code at a group and it can use exactly those blocks — edited live, so removing a block reaches sessions already open."
+    }
   },
   "credField": {
     "host": "host",
@@ -174,7 +178,10 @@
     "empty": "no blocks registered.",
     "loading": "loading…",
     "removeTitle": "remove block",
-    "removedToast": "Block removed"
+    "removedToast": "Block removed",
+    "help": {
+      "block": "A block is one ability your AI can use — search your corpus, book a slot, send mail. Turn it on, then put it in a group."
+    }
   },
   "supplierCard": {
     "disconnect": "Disconnect",

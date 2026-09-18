@@ -20,6 +20,7 @@ import { useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
 
 import { AdminSectionHead } from '@/components/admin/AdminSectionHead';
+import { HelpTip } from '@/components/admin/HelpTip';
 import { useBundles, type Bundle, type BundlesHook } from '@/lib/admin/use-bundles';
 import { useBlocks, type BlockRow } from '@/lib/admin/use-blocks';
 import { useAction } from '@/lib/ui/use-action';
@@ -43,8 +44,11 @@ export function BundlePanel() {
         data-testid="bundle-panel"
       >
         <span className="ch-tl" /><span className="ch-br" />
-        <AdminSectionHead aside={t('bundlesKicker')}>{t('bundlesHeading')}</AdminSectionHead>
-        <p className="mt-2 text-sm text-(--color-muted)">{t('bundlesIntro')}</p>
+        <AdminSectionHead aside={t('groupsKicker')}>
+          {t('groupsHeading')}
+          <HelpTip id="group" text={t('help.group')} label={t('help.group')} />
+        </AdminSectionHead>
+        <p className="mt-2 text-sm text-(--color-muted)">{t('groupsIntro')}</p>
         <NewBundle hook={bundles} />
         <div className="mt-4 space-y-4">
           {bundles.bundles.map((b) => (
@@ -110,14 +114,14 @@ function NewBundle({ hook }: { hook: BundlesHook }) {
         data-testid="bundle-new-name"
         value={name}
         onChange={(e) => setName(e.target.value)}
-        placeholder={t('bundleNamePlaceholder')}
+        placeholder={t('groupNamePlaceholder')}
         className="sm-field-input sm-mono flex-1"
       />
       <button
         type="button"
         data-testid="bundle-new-create"
         onClick={() => {
-          void run(() => hook.create(name), { success: t('bundleCreatedToast') })
+          void run(() => hook.create(name), { success: t('groupCreatedToast') })
             .then(() => setName(''));
         }}
         className="px-3 py-1.5 mono text-xs border border-(--color-accent)

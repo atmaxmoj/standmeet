@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 
 import { AdminSectionHead } from '@/components/admin/AdminSectionHead';
+import { HelpTip } from '@/components/admin/HelpTip';
 import { ListPane } from '@/components/admin/ListPane';
 import { BlockConfigForm } from '@/components/admin/sections/suppliers/BlockConfigForm';
 import { Toggle } from '@/components/atoms/Toggle';
@@ -52,7 +53,10 @@ function Header() {
   const t = useTranslations('adminIntegrations.blockPanel');
   return (
     <div className="mb-4">
-      <AdminSectionHead aside={t('kicker')}>{t('heading')}</AdminSectionHead>
+      <AdminSectionHead aside={t('kicker')}>
+        {t('heading')}
+        <HelpTip id="block" text={t('help.block')} label={t('help.block')} />
+      </AdminSectionHead>
       <p className="mt-2 text-sm text-(--color-muted)">
         {t('intro')}
       </p>

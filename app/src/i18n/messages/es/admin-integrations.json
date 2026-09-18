@@ -1,5 +1,5 @@
 {
-  "fibers": {
+  "blockMap": {
     "empty": "aún no hay bloques",
     "error": "no se pudo cargar el grafo de bloques"
   },
@@ -10,12 +10,12 @@
     "installPlaceholder": "id: acme.widget\ntitle: Acme Widget\nversion: \"1\"\nshape: visitor_only",
     "install": "instalar",
     "installedToast": "Bloque instalado",
-    "bundlesKicker": "ensamblar",
-    "bundlesHeading": "paquetes",
-    "bundlesIntro": "Un paquete es un conjunto de bloques con nombre. Un código apuntado a él puede usar exactamente estos — se edita en vivo, así que quitar un bloque llega a las sesiones ya abiertas.",
-    "bundleNamePlaceholder": "recruiter",
+    "groupsKicker": "ensamblar",
+    "groupsHeading": "grupos",
+    "groupsIntro": "Un grupo es un conjunto de bloques con nombre. Un código apuntado a él puede usar exactamente estos — se edita en vivo, así que quitar un bloque llega a las sesiones ya abiertas.",
+    "groupNamePlaceholder": "recruiter",
     "create": "crear",
-    "bundleCreatedToast": "Paquete creado",
+    "groupCreatedToast": "Grupo creado",
     "remove": "quitar",
     "removedToast": "Quitado",
     "addBlock": "+ {id}",
@@ -26,10 +26,14 @@
     "save": "guardar",
     "savedToast": "Guardado",
     "close": "cerrar",
-    "codeBundleLabel": "paquete · qué puede usar este código",
-    "codeBundleNone": "sin paquete — usar lo que concede el rol",
-    "codeBundle": "paquete · {name}",
-    "blockOff": "· apagado"
+    "codeGroupLabel": "grupo · qué puede usar este código",
+    "codeGroupNone": "sin grupo — usar lo que concede el rol",
+    "codeGroup": "grupo · {name}",
+    "blockOff": "· apagado",
+    "help": {
+      "group": "Un grupo es un conjunto de bloques con nombre. Arma uno aquí y adjúntalo a un código.",
+      "attach": "Apunta un código a un grupo y podrá usar exactamente esos bloques. En vivo: quitar un bloque afecta a las sesiones ya abiertas."
+    }
   },
   "credField": {
     "host": "Host",
@@ -174,7 +178,10 @@
     "empty": "no hay bloques registrados.",
     "loading": "cargando…",
     "removeTitle": "eliminar bloque",
-    "removedToast": "Bloque eliminado"
+    "removedToast": "Bloque eliminado",
+    "help": {
+      "block": "Un bloque es una capacidad que tu IA puede usar — buscar en el corpus, reservar una cita, enviar correo. Actívalo y ponlo en un grupo."
+    }
   },
   "supplierCard": {
     "disconnect": "Desconectar",

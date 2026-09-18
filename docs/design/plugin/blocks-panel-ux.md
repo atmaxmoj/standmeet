@@ -14,9 +14,12 @@ The owner-facing word for a set of blocks is **group**.
   **internally**. They are plumbing words, not owner words.
 
 So the owner sees one word — **group** — for the composable set. The words **fiber** and
-**bundle** stay internal: DB tables (`bundles`, `bundle_blocks`), op ids (`bundles.*`), the
-block graph op (`blocks.graph`), and e2e test ids keep their current names. This plan renames
-**no backend, no MCP op, no DB, no prod state** — only owner-visible text and one section label.
+**bundle** stay internal only where they are the wire/DB contract: DB tables (`bundles`,
+`bundle_blocks`), op ids (`bundles.*`), the block graph op (`blocks.graph`), and the
+control-driving e2e test ids (`bundle-panel`, `bundle-new-create`, `code-bundle-select`) keep
+their names. Everything the owner reads — i18n **message keys included** — is renamed to "group":
+the `fiber`/`bundle` message keys become `group`/`blockMap` keys (per the owner's "rename the keys
+too"). This plan renames **no backend, no MCP op, no DB, no prod state**.
 
 ## One term, one meaning (owner-facing)
 
@@ -30,17 +33,18 @@ block graph op (`blocks.graph`), and e2e test ids keep their current names. This
 
 ## Work items
 
-### A. Rename owner-facing "fiber" and "bundle" to "group"
-- i18n, all 8 locales (the recursive key-parity guard must stay green):
-  - `admin-nav.section.fibers` → the group view label ("groups"). (Chinese currently prints the raw
-    word "fiber" — fix it.)
-  - `admin-integrations.fibers.*` → group-view strings ("no groups yet" / "could not load the group graph").
-  - `admin-integrations.blockPanel.*` and `.blocks.*`: `bundlesKicker`, `bundlesHeading`,
-    `bundlesIntro`, `bundleNamePlaceholder`, `bundleCreatedToast`, `codeBundleLabel`,
-    `codeBundleNone`, `codeBundle` → "group" wording.
-- `app/src/components/admin/sections/FibersSection.tsx` → rename to the group view. It draws the
-  block dependency graph (`blocks.graph`); relabel it "how your groups connect", not "fibers".
-  The component name, the nav slug, and the section test id change with it; update the specs that
+### A. Rename owner-facing "fiber"/"bundle" → "group" — values AND keys [DONE]
+- i18n, all 8 locales (recursive key-parity guard stays green):
+  - `admin-nav.section.fibers` key → `blockMap`; value → "block map" (zh printed the raw "fiber").
+  - `admin-integrations.fibers` object → `blockMap` (empty/error).
+  - `admin-integrations.blocks.*`: keys `bundlesKicker`→`groupsKicker`, `bundlesHeading`→
+    `groupsHeading`, `bundlesIntro`→`groupsIntro`, `bundleNamePlaceholder`→`groupNamePlaceholder`,
+    `bundleCreatedToast`→`groupCreatedToast`, `codeBundleLabel`→`codeGroupLabel`,
+    `codeBundleNone`→`codeGroupNone`, `codeBundle`→`codeGroup`; values → "group" wording.
+- `FibersSection.tsx` → `BlockMapSection.tsx` (function, `slug="blockMap"`, ns
+  `adminIntegrations.blockMap`, testids `block-map-*`); route `app/admin/fibers/` →
+  `app/admin/blockMap/`; nav slug `'fibers'`→`'blockMap'`. It draws the block dependency graph
+  (`blocks.graph`) — labelled "block map", not "fibers". The component/slug/route/testid change; specs that
   name them in the same commit ([[design-column-boundary]] allows a test-id change with its spec).
 
 ### B. `?` tooltips — the explanations

@@ -1,5 +1,5 @@
 {
-  "fibers": {
+  "blockMap": {
     "empty": "अभी कोई ब्लॉक नहीं",
     "error": "ब्लॉक ग्राफ़ लोड नहीं हो सका"
   },
@@ -10,12 +10,12 @@
     "installPlaceholder": "id: acme.widget\ntitle: Acme Widget\nversion: \"1\"\nshape: visitor_only",
     "install": "इंस्टॉल",
     "installedToast": "ब्लॉक इंस्टॉल हो गया",
-    "bundlesKicker": "जोड़ें",
-    "bundlesHeading": "बंडल",
-    "bundlesIntro": "बंडल यानी ब्लॉकों का एक नामित समूह। जो कोड उस पर लगा है वह ठीक यही ब्लॉक इस्तेमाल कर सकता है — बदलाव तुरंत लागू, इसलिए ब्लॉक हटाते ही चालू सत्रों में भी वह बंद हो जाता है।",
-    "bundleNamePlaceholder": "recruiter",
+    "groupsKicker": "जोड़ें",
+    "groupsHeading": "समूह",
+    "groupsIntro": "समूह यानी ब्लॉकों का एक नामित सेट। जो कोड उस पर लगा है वह ठीक यही ब्लॉक इस्तेमाल कर सकता है — बदलाव तुरंत लागू, इसलिए ब्लॉक हटाते ही चालू सत्रों में भी वह बंद हो जाता है।",
+    "groupNamePlaceholder": "recruiter",
     "create": "बनाएँ",
-    "bundleCreatedToast": "बंडल बन गया",
+    "groupCreatedToast": "समूह बन गया",
     "remove": "हटाएँ",
     "removedToast": "हटा दिया",
     "addBlock": "+ {id}",
@@ -26,10 +26,14 @@
     "save": "सहेजें",
     "savedToast": "सहेजा गया",
     "close": "बंद करें",
-    "codeBundleLabel": "बंडल · यह कोड क्या इस्तेमाल कर सकता है",
-    "codeBundleNone": "कोई बंडल नहीं — भूमिका के अधिकार से चलेगा",
-    "codeBundle": "बंडल · {name}",
-    "blockOff": "· बंद"
+    "codeGroupLabel": "समूह · यह कोड क्या इस्तेमाल कर सकता है",
+    "codeGroupNone": "कोई समूह नहीं — भूमिका के अधिकार से चलेगा",
+    "codeGroup": "समूह · {name}",
+    "blockOff": "· बंद",
+    "help": {
+      "group": "समूह ब्लॉकों का एक नामित सेट है। यहाँ एक बनाएँ, फिर उसे किसी code से जोड़ें।",
+      "attach": "किसी code को समूह पर सेट करें — वह ठीक वही ब्लॉक इस्तेमाल कर सकेगा। लाइव: ब्लॉक हटाने का असर खुली सेशनों पर भी पड़ता है।"
+    }
   },
   "credField": {
     "host": "होस्ट",
@@ -174,7 +178,10 @@
     "empty": "कोई ब्लॉक पंजीकृत नहीं है।",
     "loading": "लोड हो रहा है…",
     "removeTitle": "ब्लॉक हटाएँ",
-    "removedToast": "ब्लॉक हटाया गया"
+    "removedToast": "ब्लॉक हटाया गया",
+    "help": {
+      "block": "ब्लॉक आपकी AI की एक क्षमता है — कॉर्पस खोजना, समय बुक करना, मेल भेजना। इसे चालू करें, फिर एक समूह में डालें।"
+    }
   },
   "supplierCard": {
     "disconnect": "Disconnect",

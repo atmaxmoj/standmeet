@@ -37,7 +37,7 @@ function Bound({ code }: { code: CodeView }) {
         onClick={() => setOpen((v) => !v)}
         className="mono text-[10px] text-(--color-muted) hover:text-(--color-accent)"
       >
-        {t('codeBundle', { name: code.bundle })}
+        {t('codeGroup', { name: code.bundle })}
       </button>
       {open && <CodeBlockList bundle={code.bundle} />}
     </div>

@@ -1,5 +1,5 @@
 {
-  "fibers": {
+  "blockMap": {
     "empty": "noch keine Blöcke",
     "error": "Blockgraph konnte nicht geladen werden"
   },
@@ -10,12 +10,12 @@
     "installPlaceholder": "id: acme.widget\ntitle: Acme Widget\nversion: \"1\"\nshape: visitor_only",
     "install": "installieren",
     "installedToast": "Block installiert",
-    "bundlesKicker": "zusammenstellen",
-    "bundlesHeading": "bündel",
-    "bundlesIntro": "Ein Bündel ist ein benannter Satz von Blöcken. Ein Code darauf darf genau diese nutzen — live bearbeitet, ein entfernter Block ist auch in offenen Sitzungen sofort weg.",
-    "bundleNamePlaceholder": "recruiter",
+    "groupsKicker": "zusammenstellen",
+    "groupsHeading": "gruppen",
+    "groupsIntro": "Eine Gruppe ist ein benannter Satz von Blöcken. Ein Code darauf darf genau diese nutzen — live bearbeitet, ein entfernter Block ist auch in offenen Sitzungen sofort weg.",
+    "groupNamePlaceholder": "recruiter",
     "create": "anlegen",
-    "bundleCreatedToast": "Bündel angelegt",
+    "groupCreatedToast": "Gruppe angelegt",
     "remove": "entfernen",
     "removedToast": "Entfernt",
     "addBlock": "+ {id}",
@@ -26,10 +26,14 @@
     "save": "speichern",
     "savedToast": "Gespeichert",
     "close": "schließen",
-    "codeBundleLabel": "bündel · was dieser Code nutzen darf",
-    "codeBundleNone": "kein Bündel — die Rolle entscheidet",
-    "codeBundle": "bündel · {name}",
-    "blockOff": "· aus"
+    "codeGroupLabel": "gruppe · was dieser Code nutzen darf",
+    "codeGroupNone": "keine Gruppe — die Rolle entscheidet",
+    "codeGroup": "gruppe · {name}",
+    "blockOff": "· aus",
+    "help": {
+      "group": "Eine Gruppe ist ein benannter Satz von Blöcken. Stelle hier eine zusammen und hänge sie an einen Code.",
+      "attach": "Richte einen Code auf eine Gruppe — er kann genau diese Blöcke nutzen. Live bearbeitet: Ein entfernter Block wirkt auch auf offene Sitzungen."
+    }
   },
   "credField": {
     "host": "Host",
@@ -174,7 +178,10 @@
     "empty": "keine blöcke registriert.",
     "loading": "wird geladen…",
     "removeTitle": "block entfernen",
-    "removedToast": "Block entfernt"
+    "removedToast": "Block entfernt",
+    "help": {
+      "block": "Ein Block ist eine Fähigkeit, die deine KI nutzen kann — Korpus durchsuchen, Termin buchen, Mail senden. Einschalten, dann in eine Gruppe legen."
+    }
   },
   "supplierCard": {
     "disconnect": "Trennen",

@@ -49,12 +49,12 @@ test.describe('fiber view draws the block dependency graph', () => {
     await request.dispose();
   });
 
-  test('the Plugins > fibers section renders the dependency graph', async ({ adminPage }) => {
-    await gotoAdminSection(adminPage, 'fibers');
-    await adminPage.waitForURL('**/admin/fibers', { timeout: 5_000 });
+  test('the Plugins > block map section renders the dependency graph', async ({ adminPage }) => {
+    await gotoAdminSection(adminPage, 'blockMap');
+    await adminPage.waitForURL('**/admin/blockMap', { timeout: 5_000 });
 
     // The graph container renders, and mermaid draws an SVG inside it.
-    const graph = adminPage.getByTestId('fibers-graph');
+    const graph = adminPage.getByTestId('block-map-graph');
     await expect(graph).toBeVisible({ timeout: 10_000 });
     await expect(graph.locator('svg')).toBeVisible({ timeout: 10_000 });
     // Both blocks appear as nodes on the graph (labels are the block ids).

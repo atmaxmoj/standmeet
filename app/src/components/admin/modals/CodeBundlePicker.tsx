@@ -11,6 +11,7 @@
 import { useTranslations } from 'next-intl';
 import { useEffect } from 'react';
 
+import { HelpTip } from '@/components/admin/HelpTip';
 import { SelectField } from '@/components/atoms/SelectField';
 import { useBundles } from '@/lib/admin/use-bundles';
 import type { CodeFormHook } from '@/lib/admin/use-code-form';
@@ -22,14 +23,15 @@ export function CodeBundlePicker({ form }: { form: CodeFormHook }) {
   return (
     <label className="block">
       <span className="mono text-[10px] tracking-[0.08em] uppercase text-(--color-muted)">
-        {t('codeBundleLabel')}
+        {t('codeGroupLabel')}
+        <HelpTip id="attach" text={t('help.attach')} label={t('help.attach')} />
       </span>
       <SelectField
         testid="code-bundle-select"
         value={form.values.bundle}
         onChange={(e) => form.setBundle(e.target.value)}
       >
-        <option value="">{t('codeBundleNone')}</option>
+        <option value="">{t('codeGroupNone')}</option>
         {bundles.map((b) => (
           <option key={b.name} value={b.name}>{b.name}</option>
         ))}

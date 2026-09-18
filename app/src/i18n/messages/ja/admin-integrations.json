@@ -1,5 +1,5 @@
 {
-  "fibers": {
+  "blockMap": {
     "empty": "まだブロックがありません",
     "error": "ブロックグラフを読み込めませんでした"
   },
@@ -10,12 +10,12 @@
     "installPlaceholder": "id: acme.widget\ntitle: Acme Widget\nversion: \"1\"\nshape: visitor_only",
     "install": "インストール",
     "installedToast": "ブロックをインストールしました",
-    "bundlesKicker": "組み立て",
-    "bundlesHeading": "バンドル",
-    "bundlesIntro": "バンドルは名前のついたブロックの集まりです。コードをそれに向けると、まさにこれらだけが使えます。編集は即時に効くので、ブロックを外せば開いている会話からもすぐ使えなくなります。",
-    "bundleNamePlaceholder": "recruiter",
+    "groupsKicker": "組み立て",
+    "groupsHeading": "グループ",
+    "groupsIntro": "グループは名前のついたブロックの集まりです。コードをグループに向けると、まさにこれらだけが使えます。編集は即時に効くので、ブロックを外せば開いている会話からもすぐ使えなくなります。",
+    "groupNamePlaceholder": "recruiter",
     "create": "作成",
-    "bundleCreatedToast": "バンドルを作成しました",
+    "groupCreatedToast": "グループを作成しました",
     "remove": "外す",
     "removedToast": "外しました",
     "addBlock": "+ {id}",
@@ -26,10 +26,14 @@
     "save": "保存",
     "savedToast": "保存しました",
     "close": "閉じる",
-    "codeBundleLabel": "バンドル · このコードで使えるもの",
-    "codeBundleNone": "バンドルなし — ロールの権限に従う",
-    "codeBundle": "バンドル · {name}",
-    "blockOff": "· オフ"
+    "codeGroupLabel": "グループ · このコードで使えるもの",
+    "codeGroupNone": "グループなし — ロールの権限に従う",
+    "codeGroup": "グループ · {name}",
+    "blockOff": "· オフ",
+    "help": {
+      "group": "グループは名前の付いたブロックの集合です。ここで組み立て、コードに紐付けます。",
+      "attach": "コードをグループに向けると、そのブロックだけを使えます。変更は即時に反映され、ブロックを外すと開いているセッションにも及びます。"
+    }
   },
   "credField": {
     "host": "ホスト",
@@ -174,7 +178,10 @@
     "empty": "登録されたブロックはありません。",
     "loading": "読み込み中…",
     "removeTitle": "ブロックを削除",
-    "removedToast": "ブロックを削除しました"
+    "removedToast": "ブロックを削除しました",
+    "help": {
+      "block": "ブロックは AI が使える一つの機能です（コーパス検索・予約・メール送信）。オンにして、グループに入れます。"
+    }
   },
   "supplierCard": {
     "disconnect": "Disconnect",

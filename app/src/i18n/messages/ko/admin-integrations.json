@@ -1,5 +1,5 @@
 {
-  "fibers": {
+  "blockMap": {
     "empty": "아직 블록이 없습니다",
     "error": "블록 그래프를 불러오지 못했습니다"
   },
@@ -10,12 +10,12 @@
     "installPlaceholder": "id: acme.widget\ntitle: Acme Widget\nversion: \"1\"\nshape: visitor_only",
     "install": "설치",
     "installedToast": "블록을 설치했습니다",
-    "bundlesKicker": "조립",
-    "bundlesHeading": "번들",
-    "bundlesIntro": "번들은 이름이 붙은 블록 묶음입니다. 코드를 번들에 연결하면 딱 이 블록들만 쓸 수 있습니다. 수정은 즉시 반영되므로, 블록을 빼면 이미 열려 있는 세션에서도 바로 쓸 수 없게 됩니다.",
-    "bundleNamePlaceholder": "recruiter",
+    "groupsKicker": "조립",
+    "groupsHeading": "그룹",
+    "groupsIntro": "그룹은 이름이 붙은 블록 묶음입니다. 코드를 그룹에 연결하면 딱 이 블록들만 쓸 수 있습니다. 수정은 즉시 반영되므로, 블록을 빼면 이미 열려 있는 세션에서도 바로 쓸 수 없게 됩니다.",
+    "groupNamePlaceholder": "recruiter",
     "create": "만들기",
-    "bundleCreatedToast": "번들을 만들었습니다",
+    "groupCreatedToast": "그룹을 만들었습니다",
     "remove": "빼기",
     "removedToast": "뺐습니다",
     "addBlock": "+ {id}",
@@ -26,10 +26,14 @@
     "save": "저장",
     "savedToast": "저장했습니다",
     "close": "닫기",
-    "codeBundleLabel": "번들 · 이 코드가 쓸 수 있는 것",
-    "codeBundleNone": "번들 없음 — 역할의 권한을 따름",
-    "codeBundle": "번들 · {name}",
-    "blockOff": "· 꺼짐"
+    "codeGroupLabel": "그룹 · 이 코드가 쓸 수 있는 것",
+    "codeGroupNone": "그룹 없음 — 역할의 권한을 따름",
+    "codeGroup": "그룹 · {name}",
+    "blockOff": "· 꺼짐",
+    "help": {
+      "group": "그룹은 이름이 있는 블록 묶음입니다. 여기서 만들어 코드에 붙이세요.",
+      "attach": "코드를 그룹에 연결하면 그 블록들만 쓸 수 있습니다. 실시간 반영되어 블록을 빼면 열린 세션에도 적용됩니다."
+    }
   },
   "credField": {
     "host": "호스트",
@@ -174,7 +178,10 @@
     "empty": "등록된 블록이 없습니다.",
     "loading": "불러오는 중…",
     "removeTitle": "블록 삭제",
-    "removedToast": "블록을 삭제했습니다"
+    "removedToast": "블록을 삭제했습니다",
+    "help": {
+      "block": "블록은 AI가 쓸 수 있는 하나의 기능입니다(코퍼스 검색·예약·메일 전송). 켠 뒤 그룹에 넣으세요."
+    }
   },
   "supplierCard": {
     "disconnect": "Disconnect",
