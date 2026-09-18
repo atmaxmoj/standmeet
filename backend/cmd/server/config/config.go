@@ -87,6 +87,11 @@ type Config struct {
 	// proxy never touches the public internet.
 	MarketplaceGitHubBaseURL   string
 	MarketplaceSkillsMPBaseURL string
+	// BlockMarketNpmBaseURL —— the dsh block marketplace upstream (npm registry).
+	// Empty = real registry.npmjs.org. dev/e2e point it at the in-cluster npm mock
+	// so search/install never touch the public internet; the DSH_MARKET_LIVE test
+	// leaves it empty to hit real npm.
+	BlockMarketNpmBaseURL string
 	// Meili* — the corpus lexical-search index (1b crawl face). Both empty =
 	// search falls back to Postgres full-text (graceful); write-path index
 	// propagation also becomes a no-op. Not required: meili is an optional
@@ -210,6 +215,7 @@ func Load() (*Config, error) {
 		PrintBaseURL:               envOr("PRINT_BASE_URL", internalURL(defaultPrintHost)),
 		MarketplaceGitHubBaseURL:   os.Getenv("MARKETPLACE_GITHUB_BASE_URL"),
 		MarketplaceSkillsMPBaseURL: os.Getenv("MARKETPLACE_SKILLSMP_BASE_URL"),
+		BlockMarketNpmBaseURL:      os.Getenv("BLOCK_MARKET_NPM_BASE_URL"),
 		UpgradeSignalPath:          os.Getenv("STANDMEET_UPGRADE_SIGNAL"),
 		ReleaseRegistry:            envOr("STANDMEET_RELEASE_REGISTRY", defaultReleaseRegistry),
 		ReleaseRepo:                envOr("STANDMEET_RELEASE_REPO", defaultReleaseRepo),

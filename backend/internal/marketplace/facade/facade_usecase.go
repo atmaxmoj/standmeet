@@ -5,6 +5,9 @@ import "github.com/atmaxmoj/standmeet/internal/marketplace/usecase"
 // Types (implemented by: usecase).
 type (
 	Client             = usecase.Client
+	BlockMarket        = usecase.BlockMarket
+	BlockHit           = usecase.BlockHit
+	FetchedBlock       = usecase.FetchedBlock
 	CreateMCPServerReq = usecase.CreateMCPServerReq
 	CreateSkillReq     = usecase.CreateSkillReq
 	InstallSkillDeps   = usecase.InstallSkillDeps
@@ -35,6 +38,7 @@ var (
 	ListMCPServers     = usecase.ListMCPServers
 	ListSkills         = usecase.ListSkills
 	NewFromEnv         = usecase.NewFromEnv
+	NewBlockMarket     = usecase.NewBlockMarket
 	SearchMarketplace  = usecase.SearchMarketplace
 	SeedBuiltinSkills  = usecase.SeedBuiltinSkills
 	SetSkillEnabled    = usecase.SetSkillEnabled

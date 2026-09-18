@@ -47,20 +47,20 @@ func BlockResource(d *deps.Runtime) dispatcher.Resource {
 			Invoke:      installBlock(d),
 		},
 		{
-			ID: "blocks.install_fixture",
-			Description: "Install a bundled example / foreign-ecosystem block by name " +
-				"(ecosystem 'dsh' marks it foreign; group mounts every member). Mounted through " +
-				"the same loader as any block, with no more trust.",
-			InputSchema: fixtureInstallSchema,
+			ID: "blocks.marketplace_install",
+			Description: "Install a block from the dsh marketplace by its npm package id " +
+				"(optionally a version). Fetches the package, verifies it is a mountable dsh " +
+				"block, and mounts it through the same loader as any block, with no more trust.",
+			InputSchema: marketInstallSchema,
 			Kind:        fp.Action,
 			Reach:       fp.OwnerAction(),
-			Invoke:      installFixture(d),
+			Invoke:      installMarketBlock(d),
 		},
 		{
 			ID: "blocks.marketplace_search",
-			Description: "Search the dsh block marketplace by query (id / tool) and optional " +
-				"seam. Each hit carries an install id + the tools it provides; install by id " +
-				"with blocks.install_fixture (ecosystem 'marketplace').",
+			Description: "Search the dsh block marketplace (npm registry, @deepseek-ai/" +
+				"cordis-plugin-* and koishi-plugin-*) by query. Each hit carries a package id " +
+				"and version; install by id with blocks.marketplace_install.",
 			InputSchema: marketBlockSearchSchema,
 			Kind:        fp.Read,
 			Reach:       fp.OwnerRead(),
@@ -162,21 +162,19 @@ var (
 		"required":["manifest"]
 	}`)
 
-	fixtureInstallSchema = json.RawMessage(`{
+	marketInstallSchema = json.RawMessage(`{
 		"type":"object",
 		"properties":{
-			"fixture":{"type":"string","description":"Bundled fixture id (e.g. dshecho)."},
-			"ecosystem":{"type":"string","description":"'dsh' foreign; 'marketplace' installed."},
-			"group":{"type":"boolean","description":"Install every member of a fixture group."}
+			"id":{"type":"string","description":"npm package id, e.g. koishi-plugin-base64."},
+			"version":{"type":"string","description":"Package version (optional; default latest)."}
 		},
-		"required":["fixture"]
+		"required":["id"]
 	}`)
 
 	marketBlockSearchSchema = json.RawMessage(`{
 		"type":"object",
 		"properties":{
-			"query":{"type":"string","description":"Match against block id / tool names."},
-			"seam":{"type":"string","description":"Filter by seam/capability (optional)."}
+			"query":{"type":"string","description":"Search text; empty lists the dsh scope."}
 		}
 	}`)
 

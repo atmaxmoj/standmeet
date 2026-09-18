@@ -22,23 +22,18 @@ const (
 	// OriginOwner — authored by the owner themselves (a skill / a registered
 	// MCP server). Can be deleted.
 	OriginOwner Origin = "owner"
-	// OriginMarketplace — installed from the marketplace (dsh ecosystem). A
-	// first-class block on the instance, sandboxed like any other, removable.
+	// OriginMarketplace — installed from the dsh block marketplace (npm-backed). A
+	// first-class block on the instance, sandboxed like any other, removable. A foreign
+	// dsh block fetched from the market carries this origin too (reciprocity): marked
+	// non-builtin so the panel does not present it as builtin, with no more trust.
 	OriginMarketplace Origin = "marketplace"
-	// OriginDsh — a foreign dsh-ecosystem block mounted through our loader
-	// (reciprocity). Marked foreign so the panel does not present it as builtin,
-	// and given no more trust than any installed block.
-	OriginDsh Origin = "dsh"
-	// OriginFixture — a test-only block mounted via the fixture install path
-	// (adversary, isolation proofs). Runtime-installed, so removable.
-	OriginFixture Origin = "fixture"
 )
 
 // Deletable — the runtime-installed origins can be removed; the ones that only
 // exist by virtue of the image (builtin) or a live connection (managed) cannot (P.6).
 func (o Origin) Deletable() bool {
 	switch o {
-	case OriginOwner, OriginMarketplace, OriginDsh, OriginFixture:
+	case OriginOwner, OriginMarketplace:
 		return true
 	case OriginBuiltin, OriginManaged:
 		// exist only via the image or a live connection — nothing to remove

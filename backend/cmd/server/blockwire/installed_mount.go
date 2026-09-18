@@ -38,8 +38,8 @@ func MountInstalledBlock(ctx context.Context, d *deps.Runtime, m *plugin.Manifes
 
 // MountInstalledBlockAs — register one runtime-installed block under a chosen origin.
 //
-// Owner installs get OriginOwner; a marketplace install gets OriginMarketplace; a foreign
-// dsh block mounted through our loader gets OriginDsh; a test fixture gets OriginFixture.
+// Owner installs get OriginOwner; a marketplace install — and a foreign dsh block fetched
+// from the market — gets OriginMarketplace.
 // The origin is what the panel groups and deletes by — but the mount path, storage, and
 // sandbox are identical, which is the whole point: a marketplace or foreign block is no
 // more trusted than the owner's own paste.

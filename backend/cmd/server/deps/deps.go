@@ -122,14 +122,16 @@ type Runtime struct {
 	KeypairRepo       *owner.KeypairRepo
 	PrintStore        *printsess.Store
 	MarketplaceClient *marketplace.Client
-	AgentSkills       *registry.Registry
-	OwnerRepo         *owner.Repo
-	DepRegistry       *registry.DepRegistry
-	InstanceRepo      *owner.InstanceRepo
-	RDB               *redis.Client
-	DB                *pgxpool.Pool
-	Dispatch          *dispatcher.Dispatcher
-	BlockStores       map[string]*blockstore.Store
+	// BlockMarket — the npm-backed dsh block marketplace client (search + install download).
+	BlockMarket  *marketplace.BlockMarket
+	AgentSkills  *registry.Registry
+	OwnerRepo    *owner.Repo
+	DepRegistry  *registry.DepRegistry
+	InstanceRepo *owner.InstanceRepo
+	RDB          *redis.Client
+	DB           *pgxpool.Pool
+	Dispatch     *dispatcher.Dispatcher
+	BlockStores  map[string]*blockstore.Store
 	// MicrositeDocs —— per-microsite document store (blockstore KindMicrosite); one schema
 	// per microsite.
 	MicrositeDocs  owner.MicrositeDocStore

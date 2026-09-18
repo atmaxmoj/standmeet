@@ -153,6 +153,7 @@ func assembleRuntimeDeps(
 		BuildNotifier:      buildnotify.New(),
 		SelfStatPeers:      cfg.SelfStatPeers,
 		StorageSecretKey:   cfg.StorageSecretKey,
+		BlockMarket:        marketplace.NewBlockMarket(cfg.BlockMarketNpmBaseURL),
 		MonitorRepo:        monitor.NewRepo(c.db),
 		StorageClient:      dw.storageClient,
 		JobCachePool:       jobcache.New(c.rdb, 0),
