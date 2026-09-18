@@ -36,9 +36,24 @@ type DiagSessionDeps struct {
 	Log    *slog.Logger
 }
 
-// MountDiagSession —— /diag/session.
+// MountDiagSession —— /diag/session and /diag/session/tool.
 func MountDiagSession(r chi.Router, deps DiagSessionDeps) {
 	r.Get("/diag/session", diagSessionHandler(deps))
+	r.Post("/diag/session/tool", diagSessionToolHandler(deps))
+}
+
+// assembleInputFor —— the visitor AssembleInput a diag endpoint rebuilds from a session.
+// Shared by the session dump and the single-tool run so both assemble the identical
+// toolset. ConversationID is left empty (diag is not bound to a conversation; blocks fall
+// back as needed — booker skips its DB lookup with no conv id).
+func assembleInputFor(data *access.VisitorSessionData) *registry.AssembleInput {
+	return &registry.AssembleInput{
+		RoleSnapshot: data.RoleSnapshot,
+		OwnerID:      data.OwnerID,
+		Mode:         data.Mode,
+		Subject:      registry.Subject{Kind: registry.SubjectCode, ID: data.CodeID},
+		Visitor:      data.Visitor,
+	}
 }
 
 type toolSpecWireV2 struct {
@@ -108,16 +123,7 @@ func buildDiagSessionResp(
 	ctx context.Context, reg *registry.Registry,
 	data *access.VisitorSessionData, ownerName string,
 ) diagSessionResp {
-	in := &registry.AssembleInput{
-		RoleSnapshot: data.RoleSnapshot,
-		OwnerID:      data.OwnerID,
-		Mode:         data.Mode,
-		Subject:      registry.Subject{Kind: registry.SubjectCode, ID: data.CodeID},
-		Visitor:      data.Visitor,
-		// ConversationID left empty: the diag endpoint isn't bound to a specific
-		// conversation; block implementations fall back as needed (booker skips
-		// the DB lookup with no conv ID).
-	}
+	in := assembleInputFor(data)
 	basePersona := conversation.ComposeBasePersona(data.RoleSnapshot, ownerName)
 	return diagSessionResp{
 		Blocks:           reg.VisitorStates(ctx, in),

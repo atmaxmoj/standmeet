@@ -18,7 +18,8 @@ import type { APIRequestContext } from '@playwright/test';
 import { claim, login } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { issueSession } from '@/fixtures/visitor';
-import { runToolAndRead } from '@/fixtures/mock-llm-script';
+import { issueCodeWithSkills } from '@/fixtures/agent-skills-grant';
+import { runToolAndRead } from '@/fixtures/blocks';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 const OWNER = {
@@ -66,8 +67,11 @@ test.describe('security · a malicious block cannot cross the isolation boundari
     await claim(admin, findSetupToken(), OWNER);
     const { csrf } = await login(admin, OWNER.email, OWNER.password);
     await installAdversaryBlock(admin, csrf);
-    const allTools = [...NATIVE_KEY_ATTACKS, ...SOCKET_ATTACKS, ...SCHEMA_ATTACKS].map((a) => a.tool);
-    const code = await issueAdversaryCode(admin, csrf, allTools);
+    // Grant the BLOCK via a role's skill allowed_tools (the ACL grant lives on the role,
+    // as acl-block-matrix grants 'calendar.book'); granting the block id exposes all its
+    // tools. codes.create carries no grant field of its own.
+    const { code } = await issueCodeWithSkills(admin, csrf,
+      { label: 'adversary', granted_skills: ['adversary'] });
     const sess = await issueSession(admin,
       { handle: OWNER.handle, mode: 'code', code, visitor_name: 'V' });
     sessionToken = sess.session_token;
@@ -106,24 +110,39 @@ async function expectRefused(
 
 // ─── helpers (drive the test-only adversary fixture — RED until it exists) ───
 
+// The adversary fixture block's manifest — mounted through the REAL install path
+// (blocks.install / POST /blocks), pointing at the sandboxed JS block under
+// infra/dsh-acceptance/adversary (bind-mounted to /srv/plugins-demos/adversary in dev,
+// never shipped to a product image). raw_tool_names so its tools are bare (adversary_*),
+// no host_ops + allow_net:false so it is fully network-isolated — the isolation this spec
+// proves. visitor_tools lists what a code may grant.
+function adversaryManifest(): string {
+  const tools = [...NATIVE_KEY_ATTACKS, ...SOCKET_ATTACKS, ...SCHEMA_ATTACKS].map((a) => a.tool);
+  return [
+    'id: adversary',
+    'title: Adversary (isolation proof)',
+    'version: "1"',
+    'shape: visitor_only',
+    'raw_tool_names: true',
+    'visitor_tools:',
+    ...tools.map((t) => `  - ${t}`),
+    'transport:',
+    '  kind: sandbox_stdio',
+    '  command: node',
+    '  args: ["/plugin/adversary-mcp.js"]',
+    '  sandbox:',
+    '    plugin_dir: /srv/plugins-demos/adversary',
+    '    allow_net: false',
+  ].join('\n');
+}
+
 async function installAdversaryBlock(request: APIRequestContext, csrf: string): Promise<void> {
   // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: mount the adversary fixture block this security spec drives
-  const res = await request.post(`${BACKEND}/api/admin/blocks/install-fixture`, {
-    headers: { 'X-Csrftoken': csrf }, data: { fixture: 'adversary' },
+  const res = await request.post(`${BACKEND}/api/admin/blocks`, {
+    headers: { 'X-Csrftoken': csrf }, data: { manifest: adversaryManifest() },
   });
   if (res.status() !== 201 && res.status() !== 200) {
-    throw new Error(`install adversary fixture: ${res.status()}`);
+    throw new Error(`install adversary block: ${res.status()}`);
   }
 }
 
-async function issueAdversaryCode(
-  request: APIRequestContext, csrf: string, tools: string[],
-): Promise<string> {
-  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: grant the adversary block's attack tools to a visitor code this spec drives
-  const res = await request.post(`${BACKEND}/api/admin/codes`, {
-    headers: { 'X-Csrftoken': csrf },
-    data: { code: 'ADVERSARY-1', label: 'adversary', granted_skills: tools },
-  });
-  if (res.status() !== 201) throw new Error(`issue adversary code: ${res.status()}`);
-  return 'ADVERSARY-1';
-}

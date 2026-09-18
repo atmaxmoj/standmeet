@@ -12,7 +12,7 @@ import type { APIRequestContext } from '@playwright/test';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
-type BlockOrigin = 'builtin' | 'managed' | 'owner';
+type BlockOrigin = 'builtin' | 'managed' | 'owner' | 'marketplace' | 'dsh' | 'fixture';
 type BlockKind = 'block' | 'supplier' | 'skill';
 
 export interface BlockRow {
@@ -79,4 +79,22 @@ export async function sessionToolNames(
   if (res.status() !== 200) throw new Error(`diag session: ${res.status()}`);
   const body = await res.json() as { tool_specs: readonly { name: string }[] };
   return body.tool_specs.map((t) => t.name);
+}
+
+/** Run ONE granted tool in a visitor session and return its parsed JSON result.
+ *  Hits the operator diag single-tool-run endpoint (same assembled toolset as
+ *  /diag/session), so a tool the session was not granted 404s. Used where a spec must
+ *  read a single tool's own output (isolation-adversary proofs) rather than a chat turn's
+ *  rendered reply. */
+export async function runToolAndRead(
+  request: APIRequestContext, sessionToken: string,
+  tool: string, args: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const res = await request.post(`${BACKEND}/internal/diag/session/tool`, {
+    headers: { 'X-Session-Token': sessionToken },
+    data: { tool, args },
+  });
+  if (res.status() !== 200) throw new Error(`run tool ${tool}: ${res.status()}`);
+  const { result } = await res.json() as { result: string };
+  return JSON.parse(result) as Record<string, unknown>;
 }

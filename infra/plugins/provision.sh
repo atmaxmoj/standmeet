@@ -157,7 +157,9 @@ install_project_into caldav
 # /srv/plugins/<name>, and docker-compose.dev.yml bind-mounts each demo dir there. So their
 # node_modules must be materialized here too (flat npm, bwrap-safe), same as the real blocks.
 DSH_DEMOS="$DIR/../dsh-acceptance"
-for demo in koishi everything fsmcp; do
+# adversary — the isolation-proof fixture (security-block-isolation-adversarial): a
+# sandboxed block whose tools each attempt one escape. Test-only, same demos treatment.
+for demo in koishi everything fsmcp adversary; do
   install_project_dir "$DSH_DEMOS/$demo"
 done
 # fetch —— shared by both netfetch (allow_net) and cagedfetch (--network=none);

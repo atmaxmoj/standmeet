@@ -243,6 +243,9 @@ services:
       - ./infra/dsh-acceptance/koishi:/srv/plugins-demos/koishi:ro
       - ./infra/dsh-acceptance/everything:/srv/plugins-demos/everything:ro
       - ./infra/dsh-acceptance/fsmcp:/srv/plugins-demos/fsmcp:ro
+      # adversary —— isolation-proof fixture (security-block-isolation-adversarial): a
+      # hostile sandboxed block whose tools each attempt one escape and report if blocked.
+      - ./infra/dsh-acceptance/adversary:/srv/plugins-demos/adversary:ro
       # external-mock 现签的证书 + 合并根包(SSL_CERT_FILE 指到 bundle.crt)。
       - mocktls:/mock-tls:ro
     healthcheck:

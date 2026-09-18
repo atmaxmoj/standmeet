@@ -1,0 +1,11 @@
+{
+  "name": "standmeet-adversary-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Test-only adversary block (JS stdio-MCP): each tool attempts one isolation escape (native-key forge, sibling-socket dial, network reach, db cross-schema) and reports whether the sandbox blocked it. A falsifiable proof of eiab isolation; never shipped to any product image (lives under infra/dsh-acceptance, dropped by .dockerignore).",
+  "main": "adversary-mcp.js",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^3.25.76"
+  }
+}

@@ -33,6 +33,19 @@ import (
 // rather than shadowing — first-wins is the registry's rule, and a block that silently
 // replaced a built-in would be a way to redefine `corpus.retrieval` by naming a file.
 func MountInstalledBlock(ctx context.Context, d *deps.Runtime, m *plugin.Manifest) {
+	MountInstalledBlockAs(ctx, d, m, registry.OriginOwner)
+}
+
+// MountInstalledBlockAs — register one runtime-installed block under a chosen origin.
+//
+// Owner installs get OriginOwner; a marketplace install gets OriginMarketplace; a foreign
+// dsh block mounted through our loader gets OriginDsh; a test fixture gets OriginFixture.
+// The origin is what the panel groups and deletes by — but the mount path, storage, and
+// sandbox are identical, which is the whole point: a marketplace or foreign block is no
+// more trusted than the owner's own paste.
+func MountInstalledBlockAs(
+	ctx context.Context, d *deps.Runtime, m *plugin.Manifest, origin registry.Origin,
+) {
 	// Storage first: a block that declares settings needs somewhere to keep them before
 	// anything can read them, and the panel reads them as soon as the row appears.
 	ProvisionBlockStorage(ctx, d, m)
@@ -42,9 +55,8 @@ func MountInstalledBlock(ctx context.Context, d *deps.Runtime, m *plugin.Manifes
 	// to be detached: the hook fires while a session is being assembled, and inheriting that
 	// context would cancel the record at exactly the moment it matters. See
 	// recordBlockFailure.
-	dupes := mount.RegisterDiscoveredPlugins( //nolint:contextcheck // detached on purpose
-		d.AgentSkills, ms, registry.OriginOwner, blockDialErrLog(d),
-	)
+	hook := blockDialErrLog(d) //nolint:contextcheck // detached ctx (see recordBlockFailure)
+	dupes := mount.RegisterDiscoveredPlugins(d.AgentSkills, ms, origin, hook)
 	for _, id := range dupes {
 		d.Log.Warn("installed block not mounted (id already registered)", "id", id)
 	}
