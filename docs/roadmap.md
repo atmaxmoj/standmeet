@@ -22,6 +22,7 @@ corpus 数据形态**已经就是 vault**:三级 promotion(raw→wiki→output)�
 ### 1b · 检索侧(爬这张图) 🟡
 - ✅ `corpus_search`/`_read`/`_list` over Postgres 全文检索;`corpus_map` 导航**只爬树**(parent_id)。
 - 🟡 **爬网(graph retrieval)**:**1-hop 边walk已建**——`corpus_links` 顺 `note_refs` 出边 + 入边(backlinks),per-neighbor ACL(`corpus/usecase/corpus_lister_pg_links.go` `Links()`;工具 `corpus_links`/`corpus_map`/`corpus_grep`)。agent 想深入就对 neighbor 再调一次。**仍未做**:server 端 bounded-depth BFS + 跟全文检索合并排序。
+- → **设计 + 红先行测试计划已出**:[`docs/design/corpus-graph-retrieval.md`](corpus-graph-retrieval.md)(新 `corpus_walk` 工具/host_op:seed via Search + note_refs 扩展 + 每跳 ACL + fused rank)。
 - **决策已定**:**故意不用 vector/pgvector**——相关性 = owner 写的 `[[链接]]`,不是模型猜的语义距离。
 - 落地设计要补:BFS 深度/排序上限、ACL 怎么进 query(别爬到 role 不可见的 entry)、跟全文检索怎么合。
 - 相关:`#150`(output backlinks——output/writings 得跟 wiki 一样有边表,图才连得起来)。
@@ -74,6 +75,7 @@ corpus 数据形态**已经就是 vault**:三级 promotion(raw→wiki→output)�
 ### 层② · "替换"迁移 —— **决策点 P.2 明写"迁移留到后期,先并存"** 🟡(eiab 2026-09 做了大半)
 机制(层①)搭好后,**everything-is-a-block(2026-09-13→18)把 visitor/leaf 能力 + connector 全外置成沙箱 JS block**:`ask_visitor`/`summarize_conversation`/`calendar.book`/`corpus.retrieval`/`mail.send` + `caldav`/`smtp`/`google-calendar`/`telegram` 现在都是 `backend/blocks/*/manifest.yaml` + JS server,无 per-capability Go;`me`/`seo`/`codes` 也不再是 registry fiber,而是域 `fp.Op` 经 convergence/dispatcher 投影。`backend/internal/connector/` 已清零(0 Go 文件)。
 **仍在核心(未外置)**:`jobs`/`resume`/`applications`(`owner/jobs` 的 `OwnerFibers`,仍 `MustRegister`)+ 几个 loader fiber。因此 `MustRegister`(`plugin/registry/registry.go`)+ 进程内 registry **仍在**,builtin 计数未到零(`ListByOrigin` 符号已删,origin 过滤走 `shipped.go` `Shipped()`/`OriginOf`)。feature floor(P.1c:横切 gating/state 全留 core)不得削减,每条有 spec 看守。**剩下的外置是收尾,不再牵一发动全身。**
+- → **设计 + 红先行测试计划已出**:[`docs/design/layer2-externalize-jobs.md`](layer2-externalize-jobs.md)。决策 = **拆**:`jobs`/`resume` → block(`blockstore` 撑);`applications.commit` → dispatcher `fp.Op`(留 host,像 me/seo/codes 那样脱离 `MustRegister`,因为它 issue AccessCode+role 是 deterministic state holder,不进沙箱)。目标 = **核内零 Go capability fiber**(`RegisterOwnerFibers` 清空,只剩 3 个 loader)。
 
 ### 层③ · agent-as-injectable-driver —— Bridge 抽象 ✅,runtime 形态 🚧
 - ✅ **Driver/Bridge 接口已抽**(`#153` agentcore 抽 Driver、`#154` eval 做成忠实 mini-host)——决策点 P.13 的结构实现落地了。
