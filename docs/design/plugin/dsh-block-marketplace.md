@@ -1,8 +1,10 @@
 # dsh block marketplace — real npm-backed discovery + install (replaces the fake catalog)
 
-> **Status:** design + test matrix, test-first build owed. Supersedes the hardcoded
-> `blockCatalog` / `install_fixture` stub (P.13 violation: canned test-double shipped in
-> `backend/`, flagged by `check-no-mock`).
+> **Status: LANDED 2026-09-18.** Real npm-backed search + install shipped (`blockmarket.go`);
+> the hardcoded `blockCatalog` / `install_fixture` stub (P.13, flagged by `check-no-mock`) is
+> gone. Verified: `dsh-marketplace-install` 9/9 + `dsh-reciprocity` 3/3 + `norm-outward-toolset`
+> 3/3 (hermetic, vs the in-cluster npm mock), and `dsh-market-live` 2/2 against **real npm**
+> (`make test-dsh-live`). Full `make lint` green.
 > **Goal:** the block marketplace is a real feature that piggybacks the actual dsh/npm
 > plugin ecosystem, with a **default-skip integration test that truly connects to npm and
 > passes**.
