@@ -14,6 +14,7 @@ import type { APIRequestContext } from '@playwright/test';
 import { claim, login } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { issueSession } from '@/fixtures/visitor';
+import { issueCodeWithSkills } from '@/fixtures/agent-skills-grant';
 import { sessionToolNames, findBlock } from '@/fixtures/blocks';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
@@ -21,9 +22,13 @@ const OWNER = {
   email: 'reciprocity@example.com', password: 'correct-horse-battery-staple',
   handle: 'recipowner', fullName: 'Reciprocity Owner',
 };
-// Foreign dsh-ecosystem fixtures: a single-block plugin and a dsh GROUP (a composition of plugins).
-const FOREIGN = { id: 'dsh-echo', tool: 'echo' };
-const FOREIGN_GROUP = { id: 'dsh-demo-group', members: ['dsh-echo', 'dsh-upper'], tool: 'echo' };
+// Foreign dsh-ecosystem fixtures: a single-block plugin and a dsh GROUP (a composition of
+// plugins). Ids are hyphen-free — a discovered block's tools surface sanitized as
+// <id>_<tool> (e.g. dshecho_echo), so a hyphen in the id would be rewritten.
+const FOREIGN = { id: 'dshecho', tool: 'echo' };
+const FOREIGN_GROUP = { id: 'dshdemogroup', members: ['dshecho', 'dshupper'], tool: 'echo' };
+// toolName — how a discovered block's tool surfaces to a session: <id>_<tool> (not mcp__).
+const toolName = (id: string, tool: string): string => `${id}_${tool}`;
 
 let admin: APIRequestContext;
 let csrf = '';
@@ -47,8 +52,8 @@ test.describe('eiab · reciprocity: our loader mounts foreign dsh blocks unchang
 
   test('the foreign block\'s capability is usable in a visitor session', async () => {
     await mountForeign(FOREIGN.id);
-    const tool = `mcp__${FOREIGN.id}__${FOREIGN.tool}`;
-    const sess = await boundSession('RECIP-USE', [tool], 'V');
+    const tool = toolName(FOREIGN.id, FOREIGN.tool);
+    const sess = await boundSession([FOREIGN.id], 'V');
     expect(await sessionToolNames(admin, sess), 'the loaders interop — its tool is exposed')
       .toContain(tool);
   });
@@ -64,8 +69,8 @@ test.describe('eiab · reciprocity: our loader mounts foreign dsh blocks unchang
     for (const m of FOREIGN_GROUP.members) {
       expect(await findBlock(admin, csrf, m), `group member ${m} mounted`).toBeDefined();
     }
-    const tool = `mcp__${FOREIGN_GROUP.members[0]}__${FOREIGN_GROUP.tool}`;
-    const sess = await boundSession('RECIP-GRP', [tool], 'G');
+    const tool = toolName(FOREIGN_GROUP.members[0]!, FOREIGN_GROUP.tool);
+    const sess = await boundSession([FOREIGN_GROUP.members[0]!], 'G');
     expect(await sessionToolNames(admin, sess), 'a grouped member\'s tool is usable').toContain(tool);
   });
 });
@@ -88,12 +93,11 @@ async function mountForeignGroup(id: string): Promise<void> {
   if (res.status() !== 201 && res.status() !== 200) throw new Error(`mount foreign group ${id}: ${res.status()}`);
 }
 
-async function boundSession(code: string, tools: string[], name: string): Promise<string> {
-  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: grant the foreign block's tool to a visitor code this spec drives
-  const res = await admin.post(`${BACKEND}/api/admin/codes`, {
-    headers: { 'X-Csrftoken': csrf }, data: { code, label: 'reciprocity', granted_skills: tools },
-  });
-  if (res.status() !== 201) throw new Error(`issue code: ${res.status()}`);
+// boundSession — grant the foreign block(s) (by id, on a role's skill — the ACL grant
+// lives on the role, as acl-block-matrix grants a block) and open a visitor session.
+async function boundSession(grantBlocks: string[], name: string): Promise<string> {
+  const { code } = await issueCodeWithSkills(admin, csrf,
+    { label: 'reciprocity', granted_skills: grantBlocks });
   const s = await issueSession(admin, { handle: OWNER.handle, mode: 'code', code, visitor_name: name });
   return s.session_token;
 }

@@ -157,6 +157,9 @@ const GOLDEN_TOOLSET: readonly string[] = [
   // block (blockOps.Delete branches on ownerInstalled), and the second verb reached
   // Assembly.Uninstall directly, skipping the built-in refusal.
   'blocks.install',
+  // blocks.install_fixture -- install a bundled example / foreign-ecosystem (dsh) block by
+  // name; the reciprocity + marketplace demos mount foreign blocks through the same loader.
+  'blocks.install_fixture',
   // blocks.graph -- the dependency graph (provides/requires + what relies on each block); the
   // fiber view draws it and locks the Active toggle while something relies on a block.
   'blocks.graph',

@@ -46,6 +46,16 @@ func BlockResource(d *deps.Runtime) dispatcher.Resource {
 			Reach:       fp.OwnerAction(),
 			Invoke:      installBlock(d),
 		},
+		{
+			ID: "blocks.install_fixture",
+			Description: "Install a bundled example / foreign-ecosystem block by name " +
+				"(ecosystem 'dsh' marks it foreign; group mounts every member). Mounted through " +
+				"the same loader as any block, with no more trust.",
+			InputSchema: fixtureInstallSchema,
+			Kind:        fp.Action,
+			Reach:       fp.OwnerAction(),
+			Invoke:      installFixture(d),
+		},
 		blockGraphOp(d),
 	}...)}
 }
@@ -140,6 +150,16 @@ var (
 			"manifest":{"type":"string","description":"The block's manifest, as YAML."}
 		},
 		"required":["manifest"]
+	}`)
+
+	fixtureInstallSchema = json.RawMessage(`{
+		"type":"object",
+		"properties":{
+			"fixture":{"type":"string","description":"Bundled fixture id (e.g. dsh-echo)."},
+			"ecosystem":{"type":"string","description":"'dsh' marks it foreign."},
+			"group":{"type":"boolean","description":"Install every member of a fixture group."}
+		},
+		"required":["fixture"]
 	}`)
 
 	bundleNameSchema = json.RawMessage(`{

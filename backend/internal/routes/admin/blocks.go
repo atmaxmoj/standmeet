@@ -71,6 +71,9 @@ func (h *Handlers) mountBlockPanel(r chi.Router, face *dispatcher.Face) {
 		// "graph" as a block id.
 		r.Get("/graph", h.dispatchOp(face, "blocks.graph", emptyArgs, jsonOK))
 		r.Post("/", h.dispatchOp(face, "blocks.install", bodyArgs, jsonCreated))
+		// Install a bundled example / foreign-ecosystem block by name (reciprocity + demos).
+		r.Post("/install-fixture",
+			h.dispatchOp(face, "blocks.install_fixture", bodyArgs, jsonCreated))
 		r.Patch("/{id}",
 			h.dispatchOp(face, "blocks.set_enabled", bodyWithURLParam("id"), jsonOK))
 		r.Delete("/{id}", h.dispatchOp(face, "blocks.delete", urlParamArgs("id"), jsonOK))
