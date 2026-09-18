@@ -9,11 +9,33 @@ title: Google Calendar
 # the supply side and another for the demand side of the same name.
 provides: calendar
 
+# google-calendar is an app on the Google Calendar HTTP API — so it is a BLOCK: the generic
+# JS openapi engine (infra/plugins/google-calendar) wrapped as a stdio-MCP server, carrying no
+# Go. The substrate dials it and routes the calendar seam's verbs (free_busy / insert_event /
+# delete_event / verify) to its tools. The HOST keeps the spec + oauth (spec/binding/auth_scheme
+# below): connect runs the host OAuth dance, per-op scope shortfall is checked host-side, and the
+# token is refreshed host-side and merged into each call — only the HTTP to Google runs in the
+# block. allow_net because it reaches the Google Calendar API (the dev mock in tests, via the
+# host-supplied base_url).
+# google-calendar is an app on the Google Calendar HTTP API — so it is a BLOCK: the generic
+# JS openapi engine (infra/plugins/google-calendar) wrapped as a stdio-MCP server, carrying no
+# Go. The substrate dials it and routes the calendar seam's verbs (free_busy / insert_event /
+# delete_event / verify) to its tools. The HOST keeps the spec + oauth (spec/binding/auth_scheme
+# below): connect runs the host OAuth dance, per-op scope shortfall is checked host-side, and the
+# token is refreshed host-side and merged into each call — only the HTTP to Google runs in the
+# block. allow_net because it reaches the Google Calendar API (the dev mock in tests, via the
+# host-supplied base_url).
 transport:
-  kind: openapi
+  kind: sandbox_stdio
+  command: node
+  # plugin_dir (/srv/plugins/google-calendar) is bound read-only at /plugin in the sandbox.
+  args: ["/plugin/openapi-mcp.js"]
   auth_scheme: oauth2
   spec: spec.yaml
   binding: binding.yaml
+  sandbox:
+    plugin_dir: /srv/plugins/google-calendar
+    allow_net: true
 
 # owner_ops —— the owner-side operations this supplier exposes on its own.
 #

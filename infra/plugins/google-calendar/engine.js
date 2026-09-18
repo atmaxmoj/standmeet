@@ -63,8 +63,14 @@ const SEAM = {
 
 // conn — the credential fields the host merges in; declared optional so the MCP input schema does
 // not strip them before the handler reads them for auth. bearer/oauth2 → access_token; apiKey →
-// api_key (injected per the spec's security scheme).
-const CONN = { access_token: z.string().optional(), api_key: z.string().optional() }
+// api_key (injected per the spec's security scheme). base_url lets the host override the spec's
+// server (the block's baked spec cannot env-expand ${GOOGLE_CALENDAR_BASE}; the host, which can,
+// merges the resolved target in — declared here so the schema does not strip it).
+const CONN = {
+  access_token: z.string().optional(),
+  api_key: z.string().optional(),
+  base_url: z.string().optional(),
+}
 
 // per-verb declared arg fields (so booker's args survive schema validation alongside the creds).
 const VERB_ARGS = {

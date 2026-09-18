@@ -17,7 +17,12 @@ async function callVerb(sup, verb, contract, args) {
 
   const body = await evalExpr(bind.request, input)
   const query = await renderQuery(bind.query, input)
-  const url = sup.baseURL + substitutePath(resolved.pathTemplate, input) + query
+  // base_url from the host's merged creds wins over the block's own spec server: the host
+  // env-expands the spec's ${GOOGLE_CALENDAR_BASE} (dev points it at the mock), and the block's
+  // baked spec cannot. Falls back to the spec server when the host merges none.
+  const base = (typeof args.base_url === 'string' && args.base_url ? args.base_url : sup.baseURL)
+    .replace(/\/$/, '')
+  const url = base + substitutePath(resolved.pathTemplate, input) + query
 
   const res = await doFetch(sup, resolved.method, url, body, args)
   const parsed = await readAndClassify(res) // throws a classified fault on 4xx/5xx

@@ -39,14 +39,53 @@ type blockCredVault interface {
 type blockCalendarProxy struct {
 	vault blockCredVault
 	seam  *blockseam.Provider
-	id    string
+	// behavior — set for a spec+oauth calendar block (google-calendar): the host-side openapi
+	// behavior (Connected / CanPerform scope shortfall / token refresh + base url). nil for a
+	// credential block (CalDAV), which has no scopes and no oauth.
+	behavior *adapters.OpenAPIBehavior
+	id       string
 }
 
 func newBlockCalendarProxy(m *plugin.Manifest, vault blockCredVault) *blockCalendarProxy {
-	dial := func(ctx context.Context, mm *plugin.Manifest) (blockseam.Session, error) {
-		return mount.DialBlock(ctx, mm)
+	return &blockCalendarProxy{vault: vault, seam: blockseam.New(m, vault, dialBlock), id: m.ID}
+}
+
+// newOpenAPIBlockCalendarProxy — a calendar block that executes an openapi supplier's calls
+// (google-calendar): host keeps the openapi behavior (connect/scope/refresh), the block runs
+// the HTTP. Its credentials are the refreshed bearer + resolved base url, merged into each
+// verb call for the block's openapi engine to bear and target.
+func newOpenAPIBlockCalendarProxy(
+	m *plugin.Manifest, beh *adapters.OpenAPIBehavior,
+) *blockCalendarProxy {
+	vault := oauthBlockVault{beh: beh}
+	return &blockCalendarProxy{
+		vault: vault, seam: blockseam.New(m, vault, dialBlock), behavior: beh, id: m.ID,
 	}
-	return &blockCalendarProxy{vault: vault, seam: blockseam.New(m, vault, dial), id: m.ID}
+}
+
+//nolint:ireturn // blockseam.Dial's contract is to return the Session interface (injected seam)
+func dialBlock(ctx context.Context, mm *plugin.Manifest) (blockseam.Session, error) {
+	return mount.DialBlock(ctx, mm)
+}
+
+// oauthBlockVault — the block-cred view for a spec+oauth calendar block: it hands the block
+// the host-refreshed access token + the host-resolved base url (the block's own baked spec
+// cannot env-expand ${GOOGLE_CALENDAR_BASE}, so the host supplies the target). Connected
+// reads the openapi connection state.
+type oauthBlockVault struct{ beh *adapters.OpenAPIBehavior }
+
+func (v oauthBlockVault) Connected(ctx context.Context, _, ownerID string) (bool, error) {
+	return v.beh.Connected(ctx, ownerID)
+}
+
+func (v oauthBlockVault) Credentials(
+	ctx context.Context, _, ownerID string,
+) (json.RawMessage, error) {
+	b, err := v.beh.BearerFor(ctx, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(map[string]string{"access_token": b.Token, "base_url": b.BaseURL})
 }
 
 // freeBusyArgs / insertArgs / deleteArgs — the SEAM operation's own fields (the owner's credentials
@@ -66,6 +105,10 @@ type insertArgs struct {
 type deleteArgs struct {
 	EventID string `json:"event_id"`
 }
+
+// rfc3339Millis — event times with explicit milliseconds (Go's RFC3339 strips a trailing
+// .000); matches the in-host openapi path so a booking time round-trips faithfully.
+const rfc3339Millis = "2006-01-02T15:04:05.000Z07:00"
 
 // busyReply / busyPeriod / insertReply — the tool result shapes (named, not nested literals).
 type busyReply struct {
@@ -89,6 +132,18 @@ func (*blockCalendarProxy) Kind() string   { return "block" }
 
 func (p *blockCalendarProxy) Connected(ctx context.Context, ownerID string) (bool, error) {
 	return p.vault.Connected(ctx, p.id, ownerID)
+}
+
+// CanPerform — for a spec+oauth block, defer to the openapi scope-shortfall check (F-B-8:
+// calendar.readonly lists slots but booking is refused). A credential block (no behavior)
+// has no scopes → allow, the same answer a non-CanPerformer supplier gives today.
+func (p *blockCalendarProxy) CanPerform(
+	ctx context.Context, ownerID, operationID string,
+) (bool, error) {
+	if p.behavior == nil {
+		return true, nil
+	}
+	return p.behavior.CanPerform(ctx, ownerID, operationID)
 }
 
 // Verify — the connection test (Verifier): call the block's `verify` tool with the owner's creds.
@@ -138,9 +193,11 @@ func (p *blockCalendarProxy) InsertEvent(
 	ctx context.Context, ownerID string, req *adapters.InsertEventReq,
 ) (adapters.InsertedEvent, error) {
 	opArgs, merr := json.Marshal(insertArgs{
-		Summary:      req.Summary,
-		Start:        req.Start.UTC().Format(time.RFC3339),
-		End:          req.End.UTC().Format(time.RFC3339),
+		Summary: req.Summary,
+		// Explicit milliseconds (not time.RFC3339, which strips trailing .000): a booking time
+		// round-trips faithfully into the calendar, matching the in-host openapi path.
+		Start:        req.Start.UTC().Format(rfc3339Millis),
+		End:          req.End.UTC().Format(rfc3339Millis),
 		VisitorEmail: req.VisitorEmail,
 	})
 	if merr != nil {

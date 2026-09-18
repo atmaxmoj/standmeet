@@ -75,6 +75,13 @@ func toSupplierManifest(m *plugin.Manifest) adapters.Manifest {
 // transport kind directly (openapi / protocol) or its declared credential kind. The host branches
 // on this generic kind, never on which block it is.
 func supplierKind(m *plugin.Manifest) string {
+	// A spec-carrying block (google-calendar: sandbox_stdio transport for execution, but a
+	// host-side openapi spec + oauth) connects, derives its credential form, and answers
+	// per-operation scope questions AS an openapi supplier — only its call execution runs in
+	// the block. Spec-presence decides the admin-facing kind; the transport decides execution.
+	if len(m.Transport.SpecBytes) > 0 {
+		return "openapi"
+	}
 	if m.Transport.Kind == plugin.TransportSandboxStdio {
 		return "block"
 	}

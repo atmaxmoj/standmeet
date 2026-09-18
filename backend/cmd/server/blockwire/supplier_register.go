@@ -108,13 +108,32 @@ func assembleBuiltinSupplier(m *plugin.Manifest, adeps *assembleDeps) (adapters.
 func blockSeamSupplier(m *plugin.Manifest, adeps *assembleDeps) (adapters.Supplier, error) {
 	switch m.Provides {
 	case "calendar":
-		return newBlockCalendarProxy(m, adeps.credVault), nil
+		return blockCalendarSupplier(m, adeps)
 	case "mail":
 		return newBlockMailProxy(m, adeps.credVault), nil
 	default:
 		return nil, fmt.Errorf("sandbox_stdio supplier %q provides seam %q, "+
 			"which has no block-backed proxy", m.ID, m.Provides)
 	}
+}
+
+// blockCalendarSupplier — a calendar block. A spec+oauth one (google-calendar: sandbox_stdio
+// execution, host-side openapi spec) keeps the openapi behavior host-side (connect / scope
+// shortfall / token refresh) and executes calls in the block; a plain credential block
+// (CalDAV) uses the opaque cred vault directly.
+func blockCalendarSupplier(m *plugin.Manifest, adeps *assembleDeps) (adapters.Supplier, error) {
+	if len(m.Transport.SpecBytes) == 0 {
+		return newBlockCalendarProxy(m, adeps.credVault), nil
+	}
+	beh, err := adapters.AssembleOpenAPIBehavior(&adapters.Manifest{
+		ID: m.ID, Kind: "openapi", Seam: m.Provides,
+		AuthScheme: m.Transport.AuthScheme,
+		Spec:       m.Transport.SpecBytes, Binding: m.Transport.BindingBytes,
+	}, adeps.doer, adeps.store, adeps.allow)
+	if err != nil {
+		return nil, fmt.Errorf("assemble openapi behavior for %q: %w", m.ID, err)
+	}
+	return newOpenAPIBlockCalendarProxy(m, beh), nil
 }
 
 // seamProviders —— one DepProvider per supplied seam, from the manifests and nothing else.
