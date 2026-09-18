@@ -4,9 +4,10 @@
 // runtime unchanged, its capability be usable, it be sandboxed like any of our blocks, and a dsh
 // GROUP compose through our loader too.
 //
-// RED-by-design until a foreign dsh block/group is vendored as a fixture and the reciprocal path is
-// wired. Black-box, from intent: assert the observable — the foreign capability appears and runs,
-// and the foreign block gets no more trust than ours — never how the loader mounts it.
+// Written red-first from intent; the reciprocal path landed 2026-09-17 (a foreign dsh block/group
+// vendored as a fixture, mounted through our loader) and the spec is green. Black-box: assert the
+// observable — the foreign capability appears and runs, and the foreign block gets no more trust
+// than ours — never how the loader mounts it.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -75,7 +76,7 @@ test.describe('eiab · reciprocity: our loader mounts foreign dsh blocks unchang
   });
 });
 
-// ─── helpers (drive the reciprocal load path — RED until vendored + wired) ───
+// ─── helpers (drive the reciprocal load path — landed 2026-09-17, spec green) ───
 
 async function mountForeign(id: string): Promise<void> {
   // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: mount a foreign dsh block via our loader, the reciprocity this spec drives

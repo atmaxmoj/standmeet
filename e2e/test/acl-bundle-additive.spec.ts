@@ -1,10 +1,10 @@
-// acl-bundle-additive.spec.ts — the ACL model collapse (design: docs/design/plugin/access-control.md).
+// acl-bundle-additive.spec.ts — the additive ACL model (design: docs/design/plugin/access-control.md).
 //
-// RED-by-design. The product rule changes from SUBTRACTIVE (global ∧ role ∧ ¬code-deny) to ADDITIVE:
-// the owner assembles a BUNDLE (a list of blocks), the ACL hangs on the bundle, a code binds to a
-// bundle BY REFERENCE (the name, not a copy). "What a code can do" is a read of a list, not a
-// simulation over layers. Written from the design before any bundle implementation — it is the
-// deliberate break access-control.md calls for, and the full additive matrix, not a happy path.
+// Written red-first from the design; the ADDITIVE bundle model landed 2026-09-17 and the spec is
+// green. The owner assembles a BUNDLE (a list of blocks), the ACL hangs on the bundle, a code binds
+// to a bundle BY REFERENCE (the name, not a copy). "What a code can do" is a read of a list, not a
+// simulation over layers. Additive coexists with the old model — a code with NO bundle keeps its
+// role grant (access-control.md) — so this is the full matrix, not a happy path, and not a collapse.
 //
 // Assertions are black-box (what a visitor session exposes), never internal tables. corpus.retrieval
 // and calendar.book are builtin blocks → a granted session shows corpus_search / calendar_book.
@@ -186,7 +186,7 @@ async function runLiveBundleEdit(): Promise<void> {
   expect(await sessionToolNames(admin, live), 'the kept block stays').toContain(RETRIEVAL_TOOL);
 }
 
-// ─── helpers (hit the DESIGNED bundle endpoints — RED until they exist) ───
+// ─── helpers (hit the id-addressed bundle endpoints — landed 2026-09-17, spec green) ───
 
 interface Bundle { id: string }
 

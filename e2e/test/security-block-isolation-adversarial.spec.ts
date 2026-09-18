@@ -8,9 +8,10 @@
 // (mcp_<id>). This spec makes each claim falsifiable by shipping a block whose tools deliberately
 // attempt the full attack surface, and asserting each attempt fails and leaks nothing.
 //
-// RED-by-design until the adversary fixture block (a block whose tools each mount one attack) is
-// mounted and confinement holds. Decoupled from HOW confinement is implemented (bwrap / native-key
-// issuer / schema keying) — it asserts only the observable outcome: the attack does not succeed.
+// Written red-first; the adversary fixture block (a block whose tools each mount one attack) landed
+// 2026-09-17 and confinement holds — the spec is green. Decoupled from HOW confinement is implemented
+// (bwrap / native-key issuer / schema keying) — it asserts only the observable outcome: the attack
+// does not succeed.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -108,7 +109,7 @@ async function expectRefused(
     .not.toMatch(/secret|token|password|native_key|BEGIN [A-Z]+ KEY/i);
 }
 
-// ─── helpers (drive the test-only adversary fixture — RED until it exists) ───
+// ─── helpers (drive the test-only adversary fixture — landed 2026-09-17, spec green) ───
 
 // The adversary fixture block's manifest — mounted through the REAL install path
 // (blocks.install / POST /blocks), pointing at the sandboxed JS block under

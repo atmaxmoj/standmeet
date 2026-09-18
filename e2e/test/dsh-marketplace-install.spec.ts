@@ -3,10 +3,10 @@
 // and it becomes a first-class block on the instance — installed by data, sandboxed like any block,
 // removable. This is the full owner-facing lifecycle, not one happy call.
 //
-// RED-by-design until the marketplace-backed install path is wired. Black-box, from intent: search
-// behavior, install success/failure/idempotency, the installed block's origin + usability, its
-// confinement (a marketplace block is NOT trusted more than any other), and uninstall — never
-// asserting how the marketplace fetch/mount works internally.
+// Written red-first from intent; the marketplace-backed install path landed 2026-09-17 and the spec
+// is green. Black-box: search behavior, install success/failure/idempotency, the installed block's
+// origin + usability, its confinement (a marketplace block is NOT trusted more than any other), and
+// uninstall — never asserting how the marketplace fetch/mount works internally.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
@@ -125,7 +125,7 @@ test.describe('dsh marketplace · use / confine / remove', () => {
   });
 });
 
-// ─── helpers (drive the DESIGNED marketplace surface — RED until wired) ───
+// ─── helpers (drive the marketplace surface — landed 2026-09-17, spec green) ───
 
 interface MarketHit { id: string; tools?: string[] }
 interface BlockRow { id: string; origin?: string; enabled?: boolean; dependency?: unknown }

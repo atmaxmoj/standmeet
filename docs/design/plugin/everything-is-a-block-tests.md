@@ -10,9 +10,10 @@ mechanism: rewriting *how* a block is built (Go→node, one seam impl→another)
 green **verbatim**. That is the whole point of the decoupling, and it is what let the Go→node block
 rewrite land with zero behavior-spec edits.
 
-**Status is grounded 2026-09-14.** ✅ = in the suite and green. ⬜ = owed. ✏️ = present but slated to
+**Status is grounded 2026-09-18.** ✅ = in the suite and green. ⬜ = owed. ✏️ = present but slated to
 be *rewritten* when a named model changes (the rewrite is a product-rule change, never an edit to make
-a run go green).
+a run go green). *(2026-09-18: §C additive bundles, §J adversarial, §L reciprocity+marketplace, and the
+google-calendar openapi→block fold all landed green — see "What's left".)*
 
 **The discipline (load-bearing, unchanged):** black-box e2e is primary (drive a real
 owner/visitor/MCP/agent action; assert a rendered or queried marker — never "didn't crash"); guards
@@ -62,7 +63,7 @@ owner MCP paths); neither surface substitutes for the other.
 | a relied-upon block cannot be **deleted** (the dependent is named) | `block-delete-relied-refused` |
 | a relied-upon block cannot be **disabled** (toggle locked, dependent named) | `block-relied-lock` |
 
-## C. Exposure / ACL — what a code can do ✅ (model-collapse ✏️ owed)
+## C. Exposure / ACL — what a code can do ✅ (additive bundles landed, side by side)
 
 | behavior | spec |
 |---|---|
@@ -74,20 +75,20 @@ owner MCP paths); neither surface substitutes for the other.
 | freeze-vs-live + per-code isolation | `acl-freeze-isolation` |
 | corner cases + the error stream | `acl-corner-errors` |
 
-✏️ **Owed change (only when the exposure model collapses):** `acl-block-matrix` and `block-enable-disable`
-still spell the model as a five-way conjunction (*exists ∧ owner-enabled ∧ deps-met ∧ role-acl ∧ quota*).
-The design collapses that to one predicate — **mounted, or not mounted**. When that lands, these two are
-**rewritten deliberately** as the product rule changing. The *outcomes* are invariant (a denied tool is
-absent, a granted one present); only the internal model changes — so the rewrite must not weaken what is
-asserted, only restate why. These are the "red-by-design" specs: they encode the rule being replaced,
-and are the only check on the ACL model, so a quiet weakening here is the dangerous edit.
+✅ **The additive bundle model landed — as COEXISTENCE, not a replacement (2026-09-17).** `acl-bundle-
+additive` is green (12/12): the owner assembles a bundle, a code binds to it BY REFERENCE (editing ONE
+bundle moves EVERY code bound to it at once), bundles nest with cycle-refusal and dedup, and the bundle
+is read LIVE at every assembly (an edit bites an open session at once — the same immediate-unmount rule
+`block-unmount-is-immediate` pins, NOT a frozen-at-issue model). A code with **no** bundle falls back to
+its role ACL exactly as before.
 
-The **additive target** now has its own red-by-design spec: `acl-bundle-additive` (written from
-`access-control.md`, before the bundle implementation). Its headline assertion is the signature of
-the by-reference model — editing ONE bundle changes EVERY code bound to it at once — plus nesting
-and session-freeze. It is RED until the bundle feature lands; then `acl-block-matrix` /
-`block-enable-disable` are rewritten to match (outcomes invariant), and this spec becomes their
-successor rather than a parallel.
+Because that fall-back is preserved, the planned **collapse** (rewriting `acl-block-matrix` /
+`block-enable-disable` to a single "mounted, or not" predicate) was **superseded**: the two models stand
+side by side, so `acl-block-matrix` / `block-enable-disable` keep asserting the subtractive rule
+unchanged, and the ~600 role-ACL specs never had to move. `acl-bundle-additive` is the additive path's
+own check, a parallel to those two rather than their successor. (Three over-specifications in the
+red-by-design spec were corrected against the design corpus while wiring it green: freeze→live-unmount;
+additive-is-coexistence-not-replacement; the deps-free witness block.)
 
 ## D. Seam = definition/provider — swap the provider, the consumer is untouched ✅
 
@@ -168,9 +169,9 @@ leak without the guard, then it holds).
 |---|---|
 | sandbox escape (host config, docker.sock, path traversal, spawning, reaching beyond declared host-ops) — bwrap holds | ✅ `real-third-party-mcp-escape` |
 | SSRF / egress: a block cannot reach an internal host / cloud-metadata endpoint outside the allow-list; no credential leak; per-owner isolation | ✅ `supplier-security`, `security-byoai-endpoint-ssrf`, `security-inference-models-ssrf` |
-| ✏️ **native-key theft/misuse**: a block tries to obtain another fiber's reach-back key (no get-by-id, name not computable), reuse a post-unmount key, or present another identity — all refused | spec written (red-by-design): `security-block-isolation-adversarial` — drives an adversary fixture block, RED until it + confinement land |
-| ✏️ **cross-block socket**: a block tries to dial another block's reach-back socket (the path is host-derived from the trusted id; a block cannot name another's) — refused | `security-block-isolation-adversarial` (same file, second attack) |
-| ✏️ **db cross-schema**: a storing block actively tries another fiber's schema (`SET search_path`, `information_schema`/`pg_catalog` enumeration, `DROP` a schema it did not open, forging a name) — all refused | `security-block-isolation-adversarial` (third attack) |
+| **native-key theft/misuse**: a block tries to obtain another fiber's reach-back key (no get-by-id, name not computable), reuse a post-unmount key, or present another identity — all refused | ✅ `security-block-isolation-adversarial` — an adversary fixture block whose tools each attempt one escape; every attempt is blocked (12/12), falsifiable (remove a guard → the matching attack goes green) |
+| **cross-block socket**: a block tries to dial another block's reach-back socket (the path is host-derived from the trusted id; a block cannot name another's) — refused | ✅ `security-block-isolation-adversarial` (socket attacks) |
+| **db cross-schema**: a storing block actively tries another fiber's schema (`SET search_path`, `information_schema`/`pg_catalog` enumeration, `DROP` a schema it did not open, forging a name) — all refused | ✅ `security-block-isolation-adversarial` (schema attacks) |
 
 ## K. The golden faces (regression nets for "what the agent/client sees") ✅
 
@@ -189,8 +190,8 @@ inward golden — as koishi did); editing one to pass without an intended block-
 |---|---|
 | each of our blocks passes a **real DSH lifecycle** (install → boot → register → exercise → uninstall) via dsh-testkit, cross-platform, no skips | ✅ `make dsh-plugin-test` — the real blocks + demos, in `infra/dsh-acceptance/*.dsh-testkit.yaml`. **+ `smtp` (mail block) and `google-calendar` (the openapi supplier AS a block — was in-host Go, now a block with its own dsh test)** |
 | the shipped blocks **compose into a dsh group** (not just the synthetic group-compose demo) | ✏️ `real-blocks-group.dsh-testkit.yaml` — caldav + smtp in one `cordis:group`, both register; RED until the group entry exists |
-| ✏️ **reciprocity**: our substrate's loader loads a *dsh* block unchanged | spec written (red-by-design): `dsh-reciprocity` (e2e) — mount a foreign dsh block, its capability is usable in a session; RED until a foreign block is vendored + the reciprocal path wired |
-| ✏️ grab dsh's popular blocks/groups and mount them here; **ride the dsh marketplace** | `dsh-marketplace-install` (e2e, red-by-design) — search the marketplace → install a block → its tool is usable in a session; RED until the marketplace-backed install path is wired |
+| **reciprocity**: our substrate's loader loads a *dsh* block unchanged | ✅ `dsh-reciprocity` (e2e) — a foreign dsh block mounts through our loader unchanged (origin marked foreign, no elevated access), its capability is usable in a session, and a dsh GROUP composes through the loader too (4/4) |
+| grab dsh's popular blocks/groups and mount them here; **ride the dsh marketplace** | ✅ `dsh-marketplace-install` (e2e) — search (id + tools + seam filter) → install by id (origin=marketplace, sandboxed like any block, idempotent) → use in a session → uninstall; unknown id is a clean 4xx (9/9) |
 
 The demo third parties used as fixtures (koishi / everything / fsmcp) live in `infra/dsh-acceptance/` and
 are **never** shipped in a product image (excluded from the build context); dev mounts them for the
@@ -205,32 +206,40 @@ The externalize half is done (every capability is a block; blocks are sandboxed 
 work. Each item's "done" is a **behavioral** acceptance (the net stays green + a host-blindness marker),
 never "the code looks folded."
 
-1. **Fold the supplier layer onto the block mechanism — partially done; full unify is a large arc.**
-   *Correction (grounded 2026-09-14):* the typed `CalendarProxy`/`MailProxy` are **not** a star-topology
-   to delete — they are the seam *definition*, implemented by **three supplier kinds**: block
-   (`caldav`, sandbox_stdio → `blockCalendarProxy`), **openapi** (`google-calendar`, kind=openapi →
-   `calendarAdapter`, in-host HTTP), and **protocol** (SMTP → in-host). Collapsing the contract to a
-   generic `CallVerb` would break the openapi and protocol paths (they have no block to dial).
-   - **Done:** the *block* kind now serves its seam through the generic `blockseam.Provider` (CallVerb;
-     `blockCalendarProxy` delegates to it, §D green). That is the real, shippable fold increment.
-   - **The full "one mechanism for every seam"** requires externalizing the openapi engine and SMTP as
-     blocks too (so *every* supplier is a block behind CallVerb) — a much larger re-architecture, not a
-     deletion. Only then do the typed contracts, the `case "calendar"` literal, and the `smtp`
-     host-blindness residue actually go. This is a north-star arc to scope deliberately, not a quick
-     fold. `supplier-provider-agnostic` + §D remain the net at every step.
-2. **Host-blind to zero.** Today the host still names one block by literal (`smtp`). *Done when:* the
-   host-blind marker is 0 — host code names no block or protocol. Behavioral because a named block is one
-   the host treats specially, which the next pasted block silently misses.
-3. **credential-manager (credmgr) — largely done.** The vault-off-bespoke move is built and tested
-   (§G): secrets are sealed in credmgr's own db-block schema, block_connections is metadata-only, a
-   legacy row self-heals to credmgr via `resolveCreds`. *Remaining:* confirm no bespoke-vault path
-   still writes/reads credentials outside credmgr (part of the supplier-fold sweep, #1).
-4. **Collapse the ACL model** to "mounted, or not" and rewrite the two ✏️ specs in §C accordingly
-   (outcomes preserved).
-5. **The three adversarial security e2e** in §J (native-key theft, cross-block socket, db cross-schema).
-   These guard exactly the leak boundaries the whole native-key + per-schema + sandbox design exists for,
-   so each is written red-first against a boundary shown to leak without the guard.
-6. **dsh reciprocity + marketplace** (§L) — after the above.
+1. **Fold the supplier layer onto the block mechanism — SMTP and google-calendar are blocks now; one
+   in-host kind remains.** The typed `CalendarProxy`/`MailProxy` are the seam *definition*, not a
+   star-topology to delete.
+   - **✅ Done:** the *block* kind serves its seam through the generic `blockseam.Provider` (CallVerb).
+     **SMTP** is a sandbox block (protocol path retired, §2). **google-calendar** is a sandbox block
+     now too (#1, 2026-09-17): the HTTP to Google runs host-blind in the JS openapi engine, while the
+     host keeps the OAuth dance / per-op scope shortfall / token refresh (`adapters.OpenAPIBehavior`) —
+     admin-kind is decoupled from transport (`supplierKind` on spec-presence), so gcal reuses the whole
+     openapi connect/credform/CanPerform machinery with no ripple. ~40 gcal/booking e2e green.
+   - **Remaining:** owner-**uploaded** openapi suppliers (the owner pastes a spec for an arbitrary SaaS)
+     still run in-host through `calendarAdapter`/`internal/infra/openapi`. Collapsing the typed contracts
+     is possible only once those are blocks too (a generic openapi block loading the uploaded
+     spec+binding). That is the last fold, a north-star arc — not this change.
+2. **Host-blind to zero.** The `smtp` block literal is gone (SMTP externalization). What remains is the
+   `case "calendar"` / `case "mail"` **seam** literals (seam names, not block names — a seam is a
+   swappable capability), plus the dead protocol-create path retired in §2.
+3. **credential-manager (credmgr) — largely done.** Secrets are sealed in credmgr's own db-block schema,
+   block_connections is metadata-only, a legacy row self-heals via `resolveCreds` (§G). *Remaining:*
+   confirm no bespoke-vault path still writes/reads credentials outside credmgr.
+4. **✅ ACL additive bundles (2026-09-17) — as coexistence, not a collapse.** See §C: `acl-bundle-
+   additive` green; the subtractive `acl-block-matrix` / `block-enable-disable` stay unchanged (a
+   bundle-less code falls back to its role), so no ~600-spec rewrite. Upgrade-path proven by
+   `upgrade-bundle-includes` (the new `bundle_includes` table applies to a live volume; a pre-existing
+   flat bundle still resolves).
+5. **✅ The three adversarial security e2e (2026-09-17)** — §J: `security-block-isolation-adversarial`
+   12/12, an adversary fixture block attempting each escape, every attempt blocked, falsifiable.
+6. **✅ dsh reciprocity + marketplace (2026-09-17)** — §L: `dsh-reciprocity` 4/4 + `dsh-marketplace-
+   install` 9/9 (`registry.Unregister` added for runtime uninstall).
+
+### Microsite side
+- **✅ a microsite USES a block directly (2026-09-18)** — `microsite-block-widget`: an owner drops
+  `<BlockWidget tool=…/>` (SDK `useBlockTool` / `sdk-core` `callTool`); it runs the block over the
+  visitor's adopted session on the code-gated tool endpoint (same ACL as chat) and renders the result.
+  The non-chat complement to `AgentWidget` (which already reaches blocks through the LLM turn).
 
 ### Still owed on the microsite side (tracked with that workstream)
 - **wrapping runs no install scripts**: wrap a package carrying a `postinstall`; assert the script did
