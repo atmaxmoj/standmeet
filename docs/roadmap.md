@@ -19,10 +19,10 @@ corpus 数据形态**已经就是 vault**:三级 promotion(raw→wiki→output)�
 - 覆盖:sync-a…sync-k / sync-authoritative-prune / sync-e-links / note-refs-unified 等 e2e;唯一自认缺口 = importer 与 vault 自带脚本对齐(`#107` 拿真实本地 vault 手动验证)。
 - 相关具体项:`#151`(raw 分级/层级)、`#113`(`seo_indexed`→`published`,跟 vault `publish` 闸对齐)、`#114`(landing/reader 拆出)。
 
-### 1b · 检索侧(爬这张图) 🟡
+### 1b · 检索侧(爬这张图) ✅
 - ✅ `corpus_search`/`_read`/`_list` over Postgres 全文检索;`corpus_map` 导航**只爬树**(parent_id)。
-- 🟡 **爬网(graph retrieval)**:**1-hop 边walk已建**——`corpus_links` 顺 `note_refs` 出边 + 入边(backlinks),per-neighbor ACL(`corpus/usecase/corpus_lister_pg_links.go` `Links()`;工具 `corpus_links`/`corpus_map`/`corpus_grep`)。agent 想深入就对 neighbor 再调一次。**仍未做**:server 端 bounded-depth BFS + 跟全文检索合并排序。
-- → **设计 + 红先行测试计划已出**:[`docs/design/corpus-graph-retrieval.md`](corpus-graph-retrieval.md)(新 `corpus_walk` 工具/host_op:seed via Search + note_refs 扩展 + 每跳 ACL + fused rank)。
+- ✅ **爬网(graph retrieval)= agent 驱动,设计如此**:`corpus_links` 给一个节点的 1-hop 出边 + 入边(backlinks),每邻居过 ACL(`corpus/usecase/corpus_lister_pg_links.go` `Links()`);agent 顺 `[[links]]` 自己一跳跳深入(block instructions `retrieval-mcp.js:27-31` 明写)。多跳遍历是交给 agent 的 reasoning,不是缺口。
+- **决策(2026-09-18):不建 server 端单次 walk/rank**。相关性排序 = reasoning 归 agent,跟 1b"不用 vector、相关性=owner 写的链接"同源;server 替 agent 排 = 走回头路。详见决策记录 [`docs/design/corpus-graph-retrieval.md`](corpus-graph-retrieval.md)(只有访客 chat 往返延迟真咬人时,才考虑纯确定性 walk = 方案②,仍不排序)。
 - **决策已定**:**故意不用 vector/pgvector**——相关性 = owner 写的 `[[链接]]`,不是模型猜的语义距离。
 - 落地设计要补:BFS 深度/排序上限、ACL 怎么进 query(别爬到 role 不可见的 entry)、跟全文检索怎么合。
 - 相关:`#150`(output backlinks——output/writings 得跟 wiki 一样有边表,图才连得起来)。
