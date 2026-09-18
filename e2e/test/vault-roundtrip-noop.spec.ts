@@ -36,9 +36,15 @@
 // `roundTrip(fixture) === fixture` by construction) — deterministic everywhere, and still red the
 // moment the export mapper changes the covered constructs.
 //
-// The real-vault audit is preserved, opt-in: set `REAL_VAULT=/path/to/vault` to run the original
-// [[stand-in-is-politer-than-reality]] check against live shapes the synthetic fixture cannot invent.
-// Regenerate the fixture with the one-shot bootstrap (see git history of zz-bootstrap-vault-fixture).
+// The real-vault audit is preserved, opt-in: point `REAL_VAULT` at a **COPY / snapshot** of the real
+// vault (`cp -a ~/Develop/writing/notes /tmp/vault-audit-snapshot`), **not the live vault**, to run
+// the original [[stand-in-is-politer-than-reality]] check against real shapes the synthetic fixture
+// cannot invent. Why a copy and not the live path: this spec is **read-only** on `VAULT_DIR` — only
+// `readVault` touches it, the round trip exports into an in-memory zip and diffs in memory, and
+// import lands in a `resetInstance()` TEST instance (never prod) — so the live vault would not be
+// mutated. A copy is still the right default: it freezes the audit input (the live vault drifts under
+// you, flipping this red with zero code change) and stays safe against any future edit to this test.
+// Regenerate the synthetic fixture with the one-shot bootstrap (see git history of zz-bootstrap-vault-fixture).
 
 import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
@@ -58,7 +64,8 @@ const OWNER = {
 };
 
 // VAULT_DIR — the committed synthetic fixture by default (deterministic, safe, present everywhere);
-// point REAL_VAULT at a live vault to run the audit against real shapes instead.
+// point REAL_VAULT at a COPY/snapshot of the real vault (not the live path — read-only here, but a
+// copy freezes the input and is future-proof; see the header) to audit against real shapes instead.
 const VAULT_DIR = process.env['REAL_VAULT'] ?? join(__dirname, '..', 'fixtures', 'vault-sample');
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });

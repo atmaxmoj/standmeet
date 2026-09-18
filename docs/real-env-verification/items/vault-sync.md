@@ -2,7 +2,7 @@
 
 - **Module:** Import the real vault at scale. Every folder routes to the right genre, the real frontmatter zoo parses without aborting the batch, the nested tree and folder-notes reproduce, re-sync and moves reconcile idempotently, an authoritative sync prunes what the vault no longer has, hidden files bucket correctly, export round-trips, and the importer's view agrees with the vault's own scripts.
 - **Surface:** `/admin/writings` → the Obsidian import and export bar, and `/admin/obsidian` for vault stats.
-- **Real dep:** The real vault at its real path, with its real hidden directories and its own scripts. No external credential.
+- **Real dep:** A **copy/snapshot** of the real vault — `cp -a ~/Develop/writing/notes /tmp/vault-audit-snapshot`, then `REAL_VAULT=/tmp/vault-audit-snapshot make test-asis SPEC=vault-roundtrip-noop` — **not the live vault path**. The roundtrip spec is read-only on the dir (it exports into an in-memory zip and imports into a `resetInstance()` test instance, never prod), so the live vault would not be mutated — but a copy is the standing default anyway: it freezes the audit input (the live vault drifts, flipping the check red with zero code change) and stays safe against any future edit to the test. No external credential. Keeps its real hidden directories and its own scripts.
 - **Exclusive:** none
 - **Backing e2e:** `sync-a-routing` · `sync-b-tree` · `sync-c-title` · `sync-d-publish` · `sync-f-frontmatter` · `sync-g-hidden` · `sync-h-reconcile` · `sync-i-raw` · `sync-j-export` · `sync-k-raw-tree` · `sync-duplicate-title-collapse` · `corpus-sync-rename` · `corpus-tree-integrity` · `admin-obsidian`.
 
