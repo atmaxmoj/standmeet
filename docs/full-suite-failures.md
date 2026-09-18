@@ -1,3 +1,85 @@
+# Full-suite failures — round 2026-09-12 · RUN 2 (post-merge, HEAD `24c97fdc2`)
+
+**1600 passed · 83 failed**, stopped early on purpose. Log: `scratchpad/full2.log`.
+
+**Zero product defects.** All 83 trace to the harness or the machine, and every one of the 77
+distinct spec files was re-run green. The round is kept because *how* it lied is the useful part.
+
+## The two causes
+
+### 1. Docker overlayfs snapshot loss → 74 reds, one cascade
+
+A container created after the damage cannot have its rootfs **mounted**. The process inside serves
+fine (its files were opened before the mount was lost), but anything needing a fresh mount fails:
+
+```
+open /var/lib/docker/rootfs/overlayfs/<container-id>: no such file or directory
+```
+
+`docker exec` is that path — and HEALTHCHECK runs through exec. So the container answers HTTP 200
+while being marked `unhealthy`, compose refuses to call it up, and `dev-restart-svc` errors out.
+
+**Why it landed on `upgrade-*` and nowhere else**: those specs test a deploy, and a deploy is
+`restartBackend()`. Stopping a container unmounts its rootfs; starting it must mount it again. They
+are the only specs in ~1790 that re-mount anything — every other spec rides the mount established
+at boot. So the damage was invisible for 1600 tests and then took the whole tail (74) with it.
+It has nothing to do with the database the upgrade specs are actually about.
+
+**Cause, honestly**: two candidates, not separable from here. `b58af8157` — main's own commit,
+predating any prune in this worktree — already records "Docker overlayfs layer loss from **disk
+pressure**", and this machine has sat at 91–94% disk throughout. A `docker image prune -af` run
+against a live stack is the other, and `docker system df` began reporting
+`NotFound: snapshot … does not exist` right after one. Treat disk pressure as the chronic condition
+and the prune as a trigger; either can strand a snapshot alone.
+
+Recovery that worked, twice: `dev-down` → `docker rmi` the backend image → `dev-up`. A daemon
+restart is the general fix and was not needed.
+
+### 2. `global-teardown` deleted the shipped blocks' storage → the rest
+
+It dropped **every** `mcp_*` schema after a run, reasoning (in its own comment) that
+"`BlockStorageInit` reprovisions at boot, so the next run rebuilds whatever it needs". True only if
+there IS a boot: `make test-asis` restarts nothing, and `dev-up` leaves a healthy backend alone.
+
+Presentation: `policy set: 500` → `relation "mcp_calendar_book.records" does not exist`. The
+booker's store holds its CONFIG, so six booking specs died pointing at booking.
+
+The tell that nailed it: two reds in an earlier batch (`resume-single-source`,
+`supplier-agent-tools`) sat alphabetically **before** `upgrade-*` in the same run, and the upgrade
+specs' own restart re-provisioned the schema for everything after them. **Same run, same code: red
+before the restart, green after.** State, not logic.
+
+Fixed: the teardown drops only what leaked — a schema belonging to a block that ships is not its to
+delete. Shipped ids are derived from `backend/blocks/*/manifest.yaml`, never listed, so adding a
+block cannot silently arm this again. Verified as the bug presented: two `test-asis` runs back to
+back, no restart; the second — the one that always failed — is 6/0.
+
+**Why it survived this long: the file was never linted.** `e2e`'s script scanned `test/ fixtures/`;
+`global-teardown.ts` and `playwright.config.ts` sat outside the gate. Widened to `*.ts`, which
+immediately surfaced a real violation inside it (a relative `./fixtures/…` import the alias rule
+forbids).
+
+## What this round is worth keeping for
+
+Three attributions were made before the right one, and two were wrong:
+
+| said | why it was wrong |
+|---|---|
+| host load | `load=5.74` at the moment of failure |
+| memory / swap 97% full | every other container came up Healthy; real starvation does not kill exactly one |
+| overlayfs snapshot loss | — the health log said so on the first read |
+
+Both wrong calls came from seeing a frightening number (`load=125` in a neighbouring round, `swap
+97%` here) and reasoning forward from it, instead of reading the symptom. `docker inspect
+<c> --format '{{json .State.Health}}'` answered it immediately, and the memory note saying exactly
+that had been written earlier the same day. **Writing it down and doing it are a full round apart.**
+
+Second: per-spec isolation held all along — each spec resets its own instance. What broke was
+isolation **between runs**, through a teardown that is shared state by construction. An assumption
+that is true at one grain and false at the next is not visible from either grain alone.
+
+---
+
 # Full-suite failures — round 2026-09-12 (branch `plugin-model`, rebased onto `origin/main`)
 
 **1787 passed · 23 failed · ~6h.** HEAD `b43bb0559`, rebased onto `b58af8157` (22 commits).
