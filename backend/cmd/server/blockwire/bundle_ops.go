@@ -56,6 +56,16 @@ func BlockResource(d *deps.Runtime) dispatcher.Resource {
 			Reach:       fp.OwnerAction(),
 			Invoke:      installFixture(d),
 		},
+		{
+			ID: "blocks.marketplace_search",
+			Description: "Search the dsh block marketplace by query (id / tool) and optional " +
+				"seam. Each hit carries an install id + the tools it provides; install by id " +
+				"with blocks.install_fixture (ecosystem 'marketplace').",
+			InputSchema: marketBlockSearchSchema,
+			Kind:        fp.Read,
+			Reach:       fp.OwnerRead(),
+			Invoke:      searchMarketplaceBlocks(d),
+		},
 		blockGraphOp(d),
 	}...)}
 }
@@ -155,11 +165,19 @@ var (
 	fixtureInstallSchema = json.RawMessage(`{
 		"type":"object",
 		"properties":{
-			"fixture":{"type":"string","description":"Bundled fixture id (e.g. dsh-echo)."},
-			"ecosystem":{"type":"string","description":"'dsh' marks it foreign."},
+			"fixture":{"type":"string","description":"Bundled fixture id (e.g. dshecho)."},
+			"ecosystem":{"type":"string","description":"'dsh' foreign; 'marketplace' installed."},
 			"group":{"type":"boolean","description":"Install every member of a fixture group."}
 		},
 		"required":["fixture"]
+	}`)
+
+	marketBlockSearchSchema = json.RawMessage(`{
+		"type":"object",
+		"properties":{
+			"query":{"type":"string","description":"Match against block id / tool names."},
+			"seam":{"type":"string","description":"Filter by seam/capability (optional)."}
+		}
 	}`)
 
 	bundleNameSchema = json.RawMessage(`{

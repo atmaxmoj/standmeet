@@ -160,6 +160,8 @@ const GOLDEN_TOOLSET: readonly string[] = [
   // blocks.install_fixture -- install a bundled example / foreign-ecosystem (dsh) block by
   // name; the reciprocity + marketplace demos mount foreign blocks through the same loader.
   'blocks.install_fixture',
+  // blocks.marketplace_search -- search the dsh block marketplace (id/tool + seam filter).
+  'blocks.marketplace_search',
   // blocks.graph -- the dependency graph (provides/requires + what relies on each block); the
   // fiber view draws it and locks the Active toggle while something relies on a block.
   'blocks.graph',

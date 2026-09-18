@@ -70,6 +70,12 @@ func (h *Handlers) mountBlockPanel(r chi.Router, face *dispatcher.Face) {
 		// The dependency graph (fiber view). Declared before /{id} so chi doesn't read
 		// "graph" as a block id.
 		r.Get("/graph", h.dispatchOp(face, "blocks.graph", emptyArgs, jsonOK))
+		// The dsh block marketplace: search a catalog of installable dsh-ecosystem blocks.
+		r.Get("/marketplace/search", h.dispatchOp(face, "blocks.marketplace_search",
+			queryArgsRenamed(map[string]string{"q": "query", "seam": "seam"}), jsonOK))
+		// Uninstall a runtime-installed block (marketplace / dsh / fixture). blocks.delete
+		// unregisters it; a POST alias sits beside the DELETE for the same op.
+		r.Post("/{id}/uninstall", h.dispatchOp(face, "blocks.delete", urlParamArgs("id"), jsonOK))
 		r.Post("/", h.dispatchOp(face, "blocks.install", bodyArgs, jsonCreated))
 		// Install a bundled example / foreign-ecosystem block by name (reciprocity + demos).
 		r.Post("/install-fixture",

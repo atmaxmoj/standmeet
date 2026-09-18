@@ -28,21 +28,44 @@ func (a blockOps) Delete(ctx context.Context, ownerID, id string) error {
 	// refused anything the registry knew. An installed block is origin=owner, so the
 	// panel offered a delete button that always failed — a control that lies.
 	if a.ownerInstalled(id) {
-		// Refuse if a fiber relies on this block: it provides a seam another installed block
-		// requires. Delete drops the schema and the row — irreversible — so a relied-upon block
-		// must not go, or its dependents are left with an unmet dependency and no undo. This is
-		// stronger than the disable toggle's relied-lock (that switch is reversible; this is not).
-		dep := plugin.RequiredBy(currentManifestSet(ctx, a.assembly, ownerID), id)
-		if len(dep) > 0 {
-			return fp.BadInput(fmt.Sprintf(
-				"cannot delete %q: %s relies on it — remove the dependent first",
-				id, strings.Join(dep, ", ")))
-		}
-		return a.uninstall(ctx, ownerID, id)
+		return a.deleteOwnerInstalled(ctx, ownerID, id)
+	}
+	// A registry-mounted, runtime-installed block (marketplace / dsh / fixture) is
+	// process-global, not owner-scoped, so it is not hidden by dropping a per-owner row —
+	// it must be unregistered from the live registry. Built-in / managed origins are not
+	// Deletable and fall through to the refusal below.
+	if a.runtimeInstalled(id) {
+		return a.uninstallRegistered(ctx, ownerID, id)
 	}
 	if !a.deletable(id) {
 		return fp.BadInput("this block is built in and cannot be deleted")
 	}
+	return a.deleteOwnerSkill(ctx, ownerID, id)
+}
+
+// runtimeInstalled — a registry-mounted block whose origin is removable (marketplace / dsh
+// / fixture / owner). Owner-installed is handled by ownerInstalled above; this catches the
+// process-global ones.
+func (a blockOps) runtimeInstalled(id string) bool {
+	origin, ok := a.registry.OriginOf(id)
+	return ok && origin.Deletable()
+}
+
+// deleteOwnerInstalled — uninstall an owner-installed block, refusing if a fiber relies on
+// it: it provides a seam another installed block requires. Delete drops the schema and the
+// row — irreversible — so a relied-upon block must not go, or its dependents are left with
+// an unmet dependency and no undo (stronger than the reversible disable toggle's lock).
+func (a blockOps) deleteOwnerInstalled(ctx context.Context, ownerID, id string) error {
+	dep := plugin.RequiredBy(currentManifestSet(ctx, a.assembly, ownerID), id)
+	if len(dep) > 0 {
+		return fp.BadInput(fmt.Sprintf(
+			"cannot delete %q: %s relies on it — remove the dependent first",
+			id, strings.Join(dep, ", ")))
+	}
+	return a.uninstall(ctx, ownerID, id)
+}
+
+func (a blockOps) deleteOwnerSkill(ctx context.Context, ownerID, id string) error {
 	if err := a.skills.Delete(ctx, ownerID, id); err != nil {
 		return fmt.Errorf("delete owner skill: %w", err)
 	}
@@ -75,6 +98,21 @@ func (a blockOps) uninstall(ctx context.Context, ownerID, id string) error {
 	}
 	if held > 0 {
 		a.raiseDataLoss(ctx, ownerID, id, held)
+	}
+	return nil
+}
+
+// uninstallRegistered — remove a registry-mounted runtime block (marketplace / dsh /
+// fixture). Drop its schema (idempotent — most such blocks hold none), unregister it from
+// the live registry so it leaves assembly and the panel at once, then clear any persisted
+// row best-effort (these are typically registry-only, so Uninstall is a no-op).
+func (a blockOps) uninstallRegistered(ctx context.Context, ownerID, id string) error {
+	if err := a.store.Drop(ctx, blockstore.KindMCP, id); err != nil {
+		return fmt.Errorf("drop block schema: %w", err)
+	}
+	a.registry.Unregister(id)
+	if err := a.assembly.Uninstall(ctx, ownerID, id); err != nil {
+		slog.Default().Warn("uninstall registered block row", "block", id, "err", err)
 	}
 	return nil
 }

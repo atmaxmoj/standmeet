@@ -74,13 +74,17 @@ type fixtureInstallArgs struct {
 	Group     bool   `json:"group"`
 }
 
-// originFor — a dsh-ecosystem fixture is marked foreign (OriginDsh); anything else is a
-// local fixture (OriginFixture).
+// originFor — a marketplace install is OriginMarketplace, a dsh-ecosystem fixture is
+// marked foreign (OriginDsh), anything else is a local fixture (OriginFixture).
 func originFor(ecosystem string) registry.Origin {
-	if ecosystem == "dsh" {
+	switch ecosystem {
+	case "marketplace":
+		return registry.OriginMarketplace
+	case "dsh":
 		return registry.OriginDsh
+	default:
+		return registry.OriginFixture
 	}
-	return registry.OriginFixture
 }
 
 // fixtureManifestsFor — the manifest(s) a request resolves to (a group → every member).

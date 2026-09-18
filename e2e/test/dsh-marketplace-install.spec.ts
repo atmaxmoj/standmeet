@@ -14,6 +14,7 @@ import type { APIRequestContext } from '@playwright/test';
 import { claim, login } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { issueSession } from '@/fixtures/visitor';
+import { issueCodeWithSkills } from '@/fixtures/agent-skills-grant';
 import { sessionToolNames, findBlock } from '@/fixtures/blocks';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
@@ -21,9 +22,11 @@ const OWNER = {
   email: 'marketplace@example.com', password: 'correct-horse-battery-staple',
   handle: 'mktowner', fullName: 'Marketplace Owner',
 };
-// A representative dsh-ecosystem block used as the marketplace witness (a self-contained tool block,
-// no external server needed — so its capability can actually be exercised once installed).
-const ECHO = { id: 'dsh-echo', tool: 'echo' };
+// A representative dsh-ecosystem block used as the marketplace witness. Id is hyphen-free —
+// a discovered block's tools surface sanitized as <id>_<tool> (dshecho_echo).
+const ECHO = { id: 'dshecho', tool: 'echo' };
+// toolName — how a discovered block's tool surfaces to a session: <id>_<tool>.
+const toolName = (id: string, tool: string): string => `${id}_${tool}`;
 
 let admin: APIRequestContext;
 let csrf = '';
@@ -86,8 +89,8 @@ test.describe('dsh marketplace · install (success / failure / idempotency)', ()
 test.describe('dsh marketplace · use / confine / remove', () => {
   test('an installed marketplace block’s capability is usable in a visitor session', async () => {
     await install(admin, csrf, ECHO.id);
-    const tool = `mcp__${ECHO.id}__${ECHO.tool}`;
-    const code = await issueCodeGranting(admin, csrf, 'MKT-USE', [tool]);
+    const tool = toolName(ECHO.id, ECHO.tool);
+    const code = await issueCodeGranting(admin, csrf, 'MKT-USE', [ECHO.id]);
     const sess = await issueSession(admin,
       { handle: OWNER.handle, mode: 'code', code, visitor_name: 'V' });
     expect(await sessionToolNames(admin, sess.session_token), 'its tool is exposed').toContain(tool);
@@ -107,8 +110,8 @@ test.describe('dsh marketplace · use / confine / remove', () => {
   // ── remove ──
   test('uninstall a marketplace block → its tool disappears from new sessions', async () => {
     await install(admin, csrf, ECHO.id);
-    const tool = `mcp__${ECHO.id}__${ECHO.tool}`;
-    const code = await issueCodeGranting(admin, csrf, 'MKT-RM', [tool]);
+    const tool = toolName(ECHO.id, ECHO.tool);
+    const code = await issueCodeGranting(admin, csrf, 'MKT-RM', [ECHO.id]);
     const before = await issueSession(admin,
       { handle: OWNER.handle, mode: 'code', code, visitor_name: 'B' });
     expect(await sessionToolNames(admin, before.session_token)).toContain(tool);
@@ -131,7 +134,7 @@ async function search(
   request: APIRequestContext, q: string, filter: Record<string, string> = {},
 ): Promise<MarketHit[]> {
   const qs = new URLSearchParams({ q, ...filter }).toString();
-  const res = await request.get(`${BACKEND}/api/admin/marketplace/search?${qs}`);
+  const res = await request.get(`${BACKEND}/api/admin/blocks/marketplace/search?${qs}`);
   if (res.status() !== 200) throw new Error(`marketplace search: ${res.status()}`);
   return (await res.json() as { results?: MarketHit[] }).results ?? [];
 }
@@ -139,9 +142,11 @@ async function search(
 async function installStatus(
   request: APIRequestContext, csrf: string, id: string,
 ): Promise<number> {
+  // Installing a marketplace block = mounting the dsh catalog block by id under
+  // OriginMarketplace, through the same loader as any block.
   // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: install from the marketplace, the capability this spec drives
-  const res = await request.post(`${BACKEND}/api/admin/marketplace/install`, {
-    headers: { 'X-Csrftoken': csrf }, data: { id },
+  const res = await request.post(`${BACKEND}/api/admin/blocks/install-fixture`, {
+    headers: { 'X-Csrftoken': csrf }, data: { fixture: id, ecosystem: 'marketplace' },
   });
   return res.status();
 }
@@ -165,13 +170,11 @@ async function listBlocks(request: APIRequestContext, _csrf: string): Promise<Bl
   return (await res.json() as { blocks?: BlockRow[] }).blocks ?? [];
 }
 
+// issueCodeGranting — grant the installed block(s) by id on a role's skill (the ACL grant
+// lives on the role, as acl-block-matrix grants a block); the block exposes its tools.
 async function issueCodeGranting(
-  request: APIRequestContext, csrf: string, code: string, tools: string[],
+  request: APIRequestContext, csrf: string, label: string, grantBlocks: string[],
 ): Promise<string> {
-  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: grant the installed block's tool to a visitor code this spec drives
-  const res = await request.post(`${BACKEND}/api/admin/codes`, {
-    headers: { 'X-Csrftoken': csrf }, data: { code, label: 'marketplace', granted_skills: tools },
-  });
-  if (res.status() !== 201) throw new Error(`issue code: ${res.status()}`);
+  const { code } = await issueCodeWithSkills(request, csrf, { label, granted_skills: grantBlocks });
   return code;
 }

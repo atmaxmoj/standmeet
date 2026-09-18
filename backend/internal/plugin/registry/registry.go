@@ -69,6 +69,23 @@ func (r *Registry) RegisterOrigin(c Fiber, origin Origin) error {
 	return nil
 }
 
+// Unregister —— remove a runtime-installed fiber so it stops being assembled and stops
+// appearing in the panel. Used by uninstall for the registry-mounted origins (marketplace
+// / dsh / fixture), which are process-global rather than owner-scoped and so cannot be
+// hidden by dropping a per-owner installed_blocks row. Idempotent: an id that is not
+// registered is a no-op. A re-install afterward registers cleanly (first-wins no longer
+// applies once the id is gone).
+func (r *Registry) Unregister(id string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if !r.seen[id] {
+		return
+	}
+	delete(r.seen, id)
+	delete(r.origin, id)
+	r.fibers = slices.DeleteFunc(r.fibers, func(c Fiber) bool { return c.ID() == id })
+}
+
 // SetEnableGate —— composition root injects the owner-enable resolver (backed by the
 // block_settings repo). Set once at boot; nil-safe (unset → everything on).
 func (r *Registry) SetEnableGate(g EnableGate) {
