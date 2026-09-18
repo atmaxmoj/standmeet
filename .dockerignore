@@ -17,6 +17,10 @@ infra/*
 # node_modules is excluded by the global rule below (installed in the image, not carried in).
 # infra/dsh-acceptance (the koishi/everything/fsmcp demos) stays excluded — dev-only test fixtures.
 !infra/plugins
+# ...but never the dsh-testkit run evidence: local `make dsh-plugin-test` output (runs/evidence),
+# not product code, and it carries secret-shaped strings the image-secrets scan rejects. It must
+# never bake into /srv/plugins in the image.
+infra/plugins/**/.dsh-testkit
 
 # im-bridge also uses the root context (it needs @standmeet/sdk-core, which lives under sdk/ —
 # outside its own directory). Pull in only the source and pnpm's three manifests; node_modules
