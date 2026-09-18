@@ -12,16 +12,16 @@
 
 corpus 数据形态**已经就是 vault**:三级 promotion(raw→wiki→output)、derived-path(parent_id 树,reparent 免费,无 path 列)、backlinks 声明式重建边表(`wiki_refs`/`writing_refs`)。所以大块一不是"重建 corpus",是"**把 vault 的三个面(喂图/爬图/渲染)补齐**"。
 
-### 1a · 同步侧(喂图) 🟡(建了最简版,大半没测透)
-- 🟡 `writings` 一层有 export(zip)/ import(整 vault) 手动批量(~1200 行:`usecases/obsidian/{import,export,frontmatter,attachments,import_parse}` + `routes/admin/obsidian.go`)。**但只是最简实现,测试薄**:6 个 e2e 只覆盖了 publish 闸跳过 / attachment roundtrip / 重复 import 全 skip / UI 按钮。**没测的关键不变量**:web-edits-win(web 改后 import 别覆盖)、frontmatter 字段映射(excerpt/cover_*/visibility/tags)、body `[[链接]]`→`writing_refs` 抽取、update-path(同 `obsidian_source_path` → 更新而非新建)、错误分支(坏 frontmatter/缺附件/坏路径)。→ **扩 wiki/output 前,先把现有 writings sync 测硬**。
-- ⬜ **wiki / output 没接同步**(`domain/obsidian.go` 接口本就 genre-generic,能挂上但没挂)。
-- ⬜ **folder-note 折叠没实现**:现在裸 `basename(path)` 当 slug,遇到 `foo/foo.md` 会造重复 `foo/foo`。规则:`basename(file)==basename(dir)` → 该文件是 folder note,其 node path = 目录路径。这是 wiki/output 同步 + 层级的**前置**。
-- ⬜ **open question(vault 里没答)**:wiki 同步时 `parent_id` 具体怎么从 vault 文件夹树推。
+### 1a · 同步侧(喂图) ✅ 机制建齐(2026-09 重写为多 genre sync,取代原 writings-only 最简版)
+- ✅ **多 genre `SyncVault`**:vault 顶层文件夹按 genre 路由进 `corpus_notes` 节点树(`backend/internal/corpus/obsidian/sync.go`,`corpGenres = {wiki, subjectivity}` + raw)。writings 一层另有 export(zip)/import 手动批量。**output 无对应文件夹**——它是 promote-derived,不从 vault 喂,是设计如此不是缺口。
+- ✅ **folder-note 折叠已实现**:`basename(file)==basename(dir)` → 该文件是 folder note,node path = 目录路径(`sync_tree.go` `nodePathFor`);中间段缺 folder-note 自动补空占位。
+- ✅ **open question 已答**:wiki 的 `parent_id` 从 vault 文件夹树推(folder tree → node path,同 `nodePathFor`)。
+- 覆盖:sync-a…sync-k / sync-authoritative-prune / sync-e-links / note-refs-unified 等 e2e;唯一自认缺口 = importer 与 vault 自带脚本对齐(`#107` 拿真实本地 vault 手动验证)。
 - 相关具体项:`#151`(raw 分级/层级)、`#113`(`seo_indexed`→`published`,跟 vault `publish` 闸对齐)、`#114`(landing/reader 拆出)。
 
-### 1b · 检索侧(爬这张图) 🚧 ⬜
-- ✅ `corpus_search`/`_read`/`_list` over Postgres 全文检索;导航**只爬树**(parent_id)。
-- ⬜ **爬网(graph retrieval)**:搜到 hit → 顺 `wiki_refs` 出边(cites / read-next)+ 入边(backlinks)做 bounded-depth BFS,Obsidian-style search。**边已经在数据里**,纯"检索时跟着走"。
+### 1b · 检索侧(爬这张图) 🟡
+- ✅ `corpus_search`/`_read`/`_list` over Postgres 全文检索;`corpus_map` 导航**只爬树**(parent_id)。
+- 🟡 **爬网(graph retrieval)**:**1-hop 边walk已建**——`corpus_links` 顺 `note_refs` 出边 + 入边(backlinks),per-neighbor ACL(`corpus/usecase/corpus_lister_pg_links.go` `Links()`;工具 `corpus_links`/`corpus_map`/`corpus_grep`)。agent 想深入就对 neighbor 再调一次。**仍未做**:server 端 bounded-depth BFS + 跟全文检索合并排序。
 - **决策已定**:**故意不用 vector/pgvector**——相关性 = owner 写的 `[[链接]]`,不是模型猜的语义距离。
 - 落地设计要补:BFS 深度/排序上限、ACL 怎么进 query(别爬到 role 不可见的 entry)、跟全文检索怎么合。
 - 相关:`#150`(output backlinks——output/writings 得跟 wiki 一样有边表,图才连得起来)。
@@ -63,16 +63,17 @@ corpus 数据形态**已经就是 vault**:三级 promotion(raw→wiki→output)�
 | **A**(C0+C1–C4) | 先写全红测试 → PluginManifest / mcpclient stdio+transport / pluginCapability 泛化 / boot 发现接 composition root | ✅ `#146/#136-139` |
 | **B** | connector 层(Nango-proxy) | ✅ `#140`(本 session 审干净、146/146) |
 | **C** | skill = Agent Skills(SKILL.md + 渐进加载) | ✅ `#141`(~90%,最轻) |
-| **D · 解散** | ACL 已成(session 建立时发现过滤);**观察器 = 设备/系统可观测面(小 Zabbix:health/CPU/内存/磁盘/服务/uptime)→ admin/system `#101`,把现在的假硬编码换成真的**;**secret-scan 并进 connector(B)** | 🟡 **唯一 pending `#142`**——ACL/secret-scan 已归位,实际只剩 `#101` 真观测面 |
+| **D · 解散** | ACL 已成(session 建立时发现过滤);观察器 = 设备/系统可观测面(小 Zabbix);secret-scan 并进 connector(B) | ✅ `#101` 观测面已真实(gopsutil host disk/mem/load + cgroup CPU/mem + 真 db/redis/storage/search ping,`cmd/server/port/sysinfo.go`);ACL/secret-scan 已归位 |
 | **E** | as-MCP-server facade(聚合插件 owner 工具成单端点) | ✅ `#143` |
 | **F** | MCP Apps UI(`ui://` 卡片在 chat 渲染) | ✅ `#134` |
 | **(G)** | (task 里无 G,跳过/未编号) | — |
 | **H** | 管理面(origin + enable/disable + admin 能力面板) | ✅ `#145` |
 
-→ **层①实际只欠 Phase D**,而 D 主要是把观察器归到 `#101`、secret-scan 并进 B——收尾性,不是大工程。
+→ **层① 已齐**(Phase D 的 `#101` 观测面已真实,见上表)。
 
-### 层② · "替换"迁移 —— **决策点 P.2 明写"迁移留到后期,先并存"**,这才是块二的大头 ⬜
-机制(层①)搭好了,但**真正的外置迁移没做**:me/seo/codes + jobs/resume/applications 仍 `MustRegister` 进核心 capreg。要做的是把每个能力**迁出成独立标准 MCP server**、`ListByOrigin(builtin)` 数到零、删 `MustRegister` + 进程内 registry。feature floor(P.1c:横切 gating/state 全留 core)不得削减,每条有 spec 看守。**结构性大、牵一发动全身。**
+### 层② · "替换"迁移 —— **决策点 P.2 明写"迁移留到后期,先并存"** 🟡(eiab 2026-09 做了大半)
+机制(层①)搭好后,**everything-is-a-block(2026-09-13→18)把 visitor/leaf 能力 + connector 全外置成沙箱 JS block**:`ask_visitor`/`summarize_conversation`/`calendar.book`/`corpus.retrieval`/`mail.send` + `caldav`/`smtp`/`google-calendar`/`telegram` 现在都是 `backend/blocks/*/manifest.yaml` + JS server,无 per-capability Go;`me`/`seo`/`codes` 也不再是 registry fiber,而是域 `fp.Op` 经 convergence/dispatcher 投影。`backend/internal/connector/` 已清零(0 Go 文件)。
+**仍在核心(未外置)**:`jobs`/`resume`/`applications`(`owner/jobs` 的 `OwnerFibers`,仍 `MustRegister`)+ 几个 loader fiber。因此 `MustRegister`(`plugin/registry/registry.go`)+ 进程内 registry **仍在**,builtin 计数未到零(`ListByOrigin` 符号已删,origin 过滤走 `shipped.go` `Shipped()`/`OriginOf`)。feature floor(P.1c:横切 gating/state 全留 core)不得削减,每条有 spec 看守。**剩下的外置是收尾,不再牵一发动全身。**
 
 ### 层③ · agent-as-injectable-driver —— Bridge 抽象 ✅,runtime 形态 🚧
 - ✅ **Driver/Bridge 接口已抽**(`#153` agentcore 抽 Driver、`#154` eval 做成忠实 mini-host)——决策点 P.13 的结构实现落地了。
