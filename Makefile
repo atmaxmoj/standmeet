@@ -7,7 +7,7 @@
 # incremental development.
 
 .PHONY: lint secrets secrets-image release-build release-assert-stripped release-assert-multiarch release-assert-version release-push release-gc release-repro release-repro-logs release-repro-down backend-lint backend-test backend-no-mock app-lint sdk-lint e2e-lint env-lint updater-e2e im-bridge-lint im-bridge-test im-bridge-up im-bridge-logs
-.PHONY: deps stack stack-init stack-ready stack-test stack-retire dev dev-up dev-rebuild dev-down prod-up prod-down prod-logs build clean test test-fresh test-only test-asis dsh-plugin-test test-red test-captcha test-boundary mobile-shots mobile-shots-asis archive-failures sdk-build builder-vendor dev-rebuild-builder dev-restart-gotenberg app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-blocks eval-owner-mcp verify-round schema-drift i18n-keys
+.PHONY: deps stack stack-init stack-ready stack-test stack-retire dev dev-up dev-rebuild dev-down prod-up prod-down prod-logs build clean test test-fresh test-only test-asis dsh-plugin-test test-red test-captcha test-boundary test-dsh-live mobile-shots mobile-shots-asis archive-failures sdk-build builder-vendor dev-rebuild-builder dev-restart-gotenberg app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-blocks eval-owner-mcp verify-round schema-drift i18n-keys
 
 # ── per-checkout dev stack ──────────────────────────────────────
 # One machine, N checkouts, N stacks. Without this every worktree drives the SAME
@@ -1275,6 +1275,15 @@ test-captcha:
 test-boundary:
 	@AGENT_TURN_TIMEOUT=5 FORCE_FINAL_TIMEOUT=3 $(MAKE) dev-up
 	@cd e2e && BOUNDARY_TIGHT=1 pnpm exec playwright test $(if $(SPEC),$(SPEC),agent-turn-deadline); \
+		st=$$?; cd .. && $(MAKE) archive-failures; exit $$st
+
+# test-dsh-live —— the real dsh block-marketplace connection, opt-in (default-skipped). Hits
+# REAL npm (registry.npmjs.org) to prove the upstream blocks.marketplace_search depends on is
+# live and shaped as our client assumes (@deepseek-ai/cordis-plugin-* exist, packages resolve to
+# an installable tarball). Network-dependent, so kept out of the default suite; DSH_MARKET_LIVE
+# gates the skip so it never sits as a permanent red inside `make test` (the captcha-case lesson).
+test-dsh-live:
+	@cd e2e && DSH_MARKET_LIVE=1 pnpm exec playwright test $(if $(SPEC),$(SPEC),dsh-market-live); \
 		st=$$?; cd .. && $(MAKE) archive-failures; exit $$st
 
 # test-red —— run one spec against the images that are ALREADY RUNNING. No dev-up, no rebuild.
