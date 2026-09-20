@@ -81,6 +81,7 @@ export interface CodesHook {
   updateQuotas: (id: string, input: QuotasInput) => Promise<void>;
   setGhostEvidence: (id: string, value: boolean | null) => Promise<void>;
   setMicrosite: (id: string, slug: string) => Promise<void>;
+  setBundle: (id: string, bundle: string) => Promise<void>;
 }
 
 // codesStore —— a module singleton; fetched once, shared by every component.
@@ -105,6 +106,7 @@ export function useCodes(): CodesHook {
     updateQuotas,
     setGhostEvidence,
     setMicrosite,
+    setBundle,
   };
 }
 
@@ -156,6 +158,19 @@ async function setMicrosite(id: string, slug: string): Promise<void> {
   );
   codesStore.getState().mutate((prev) => (prev ?? []).map(
     (c) => c.id === done.code_id ? { ...c, microsite_slug: done.microsite_slug } : c));
+}
+
+// setBundle —— bind an EXISTING code to a group of blocks, switch it, or clear it. Empty = unbind,
+// back to the role's grant. The create path binds a bundle at issue time; this is the after-the-fact
+// rebind, so a group assembled later can reach a live code without revoking it.
+// Read-back receipt: what lands in the store is the bundle name the server returns ([[write-with-no-receipt]]).
+async function setBundle(id: string, bundle: string): Promise<void> {
+  const done = await adminAPI.patch(
+    `/codes/${id}/bundle`, { bundle },
+    z.object({ code_id: z.string(), bundle: z.string() }),
+  );
+  codesStore.getState().mutate((prev) => (prev ?? []).map(
+    (c) => c.id === done.code_id ? { ...c, bundle: done.bundle } : c));
 }
 
 function toCreateBody(input: CreateCodeInput): Record<string, unknown> {

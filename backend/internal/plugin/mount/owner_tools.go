@@ -52,11 +52,21 @@ func (c *mcpAppFiber) OwnerMCPBindings() []*registry.MCPBinding {
 func (c *mcpAppFiber) ownerToolHandler(t *plugin.OwnerTool) registry.MCPHandler {
 	tool, name := t.Tool, t.Name
 	return func(ctx context.Context, ownerID string, raw json.RawMessage) registry.MCPResult {
-		sess, err := dialMCPApp(ctx, &c.m, "")
+		// Mint the reach-back native key (scoped to the owner root) before dialing. The owner-tool
+		// path has no visitor session, so it dialled without a key and a block that reaches back —
+		// booker's blockstore, for calendar_list_slots / cancel_booking — got "unauthorized
+		// reach-back". The visitor path (mcpAppFiber) already mints this; this path did not. A
+		// non-reach-back block gets an empty, no-op key. (blocks-admin-coverage.md CAUSE 1.)
+		dm, key := withNativeKey(&c.m, "root_"+ownerID)
+		sess, err := dialMCPApp(ctx, &dm, "")
 		if err != nil {
+			revokeIfUnclosed(key)
 			return c.ownerToolErr(err, name+" is unavailable right now")
 		}
-		defer sess.Close()
+		defer func() {
+			revokeIfUnclosed(key)
+			sess.Close()
+		}()
 		out, cerr := sess.CallToolChecked(
 			ctx, tool, raw, &mcpclient.SessionContext{OwnerID: ownerID}, 0,
 		)

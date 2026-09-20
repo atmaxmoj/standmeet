@@ -48,6 +48,15 @@ AssetWidget, BlockWidget } from '@standmeet/sdk'`:
   chat agent — a tool the visiting code didn't grant is refused) and renders the block's result.
   `autoRun` fires it on load (a read-only card); otherwise it's a button (`runLabel`). For the
   primitive, `import { useBlockTool } from '@standmeet/sdk'` → `{ call, result, error, state, granted }`.
+  **Needs a session first.** A block runs over the visitor's session, so it returns data only once a
+  session exists. On a code-bound page the reader must present the code at `/gate` first — that mints
+  the session and redirects back; opening `/p/<slug>?code=XXX` by itself does NOT establish one.
+  Until then `granted` is `false` and the widget shows an "open with a code" line instead of a run
+  button. Arg shape: the visitor-side `corpus_search` block takes only `{query, limit, offset}` — no
+  `genre` (that's the owner tool's arg); a granted tool is refused only when the code's role lacks
+  the matching scope (for `corpus_search`, the role's `corpus_uris`). `autoRun` is gated the same
+  way — it fires only after the session exists (after the gate), so a page tested via `?code=`
+  shows it sitting idle, not a bug.
 
 ## Lower-level pieces (only if a widget doesn't fit)
 

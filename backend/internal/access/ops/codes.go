@@ -76,6 +76,7 @@ func codeCoreOps(d CodesDeps) []fp.Op {
 			Reach:       fp.OwnerAction(),
 			Invoke:      setCodeMicrosite(d.Codes),
 		},
+		setBundleOp(d),
 		{
 			ID:          "codes.update_quotas",
 			Description: "Change a code's quotas (members, turns per session, bookings).",
@@ -170,6 +171,18 @@ var (
 			"code_id":{"type":"string","description":"Access code id."},
 			"slug":{"type":"string",
 				"description":"Microsite slug; empty clears the binding."}
+		},
+		"required":["code_id"]
+	}`)
+
+	codeBundleSchema = json.RawMessage(`{
+		"type":"object",
+		"properties":{
+			"code_id":{"type":"string","description":"Access code id."},
+			"bundle":{"type":"string",
+				"description":"Bundle (group) name this code carries; empty unbinds."},
+			"bundle_id":{"type":"string",
+				"description":"Bundle id (id wins over the name)."}
 		},
 		"required":["code_id"]
 	}`)

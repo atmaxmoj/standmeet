@@ -92,12 +92,25 @@ export function BlockWidget(
     }
   }, [autoRun, granted, args, call]);
 
+  // No session → say so, in words. The disabled run button alone leaves a visitor staring at a
+  // dead control: the "open with a code" line used to live only inside call(), which the disabled
+  // button can never fire, so it never showed. Render it here instead, off the click path.
+  if (!granted) {
+    return (
+      <div data-testid="block-widget" data-tool={tool} data-state={dataState}>
+        <p data-testid="block-widget-no-session">
+          Open this page with an access code to use this.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div data-testid="block-widget" data-tool={tool} data-state={dataState}>
       <button
         type="button"
         data-testid="block-widget-run"
-        disabled={!granted || state === 'pending'}
+        disabled={state === 'pending'}
         onClick={() => { void call(args); }}
       >
         {runLabel}

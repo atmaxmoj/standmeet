@@ -91,6 +91,10 @@ const GOLDEN_TOOLSET: readonly string[] = [
   // codes.set_microsite -- which page opens when this code is scanned
   // (a page is one rendering of a code).
   'codes.set_microsite',
+  // codes.set_bundle -- attach / switch / clear the group of blocks an ALREADY-ISSUED code
+  // carries (blocks-admin-coverage.md G1). Same reach as codes.create's bundle field, so the
+  // owner can rebind a live code from the MCP without revoking it.
+  'codes.set_bundle',
   'codes.waypoints', 'codes.set_waypoints',
   // corpus -- genre is a **parameter**, not three separate tool sets: before
   // normalization there were 11 tools here

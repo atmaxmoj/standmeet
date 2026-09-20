@@ -225,9 +225,29 @@ func byIDAs[T any](s *Dispatcher, in *InvokeByIDInput) (T, error) {
 	return typed, nil
 }
 
+// seamCallVerber — a supplier that can run a verb generically, passing the raw args JSON straight
+// through with no typed re-marshal. Block-backed suppliers (blockseam.Provider) satisfy it; the
+// in-host typed adapters do not. This is the one shape the whole fold converges on.
+type seamCallVerber interface {
+	CallVerb(
+		ctx context.Context, ownerID, verb string, args json.RawMessage,
+	) (json.RawMessage, error)
+}
+
 func dispatchCalendar(
 	ctx context.Context, cal CalendarProxy, ownerID, verb string, args json.RawMessage,
 ) (json.RawMessage, error) {
+	// delete_event's typed method (delEventArgs → proxy) drops the block's attendee_email on the
+	// block path, so a cancelled meeting never tells the guest (sendUpdates=all). Route it through
+	// the block's generic CallVerb — the raw {event_id, attendee_email} reaches the block, which
+	// owns the arg shape. In-host suppliers keep the typed path (which never dropped the field).
+	if cv, ok := cal.(seamCallVerber); ok && verb == "delete_event" {
+		out, cerr := cv.CallVerb(ctx, ownerID, verb, args)
+		if cerr != nil {
+			return nil, fmt.Errorf("calendar %s: %w", verb, cerr)
+		}
+		return out, nil
+	}
 	fn, ok := calendarVerbs[verb]
 	if !ok {
 		return nil, fmt.Errorf("supplier invoke: unknown calendar verb %q", verb)

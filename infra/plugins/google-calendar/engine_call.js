@@ -18,16 +18,60 @@ async function callVerb(sup, verb, contract, args) {
   const body = await evalExpr(bind.request, input)
   const query = await renderQuery(bind.query, input)
   // base_url from the host's merged creds wins over the block's own spec server: the host
-  // env-expands the spec's ${GOOGLE_CALENDAR_BASE} (dev points it at the mock), and the block's
-  // baked spec cannot. Falls back to the spec server when the host merges none.
+  // env-expands the spec's server (the block's baked spec cannot); falls back to the spec server.
   const base = (typeof args.base_url === 'string' && args.base_url ? args.base_url : sup.baseURL)
     .replace(/\/$/, '')
   const url = base + substitutePath(resolved.pathTemplate, input) + query
 
-  const res = await doFetch(sup, resolved.method, url, body, args)
-  const parsed = await readAndClassify(res) // throws a classified fault on 4xx/5xx
+  // Retry a transient failure per the seam's read/write policy, then classify + map. A revoked/
+  // rejected fault is permanent and never retried. The block owns retry (the design moved it here
+  // from the in-host adapter), so it works on dsh and for any openapi provider.
+  const noun = seamNoun(sup.binding.seam)
+  const parsed = await withRetry(contract.method, async () => {
+    const res = await doFetch(sup, resolved.method, url, body, args)
+    return readAndClassify(res, noun) // throws a classified fault on 4xx/5xx
+  })
   const mapped = await evalExpr(bind.response, parsed) // response JSONata → contract output
   return contract.canon(mapped ?? parsed)
+}
+
+// seamNoun — the word the block uses in its own user-facing fault sentence. The engine is generic
+// over the seam, so the sentence is too: "the <noun> access was revoked — reconnect it to continue".
+function seamNoun(seam) {
+  if (seam === 'mail') return 'mail'
+  if (seam === 'calendar') return 'calendar'
+  return seam || 'connection'
+}
+
+// READ_METHODS — the idempotent reads. A read gets the full transient budget; a write is retried
+// only on a raw network failure (never on an HTTP status), the same posture as the in-host write
+// policy — a non-idempotent double-write is worse than one clean failure.
+const READ_METHODS = new Set(['list_busy'])
+
+// isTransient — a classified PERMANENT fault leads with a [fault:...] token; anything else (a raw
+// network throw, a 429/5xx "openapi call ..." with no token) is the retryable transient class.
+function isTransient(err) {
+  return !/^\[fault:(rejected|revoked)\]/.test(String((err && err.message) || err))
+}
+
+// withRetry — read: up to 3 attempts, 1s/2s backoff (~ the in-host read policy). write: one retry,
+// network-only. A permanent fault (revoked / rejected 4xx) is never retried. `attempt` does one
+// fetch + classify; retrying re-sends the identical request (writes carry an idempotency key).
+async function withRetry(method, attempt) {
+  const read = READ_METHODS.has(method) || method === 'verify'
+  const max = read ? 3 : 2
+  let waitMs = 1000
+  for (let i = 1; ; i += 1) {
+    try {
+      return await attempt()
+    } catch (e) {
+      const httpStatus = /openapi call \d/.test(String((e && e.message) || e))
+      const retryable = read ? isTransient(e) : (isTransient(e) && !httpStatus)
+      if (i >= max || !retryable) throw e
+      await new Promise((resolve) => { setTimeout(resolve, waitMs) })
+      waitMs *= 2
+    }
+  }
 }
 
 // evalExpr — evaluate a compiled JSONata source (scalar or structured) against input; null src → the
@@ -93,9 +137,16 @@ function firstSecurityScheme(spec) {
 // substrate maps: 4xx (except 429) is permanent → "[fault:rejected]"; 429/5xx/network are transient
 // → plain error → unavailable (retryable). Mirrors runtime.go statusError + the mail/calendar
 // classification.
-async function readAndClassify(res) {
+async function readAndClassify(res, noun) {
   const text = (await res.text()).slice(0, MAX_RESPONSE_BYTES)
   if (res.status >= 400) {
+    // 401/403: the host merges a freshly-refreshed token into every call, so an auth rejection here
+    // means the grant itself is gone — the owner must reconnect, not "try again later". The block
+    // owns this sentence (like smtp-mcp's sendFault owns its auth/tls/connect sentences); the
+    // [fault:revoked] token names the class so the host surfaces it as revoked, not generic.
+    if (res.status === 401 || res.status === 403) {
+      throw new Error(`[fault:revoked] the ${noun} access was revoked — reconnect it to continue`)
+    }
     const permanent = res.status < 500 && res.status !== 429
     const prefix = permanent ? '[fault:rejected] ' : ''
     throw new Error(`${prefix}openapi call ${res.status}: ${text.slice(0, 200)}`)

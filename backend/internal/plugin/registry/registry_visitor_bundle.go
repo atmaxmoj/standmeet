@@ -59,6 +59,18 @@ func (r *Registry) AssembleVisitorBundle(
 	return mergeVisitorSlots(slots, len(fibers))
 }
 
+// dialVisitorSlot — one fiber's binding for AssembleVisitor's concurrent walk: dial it, drop the
+// tools it can't perform, or nil if it hid/errored. Split out so AssembleVisitor stays under the
+// cognitive-complexity budget — the same shape as fiberBundleSlot below.
+func (r *Registry) dialVisitorSlot(ctx context.Context, c Fiber, in *AssembleInput) *Binding {
+	b, err := c.VisitorBinding(ctx, in)
+	if err != nil || b == nil {
+		return nil
+	}
+	r.dropUnperformableTools(ctx, c, in, b)
+	return b
+}
+
 // fiberBundleSlot —— one fiber's own slot (holds only what it itself contributes).
 // Writing concurrently into separate slots avoids touching a shared slice —
 // shared appends would both need a lock and turn order into "whoever returns

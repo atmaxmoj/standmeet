@@ -98,4 +98,30 @@ test.describe('SDK · a microsite invokes a plugin (block) tool directly and ren
         'the block executed and its result rendered on the page')
         .toContainText(PROBE, { timeout: 20_000 });
     });
+
+  // no-session path (blocks-admin-coverage.md G5-fix1): a reader who never entered a code has no
+  // adopted session, so the block cannot run. The failure must be VISIBLE — a line telling the
+  // reader to open with a code — not a greyed button whose only explanation sits on a click path
+  // the disabled button can never fire.
+  test('no session → a visible "open with a code" prompt, not a dead button',
+    async ({ page }: { page: Page }) => {
+      const pageErrors: string[] = [];
+      page.on('pageerror', (e) => pageErrors.push(e.message));
+
+      // Open the microsite WITHOUT entering the gate — nothing in localStorage to adopt.
+      await openReader(page, `/p/${SLUG}/`);
+
+      const widget = page.getByTestId('block-widget');
+      await expect(widget, 'the widget rendered').toBeVisible({ timeout: 20_000 });
+      expect(pageErrors, 'the microsite mounted without throwing').toEqual([]);
+      await expect(widget, 'no adopted session').toHaveAttribute('data-state', 'no-session');
+
+      // The fix: the reason is in words the visitor can read.
+      await expect(page.getByTestId('block-widget-no-session'),
+        'the reader is told to open with a code, not left staring at a greyed control')
+        .toContainText(/access code/i);
+      // And there is no dead run button sitting there doing nothing when clicked.
+      await expect(page.getByTestId('block-widget-run'),
+        'no dead run button in the no-session state').toHaveCount(0);
+    });
 });

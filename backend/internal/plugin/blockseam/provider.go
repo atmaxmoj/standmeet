@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"maps"
 	"strings"
 	"time"
@@ -78,12 +79,23 @@ func (p *Provider) CallVerb(
 func (p *Provider) dialAndCall(
 	ctx context.Context, verb string, args json.RawMessage,
 ) (json.RawMessage, error) {
+	tDial := time.Now()
 	sess, derr := p.dial(ctx, &p.manifest)
+	dialMS := time.Since(tDial).Milliseconds()
 	if derr != nil {
 		return nil, unavailable(fmt.Errorf("dial block %q: %w", p.manifest.ID, derr))
 	}
 	defer sess.Close()
+	tCall := time.Now()
 	out, terr := sess.CallToolChecked(ctx, verb, args, nil, 0)
+	// A seam op cold-spawns a fresh sandbox per call (sandbox-lives-one-turn), and that spawn +
+	// MCP `initialize` is the dominant, variable latency on every booking / mail / calendar op —
+	// the first thing to look at when one is slow, in prod as much as in a test. Log the split on
+	// every call so it is answerable from the logs alone (dial_ms = cold sandbox spawn+init,
+	// call_ms = the verb's own work) without attaching a profiler to a live instance.
+	slog.Default().Info("blockseam call",
+		"block", p.manifest.ID, "verb", verb, "dial_ms", dialMS,
+		"call_ms", time.Since(tCall).Milliseconds())
 	if terr != nil {
 		return nil, unavailable(fmt.Errorf("dial block %q %s: %w", p.manifest.ID, verb, terr))
 	}
@@ -106,10 +118,25 @@ func unavailable(err error) error {
 	return &hostop.FaultError{Code: hostop.FaultUnavailable, Err: err}
 }
 
+// faultCodeOf — a block's fault token → the host fault class. "rejected" (permanent, change input)
+// and "revoked" (grant gone, reconnect) are the two non-retryable classes; anything else is the
+// retryable "unavailable" class.
+func faultCodeOf(tok string) string {
+	switch tok {
+	case hostop.FaultRejected:
+		return hostop.FaultRejected
+	case hostop.FaultRevoked:
+		return hostop.FaultRevoked
+	default:
+		return hostop.FaultUnavailable
+	}
+}
+
 // toolFault — turn a block's tool-error text into a classified fault. An optional leading
-// "[fault:<code>]" token names the class (only "rejected" is honored as a distinct, non-retryable
-// class today; anything else, or no token, is the retryable "unavailable" class). The token is
-// stripped so the surfaced sentence is the block's own words.
+// "[fault:<code>]" token names the class: "rejected" (permanent, change the input) and "revoked"
+// (the grant is gone, reconnect) are honored as distinct non-retryable classes; anything else, or
+// no token, is the retryable "unavailable" class. The token is stripped so the surfaced sentence is
+// the block's own words.
 func toolFault(text string) error {
 	// mcpclient frames an error tool result as "[error] <message>" (client.go). Strip that first so
 	// the fault token — and the surfaced sentence — are the block's own words.
@@ -122,11 +149,7 @@ func toolFault(text string) error {
 	if !found {
 		return unavailable(errors.New(text))
 	}
-	code := hostop.FaultUnavailable
-	if tok == hostop.FaultRejected {
-		code = hostop.FaultRejected
-	}
-	return &hostop.FaultError{Code: code, Err: errors.New(rest)}
+	return &hostop.FaultError{Code: faultCodeOf(tok), Err: errors.New(rest)}
 }
 
 // mergeJSONObjects — the owner's opaque creds as the base, the verb's args merged on top. Both are

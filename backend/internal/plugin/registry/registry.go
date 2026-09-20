@@ -164,14 +164,23 @@ func (r *Registry) AssembleVisitor(
 	ctx context.Context, in *AssembleInput,
 ) []*Binding {
 	fibers := r.enabledFibers(ctx, in)
+	// Dial the fibers CONCURRENTLY, the same way AssembleVisitorBundle does. Each externalized
+	// block's VisitorBinding cold-spawns a bwrap sandbox whose MCP `initialize` alone is ~4s; a
+	// serial loop is N×that, which blew the agent turn's 10s client timeout once a session carried
+	// several blocks (measured: /api/v1/agent/turn at 14.5s). Each fiber folds into its own slot
+	// (no shared slice), so order stays registration order (the system-prompt hash depends on it).
+	// Returns LIVE bindings (Close owned by the caller); dial is concurrent, semantics unchanged.
+	slots := make([]*Binding, len(fibers))
+	var wg sync.WaitGroup
+	for i, c := range fibers {
+		wg.Go(func() { slots[i] = r.dialVisitorSlot(ctx, c, in) })
+	}
+	wg.Wait()
 	out := make([]*Binding, 0, len(fibers))
-	for _, c := range fibers {
-		b, err := c.VisitorBinding(ctx, in)
-		if err != nil || b == nil {
-			continue
+	for _, b := range slots {
+		if b != nil {
+			out = append(out, b)
 		}
-		r.dropUnperformableTools(ctx, c, in, b)
-		out = append(out, b)
 	}
 	return out
 }

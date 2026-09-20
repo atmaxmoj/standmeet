@@ -119,6 +119,37 @@ func TestCallVerb_MergesCredsDialsAndReturnsText(t *testing.T) {
 	require.JSONEq(t, `"2026-01-01"`, string(merged["from"]), "the verb's own args ride alongside")
 }
 
+// REUSE (RED until the keep-alive pool lands): the dominant cost of a seam op is the COLD dial —
+// each call cold-spawns a bwrap+node sandbox whose node_modules is read over the dev bind-mount
+// (~7-10s, docs/full-suite-failures.md). sandbox-lives-one-turn is relaxed to a per-(block,owner)
+// keep-alive: two sequential verbs for the SAME owner reuse ONE warm sandbox, so a booking's
+// free_busy+insert_event pays one dial, not two. A DIFFERENT owner never shares a sandbox
+// (creds/native-key isolation — the conservative-safe key). This flips the `sess.closed` assertion
+// in TestCallVerb_MergesCredsDialsAndReturnsText, which locked the old per-turn-close contract.
+func TestCallVerb_ReusesWarmSandboxPerOwner(t *testing.T) {
+	t.Skip("test-first RED: the per-(block,owner) keep-alive pool is not implemented yet " +
+		"(memory eiab-build-progress.md, 2026-09-20). Unskip when the reuse pool lands.")
+	t.Parallel()
+	vault := &fakeVault{creds: json.RawMessage(emptyObj)}
+	var dials int
+	dial := func(context.Context, *plugin.Manifest) (blockseam.Session, error) {
+		dials++
+		return &fakeSession{out: mcpclient.ToolOutcome{Text: emptyObj}}, nil
+	}
+	p := blockseam.New(manifest(), vault, dial)
+	ctx := context.Background()
+
+	_, err := p.CallVerb(ctx, "owner-A", "free_busy", json.RawMessage(emptyObj))
+	require.NoError(t, err)
+	_, err = p.CallVerb(ctx, "owner-A", "insert_event", json.RawMessage(emptyObj))
+	require.NoError(t, err)
+	require.Equal(t, 1, dials, "two verbs, one owner: one dial (reused), not two")
+
+	_, err = p.CallVerb(ctx, "owner-B", "free_busy", json.RawMessage(emptyObj))
+	require.NoError(t, err)
+	require.Equal(t, 2, dials, "a different owner never shares a sandbox")
+}
+
 // The verb args win over a colliding cred key (args are the caller's intent; creds are the base).
 // Both carry `account`; the arg value must survive.
 func TestCallVerb_ArgsOverrideCollidingCred(t *testing.T) {

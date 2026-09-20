@@ -11,18 +11,20 @@
 //	                 present-and-off.
 //	off / disabled   the owner's live kill switch, which is a different question.
 //
-// An earlier draft of the design collapsed the two and lost the "installed but switched
-// off" state entirely. `block-disable-while-attached` proves `owner_enabled` bites
-// a session already running; a grant does not, and an owner who cannot see that they
-// switched something off has no way to explain why a visitor cannot use it.
+// **Read-only on purpose.** There is no per-code "deny this block" switch here: for a
+// bundle-bound code the bundle IS the grant (`mounted_gate.go` `granted()` — the additive
+// model and the role's per-code denials stand side by side and do NOT merge), so a
+// code-tier block denial has no effect on a bundle. To take a block off a bundle-bound
+// code, edit the group (or point the code at a different one). Per-code block denial is a
+// role-based-code capability; see `blocks-admin-coverage.md` G2.
 
 'use client';
 
 import { useTranslations } from 'next-intl';
 import { useEffect } from 'react';
 
-import { useBundles } from '@/lib/admin/use-bundles';
 import { useBlocks } from '@/lib/admin/use-blocks';
+import { useBundles } from '@/lib/admin/use-bundles';
 
 export function CodeBlockList({ bundle }: { bundle: string }) {
   const t = useTranslations('adminIntegrations.blocks');

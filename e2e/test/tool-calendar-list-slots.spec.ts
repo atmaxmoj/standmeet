@@ -82,7 +82,11 @@ test.describe('Phase E-14c calendar.list_slots via MCP', () => {
     );
     expect(resp.ok).toBe(false);
     expect(resp.error).toBe('invalid_args');
-    expect(resp.detail).toMatch(/from_rfc3339 parse/);
+    // The design requirement (above) is only "rejected WITH A STATED REASON". The booker's
+    // Go→JS migration (11120f4b5) changed the wording from "from_rfc3339 parse: …" to
+    // "from/until parse failed"; both name the parse failure as the reason, so pin the reason
+    // (a parse failure) not the exact old phrasing.
+    expect(resp.detail).toMatch(/parse/);
     expect(resp).not.toHaveProperty('slots');
   });
 

@@ -1,9 +1,13 @@
-// block-fiber-view.spec.ts — the plugins group's fiber view draws the block dependency graph.
+// block-map-view.spec.ts — the block map (owner-facing) draws the block dependency graph.
 //
-// GUI: install a provider block and a consumer that requires it, open the Plugins > fibers section,
-// and confirm the mermaid dependency graph renders with both blocks on it (the composition drawn).
-// The graph's edges are the relied-by relationship the fiber view exists to show. A screenshot is
-// saved for design review (the /goal's "screenshot-verify new UI/UX").
+// GUI: install a provider block and a consumer that requires it, open the Plugins > block map
+// section, and confirm the mermaid dependency graph renders with both blocks on it (the
+// composition drawn). The graph's edges are the relied-by relationship the block map exists to
+// show. A screenshot is saved for design review.
+//
+// Named "block map" throughout: the owner-facing word is "block map", not the internal "fiber"
+// (blocks-panel-ux.md). The driving already targets admin/blockMap + block-map-graph; this file's
+// own name and identity followed the rename (blocks-admin-coverage.md).
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -14,10 +18,10 @@ import { gotoAdminSection } from '@/fixtures/navigate';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 const OWNER = {
-  email: 'fiber-view@example.com',
+  email: 'block-map-view@example.com',
   password: 'correct-horse-battery-staple',
-  handle: 'fiberview',
-  fullName: 'Fiber View Owner',
+  handle: 'blockmapview',
+  fullName: 'Block Map View Owner',
 };
 
 function manifest(id: string, provides: string, requires?: string): string {
@@ -35,7 +39,7 @@ async function install(request: APIRequestContext, csrf: string, m: string): Pro
 }
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
-test.describe('fiber view draws the block dependency graph', () => {
+test.describe('block map draws the block dependency graph', () => {
   test.beforeAll(async ({ playwright }: { playwright: Playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();
@@ -61,6 +65,6 @@ test.describe('fiber view draws the block dependency graph', () => {
     await expect(graph).toContainText('fvdb', { timeout: 10_000 });
     await expect(graph).toContainText('fvuser');
 
-    await adminPage.screenshot({ path: 'test-results/fiber-view.png', fullPage: true });
+    await adminPage.screenshot({ path: 'test-results/block-map-view.png', fullPage: true });
   });
 });

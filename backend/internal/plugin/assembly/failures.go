@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
@@ -43,13 +44,32 @@ func (r *Repo) RecordFailure(ctx context.Context, ownerID string, f *Failure) er
 	if err != nil {
 		return fmt.Errorf("parse owner id: %w", err)
 	}
+	return r.recordFailureLocked(ctx, id, f)
+}
+
+// recordFailureLocked — the write, under a short lock_timeout so this best-effort record loses fast
+// to a heavy DDL holder instead of deadlocking. The e2e resetInstance TRUNCATE of owners (CASCADE)
+// reaches block_failures via the owners FK, and unbounded the two deadlock (~1s deadlock_timeout
+// kills one, dropping a connection — what left the backend at 503 mid-suite). 500ms is below
+// deadlock_timeout, so this fails with a plain lock_timeout and the caller drops it. Prod never
+// TRUNCATEs owners; this is a test-reset window. pgx.BeginFunc scopes the SET LOCAL and does its
+// own commit/rollback, so there is no manual Rollback left unchecked.
+func (r *Repo) recordFailureLocked(ctx context.Context, id pgtype.UUID, f *Failure) error {
 	const q = `
 		INSERT INTO block_failures (owner_id, block_id, title, stderr)
 		VALUES ($1, $2, $3, $4)
 		ON CONFLICT (owner_id, block_id)
 		DO UPDATE SET title = EXCLUDED.title, stderr = EXCLUDED.stderr, failed_at = now()`
-	if _, eerr := r.pool.Exec(ctx, q, id, f.BlockID, f.Title, truncate(f.Stderr)); eerr != nil {
-		return fmt.Errorf("record block failure: %w", eerr)
+	if err := pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {
+		if _, serr := tx.Exec(ctx, "SET LOCAL lock_timeout = '500ms'"); serr != nil {
+			return fmt.Errorf("set lock_timeout: %w", serr)
+		}
+		if _, eerr := tx.Exec(ctx, q, id, f.BlockID, f.Title, truncate(f.Stderr)); eerr != nil {
+			return fmt.Errorf("insert: %w", eerr)
+		}
+		return nil
+	}); err != nil {
+		return fmt.Errorf("record block failure: %w", err)
 	}
 	return nil
 }

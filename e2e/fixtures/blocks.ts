@@ -75,6 +75,11 @@ export async function sessionToolNames(
 ): Promise<string[]> {
   const res = await request.get(`${BACKEND}/internal/diag/session`, {
     headers: { 'X-Session-Token': sessionToken },
+    // 25s, not the 10s actionTimeout default: /diag/session assembles the session's toolset, which
+    // cold-starts the code's sandboxed blocks — the same slow path issueSession budgets 25s for. A
+    // busy host pushes this past 10s (full-suite-failures.md records sessions at ~13s), which reads
+    // as a failure when it is only slowness. Widens the wait, not any assertion.
+    timeout: 25_000,
   });
   if (res.status() !== 200) throw new Error(`diag session: ${res.status()}`);
   const body = await res.json() as { tool_specs: readonly { name: string }[] };

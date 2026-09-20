@@ -32,6 +32,10 @@ const (
 	// sandbox/owner must change the input — "change the recipient", not "try again later". A
 	// distinct class because the two demand opposite actions.
 	FaultRejected = "rejected"
+	// FaultRevoked — configured, but the credential/grant is gone: a 401/403 came back even though
+	// the host merged a freshly-refreshed token. Neither a retry (Unavailable) nor a changed input
+	// (Rejected) helps — the owner must RECONNECT. Distinct because it demands its own action.
+	FaultRevoked = "revoked"
 )
 
 // FaultError — a host op error carrying a category.

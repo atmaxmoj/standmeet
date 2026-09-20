@@ -39,11 +39,12 @@ func supplierOpImpls(d *deps.Runtime) map[string]fp.Invoke {
 // discipline as mailFailureReason: every sentence points to the next step, and the
 // wording never carries a status code, hostname, or stack trace.
 func calendarFailureReason(err error) string {
+	if s, ok := revokedReason(err); ok {
+		return s
+	}
 	switch {
 	case errors.Is(err, adapters.ErrCalendarNotConnected):
 		return "no calendar is connected yet — connect one first"
-	case errors.Is(err, adapters.ErrCalendarRevoked):
-		return "the calendar access was revoked — reconnect it to continue"
 	case errors.Is(err, adapters.ErrCalendarBadRequest):
 		return "the calendar rejected this request — check the booking policy"
 	default:
@@ -51,6 +52,20 @@ func calendarFailureReason(err error) string {
 		// owner they're the same thing — try again in a bit.
 		return "couldn't reach the calendar — please try again later"
 	}
+}
+
+// revokedReason —— the "reconnect" sentence for a revoked grant, from either path. The API-side
+// 401 arrives as a block-emitted FaultRevoked (the block owns its sentence → surface it verbatim);
+// the token-refresh invalid_grant arrives as the ErrCalendarRevoked sentinel (mapped host-side at
+// the OAuth boundary). Either way the owner must reconnect, not retry.
+func revokedReason(err error) (string, bool) {
+	if isRevokedFault(err) {
+		return blockFaultSentence(err), true
+	}
+	if errors.Is(err, adapters.ErrCalendarRevoked) {
+		return "the calendar access was revoked — reconnect it to continue", true
+	}
+	return "", false
 }
 
 type calendarCheckArgs struct {
@@ -177,6 +192,23 @@ func isMailRejected(err error) bool {
 	}
 	var fe *hostop.FaultError
 	return errors.As(err, &fe) && fe.Code == hostop.FaultRejected
+}
+
+// isRevokedFault — a block-served supplier reported its grant is gone (a 401/403 after a fresh
+// token); carried as the FaultRevoked code. The owner must reconnect, not retry.
+func isRevokedFault(err error) bool {
+	var fe *hostop.FaultError
+	return errors.As(err, &fe) && fe.Code == hostop.FaultRevoked
+}
+
+// blockFaultSentence — the block's own user-facing sentence for a fault, surfaced verbatim (the
+// block owns its wording; the host does not re-word it).
+func blockFaultSentence(err error) string {
+	var fe *hostop.FaultError
+	if errors.As(err, &fe) {
+		return fe.Error()
+	}
+	return err.Error()
 }
 
 type mailTestSendArgs struct {

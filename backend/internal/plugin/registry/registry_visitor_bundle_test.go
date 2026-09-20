@@ -135,6 +135,24 @@ func TestAssembleVisitorBundle_DialsBlocksConcurrently(t *testing.T) {
 			"opening one session pays N sandbox cold starts back to back")
 }
 
+// The agent-turn path (AssembleVisitor) must dial concurrently too — it was the last serial
+// walk, and a turn carrying several blocks paid N back-to-back sandbox cold starts, blowing the
+// client's timeout on /api/v1/agent/turn. Same barrier probe: serial peaks at 1, concurrent at N.
+func TestAssembleVisitor_DialsBlocksConcurrently(t *testing.T) {
+	t.Parallel()
+	ids := []string{"cap.a", "cap.b", "cap.c", "cap.d"}
+	reg, flight := barrierRegistry(ids)
+
+	got := reg.AssembleVisitor(context.Background(), &registry.AssembleInput{
+		OwnerID: "owner-1", Mode: "code",
+	})
+
+	require.Len(t, got, len(ids))
+	require.Equal(t, len(ids), flight.max(),
+		"AssembleVisitor dialed blocks one at a time (peak in-flight 1) — the agent turn "+
+			"pays N sandbox cold starts back to back")
+}
+
 // barrierRegistry —— n fake blocks that wait on each other, plus the
 // in-flight counter they share.
 func barrierRegistry(ids []string) (*registry.Registry, *inFlight) {

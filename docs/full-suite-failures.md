@@ -1,3 +1,119 @@
+# Full-suite failures — round 2026-09-20 (quiet-machine run, branch `eiab-blocks-to-js` + uncommitted session work)
+
+**1860 passed · 6 failed · 8 skipped.** Command: `make test` on a quiet machine (load < 6). Log: `scratchpad/make-test3.log`.
+
+Isolation re-verify: `make test-asis SPEC="<the 6 specs>" REPEAT=3` → **9 failed · 42 passed**. So 3 failures are deterministic (fail 3/3) and 3 are load-flakes (pass 3/3).
+
+> **Read the machine before you call a full-run red a bug.** The first full run shared the host with two other e2e suites and an auto-restarting `plugin-model` stack (load 22→33). `resetInstance`'s `TRUNCATE` contended for the DB, each file's `beforeAll` passed the 30s hook budget, and every affected spec cascaded to a 0ms/timeout red — `account-*`, `acl-*`, and the 3 below. On the quiet run they passed. Check `uptime` + `docker stats` + backend `/internal/healthz` first.
+
+## Load-flakes — do NOT fix (pass 3/3 in isolation)
+
+- `supplier-calendar-cancel-tool.spec.ts:31` — iframe `book-card-cancel` click times out (19s under load).
+- `supplier-connect-before-form.spec.ts:58` — `supplier-row-google-calendar` not visible (10s under load).
+- `writings.spec.ts:143` — cover image `naturalWidth` is 0 (3.3s under load).
+
+## Real failures — one root cause: the openapi-runtime-block fold is incomplete
+
+These 3 are symptoms of one unfinished refactor, not 3 separate bugs. `google-calendar` runs as a `sandbox_stdio` block for execution, but the typed host-Go layer (`block_calendar.go` / `CalendarProxy` / `calendarAdapter` / `internal/infra/openapi`) is still present — step ⑤ (delete the typed layer) was deferred on 2026-09-17. Design: `docs/design/plugin/openapi-runtime-block.md`. Plan: `~/.claude/.../memory/eiab-build-progress.md` lines 143-162.
+
+**Rule (owner, 2026-09-20): fix each failure in the JS plugin `infra/plugins/openapi/engine.js`, never in host Go.** A block is a standalone plugin in a shared ecosystem. Host-Go capability logic can never pass the block's dsh acceptance test.
+
+### F1 — a revoked grant reads as a generic "try again later"
+- Spec: `supplier-op-calendar-check-ui.spec.ts:103`.
+- Assertion: `supplier-op-result` must read `the calendar access was revoked — reconnect it to continue`. It received `couldn't reach the calendar — please try again later` (9× stable).
+- Root cause: the mock revokes the grant. The access token is not expired, so the host's proactive refresh does not run. The block's `free_busy` call gets HTTP 401 (backend log: `openapi call 401: Invalid Credentials`). `engine_call.js:97` emits `[fault:rejected]` for every 4xx. `blockseam` maps that to `FaultRejected`. `calendarFailureReason` then falls to its generic default.
+- Fix (JS): `engine_call.js` must classify a 401 as revoked and emit its own "reconnect" sentence, the way `infra/plugins/smtp/smtp-mcp.js sendFault` emits `[fault:rejected]`. Step ⑤ then deletes host `calendarFailureReason`.
+- Reverted this session: a host-Go patch that added `ErrInvalidGrant` to `calendarFailureReason` (`impls.go`). It was the wrong layer, and it did not fix the 401 path.
+
+### F2 — a transient read error is not retried
+- Spec: `supplier-retry-read-transient-recovers.spec.ts:76`.
+- Assertion: after one transient `free_busy` failure then a success, `slots.length > 0`. It received 0.
+- Root cause: `engine_call.js` calls once with no retry. Retry lives only in the host `calendarAdapter` (`openapi_adapter.go:189/221/238`), which the block path does not use. The spec's own comment says it stays RED until the retry lands.
+- Fix (JS): add the read/write retry policy plus the write-op idempotency key to `engine.js`. Port from `openapi_adapter.go` + `retrypolicy.go`.
+
+### F3 — a cancelled meeting does not notify the guest
+- Spec: `tool-calendar-cancel-booking.spec.ts:42`.
+- Assertion: the deleted mock event's `send_updates === "all"`. It received `undefined`.
+- Root cause: this session's CAUSE 1 (native key in `owner_tools.go`) fixed the earlier reach-back error, so cancel now reaches the block and deletes the event. The next layer then shows the defect: the kept typed proxy `block_calendar.go DeleteEvent(…, _ string)` drops `attendeeEmail` (its `deleteArgs` carries only `EventID`). The block's `engine.js delete_event` already reads `attendee_email`, and `VERB_ARGS` accepts it, so the block side is ready.
+- Fix (⑤ collapse): delete the typed proxy. Pass `{event_id, attendee_email}` through as JSON (the verb layer already produces this shape). Do NOT add the field to `deleteArgs` — the owner rejected that patch.
+
+## dsh acceptance — part of the definition of done
+- `infra/dsh-acceptance/google-calendar.dsh-testkit.yaml` exists. It boots the block on real DSH and asserts the 4 verbs register (`free_busy`, `insert_event`, `delete_event`, `verify`). It runs no live call.
+- F1 (fault) and F2 (retry) cannot be exercised on dsh without a live SaaS + token. Cover them with a pure JS unit test inside the block: a 401 → revoked fault; a 5xx → `[fault:rejected]`; a timeout → unavailable; one transient failure then a success → slots returned.
+- The block is "done" only when it passes its dsh acceptance test standalone. Host tests going green is not the bar.
+
+## Root cause of the intermittent run-time flakes (2026-09-20, log-proven) — NOT the calendar fold
+
+The intermittent reds that shift spec-to-spec each run (`access-codes`, `ghost-waypoint`, `block-*`,
+`booking-confirmation`, `sync-*`, `admin-gcal-authorize-ui`, …) are **one** root cause, proven from
+the backend log, and it is **not CPU load, not cold-backend-only, and not the calendar fold**:
+
+**A visitor `POST /api/v1/agent/turn` assembles its toolset by cold-dialing every block, and a
+single block's MCP `initialize` handshake takes ~4s.** Log line:
+
+```
+WARN visitor block failed to bind ... block=summarize_conversation
+  err="plugin dial: mcp server unreachable: stdio initialize
+       [spawn=14ms init=4239ms budget=20s parent-canceled(caller gave up first)]: context canceled"
+```
+
+- `spawn=14ms` (bwrap is fast) but `init=4239ms` — the node process cold-start + `@modelcontextprotocol/sdk`
+  load + block code + `initialize` reply is ~4.2s **per block**.
+- A turn with `tools:9` dials several blocks; the assembly sums past the e2e client's **10s
+  actionTimeout** on `/api/v1/agent/turn`. Backend logged the turn at `dur_ms:14542` (14.5s); the
+  client gave up at 10s → the turn's context is canceled → a **cascade** of `context canceled` on
+  `calendar.book` / `mail.send` / cross-conv digest / owner-tz / monitoring (all symptoms of the
+  client abort, not individual bugs).
+- **Proof it is not what I earlier blamed:** it fails on a **warm** backend (login/claim were
+  sub-second in that same run), `spawn=14ms` rules out CPU/spawn cost, and the block that timed out
+  (`summarize_conversation`) is untouched by the calendar fold. My earlier "cold-backend login 7s"
+  note described a *different*, load-window failure mode; this warm-run failure is the block-dial one.
+- **Why isolation (`test-asis`) hid it:** `test-asis` reuses a warm, long-lived stack; a single spec
+  there dials fewer blocks with less contention, so the assembly stays under 10s. The full suite's
+  turns, and the opening specs right after `dev-up` rebuilds a cold backend, are where the ~4s×N
+  assembly tips over. `test-asis` passing ≠ the full-suite red is spurious.
+
+**This is a block-dial / toolset-assembly latency defect to fix.** Per `sandbox-lives-one-turn` each
+turn re-dials its blocks; if that dial is **serial**, N blocks × ~4s init blows the turn's budget.
+Fix: dial the turn's blocks in **parallel** (N×4s → ~4s), keeping `sandbox-lives-one-turn` intact
+(still dialed per turn, just concurrently). Faster block `initialize` (node/SDK load) is a further
+win. `sandbox-lives-one-turn` itself stays — it is a load-bearing isolation invariant.
+
+## Root, measured (2026-09-20) — the cold block dial, not any one spec
+
+Added a **permanent** observability log in `blockseam.Provider.dialAndCall` (`msg="blockseam call"`,
+`dial_ms` / `call_ms`) — so this is answerable from logs in prod, not just here. It showed, in one
+account-recovery run, seconds apart, same block:
+
+```
+blockseam call block=smtp verb=verify dial_ms=8774 call_ms=99
+blockseam call block=smtp verb=send   dial_ms=1918 call_ms=202
+```
+
+The verb's own work is ~100–200ms; the **cold dial (sandbox spawn + node MCP `initialize`) is the
+whole cost, and it is wildly variable — ~1.9s to ~8.8s**. `sandbox-lives-one-turn` means every block
+op (booking, mail send, visitor tool, owner MCP, and even the toolset assembly) pays a fresh cold
+dial. When that dial lands on the high end during an op with a ~10s client/test timeout, the op trips
+— which is why the failing spec shifts run to run (whichever block op's dial happened to balloon).
+
+- The **agent-turn** subclass is fixed (`AssembleVisitor` now dials its blocks concurrently, so the
+  turn pays ~max(dial) not sum). access-codes went 29s-fail → 15s-pass.
+- The **remaining** flakes are single-dial ops (mail send, verify, application commit) each paying one
+  cold dial that intermittently balloons.
+- The `dial_ms` variance (1.9s vs 8.8s within one run) points at **cold-node-spawn cost under
+  contention** (node process start + `@modelcontextprotocol/sdk`+deps load, sensitive to concurrent
+  spawns / disk). The next layer — *why* a node `initialize` is 2–9s — needs the block to log its own
+  startup phases (instrument the JS entry), or a spawn measured on a genuinely idle host.
+- Real fix directions (a distinct arc): speed the block's node cold-start (lighter import / snapshot),
+  and/or bound how many sandboxes spawn concurrently. Do NOT drop `sandbox-lives-one-turn`.
+
+## Status (2026-09-20)
+- Not green. The 3 real reds need step ⑤ (the last openapi-runtime-block arc): a multi-day, booking-critical, test-first drive. Do not start it at the tail of a long turn. Drive it separately. Commit only when the full booking e2e set is green.
+- Clean and committable this session, independent of the fold: G1 `codes.set_bundle`, the deadlock fix (`assembly/failures.go`), and CAUSE 1 (`owner_tools.go` native key). All pass `make lint` with no `//nolint`.
+- One open design point for the owner: after step ⑤ deletes host `calendarFailureReason`, the generic openapi engine serves both `calendar` and `mail`. Decide who produces the exact owner-facing revoked sentence — the block emits a generic sentence, the seam/binding carries the wording, or the test's expected wording changes.
+
+---
+
 # Full-suite failures — round 2026-09-12 · RUN 2 (post-merge, HEAD `24c97fdc2`)
 
 **1600 passed · 83 failed**, stopped early on purpose. Log: `scratchpad/full2.log`.

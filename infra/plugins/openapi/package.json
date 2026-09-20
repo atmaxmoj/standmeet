@@ -4,6 +4,9 @@
   "private": true,
   "description": "The generic openapi-runtime block: a stdio-MCP block that, given an OpenAPI spec + a binding (seam verb → spec operation + request/response/query JSONata) + the owner's credentials merged in per call, exposes the seam's verbs as tools and performs the HTTP calls. It carries no Go and names no provider — google-calendar and any owner-uploaded SaaS become DATA (a manifest + spec.yaml + binding.yaml) this one block loads. The JS port of internal/infra/openapi (docs/design/plugin/openapi-runtime-block.md).",
   "main": "engine.js",
+  "scripts": {
+    "test": "node --test"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
     "jsonata": "^2.0.6",

@@ -15,6 +15,7 @@ package blockwire
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -83,6 +84,14 @@ func (v oauthBlockVault) Credentials(
 ) (json.RawMessage, error) {
 	b, err := v.beh.BearerFor(ctx, ownerID)
 	if err != nil {
+		// A host-side refresh that came back invalid_grant means the owner revoked the grant on
+		// the provider — the signal the in-host openapi adapter maps via mapCalendarErr. Surface
+		// it as the calendar-revoked sentinel so the owner is told to reconnect (and the card
+		// drops "connected"), not "try again later". OAuth refresh is host-side, so this mapping
+		// is too. (The API-side 401, token still valid, is [fault:revoked] in the block engine.)
+		if errors.Is(err, adapters.ErrInvalidGrant) {
+			return nil, fmt.Errorf("%w: %w", adapters.ErrCalendarRevoked, err)
+		}
 		return nil, err
 	}
 	return json.Marshal(map[string]string{"access_token": b.Token, "base_url": b.BaseURL})
@@ -222,6 +231,18 @@ func (p *blockCalendarProxy) DeleteEvent(ctx context.Context, ownerID, eventID, 
 	}
 	_, err := p.call(ctx, ownerID, "delete_event", opArgs)
 	return err
+}
+
+// CallVerb — the generic seam surface: pass the verb's raw args JSON straight to the block, with no
+// typed re-marshal. The dispatcher routes through this for a verb whose typed proxy method would
+// drop a field the block accepts — delete_event's `attendee_email` (→ sendUpdates=all) is lost by
+// the typed DeleteEvent's fixed request struct. This is a step of the fold: the block owns the
+// verb's arg shape, the host stops re-typing it. (The full collapse routes every verb this way and
+// deletes the typed methods — docs/design/plugin/openapi-runtime-block.md.)
+func (p *blockCalendarProxy) CallVerb(
+	ctx context.Context, ownerID, verb string, args json.RawMessage,
+) (json.RawMessage, error) {
+	return p.seam.CallVerb(ctx, ownerID, verb, args)
 }
 
 // call — one op via the generic block-seam provider: merge the owner's opaque creds into the op's
