@@ -1810,8 +1810,8 @@ release-push-one:
 	@docker buildx inspect standmeet-release >/dev/null 2>&1 \
 	  || docker buildx create --name standmeet-release --driver docker-container >/dev/null
 	@if [ "$(SVC)" = "app" ]; then \
-	  echo "[release] app: build stripped .next before the image (its Dockerfile only COPYs it)"; \
-	  pnpm install --frozen-lockfile; \
+	  echo "[release] app: build the SDK (incl embed, needed by the prebuild) then the stripped .next"; \
+	  $(MAKE) sdk-build; \
 	  STRIP_TEST_HOOKS=1 pnpm -F @standmeet/sdk build; \
 	  STRIP_TEST_HOOKS=1 BACKEND_URL=$(APP_BUILD_BACKEND_URL) pnpm -F standmeet-app build; \
 	  $(MAKE) release-assert-stripped; \
