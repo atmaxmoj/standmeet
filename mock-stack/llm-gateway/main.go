@@ -5,7 +5,8 @@
 // points at this gateway so /v1/messages traffic lands here. Internal
 // behavior:
 //
-//	POST /v1/messages   — Anthropic Messages API (SSE streaming)
+//	POST /v1/messages          — Anthropic Messages API (SSE streaming)
+//	POST /v1/chat/completions  — openai-compat API (deepseek/kimi/groq/… share one wire; openai.go)
 //	POST /__mock/inference/next_tool   — e2e queues a tool_use to emit
 //	POST /__mock/inference/next_reply  — e2e queues final reply text
 //
@@ -80,6 +81,12 @@ func (s *server) run(port string) error {
 	// endpoint to pick a model" path can't be played out in e2e — and that's exactly the usage
 	// the product card advertises support for (ollama / vllm / lm-studio, F-R-9).
 	mux.HandleFunc("GET /v1/models", s.serveModels)
+	// openai-compat family (deepseek / kimi / groq / together / openrouter / siliconflow /
+	// custom) — one wire, one endpoint. go-openai builds the URL as <base>/chat/completions;
+	// with a "…/v1" base that becomes /v1/chat/completions, so both paths are served.
+	mux.HandleFunc("POST /v1/chat/completions", s.serveChatCompletions)
+	mux.HandleFunc("POST /chat/completions", s.serveChatCompletions)
+	mux.HandleFunc("GET /models", s.serveModels)
 	mux.HandleFunc("POST /__mock/inference/next_tool", s.serveSetNextTool)
 	mux.HandleFunc("POST /__mock/inference/next_reply", s.serveSetNextReply)
 	mux.HandleFunc("POST /__mock/inference/next_ghost", s.serveSetNextGhost)

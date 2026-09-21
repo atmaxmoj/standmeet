@@ -33,9 +33,9 @@
 - 删掉这个 `else`，用早返，可读性会不会更好？
 
 **本仓**
-- ✅ 合理：`adaptByCategory` 的 `switch(category){case calendar/mail}` 是**契约边界**——品类是固定词汇表（消费者类型化），不是会无限增长的东西。
-- ❌ 泄漏：如果 booker 里出现 `if provider == "gcal"`，就是具体 supplier 漏进了消费侧——该归一到 `CalendarProxy` 契约后面。
-- 判据：**`switch` 跟着"业务种类"增长 = 坏；跟着"固定协议/契约"封闭 = 好。**
+- ❌ 泄漏：如果 booker 里出现 `if provider == "gcal"`，就是具体 supplier 漏进了消费侧——该归一到 seam 后面（消费方只说 `requires: [calendar]`，永不点名 vendor）。
+- ⚠️ 已被现设计推翻的旧例：曾把 `adaptByCategory` 的 `switch(category){case calendar/mail}` + `CalendarProxy` 契约当"✅ 合理的契约边界"。**现在不成立。** seam 解析**按名字**、值是 `CallVerb(verb, json.RawMessage)`——没有 typed category surface。block-model.md:161 原话：typed category surface "is exactly what the existing design kills"。那套 typed 层（`blockCalendarProxy`/`blockMailProxy` in `cmd/server/blockwire/block_calendar.go`·`block_mail.go`，`internal/infra/openapi`）今天**仍物理存在，是待删残留**（step ⑤，2026-09-17 deferred，见 `docs/full-suite-failures.md:17` + `docs/design/plugin/openapi-runtime-block.md`），审计时应记成"待消除"而非"合理保留"。
+- 判据：**`switch` 跟着"业务种类"增长 = 坏；跟着"固定协议"封闭且不引入 per-seam typed 接口 = 尚可。一旦是"每个 seam 一个 typed 契约/Proxy"= 星型拓扑，按现设计要杀。**
 
 ---
 
@@ -118,7 +118,7 @@ DRY 不是"别有两段长得像的代码"，是"**同一个知识别在两处�
 
 **本仓**
 - ✅ 已做：`authStrategy` 从"单方法接口 + 4 个空 struct + 工厂"→ **func 类型**，工厂返 func 值。代码更少、`ireturn` 自然消失。
-- ✅ 合理保留：`CalendarProxy/MailProxy` 是**多方法消费契约**——必须是接口（任意 provider 填同一契约就是归一化本身）。
+- ❌ 待消除（旧文档曾写"✅ 合理保留"，现已推翻）：`CalendarProxy/MailProxy` 这种**每 seam 一个 typed 多方法契约**是现设计要杀的星型拓扑，不是要保的抽象。归一化靠 seam 名 + 通用 `CallVerb(verb, json.RawMessage)`，不靠 per-seam 接口。它们今天仍在 `cmd/server/blockwire/block_{calendar,mail}.go`，属 step ⑤ 待删残留（见上）。参见 block-model.md §"'block' and 'supplier' are not two kinds of thing"。
 
 ---
 

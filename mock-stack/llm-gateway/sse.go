@@ -42,6 +42,30 @@ func (s *sseWriter) send(event string, payload any) error {
 	return nil
 }
 
+// sendData —— a data-only SSE frame (`data: <json>\n\n`), the openai-compat wire shape (no
+// `event:` line). go-openai's stream reader keys on the `data: ` prefix and the `[DONE]`
+// terminator.
+func (s *sseWriter) sendData(payload any) error {
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("sse marshal: %w", err)
+	}
+	if _, werr := fmt.Fprintf(s.w, "data: %s\n\n", body); werr != nil {
+		return fmt.Errorf("sse write: %w", werr)
+	}
+	s.flusher.Flush()
+	return nil
+}
+
+// sendDone —— the `data: [DONE]` terminator every openai-compat stream ends with.
+func (s *sseWriter) sendDone() error {
+	if _, err := fmt.Fprint(s.w, "data: [DONE]\n\n"); err != nil {
+		return fmt.Errorf("sse write done: %w", err)
+	}
+	s.flusher.Flush()
+	return nil
+}
+
 func emitMessageStart(s *sseWriter, model string) error {
 	return s.send("message_start", map[string]any{
 		"type": "message_start",

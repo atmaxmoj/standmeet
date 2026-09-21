@@ -145,19 +145,43 @@ async function claimLanded(request: APIRequestContext, body: ClaimBody): Promise
   return res?.status() === 200;
 }
 
-// seedDevAIProvider —— in dev/e2e the backend's anthropic provider talks
-// to mock-stack/llm-gateway. A real owner sets this via the admin UI once
-// after claim; here we POST the same admin endpoint so the owner row is
-// configured before any visitor-chat spec runs.
-//
-// Endpoint resolves to the gateway service from inside the docker network
-// (backend container talks to llm-gateway:9300 by service name).
-async function seedDevAIProvider(
+// The gateway service base URL from inside the docker network (backend container talks to
+// llm-gateway:9300 by service name).
+const LLM_GATEWAY = process.env['LLM_GATEWAY_BACKEND_URL'] ?? 'http://llm-gateway:9300';
+
+// AIProviderCfg —— one owner AI-provider row, pointed at the mock gateway.
+export interface AIProviderCfg {
+  provider: string;
+  endpoint: string;
+  model: string;
+  key: string;
+}
+
+// ANTHROPIC_MOCK_CFG —— the default e2e provider (Anthropic wire → mock's /v1/messages).
+export const ANTHROPIC_MOCK_CFG: AIProviderCfg = {
+  provider: 'anthropic',
+  endpoint: LLM_GATEWAY,
+  model: 'claude-haiku-4-5-20251001',
+  key: 'dev-llm-gateway-dummy-key',
+};
+
+// DEEPSEEK_MOCK_CFG —— the openai-compat family (deepseek/kimi/groq/…) share ONE wire and ONE
+// eino adapter. Endpoint has NO /v1: the go-openai client appends /chat/completions, which the
+// mock also serves. A distinct model id lets the recorder tell this row from the anthropic one.
+export const DEEPSEEK_MOCK_CFG: AIProviderCfg = {
+  provider: 'deepseek',
+  endpoint: LLM_GATEWAY,
+  model: 'deepseek-v4-pro',
+  key: 'sk-deepseek-mock-key',
+};
+
+// seedAIProvider —— configure the owner's AI-provider row via the admin endpoint (what a real
+// owner does once through the admin UI after claim). Overwrites whatever claim() seeded.
+export async function seedAIProvider(
   request: APIRequestContext,
   creds: { email: string; password: string },
+  cfg: AIProviderCfg,
 ): Promise<void> {
-  const endpoint = process.env['LLM_GATEWAY_BACKEND_URL']
-    ?? 'http://llm-gateway:9300';
   const loginRes = await request.post(
     `${BACKEND}/api/admin/login`, loginRequest(creds.email, creds.password),
   );
@@ -169,16 +193,25 @@ async function seedDevAIProvider(
   const res = await request.patch(`${BACKEND}/api/admin/ai-provider`, {
     headers: { 'X-Csrftoken': csrf },
     data: {
-      provider: 'anthropic',
-      endpoint,
-      model: 'claude-haiku-4-5-20251001',
+      provider: cfg.provider,
+      endpoint: cfg.endpoint,
+      model: cfg.model,
       key_change: 'set',
-      key: 'dev-llm-gateway-dummy-key',
+      key: cfg.key,
     },
   });
   if (res.status() !== 200) {
     throw new Error(`seed-ai-provider failed: ${res.status()} ${await res.text()}`);
   }
+}
+
+// seedDevAIProvider —— the default: seed the Anthropic mock provider. Called by claim() so
+// every owner row is chat-ready before any visitor-chat spec runs.
+async function seedDevAIProvider(
+  request: APIRequestContext,
+  creds: { email: string; password: string },
+): Promise<void> {
+  await seedAIProvider(request, creds, ANTHROPIC_MOCK_CFG);
 }
 
 // clearAIProviderKey —— clear the key on the owner's default provider, so this

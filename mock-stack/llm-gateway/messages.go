@@ -97,15 +97,15 @@ const followupGhosts = `["What got you into this work?",` +
 
 // isFollowupGen —— whether this non-stream call is a follow-up generation (recognized by the
 // phrase "JSON array of 3 strings," unique to followupGenPrompt).
-func isFollowupGen(req *MessagesReq) bool {
-	return strings.Contains(req.System.Text, "JSON array of 3 strings")
+func isFollowupGen(sys string) bool {
+	return strings.Contains(sys, "JSON array of 3 strings")
 }
 
 // isGhostPolicy —— whether this non-stream call is GhostPolicy (a single steering-ghost
 // generation, recognized by "ONE GHOST MESSAGE," unique to its prompt). Returns via
 // takeGhost(): either a scripted body or the default null (silence).
-func isGhostPolicy(req *MessagesReq) bool {
-	return strings.Contains(req.System.Text, "ONE GHOST MESSAGE")
+func isGhostPolicy(sys string) bool {
+	return strings.Contains(sys, "ONE GHOST MESSAGE")
 }
 
 // serveNonStream —— /v1/messages stream=false. Anthropic returns one
@@ -116,11 +116,11 @@ func (s *server) serveNonStream(w http.ResponseWriter, req *MessagesReq) {
 	// derived content and don't carry the visitor message's keyword, so also match
 	// against the retained keywords of the turn that triggered this call.
 	matchText := req.markerText() + " " + s.queue.retainedKeys()
-	if isGhostPolicy(req) {
+	if isGhostPolicy(req.System.Text) {
 		s.writeNonStream(w, req.Model, s.queue.takeGhostFor(matchText))
 		return
 	}
-	if isFollowupGen(req) {
+	if isFollowupGen(req.System.Text) {
 		s.writeNonStream(w, req.Model, followupGhosts)
 		return
 	}
@@ -133,7 +133,7 @@ func (s *server) serveNonStream(w http.ResponseWriter, req *MessagesReq) {
 	// summarize report generation returns the report HTML RAW (like a real LLM) — no [system:...]
 	// echo. The echo (composeFinalReply) is for chat replies where tests assert prompt assembly;
 	// prepending it to a report pollutes the stored HTML (and breaks HTML sanitization on it).
-	if !isSummarizeGen(req) {
+	if !isSummarizeGen(req.System.Text) {
 		text = composeFinalReply(req, text)
 	}
 	s.writeNonStream(w, req.Model, text)
@@ -141,8 +141,8 @@ func (s *server) serveNonStream(w http.ResponseWriter, req *MessagesReq) {
 
 // isSummarizeGen —— the non-stream call that generates a conversation report (its system is the
 // summarize component-kit prompt). Detected by a phrase unique to summarizeHTMLPrompt.
-func isSummarizeGen(req *MessagesReq) bool {
-	return strings.Contains(req.System.Text, "report component kit")
+func isSummarizeGen(sys string) bool {
+	return strings.Contains(sys, "report component kit")
 }
 
 func (s *server) writeNonStream(w http.ResponseWriter, model, text string) {

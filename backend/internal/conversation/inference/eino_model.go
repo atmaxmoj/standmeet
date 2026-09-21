@@ -26,6 +26,7 @@ import (
 	"github.com/cloudwego/eino-ext/components/model/claude"
 	"github.com/cloudwego/eino-ext/components/model/openai"
 	"github.com/cloudwego/eino/components/model"
+	"github.com/cloudwego/eino/schema"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/httpx"
 )
@@ -162,5 +163,79 @@ func buildOpenAICompatModel(
 	if err != nil {
 		return nil, fmt.Errorf("eino: openai-compat model: %w", err)
 	}
-	return cm, nil
+	return &contentGuardModel{inner: cm}, nil
+}
+
+// contentGuardModel —— guarantees every outbound message carries a `content` field on the
+// openai-compat wire.
+//
+// **The bug it fixes.** go-openai serializes ChatCompletionMessage with `content,omitempty`
+// (chat.go:119), so an assistant message with tool_calls and empty Content is sent WITHOUT the
+// `content` field. OpenAI tolerates that; DeepSeek's deserializer rejects it —
+// `422 messages[i]: missing field ` + "`content`" + ` → NodeRunError`. eiab made the agent
+// tool-call every turn, so every openai-compat visitor turn's SECOND (post-tool) call carried
+// exactly this message and failed. Setting empty assistant-tool-call content to a single space
+// forces the field to serialize. Wrapping the model (rather than one call site) covers the
+// primary loop's Stream, the boundary's Generate, and every future caller — the react agent owns
+// the message list, so the fix belongs at the wire boundary, once.
+type contentGuardModel struct {
+	inner model.ToolCallingChatModel
+}
+
+// ClassifyStreamErr) inspects the provider's own error; wrapping would change what it sees.
+//
+//nolint:wrapcheck // transparent decorator: the caller's error classification (errors.go /
+func (m *contentGuardModel) Generate(
+	ctx context.Context, input []*schema.Message, opts ...model.Option,
+) (*schema.Message, error) {
+	return m.inner.Generate(ctx, ensureMessageContent(input), opts...)
+}
+
+//nolint:wrapcheck // transparent decorator — see Generate.
+func (m *contentGuardModel) Stream(
+	ctx context.Context, input []*schema.Message, opts ...model.Option,
+) (*schema.StreamReader[*schema.Message], error) {
+	return m.inner.Stream(ctx, ensureMessageContent(input), opts...)
+}
+
+// transparent decorator — see Generate.
+//
+//nolint:ireturn,wrapcheck // implements model.ToolCallingChatModel (interface return);
+func (m *contentGuardModel) WithTools(
+	tools []*schema.ToolInfo,
+) (model.ToolCallingChatModel, error) {
+	bound, err := m.inner.WithTools(tools)
+	if err != nil {
+		return nil, err
+	}
+	return &contentGuardModel{inner: bound}, nil
+}
+
+// ensureMessageContent —— rewrites any assistant tool-call message with empty Content to a
+// single space, so the openai-compat wire always includes `content`. Copies the slice (and only
+// the offending messages) lazily, so callers that need no rewrite keep their own pointers.
+func ensureMessageContent(input []*schema.Message) []*schema.Message {
+	out := input
+	copied := false
+	for i, msg := range input {
+		if !assistantToolCallNeedsContent(msg) {
+			continue
+		}
+		if !copied {
+			out = make([]*schema.Message, len(input))
+			copy(out, input)
+			copied = true
+		}
+		clone := *msg
+		clone.Content = " "
+		out[i] = &clone
+	}
+	return out
+}
+
+// assistantToolCallNeedsContent —— the one shape go-openai serializes without a `content`
+// field: an assistant message carrying tool_calls but empty Content.
+func assistantToolCallNeedsContent(msg *schema.Message) bool {
+	return msg != nil && msg.Content == "" &&
+		msg.Role == schema.Assistant && len(msg.ToolCalls) > 0
 }
