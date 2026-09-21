@@ -43,19 +43,18 @@ jobs:
       - run:
           name: Register QEMU for arm64 emulation
           command: docker run --privileged --rm tonistiigi/binfmt --install arm64
-      - when:
-          condition:
-            equal: [app, << parameters.image >>]
-          steps:
-            - run:
-                name: Node 22 + pnpm (app's image only COPYs a prebuilt .next)
-                command: |
-                  nvm install 22 >/dev/null && nvm alias default 22 && nvm use 22
-                  corepack enable
-                  corepack prepare --activate
       - run:
           name: Build + push standmeet-<< parameters.image >> (multi-arch → ghcr)
-          command: make release-push-one SVC=<< parameters.image >> TAG="<< pipeline.git.tag >>"
+          command: |
+            # app + builder build the SDK on the runner (pnpm), so node/pnpm must be on PATH in
+            # THIS shell — a separate step loses the nvm/corepack PATH (that was the first failure).
+            # backend / db / im-bridge / updater are self-contained Docker builds and skip this.
+            case "<< parameters.image >>" in
+              app|builder)
+                nvm install 22 >/dev/null && nvm alias default 22 && nvm use 22
+                corepack enable ;;
+            esac
+            make release-push-one SVC=<< parameters.image >> TAG="<< pipeline.git.tag >>"
           no_output_timeout: 45m
 
 workflows:

@@ -1816,6 +1816,10 @@ release-push-one:
 	  STRIP_TEST_HOOKS=1 BACKEND_URL=$(APP_BUILD_BACKEND_URL) pnpm -F standmeet-app build; \
 	  $(MAKE) release-assert-stripped; \
 	fi
+	@if [ "$(SVC)" = "builder" ]; then \
+	  echo "[release] builder: build the SDK and vendor it into the builder context (its Dockerfile COPYs vendor/@standmeet)"; \
+	  $(MAKE) sdk-build builder-vendor; \
+	fi
 	@img=$(REGISTRY)/standmeet-$(SVC):$(TAG); \
 	  case "$(SVC)" in \
 	    backend)   ctx="-f backend/Dockerfile --target production --build-arg STANDMEET_VERSION=$(TAG) ." ;; \
