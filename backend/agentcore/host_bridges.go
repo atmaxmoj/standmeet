@@ -18,7 +18,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/conversation/inference"
 	conversationrepo "github.com/atmaxmoj/standmeet/internal/conversation/repo"
 	ownerentity "github.com/atmaxmoj/standmeet/internal/owner/entity"
-	"github.com/atmaxmoj/standmeet/internal/plugin/blockconfig"
+	"github.com/atmaxmoj/standmeet/internal/plugin"
 	"github.com/atmaxmoj/standmeet/internal/routes/blockdesk"
 )
 
@@ -168,12 +168,11 @@ func (c manifestConfigBridge) Values(
 	out := map[string]json.RawMessage{}
 	for i := range c.host.manifest.Config {
 		f := c.host.manifest.Config[i]
-		// DefaultOf JSON-quotes a bare string/time default (manifest `default: "09:00"` is the
-		// Go string `09:00`, not a JSON literal) and returns `null` for none — same as prod's
-		// blockconfig.Store read path. Using f.Default raw here marshalled invalid RawMessage
-		// ("invalid character ':' after top-level value"), so blockconfig.get failed and the
-		// booker read the calendar as unavailable. One conversion, no drift.
-		out[f.Key] = json.RawMessage(blockconfig.DefaultOf(&f))
+		// plugin.DefaultOf JSON-quotes a bare string/time default (manifest `default: "09:00"`
+		// is the Go string `09:00`, not JSON) and returns `null` for none. Using f.Default raw
+		// marshalled invalid RawMessage, so blockconfig.get failed and the booker saw the calendar
+		// as unavailable. It lives on the declaration so this path and the store quote it one way.
+		out[f.Key] = json.RawMessage(plugin.DefaultOf(&f))
 	}
 	for k, v := range c.host.Config {
 		out[k] = json.RawMessage(v)

@@ -1,9 +1,10 @@
-// default_test.go — DefaultOf must return a JSON LITERAL (Field.Value/Default are documented as
-// such, and toConfigOut wraps them as json.RawMessage). A bare string default (YAML `default:
-// hello`) was returned raw as `hello`, which is not valid JSON: the panel's config read then failed
-// to marshal (500), and a block reading an un-overridden string-default value got invalid JSON.
+// default_test.go — DefaultOf must return a JSON LITERAL (ConfigField.Default is wrapped as
+// json.RawMessage by every reader). A bare string default (YAML `default: hello`) returned raw as
+// `hello` is not valid JSON: the config-store read then failed to marshal (500), and the eval
+// mini-host read the booker's un-overridden string/time default as invalid JSON — the calendar
+// then looked unavailable and no booking was made.
 
-package blockconfig //nolint:testpackage // shares the package to keep this focused on DefaultOf
+package plugin_test
 
 import (
 	"encoding/json"
@@ -27,7 +28,7 @@ func TestDefaultOf_ReturnsValidJSONLiteral(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			got := DefaultOf(&plugin.ConfigField{Type: c.typ, Default: c.decl})
+			got := plugin.DefaultOf(&plugin.ConfigField{Type: c.typ, Default: c.decl})
 			assertLiteral(t, c.typ, c.decl, got, c.want)
 		})
 	}

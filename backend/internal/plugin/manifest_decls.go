@@ -9,6 +9,7 @@
 package plugin
 
 import (
+	"encoding/json"
 	"fmt"
 
 	yaml "go.yaml.in/yaml/v3"
@@ -88,6 +89,32 @@ type ConfigField struct {
 	Type        string `yaml:"type"`
 	Description string `yaml:"description"`
 	Default     string `yaml:"default"`
+}
+
+// DefaultOf — the field's declared default as a JSON LITERAL (callers wrap it in
+// json.RawMessage). For a field with no declared default the default is JSON `null`,
+// **not** an empty string: an empty string isn't a valid JSON literal, so whoever decodes
+// it gets "unexpected end of input" and reads it as "this config is broken" when the truth
+// is "this was never set".
+//
+// Numeric / bool / list defaults are already valid JSON as declared (5 / true / ["a"]); a
+// string or time default is a BARE value in the manifest (YAML `default: hello` / `10:00`)
+// and must be JSON-quoted, or the read path marshals invalid JSON and 500s. It lives here,
+// on the declaration, so the config store and the eval mini-host quote it the one same way.
+func DefaultOf(f *ConfigField) string {
+	if f.Default == "" {
+		return "null"
+	}
+	switch f.Type {
+	case ConfigTypeInt, ConfigTypeBool, ConfigTypeStringList:
+		return f.Default
+	default: // string, time, or an unrecognized (string-like) type
+		b, err := json.Marshal(f.Default)
+		if err != nil {
+			return "null"
+		}
+		return string(b)
+	}
 }
 
 // Quota — how the host counts this block's use against a limit.
