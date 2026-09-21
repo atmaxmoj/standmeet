@@ -24,7 +24,7 @@ import (
 
 func TestEvalAssemblesRetrievalPlugin(t *testing.T) {
 	ctx := context.Background()
-	bin := buildHostPlugin(t, "../mcp-servers/retrieval")
+	js := hostPluginEntry(t, retrievalPluginDir)
 	// short /tmp path — macOS caps unix socket paths at ~104 bytes, t.TempDir() is too deep.
 	sockDir, derr := os.MkdirTemp("/tmp", "smr")
 	if derr != nil {
@@ -41,7 +41,8 @@ func TestEvalAssemblesRetrievalPlugin(t *testing.T) {
 		},
 		plugins: []agentcore.PluginSpec{{
 			ID:      "corpus.retrieval",
-			Command: bin,
+			Command: "node",
+			Args:    []string{js},
 			Env:     map[string]string{agentcore.HostSocketEnv: sock},
 			// data plugin (orders host ops by name) → gets the session corpus_uris scope
 			HostOps:      agentcore.CorpusHostOpNames(),

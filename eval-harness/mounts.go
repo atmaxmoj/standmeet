@@ -18,8 +18,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"os/exec"
+	"os"
 	"path/filepath"
 
 	"github.com/atmaxmoj/standmeet/agentcore"
@@ -33,16 +34,31 @@ const (
 	summarizeBlockID  = "summarize_conversation"
 )
 
-// buildPluginBinary —— compiles a plugin module into a binary for the local architecture
-// (prod runs it inside bwrap; the mini-host here runs it over plain stdio —— the isolation
-// is prod's, the vocabulary is shared).
-func buildPluginBinary(dir, out string) (string, error) {
-	cmd := exec.Command("go", "build", "-o", out, ".")
-	cmd.Dir = dir
-	if outBytes, err := cmd.CombinedOutput(); err != nil {
-		return "", fmt.Errorf("build plugin %s: %w\n%s", dir, err, outBytes)
+// pluginEntry —— the JS file `node` runs as a plugin's MCP server, read from its
+// package.json "main". eiab migrated every builtin plugin from a Go module to a JS dsh plugin
+// (prod runs `node <main>` per the block manifest); node resolves the same "main", and it
+// matches the manifest's args, so this stays single-sourced. Absolute path so node finds the
+// plugin's own node_modules regardless of cwd. Errors loudly if the plugin or its deps are
+// missing (run infra/plugins/provision.sh) rather than launching a node that exits → tools=0.
+func pluginEntry(dir string) (string, error) {
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return "", fmt.Errorf("plugin dir %s: %w", dir, err)
 	}
-	return out, nil
+	raw, rerr := os.ReadFile(filepath.Join(abs, "package.json"))
+	if rerr != nil {
+		return "", fmt.Errorf("read %s/package.json (run infra/plugins/provision.sh?): %w", abs, rerr)
+	}
+	var pkg struct {
+		Main string `json:"main"`
+	}
+	if jerr := json.Unmarshal(raw, &pkg); jerr != nil {
+		return "", fmt.Errorf("parse %s/package.json: %w", abs, jerr)
+	}
+	if pkg.Main == "" {
+		return "", fmt.Errorf("%s/package.json has no \"main\"", abs)
+	}
+	return filepath.Join(abs, pkg.Main), nil
 }
 
 // mountBlock —— compile + start socket + add to the driver's plugin set, in one go.
@@ -55,15 +71,16 @@ func mountBlock(
 	ctx context.Context, driver *EvalDriver,
 	capID, pluginDir, tmp string, host *agentcore.BlockHost,
 ) (func() error, error) {
-	bin, berr := buildPluginBinary(pluginDir, filepath.Join(tmp, capID+"-plugin"))
-	if berr != nil {
-		return nil, berr
+	js, jerr := pluginEntry(pluginDir)
+	if jerr != nil {
+		return nil, jerr
 	}
 	sock := filepath.Join(tmp, capID+".sock")
-	spec, serr := agentcore.BuiltinPluginSpec(capID, bin, sock)
+	spec, serr := agentcore.BuiltinPluginSpec(capID, "node", sock)
 	if serr != nil {
 		return nil, fmt.Errorf("%s plugin spec: %w", capID, serr)
 	}
+	spec.Args = []string{js}
 	stop := func() error { return nil }
 	if len(spec.HostOps) > 0 {
 		s, herr := agentcore.StartBlockSocket(ctx, host, capID, sock)
@@ -86,7 +103,7 @@ func mountBooker(
 ) (func() error, error) {
 	host, _ := bookingWorld(ownerID, ownerTZOr(opts.ownerTimezone), nil,
 		opts.bookingFail, opts.bookingFailMsg)
-	return mountBlock(ctx, driver, bookerBlockID, "../mcp-servers/booker", tmp, host)
+	return mountBlock(ctx, driver, bookerBlockID, "../infra/plugins/booker", tmp, host)
 }
 
 // mountSummarize —— the real summarize plugin + the three host ops it needs: read this
@@ -106,7 +123,7 @@ func mountSummarize(
 		Cred:       &driver.cred,
 		Report:     opts.report,
 	}
-	return mountBlock(ctx, driver, summarizeBlockID, "../mcp-servers/summarize", tmp, host)
+	return mountBlock(ctx, driver, summarizeBlockID, "../infra/plugins/summarize", tmp, host)
 }
 
 // mountAskVisitor —— the real ask_visitor plugin. It calls no host op at all (the question
@@ -114,5 +131,5 @@ func mountSummarize(
 func mountAskVisitor(
 	ctx context.Context, driver *EvalDriver, tmp string,
 ) (func() error, error) {
-	return mountBlock(ctx, driver, askVisitorBlockID, "../mcp-servers/ask-visitor", tmp, nil)
+	return mountBlock(ctx, driver, askVisitorBlockID, "../infra/plugins/ask-visitor", tmp, nil)
 }

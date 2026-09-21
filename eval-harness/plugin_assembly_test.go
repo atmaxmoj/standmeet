@@ -10,20 +10,19 @@ package main
 
 import (
 	"context"
-	"os/exec"
-	"path/filepath"
 	"testing"
 
 	"github.com/atmaxmoj/standmeet/agentcore"
 )
 
 func TestEvalAssemblesAskVisitorPlugin(t *testing.T) {
-	bin := buildHostPlugin(t, "../mcp-servers/ask-visitor")
+	js := hostPluginEntry(t, "../infra/plugins/ask-visitor")
 	driver := &EvalDriver{
 		cred: evalCred(),
 		plugins: []agentcore.PluginSpec{{
 			ID:           "ask_visitor",
-			Command:      bin,
+			Command:      "node",
+			Args:         []string{js},
 			RawToolNames: true,
 			ACLAlways:    true,
 		}},
@@ -40,26 +39,17 @@ func TestEvalAssemblesAskVisitorPlugin(t *testing.T) {
 	}
 }
 
-// buildHostPlugin —— compile a plugin module to a host-arch binary. Thin *testing.T wrapper
-// over the non-test build (candidate.go) so tests that need only the binary (not a full launch)
-// share the ONE build path with the --ask binary. moduleDir is honored for non-retrieval
-// plugins; the retrieval module reuses buildRetrievalBinary.
-func buildHostPlugin(t *testing.T, moduleDir string) string {
+// hostPluginEntry —— the JS entrypoint a test mounts as a plugin. eiab made every builtin
+// plugin a JS dsh plugin run via `node <entry>`, so tests mount them the same way the --ask
+// binary does — through the ONE shared pluginEntry (reads package.json "main"). The caller
+// sets Command:"node", Args:[]string{entry}.
+func hostPluginEntry(t *testing.T, moduleDir string) string {
 	t.Helper()
-	if moduleDir == retrievalPluginDir {
-		bin, err := buildRetrievalBinary(t.TempDir())
-		if err != nil {
-			t.Fatalf("%v", err)
-		}
-		return bin
+	js, err := pluginEntry(moduleDir)
+	if err != nil {
+		t.Fatalf("%v", err)
 	}
-	bin := filepath.Join(t.TempDir(), "plugin")
-	cmd := exec.Command("go", "build", "-o", bin, ".")
-	cmd.Dir = moduleDir
-	if out, berr := cmd.CombinedOutput(); berr != nil {
-		t.Fatalf("build plugin %s: %v\n%s", moduleDir, berr, out)
-	}
-	return bin
+	return js
 }
 
 // mustLaunch —— the *testing.T front for launchCandidate: assemble a candidate agent with

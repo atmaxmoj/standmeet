@@ -89,7 +89,7 @@ func (s *Store) GetScoped(
 	}
 	out := make([]Field, 0, len(decl))
 	for i := range decl {
-		def := defaultOf(&decl[i])
+		def := DefaultOf(&decl[i])
 		f := Field{
 			Key: decl[i].Key, Label: decl[i].Label, Type: decl[i].Type,
 			Description: decl[i].Description, Default: def, Value: def,
@@ -102,7 +102,7 @@ func (s *Store) GetScoped(
 	return out, nil
 }
 
-// defaultOf — for a field with no declared default, the default is JSON
+// DefaultOf — for a field with no declared default, the default is JSON
 // null, **not an empty string**.
 //
 // An empty string isn't a valid JSON literal: whoever decodes it gets
@@ -114,7 +114,7 @@ func (s *Store) GetScoped(
 // so on a code where the quota was never set, reading the limit failed
 // outright, and the gate hid calendar_book entirely — the symptom read as "a
 // tool the visitor was authorized for just disappeared".
-func defaultOf(f *plugin.ConfigField) string {
+func DefaultOf(f *plugin.ConfigField) string {
 	if f.Default == "" {
 		return "null"
 	}

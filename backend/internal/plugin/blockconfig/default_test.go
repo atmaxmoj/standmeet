@@ -1,9 +1,9 @@
-// default_test.go — defaultOf must return a JSON LITERAL (Field.Value/Default are documented as
+// default_test.go — DefaultOf must return a JSON LITERAL (Field.Value/Default are documented as
 // such, and toConfigOut wraps them as json.RawMessage). A bare string default (YAML `default:
 // hello`) was returned raw as `hello`, which is not valid JSON: the panel's config read then failed
 // to marshal (500), and a block reading an un-overridden string-default value got invalid JSON.
 
-package blockconfig //nolint:testpackage // white-box: defaultOf is unexported
+package blockconfig //nolint:testpackage // shares the package to keep this focused on DefaultOf
 
 import (
 	"encoding/json"
@@ -27,7 +27,7 @@ func TestDefaultOf_ReturnsValidJSONLiteral(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			got := defaultOf(&plugin.ConfigField{Type: c.typ, Default: c.decl})
+			got := DefaultOf(&plugin.ConfigField{Type: c.typ, Default: c.decl})
 			assertLiteral(t, c.typ, c.decl, got, c.want)
 		})
 	}
@@ -36,9 +36,9 @@ func TestDefaultOf_ReturnsValidJSONLiteral(t *testing.T) {
 func assertLiteral(t *testing.T, typ, decl, got, want string) {
 	t.Helper()
 	if !json.Valid([]byte(got)) {
-		t.Fatalf("defaultOf(%s=%q) = %q, not valid JSON", typ, decl, got)
+		t.Fatalf("DefaultOf(%s=%q) = %q, not valid JSON", typ, decl, got)
 	}
 	if got != want {
-		t.Fatalf("defaultOf(%s=%q) = %q, want %q", typ, decl, got, want)
+		t.Fatalf("DefaultOf(%s=%q) = %q, want %q", typ, decl, got, want)
 	}
 }

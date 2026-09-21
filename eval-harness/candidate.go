@@ -21,21 +21,24 @@ import (
 	"github.com/atmaxmoj/standmeet/agentcore"
 )
 
-// retrievalPluginDir —— the corpus.retrieval plugin module, relative to the eval-harness dir.
-const retrievalPluginDir = "../mcp-servers/retrieval"
+// retrievalPluginDir —— the corpus.retrieval plugin, relative to the eval-harness dir. eiab
+// migrated it from a Go module (../mcp-servers/retrieval, now deleted) to a JS dsh plugin; prod
+// runs it as `node retrieval-mcp.js` (backend/blocks/corpus.retrieval/manifest.yaml), reaching
+// back over the SAME host socket (StartRetrievalSocket). The eval mounts it the same way.
+const retrievalPluginDir = "../infra/plugins/retrieval"
 
-// buildRetrievalBinary —— compile the retrieval plugin to a host-arch binary (no GOOS override)
-// so it runs as a plain stdio MCP server on this machine. Non-test core of buildHostPlugin, so
-// the --ask binary can reuse the exact same build.
-func buildRetrievalBinary(outDir string) (string, error) {
-	return buildPluginBinary(retrievalPluginDir, filepath.Join(outDir, "retrieval-plugin"))
+// retrievalEntry —— the JS entrypoint node runs as the retrieval MCP server. Absolute so it
+// resolves regardless of the caller's cwd; errors loudly if the plugin (or its node deps) is
+// missing rather than launching a node that exits and reads as tools=0.
+func retrievalEntry() (string, error) {
+	return pluginEntry(retrievalPluginDir)
 }
 
-// retrievalPluginSpec —— the corpus.retrieval PluginSpec bound to a host socket. One
-// definition, so the six fields can't drift between call sites.
-func retrievalPluginSpec(bin, sock string) agentcore.PluginSpec {
+// retrievalPluginSpec —— the corpus.retrieval PluginSpec bound to a host socket. `node <js>`
+// mirrors prod's manifest transport; the host-op set + ACL are unchanged from the Go plugin.
+func retrievalPluginSpec(js, sock string) agentcore.PluginSpec {
 	return agentcore.PluginSpec{
-		ID: retrievalBlockID, Command: bin,
+		ID: retrievalBlockID, Command: "node", Args: []string{js},
 		Env:     map[string]string{agentcore.HostSocketEnv: sock},
 		HostOps: agentcore.CorpusHostOpNames(), RawToolNames: true, ACLAlways: true,
 	}
@@ -95,13 +98,13 @@ func launchCandidateWith(
 	}
 	cleanup := func() { _ = os.RemoveAll(tmp) }
 
-	bin, berr := buildRetrievalBinary(tmp)
+	js, berr := retrievalEntry()
 	if berr != nil {
 		cleanup()
 		return nil, nil, berr
 	}
 	sock := filepath.Join(tmp, "r.sock")
-	driver.plugins = append(driver.plugins, retrievalPluginSpec(bin, sock))
+	driver.plugins = append(driver.plugins, retrievalPluginSpec(js, sock))
 
 	stop, serr := agentcore.StartRetrievalSocket(ctx, driver, sock)
 	if serr != nil {

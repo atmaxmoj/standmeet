@@ -188,6 +188,15 @@ func runAsk(log *slog.Logger, cred agentcore.Cred, personaDir string) int {
 		Answer: turn.answer, Tools: turn.tools, Report: turn.report,
 		Ghosts: turn.ghosts,
 	}
+	// `tools` / `ghosts` are documented as arrays; a nil slice marshals to JSON `null`,
+	// which crashes consumers that iterate `resp["tools"]` (blocks.py, interviewer agent).
+	// A zero-tool turn is a real signal (booking fabrication), not a reason to emit null.
+	if resp.Tools == nil {
+		resp.Tools = []toolUse{}
+	}
+	if resp.Ghosts == nil {
+		resp.Ghosts = []string{}
+	}
 	if aerr != nil {
 		resp.Error = aerr.Error()
 	}

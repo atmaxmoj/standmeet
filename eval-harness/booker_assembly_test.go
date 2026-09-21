@@ -96,7 +96,7 @@ func launchWithBookerCred(
 ) (*agentcore.VisitorAgent, *memStore) {
 	t.Helper()
 	host, store := bookingWorld("owner-1", "UTC", nil, failVerb, "the calendar refused this call")
-	bin := buildHostPlugin(t, "../mcp-servers/booker")
+	js := hostPluginEntry(t, "../infra/plugins/booker")
 	// short /tmp path — macOS caps unix socket paths at ~104 bytes.
 	sockDir, derr := os.MkdirTemp("/tmp", "smb")
 	if derr != nil {
@@ -105,10 +105,11 @@ func launchWithBookerCred(
 	t.Cleanup(func() { _ = os.RemoveAll(sockDir) })
 	sock := filepath.Join(sockDir, "b.sock")
 
-	spec, serr := agentcore.BuiltinPluginSpec(bookerBlockID, bin, sock)
+	spec, serr := agentcore.BuiltinPluginSpec(bookerBlockID, "node", sock)
 	if serr != nil {
 		t.Fatalf("BuiltinPluginSpec: %v", serr)
 	}
+	spec.Args = []string{js}
 	stop, herr := agentcore.StartBlockSocket(ctx, host, bookerBlockID, sock)
 	if herr != nil {
 		t.Fatalf("StartBlockSocket: %v", herr)
