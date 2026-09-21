@@ -216,9 +216,10 @@ func (m *contentGuardModel) WithTools(
 // ensureMessageContent —— guarantees every outbound message carries a `content` field. go-openai
 // serializes ChatCompletionMessage with `content,omitempty` (chat.go:119), so ANY message with
 // empty Content and no MultiContent goes out WITHOUT the field — OpenAI tolerates it, DeepSeek's
-// deserializer 422s ("messages[i]: missing field content"). First seen on the assistant tool-call
-// message, but prod's PRIMARY call 422s at messages[1] before any tool runs, so the guard covers
-// EVERY role, not just assistant-tool-call. Copy-on-write. When it fills anything it logs the
+// deserializer 422s ("messages[i]: missing field content"). The real case is the assistant
+// tool-call message (empty content + tool_calls); the guard fills EVERY role rather than narrowing
+// to that one, because DeepSeek requires the field on every message and filling a blank elsewhere
+// is harmless — cheaper than proving no other role can ever be empty. Copy-on-write. When it fills
 // outbound shape (role:contentLen/toolCalls per message) so the exact empty message is read from
 // the LOG, not guessed from code.
 func ensureMessageContent(input []*schema.Message) []*schema.Message {

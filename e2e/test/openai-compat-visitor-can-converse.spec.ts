@@ -1,23 +1,28 @@
 // openai-compat-visitor-can-converse.spec.ts —— the openai-compat provider family (deepseek /
 // kimi / groq / together / openrouter / siliconflow / custom) shares ONE wire + ONE eino adapter,
 // and had ZERO e2e coverage: the mock only spoke Anthropic and every e2e owner was seeded
-// `anthropic`. Prod runs `deepseek`, so a bug living only on the openai-compat path was invisible
-// to the whole suite.
+// `anthropic`. Prod runs `deepseek`, so this whole path — adapter construction, the
+// /v1/chat/completions wire, tool-call round-trips — was never exercised end to end.
 //
-// The bug: go-openai serializes an assistant message with `tool_calls` + empty content WITHOUT
-// the `content` field (`json:"content,omitempty"`). OpenAI tolerates it; DeepSeek's deserializer
-// returns 422 ("messages[i]: missing field `content`"). eiab wired JS block tools in, so the agent
-// now tool-calls every turn and emits exactly that message.
+// This spec closes that gap: a coded visitor holds a two-turn tool-calling conversation over both
+// anthropic (the already-covered control) and openai-compat (deepseek). It asserts the visitor
+// reads a real answer each turn, so gross breakage on the openai-compat path — a wire-format
+// mismatch, a failed adapter build, a turn that 500s — surfaces here instead of only in prod.
 //
-// WHY THIS IS A MULTI-TURN TEST (black-box, no implementation-peeking): a SINGLE tool-calling turn
-// hides the bug at the visitor level — the primary loop 422s, but the boundary rescue
-// (forceFinalAnswer) re-synthesises from a CLEAN, tool-less message set and the visitor still gets
-// an answer. The bug only reaches the visitor once a tool-calling assistant message is in the
-// CONVERSATION HISTORY: on the NEXT turn both the primary loop AND the rescue carry that
-// content-less message, both 422, and the visitor gets nothing — which is exactly what prod showed
-// (`answer_chars:0 recovered:false`, every conversation `turns:0` after the eiab deploy). Real
-// visitors converse across turns, so this is the faithful path. The assertion is purely on the
-// rendered answer the visitor reads; swapping the product's internals changes nothing here.
+// The mock is faithful to DeepSeek's strict deserializer: it 422s any message missing the
+// `content` field (openai.go). That matters because go-openai serializes with `content,omitempty`
+// (chat.go:119), so an assistant message with tool_calls + empty content goes out WITHOUT the
+// field; OpenAI tolerates it, DeepSeek rejects it. The backend's content-guard (eino_model.go)
+// fills empty content so the field always serializes.
+//
+// SCOPE, HONESTLY: this is path coverage, not a visitor-level RED for the omit-content bug itself.
+// The agent loop's boundary rescue (forceFinalAnswer) re-synthesises from a clean, tool-less
+// message set, so a single 422 on the primary call is masked — the visitor still gets an answer
+// and this test stays green even with the guard removed. (An earlier version of this comment
+// claimed turn 2 breaks at the visitor level and that prod showed `turns:0` from it. That was
+// traced to a malformed curl driving /agent/turn with an empty user message, NOT the real app
+// path — prod's app chat works, both turns, verified in-browser. See memory
+// prod-chat-regression-eiab.)
 
 import { test, expect } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';
@@ -66,16 +71,11 @@ for (const { name, cfg } of CASES) {
         await expect(input, 'the coded visitor lands in a usable chat')
           .toBeEnabled({ timeout: 20_000 });
 
-        // Turn 1 — a tool-calling turn. On buggy openai-compat code the primary loop 422s but the
-        // clean rescue still answers, so turn 1 completes here too. Its purpose: leave a
-        // tool-calling assistant message (empty content) in the conversation history.
+        // Two tool-calling turns in one conversation — a real visitor holds a multi-turn chat, so
+        // the second turn carries the first's tool-calling assistant message in history. Both turns
+        // must render an answer over the openai-compat wire.
         await sendToolCallingTurn(page, input, 'tell me what they are about',
           'Turn one — grounded in the corpus.');
-
-        // Turn 2 — the same shape, now with turn 1 in history. On buggy openai-compat code both the
-        // primary AND the rescue carry the history's content-less assistant message → both 422 →
-        // the visitor gets NO answer (RED). Fixed code sends `content` on every message → the
-        // primary loop completes → the visitor gets the answer (GREEN). Pure visitor-visible signal.
         await sendToolCallingTurn(page, input, 'and what have they built recently',
           'Turn two — still grounded, still in their voice.');
       });
@@ -120,6 +120,9 @@ async function initOwner(
   });
   await createCode(request, csrf, {
     code, label: 'Recruiter link', max_turns_per_session: 50, max_members: 10,
+    // Match prod's SELFTEST-1C22, which carries ghosts (suggested questions), so the seeded code
+    // mirrors the real one.
+    ghosts: ['What is StandMeet?', 'What has Sijie been building recently?'],
   });
   await request.dispose();
 }
