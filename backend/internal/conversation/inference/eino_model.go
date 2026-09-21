@@ -22,6 +22,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+	"strings"
 
 	"github.com/cloudwego/eino-ext/components/model/claude"
 	"github.com/cloudwego/eino-ext/components/model/openai"
@@ -211,14 +213,20 @@ func (m *contentGuardModel) WithTools(
 	return &contentGuardModel{inner: bound}, nil
 }
 
-// ensureMessageContent —— rewrites any assistant tool-call message with empty Content to a
-// single space, so the openai-compat wire always includes `content`. Copies the slice (and only
-// the offending messages) lazily, so callers that need no rewrite keep their own pointers.
+// ensureMessageContent —— guarantees every outbound message carries a `content` field. go-openai
+// serializes ChatCompletionMessage with `content,omitempty` (chat.go:119), so ANY message with
+// empty Content and no MultiContent goes out WITHOUT the field — OpenAI tolerates it, DeepSeek's
+// deserializer 422s ("messages[i]: missing field content"). First seen on the assistant tool-call
+// message, but prod's PRIMARY call 422s at messages[1] before any tool runs, so the guard covers
+// EVERY role, not just assistant-tool-call. Copy-on-write. When it fills anything it logs the
+// outbound shape (role:contentLen/toolCalls per message) so the exact empty message is read from
+// the LOG, not guessed from code.
 func ensureMessageContent(input []*schema.Message) []*schema.Message {
 	out := input
 	copied := false
+	filled := 0
 	for i, msg := range input {
-		if !assistantToolCallNeedsContent(msg) {
+		if !messageNeedsContent(msg) {
 			continue
 		}
 		if !copied {
@@ -229,13 +237,33 @@ func ensureMessageContent(input []*schema.Message) []*schema.Message {
 		clone := *msg
 		clone.Content = " "
 		out[i] = &clone
+		filled++
+	}
+	if filled > 0 {
+		slog.Default().Warn("openai content-guard filled empty message content",
+			"filled", filled, "shape", messageShape(input))
 	}
 	return out
 }
 
-// assistantToolCallNeedsContent —— the one shape go-openai serializes without a `content`
-// field: an assistant message carrying tool_calls but empty Content.
-func assistantToolCallNeedsContent(msg *schema.Message) bool {
-	return msg != nil && msg.Content == "" &&
-		msg.Role == schema.Assistant && len(msg.ToolCalls) > 0
+// messageNeedsContent —— a message go-openai would serialize without a `content` field: empty
+// Content and no MultiContent. DeepSeek requires the field present on every message regardless of
+// role, so this does not narrow by role (the Tool role sends content non-omitempty, but filling a
+// blank there is harmless).
+func messageNeedsContent(msg *schema.Message) bool {
+	return msg != nil && msg.Content == "" && len(msg.MultiContent) == 0
+}
+
+// messageShape —— compact "role:contentLen/tcN" list, for reading which outbound message was
+// empty straight from the log instead of reverse-engineering it from code.
+func messageShape(input []*schema.Message) string {
+	parts := make([]string, 0, len(input))
+	for _, m := range input {
+		if m == nil {
+			parts = append(parts, "nil")
+			continue
+		}
+		parts = append(parts, fmt.Sprintf("%s:%d/tc%d", m.Role, len(m.Content), len(m.ToolCalls)))
+	}
+	return strings.Join(parts, " ")
 }
