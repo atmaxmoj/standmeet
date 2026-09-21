@@ -1,0 +1,73 @@
+# CircleCI release pipeline — build the six release images and push them to ghcr.io.
+#
+# Why this exists: the Mac dev box builds linux/amd64 under QEMU and runs Docker in a
+# memory-boxed VM, so `make release-push` there is slow and OOM-crashes the multi-arch
+# buildx. CircleCI runs native Linux, so the amd64 half is native and there is no VM
+# memory ceiling.
+#
+# Shape (owner's call): ONE parallel job per image (matrix over the six), so a slow image
+# never blocks the others and any single image can be re-run alone. Each job just calls
+# `make release-push-one SVC=<image>` — the build args live in the Makefile, never here, so
+# the two cannot drift.
+#
+# Trigger: a git tag matching /^v.*/ (e.g. v0.1.42). TAG is passed from the tag that fired
+# the pipeline, so the image version is exactly the tag.
+#
+# Setup the owner does once, in the CircleCI project settings (Environment Variables):
+#   GHCR_USER  = atmaxmoj
+#   GHCR_TOKEN = a GitHub PAT (classic) with write:packages   [mark it masked]
+#
+# arm64 is emulated via QEMU here (amd64 runner). If arm64 build time is a problem, split
+# each job into a native amd64 job + a native arm64 job (arm.large executor) that each push
+# a per-arch tag, plus a manifest job that combines them — native both ways, no QEMU.
+
+version: 2.1
+
+executors:
+  linux:
+    machine:
+      image: ubuntu-2404:current
+    resource_class: large
+
+jobs:
+  build-push:
+    parameters:
+      image:
+        type: string
+    executor: linux
+    steps:
+      - checkout
+      - run:
+          name: Log in to ghcr.io
+          command: echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+      - run:
+          name: Register QEMU for arm64 emulation
+          command: docker run --privileged --rm tonistiigi/binfmt --install arm64
+      - when:
+          condition:
+            equal: [app, << parameters.image >>]
+          steps:
+            - run:
+                name: Node 22 + pnpm (app's image only COPYs a prebuilt .next)
+                command: |
+                  nvm install 22 >/dev/null && nvm alias default 22 && nvm use 22
+                  corepack enable
+                  corepack prepare --activate
+      - run:
+          name: Build + push standmeet-<< parameters.image >> (multi-arch → ghcr)
+          command: make release-push-one SVC=<< parameters.image >> TAG="<< pipeline.git.tag >>"
+          no_output_timeout: 45m
+
+workflows:
+  release:
+    jobs:
+      - build-push:
+          name: build-<< matrix.image >>
+          matrix:
+            parameters:
+              image: [backend, app, builder, im-bridge, db, updater]
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              ignore: /.*/

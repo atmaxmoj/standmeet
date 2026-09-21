@@ -1797,6 +1797,43 @@ release-push: secrets secrets-image
 	@$(MAKE) release-assert-multiarch
 	@echo "[release] pushed $(IMAGES) @ $(TAG) + latest to $(REGISTRY)"
 
+# release-push-one —— build + push ONE image's multi-arch manifest to ghcr, parameterized by SVC.
+# The per-image half of release-push, pulled out so CI can fan the six images into parallel jobs
+# (one pipeline per package) instead of the serial loop above. Build args live HERE, not duplicated
+# into .circleci/config.yml — that config only calls this target, so the two never drift.
+# `app` first builds its stripped .next on the runner (app/Dockerfile only COPYs .next/standalone),
+# exactly as release-build does; the other five build self-contained from their Dockerfile.
+# Secret-scan of the image (secrets-image) is not run here: buildx --push keeps no local image to
+# `docker export`, and the source-level gitleaks gate already runs at commit/push.
+release-push-one:
+	@test -n "$(SVC)" || { echo "usage: make release-push-one SVC=<backend|app|builder|im-bridge|db|updater>"; exit 2; }
+	@docker buildx inspect standmeet-release >/dev/null 2>&1 \
+	  || docker buildx create --name standmeet-release --driver docker-container >/dev/null
+	@if [ "$(SVC)" = "app" ]; then \
+	  echo "[release] app: build stripped .next before the image (its Dockerfile only COPYs it)"; \
+	  pnpm install --frozen-lockfile; \
+	  STRIP_TEST_HOOKS=1 pnpm -F @standmeet/sdk build; \
+	  STRIP_TEST_HOOKS=1 BACKEND_URL=$(APP_BUILD_BACKEND_URL) pnpm -F standmeet-app build; \
+	  $(MAKE) release-assert-stripped; \
+	fi
+	@img=$(REGISTRY)/standmeet-$(SVC):$(TAG); \
+	  case "$(SVC)" in \
+	    backend)   ctx="-f backend/Dockerfile --target production --build-arg STANDMEET_VERSION=$(TAG) ." ;; \
+	    app)       ctx="./app" ;; \
+	    builder)   ctx="./builder" ;; \
+	    im-bridge) ctx="-f im-bridge/Dockerfile ." ;; \
+	    db)        ctx="-f infra/db/Dockerfile ." ;; \
+	    updater)   ctx="-f infra/updater/Dockerfile ." ;; \
+	    *) echo "release-push-one: unknown SVC '$(SVC)'"; exit 2 ;; \
+	  esac; \
+	  echo "[release] buildx --push $$img ($(RELEASE_PLATFORMS))"; \
+	  docker buildx build --builder standmeet-release \
+	    --platform $(RELEASE_PLATFORMS) \
+	    -t $$img -t $(REGISTRY)/standmeet-$(SVC):latest \
+	    --push $$ctx \
+	    || { echo "[release] push failed — logged in? docker login ghcr.io"; exit 1; }
+	@echo "[release] pushed standmeet-$(SVC) @ $(TAG) + latest"
+
 # release-assert-multiarch —— **the pushed manifest must actually contain amd64**.
 #
 # Not overkill: v0.0.3 was pushed entirely arm64, pulled fine, and wouldn't run on x86_64 — and
