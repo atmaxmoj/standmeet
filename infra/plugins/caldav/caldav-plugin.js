@@ -20,10 +20,17 @@ const icalUTC = (d) =>
   `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T` +
   `${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z`
 
-const freeBusyQuery = (min, max) =>
+// calendarQuery — a REPORT that returns the VEVENTs overlapping [min,max], with their iCalendar
+// bodies. This is the UNIVERSAL availability read: iCloud rejects the free-busy-query REPORT
+// (HTTP 400) but answers calendar-query (207), and every other CalDAV server (Google / Fastmail /
+// Radicale) supports it too. Busy time is then computed from the events themselves (busyFromCalendarData).
+const calendarQuery = (min, max) =>
   '<?xml version="1.0" encoding="utf-8"?>' +
-  '<C:free-busy-query xmlns:C="urn:ietf:params:xml:ns:caldav">' +
-  `<C:time-range start="${icalUTC(min)}" end="${icalUTC(max)}"/></C:free-busy-query>`
+  '<C:calendar-query xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">' +
+  '<D:prop><C:calendar-data/></D:prop>' +
+  '<C:filter><C:comp-filter name="VCALENDAR"><C:comp-filter name="VEVENT">' +
+  `<C:time-range start="${icalUTC(min)}" end="${icalUTC(max)}"/>` +
+  '</C:comp-filter></C:comp-filter></C:filter></C:calendar-query>'
 
 const vevent = (uid, summary, start, end, attendee) => {
   let s = 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//StandMeet//CalDAV//EN\r\nBEGIN:VEVENT\r\n'
@@ -32,64 +39,73 @@ const vevent = (uid, summary, start, end, attendee) => {
   return s + 'END:VEVENT\r\nEND:VCALENDAR\r\n'
 }
 
-// parseFreeBusy — busy [start,end] ranges out of a VFREEBUSY response, via ical.js. Distinguishes
-// the two facts the Go port had to hand-code (F-C-50): a response with NO busy periods is empty
-// (an answer); a response we cannot parse at all throws (never silently "empty"). ical.js also
-// resolves TZID-qualified times itself, so the "unknown TZID must not become UTC" trap is the
-// library's problem, not ours.
-function parseFreeBusy(body) {
-  let comp
-  try {
-    comp = new ICAL.Component(ICAL.parse(body))
-  } catch (e) {
-    throw new Error(`free-busy response could not be parsed: ${e.message}`)
-  }
-  const vfbs = comp.getAllSubcomponents('vfreebusy')
+// unescapeXML — a <calendar-data> element's text is the raw iCalendar, but the multistatus
+// envelope may have entity-escaped a stray & / < / > inside it. Undo that before ical.js parses.
+const unescapeXML = (s) =>
+  s.replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&')
+
+// busyFromCalendarData — busy [start,end] intervals from a calendar-query multistatus. Each
+// <calendar-data> holds a VCALENDAR with VEVENT(s); a non-TRANSPARENT event's span is busy, and a
+// recurring event (RRULE) is expanded to its occurrences within [min,max] via ical.js. Keeps the
+// same "unreadable ≠ empty" invariant the VFREEBUSY reader had (F-C-50): calendar-data blocks
+// present but none parseable → throw; zero blocks → an empty (free) calendar.
+function busyFromCalendarData(body, min, max) {
+  const minMs = new Date(min).getTime()
+  const maxMs = new Date(max).getTime()
+  const blocks = [...body.matchAll(/<[^>]*?calendar-data[^>]*?>([\s\S]*?)<\/[^>]*?calendar-data>/g)]
+    .map((m) => unescapeXML(m[1]).trim())
+    .filter((s) => s.includes('BEGIN:VCALENDAR'))
   const out = []
-  for (const fb of vfbs) {
-    for (const iv of vfreebusyIntervals(fb)) out.push(iv)
+  let parsedOk = 0
+  for (const ics of blocks) {
+    let vcal
+    try { vcal = new ICAL.Component(ICAL.parse(ics)) } catch (_e) { continue }
+    parsedOk += 1
+    for (const ve of vcal.getAllSubcomponents('vevent')) {
+      if (String(ve.getFirstPropertyValue('transp') || '').toUpperCase() === 'TRANSPARENT') continue
+      let event
+      try { event = new ICAL.Event(ve) } catch (_e) { continue }
+      pushOccurrences(event, minMs, maxMs, out)
+    }
   }
-  // F-C-50: "unreadable" and "no busy time" are OPPOSITE facts. Zero VFREEBUSY components = an empty
-  // calendar (an answer) → []. But components present that we could not read any interval out of =
-  // we failed to read the response → throw, never silently report the calendar as free.
-  if (vfbs.length > 0 && out.length === 0) {
-    throw new Error('free-busy components present but no interval parsed (unreadable ≠ empty)')
+  if (blocks.length > 0 && parsedOk === 0) {
+    throw new Error('calendar-data present but none parseable (unreadable ≠ empty)')
   }
   return out
 }
 
-// vfreebusyIntervals — the two real-world encodings of a busy interval inside one VFREEBUSY:
-//   FREEBUSY[;params]:<start>/<end|dur>   the property form (Google / Fastmail family)
-//   DTSTART / DTEND on the VFREEBUSY      the component form (Radicale family) — no FREEBUSY line
-function vfreebusyIntervals(fb) {
-  const out = []
-  const props = fb.getAllProperties('freebusy')
-  if (props.length > 0) {
-    for (const prop of props) {
-      for (const period of prop.getValues()) {
-        const start = period.start.toJSDate()
-        const end = period.end
-          ? period.end.toJSDate()
-          : new Date(period.start.toJSDate().getTime() + period.duration.toSeconds() * 1000)
-        out.push({ start: start.toISOString(), end: end.toISOString() })
-      }
+// pushOccurrences — one event's busy spans overlapping [minMs,maxMs]. Non-recurring → its own span;
+// recurring → each occurrence, bounded by the window and a hard iteration cap so an open-ended RRULE
+// can't spin forever. ical.js resolves TZID-qualified times itself.
+function pushOccurrences(event, minMs, maxMs, out) {
+  const push = (sMs, eMs) => {
+    if (eMs > minMs && sMs < maxMs) {
+      out.push({ start: new Date(sMs).toISOString(), end: new Date(eMs).toISOString() })
     }
-    return out
   }
-  const dtstart = fb.getFirstPropertyValue('dtstart')
-  const dtend = fb.getFirstPropertyValue('dtend')
-  if (dtstart && dtend) {
-    out.push({ start: dtstart.toJSDate().toISOString(), end: dtend.toJSDate().toISOString() })
+  if (!event.isRecurring()) {
+    push(event.startDate.toJSDate().getTime(), event.endDate.toJSDate().getTime())
+    return
   }
-  return out
+  const durMs = event.duration ? event.duration.toSeconds() * 1000 : 0
+  const it = event.iterator()
+  let next
+  let n = 0
+  while ((next = it.next()) && n++ < 750) {
+    const sMs = next.toJSDate().getTime()
+    if (sMs >= maxMs) break
+    push(sMs, sMs + durMs)
+  }
 }
 
 // caldavRequest — one WebDAV request via the runtime's global fetch, with basic auth. Returns
 // { status, body }. fetch accepts arbitrary methods (REPORT, PROPFIND) and does not throw on
 // 4xx/5xx (only on transport failure), so the status comes back for the callers to check.
-async function caldavRequest(conn, method, url, body, contentType) {
+async function caldavRequest(conn, method, url, body, contentType, depth) {
   const headers = {}
   if (contentType) headers['Content-Type'] = contentType
+  if (depth != null) headers.Depth = String(depth)
   if (conn.username) {
     const tok = Buffer.from(`${conn.username}:${conn.password || ''}`).toString('base64')
     headers.Authorization = `Basic ${tok}`
@@ -113,13 +129,15 @@ function apply(ctx) {
       if (r.status >= 400) throw new Error(`caldav verify: status ${r.status}`)
       return { ok: true }
     },
-    // freeBusy — REPORT free-busy-query → busy intervals (via ical.js).
+    // freeBusy — REPORT calendar-query (Depth 1) → the window's VEVENTs → busy intervals. Uses
+    // calendar-query rather than free-busy-query so it works on iCloud too (iCloud answers 400 to
+    // free-busy-query on a calendar collection; calendar-query is universal).
     async freeBusy(conn, timeMin, timeMax) {
       const r = await caldavRequest(
-        conn, 'REPORT', conn.url, freeBusyQuery(new Date(timeMin), new Date(timeMax)), XML,
+        conn, 'REPORT', conn.url, calendarQuery(new Date(timeMin), new Date(timeMax)), XML, 1,
       )
-      if (r.status >= 400) throw new Error(`caldav free-busy: status ${r.status}`)
-      return { busy: parseFreeBusy(r.body) }
+      if (r.status >= 400) throw new Error(`caldav calendar-query: status ${r.status}`)
+      return { busy: busyFromCalendarData(r.body, timeMin, timeMax) }
     },
     // insertEvent — PUT a VEVENT (UID idempotent).
     async insertEvent(conn, ev) {
@@ -142,4 +160,4 @@ function apply(ctx) {
   })
 }
 
-module.exports = { apply }
+module.exports = { apply, calendarQuery, busyFromCalendarData }
