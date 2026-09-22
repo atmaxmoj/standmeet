@@ -125,26 +125,6 @@ func runCorpusSearch(ctx context.Context, l Lister, req *corpusIndexReq) (string
 // genres' hits at once, and the caller (an agent turn, or a microsite search widget that renders
 // every row) reads them all — so an unbounded response is a wall of results, the "会炸的" case.
 // A missing/zero limit caps at the default; a caller pages with offset.
-const (
-	searchDefaultLimit = 20
-	searchMaxLimit     = 50
-)
-
-// pageRows — apply the caller's requested [offset, offset+limit) window to the merged hits. The
-// genre order in the merged list is deterministic for a given query, so paging with offset is
-// stable across calls.
-func pageRows(rows []Meta, offset, limit int) []Meta {
-	if limit <= 0 {
-		limit = searchDefaultLimit
-	}
-	limit = min(limit, searchMaxLimit)
-	offset = max(offset, 0)
-	if offset >= len(rows) {
-		return []Meta{}
-	}
-	return rows[offset:min(offset+limit, len(rows))]
-}
-
 func runCorpusRead(ctx context.Context, l Lister, req *corpusIndexReq) (string, error) {
 	var args struct {
 		Path string `json:"path"`
