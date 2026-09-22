@@ -65,24 +65,6 @@ type Handlers struct {
 	SecureCookie   bool
 }
 
-// PubSearchGuard —— rate-limit port for public-tier tool calls (#public-corpus-search). impl =
-// middleware.PubSearchGuard, injected in; the route layer never imports middleware. Allow=false
-// means over the per-IP cap → 429.
-type PubSearchGuard interface {
-	Allow(ctx context.Context, ip string) bool
-}
-
-// CodeGuard —— lockout port for failed access-code redemption (#169). impl =
-// middleware.CodeGuard, injected in.
-type CodeGuard interface {
-	Locked(ctx context.Context, ip, captchaToken string) bool
-	// HasLift —— true only when captcha is enabled; the rejection message's wording
-	// follows this, else it'd describe a control that isn't on the screen.
-	HasLift() bool
-	RecordFail(ctx context.Context, ip string)
-	Reset(ctx context.Context, ip string)
-}
-
 // UsageRecorder —— #106 billing port: records one owner-key LLM usage (BYOAI never goes
 // through this — visitor-paid). Takes a whole row, not loose params, so provider + gas-
 // spend flag don't get lost in the signature.
