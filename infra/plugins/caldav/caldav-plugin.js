@@ -131,6 +131,58 @@ async function caldavRequest(conn, method, url, body, contentType, depth) {
 const XML = 'application/xml; charset=utf-8'
 const ICS = 'text/calendar; charset=utf-8'
 
+// PROPFIND bodies for calendar discovery. A CalDAV URL doesn't name the account's calendars; you
+// walk to them: any collection → current-user-principal → calendar-home-set → the calendars under
+// it. This is the universal discovery dance (iCloud / Google / Fastmail / Radicale all answer it),
+// and it's what turns "paste the exact collection GUID URL" into "pick a calendar by name".
+const PRINCIPAL_PROP =
+  '<?xml version="1.0" encoding="utf-8"?>' +
+  '<D:propfind xmlns:D="DAV:"><D:prop><D:current-user-principal/></D:prop></D:propfind>'
+const HOME_PROP =
+  '<?xml version="1.0" encoding="utf-8"?>' +
+  '<D:propfind xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">' +
+  '<D:prop><C:calendar-home-set/></D:prop></D:propfind>'
+const LIST_PROP =
+  '<?xml version="1.0" encoding="utf-8"?>' +
+  '<D:propfind xmlns:D="DAV:"><D:prop><D:displayname/><D:resourcetype/></D:prop></D:propfind>'
+
+// absURL — resolve a (usually root-relative) DAV href against the collection it came from.
+const absURL = (base, href) => {
+  try {
+    return new URL(href, base).toString()
+  } catch (_e) {
+    return href
+  }
+}
+
+// firstTagHref — the <href> nested inside the FIRST <tag>…</tag> element (namespace-blind). Not
+// the response's own leading <href> (the queried URL) — the one INSIDE current-user-principal /
+// calendar-home-set, which is the resource that prop points at.
+function firstTagHref(body, tag) {
+  const el = body.match(new RegExp(`<[^>]*:?${tag}[^>]*>([\\s\\S]*?)<\\/[^>]*:?${tag}>`))
+  if (!el) return ''
+  const h = el[1].match(/<[^>]*:?href[^>]*>([^<]+)<\/[^>]*:?href>/)
+  return h ? h[1].trim() : ''
+}
+
+// parseCalendars — a depth-1 multistatus → the calendar collections in it, as {name, url}. A
+// response is a calendar iff its resourcetype carries a bare <…:calendar/> (NOT calendar-home-set,
+// hence the `\s*/?>` right-boundary). The home collection itself has no such resourcetype, so it
+// drops out on its own. displayname is the human name; url is the collection to store as `url`.
+function parseCalendars(body, baseURL) {
+  const out = []
+  for (const m of body.matchAll(/<[^>]*:?response[^>]*>([\s\S]*?)<\/[^>]*:?response>/g)) {
+    const block = m[1]
+    if (!/<[^>]*:?calendar\s*\/?>/.test(block)) continue
+    const href = block.match(/<[^>]*:?href[^>]*>([^<]+)<\/[^>]*:?href>/)
+    if (!href) continue
+    const url = absURL(baseURL, href[1].trim())
+    const name = block.match(/<[^>]*:?displayname[^>]*>([\s\S]*?)<\/[^>]*:?displayname>/)
+    out.push({ name: name ? unescapeXML(name[1].trim()) : url, url })
+  }
+  return out
+}
+
 // apply — register the `caldav` service. The cordis/koishi host calls this with the plugin's
 // context. It injects nothing: the HTTP hand is the runtime's global fetch, always present.
 // `ctx.provide(name, value)` both declares and sets the service — cordis 4.x refuses a bare
@@ -167,6 +219,21 @@ function apply(ctx) {
       if (r.status >= 400) throw new Error(`caldav insert: status ${r.status}`)
       return { eventId: uid, htmlLink: url }
     },
+    // listCalendars — discover the account's calendars by name, so switching calendars is a pick,
+    // not a hand-typed collection URL. Walks principal → calendar-home-set → the calendars under it.
+    async listCalendars(conn) {
+      const principal = await caldavRequest(conn, 'PROPFIND', conn.url, PRINCIPAL_PROP, XML, 0)
+      if (principal.status >= 400) throw new Error(`caldav principal: status ${principal.status}`)
+      const principalURL = absURL(conn.url, firstTagHref(principal.body, 'current-user-principal') || conn.url)
+
+      const home = await caldavRequest(conn, 'PROPFIND', principalURL, HOME_PROP, XML, 0)
+      if (home.status >= 400) throw new Error(`caldav calendar-home-set: status ${home.status}`)
+      const homeURL = absURL(principalURL, firstTagHref(home.body, 'calendar-home-set') || conn.url)
+
+      const list = await caldavRequest(conn, 'PROPFIND', homeURL, LIST_PROP, XML, 1)
+      if (list.status >= 400) throw new Error(`caldav list calendars: status ${list.status}`)
+      return { calendars: parseCalendars(list.body, homeURL) }
+    },
     // deleteEvent — DELETE the event's .ics.
     async deleteEvent(conn, eventId) {
       const url = `${conn.url.replace(/\/$/, '')}/${eventId}.ics`
@@ -177,4 +244,4 @@ function apply(ctx) {
   })
 }
 
-module.exports = { apply, calendarQuery, busyFromCalendarData }
+module.exports = { apply, calendarQuery, busyFromCalendarData, parseCalendars }

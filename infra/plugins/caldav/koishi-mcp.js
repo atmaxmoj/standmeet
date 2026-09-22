@@ -66,13 +66,26 @@ async function main() {
         summary: z.string(),
         start: z.string(),
         end: z.string(),
+        // description / time_zone are declared because the calendar seam sends them: an MCP
+        // inputSchema STRIPS undeclared keys, so before this the booking body (Topic / With /
+        // Contact) never reached the plugin and calendar events landed detail-less — the very
+        // "会找不到这是干什么的" the DESCRIPTION support was added to fix.
+        description: z.string().optional(),
+        time_zone: z.string().optional(),
         visitor_email: z.string().optional(),
       },
     },
     async (a) =>
       asText(await (await svc()).insertEvent(only(a), {
-        summary: a.summary, start: a.start, end: a.end, visitorEmail: a.visitor_email,
+        summary: a.summary, start: a.start, end: a.end,
+        description: a.description, visitorEmail: a.visitor_email,
       })),
+  )
+
+  server.registerTool(
+    'list_calendars',
+    { description: 'Discover the account\'s calendars (name + collection URL), so the owner can switch calendars by picking one instead of pasting a URL.', inputSchema: conn },
+    async (a) => asText(await (await svc()).listCalendars(only(a))),
   )
 
   server.registerTool(

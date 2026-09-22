@@ -105,9 +105,14 @@ type freeBusyArgs struct {
 }
 
 type insertArgs struct {
-	Summary      string `json:"summary"`
+	Summary string `json:"summary"`
+	// Description / TimeZone are the event body and zone the seam DTO (InsertEventReq) carries.
+	// They were dropped here before reaching the block, so a booking landed as a bare summary
+	// with no "Topic / With / Contact" — the "会找不到这是干什么的" the DESCRIPTION was added for.
+	Description  string `json:"description,omitempty"`
 	Start        string `json:"start"`
 	End          string `json:"end"`
+	TimeZone     string `json:"time_zone,omitempty"`
 	VisitorEmail string `json:"visitor_email"`
 }
 
@@ -183,6 +188,22 @@ func (p *blockCalendarProxy) FreeBusy(
 	return toBusyIntervals(r.Busy)
 }
 
+// insertEventArgs — map the seam DTO to the block's insert_event args. Every field the seam DTO
+// carries must be forwarded: a silently dropped one (Description, before) makes the calendar event
+// unreadable, and nothing fails — so this mapping is guarded by a test rather than left inline.
+func insertEventArgs(req *adapters.InsertEventReq) insertArgs {
+	return insertArgs{
+		Summary:     req.Summary,
+		Description: req.Description,
+		// Explicit milliseconds (not time.RFC3339, which strips trailing .000): a booking time
+		// round-trips faithfully into the calendar, matching the in-host openapi path.
+		Start:        req.Start.UTC().Format(rfc3339Millis),
+		End:          req.End.UTC().Format(rfc3339Millis),
+		TimeZone:     req.TimeZone,
+		VisitorEmail: req.VisitorEmail,
+	}
+}
+
 // toBusyIntervals — parse the block's RFC3339 busy periods into the seam's busy intervals.
 func toBusyIntervals(rows []busyPeriod) ([]adapters.BusyInterval, error) {
 	out := make([]adapters.BusyInterval, 0, len(rows))
@@ -201,14 +222,7 @@ func toBusyIntervals(rows []busyPeriod) ([]adapters.BusyInterval, error) {
 func (p *blockCalendarProxy) InsertEvent(
 	ctx context.Context, ownerID string, req *adapters.InsertEventReq,
 ) (adapters.InsertedEvent, error) {
-	opArgs, merr := json.Marshal(insertArgs{
-		Summary: req.Summary,
-		// Explicit milliseconds (not time.RFC3339, which strips trailing .000): a booking time
-		// round-trips faithfully into the calendar, matching the in-host openapi path.
-		Start:        req.Start.UTC().Format(rfc3339Millis),
-		End:          req.End.UTC().Format(rfc3339Millis),
-		VisitorEmail: req.VisitorEmail,
-	})
+	opArgs, merr := json.Marshal(insertEventArgs(req))
 	if merr != nil {
 		return adapters.InsertedEvent{}, merr
 	}

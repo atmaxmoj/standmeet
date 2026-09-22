@@ -62,3 +62,18 @@ owner_tools:
           "days":{"type":"integer","description":"How many days ahead to look (default 7)."}
         }
       }
+  # calendar.list_calendars rides on this manifest too but acts on whichever calendar is ACTIVE
+  # (like calendar.check): it lists the connected account's calendars by name + collection URL, so
+  # the owner switches calendars by picking one instead of hand-typing a GUID URL. CalDAV lists via
+  # discovery; a provider that can't enumerate answers with a reason, not a crash.
+  - name: suppliers.calendar_list
+    tool: calendar.list_calendars
+    description: >-
+      List the calendars in the connected account (name + collection URL). Use it
+      to find a calendar's URL when switching which calendar bookings land on,
+      instead of pasting the URL by hand. Read-only.
+    input_schema: |
+      {
+        "type":"object",
+        "properties":{}
+      }

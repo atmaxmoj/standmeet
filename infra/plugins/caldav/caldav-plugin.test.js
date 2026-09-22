@@ -5,7 +5,7 @@
 // asserts the busy intervals computed from the VEVENTs. No network, no host — pure parse logic.
 
 const assert = require('assert')
-const { busyFromCalendarData } = require('./caldav-plugin')
+const { busyFromCalendarData, parseCalendars } = require('./caldav-plugin')
 
 const WIN = { min: '2026-09-22T00:00:00Z', max: '2026-10-06T00:00:00Z' }
 
@@ -56,6 +56,38 @@ const vevent = (extra) =>
     /unreadable|parse/i,
     'garbage calendar-data must throw, never silently report free',
   )
+}
+
+// 6) calendar discovery: a depth-1 home multistatus → only the calendar collections, by name,
+// with absolute URLs. The home collection itself (resourcetype has no <calendar/>) drops out, and
+// so does a non-calendar collection (an address book), so the owner picks from real calendars only.
+{
+  const home = 'https://p119-caldav.icloud.com/16487750621/calendars/'
+  const body =
+    '<?xml version="1.0"?><multistatus xmlns="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">' +
+    // the home collection itself — a plain collection, not a calendar
+    '<response><href>/16487750621/calendars/</href><propstat><prop>' +
+    '<displayname>home</displayname><resourcetype><collection/></resourcetype>' +
+    '</prop></propstat></response>' +
+    // a real calendar
+    '<response><href>/16487750621/calendars/home/</href><propstat><prop>' +
+    '<displayname>居家</displayname><resourcetype><collection/><C:calendar/></resourcetype>' +
+    '</prop></propstat></response>' +
+    // a second calendar
+    '<response><href>/16487750621/calendars/standmeet-guid/</href><propstat><prop>' +
+    '<displayname>StandMeet</displayname><resourcetype><collection/><C:calendar/></resourcetype>' +
+    '</prop></propstat></response>' +
+    // a non-calendar collection (address book) — must NOT be listed
+    '<response><href>/16487750621/carddavhome/card/</href><propstat><prop>' +
+    '<displayname>Contacts</displayname><resourcetype><collection/></resourcetype>' +
+    '</prop></propstat></response>' +
+    '</multistatus>'
+  const cals = parseCalendars(body, home)
+  assert.strictEqual(cals.length, 2, `two calendars, got ${cals.length}`)
+  assert.strictEqual(cals[0].name, '居家')
+  assert.strictEqual(cals[0].url, 'https://p119-caldav.icloud.com/16487750621/calendars/home/')
+  assert.strictEqual(cals[1].name, 'StandMeet')
+  assert.strictEqual(cals[1].url, 'https://p119-caldav.icloud.com/16487750621/calendars/standmeet-guid/')
 }
 
 console.log('caldav-plugin.test.js: all checks passed')

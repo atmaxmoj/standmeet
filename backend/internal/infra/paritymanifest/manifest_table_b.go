@@ -28,6 +28,11 @@ func suppliersMCPServers() []Entry {
 			MCP: []string{"suppliers.calendar_check"},
 		},
 		{
+			Op: act("suppliers.calendar_list",
+				fp.Only("owner lists the account's calendars to switch which one bookings land on", FacadeMCP)),
+			MCP: []string{"suppliers.calendar_list"},
+		},
+		{
 			Op: act("suppliers.mail_test_send",
 				fp.Only("owner sends one test message through the active mail block", FacadeMCP)),
 			MCP: []string{"suppliers.mail_test_send"},
