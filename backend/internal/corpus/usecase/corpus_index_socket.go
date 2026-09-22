@@ -107,7 +107,9 @@ func corpusOp(lister Lister, run corpusRunner) hostop.Invoke {
 
 func runCorpusSearch(ctx context.Context, l Lister, req *corpusIndexReq) (string, error) {
 	var args struct {
-		Query string `json:"query"`
+		Query  string `json:"query"`
+		Limit  int    `json:"limit"`
+		Offset int    `json:"offset"`
 	}
 	if uerr := json.Unmarshal(req.Args, &args); uerr != nil {
 		return "", fmt.Errorf("invalid arguments: %w", uerr)
@@ -116,7 +118,31 @@ func runCorpusSearch(ctx context.Context, l Lister, req *corpusIndexReq) (string
 	if err != nil {
 		return "", fmt.Errorf("corpus search: %w", err)
 	}
-	return marshalSearchResult(rows), nil
+	return marshalSearchResult(pageRows(rows, args.Offset, args.Limit)), nil
+}
+
+// searchDefaultLimit / searchMaxLimit — the response window. The merged search returns up to four
+// genres' hits at once, and the caller (an agent turn, or a microsite search widget that renders
+// every row) reads them all — so an unbounded response is a wall of results, the "会炸的" case.
+// A missing/zero limit caps at the default; a caller pages with offset.
+const (
+	searchDefaultLimit = 20
+	searchMaxLimit     = 50
+)
+
+// pageRows — apply the caller's requested [offset, offset+limit) window to the merged hits. The
+// genre order in the merged list is deterministic for a given query, so paging with offset is
+// stable across calls.
+func pageRows(rows []Meta, offset, limit int) []Meta {
+	if limit <= 0 {
+		limit = searchDefaultLimit
+	}
+	limit = min(limit, searchMaxLimit)
+	offset = max(offset, 0)
+	if offset >= len(rows) {
+		return []Meta{}
+	}
+	return rows[offset:min(offset+limit, len(rows))]
 }
 
 func runCorpusRead(ctx context.Context, l Lister, req *corpusIndexReq) (string, error) {

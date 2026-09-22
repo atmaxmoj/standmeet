@@ -31,4 +31,6 @@ const searchToolDesc = "Search the corpus under this session's ACL scope. This i
 	"index, so a hit depends on how the text was tokenized: substrings inside a word, terms " +
 	"glued to punctuation, and CJK bigrams can all miss. An empty result therefore does NOT " +
 	"mean the corpus lacks the topic — when it comes back empty and you still believe the " +
-	"material exists, use corpus_grep, which is literal and never-miss."
+	"material exists, use corpus_grep, which is literal and never-miss. Results are paged: " +
+	"`limit` caps how many hits come back (default 20, max 50) and `offset` skips that many — " +
+	"page through a broad query instead of asking for everything at once."
