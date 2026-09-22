@@ -115,8 +115,15 @@ async function main() {
       'terms glued to punctuation, and CJK bigrams can all miss. An empty result ' +
       'therefore does NOT mean the corpus lacks the topic — when hits is empty the ' +
       'result carries a note saying so. If you still believe the material exists, ' +
-      'use corpus_grep, which is literal and never-miss.',
-    inputSchema: { query: z.string() },
+      'use corpus_grep, which is literal and never-miss. Results are paged: limit ' +
+      'caps how many come back (default 20, max 50), offset skips that many.',
+    // limit/offset must be declared here or the MCP inputSchema strips them before they reach the
+    // host — which left the search widget's `limit: 8` ignored and every hit rendered at once.
+    inputSchema: {
+      query: z.string(),
+      limit: z.number().int().optional(),
+      offset: z.number().int().optional(),
+    },
     annotations: readOnly,
     _meta: { progress_label: 'searching corpus', ui_resource: searchCardURI },
   }, forward('corpus_search'))
