@@ -250,6 +250,45 @@ func (q *Queries) GetMicrositeBySlug(ctx context.Context, arg GetMicrositeBySlug
 	return i, err
 }
 
+const getMicrositeBySlugAny = `-- name: GetMicrositeBySlugAny :one
+SELECT id, owner_id, slug, title, status,
+       live_build_id, staging_build_id, previous_live_build_id,
+       allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at
+FROM microsites
+WHERE owner_id = $1 AND slug = $2
+`
+
+type GetMicrositeBySlugAnyParams struct {
+	OwnerID pgtype.UUID
+	Slug    string
+}
+
+// Like GetMicrositeBySlug but INCLUDING a soft-deleted row — the home singleton's get-or-restore
+// needs to see a 'deleted' home to un-delete it. Safe as :one because the reserved home slug is
+// unique per owner across all statuses (microsites_one_home_per_owner).
+func (q *Queries) GetMicrositeBySlugAny(ctx context.Context, arg GetMicrositeBySlugAnyParams) (Microsite, error) {
+	row := q.db.QueryRow(ctx, getMicrositeBySlugAny, arg.OwnerID, arg.Slug)
+	var i Microsite
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.Slug,
+		&i.Title,
+		&i.Status,
+		&i.LiveBuildID,
+		&i.StagingBuildID,
+		&i.PreviousLiveBuildID,
+		&i.AllowByoai,
+		&i.StoreWritable,
+		&i.SeoTitle,
+		&i.SeoDescription,
+		&i.SeoImage,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const listMicrositesByOwner = `-- name: ListMicrositesByOwner :many
 SELECT cp.id, cp.owner_id, cp.slug, cp.title, cp.status,
        cp.live_build_id, cp.staging_build_id, cp.previous_live_build_id,
@@ -346,6 +385,45 @@ type RenameMicrositeParams struct {
 // collision. Access codes reference the microsite by id, so their bindings follow the rename.
 func (q *Queries) RenameMicrosite(ctx context.Context, arg RenameMicrositeParams) (Microsite, error) {
 	row := q.db.QueryRow(ctx, renameMicrosite, arg.OwnerID, arg.Slug, arg.Slug_2)
+	var i Microsite
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.Slug,
+		&i.Title,
+		&i.Status,
+		&i.LiveBuildID,
+		&i.StagingBuildID,
+		&i.PreviousLiveBuildID,
+		&i.AllowByoai,
+		&i.StoreWritable,
+		&i.SeoTitle,
+		&i.SeoDescription,
+		&i.SeoImage,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const restoreMicrosite = `-- name: RestoreMicrosite :one
+UPDATE microsites
+SET status = 'active', updated_at = now()
+WHERE owner_id = $1 AND slug = $2
+RETURNING id, owner_id, slug, title, status,
+          live_build_id, staging_build_id, previous_live_build_id,
+          allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at
+`
+
+type RestoreMicrositeParams struct {
+	OwnerID pgtype.UUID
+	Slug    string
+}
+
+// Un-delete a soft-deleted row (status → 'active'). Used only for the home singleton, whose
+// one-per-owner index guarantees this targets exactly one row.
+func (q *Queries) RestoreMicrosite(ctx context.Context, arg RestoreMicrositeParams) (Microsite, error) {
+	row := q.db.QueryRow(ctx, restoreMicrosite, arg.OwnerID, arg.Slug)
 	var i Microsite
 	err := row.Scan(
 		&i.ID,

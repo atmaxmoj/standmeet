@@ -161,6 +161,13 @@ type BundleBlock struct {
 	AddedAt  pgtype.Timestamptz
 }
 
+type BundleInclude struct {
+	BundleID   pgtype.UUID
+	IncludesID pgtype.UUID
+	Position   int32
+	AddedAt    pgtype.Timestamptz
+}
+
 type ChatReport struct {
 	ID             pgtype.UUID
 	OwnerID        pgtype.UUID

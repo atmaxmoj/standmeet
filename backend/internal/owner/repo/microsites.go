@@ -19,8 +19,11 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 )
 
-// errParsePageID —— fmt template constant for a page_id parse failure.
-const errParsePageID = "parse page id: %w"
+// errParsePageID / errParseOwnerID —— fmt template constants for an id parse failure.
+const (
+	errParsePageID  = "parse page id: %w"
+	errParseOwnerID = "parse owner id: %w"
+)
 
 // MicrositeRepo —— the microsites table.
 type MicrositeRepo struct {
@@ -37,7 +40,7 @@ func (r *MicrositeRepo) Create(
 ) (entity.Microsite, error) {
 	ownerUUID, perr := pgstore.ParseUUID(ownerID)
 	if perr != nil {
-		return entity.Microsite{}, fmt.Errorf("parse owner id: %w", perr)
+		return entity.Microsite{}, fmt.Errorf(errParseOwnerID, perr)
 	}
 	row, err := db.New(r.pool).CreateMicrosite(ctx, db.CreateMicrositeParams{
 		OwnerID: ownerUUID, Slug: slug, Title: title,
@@ -59,7 +62,7 @@ func (r *MicrositeRepo) Rename(
 ) (entity.Microsite, error) {
 	ownerUUID, perr := pgstore.ParseUUID(ownerID)
 	if perr != nil {
-		return entity.Microsite{}, fmt.Errorf("parse owner id: %w", perr)
+		return entity.Microsite{}, fmt.Errorf(errParseOwnerID, perr)
 	}
 	row, err := db.New(r.pool).RenameMicrosite(ctx, db.RenameMicrositeParams{
 		OwnerID: ownerUUID, Slug: oldSlug, Slug_2: newSlug,
@@ -88,7 +91,7 @@ func (r *MicrositeRepo) GetBySlug(
 ) (entity.Microsite, error) {
 	ownerUUID, perr := pgstore.ParseUUID(ownerID)
 	if perr != nil {
-		return entity.Microsite{}, fmt.Errorf("parse owner id: %w", perr)
+		return entity.Microsite{}, fmt.Errorf(errParseOwnerID, perr)
 	}
 	row, err := db.New(r.pool).GetMicrositeBySlug(ctx, db.GetMicrositeBySlugParams{
 		OwnerID: ownerUUID, Slug: slug,
@@ -98,6 +101,47 @@ func (r *MicrositeRepo) GetBySlug(
 			return entity.Microsite{}, entity.ErrMicrositeNotFound
 		}
 		return entity.Microsite{}, fmt.Errorf("get microsite by slug: %w", err)
+	}
+	return toDomainMicrosite(&row), nil
+}
+
+// GetBySlugAny looks up by owner_id + slug INCLUDING a soft-deleted row — the home singleton's
+// get-or-restore needs to see a 'deleted' home to un-delete it. ErrMicrositeNotFound when none.
+func (r *MicrositeRepo) GetBySlugAny(
+	ctx context.Context, ownerID, slug string,
+) (entity.Microsite, error) {
+	ownerUUID, perr := pgstore.ParseUUID(ownerID)
+	if perr != nil {
+		return entity.Microsite{}, fmt.Errorf(errParseOwnerID, perr)
+	}
+	row, err := db.New(r.pool).GetMicrositeBySlugAny(ctx, db.GetMicrositeBySlugAnyParams{
+		OwnerID: ownerUUID, Slug: slug,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return entity.Microsite{}, entity.ErrMicrositeNotFound
+		}
+		return entity.Microsite{}, fmt.Errorf("get microsite by slug (any status): %w", err)
+	}
+	return toDomainMicrosite(&row), nil
+}
+
+// Restore un-deletes a soft-deleted row (status → 'active'). ErrMicrositeNotFound when none.
+func (r *MicrositeRepo) Restore(
+	ctx context.Context, ownerID, slug string,
+) (entity.Microsite, error) {
+	ownerUUID, perr := pgstore.ParseUUID(ownerID)
+	if perr != nil {
+		return entity.Microsite{}, fmt.Errorf(errParseOwnerID, perr)
+	}
+	row, err := db.New(r.pool).RestoreMicrosite(ctx, db.RestoreMicrositeParams{
+		OwnerID: ownerUUID, Slug: slug,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return entity.Microsite{}, entity.ErrMicrositeNotFound
+		}
+		return entity.Microsite{}, fmt.Errorf("restore microsite: %w", err)
 	}
 	return toDomainMicrosite(&row), nil
 }
@@ -124,7 +168,7 @@ func (r *MicrositeRepo) ListByOwner(
 ) ([]entity.Microsite, error) {
 	ownerUUID, perr := pgstore.ParseUUID(ownerID)
 	if perr != nil {
-		return nil, fmt.Errorf("parse owner id: %w", perr)
+		return nil, fmt.Errorf(errParseOwnerID, perr)
 	}
 	rows, err := db.New(r.pool).ListMicrositesByOwner(ctx, ownerUUID)
 	if err != nil {
@@ -200,7 +244,7 @@ func (r *MicrositeRepo) SetByoai(
 ) (entity.Microsite, error) {
 	ownerUUID, perr := pgstore.ParseUUID(ownerID)
 	if perr != nil {
-		return entity.Microsite{}, fmt.Errorf("parse owner id: %w", perr)
+		return entity.Microsite{}, fmt.Errorf(errParseOwnerID, perr)
 	}
 	row, err := db.New(r.pool).SetMicrositeByoai(ctx, db.SetMicrositeByoaiParams{
 		OwnerID: ownerUUID, Slug: slug, AllowByoai: allow,

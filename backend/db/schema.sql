@@ -768,8 +768,13 @@ CREATE TABLE microsites (
 );
 
 -- Partial: uniqueness holds only among LIVE rows, so a soft-deleted slug (DeletePage sets
--- status='deleted') frees up and can be recreated — including the reserved `home` page.
+-- status='deleted') frees up and can be recreated by a normal microsite.
 CREATE UNIQUE INDEX microsites_owner_slug_idx ON microsites(owner_id, slug) WHERE status <> 'deleted';
+
+-- The reserved `home` page is a singleton: at most one row per owner in ANY status (live or dead),
+-- so a tombstone can never coexist with a live home. CreatePage(home) get-or-restores instead of
+-- inserting a second (EnsureHomepage), and DeletePage refuses `home` outright.
+CREATE UNIQUE INDEX microsites_one_home_per_owner ON microsites(owner_id) WHERE slug = 'home';
 
 -- access_codes.microsite_id 的外键：这张表在 access_codes 之后建，所以约束补在这里。
 ALTER TABLE access_codes

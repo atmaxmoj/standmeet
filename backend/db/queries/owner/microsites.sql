@@ -12,6 +12,26 @@ SELECT id, owner_id, slug, title, status,
 FROM microsites
 WHERE owner_id = $1 AND slug = $2 AND status != 'deleted';
 
+-- name: GetMicrositeBySlugAny :one
+-- Like GetMicrositeBySlug but INCLUDING a soft-deleted row — the home singleton's get-or-restore
+-- needs to see a 'deleted' home to un-delete it. Safe as :one because the reserved home slug is
+-- unique per owner across all statuses (microsites_one_home_per_owner).
+SELECT id, owner_id, slug, title, status,
+       live_build_id, staging_build_id, previous_live_build_id,
+       allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at
+FROM microsites
+WHERE owner_id = $1 AND slug = $2;
+
+-- name: RestoreMicrosite :one
+-- Un-delete a soft-deleted row (status → 'active'). Used only for the home singleton, whose
+-- one-per-owner index guarantees this targets exactly one row.
+UPDATE microsites
+SET status = 'active', updated_at = now()
+WHERE owner_id = $1 AND slug = $2
+RETURNING id, owner_id, slug, title, status,
+          live_build_id, staging_build_id, previous_live_build_id,
+          allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at;
+
 -- name: GetMicrositeByID :one
 SELECT id, owner_id, slug, title, status,
        live_build_id, staging_build_id, previous_live_build_id,

@@ -43,12 +43,18 @@ type CreatePageInput struct {
 	Title   string
 }
 
-// CreatePage — slug must be a-z0-9-, length <= 64.
+// CreatePage — slug must be a-z0-9-, length <= 64. The reserved home slug is a SINGLETON:
+// get-or-restore it (never a second row; a soft-deleted one is un-deleted) rather than a plain
+// insert the one-home-per-owner index would reject. Every create path (MCP, claim-time seed) goes
+// through here, so the singleton invariant has one gate.
 func CreatePage(
 	ctx context.Context, deps MicrositeDeps, in *CreatePageInput,
 ) (entity.Microsite, error) {
 	if err := validateSlug(in.Slug); err != nil {
 		return entity.Microsite{}, err
+	}
+	if in.Slug == HomepageSlug {
+		return EnsureHomepage(ctx, deps.Pages, in.OwnerID)
 	}
 	page, err := deps.Pages.Create(ctx, in.OwnerID, in.Slug, in.Title)
 	if err != nil {
