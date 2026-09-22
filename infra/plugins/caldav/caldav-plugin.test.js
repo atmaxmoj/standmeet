@@ -9,10 +9,11 @@ const { busyFromCalendarData } = require('./caldav-plugin')
 
 const WIN = { min: '2026-09-22T00:00:00Z', max: '2026-10-06T00:00:00Z' }
 
-// a calendar-query 207 multistatus with one <calendar-data> per response, iCloud-style.
+// a calendar-query 207 multistatus, iCloud-style: each <calendar-data> wraps the iCalendar in
+// <![CDATA[…]]> (this is what iCloud actually returns — the shape that regressed the first fix).
 const multistatus = (...icals) =>
   '<?xml version="1.0" encoding="UTF-8"?><multistatus xmlns="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">' +
-  icals.map((ics) => `<response><href>/x.ics</href><propstat><prop><C:calendar-data>${ics}</C:calendar-data></prop><status>HTTP/1.1 200 OK</status></propstat></response>`).join('') +
+  icals.map((ics) => `<response><href>/x.ics</href><propstat><prop><C:calendar-data><![CDATA[${ics}]]></C:calendar-data></prop><status>HTTP/1.1 200 OK</status></propstat></response>`).join('') +
   '</multistatus>'
 
 const vevent = (extra) =>

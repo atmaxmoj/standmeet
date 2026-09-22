@@ -241,6 +241,15 @@ async function doListSlots(s, args) {
 function buildSummary(visitorName, topic) {
   return [visitorName, topic].filter(Boolean).join(' — ')
 }
+// buildDescription — the event body the owner reads in their calendar, so a booking is never a
+// mystery slot: what it's about, who it's with, and how to reach them. The calendar block escapes
+// the text; newlines are fine.
+function buildDescription(s, topic) {
+  const lines = ['Booked via StandMeet.', `Topic: ${topic}`]
+  if (s.visitorName) lines.push(`With: ${s.visitorName}`)
+  if (s.visitorEmail) lines.push(`Contact: ${s.visitorEmail}`)
+  return lines.join('\n')
+}
 function slotHoldKey(ownerID, startDT, endDT) {
   return `slot:${ownerID}:${rfc(startDT)}-${rfc(endDT)}`
 }
@@ -312,7 +321,7 @@ async function commitBooking(s, topic, tz, slot, durationMin) {
 }
 async function insertEvent(s, topic, tz, slot, end, summary) {
   const resp = await gwSupplierInvoke(s.ownerID, 'calendar', 'insert_event', {
-    summary, description: topic, start: rfc(slot), end: rfc(end), time_zone: tz, visitor_email: s.visitorEmail,
+    summary, description: buildDescription(s, topic), start: rfc(slot), end: rfc(end), time_zone: tz, visitor_email: s.visitorEmail,
   })
   const ev = JSON.parse(resp)
   return { event_id: ev.event_id || '', html_link: ev.html_link || '' }

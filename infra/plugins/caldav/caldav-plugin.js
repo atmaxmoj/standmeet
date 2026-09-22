@@ -32,9 +32,17 @@ const calendarQuery = (min, max) =>
   `<C:time-range start="${icalUTC(min)}" end="${icalUTC(max)}"/>` +
   '</C:comp-filter></C:comp-filter></C:filter></C:calendar-query>'
 
-const vevent = (uid, summary, start, end, attendee) => {
+// icalText — escape a TEXT value per RFC 5545: backslash, newline, comma, semicolon. Without it a
+// summary/description carrying a comma or newline (a visitor's name, the booking context) would
+// corrupt the VEVENT.
+const icalText = (v) =>
+  String(v == null ? '' : v)
+    .replace(/\\/g, '\\\\').replace(/\r?\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;')
+
+const vevent = (uid, summary, start, end, attendee, description) => {
   let s = 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//StandMeet//CalDAV//EN\r\nBEGIN:VEVENT\r\n'
-  s += `UID:${uid}\r\nSUMMARY:${summary}\r\nDTSTART:${icalUTC(start)}\r\nDTEND:${icalUTC(end)}\r\n`
+  s += `UID:${uid}\r\nSUMMARY:${icalText(summary)}\r\nDTSTART:${icalUTC(start)}\r\nDTEND:${icalUTC(end)}\r\n`
+  if (description) s += `DESCRIPTION:${icalText(description)}\r\n`
   if (attendee) s += `ATTENDEE:mailto:${attendee}\r\n`
   return s + 'END:VEVENT\r\nEND:VCALENDAR\r\n'
 }
@@ -54,7 +62,13 @@ function busyFromCalendarData(body, min, max) {
   const minMs = new Date(min).getTime()
   const maxMs = new Date(max).getTime()
   const blocks = [...body.matchAll(/<[^>]*?calendar-data[^>]*?>([\s\S]*?)<\/[^>]*?calendar-data>/g)]
-    .map((m) => unescapeXML(m[1]).trim())
+    .map((m) => {
+      // iCloud wraps the iCalendar in <![CDATA[…]]> (raw, un-escaped); other servers inline it
+      // with XML entities. Take the CDATA body verbatim, else undo entity escaping.
+      const raw = m[1].trim()
+      const cdata = raw.match(/^<!\[CDATA\[([\s\S]*?)\]\]>$/)
+      return (cdata ? cdata[1] : unescapeXML(raw)).trim()
+    })
     .filter((s) => s.includes('BEGIN:VCALENDAR'))
   const out = []
   let parsedOk = 0
@@ -145,7 +159,10 @@ function apply(ctx) {
       const url = `${conn.url.replace(/\/$/, '')}/${uid}.ics`
       const r = await caldavRequest(
         conn, 'PUT', url,
-        vevent(uid, ev.summary, new Date(ev.start), new Date(ev.end), ev.visitorEmail), ICS,
+        vevent(
+          uid, ev.summary, new Date(ev.start), new Date(ev.end),
+          ev.visitor_email || ev.visitorEmail, ev.description,
+        ), ICS,
       )
       if (r.status >= 400) throw new Error(`caldav insert: status ${r.status}`)
       return { eventId: uid, htmlLink: url }
