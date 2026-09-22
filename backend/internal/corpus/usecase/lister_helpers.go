@@ -4,8 +4,6 @@
 
 package usecase
 
-import "strings"
-
 // snippetMaxChars —— truncation cap for a corpus_search snippet.
 const snippetMaxChars = 160
 
@@ -16,12 +14,13 @@ const SearchPageLimit = 20
 // ListPageLimit —— per-page cap for corpus_list.
 const ListPageLimit = 50
 
-// Snippet —— truncates to snippetMaxChars, for a corpus_search snippet or a
-// writing-row summary.
+// Snippet —— a corpus_search snippet or a writing-row summary, cleaned to readable prose.
+//
+// Delegates to SearchSnippet so the VISITOR/microsite path gets the same cleanup the owner
+// side already has (F-L-45 class): this vault wraps body text in `> [!i18n]` callouts whose
+// toggle is raw `<label><input type="radio">` HTML. A plain truncate here leaked that markup
+// straight into the microsite search results. SearchSnippet strips the blockquote/callout/
+// toggle wrapping and cuts on a character boundary (a byte slice halved a Chinese glyph).
 func Snippet(body string) string {
-	trimmed := strings.TrimSpace(body)
-	if len(trimmed) <= snippetMaxChars {
-		return trimmed
-	}
-	return trimmed[:snippetMaxChars] + "…"
+	return SearchSnippet(body, snippetMaxChars)
 }
