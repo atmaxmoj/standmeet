@@ -50,7 +50,7 @@ func buildPublicMicrositeDeps(d *deps.Runtime) publicroutes.MicrositeHandlers {
 			if err != nil {
 				return false, err
 			}
-			return blockwire.BoolConfig(ctx, d, sole.ID, "corpus.retrieval", "public_search")
+			return blockwire.BoolConfigByKey(ctx, d, sole.ID, "public_search")
 		},
 		BuildsRoot: d.BuildsRoot,
 	}

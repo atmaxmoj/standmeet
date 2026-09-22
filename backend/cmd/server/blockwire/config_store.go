@@ -154,6 +154,28 @@ func BoolConfig(ctx context.Context, d *deps.Runtime, ownerID, blockID, key stri
 	return false, nil
 }
 
+// BoolConfigByKey — read a bool setting by its config KEY, deriving WHICH block declares it from
+// the manifests (configDecls). Host-blind (check-host-blind-to-blocks): the composition root gates
+// a public surface on "the block that declares <key>" without naming the block. Only one block
+// declares any given key; returns false when none does.
+func BoolConfigByKey(ctx context.Context, d *deps.Runtime, ownerID, key string) (bool, error) {
+	for blockID, decl := range configDecls() {
+		if declHasKey(decl, key) {
+			return BoolConfig(ctx, d, ownerID, blockID, key)
+		}
+	}
+	return false, nil
+}
+
+func declHasKey(decl []plugin.ConfigField, key string) bool {
+	for i := range decl {
+		if decl[i].Key == key {
+			return true
+		}
+	}
+	return false
+}
+
 // boundConfig — one block's declaration + storage bound to its own namespace.
 type boundConfig struct {
 	store *blockconfig.Store
