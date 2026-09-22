@@ -222,8 +222,14 @@ func Rollback(
 	return updated, nil
 }
 
-// DeletePage — soft delete (keeps the build artifact for audit).
+// DeletePage — soft delete (keeps the build artifact for audit). The reserved home slug is
+// refused: it is pinned to `/`, and deleting it drops the site root to the fallback with no way
+// back (the slug can be recreated since the index went partial, but `/` should never be a
+// self-inflicted 404 in the first place — same guard RenamePage has).
 func DeletePage(ctx context.Context, deps MicrositeDeps, ownerID, slug string) error {
+	if slug == HomepageSlug {
+		return entity.ErrMicrositeHomeReserved
+	}
 	page, lerr := lookupPage(ctx, deps, ownerID, slug)
 	if lerr != nil {
 		return lerr
@@ -231,13 +237,22 @@ func DeletePage(ctx context.Context, deps MicrositeDeps, ownerID, slug string) e
 	// Drop the page's document schema FIRST (DROP SCHEMA CASCADE — the visitor data goes with it).
 	// Before the soft-delete so a drop failure leaves the page intact and the caller can retry;
 	// dropping after would risk a wiped store under a still-live page. No-leak is the invariant.
-	if deps.Docs != nil {
-		if derr := deps.Docs.Drop(ctx, page.ID); derr != nil {
-			return fmt.Errorf("drop page store: %w", derr)
-		}
+	if derr := dropPageStore(ctx, deps, page.ID); derr != nil {
+		return derr
 	}
 	if derr := deps.Pages.Delete(ctx, page.ID); derr != nil {
 		return fmt.Errorf("delete page: %w", derr)
+	}
+	return nil
+}
+
+// dropPageStore — drop the page's document schema, if a store is wired (no-op when it isn't).
+func dropPageStore(ctx context.Context, deps MicrositeDeps, pageID string) error {
+	if deps.Docs == nil {
+		return nil
+	}
+	if derr := deps.Docs.Drop(ctx, pageID); derr != nil {
+		return fmt.Errorf("drop page store: %w", derr)
 	}
 	return nil
 }

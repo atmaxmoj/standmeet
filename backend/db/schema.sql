@@ -767,7 +767,9 @@ CREATE TABLE microsites (
     updated_at             timestamptz   NOT NULL DEFAULT now()
 );
 
-CREATE UNIQUE INDEX microsites_owner_slug_idx ON microsites(owner_id, slug);
+-- Partial: uniqueness holds only among LIVE rows, so a soft-deleted slug (DeletePage sets
+-- status='deleted') frees up and can be recreated — including the reserved `home` page.
+CREATE UNIQUE INDEX microsites_owner_slug_idx ON microsites(owner_id, slug) WHERE status <> 'deleted';
 
 -- access_codes.microsite_id 的外键：这张表在 access_codes 之后建，所以约束补在这里。
 ALTER TABLE access_codes
