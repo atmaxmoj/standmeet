@@ -54,19 +54,8 @@ func isQueryOnMutating(method string, t *registry.BindingTool) bool {
 // every tool; QUERY for read-only tools only).
 func (h *Handlers) toolDispatch() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		auth, ok := authVisitorWithToken(h, w, r)
+		data, ok := h.admitToolCall(w, r)
 		if !ok {
-			return
-		}
-		// Public-tier (codeless) tool dispatch is the anonymous corpus-search path — bound it per
-		// IP before the expensive block assembly, so over-cap calls are cheap 429s. Code/BYOAI
-		// sessions already carry a code's own quota and are untouched here.
-		if auth.Data.Mode == "public" && h.PubSearchGuard != nil &&
-			!h.PubSearchGuard.Allow(r.Context(), clientIP(r)) {
-			writeToolErr(h.Log, w, toolErr{
-				Status: http.StatusTooManyRequests, Reason: "rate_limited",
-				Detail: "too many requests, slow down and try again",
-			})
 			return
 		}
 		body, berr := io.ReadAll(r.Body)
@@ -78,13 +67,49 @@ func (h *Handlers) toolDispatch() http.HandlerFunc {
 			})
 			return
 		}
-		toolName := chi.URLParam(r, "tool_name")
-		convID := chi.URLParam(r, "id")
 		runToolDispatch(r.Context(), h, w, &toolDispatchArgs{
-			Data: auth.Data, ToolName: toolName,
-			ConvID: convID, Body: body, Method: r.Method,
+			Data: data, ToolName: chi.URLParam(r, "tool_name"),
+			ConvID: chi.URLParam(r, "id"), Body: body, Method: r.Method,
 		})
 	}
+}
+
+// admitToolCall —— authenticate the visitor, then apply the public-tier per-IP throttle. Returns
+// the session data + ok; on any refusal the response is already written.
+func (h *Handlers) admitToolCall(
+	w http.ResponseWriter, r *http.Request,
+) (*access.VisitorSessionData, bool) {
+	auth, ok := authVisitorWithToken(h, w, r)
+	if !ok {
+		return nil, false
+	}
+	if h.publicToolThrottled(w, r, auth.Data) {
+		return nil, false
+	}
+	return auth.Data, true
+}
+
+// publicToolThrottled —— public-tier (codeless) tool dispatch is the anonymous corpus-search path;
+// cap it per IP before the expensive block assembly, so over-cap calls are cheap 429s. Code/BYOAI
+// sessions carry their code's own quota and are untouched. Returns true (and writes 429) over cap.
+func (h *Handlers) publicToolThrottled(
+	w http.ResponseWriter, r *http.Request, data *access.VisitorSessionData,
+) bool {
+	if data.Mode != "public" || h.PubSearchGuard == nil {
+		return false
+	}
+	return h.rejectOverPublicCap(w, r)
+}
+
+func (h *Handlers) rejectOverPublicCap(w http.ResponseWriter, r *http.Request) bool {
+	if h.PubSearchGuard.Allow(r.Context(), clientIP(r)) {
+		return false
+	}
+	writeToolErr(h.Log, w, toolErr{
+		Status: http.StatusTooManyRequests, Reason: "rate_limited",
+		Detail: "too many requests, slow down and try again",
+	})
+	return true
 }
 
 // slowAssembleThreshold —— logs one line once this is exceeded. **Not an arbitrary
