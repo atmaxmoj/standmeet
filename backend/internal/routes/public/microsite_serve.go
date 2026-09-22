@@ -30,6 +30,9 @@ type BuiltAsset struct {
 	PageID         string
 	BuildID        string
 	AllowBYOAI     bool
+	// PublicSearch —— corpus.retrieval's public_search flag for the sole owner, injected into
+	// <head> so the codeless corpus_search BlockWidget knows it may open a public session.
+	PublicSearch bool
 }
 
 // BuildAssetReq —— everything needed to serve one build's asset.
@@ -63,7 +66,7 @@ func ServeBuildAsset(w http.ResponseWriter, _ *http.Request, req *BuildAssetReq)
 		return
 	}
 	serveFile(req.Log, w, fp, pageHead{
-		base: baseOf(req), allowBYOAI: asset.AllowBYOAI,
+		base: baseOf(req), allowBYOAI: asset.AllowBYOAI, publicSearch: asset.PublicSearch,
 		seoTitle: asset.SeoTitle, seoDescription: asset.SeoDescription, seoImage: asset.SeoImage,
 	})
 }

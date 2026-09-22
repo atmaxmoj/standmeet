@@ -18,6 +18,7 @@ export { readSSE } from './sse.js';
 // rather than opening a fresh anonymous session of its own.
 export {
   adoptStoredSession, hasVisitorGrant, adoptedDockButtons, pageAllowsBYOAI, byoaiOffered,
+  publicSearchEnabled,
   VISITOR_SESSION_STORAGE_KEY,
 } from './grant.js';
 export type { AdoptedSession, AdoptedDockButton } from './grant.js';

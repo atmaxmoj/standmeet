@@ -7,14 +7,27 @@
 // LLM turn; BlockWidget/useBlockTool reach one block directly (a booking card, a corpus search, an
 // ask widget) so the owner can compose plugin capabilities into their own page.
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
-import { adoptStoredSession } from '@standmeet/sdk-core';
+import { adoptStoredSession, publicSearchEnabled } from '@standmeet/sdk-core';
 import type { CallToolResult } from '@standmeet/sdk-core';
 
 import { widgetClient } from './client.js';
 
 type BlockToolState = 'idle' | 'pending' | 'done' | 'error';
+
+// A minimal session the widget runs a tool over: either the code's adopted session, or a codeless
+// public one it opened itself when public_search is on.
+interface RunSession { conversation_id: string; session_token: string }
+
+// PUBLIC_SAFE_TOOLS —— the read-only corpus tools a codeless (anonymous) visitor may run when the
+// owner turned public_search on. They all read the PUBLISHED-only slice (a public session's scope),
+// so opening a session for them leaks nothing. A write/booking tool is never on this list: it has
+// no meaning without a code's grant, and this widget must not manufacture one.
+const PUBLIC_SAFE_TOOLS = new Set<string>([
+  'corpus_search', 'corpus_read', 'corpus_list', 'corpus_links',
+  'corpus_map', 'corpus_resolve', 'corpus_peek', 'corpus_grep',
+]);
 
 // UseBlockTool — what useBlockTool returns. `granted` is false for a codeless visitor (no adopted
 // session), so a page can show a gate handoff instead of a dead button.
@@ -34,19 +47,50 @@ export function useBlockTool(toolName: string): UseBlockTool {
   // Adopt once: the session the gate stored is what authorizes the call; re-reading it on every
   // render would race a background sign-in against an in-flight call.
   const [session] = useState(() => adoptStoredSession());
+  // publicEligible —— no code arrived, but the owner opened public_search AND this is a read-only
+  // corpus tool. Then the widget may open a codeless public session of its own (published-only
+  // scope) instead of refusing. Decided once, off the render path, same as `session`.
+  const [publicEligible] = useState(
+    () => session === null && publicSearchEnabled() && PUBLIC_SAFE_TOOLS.has(toolName),
+  );
+  // The codeless public session, opened lazily on first run and reused: opening it per click would
+  // start a fresh conversation each time and hit the /sessions per-IP cap for nothing.
+  const publicSession = useRef<RunSession | null>(null);
+
+  // resolveSession —— the session to run this tool over: the adopted one, else (public-eligible) a
+  // codeless public session opened on demand. null = neither is available (caller shows the gate).
+  const resolveSession = useCallback(async (): Promise<RunSession | null> => {
+    if (session !== null) return session;
+    if (!publicEligible) return null;
+    if (publicSession.current === null) {
+      const issued = await widgetClient.issueSession({ mode: 'public' });
+      publicSession.current = {
+        conversation_id: issued.conversation_id, session_token: issued.session_token,
+      };
+    }
+    return publicSession.current;
+  }, [session, publicEligible]);
 
   const call = useCallback(async (args?: Record<string, unknown>): Promise<void> => {
-    if (session === null) {
+    setState('pending');
+    setError(null);
+    let active: RunSession | null;
+    try {
+      active = await resolveSession();
+    } catch {
+      setError('the plugin could not be reached');
+      setState('error');
+      return;
+    }
+    if (active === null) {
       setError('no visitor session — open this page with an access code');
       setState('error');
       return;
     }
-    setState('pending');
-    setError(null);
     let out: CallToolResult;
     try {
       out = await widgetClient.callTool(
-        session.conversation_id, session.session_token, toolName, args ?? {},
+        active.conversation_id, active.session_token, toolName, args ?? {},
       );
     } catch {
       setError('the plugin could not be reached');
@@ -60,9 +104,9 @@ export function useBlockTool(toolName: string): UseBlockTool {
       setError(out.detail ?? out.reason ?? 'the plugin refused this request');
       setState('error');
     }
-  }, [session, toolName]);
+  }, [resolveSession, toolName]);
 
-  return { call, result, error, state, granted: session !== null };
+  return { call, result, error, state, granted: session !== null || publicEligible };
 }
 
 export interface BlockWidgetProps {

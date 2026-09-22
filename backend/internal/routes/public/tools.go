@@ -58,6 +58,17 @@ func (h *Handlers) toolDispatch() http.HandlerFunc {
 		if !ok {
 			return
 		}
+		// Public-tier (codeless) tool dispatch is the anonymous corpus-search path — bound it per
+		// IP before the expensive block assembly, so over-cap calls are cheap 429s. Code/BYOAI
+		// sessions already carry a code's own quota and are untouched here.
+		if auth.Data.Mode == "public" && h.PubSearchGuard != nil &&
+			!h.PubSearchGuard.Allow(r.Context(), clientIP(r)) {
+			writeToolErr(h.Log, w, toolErr{
+				Status: http.StatusTooManyRequests, Reason: "rate_limited",
+				Detail: "too many requests, slow down and try again",
+			})
+			return
+		}
 		body, berr := io.ReadAll(r.Body)
 		if berr != nil {
 			h.Log.Warn("tool dispatch read body", "err", berr)

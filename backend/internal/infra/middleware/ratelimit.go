@@ -86,6 +86,46 @@ func servePublicRate(
 	next.ServeHTTP(w, r)
 }
 
+const (
+	pubToolRateKeyPfx = "ratelimit:pubsearch:ip:"
+	// pubToolRateMax — per-IP per-minute cap on public-tier (codeless) tool dispatches. ~1/sec:
+	// generous for a real anonymous visitor clicking a search widget, narrow against a script
+	// hammering the corpus. Not in publicRatePolicy because the tool route carries a path param
+	// (session id) and that table matches on the exact path.
+	pubToolRateMax    = 60
+	pubToolRateWindow = time.Minute
+)
+
+// PubSearchGuard — the one server-side bound on anonymous corpus search: a per-IP fixed-window cap
+// on public-tier tool dispatches. Published search leaks nothing (published = already
+// anonymous-readable), so the opt-in is a UX switch, not a security boundary; this is what keeps it
+// from being unbounded. Fail-open on a redis error — the public visitor surface prioritizes
+// availability, matching PublicRateGuard (login is the one that fails closed).
+type PubSearchGuard struct{ rdb *redis.Client }
+
+// NewPubSearchGuard — composition-root wiring. rdb nil → a no-op that always allows (testable).
+func NewPubSearchGuard(rdb *redis.Client) *PubSearchGuard { return &PubSearchGuard{rdb: rdb} }
+
+// Allow — whether this IP is still under the per-minute public-tool cap. nil guard / nil redis →
+// allowed; a redis error → allowed (fail-open, logged). Empty ip shares one named bucket, same as
+// ipTally — with no forwarded header everyone is one source, and dropping the gate there would hand
+// the endpoint to scripts.
+func (g *PubSearchGuard) Allow(ctx context.Context, ip string) bool {
+	if g == nil || g.rdb == nil {
+		return true
+	}
+	if ip == "" {
+		ip = unknownIPBucket
+	}
+	key := pubToolRateKeyPfx + ip
+	allowed, err := incrWithinLimit(ctx, g.rdb, key, pubToolRateMax, pubToolRateWindow)
+	if err != nil {
+		slog.Default().Warn("pub search rate-limit check failed, allowing", "err", err, "ip", ip)
+		return true
+	}
+	return allowed
+}
+
 // incrWithinLimit is fixed-window: TTL is set only on the first INCR
 // (n==1), so a refresh doesn't keep extending the window. Returns
 // true=allowed, false=over the limit.

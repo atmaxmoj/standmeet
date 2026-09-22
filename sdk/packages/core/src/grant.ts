@@ -100,6 +100,18 @@ export function pageAllowsBYOAI(): boolean {
   return el?.getAttribute('content') === 'true';
 }
 
+// publicSearchEnabled —— did the owner turn on codeless corpus search for this instance?
+//
+// Read from the meta tag the backend injects when serving the page (see microsite_serve_file.go),
+// same mechanism as pageAllowsBYOAI: read fresh on every request, no snapshot, no extra endpoint.
+// When on, a BlockWidget bound to a public-safe read tool may open a codeless public session for a
+// visitor who arrived with no access code, over the PUBLISHED-only corpus.
+export function publicSearchEnabled(): boolean {
+  if (typeof document === 'undefined') return false;
+  const el = document.querySelector('meta[name="standmeet-public-search"]');
+  return el?.getAttribute('content') === 'true';
+}
+
 // byoaiOffered —— should this page offer the reader the "bring your own key"
 // path? Someone who arrived with a grant shouldn't be asked —— what they
 // hold outranks a bring-your-own key, and it came from the owner.

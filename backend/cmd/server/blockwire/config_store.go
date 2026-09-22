@@ -135,6 +135,25 @@ func isBlockConfigCallerErr(err error) bool {
 		errors.Is(err, blockconfig.ErrInvalidValue)
 }
 
+// BoolConfig — one block's bool setting for an owner (declared default when never set), so the
+// composition root can gate a public surface on a block's config without the route layer learning
+// the blockconfig store. A block that declares no such field / no config surfaces as an error via
+// bind (the caller decides how to degrade). Reuses the same read path the panel uses, so there is
+// no second place that can disagree about what a setting is.
+func BoolConfig(ctx context.Context, d *deps.Runtime, ownerID, blockID, key string) (bool, error) {
+	fields, err := newBlockConfigOps(d).Get(ctx, ownerID, blockID)
+	if err != nil {
+		return false, err
+	}
+	for i := range fields {
+		if fields[i].Key == key {
+			// Value is a JSON literal (bool default is stored/declared as `true`/`false`).
+			return fields[i].Value == "true", nil
+		}
+	}
+	return false, nil
+}
+
 // boundConfig — one block's declaration + storage bound to its own namespace.
 type boundConfig struct {
 	store *blockconfig.Store

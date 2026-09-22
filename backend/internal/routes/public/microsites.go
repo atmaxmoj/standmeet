@@ -49,7 +49,12 @@ type MicrositeHandlers struct {
 	// Wired at the composition root (which may read the owner repo); nil = inject nothing. Returns
 	// (title, description, image, err).
 	HomepageSEO func(ctx context.Context) (string, string, string, error)
-	BuildsRoot  string
+	// PublicSearch —— reads corpus.retrieval's public_search config for the sole owner, to be
+	// injected into every served page's <head> (the codeless corpus_search BlockWidget reads it).
+	// Wired at the composition root (which may read the block-config store); nil = never on. Read
+	// fresh per request, so flipping the setting takes effect on the next page load.
+	PublicSearch func(ctx context.Context) (bool, error)
+	BuildsRoot   string
 }
 
 // AssetBlob —— an asset's bytes + content type, read from storage for the thin serve route.
@@ -154,8 +159,9 @@ func (h *MicrositeHandlers) serveSlugAt(
 			}
 			asset := BuiltAsset{
 				PageID: live.Build.PageID, BuildID: live.Build.ID,
-				AllowBYOAI: live.AllowBYOAI,
-				SeoTitle:   live.SeoTitle, SeoDescription: live.SeoDescription,
+				AllowBYOAI:   live.AllowBYOAI,
+				PublicSearch: h.resolvePublicSearch(ctx),
+				SeoTitle:     live.SeoTitle, SeoDescription: live.SeoDescription,
 				SeoImage: live.SeoImage,
 			}
 			// The homepage's SEO is the owner's site-root SEO, which wins over whatever the `home`
@@ -166,6 +172,21 @@ func (h *MicrositeHandlers) serveSlugAt(
 		AssetPath: chi.URLParam(r, "*"),
 		BaseHref:  baseHref,
 	})
+}
+
+// resolvePublicSearch —— corpus.retrieval's public_search setting for the sole owner, or false.
+// A read failure degrades to off (logged): a page whose config read hiccuped should refuse the
+// codeless search, not silently open it — the safe default is the pre-feature behavior.
+func (h *MicrositeHandlers) resolvePublicSearch(ctx context.Context) bool {
+	if h.PublicSearch == nil {
+		return false
+	}
+	on, err := h.PublicSearch(ctx)
+	if err != nil {
+		h.Log.Warn("resolve public_search", logErr, err)
+		return false
+	}
+	return on
 }
 
 // resolveAsset / headFor / baseHrefFor / resolvedAsset used to live here — what they

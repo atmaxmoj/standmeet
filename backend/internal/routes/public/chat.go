@@ -54,12 +54,22 @@ type Handlers struct {
 	Embeds *access.EmbedRepo
 	// EmbedNonce —— one-time jti record for embed JWTs (replay protection, fail-closed).
 	// Shares a Redis store with Sigv1.
-	EmbedNonce   access.EmbedNonceStore
-	QueryQueue   *session.QueryQueue
-	Ledger       *conversation.WaypointLedger
-	Ghosts       conversation.GhostDeps
-	Log          *slog.Logger
-	SecureCookie bool
+	EmbedNonce access.EmbedNonceStore
+	QueryQueue *session.QueryQueue
+	Ledger     *conversation.WaypointLedger
+	Ghosts     conversation.GhostDeps
+	// PubSearchGuard —— per-IP cap on codeless (public-tier) tool dispatch, the server-side bound
+	// on anonymous corpus search. impl = middleware.PubSearchGuard, injected in. nil → no cap.
+	PubSearchGuard PubSearchGuard
+	Log            *slog.Logger
+	SecureCookie   bool
+}
+
+// PubSearchGuard —— rate-limit port for public-tier tool calls (#public-corpus-search). impl =
+// middleware.PubSearchGuard, injected in; the route layer never imports middleware. Allow=false
+// means over the per-IP cap → 429.
+type PubSearchGuard interface {
+	Allow(ctx context.Context, ip string) bool
 }
 
 // CodeGuard —— lockout port for failed access-code redemption (#169). impl =

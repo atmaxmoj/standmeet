@@ -26,6 +26,10 @@ type pageHead struct {
 	seoImage       *string
 	base           string
 	allowBYOAI     bool
+	// publicSearch —— whether corpus.retrieval's public_search is on for this owner. Read fresh
+	// per request (same reasoning as allowBYOAI): flip it off on the panel and the next page load
+	// carries the new value, no snapshot. The codeless corpus_search BlockWidget reads this meta.
+	publicSearch bool
 }
 
 // tags —— the lines injected into <head>.
@@ -38,7 +42,8 @@ type pageHead struct {
 func (p pageHead) tags() string {
 	return `<base href="` + html.EscapeString(p.base) + `">` +
 		seoHead(p.seoTitle, p.seoDescription, p.seoImage) +
-		`<meta name="standmeet-page-byoai" content="` + strconv.FormatBool(p.allowBYOAI) + `">`
+		`<meta name="standmeet-page-byoai" content="` + strconv.FormatBool(p.allowBYOAI) + `">` +
+		`<meta name="standmeet-public-search" content="` + strconv.FormatBool(p.publicSearch) + `">`
 }
 
 func serveFile(log *slog.Logger, w http.ResponseWriter, fp string, head pageHead) {

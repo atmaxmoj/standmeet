@@ -16,6 +16,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/atmaxmoj/standmeet/cmd/server/blockwire"
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
@@ -41,6 +42,15 @@ func buildPublicMicrositeDeps(d *deps.Runtime) publicroutes.MicrositeHandlers {
 				return "", "", "", ferr
 			}
 			return f.Title, f.Description, f.Image, nil
+		},
+		// public_search: read corpus.retrieval's owner-level config, injected into every served
+		// page's <head> so the codeless corpus_search BlockWidget knows it may open a session.
+		PublicSearch: func(ctx context.Context) (bool, error) {
+			sole, err := owner.LoadSoleOwner(ctx, owner.PageDeps{Owners: d.OwnerRepo})
+			if err != nil {
+				return false, err
+			}
+			return blockwire.BoolConfig(ctx, d, sole.ID, "corpus.retrieval", "public_search")
 		},
 		BuildsRoot: d.BuildsRoot,
 	}

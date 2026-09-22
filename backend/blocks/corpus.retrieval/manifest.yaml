@@ -7,6 +7,20 @@ acl: always
 # Tools keep their canonical names: corpus_search stays corpus_search, no <id>_ prefix.
 raw_tool_names: true
 
+# config —— owner-level settings. public_search opens the corpus_search BlockWidget to a
+# codeless (anonymous) visitor on a public microsite, over the PUBLISHED-only corpus, rate
+# limited per IP. Off (default) keeps today's "open this page with a code" refusal. The host
+# reads this generically (blockconfig); the plugin never sees it — the server gates on it.
+config:
+  - key: public_search
+    label: Let anyone search your published corpus
+    type: bool
+    default: "false"
+    description: >-
+      When on, a visitor with no access code can run corpus_search from a public microsite,
+      over your PUBLISHED corpus only (rate-limited per IP). When off, the search widget asks
+      the visitor to open the page with a code.
+
 # visitor_tools —— see the note in calendar.book: before dispatching a call, we must be able to say which tool belongs to which block.
 visitor_tools:
   - corpus_search
