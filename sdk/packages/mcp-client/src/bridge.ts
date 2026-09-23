@@ -44,8 +44,37 @@ export async function runBridge(opts: BridgeOptions): Promise<void> {
       const body = injectUpdateSelfTool(trimmed, result.body);
       if (!advised) advised = adviseSkew(opts.clientVersion, body);
       process.stdout.write(body + '\n');
+    } else {
+      // No JSON-RPC body came back — a non-JSON-RPC error (e.g. a bare 500 when the server's 30s http
+      // write timeout aborts a long sync) or a failed request. A REQUEST must get a reply or the MCP
+      // client waits forever, so synthesize a JSON-RPC error. A notification (no id) gets nothing.
+      const errLine = errorLineFor(trimmed, result.status, result.raw);
+      if (errLine) process.stdout.write(errLine + '\n');
     }
   }
+}
+
+// errorLineFor —— when the server returns no JSON-RPC body for a REQUEST (a bare 500 from the http
+// write-timeout abort, or a network failure that never reached a response), turn it into a JSON-RPC
+// error so the MCP client sees the failure instead of hanging. A notification (no `id`) expects no
+// reply, so returns undefined and nothing is written.
+function errorLineFor(
+  requestLine: string, status: number | undefined, raw: string | undefined,
+): string | undefined {
+  let id: unknown;
+  try {
+    id = (JSON.parse(requestLine) as { id?: unknown }).id;
+  } catch {
+    return undefined;
+  }
+  if (id === undefined || id === null) return undefined; // a notification — no reply is expected
+  const snippet = (raw ?? '').trim().slice(0, 200);
+  const detail = snippet === '' ? '' : `: ${snippet}`;
+  const where = status === undefined ? 'request failed' : `server returned HTTP ${status}`;
+  return JSON.stringify({
+    jsonrpc: '2.0', id,
+    error: { code: -32000, message: `standmeet: ${where} with no JSON-RPC body${detail}` },
+  });
 }
 
 // adviseSkew —— if this response is the `initialize` result, compare the instance's version to this
@@ -69,6 +98,8 @@ function adviseSkew(clientVersion: string, body: string): boolean {
 interface ForwardResult {
   sessionId?: string;
   body?: string;
+  status?: number; // the HTTP status; undefined = the request never reached a response (network error)
+  raw?: string; // the raw response text (or the error message), for a diagnostic when body is absent
 }
 
 async function forward(
@@ -80,14 +111,22 @@ async function forward(
     Accept: 'application/json, text/event-stream',
   };
   if (sessionId) headers['Mcp-Session-Id'] = sessionId;
-  const res = await fetch(`${opts.host}/mcp`, {
-    method: 'POST', headers, body: jsonRpcLine,
-  });
-  const text = await res.text();
-  return {
-    sessionId: res.headers.get('mcp-session-id') ?? undefined,
-    body: parseMCPText(text),
-  };
+  try {
+    const res = await fetch(`${opts.host}/mcp`, {
+      method: 'POST', headers, body: jsonRpcLine,
+    });
+    const text = await res.text();
+    return {
+      sessionId: res.headers.get('mcp-session-id') ?? undefined,
+      body: parseMCPText(text),
+      status: res.status,
+      raw: text,
+    };
+  } catch (err) {
+    // The request never reached a response (network failure, aborted stream). It still needs a reply —
+    // runBridge turns a body-less result into a JSON-RPC error rather than leaving the client hanging.
+    return { raw: err instanceof Error ? err.message : String(err) };
+  }
 }
 
 // Under streamable HTTP the backend can return either application/json or

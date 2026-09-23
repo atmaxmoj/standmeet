@@ -109,14 +109,33 @@ func (d *ObsidianDeps) Ingest(
 		Writings: writingsSyncAdapter{tx: d.WritingsTx, setter: d.Writings},
 		CSS:      cssSyncAdapter{store: d.CSS},
 	}, ownerID, vfiles, obsidian.SyncMode{Authoritative: opts.Authoritative})
-	// After a batch sync, rebuild the whole Meili index (reflects additions/edits/
-	// deletions, leaves no drift). Best-effort.
-	corpus.ReindexCorpusOwner(ctx, d.Corpus, ownerID)
+	// Rebuild the whole Meili index OFF the request's critical path (see reindexAsync): a full
+	// rebuild is O(corpus size) and inline it made a full-vault sync exceed the 30s http write
+	// timeout and 500 with the notes already written.
+	d.reindexAsync(ctx, ownerID)
 	d.recordImportReceipt(ctx, ownerID, &res)
 	return integration.SyncResult{
 		Created: res.Created, Updated: res.Updated, Skipped: res.Skipped,
 		Deleted: res.Deleted, Errors: res.Errors,
 	}, nil
+}
+
+// reindexTimeout bounds the background rebuild so a runaway can't leak forever.
+const reindexTimeout = 10 * time.Minute
+
+// reindexAsync — the post-sync full Meili rebuild runs in the background, not on the request.
+// A full rebuild is O(corpus size) (~8.5s on a ~1k-note vault); inline, a full-vault sync
+// exceeded the server's 30s write timeout (cmd/server/main.go) and 500'd — with the notes
+// already committed. The rebuild is best-effort and corpus.search reads Postgres directly
+// (immediate), so letting the Meili projection catch up asynchronously is safe. WithoutCancel
+// keeps the request's ctx values (drops its cancellation) so the rebuild outlives the response;
+// WithTimeout bounds it so a runaway can't leak.
+func (d *ObsidianDeps) reindexAsync(ctx context.Context, ownerID string) {
+	bg, cancel := context.WithTimeout(context.WithoutCancel(ctx), reindexTimeout)
+	go func() {
+		defer cancel()
+		corpus.ReindexCorpusOwner(bg, d.Corpus, ownerID)
+	}()
 }
 
 // recordImportReceipt records this import (UX-62).

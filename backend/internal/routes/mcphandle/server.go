@@ -16,6 +16,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"time"
 
 	"github.com/mark3labs/mcp-go/server"
 
@@ -124,8 +125,29 @@ func authMiddleware(deps *Deps, next http.Handler) http.Handler {
 			return
 		}
 		ctx := context.WithValue(r.Context(), ctxKeyOwnerID, ownerID)
+		extendMCPWriteDeadline(deps.Log, w)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+// mcpWriteBudget — an owner MCP request can carry a long write: a full-vault
+// obsidian.import rebuilds the corpus and, on a large vault, its DB writes run
+// well past the server's 30s WriteTimeout, which would abort the response
+// mid-stream (the client then sees a bare 500, or hangs). Like the admin
+// import route (extendImportWriteDeadline) and the agent-turn stream, the owner
+// /mcp path pushes the deadline out once the caller is authenticated. The
+// endpoint is owner-only, so the longer budget is no DoS surface.
+const mcpWriteBudget = 10 * time.Minute
+
+// extendMCPWriteDeadline pushes this owner connection's write deadline out to
+// mcpWriteBudget. A writer that doesn't support a deadline (httptest, etc.)
+// just stays capped at the server WriteTimeout.
+func extendMCPWriteDeadline(log *slog.Logger, w http.ResponseWriter) {
+	rc := http.NewResponseController(w)
+	if err := rc.SetWriteDeadline(time.Now().Add(mcpWriteBudget)); err != nil {
+		log.Warn("mcp: extend write deadline unsupported (capped at server WriteTimeout)",
+			"err", err)
+	}
 }
 
 // clientIP — the request's source address, recorded on the keypair as where it was last used.

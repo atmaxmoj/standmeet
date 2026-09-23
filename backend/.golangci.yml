@@ -478,6 +478,10 @@ linters:
       # already uses t.Parallel, so paralleltest is not involved).
       - path: internal/routes/public/
         linters: [testpackage]
+      # routes/admin's reindexAsync (the post-sync Meili rebuild dispatched off the request path)
+      # is an unexported helper; a white-box UT reaching it must be in-package → exempt testpackage.
+      - path: internal/routes/admin/
+        linters: [testpackage]
       # (internal/domain is dissolved; its compileGlob-cache exemption lives on as the
       # access/entity row directly below, which is where that test went.)
       # path_acl's compileGlobCached cache is an unexported white-box UT (moved into access
