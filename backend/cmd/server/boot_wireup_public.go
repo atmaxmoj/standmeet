@@ -7,14 +7,12 @@ package main
 
 import (
 	"context"
-	"time"
 
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
 	"github.com/atmaxmoj/standmeet/cmd/server/port"
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
-	"github.com/atmaxmoj/standmeet/internal/infra/mailthrottle"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
 )
@@ -74,20 +72,12 @@ func buildPublicSEODeps(d *deps.Runtime) publicroutes.SEOHandlers {
 	}
 }
 
-// accessRequestNotifyBurst — how many owner-notification emails a burst of submissions may send
-// per hour before throttling (email-bomb defense). Its own dedicated bucket (keyed on owner id,
-// not the owner's address), so a flood can't eat the budget the owner needs for OTP / recovery
-// mail. Small on purpose: "someone asked for access" is not urgent enough for 30/hour.
-const accessRequestNotifyBurst = 5
-
 // buildAccessRequestNotify — the best-effort owner-notification hook fired after a request is
-// stored. The owner domain owns it (it holds the outbound-mail channel); access only calls back.
+// stored. The owner domain owns the content; the outbound channel (with its email-bomb burst cap)
+// is wired in by the composition root — access only calls back.
 func buildAccessRequestNotify(d *deps.Runtime) func(context.Context, string, access.Request) {
-	throttle := mailthrottle.NewWithBudget(
-		mailthrottle.RedisCounter{RDB: d.RDB}, accessRequestNotifyBurst, time.Hour,
-	)
 	notify := owner.NotifyNewRequestDeps{
-		Owners: d.OwnerRepo, Proxy: port.OutboundSender(d), Throttle: throttle, Log: d.Log,
+		Owners: d.OwnerRepo, Proxy: port.AccessRequestNotifySender(d), Log: d.Log,
 	}
 	return func(ctx context.Context, ownerID string, req access.Request) {
 		owner.NotifyOwnerOfNewRequest(ctx, notify, ownerID, &req)

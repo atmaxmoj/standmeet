@@ -2,9 +2,13 @@
 //
 // Same shape as access_approval.go: the notice's content is the product's (StandMeet telling
 // the owner someone wants in), delivery goes only through OutboundSender — this package never
-// knows the channel is email. The difference from approval: this is **best-effort**. The request
-// is already stored before we get here; a missing/broken/throttled channel must never fail the
-// visitor's submission, so NotifyOwnerOfNewRequest returns nothing and only logs.
+// knows the channel is email, nor that sends are throttled. The difference from approval: this
+// is **best-effort**. The request is already stored before we get here; a missing/broken/dropped
+// channel must never fail the visitor's submission, so this returns nothing and only logs.
+//
+// The email-bomb cap is NOT here: it's a property of the send channel, so it lives behind the
+// OutboundSender the composition root wires in (a dedicated per-owner burst throttle — see
+// cmd/server/port). This package just calls Send; a throttled send comes back as a no-op.
 
 package usecase
 
@@ -13,36 +17,24 @@ import (
 	"log/slog"
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
-	"github.com/atmaxmoj/standmeet/internal/infra/mailthrottle"
 	"github.com/atmaxmoj/standmeet/internal/owner/repo"
 )
 
 // NotifyNewRequestDeps — deps for the submit-notification hook. Reuses the existing outbound
-// channel (OutboundSender) and the existing per-recipient throttle type; nothing bespoke.
-//
-// Throttle is a DEDICATED instance keyed on the owner id (a synthetic recipient, see notifyKey),
-// NOT the owner's real address. The owner is the sole recipient of every submit notification, so
-// keying the shared per-address bucket would let an access-request flood eat the same budget the
-// owner needs for OTP / recovery mail. Its own bucket + small budget = a flood is capped without
-// starving the owner's other mail.
+// channel (OutboundSender); nothing bespoke. Proxy may be a throttled variant (email-bomb
+// defense), but that is opaque here.
 type NotifyNewRequestDeps struct {
-	Owners   *repo.Repo
-	Proxy    OutboundSender
-	Throttle *mailthrottle.Throttle
-	Log      *slog.Logger
+	Owners *repo.Repo
+	Proxy  OutboundSender
+	Log    *slog.Logger
 }
 
 // NotifyOwnerOfNewRequest — best-effort: email the owner that a new access request arrived.
-// Never returns an error (the request is already stored); a throttled/unconfigured/failed send
+// Never returns an error (the request is already stored); an unconfigured/failed/throttled send
 // is logged and swallowed.
 func NotifyOwnerOfNewRequest(
 	ctx context.Context, deps NotifyNewRequestDeps, ownerID string, req *access.Request,
 ) {
-	if !deps.Throttle.Allow(ctx, notifyKey(ownerID)) {
-		deps.Log.Warn("access-request owner notification throttled (email-bomb guard)",
-			"owner_id", ownerID)
-		return
-	}
 	o, err := deps.Owners.GetByID(ctx, ownerID)
 	if err != nil {
 		deps.Log.Warn("access-request notify: get owner", "owner_id", ownerID, "err", err)
@@ -54,10 +46,6 @@ func NotifyOwnerOfNewRequest(
 			"owner_id", ownerID, "err", serr)
 	}
 }
-
-// notifyKey — the throttle's synthetic recipient: the owner id, not their address, so this cap
-// lives in its own bucket (see NotifyNewRequestDeps.Throttle).
-func notifyKey(ownerID string) string { return "access-request-notify:" + ownerID }
 
 // buildNewRequestNotice — the notice content. The owner sees who asked and what they said so they
 // can decide whether to approve (which then issues + delivers a code, see access_approval.go).
