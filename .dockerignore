@@ -31,6 +31,9 @@ sdk/*
 !sdk/packages
 sdk/packages/*
 !sdk/packages/core
+# mcp-client: the backend bakes its packed tarball (npm pack) into the image and serves it at
+# GET /api/mcp-package for update_self (docs/design/mcp-self-update.md).
+!sdk/packages/mcp-client
 !pnpm-workspace.yaml
 !pnpm-lock.yaml
 !package.json
@@ -47,6 +50,8 @@ sdk/packages/*
 **/.vscode/
 **/.DS_Store
 **/bin/
+# …but the mcp-client's bin/ (its CLI entrypoint) must ride along — npm pack ships it.
+!sdk/packages/mcp-client/bin
 **/out/
 **/*.swp
 **/*~

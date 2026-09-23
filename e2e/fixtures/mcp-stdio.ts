@@ -19,9 +19,16 @@ const SDK_BIN = resolve(process.cwd(), '..', 'sdk/packages/mcp-client/bin/standm
 
 export interface StdioCreds { keyId: string; privateKeyPem: string }
 
+// SpawnOpts —— optional extras. `env` adds/overrides child env vars (e.g. NPM_CONFIG_PREFIX so
+// update_self's `npm i -g` installs into a throwaway prefix instead of the real global).
+export interface SpawnOpts { env?: Record<string, string> }
+
 export interface StdioMCPClient {
   call(method: string, params: unknown, id: number): Promise<unknown>;
   close(): void;
+  // waitExit —— resolves with the child's exit code once it exits (update_self self-exits ~250ms
+  // after responding so the client respawns it with the new binary). Rejects if it never exits.
+  waitExit(timeoutMs: number): Promise<number | null>;
 }
 
 interface PendingResolve {
@@ -29,9 +36,11 @@ interface PendingResolve {
   reject: (err: Error) => void;
 }
 
-export async function spawnStdioMCP(creds: StdioCreds): Promise<StdioMCPClient> {
+export async function spawnStdioMCP(
+  creds: StdioCreds, opts?: SpawnOpts,
+): Promise<StdioMCPClient> {
   const credsPath = await writeCredsFile(creds);
-  const child = spawnSDK(credsPath);
+  const child = spawnSDK(credsPath, opts?.env);
   const pending = new Map<number, PendingResolve>();
   wireStdout(child, pending);
   wireStderr(child);
@@ -39,6 +48,10 @@ export async function spawnStdioMCP(creds: StdioCreds): Promise<StdioMCPClient> 
   return {
     call: (method, params, id) => callRPC(child, pending, method, params, id),
     close: () => { child.stdin.end(); child.kill(); },
+    waitExit: (timeoutMs) => new Promise<number | null>((resolveFn, rejectFn) => {
+      const timer = setTimeout(() => rejectFn(new Error('child did not exit')), timeoutMs);
+      child.on('exit', (code) => { clearTimeout(timer); resolveFn(code); });
+    }),
   };
 }
 
@@ -49,13 +62,16 @@ async function writeCredsFile(creds: StdioCreds): Promise<string> {
   return path;
 }
 
-function spawnSDK(credsPath: string): ChildProcessWithoutNullStreams {
+function spawnSDK(
+  credsPath: string, extraEnv?: Record<string, string>,
+): ChildProcessWithoutNullStreams {
   return spawn('node', [SDK_BIN], {
     stdio: ['pipe', 'pipe', 'pipe'],
     env: {
       ...process.env,
       STANDMEET_HOST: BACKEND,
       STANDMEET_CREDS_PATH: credsPath,
+      ...extraEnv,
     },
   });
 }

@@ -157,6 +157,8 @@ func New(deps *Deps) http.Handler {
 	r.Mount("/mcp/visitor",
 		deps.Public.MountVisitorMCP(paritymanifest.APIRenderableTools()))
 	r.Mount("/mcp", mcphandle.New(&deps.MCP))
+	// The owner MCP client pulls its own updates from here (update_self), Sigv1-gated like /mcp.
+	r.Handle("/api/mcp-package", mcphandle.NewPackageHandler(&deps.MCP))
 	assertDispatcherConformance(deps)
 	return r
 }

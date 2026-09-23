@@ -108,6 +108,30 @@ RUN mkdir -p /srv/geoip && \
     done && \
     test -s /srv/geoip/dbip-city-lite.mmdb
 
+# Stage 2c: the owner MCP client tarball (@standmeet/mcp-client) → /srv/mcp-client.tgz.
+# The client is a SEPARATE artifact the owner installs on their own machine; it does NOT ride the
+# instance's upgrade. Its update_self tool pulls the pinned tarball from GET /api/mcp-package, which
+# serves this baked file. tsup bundles @standmeet/sdk-core into dist/, so the packed tarball has no
+# runtime deps and `npm i -g` installs it offline. Stamped with the same STANDMEET_VERSION as the
+# server binary, so the version-skew advisory stays meaningful. Same partial-workspace pnpm pattern
+# as im-bridge/Dockerfile.
+FROM node:22-alpine AS mcpclient
+ARG STANDMEET_VERSION=dev
+WORKDIR /app
+RUN corepack enable
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
+COPY sdk/packages/core sdk/packages/core
+COPY sdk/packages/mcp-client sdk/packages/mcp-client
+RUN pnpm install --filter @standmeet/mcp-client... --frozen-lockfile
+# Build sdk-core first — its dist/ is dockerignored, so tsup can't resolve @standmeet/sdk-core to
+# bundle it until it exists (same ordering as im-bridge/Dockerfile).
+RUN pnpm -F @standmeet/sdk-core build \
+    && STANDMEET_VERSION="$STANDMEET_VERSION" pnpm -F @standmeet/mcp-client build \
+    && mkdir -p /srv \
+    && cd sdk/packages/mcp-client \
+    && npm pack --pack-destination /srv \
+    && mv /srv/*.tgz /srv/mcp-client.tgz
+
 # Stage 3: Production
 FROM alpine:3.21 AS production
 # ghcr → repo linkage: GitHub reads this to list the pushed image under the repo's Packages.
@@ -136,6 +160,8 @@ COPY --from=plugins --chown=standmeet:standmeet /srv/plugins /srv/plugins
 # Bundle the geoip database (default path matches monitor_geoip.go's geoDefaultPath), so the monitor
 # resolves visitor country/city from the IP even when no CDN header carried one.
 COPY --from=geoip --chown=standmeet:standmeet /srv/geoip /srv/geoip
+# Bake the owner MCP client tarball so GET /api/mcp-package (update_self) can serve it.
+COPY --from=mcpclient --chown=standmeet:standmeet /srv/mcp-client.tgz /srv/mcp-client.tgz
 
 USER standmeet
 
