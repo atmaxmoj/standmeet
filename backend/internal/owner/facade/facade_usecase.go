@@ -35,6 +35,7 @@ type (
 	LoginInput                 = usecase.LoginInput
 	LoginOutput                = usecase.LoginOutput
 	OutboundStatusDeps         = usecase.OutboundStatusDeps
+	NotifyNewRequestDeps       = usecase.NotifyNewRequestDeps
 	NonceStore                 = usecase.NonceStore
 	OutboundNotice             = usecase.OutboundNotice
 	OutboundSender             = usecase.OutboundSender
@@ -75,6 +76,7 @@ var (
 	ConsumePasswordResetToken  = usecase.ConsumePasswordResetToken
 	CreateKeypair              = usecase.CreateKeypair
 	CreatePage                 = usecase.CreatePage
+	NotifyOwnerOfNewRequest    = usecase.NotifyOwnerOfNewRequest
 	InstallDefaultHomepage     = usecase.InstallDefaultHomepage
 	CreatePrompt               = usecase.CreatePrompt
 	GetWikiLandingInLang       = usecase.GetWikiLandingInLang

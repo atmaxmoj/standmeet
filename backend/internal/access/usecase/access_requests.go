@@ -19,6 +19,10 @@ import (
 type RequestsDeps struct {
 	Repo   *repo.RequestRepo
 	Owners SoleOwnerLookup
+	// Notify — best-effort owner notification on submit. nil = no notification (never an error);
+	// the submission always succeeds and stores regardless. Owned by the owner domain (it holds
+	// the outbound-mail channel); access only fires the hook after the row is safely stored.
+	Notify func(ctx context.Context, ownerID string, req entity.Request)
 }
 
 // SubmitAccessRequestInput — public POST /api/v1/access-requests input.
@@ -48,6 +52,11 @@ func SubmitForOwner(
 	})
 	if err != nil {
 		return entity.Request{}, fmt.Errorf("create access request: %w", err)
+	}
+	// Notify the owner — best-effort, after the request is safely stored. A missing/broken mail
+	// channel never fails the submission, and a flood is email-bomb-capped inside the hook.
+	if deps.Notify != nil {
+		deps.Notify(ctx, ownerID, out)
 	}
 	return out, nil
 }

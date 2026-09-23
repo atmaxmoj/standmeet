@@ -32,7 +32,7 @@ type AccessRequestsDeps struct {
 }
 
 // AccessRequests —— list / update / approve。
-func AccessRequests(d AccessRequestsDeps) []fp.Op {
+func AccessRequests(d *AccessRequestsDeps) []fp.Op {
 	return []fp.Op{
 		{
 			ID: "access_requests.list",
