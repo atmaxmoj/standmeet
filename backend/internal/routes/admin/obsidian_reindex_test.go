@@ -39,15 +39,16 @@ func TestReindexAsyncIsOffTheRequestPath(t *testing.T) {
 		close(returned)
 	}()
 
-	select {
-	case <-returned:
-	case <-time.After(2 * time.Second):
-		t.Fatal("reindexAsync blocked on the reindex — it is still on the request's critical path")
-	}
+	awaitClose(t, returned, "reindexAsync blocked — still on the request's critical path")
+	awaitClose(t, b.started, "reindexAsync returned but never dispatched the reindex")
+}
 
+// awaitClose waits up to 2s for ch to close, failing with msg otherwise.
+func awaitClose(t *testing.T, ch <-chan struct{}, msg string) {
+	t.Helper()
 	select {
-	case <-b.started:
+	case <-ch:
 	case <-time.After(2 * time.Second):
-		t.Fatal("reindexAsync returned but never dispatched the reindex")
+		t.Fatal(msg)
 	}
 }
