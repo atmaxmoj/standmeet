@@ -103,6 +103,19 @@
     "kicker": "会話",
     "modalTitle": "トランスクリプト · {id}"
   },
+  "conversationPrune": {
+    "title": "公開会話",
+    "help": "公開・BYOAI の会話はコード不要なので記録が溜まり続けます。保存をオフにして一切保存しないか、スケジュール（cron、UTC）で保持期間より長く放置された会話を削除できます（空欄 = オフ）。アクセスコード経由の会話は影響を受けません。",
+    "saveLabel": "公開会話を保存",
+    "notSaved": "保存しない",
+    "cronLabel": "削除スケジュール（cron）",
+    "daysLabel": "保持日数",
+    "days": "日",
+    "save": "保存",
+    "saved": "削除スケジュールを保存しました",
+    "off": "オフ —— 公開会話は無期限に保持",
+    "on": "{cron}（UTC）：{days} 日以上放置の公開会話を削除 · コード経由は保持"
+  },
   "ghostTelemetry": {
     "title": "ghost steering · per-waypoint funnel",
     "thWaypoint": "waypoint",

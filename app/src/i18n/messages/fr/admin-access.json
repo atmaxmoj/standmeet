@@ -103,6 +103,19 @@
     "kicker": "conversation",
     "modalTitle": "transcription · {id}"
   },
+  "conversationPrune": {
+    "title": "conversations publiques",
+    "help": "Les conversations publiques et BYOAI ne demandent pas de code, leurs traces peuvent donc s'accumuler. Désactivez l'enregistrement pour ne jamais les stocker, ou définissez un planning (cron, UTC) qui supprime celles inactives au-delà de la durée de conservation (vide = désactivé). Les conversations venues par un code d'accès ne sont jamais concernées.",
+    "saveLabel": "enregistrer les conversations publiques",
+    "notSaved": "non enregistrées",
+    "cronLabel": "planning de nettoyage (cron)",
+    "daysLabel": "conservation en jours",
+    "days": "jours",
+    "save": "enregistrer",
+    "saved": "Planning de nettoyage enregistré",
+    "off": "désactivé — les conversations publiques sont conservées indéfiniment",
+    "on": "{cron} (UTC) : supprime les conversations publiques inactives > {days} jours · celles avec code sont gardées"
+  },
   "ghostTelemetry": {
     "title": "direction fantôme · entonnoir par étape",
     "thWaypoint": "étape",

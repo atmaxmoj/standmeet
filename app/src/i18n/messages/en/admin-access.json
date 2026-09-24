@@ -103,6 +103,19 @@
     "kicker": "conversation",
     "modalTitle": "transcript · {id}"
   },
+  "conversationPrune": {
+    "title": "public conversations",
+    "help": "Public and BYOAI chats need no code, so their records can pile up. Turn saving off to never store them, or set a schedule (cron, UTC) that deletes those idle longer than the retention (empty = off). Conversations that came in on an access code are never affected.",
+    "saveLabel": "save public conversations",
+    "notSaved": "not saved",
+    "cronLabel": "cleanup schedule (cron)",
+    "daysLabel": "retention in days",
+    "days": "days",
+    "save": "save",
+    "saved": "Cleanup schedule saved",
+    "off": "off — public conversations are kept forever",
+    "on": "{cron} (UTC): delete public conversations idle > {days} days · coded ones kept"
+  },
   "ghostTelemetry": {
     "title": "ghost steering · per-waypoint funnel",
     "thWaypoint": "waypoint",

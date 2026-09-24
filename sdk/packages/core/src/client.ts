@@ -103,6 +103,12 @@ export interface StandMeetClient {
     system: string,
     byoai?: BYOAIHeaders,
   ): AsyncGenerator<SSEEvent, void, unknown>;
+  // seedHistory —— prime a conversation's history (e.g. a transcript restored from localStorage after
+  // a reload), so the next turn carries it and the model remembers. Memory is owned by the client
+  // (see createClient), so restoring it belongs here too, not as a per-caller streamMessage argument.
+  seedHistory(conversationID: string, msgs: readonly TurnMsg[]): void;
+  // clearHistory —— drop a conversation's remembered history (the visitor cleared the chat).
+  clearHistory(conversationID: string): void;
   // composeSystem —— this session's system prompt (fragment + persona).
   // Composed once per session, reused for the whole session. Takes only
   // **the two fields it actually reads**, not the full issuance receipt: a
@@ -179,6 +185,8 @@ export function createClient(opts: ClientOptions = {}): StandMeetClient {
     issueSession: (input) => issueSession(f, baseURL, input),
     streamMessage: (id, token, content, system, byoai) =>
       streamMessage(f, baseURL, id, token, content, system, byoai, histories),
+    seedHistory: (id, msgs) => { histories.set(id, msgs.slice(-maxHistoryMsgs)); },
+    clearHistory: (id) => { histories.delete(id); },
     composeSystem: (session) => composeSystem(f, baseURL, session),
     queryMicrositeDocs: (slug, collection) => queryMicrositeDocs(f, baseURL, slug, collection),
     insertMicrositeDoc: (slug, collection, doc) => insertMicrositeDoc(f, baseURL, slug, collection, doc),

@@ -30,4 +30,8 @@ func (h *Handlers) MountConversations(r chi.Router) {
 		urlParamArgs("conversation_id"), jsonOK))
 	r.Get("/ghosts/telemetry", h.dispatchOp(face, "conversations.ghost_telemetry",
 		emptyArgs, jsonOK))
+	r.Get("/public-conversation-policy", h.dispatchOp(face, "conversations.public_policy_get",
+		emptyArgs, jsonOK))
+	r.Put("/public-conversation-policy", h.dispatchOp(face, "conversations.public_policy_set",
+		bodyArgs, jsonOK))
 }

@@ -1014,6 +1014,7 @@ deps:
       - conversationdb
       - corpus
       - pgstore
+      - periodic # public-conversation prune declares its own job (same repo-layer pattern as ownerrepo)
     anyVendorDeps: true
   conversationusecase:
     mayDependOn:
@@ -1182,6 +1183,7 @@ deps:
       - adapters
       - apierr
       - session
+      - periodic # providers.update validates the gas-refill cron with the shared periodic.ValidCron
     anyVendorDeps: true
 
 

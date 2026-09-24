@@ -7,10 +7,11 @@
 // exposed to the caller, so the UI doesn't need to care about session
 // lifecycle. The caller only calls send(text) and watches messages / streaming.
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type {
   IssueSessionInput,
   SSEEvent,
+  TurnMsg,
 } from '@standmeet/sdk-core';
 import { adoptStoredSession } from '@standmeet/sdk-core';
 import { useStandMeet } from './provider.js';
@@ -34,20 +35,43 @@ export interface ChatState {
   tool: ChatTool | null;
   error: string | null;
   send: (text: string) => Promise<void>;
+  // clear —— the visitor wipes this page's conversation: transcript, its localStorage copy, and the
+  // client's remembered history. The next question starts a fresh conversation.
+  clear: () => void;
 }
 
 export function useChatSession(input: IssueSessionInput): ChatState {
   const client = useStandMeet();
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  // Restore this page's transcript from localStorage (page-granular key), so a reload keeps the chat.
+  const [messages, setMessages] = useState<ChatMessage[]>(() => loadPersisted());
   const [streaming, setStreaming] = useState(false);
   const [tool, setTool] = useState<ChatTool | null>(null);
   const [error, setError] = useState<string | null>(null);
   const sessionRef = useRef<{ id: string; token: string; system: string } | null>(null);
+  // The transcript as restored at mount — seeded back as history on the first turn so the model
+  // remembers across the reload. Seeded once (the client accumulates the rest itself thereafter).
+  const restoredRef = useRef<readonly ChatMessage[]>(messages);
+  const seededRef = useRef(false);
   const counter = useRef(0);
   const nextID = useCallback((): string => {
     counter.current += 1;
     return `m${counter.current}`;
   }, []);
+
+  // Persist the transcript once a turn settles (not on every streamed token). Wrapped in try/catch
+  // inside savePersisted, so blocked/full storage degrades to "no persistence", never a throw.
+  useEffect(() => { if (!streaming) savePersisted(messages); }, [messages, streaming]);
+
+  const clear = useCallback((): void => {
+    setMessages([]);
+    clearPersisted();
+    restoredRef.current = [];
+    seededRef.current = true; // nothing to seed
+    if (sessionRef.current) client.clearHistory(sessionRef.current.id);
+    sessionRef.current = null; // a fresh conversation on the next question
+    setError(null);
+    setTool(null);
+  }, [client]);
 
   const send = useCallback(async (text: string): Promise<void> => {
     setError(null);
@@ -76,6 +100,14 @@ export function useChatSession(input: IssueSessionInput): ChatState {
           system: await client.composeSystem(s),
         };
       }
+      // First turn after a restore: seed the restored transcript as this conversation's history, so
+      // the model remembers what was said before the reload. Once — the client accumulates the rest.
+      if (!seededRef.current) {
+        seededRef.current = true;
+        if (restoredRef.current.length > 0) {
+          client.seedHistory(sessionRef.current.id, toTurnMsgs(restoredRef.current));
+        }
+      }
       const sess = sessionRef.current;
       for await (const ev of client.streamMessage(sess.id, sess.token, text, sess.system)) {
         applyEvent(setMessages, assistantID, ev);
@@ -91,7 +123,71 @@ export function useChatSession(input: IssueSessionInput): ChatState {
     }
   }, [client, input, nextID]);
 
-  return { messages, streaming, tool, error, send };
+  return { messages, streaming, tool, error, send, clear };
+}
+
+// ---- page-granular localStorage persistence ----
+
+const CHAT_KEY_PREFIX = 'sm-chat:';
+// MAX_PERSIST —— cap the stored transcript so a long conversation can't balloon localStorage. The
+// most recent turns are what a returning visitor and the model both need.
+const MAX_PERSIST = 40;
+
+// pageKey —— one stored conversation per page (the URL path). Different pages keep separate chats.
+function pageKey(): string {
+  try {
+    return CHAT_KEY_PREFIX + (typeof location === 'undefined' ? '' : location.pathname);
+  } catch {
+    return CHAT_KEY_PREFIX;
+  }
+}
+
+function loadPersisted(): ChatMessage[] {
+  try {
+    if (typeof localStorage === 'undefined') return [];
+    const raw = localStorage.getItem(pageKey());
+    if (raw === null) return [];
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter(isChatMessage) : [];
+  } catch {
+    return [];
+  }
+}
+
+function savePersisted(messages: readonly ChatMessage[]): void {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    const keep = messages.filter((m) => m.text !== '').slice(-MAX_PERSIST);
+    if (keep.length === 0) {
+      localStorage.removeItem(pageKey());
+      return;
+    }
+    localStorage.setItem(pageKey(), JSON.stringify(keep));
+  } catch {
+    /* private mode / quota exceeded — persistence is best-effort */
+  }
+}
+
+function clearPersisted(): void {
+  try {
+    if (typeof localStorage !== 'undefined') localStorage.removeItem(pageKey());
+  } catch {
+    /* ignore */
+  }
+}
+
+function isChatMessage(v: unknown): v is ChatMessage {
+  if (typeof v !== 'object' || v === null) return false;
+  const m = v as Record<string, unknown>;
+  return typeof m['id'] === 'string' && typeof m['text'] === 'string'
+    && (m['role'] === 'visitor' || m['role'] === 'assistant');
+}
+
+// toTurnMsgs —— the restored transcript as the client's history wire shape (visitor → user).
+function toTurnMsgs(messages: readonly ChatMessage[]): TurnMsg[] {
+  return messages
+    .filter((m) => m.text !== '')
+    .map((m) => ({ role: m.role === 'visitor' ? ('user' as const) : ('assistant' as const), content: m.text }));
 }
 
 function appendVisitor(

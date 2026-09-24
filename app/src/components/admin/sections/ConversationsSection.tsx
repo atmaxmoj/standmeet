@@ -11,6 +11,7 @@ import { useTranslations } from 'next-intl';
 
 import { ListPane } from '@/components/admin/ListPane';
 import { SectionHeader } from '@/components/admin/SectionHeader';
+import { PublicConversationPolicyPanel } from '@/components/admin/sections/conversations/PublicConversationPolicyPanel';
 import { ConvTranscriptModal } from '@/components/admin/sections/conversations/ConvTranscriptModal';
 import { GhostTelemetryPanel } from '@/components/admin/sections/conversations/GhostTelemetryPanel';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
@@ -30,6 +31,7 @@ export function ConversationsSection() {
         action={<PrivateHitsHint hook={hook} />}
       />
       <FilterChip code={filterCode} />
+      <PublicConversationPolicyPanel />
       <GhostTelemetryPanel />
       <ConvTable hook={hook} />
       {hook.transcript && (

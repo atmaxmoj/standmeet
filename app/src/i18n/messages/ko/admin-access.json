@@ -103,6 +103,19 @@
     "kicker": "대화",
     "modalTitle": "대화 기록 · {id}"
   },
+  "conversationPrune": {
+    "title": "공개 대화",
+    "help": "공개·BYOAI 대화는 코드가 필요 없어 기록이 계속 쌓일 수 있습니다. 저장을 꺼서 아예 저장하지 않거나, 일정(cron, UTC)을 정해 보관 기간보다 오래 방치된 대화를 삭제할 수 있습니다(비워 두면 꺼짐). 액세스 코드로 들어온 대화는 영향을 받지 않습니다.",
+    "saveLabel": "공개 대화 저장",
+    "notSaved": "저장 안 함",
+    "cronLabel": "정리 일정(cron)",
+    "daysLabel": "보관 일수",
+    "days": "일",
+    "save": "저장",
+    "saved": "정리 일정을 저장했습니다",
+    "off": "꺼짐 —— 공개 대화를 영구 보관",
+    "on": "{cron}(UTC): {days}일 넘게 방치된 공개 대화 삭제 · 코드 대화는 유지"
+  },
   "ghostTelemetry": {
     "title": "ghost steering · per-waypoint funnel",
     "thWaypoint": "waypoint",

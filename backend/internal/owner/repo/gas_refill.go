@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/robfig/cron/v3"
-
 	"github.com/atmaxmoj/standmeet/internal/infra/periodic"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/owner/db"
@@ -54,34 +52,6 @@ func (r *Repo) BumpGasFilledAt(ctx context.Context, id string) error {
 	return nil
 }
 
-// DueForRefill —— whether a tank with schedule `expr` (last filled at filledAt) is due by `now`:
-// a scheduled tick fell in (filledAt, now]. Empty expr = manual pool, never auto-refills. Standard
-// 5-field cron plus @daily/@hourly/@weekly, evaluated in UTC so it aligns to the provider's real
-// reset boundary regardless of the server's timezone.
-func DueForRefill(expr string, filledAt, now time.Time) (bool, error) {
-	if expr == "" {
-		return false, nil
-	}
-	sched, err := cron.ParseStandard(expr)
-	if err != nil {
-		return false, fmt.Errorf("parse refill cron: %w", err)
-	}
-	next := sched.Next(filledAt.UTC())
-	return !next.After(now.UTC()), nil
-}
-
-// ValidRefillCron —— reject a malformed schedule at the write boundary (providers.update), so a bad
-// expression is never stored to be re-parsed (and silently skipped) on every checker tick.
-func ValidRefillCron(expr string) error {
-	if expr == "" {
-		return nil
-	}
-	if _, err := cron.ParseStandard(expr); err != nil {
-		return fmt.Errorf("parse refill cron: %w", err)
-	}
-	return nil
-}
-
 // gasRefillEvery —— how often the checker runs. It only needs to be fine enough that a refill lands
 // soon after its cron boundary; the cron decides WHEN, this decides the lag. 5 min keeps the query
 // load trivial.
@@ -116,9 +86,9 @@ func RunGasRefill(ctx context.Context, r *Repo, now time.Time) error {
 // refillOne —— bump one tank's fill mark to now if its schedule is due. A malformed schedule can't
 // reach here (validated at write time), so a parse error is skipped rather than stalling the sweep.
 func refillOne(ctx context.Context, r *Repo, p RefillProvider, now time.Time) error {
-	due, derr := DueForRefill(p.GasRefillCron, p.GasFilledAt, now)
+	due, derr := periodic.CronDue(p.GasRefillCron, p.GasFilledAt, now)
 	if derr != nil {
-		// Shouldn't happen: a malformed schedule is rejected at write time (ValidRefillCron).
+		// Shouldn't happen: a malformed schedule is rejected at write time (periodic.ValidCron).
 		return fmt.Errorf("refill %s: %w", p.ID, derr)
 	}
 	if !due {

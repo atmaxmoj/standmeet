@@ -703,6 +703,19 @@ CREATE UNIQUE INDEX conversations_member_dockey_open_uniq
     ON conversations(member_id, doc_key)
     WHERE member_id IS NOT NULL;
 
+-- public_conversation_policy —— how the owner keeps codeless (public / byoai) conversations,
+-- which anyone can create and so can pile up. save=false: their messages are never written.
+-- prune_cron: a schedule deleting those idle > retention_days ('' = off, the default).
+-- last_run_at is the mark the cron is evaluated from. Coded conversations are never affected.
+-- No row = save, no prune.
+CREATE TABLE public_conversation_policy (
+    owner_id        uuid          PRIMARY KEY REFERENCES owners(id) ON DELETE CASCADE,
+    save            boolean       NOT NULL DEFAULT true,
+    prune_cron      text          NOT NULL DEFAULT '',
+    retention_days  integer       NOT NULL DEFAULT 30,
+    last_run_at     timestamptz   NOT NULL DEFAULT now()
+);
+
 -- dialogs —— 一轮「人问 + AI 答」= 一个 dialog（中间分组层）。内容留在 messages（每个 dialog
 -- 恰好 2 条：role='visitor' 的 Q + role='assistant' 的 A）；dialog 只给这一轮一个身份/时序锚点
 -- （曾经 AppendDialog 借 assistant message id 冒充 dialog id，现在有真 id）。未来 backlinks /

@@ -103,6 +103,19 @@
     "kicker": "对话",
     "modalTitle": "对话记录 · {id}"
   },
+  "conversationPrune": {
+    "title": "公开对话",
+    "help": "公开和 BYOAI 对话不需要邀请码，记录可能越积越多。可以关掉保存（完全不存），或设一个计划（cron，UTC）删除闲置超过保留期的对话（留空 = 关闭）。凭邀请码进来的对话不受影响。",
+    "saveLabel": "保存公开对话",
+    "notSaved": "不保存",
+    "cronLabel": "清理计划（cron）",
+    "daysLabel": "保留天数",
+    "days": "天",
+    "save": "保存",
+    "saved": "清理计划已保存",
+    "off": "已关闭 —— 公开对话永久保留",
+    "on": "{cron}（UTC）：删除闲置超过 {days} 天的公开对话 · 邀请码对话保留"
+  },
   "ghostTelemetry": {
     "title": "幽灵引导 · 各导引点漏斗",
     "thWaypoint": "导引点",

@@ -497,6 +497,14 @@ type Prompt struct {
 	UpdatedAt   pgtype.Timestamptz
 }
 
+type PublicConversationPolicy struct {
+	OwnerID       pgtype.UUID
+	Save          bool
+	PruneCron     string
+	RetentionDays int32
+	LastRunAt     pgtype.Timestamptz
+}
+
 type ResumeDraft struct {
 	ID            pgtype.UUID
 	OwnerID       pgtype.UUID

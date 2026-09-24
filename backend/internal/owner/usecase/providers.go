@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
+	"github.com/atmaxmoj/standmeet/internal/infra/periodic"
 	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 	"github.com/atmaxmoj/standmeet/internal/owner/repo"
 )
@@ -205,7 +206,7 @@ func UpdateProvider(
 	ctx context.Context, d ProvidersDeps, in *repo.UpdateProviderInput,
 ) (repo.ProviderRow, error) {
 	if in.GasRefillCron != nil {
-		if verr := repo.ValidRefillCron(*in.GasRefillCron); verr != nil {
+		if verr := periodic.ValidCron(*in.GasRefillCron); verr != nil {
 			return repo.ProviderRow{}, fmt.Errorf("%w: %w", entity.ErrInvalidRefillCron, verr)
 		}
 	}

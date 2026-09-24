@@ -12,6 +12,7 @@ export type {
   MicrositeDoc,
   StandMeetClient,
   SystemPromptSource,
+  TurnMsg,
 } from './client.js';
 export { readSSE } from './sse.js';
 // grant —— the grant the visitor already holds. A microsite adopts it

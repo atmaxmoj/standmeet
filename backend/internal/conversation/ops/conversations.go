@@ -41,9 +41,9 @@ type ConversationsDeps struct {
 	Log    *slog.Logger
 }
 
-// Conversations — list / get / ghost_telemetry. All read-only.
+// Conversations — list / get / ghost_telemetry (read-only) + the public-conversation policy.
 func Conversations(d *ConversationsDeps) []fp.Op {
-	return []fp.Op{
+	return append([]fp.Op{
 		{
 			ID: "conversations.list",
 			Description: "List the owner's visitor conversations, newest first: who, which " +
@@ -71,7 +71,7 @@ func Conversations(d *ConversationsDeps) []fp.Op {
 			Reach:       fp.OwnerRead(),
 			Invoke:      ghostTelemetry(d.Ghosts),
 		},
-	}
+	}, publicPolicyOps(d.Chats.Chats)...)
 }
 
 var (

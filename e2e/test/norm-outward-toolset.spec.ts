@@ -126,6 +126,8 @@ const GOLDEN_TOOLSET: readonly string[] = [
   // After both facades share one transcript payload, the op that reads it is
   // named conversations.get (chat.show_grounding was just the MCP side's old name).
   'conversations.list', 'conversations.get', 'conversations.ghost_telemetry',
+  // how codeless (public/byoai) conversations are kept: saved or not + scheduled prune.
+  'conversations.public_policy_get', 'conversations.public_policy_set',
   'prompt_create', 'prompt_list', 'prompt_delete', 'prompt_update', 'prompts.get',
   // providers -- the owner's provider registry. **No providers.create**:
   // creating one requires the raw API key, and MCP is a pure JSON tool

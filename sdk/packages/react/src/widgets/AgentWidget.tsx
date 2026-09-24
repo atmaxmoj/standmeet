@@ -116,6 +116,23 @@ function InlineAgent(): React.ReactElement {
       data-testid="agent-widget" data-mode="inline" data-dock-count={dock.length}
       className="w-full"
     >
+      {/* Clear/new-conversation — the visitor can wipe this page's stored chat. Icon-only (↺) so it
+          reads the same in any language the microsite is in. Shown only once there's something to clear. */}
+      {chat.messages.length > 0 && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.75rem' }}>
+          <button
+            type="button"
+            data-testid="agent-widget-clear"
+            onClick={() => chat.clear()}
+            aria-label="New conversation"
+            title="New conversation"
+            className="mono text-[11px] text-(--color-faint) hover:text-(--color-accent) transition-colors"
+          >
+            ↺
+          </button>
+        </div>
+      )}
+
       {/* Inline structural layout (see CorpusWidget): without it a consumer that doesn't compile
           `flex-col` runs the chat transcript horizontally. */}
       <ol data-testid="agent-widget-transcript" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', listStyle: 'none', padding: 0, margin: '0 0 1.5rem' }}>

@@ -103,6 +103,19 @@
     "kicker": "unterhaltung",
     "modalTitle": "transkript · {id}"
   },
+  "conversationPrune": {
+    "title": "öffentliche Gespräche",
+    "help": "Öffentliche und BYOAI-Gespräche brauchen keinen Code, daher können sich ihre Einträge anhäufen. Schalte das Speichern aus, um sie gar nicht zu speichern, oder lege einen Zeitplan (cron, UTC) fest, der Gespräche löscht, die länger als die Aufbewahrungsfrist ruhen (leer = aus). Gespräche über einen Zugangscode sind nie betroffen.",
+    "saveLabel": "öffentliche Gespräche speichern",
+    "notSaved": "nicht gespeichert",
+    "cronLabel": "Bereinigungsplan (cron)",
+    "daysLabel": "Aufbewahrung in Tagen",
+    "days": "Tage",
+    "save": "speichern",
+    "saved": "Bereinigungsplan gespeichert",
+    "off": "aus — öffentliche Gespräche bleiben für immer",
+    "on": "{cron} (UTC): öffentliche Gespräche löschen, die > {days} Tage ruhen · Code-Gespräche bleiben"
+  },
   "ghostTelemetry": {
     "title": "ghost-steuerung · pro-waypoint-trichter",
     "thWaypoint": "waypoint",

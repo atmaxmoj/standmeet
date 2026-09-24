@@ -103,6 +103,19 @@
     "kicker": "conversación",
     "modalTitle": "transcripción · {id}"
   },
+  "conversationPrune": {
+    "title": "conversaciones públicas",
+    "help": "Las conversaciones públicas y BYOAI no necesitan código, así que sus registros pueden acumularse. Desactiva el guardado para no almacenarlas nunca, o define una programación (cron, UTC) que borre las inactivas más que el periodo de retención (vacío = desactivado). Las conversaciones que llegaron con un código de acceso nunca se ven afectadas.",
+    "saveLabel": "guardar conversaciones públicas",
+    "notSaved": "no se guardan",
+    "cronLabel": "programación de limpieza (cron)",
+    "daysLabel": "retención en días",
+    "days": "días",
+    "save": "guardar",
+    "saved": "Programación de limpieza guardada",
+    "off": "desactivado — las conversaciones públicas se conservan para siempre",
+    "on": "{cron} (UTC): borra conversaciones públicas inactivas > {days} días · las de código se conservan"
+  },
   "ghostTelemetry": {
     "title": "dirección fantasma · embudo por punto de vista",
     "thWaypoint": "punto de vista",

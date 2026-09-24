@@ -73,6 +73,13 @@ type RecordDialogInput struct {
 func RecordDialog(
 	ctx context.Context, deps *DialogDeps, in *RecordDialogInput,
 ) error {
+	if saves, err := turnSaved(ctx, deps, in.ConversationID); err != nil || !saves {
+		return err
+	}
+	return appendTurn(ctx, deps, in)
+}
+
+func appendTurn(ctx context.Context, deps *DialogDeps, in *RecordDialogInput) error {
 	if in.Answer == "" && !toolCallsNonEmpty(in.ToolCalls) {
 		return appendVisitorOnly(ctx, deps, in)
 	}
@@ -104,10 +111,30 @@ func RecordCardEvent(
 	if conversationID == "" || text == "" {
 		return nil
 	}
+	return appendEvent(ctx, deps, conversationID, text)
+}
+
+func appendEvent(ctx context.Context, deps *DialogDeps, conversationID, text string) error {
+	if saves, err := turnSaved(ctx, deps, conversationID); err != nil || !saves {
+		return err
+	}
 	if _, err := deps.Chats.AppendEvent(ctx, conversationID, text); err != nil {
 		return fmt.Errorf("append card event: %w", err)
 	}
 	return nil
+}
+
+// turnSaved —— false when the owner turned off saving codeless (public/byoai) conversations:
+// the turn then isn't stored at all. Coded conversations are always saved.
+func turnSaved(ctx context.Context, deps *DialogDeps, conversationID string) (bool, error) {
+	saves, err := deps.Chats.SavesMessages(ctx, conversationID)
+	if err != nil {
+		return false, fmt.Errorf("public conversation policy: %w", err)
+	}
+	if !saves && deps.Log != nil {
+		deps.Log.Info("turn not saved: public conversation policy", "conversation", conversationID)
+	}
+	return saves, nil
 }
 
 // appendVisitorOnly —— records only the visitor row when answer is empty (for the error
