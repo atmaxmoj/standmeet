@@ -55,6 +55,7 @@ async function processJob(job) {
   try {
     setupViteProject(workDir, source_files, entry);
     runViteBuild(workDir);
+    prerender(workDir);
     const outDir = `${SHARED_ROOT}/${page_id}/${build_id}/dist`;
     mkdirSync(dirname(outDir), { recursive: true });
     cpSync(join(workDir, 'dist'), outDir, { recursive: true });
@@ -117,6 +118,32 @@ function runViteBuild(workDir) {
     );
   } catch (e) {
     throw new Error(viteFailureText(e, workDir));
+  }
+}
+
+// prerender — render the owner's App to static HTML at build time and inject it into
+// dist/index.html, so a no-JS reader (crawler / AI / link-preview bot) gets the prose in the
+// initial bytes instead of an empty `<div id="root">`. Two steps: an SSR build of
+// src/entry-server.tsx (emits dist-server/entry-server.js) and prerender.mjs, which renders it and
+// rewrites dist/index.html.
+//
+// **Best-effort, never fails the build.** Owner code that touches browser globals at module load,
+// or any SSR-build hiccup, throws here — we log and leave the plain client build in place. The page
+// still works from the bundle; it's only missing the prerendered copy. Runs in its own node
+// process so a crash can't take down this long-running daemon and its memory is freed on exit.
+function prerender(workDir) {
+  const vite = join(workDir, 'node_modules', 'vite', 'bin', 'vite.js');
+  const opts = { cwd: workDir, stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' };
+  try {
+    execFileSync(
+      'node',
+      [vite, 'build', '--ssr', 'src/entry-server.tsx', '--outDir', 'dist-server', '--logLevel', 'error'],
+      { ...opts, env: { ...process.env, NODE_ENV: 'production' } },
+    );
+    execFileSync('node', ['prerender.mjs'], opts);
+  } catch (e) {
+    const said = `${e?.stderr ?? ''}${e?.stdout ?? ''}`.trim() || e?.message || String(e);
+    console.warn(`[builder] prerender skipped (page still served, not prerendered): ${said.slice(0, 300)}`);
   }
 }
 
