@@ -17,14 +17,26 @@ export interface CorpusWidgetProps {
   readonly heading?: string;
   readonly limit?: number;
   readonly query?: string; // the CorpusWidget QL — subtree / sort / limit; overrides `limit`
+  readonly lang?: string;  // which language pane to reveal (the backend resolves `[!i18n]` notes); default: the visitor's
 }
 
-export function CorpusWidget({ heading, limit, query }: CorpusWidgetProps): React.ReactElement | null {
+// resolveLang —— which language to ask the wiki-landing endpoint for. Explicit prop wins; else the
+// visitor's stored choice (same 'sm-lang' key the pages use), else their browser, else English. The
+// backend picks the matching `[!i18n]` pane, so the preview never shows both languages + radio markup.
+function resolveLang(explicit?: string): string {
+  if (explicit) return explicit;
+  try { const s = localStorage.getItem('sm-lang'); if (s === 'en' || s === 'zh') return s; } catch { /* private */ }
+  try { if (navigator.language?.toLowerCase().startsWith('zh')) return 'zh'; } catch { /* ssr */ }
+  return 'en';
+}
+
+export function CorpusWidget({ heading, limit, query, lang }: CorpusWidgetProps): React.ReactElement | null {
   const [cards, setCards] = useState<CorpusCard[]>([]);
   useEffect(() => { widgetClient.fetchCorpusCards().then(setCards).catch(() => undefined); }, []);
 
   if (cards.length === 0) return null;
   const shown = selectCards(cards, limit, query);
+  const noteLang = resolveLang(lang);
   return (
     <section data-testid="corpus-widget" className="w-full">
       <div className="mono text-[10px] tracking-[0.22em] uppercase text-(--color-faint) mb-7">
@@ -35,7 +47,7 @@ export function CorpusWidget({ heading, limit, query }: CorpusWidgetProps): Reac
           alone fell back to flex-direction:row and the cards ran horizontally. A widget must own its
           own layout — inline styles always apply, no matter the consumer's CSS pipeline. */}
       <ol style={{ display: 'flex', flexDirection: 'column', listStyle: 'none', margin: 0, padding: 0 }}>
-        {shown.map((c, i) => <CorpusNote key={c.path} card={c} index={i} />)}
+        {shown.map((c, i) => <CorpusNote key={c.path} card={c} index={i} lang={noteLang} />)}
       </ol>
     </section>
   );
@@ -49,7 +61,7 @@ function selectCards(
   return typeof limit === 'number' ? cards.slice(0, limit) : [...cards];
 }
 
-function CorpusNote({ card, index }: { card: CorpusCard; index: number }) {
+function CorpusNote({ card, index, lang }: { card: CorpusCard; index: number; lang: string }) {
   const [open, setOpen] = useState(false);
   const [paras, setParas] = useState<string[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -59,7 +71,7 @@ function CorpusNote({ card, index }: { card: CorpusCard; index: number }) {
     setOpen(next);
     if (next && paras === null && !loading) {
       setLoading(true);
-      widgetClient.fetchWikiLanding(card.path)
+      widgetClient.fetchWikiLanding(card.path, lang)
         .then((v: WikiLandingView | null) => setParas(v ? paragraphsOf(v.body, 4) : []))
         .catch(() => setParas([]))
         .finally(() => setLoading(false));
