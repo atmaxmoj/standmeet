@@ -122,6 +122,16 @@
       "staging": "staging",
       "none": "none"
     },
+    "deleteConfirm": {
+      "title": "このページを削除しますか?",
+      "body": "/p/{slug} とそのビルドを削除します。元に戻せません。",
+      "homeTitle": "ホームページをリセットしますか?",
+      "homeBody": "/ を組み込みのデフォルトホームページに戻します。カスタムホームページの下書きは保持され、いつでも編集して再公開できます。",
+      "cancel": "キャンセル",
+      "confirm": "削除",
+      "homeConfirm": "デフォルトに戻す"
+    },
+    "homeReverted": "ホームページを組み込みのデフォルトに戻しました",
     "slugPath": "/p/{slug}",
     "viewLive": "view live",
     "noLiveBuild": "no live build",

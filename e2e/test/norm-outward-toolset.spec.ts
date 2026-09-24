@@ -190,6 +190,7 @@ const GOLDEN_TOOLSET: readonly string[] = [
   'microsite.write_file', 'microsite.get_draft', 'microsite.build', 'microsite.delete',
   'microsite.promote_to_staging', 'microsite.promote_to_live',
   'microsite.rollback',
+  'microsite.unpublish',
   // microsite.rename -- change a page's /p/<slug> address. Bound access codes
   // follow the rename; the reserved `home` slug can be neither source nor target.
   'microsite.rename',
@@ -241,7 +242,7 @@ const GOLDEN_TOOLSET: readonly string[] = [
   // added by F-C-16 -- and this golden didn't get updated at the time, so it
   // has been red ever since, unnoticed (see [[green-means-the-real-suite-ran]]:
   // a locally green run can't mask a cross-cutting guard's red).
-  'suppliers.calendar_check',
+  'suppliers.calendar_check', 'suppliers.calendar_list',
   // access requests / ip bans / domains / instance / marketplace / ai
   'access_requests.list', 'access_requests.update', 'access_requests.approve',
   'ip_bans.list', 'ip_bans.add', 'ip_bans.remove',

@@ -105,6 +105,7 @@ export interface MicrositesHook {
   setByoai: (slug: string, allow: boolean) => Promise<void>;
   rollback: (slug: string) => Promise<void>;
   removePage: (slug: string) => Promise<void>;
+  unpublish: (slug: string) => Promise<void>;
   renamePage: (slug: string, newSlug: string) => Promise<void>;
   setSEO: (slug: string, title: string, description: string, image: string) => Promise<void>;
 }
@@ -127,7 +128,7 @@ export function useMicrosites(): MicrositesHook {
   return {
     status: r.status, rows: r.data ?? [], error: r.error,
     refresh: micrositesStore.getState().refresh,
-    createPage, writeFile, build, getBuild, promote, setByoai, rollback, removePage, renamePage,
+    createPage, writeFile, build, getBuild, promote, setByoai, rollback, removePage, unpublish, renamePage,
     setSEO,
   };
 }
@@ -320,6 +321,14 @@ async function rollback(slug: string): Promise<void> {
 
 async function removePage(slug: string): Promise<void> {
   await adminAPI.deleteVoid(`/microsites/${slug}`);
+  await micrositesStore.getState().refresh();
+}
+
+// unpublish —— clear the live build entirely so the page serves nothing. This is how the reserved
+// homepage is "deleted": it can't be hard-removed (singleton pinned to `/`), so clearing live
+// reverts `/` to the built-in DefaultHome; the draft is kept for re-publishing.
+async function unpublish(slug: string): Promise<void> {
+  await adminAPI.post(`/microsites/${slug}/unpublish`, {}, z.object({}).passthrough());
   await micrositesStore.getState().refresh();
 }
 

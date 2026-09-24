@@ -141,6 +141,7 @@ func buildAdminDeps(d *deps.Runtime) AdminDeps {
 			Owners: d.OwnerRepo, Proxy: port.OutboundSender(d),
 		},
 		Sessions:     d.SessionStore,
+		Refresh:      d.RefreshStore,
 		SecureCookie: d.SecureCookie,
 	}
 }

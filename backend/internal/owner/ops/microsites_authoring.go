@@ -87,7 +87,7 @@ type storeWritableOut struct {
 }
 
 func micrositeBuildOps(deps usecase.MicrositeDeps) []fp.Op {
-	return []fp.Op{
+	return append([]fp.Op{
 		{
 			ID: "microsite.create",
 			// F-L-44: this used to say `/<handle>/p/<slug>` — that address 404s, the
@@ -143,23 +143,7 @@ func micrositeBuildOps(deps usecase.MicrositeDeps) []fp.Op {
 			Reach:       fp.OwnerAction(),
 			Invoke:      promoteMicrosite(deps, usecase.PromoteToLive, "promote to live"),
 		},
-		{
-			ID:          "microsite.rollback",
-			Description: "Send live back to the previous build. No-op if there is none.",
-			InputSchema: pageSlugSchema,
-			Kind:        fp.Action,
-			Reach:       fp.OwnerAction(),
-			Invoke:      rollbackMicrosite(deps),
-		},
-		{
-			ID:          "microsite.delete",
-			Description: "Delete a microsite.",
-			InputSchema: pageSlugSchema,
-			Kind:        fp.Action,
-			Reach:       fp.OwnerAction(),
-			Invoke:      deleteMicrosite(deps),
-		},
-	}
+	}, micrositeTakedownOps(deps)...)
 }
 
 // createMicrosite —— no title given → use the slug as the title (creating a page usually
@@ -251,33 +235,6 @@ func promoteMicrosite(deps usecase.MicrositeDeps, apply promoteFn, what string) 
 			return nil, fp.OpErr(what, micrositeErr(err))
 		}
 		return json.Marshal(toMicrositeOut(&page))
-	}
-}
-
-func rollbackMicrosite(deps usecase.MicrositeDeps) fp.Invoke {
-	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
-		in, perr := decodePageSlug(raw)
-		if perr != nil {
-			return nil, perr
-		}
-		page, err := usecase.Rollback(ctx, deps, ownerID, in.Slug)
-		if err != nil {
-			return nil, micrositeErr(err)
-		}
-		return json.Marshal(toMicrositeOut(&page))
-	}
-}
-
-func deleteMicrosite(deps usecase.MicrositeDeps) fp.Invoke {
-	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
-		in, perr := decodePageSlug(raw)
-		if perr != nil {
-			return nil, perr
-		}
-		if err := usecase.DeletePage(ctx, deps, ownerID, in.Slug); err != nil {
-			return nil, micrositeErr(err)
-		}
-		return json.Marshal(deletedPageOut{Slug: in.Slug, Deleted: true})
 	}
 }
 

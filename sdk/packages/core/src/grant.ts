@@ -112,6 +112,16 @@ export function publicSearchEnabled(): boolean {
   return el?.getAttribute('content') === 'true';
 }
 
+// publicChatEnabled —— did the owner wire a public inference provider (the `public` role points at
+// one)? Read from the meta tag the backend injects when serving the page (microsite_serve_file.go),
+// same mechanism as publicSearchEnabled. When on, the codeless AgentWidget answers inline over the
+// public tier (PUBLISHED-only corpus) instead of handing a codeless visitor off to /gate.
+export function publicChatEnabled(): boolean {
+  if (typeof document === 'undefined') return false;
+  const el = document.querySelector('meta[name="standmeet-public-chat"]');
+  return el?.getAttribute('content') === 'true';
+}
+
 // byoaiOffered —— should this page offer the reader the "bring your own key"
 // path? Someone who arrived with a grant shouldn't be asked —— what they
 // hold outranks a bring-your-own key, and it came from the owner.

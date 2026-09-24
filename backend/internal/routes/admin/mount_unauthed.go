@@ -22,6 +22,9 @@ func (h *Handlers) MountUnauthed(
 ) {
 	// claim uses a one-time setup token, so brute force isn't practical here — not wrapped.
 	r.Post("/claim", h.claim())
+	// refresh is CSRF-exempt and needs no login: it is authenticated by the SameSite refresh cookie
+	// alone (a cross-site POST can't send it). It rotates tokens; a missing/stale cookie 401s.
+	r.Post("/refresh", h.refresh())
 	r.Group(func(r chi.Router) {
 		r.Use(loginGuard)
 		r.Post("/login", h.login())

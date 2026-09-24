@@ -122,6 +122,16 @@
       "staging": "intermedio",
       "none": "ninguno"
     },
+    "deleteConfirm": {
+      "title": "¿Eliminar esta página?",
+      "body": "Elimina /p/{slug} y su compilación. No se puede deshacer.",
+      "homeTitle": "¿Restablecer tu página de inicio?",
+      "homeBody": "Restablece / a la página de inicio predeterminada. Tu borrador personalizado se conserva: edítalo y vuelve a publicarlo cuando quieras.",
+      "cancel": "Cancelar",
+      "confirm": "Eliminar",
+      "homeConfirm": "Restablecer al predeterminado"
+    },
+    "homeReverted": "Página de inicio restablecida a la predeterminada",
     "slugPath": "/p/{slug}",
     "viewLive": "ver en vivo",
     "noLiveBuild": "sin construcción en vivo",

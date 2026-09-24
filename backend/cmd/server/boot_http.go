@@ -116,6 +116,7 @@ type AdminDeps struct {
 	Codes           *access.CodeRepo
 	CodeDenials     *access.CodeDenialRepo
 	Sessions        *session.OwnerSessionStore
+	Refresh         *session.RefreshStore
 	AccountAdmin    owner.AccountDeps
 	Applications    *jobsuc.ApplicationRepo
 	HandleAdmin     owner.HandleDeps
@@ -255,7 +256,7 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 	return &adminroutes.Handlers{
 		Claim: deps.Admin.Claim,
 		Auth: adminroutes.AuthDeps{
-			Login: deps.Admin.Login, Sessions: deps.Admin.Sessions,
+			Login: deps.Admin.Login, Sessions: deps.Admin.Sessions, Refresh: deps.Admin.Refresh,
 		},
 		KeypairsAdmin: adminroutes.KeypairsAdminDeps{
 			Deps: deps.Admin.Keypairs, Log: deps.Log,

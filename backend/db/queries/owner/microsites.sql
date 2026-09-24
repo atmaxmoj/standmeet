@@ -110,6 +110,19 @@ RETURNING id, owner_id, slug, title, status,
           live_build_id, staging_build_id, previous_live_build_id,
           allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at;
 
+-- name: ClearMicrositeLive :one
+-- Unpublish completely: drop BOTH live and previous so the page serves nothing. Unlike rollback
+-- (which restores the previous build), this makes the page genuinely empty — the homepage then
+-- falls through to the built-in DefaultHome. The draft/build artifacts are kept for re-publishing.
+UPDATE microsites
+SET live_build_id          = NULL,
+    previous_live_build_id = NULL,
+    updated_at             = now()
+WHERE id = $1
+RETURNING id, owner_id, slug, title, status,
+          live_build_id, staging_build_id, previous_live_build_id,
+          allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at;
+
 -- name: SoftDeleteMicrosite :exec
 UPDATE microsites
 SET status = 'deleted', updated_at = now()

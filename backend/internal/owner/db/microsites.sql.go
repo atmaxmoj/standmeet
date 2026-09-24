@@ -38,6 +38,43 @@ func (q *Queries) ClaimPendingBuild(ctx context.Context) (MicrositeBuild, error)
 	return i, err
 }
 
+const clearMicrositeLive = `-- name: ClearMicrositeLive :one
+UPDATE microsites
+SET live_build_id          = NULL,
+    previous_live_build_id = NULL,
+    updated_at             = now()
+WHERE id = $1
+RETURNING id, owner_id, slug, title, status,
+          live_build_id, staging_build_id, previous_live_build_id,
+          allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at
+`
+
+// Unpublish completely: drop BOTH live and previous so the page serves nothing. Unlike rollback
+// (which restores the previous build), this makes the page genuinely empty — the homepage then
+// falls through to the built-in DefaultHome. The draft/build artifacts are kept for re-publishing.
+func (q *Queries) ClearMicrositeLive(ctx context.Context, id pgtype.UUID) (Microsite, error) {
+	row := q.db.QueryRow(ctx, clearMicrositeLive, id)
+	var i Microsite
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.Slug,
+		&i.Title,
+		&i.Status,
+		&i.LiveBuildID,
+		&i.StagingBuildID,
+		&i.PreviousLiveBuildID,
+		&i.AllowByoai,
+		&i.StoreWritable,
+		&i.SeoTitle,
+		&i.SeoDescription,
+		&i.SeoImage,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const createMicrosite = `-- name: CreateMicrosite :one
 INSERT INTO microsites (owner_id, slug, title)
 VALUES ($1, $2, $3)

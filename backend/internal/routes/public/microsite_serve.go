@@ -33,6 +33,9 @@ type BuiltAsset struct {
 	// PublicSearch —— corpus.retrieval's public_search flag for the sole owner, injected into
 	// <head> so the codeless corpus_search BlockWidget knows it may open a public session.
 	PublicSearch bool
+	// PublicChat — a usable public provider is wired; injected into <head> so the codeless
+	// AgentWidget answers inline instead of handing off to /gate.
+	PublicChat bool
 }
 
 // BuildAssetReq —— everything needed to serve one build's asset.
@@ -66,7 +69,8 @@ func ServeBuildAsset(w http.ResponseWriter, _ *http.Request, req *BuildAssetReq)
 		return
 	}
 	serveFile(req.Log, w, fp, pageHead{
-		base: baseOf(req), allowBYOAI: asset.AllowBYOAI, publicSearch: asset.PublicSearch,
+		base: baseOf(req), allowBYOAI: asset.AllowBYOAI,
+		publicSearch: asset.PublicSearch, publicChat: asset.PublicChat,
 		seoTitle: asset.SeoTitle, seoDescription: asset.SeoDescription, seoImage: asset.SeoImage,
 	})
 }

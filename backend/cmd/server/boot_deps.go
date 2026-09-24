@@ -159,6 +159,7 @@ func assembleRuntimeDeps(
 		JobCachePool:       jobcache.New(c.rdb, 0),
 		JobFetchRegistry:   newJobFetchRegistry(cfg),
 		SessionStore:       session.NewOwnerSessionStore(c.rdb),
+		RefreshStore:       session.NewRefreshStore(c.rdb),
 		VisitorStore:       access.NewVisitorSessionStore(c.rdb),
 		QueryQueue:         session.NewQueryQueue(cfg.QueryQueueMaxConcurrent),
 		ProviderResolver:   dw.providerResolver,

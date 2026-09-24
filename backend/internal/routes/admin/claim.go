@@ -72,9 +72,8 @@ type Handlers struct {
 	SecureCookie    bool
 }
 
-// The mounting of the no-login-required routes lives in mount_unauthed.go — that's a
-// question of "which guard layer wraps which route", a separate concern from this claim
-// handler itself.
+// The mounting of the no-login-required routes lives in mount_unauthed.go — a separate concern
+// ("which guard layer wraps which route") from this claim handler itself.
 
 // MountAuthed mounts the endpoints that need an owner session. The caller is responsible
 // for wrapping this router with middleware.WithOwner first.
@@ -246,6 +245,7 @@ func (h *Handlers) runClaimAndAutoLogin(
 		return
 	}
 	setSessionCookies(w, loggedIn.SessionToken, loggedIn.CSRFToken, h.SecureCookie)
+	h.issueRefresh(r.Context(), w, loggedIn.OwnerID)
 	session.RemoveFirstRunFile(h.Log)
 	h.setupAIProvider(r.Context(), claimed.ID, req)
 	writeJSONClaim(h.Log, w, &claimed)

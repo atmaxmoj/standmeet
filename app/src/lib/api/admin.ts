@@ -20,18 +20,41 @@ function csrfHeaders(): Record<string, string> {
   return headers;
 }
 
+// tryRefresh —— on a 401, attempt one silent token refresh (POST /api/admin/refresh, authenticated
+// by the long-lived refresh cookie). Deduped: concurrent 401s share one in-flight refresh so the
+// token rotates exactly once. Returns whether it succeeded, so the caller retries the original
+// request once with the fresh access session. If it fails, the 401 falls through to the existing
+// login-redirect machinery (useAdminSession / useReportError).
+let refreshInFlight: Promise<boolean> | null = null;
+function tryRefresh(): Promise<boolean> {
+  refreshInFlight ??= fetch('/api/admin/refresh', { method: 'POST', credentials: 'include' })
+    .then((r) => r.ok)
+    .catch(() => false)
+    .finally(() => { refreshInFlight = null; });
+  return refreshInFlight;
+}
+
+// refreshable —— a 401 on anything but the refresh endpoint itself is worth one silent refresh.
+function refreshable(res: Response, path: string): boolean {
+  return res.status === 401 && path !== '/refresh';
+}
+
 async function doFetch(method: string, path: string, body?: unknown): Promise<Response> {
-  const res = await fetch(`/api/admin${path}`, {
+  // Rebuilt per attempt so the retry picks up the rotated CSRF cookie set by the refresh.
+  const send = () => fetch(`/api/admin${path}`, {
     method,
     headers: csrfHeaders(),
     body: body === undefined ? undefined : JSON.stringify(body),
     credentials: 'include',
   }).catch((e: unknown) => {
-    // Request never landed (network layer): the top-bar indicator needs to know
-    // about this, then rethrow the error as usual.
+    // Request never landed (network layer): the top-bar indicator needs to know, then rethrow.
     markInstanceUnreachable(0);
     throw e;
   });
+  let res = await send();
+  if (refreshable(res, path) && await tryRefresh()) {
+    res = await send();
+  }
   if (!res.ok) {
     return throwAPIError(res, `${method} ${path}`);
   }
@@ -40,12 +63,16 @@ async function doFetch(method: string, path: string, body?: unknown): Promise<Re
 }
 
 async function doFetchForm(method: string, path: string, form: FormData): Promise<Response> {
-  const headers: Record<string, string> = {};
-  const csrf = readCSRFCookie();
-  csrf && (headers['X-Csrftoken'] = csrf);
-  const res = await fetch(`/api/admin${path}`, {
-    method, headers, body: form, credentials: 'include',
-  });
+  const send = () => {
+    const headers: Record<string, string> = {};
+    const csrf = readCSRFCookie();
+    csrf && (headers['X-Csrftoken'] = csrf);
+    return fetch(`/api/admin${path}`, { method, headers, body: form, credentials: 'include' });
+  };
+  let res = await send();
+  if (refreshable(res, path) && await tryRefresh()) {
+    res = await send();
+  }
   if (!res.ok) {
     return throwAPIError(res, `${method} ${path}`);
   }

@@ -125,6 +125,8 @@ func (h *Handlers) mountMicrositeItem(r chi.Router, face *dispatcher.Face) {
 			h.dispatchOp(face, "microsite.promote_to_live", bodyWithURLParam("slug"), jsonOK))
 		r.Post("/rollback",
 			h.dispatchOp(face, "microsite.rollback", urlParamArgs("slug"), jsonOK))
+		r.Post("/unpublish",
+			h.dispatchOp(face, "microsite.unpublish", urlParamArgs("slug"), jsonOK))
 		r.Put("/slug",
 			h.dispatchOp(face, "microsite.rename", bodyWithURLParam("slug"), jsonOK))
 		r.Put("/seo",

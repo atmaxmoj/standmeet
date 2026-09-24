@@ -113,6 +113,7 @@ type Runtime struct {
 	JobFetchRegistry  *jobfetch.Registry
 	JobsModule        *pluginjobs.Plugin
 	SessionStore      *session.OwnerSessionStore
+	RefreshStore      *session.RefreshStore
 	VisitorStore      *access.VisitorSessionStore
 	QueryQueue        *session.QueryQueue
 	SubjectivityRepo  *corpus.NoteRepo

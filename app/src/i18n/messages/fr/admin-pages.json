@@ -122,6 +122,16 @@
       "staging": "préparation",
       "none": "aucune"
     },
+    "deleteConfirm": {
+      "title": "Supprimer cette page ?",
+      "body": "Supprime /p/{slug} et son build. Action irréversible.",
+      "homeTitle": "Réinitialiser votre page d'accueil ?",
+      "homeBody": "Rétablit / sur la page d'accueil par défaut. Votre brouillon personnalisé est conservé — modifiable et republiable à tout moment.",
+      "cancel": "Annuler",
+      "confirm": "Supprimer",
+      "homeConfirm": "Réinitialiser par défaut"
+    },
+    "homeReverted": "Page d'accueil rétablie sur la valeur par défaut",
     "slugPath": "/p/{slug}",
     "viewLive": "voir en direct",
     "noLiveBuild": "aucune construction en direct",

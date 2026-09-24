@@ -122,6 +122,16 @@
       "staging": "staging",
       "none": "none"
     },
+    "deleteConfirm": {
+      "title": "Delete this page?",
+      "body": "This removes /p/{slug} and its build. It can't be undone.",
+      "homeTitle": "Reset your homepage?",
+      "homeBody": "This reverts / to the built-in default homepage. Your custom homepage draft is kept — edit and re-publish it any time.",
+      "cancel": "Cancel",
+      "confirm": "Delete",
+      "homeConfirm": "Reset to default"
+    },
+    "homeReverted": "Homepage reverted to the built-in default",
     "slugPath": "/p/{slug}",
     "viewLive": "view live",
     "noLiveBuild": "no live build",

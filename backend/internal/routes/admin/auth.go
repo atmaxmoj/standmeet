@@ -4,6 +4,7 @@
 package admin
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -17,10 +18,22 @@ import (
 
 const ownerSessionMaxAge = 24 * 60 * 60 // seconds; aligned with OwnerSessionStore's TTL.
 
-// AuthDeps — dependencies login / logout / me need (admin Deps embeds one).
+// refreshMaxAge — the refresh cookie's lifetime, aligned with RefreshStore's TTL. This is the real
+// "stay signed in" window: the access cookie can lapse and the frontend silently refreshes.
+const refreshMaxAge = 30 * 24 * 60 * 60 // seconds
+
+// RefreshCookieName — the long-lived refresh token. Path-scoped to the refresh endpoint so it is
+// only ever sent there (not on every admin request), and HttpOnly (JS never reads it).
+const RefreshCookieName = "smt_refresh"
+
+// logKeyErr — the slog key for an error, funnelled through one constant (revive add-constant).
+const logKeyErr = "err"
+
+// AuthDeps — dependencies login / logout / me / refresh need (admin Deps embeds one).
 type AuthDeps struct {
 	Login    owner.LoginDeps
 	Sessions *session.OwnerSessionStore
+	Refresh  *session.RefreshStore
 }
 
 type loginRequest struct {
@@ -64,8 +77,59 @@ func (h *Handlers) login() http.HandlerFunc {
 			return
 		}
 		setSessionCookies(w, out.SessionToken, out.CSRFToken, h.SecureCookie)
+		h.issueRefresh(r.Context(), w, out.OwnerID)
 		writeLoginResp(h.Log, w, &out)
 	}
+}
+
+// issueRefresh — mint a refresh token for this owner and set the refresh cookie. Best-effort: if it
+// fails, the owner is still logged in (with just the access session), they only lose "stay signed
+// in" until the next login — a degraded convenience, not a broken login. Logged for ops.
+func (h *Handlers) issueRefresh(ctx context.Context, w http.ResponseWriter, ownerID string) {
+	if h.Auth.Refresh == nil {
+		return
+	}
+	tok, err := h.Auth.Refresh.Issue(ctx, ownerID)
+	if err != nil {
+		h.Log.Warn("issue refresh token (non-fatal)", logKeyErr, err)
+		return
+	}
+	http.SetCookie(w, newRefreshCookie(tok, refreshMaxAge, h.SecureCookie))
+}
+
+// refresh: POST /api/admin/refresh — CSRF-exempt (protected by the SameSite refresh cookie, which a
+// cross-site POST can't send). Rotates the refresh token and mints a fresh access session, so an
+// expired access cookie is renewed without the owner re-entering their password.
+func (h *Handlers) refresh() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		res, err := h.doRefresh(r)
+		if err != nil {
+			clearSessionCookies(w, h.SecureCookie)
+			writeError(h.Log, w, envUnauthed("refresh rejected"))
+			return
+		}
+		setSessionCookies(w, res.Session.Token, res.Session.Data.CSRFToken, h.SecureCookie)
+		http.SetCookie(w, newRefreshCookie(res.RefreshToken, refreshMaxAge, h.SecureCookie))
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// doRefresh — read the refresh cookie and rotate it into a fresh session. The branching lives off
+// the face (in session.Refresh). Missing cookie / no store → ErrRefreshInvalid → 401.
+func (h *Handlers) doRefresh(r *http.Request) (session.RefreshResult, error) {
+	if h.Auth.Refresh == nil {
+		return session.RefreshResult{}, session.ErrRefreshInvalid
+	}
+	cookie, cerr := r.Cookie(RefreshCookieName)
+	if cerr != nil {
+		return session.RefreshResult{}, session.ErrRefreshInvalid
+	}
+	return session.Refresh(r.Context(), h.Auth.Refresh, h.Auth.Sessions, cookie.Value,
+		session.Client{IP: middleware.ClientAddr(r.Context()), UA: r.UserAgent()})
+}
+
+func envUnauthed(msg string) apierr.Envelope {
+	return apierr.Envelope{Status: http.StatusUnauthorized, Code: "unauthorized", Message: msg}
 }
 
 func handleLoginErr(log *slog.Logger, w http.ResponseWriter, err error) {
@@ -108,6 +172,21 @@ func newSessionCookie(value string, maxAge int, secure bool) *http.Cookie {
 	}
 }
 
+// newRefreshCookie builds the refresh cookie: HttpOnly, Secure, SameSite=Lax, and Path-scoped to
+// the refresh endpoint so it's only ever sent there. SameSite=Lax is the CSRF defense — a
+// cross-site POST can't include it, so the refresh endpoint needs no double-submit token.
+func newRefreshCookie(value string, maxAge int, secure bool) *http.Cookie {
+	return &http.Cookie{
+		Name:     RefreshCookieName,
+		Value:    value,
+		Path:     "/api/admin/refresh",
+		HttpOnly: true,
+		Secure:   secure,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   maxAge,
+	}
+}
+
 // newCSRFCookie builds the double-submit CSRF cookie. HttpOnly must be false (the admin
 // frontend JS must be able to read the cookie value to set the X-Csrftoken header).
 // Path="/" lets /admin/* pages read it via document.cookie too; the session cookie's own
@@ -141,20 +220,38 @@ func clearSessionCookies(w http.ResponseWriter, secure bool) {
 	csrfCookie := newCSRFCookie("", -1, secure)
 	csrfCookie.Expires = time.Unix(0, 0)
 	http.SetCookie(w, csrfCookie)
+
+	refreshCookie := newRefreshCookie("", -1, secure)
+	refreshCookie.Expires = time.Unix(0, 0)
+	http.SetCookie(w, refreshCookie)
 }
 
 // logout: POST /api/admin/me/logout — delete the Redis session + clear the cookies.
 func (h *Handlers) logout() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		cookie, err := r.Cookie(middleware.SessionCookieName)
-		if err == nil {
-			if rerr := h.Auth.Sessions.Revoke(r.Context(), cookie.Value); rerr != nil {
-				h.Log.Warn("revoke session (non-fatal)", "err", rerr)
-			}
-		}
+		h.revokeTokens(r)
 		clearSessionCookies(w, h.SecureCookie)
 		w.WriteHeader(http.StatusNoContent)
 	}
+}
+
+// revokeTokens — best-effort revoke of both the access session and the refresh token on logout. The
+// branching lives off the face (session.RevokePair); this just reads the two cookie values.
+func (h *Handlers) revokeTokens(r *http.Request) {
+	sessTok := cookieValue(r, middleware.SessionCookieName)
+	refTok := cookieValue(r, RefreshCookieName)
+	err := session.RevokePair(r.Context(), h.Auth.Sessions, h.Auth.Refresh, sessTok, refTok)
+	if err != nil {
+		h.Log.Warn("revoke on logout (non-fatal)", logKeyErr, err)
+	}
+}
+
+// cookieValue — the named cookie's value, or "" if absent.
+func cookieValue(r *http.Request, name string) string {
+	if c, err := r.Cookie(name); err == nil {
+		return c.Value
+	}
+	return ""
 }
 
 // csrfEndpoint: GET /api/admin/csrf — called at admin frontend bootstrap to get a token

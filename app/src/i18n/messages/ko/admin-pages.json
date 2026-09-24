@@ -122,6 +122,16 @@
       "staging": "staging",
       "none": "none"
     },
+    "deleteConfirm": {
+      "title": "이 페이지를 삭제할까요?",
+      "body": "/p/{slug} 및 해당 빌드를 제거합니다. 되돌릴 수 없습니다.",
+      "homeTitle": "홈페이지를 초기화할까요?",
+      "homeBody": "/ 를 기본 내장 홈페이지로 되돌립니다. 사용자 지정 홈페이지 초안은 유지되며 언제든지 편집하고 다시 게시할 수 있습니다.",
+      "cancel": "취소",
+      "confirm": "삭제",
+      "homeConfirm": "기본값으로 초기화"
+    },
+    "homeReverted": "홈페이지를 기본 내장 홈페이지로 되돌렸습니다",
     "slugPath": "/p/{slug}",
     "viewLive": "view live",
     "noLiveBuild": "no live build",

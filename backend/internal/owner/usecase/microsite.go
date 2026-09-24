@@ -228,6 +228,21 @@ func Rollback(
 	return updated, nil
 }
 
+// Unpublish — clear the live build so the page serves nothing; the homepage reverts to DefaultHome.
+func Unpublish(
+	ctx context.Context, deps MicrositeDeps, ownerID, slug string,
+) (entity.Microsite, error) {
+	page, err := lookupPage(ctx, deps, ownerID, slug)
+	if err != nil {
+		return entity.Microsite{}, err
+	}
+	updated, cerr := deps.Pages.ClearLive(ctx, page.ID)
+	if cerr != nil {
+		return entity.Microsite{}, fmt.Errorf("clear live: %w", cerr)
+	}
+	return updated, nil
+}
+
 // DeletePage — soft delete (keeps the build artifact for audit). The reserved home slug is
 // refused: it is pinned to `/`, and deleting it drops the site root to the fallback with no way
 // back (the slug can be recreated since the index went partial, but `/` should never be a

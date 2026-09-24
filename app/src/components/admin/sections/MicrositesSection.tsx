@@ -16,6 +16,7 @@ import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
+import { DeleteLink } from '@/components/admin/sections/MicrositesDeleteLink';
 import { Toggle } from '@/components/atoms/Toggle';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 import {
@@ -109,7 +110,7 @@ function HomepageLiveActions({ home }: { home: MicrositeSummary | undefined }) {
     <>
       <ViewLiveLink page={home} />
       <TakeDownLink page={home} />
-      <DeleteLink slug={home.slug} />
+      <DeleteLink slug={home.slug} isHome />
     </>
   ) : null;
 }
@@ -365,7 +366,7 @@ function ActionsCell({ page }: { page: MicrositeSummary }) {
       <EditLink slug={page.slug} />
       <ViewLiveLink page={page} />
       <TakeDownLink page={page} />
-      <DeleteLink slug={page.slug} />
+      <DeleteLink slug={page.slug} isHome={false} />
     </td>
   );
 }
@@ -402,22 +403,6 @@ function TakeDownLink({ page }: { page: MicrositeSummary }) {
       {t('takeDown')}
     </button>
   ) : null;
-}
-
-function DeleteLink({ slug }: { slug: string }) {
-  const t = useTranslations('adminPages.microsites');
-  const { removePage } = useMicrosites();
-  const run = useAction();
-  return (
-    <button
-      type="button"
-      data-testid={`microsite-delete-${slug}`}
-      className="ml-3 mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-accent)"
-      onClick={() => void run(() => removePage(slug), { success: t('deleted', { slug }) })}
-    >
-      {t('delete')}
-    </button>
-  );
 }
 
 function ViewLiveLink({ page }: { page: MicrositeSummary }) {

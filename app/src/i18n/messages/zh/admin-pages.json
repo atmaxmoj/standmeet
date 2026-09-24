@@ -122,6 +122,16 @@
       "staging": "预发",
       "none": "无"
     },
+    "deleteConfirm": {
+      "title": "删除这个页面?",
+      "body": "这会移除 /p/{slug} 及其构建,无法撤销。",
+      "homeTitle": "重置主页?",
+      "homeBody": "这会把 / 恢复为内置默认主页。你的自定义主页草稿会保留——随时可以编辑并重新发布。",
+      "cancel": "取消",
+      "confirm": "删除",
+      "homeConfirm": "恢复默认"
+    },
+    "homeReverted": "主页已恢复为内置默认",
     "slugPath": "/p/{slug}",
     "viewLive": "查看线上",
     "noLiveBuild": "无线上构建",

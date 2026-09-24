@@ -122,6 +122,16 @@
       "staging": "staging",
       "none": "keine"
     },
+    "deleteConfirm": {
+      "title": "Diese Seite löschen?",
+      "body": "Entfernt /p/{slug} und den Build. Kann nicht rückgängig gemacht werden.",
+      "homeTitle": "Startseite zurücksetzen?",
+      "homeBody": "Setzt / auf die eingebaute Standard-Startseite zurück. Dein eigener Startseiten-Entwurf bleibt erhalten – jederzeit bearbeit- und neu veröffentlichbar.",
+      "cancel": "Abbrechen",
+      "confirm": "Löschen",
+      "homeConfirm": "Auf Standard zurücksetzen"
+    },
+    "homeReverted": "Startseite auf den eingebauten Standard zurückgesetzt",
     "slugPath": "/p/{slug}",
     "viewLive": "anzeigen live",
     "noLiveBuild": "kein live build",

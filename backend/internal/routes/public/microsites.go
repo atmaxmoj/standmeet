@@ -54,7 +54,11 @@ type MicrositeHandlers struct {
 	// Wired at the composition root (which may read the block-config store); nil = never on. Read
 	// fresh per request, so flipping the setting takes effect on the next page load.
 	PublicSearch func(ctx context.Context) (bool, error)
-	BuildsRoot   string
+	// PublicChat — a usable public provider is wired (the `public` role points at one with quota).
+	// Injected into <head> so the codeless AgentWidget answers inline vs /gate. Wired at the
+	// composition root; nil = never on. Read fresh per request.
+	PublicChat func(ctx context.Context) (bool, error)
+	BuildsRoot string
 }
 
 // AssetBlob —— an asset's bytes + content type, read from storage for the thin serve route.
@@ -161,6 +165,7 @@ func (h *MicrositeHandlers) serveSlugAt(
 				PageID: live.Build.PageID, BuildID: live.Build.ID,
 				AllowBYOAI:   live.AllowBYOAI,
 				PublicSearch: h.resolvePublicSearch(ctx),
+				PublicChat:   h.resolvePublicChat(ctx),
 				SeoTitle:     live.SeoTitle, SeoDescription: live.SeoDescription,
 				SeoImage: live.SeoImage,
 			}
@@ -184,6 +189,21 @@ func (h *MicrositeHandlers) resolvePublicSearch(ctx context.Context) bool {
 	on, err := h.PublicSearch(ctx)
 	if err != nil {
 		h.Log.Warn("resolve public_search", logErr, err)
+		return false
+	}
+	return on
+}
+
+// resolvePublicChat —— whether a public inference provider is wired, or false. Same fail-closed
+// reasoning as resolvePublicSearch: a read hiccup should leave the codeless widget on the gate
+// handoff (the pre-feature behavior), not silently open inline chat.
+func (h *MicrositeHandlers) resolvePublicChat(ctx context.Context) bool {
+	if h.PublicChat == nil {
+		return false
+	}
+	on, err := h.PublicChat(ctx)
+	if err != nil {
+		h.Log.Warn("resolve public_chat", logErr, err)
 		return false
 	}
 	return on

@@ -18,6 +18,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/cmd/server/blockwire"
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
+	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
@@ -52,8 +53,43 @@ func buildPublicMicrositeDeps(d *deps.Runtime) publicroutes.MicrositeHandlers {
 			}
 			return blockwire.BoolConfigByKey(ctx, d, sole.ID, "public_search")
 		},
+		// public_chat: on when a public inference provider is wired AND has usable quota (see
+		// publicChatEnabled). Injected into every served page's <head>; read fresh per request.
+		PublicChat: publicChatEnabled(d),
 		BuildsRoot: d.BuildsRoot,
 	}
+}
+
+// publicChatEnabled —— the closure serving the `standmeet-public-chat` meta. On only when the
+// `public` role points at a provider AND that provider still has usable quota. No provider, or an
+// exhausted gas tank → off → the codeless AgentWidget keeps the /gate handoff (offering inline chat
+// with no quota would just error every anonymous visitor).
+func publicChatEnabled(d *deps.Runtime) func(context.Context) (bool, error) {
+	return func(ctx context.Context) (bool, error) {
+		sole, err := owner.LoadSoleOwner(ctx, owner.PageDeps{Owners: d.OwnerRepo})
+		if err != nil {
+			return false, err
+		}
+		return publicProviderUsable(ctx, d, sole.ID)
+	}
+}
+
+// publicProviderUsable —— the `public` role has a provider wired and it still has quota.
+func publicProviderUsable(ctx context.Context, d *deps.Runtime, ownerID string) (bool, error) {
+	role, err := d.RoleRepo.GetByName(ctx, ownerID, access.PublicRoleName)
+	if err != nil {
+		return false, err
+	}
+	if role.ProviderID() == "" {
+		return false, nil
+	}
+	gas := owner.ProvidersUseDeps{Owners: d.OwnerRepo, Spend: d.InferenceUsageRepo}
+	remaining, err := owner.GasRemaining(ctx, gas, ownerID, role.ProviderID())
+	if err != nil {
+		return false, err
+	}
+	// nil = unmetered (unlimited) → on; metered → on only while some quota remains.
+	return remaining == nil || *remaining > 0, nil
 }
 
 // serveAssetBlob —— authorize, then read an asset's bytes from the internal minio for GET

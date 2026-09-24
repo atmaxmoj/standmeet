@@ -16,7 +16,7 @@
 
 import React, { useEffect, useState } from 'react';
 import {
-  adoptedDockButtons, hasVisitorGrant, type AdoptedDockButton,
+  adoptedDockButtons, hasVisitorGrant, publicChatEnabled, type AdoptedDockButton,
 } from '@standmeet/sdk-core';
 
 import { StandMeetProvider } from '../provider.js';
@@ -30,12 +30,16 @@ export interface AgentWidgetProps {
 }
 
 export function AgentWidget(props: AgentWidgetProps): React.ReactElement {
-  // hasVisitorGrant reads localStorage — resolve it after mount so a microsite (client-rendered)
-  // never flashes the wrong state. Default: no grant → the gate handoff.
-  const [granted, setGranted] = useState(false);
-  useEffect(() => { setGranted(hasVisitorGrant()); }, []);
+  // Two things decide inline-vs-gate, both read after mount (localStorage / the injected meta) so a
+  // client-rendered microsite never flashes the wrong state:
+  //   • a stored grant (arrived with a code) → the code's agent, inline; OR
+  //   • the owner wired a public inference provider (publicChatEnabled) → answer a codeless visitor
+  //     inline over the public tier.
+  // Neither → the gate handoff (the pre-public-inference behavior). Default false until resolved.
+  const [inline, setInline] = useState(false);
+  useEffect(() => { setInline(hasVisitorGrant() || publicChatEnabled()); }, []);
 
-  return granted
+  return inline
     ? <StandMeetProvider baseURL=""><InlineAgent /></StandMeetProvider>
     : <GateHandoff placeholder={props.placeholder} examples={props.examples} />;
 }
