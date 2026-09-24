@@ -44,18 +44,24 @@ function GasGauge({ row }: { row: ProviderView }) {
 }
 
 export function ProviderBookRow({ row, setDefault, remove, setGas, setRefillCron }: RowProps) {
+  // One bounded card per provider, so every control below plainly belongs to THIS one. The default
+  // entry carries a vermillion left edge — the "which is default" answer at a glance, not just a badge.
+  const edge = row.is_default
+    ? 'border-(--color-rule) border-l-2 border-l-(--color-accent)'
+    : 'border-(--color-rule)';
   return (
-    <li
-      data-testid={`provider-row-${row.label}`}
-      className="py-2 border-b border-(--color-rule)/60"
-    >
-      <div className="flex items-baseline gap-4">
+    <li data-testid={`provider-row-${row.label}`} className={`border ${edge} p-4`}>
+      <div className="flex items-start justify-between gap-4">
         <Identity row={row} />
-        <GasGauge row={row} />
-        <KeyState configured={row.key_configured} />
-        <Actions row={row} setDefault={setDefault} remove={remove} />
+        <div className="flex items-baseline gap-3 whitespace-nowrap">
+          <KeyState configured={row.key_configured} />
+          <Actions row={row} setDefault={setDefault} remove={remove} />
+        </div>
       </div>
-      <ProviderGasControl row={row} setGas={setGas} setRefillCron={setRefillCron} />
+      <div className="mt-3 pt-3 border-t border-(--color-rule)/50">
+        <div className="mb-1"><GasGauge row={row} /></div>
+        <ProviderGasControl row={row} setGas={setGas} setRefillCron={setRefillCron} />
+      </div>
     </li>
   );
 }

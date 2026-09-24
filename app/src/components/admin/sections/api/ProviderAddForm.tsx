@@ -50,7 +50,10 @@ export function ProviderAddForm({
     { success: t('addHeading') },
   );
   return (
-    <div className="pt-4 space-y-3" data-testid="provider-add-form">
+    <div
+      className="mt-4 border border-dashed border-(--color-rule) p-4 space-y-3"
+      data-testid="provider-add-form"
+    >
       <Kicker text={t('addHeading')} />
       <Fields form={form} setForm={setForm} presets={presets} />
       <AddButton disabled={form.label.trim() === ''} onClick={submit} label={t('add')} />
@@ -138,7 +141,12 @@ function TextInput({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       spellCheck={false}
-      autoComplete="off"
+      // A trailing password field makes Chrome read the whole form as a login and autofill the
+      // saved email as "username" into the field before it (the model box). "new-password" on the
+      // secret field tells the browser this isn't a login, so it stops pairing — and the plain
+      // fields get a name the browser can't match to a saved profile.
+      autoComplete={secret ? 'new-password' : 'off'}
+      name={`field-${testid}`}
       className="sm-field-input sm-mono"
     />
   );

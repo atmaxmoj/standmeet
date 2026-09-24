@@ -53,7 +53,7 @@ function List({ hook }: { hook: ProvidersHook }) {
       </div>
     )
     : (
-      <ul data-testid="provider-list">
+      <ul data-testid="provider-list" className="space-y-3">
         {hook.providers.map((p) => (
           <ProviderBookRow
             key={p.id} row={p}
