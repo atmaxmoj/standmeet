@@ -240,6 +240,14 @@ export type SSEErrorEvent = {
   readonly code: string;
   readonly message: string;
 };
-export type SSEEvent = SSETokenEvent | SSEDoneEvent | SSEErrorEvent;
+// SSEToolEvent —— a tool starting or finishing, so a thin consumer can show a progress throbber
+// ("searching corpus" / "reading X") matching the main chat. name=null means the tool finished
+// (back to plain thinking). label is the backend's progress_label, or a fallback.
+export type SSEToolEvent = {
+  readonly kind: 'tool';
+  readonly name: string | null;
+  readonly label: string;
+};
+export type SSEEvent = SSETokenEvent | SSEDoneEvent | SSEErrorEvent | SSEToolEvent;
 
 export type SessionMode = 'public' | 'code' | 'byoai';

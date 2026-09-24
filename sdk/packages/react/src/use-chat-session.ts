@@ -22,9 +22,16 @@ export interface ChatMessage {
   citedWikiIDs?: readonly string[];
 }
 
+// ChatTool —— the tool the agent is running right now, for a progress throbber. null = plain thinking.
+export interface ChatTool {
+  name: string;
+  label: string;
+}
+
 export interface ChatState {
   messages: readonly ChatMessage[];
   streaming: boolean;
+  tool: ChatTool | null;
   error: string | null;
   send: (text: string) => Promise<void>;
 }
@@ -33,6 +40,7 @@ export function useChatSession(input: IssueSessionInput): ChatState {
   const client = useStandMeet();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [streaming, setStreaming] = useState(false);
+  const [tool, setTool] = useState<ChatTool | null>(null);
   const [error, setError] = useState<string | null>(null);
   const sessionRef = useRef<{ id: string; token: string; system: string } | null>(null);
   const counter = useRef(0);
@@ -44,6 +52,7 @@ export function useChatSession(input: IssueSessionInput): ChatState {
   const send = useCallback(async (text: string): Promise<void> => {
     setError(null);
     setStreaming(true);
+    setTool(null);
     appendVisitor(setMessages, text, nextID());
     const assistantID = nextID();
     appendAssistant(setMessages, assistantID);
@@ -70,16 +79,19 @@ export function useChatSession(input: IssueSessionInput): ChatState {
       const sess = sessionRef.current;
       for await (const ev of client.streamMessage(sess.id, sess.token, text, sess.system)) {
         applyEvent(setMessages, assistantID, ev);
+        if (ev.kind === 'tool') setTool(ev.name === null ? null : { name: ev.name, label: ev.label });
+        if (ev.kind === 'token') setTool(null); // real text is streaming → drop the throbber
         if (ev.kind === 'error') setError(ev.message);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setStreaming(false);
+      setTool(null);
     }
   }, [client, input, nextID]);
 
-  return { messages, streaming, error, send };
+  return { messages, streaming, tool, error, send };
 }
 
 function appendVisitor(

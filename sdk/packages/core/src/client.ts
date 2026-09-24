@@ -547,6 +547,17 @@ function parseFrameToToken(raw: string): SSEEvent | null {
     const d = safeParse(evData) as { message?: string; code?: string };
     return { kind: 'error', code: d.code ?? 'inference_error', message: d.message ?? 'error' };
   }
+  if (evType === 'tool_started') {
+    const d = safeParse(evData) as { name?: string; progress_label?: string };
+    const name = d.name ?? 'tool';
+    const label = d.progress_label !== undefined && d.progress_label !== ''
+      ? d.progress_label
+      : `using ${name}`;
+    return { kind: 'tool', name, label };
+  }
+  if (evType === 'tool_completed') {
+    return { kind: 'tool', name: null, label: '' };
+  }
   return null;
 }
 

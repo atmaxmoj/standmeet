@@ -20,7 +20,7 @@ import {
 } from '@standmeet/sdk-core';
 
 import { StandMeetProvider } from '../provider.js';
-import { useChatSession } from '../use-chat-session.js';
+import { useChatSession, type ChatMessage } from '../use-chat-session.js';
 import { AnswerText } from '../AnswerText.js';
 import { gateHref } from './client.js';
 
@@ -130,6 +130,10 @@ function InlineAgent(): React.ReactElement {
         ))}
       </ol>
 
+      {chat.streaming && lastIsEmptyAssistant(chat.messages) && (
+        <ChatThrobber label={chat.tool?.label ?? 'thinking'} />
+      )}
+
       {chat.error !== null && (
         <p data-testid="agent-widget-error" className="mono text-[11px] text-(--color-accent) mb-3">
           {chat.error}
@@ -175,5 +179,33 @@ function InlineAgent(): React.ReactElement {
         </button>
       </form>
     </section>
+  );
+}
+
+// lastIsEmptyAssistant —— the turn is mid-flight before any answer token: the trailing message is an
+// assistant bubble still empty. That's when the throbber shows (once text streams, the answer itself
+// is the indicator).
+function lastIsEmptyAssistant(messages: readonly ChatMessage[]): boolean {
+  const last = messages.at(-1);
+  return last !== undefined && last.role === 'assistant' && last.text === '';
+}
+
+// ChatThrobber —— the progress line while the agent works, matching the main chat's throb: the tool's
+// progress copy ("searching corpus" / "reading X") when a tool is running, else "thinking", followed
+// by three pulsing dots. Self-contained animation (staggered animate-pulse), so it works the same in
+// a microsite build and in the app.
+function ChatThrobber({ label }: { readonly label: string }): React.ReactElement {
+  return (
+    <div
+      data-testid="agent-widget-throbber"
+      className="mono text-[11px] tracking-[0.18em] uppercase text-(--color-muted) mb-3"
+    >
+      <span data-testid="agent-widget-throbber-label">{label}</span>
+      <span aria-hidden="true" className="ml-1 inline-flex gap-0.5">
+        <span className="animate-pulse" style={{ animationDelay: '0ms' }}>·</span>
+        <span className="animate-pulse" style={{ animationDelay: '200ms' }}>·</span>
+        <span className="animate-pulse" style={{ animationDelay: '400ms' }}>·</span>
+      </span>
+    </div>
   );
 }
