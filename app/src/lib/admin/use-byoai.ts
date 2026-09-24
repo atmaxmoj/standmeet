@@ -8,7 +8,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
-import { adminAPI, MeViewSchema, type BYOAIUpdateInput, type MeView } from '@/lib/api/admin';
+import { adminAPI, SettingsViewSchema, type BYOAIUpdateInput, type MeView } from '@/lib/api/admin';
 import { sessionStore } from '@/lib/admin/use-admin-session';
 import { useResource } from '@/lib/state/create-resource-store';
 
@@ -86,7 +86,8 @@ async function doSave(
       providers: state.providers,
       blurb: state.blurb,
     };
-    await adminAPI.put('/byoai', body, MeViewSchema);
+    // PUT /byoai returns the settings slice ({ai,byoai,monitoring_enabled}), not the full MeView.
+    await adminAPI.put('/byoai', body, SettingsViewSchema);
     await sessionStore.getState().refresh();
     return true;
   } catch (e) {

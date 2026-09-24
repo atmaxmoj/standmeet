@@ -54,9 +54,16 @@ func (s *server) serveChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	marker := oaiMarkerText(req.Messages)
+	recText := marker
+	if anyMessageHasReasoning(req.Messages) {
+		// Flag it in the recorded text so an e2e can assert (via ?contains) whether the backend
+		// echoed reasoning_content back on the wire — the real Groq-rejection bug. Kept off `marker`
+		// so script matching (takeToolFor / shouldFailFor) is unaffected.
+		recText += " " + reasoningSentinel
+	}
 	s.rec.record(RequestRecord{
 		Path: r.URL.Path, Model: req.Model, AuthPrefix: authPrefix(r), Stream: req.Stream,
-	}, marker)
+	}, recText)
 	if s.queue.shouldFailFor(marker) {
 		oaiError(s.log, w, http.StatusInternalServerError, "mock injected failure", "server_error")
 		return
@@ -85,6 +92,26 @@ func firstMessageMissingContent(msgs []map[string]json.RawMessage) (int, bool) {
 	return 0, false
 }
 
+// reasoningSentinel —— appended to a request's recorded text when any message carries a non-empty
+// reasoning_content field, so an e2e can assert (via ?contains) whether the backend echoed it back.
+const reasoningSentinel = "__HAS_REASONING__"
+
+// anyMessageHasReasoning —— does any message carry a non-empty reasoning_content field. Groq
+// gpt-oss-* return reasoning_content; echoing it back makes strict endpoints 400.
+func anyMessageHasReasoning(msgs []map[string]json.RawMessage) bool {
+	for i := range msgs {
+		raw, ok := msgs[i]["reasoning_content"]
+		if !ok {
+			continue
+		}
+		s := strings.TrimSpace(string(raw))
+		if s != "" && s != `""` && s != "null" {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *server) serveOpenAIStream(w http.ResponseWriter, req *oaiChatReq, marker string) {
 	sse, serr := newSSE(w)
 	if serr != nil {
@@ -93,6 +120,9 @@ func (s *server) serveOpenAIStream(w http.ResponseWriter, req *oaiChatReq, marke
 	}
 	s.queue.rememberTurnKeys(scriptKeyTokens(marker))
 	if t := s.queue.takeToolFor(marker); t != nil {
+		if t.Reasoning != "" {
+			s.emitOpenAIReasoning(sse, req.Model, t.Reasoning)
+		}
 		s.emitOpenAIToolCalls(sse, req.Model, scriptedCallsOf(t))
 		return
 	}
@@ -204,6 +234,7 @@ type oaiFunctionWire struct {
 type oaiDelta struct {
 	Role      string            `json:"role,omitempty"`
 	Content   string            `json:"content,omitempty"`
+	Reasoning string            `json:"reasoning_content,omitempty"`
 	ToolCalls []oaiToolCallWire `json:"tool_calls,omitempty"`
 }
 
@@ -235,6 +266,17 @@ func (s *server) emitOpenAIText(sse *sseWriter, model, text, finish string) {
 		return
 	}
 	s.emitOpenAIFinish(sse, model, finish)
+}
+
+// emitOpenAIReasoning —— a reasoning_content delta, the way a reasoning model (Groq gpt-oss-*)
+// streams its thinking. eino parses it onto the assistant message; if the backend then echoes it on
+// the next turn, a strict endpoint rejects the request — the bug the outbound strip fixes.
+func (s *server) emitOpenAIReasoning(sse *sseWriter, model, reasoning string) {
+	if err := sse.sendData(newChunk(model, oaiStreamChoice{
+		Delta: oaiDelta{Role: "assistant", Reasoning: reasoning},
+	})); err != nil {
+		s.log.Warn("emit openai reasoning delta", "err", err)
+	}
 }
 
 // emitOpenAIToolCalls —— dispatch every scripted call as one assistant message with a

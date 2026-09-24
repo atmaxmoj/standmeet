@@ -23,6 +23,7 @@ interface Props {
 
 interface RowProps extends Props {
   setGas: (id: string, tokens: number | null) => Promise<void>;
+  setRefillCron: (id: string, cron: string) => Promise<void>;
 }
 
 // GasGauge — the reading on this fuel tank. Unmetered is shown as
@@ -42,7 +43,7 @@ function GasGauge({ row }: { row: ProviderView }) {
   );
 }
 
-export function ProviderBookRow({ row, setDefault, remove, setGas }: RowProps) {
+export function ProviderBookRow({ row, setDefault, remove, setGas, setRefillCron }: RowProps) {
   return (
     <li
       data-testid={`provider-row-${row.label}`}
@@ -54,7 +55,7 @@ export function ProviderBookRow({ row, setDefault, remove, setGas }: RowProps) {
         <KeyState configured={row.key_configured} />
         <Actions row={row} setDefault={setDefault} remove={remove} />
       </div>
-      <ProviderGasControl row={row} setGas={setGas} />
+      <ProviderGasControl row={row} setGas={setGas} setRefillCron={setRefillCron} />
     </li>
   );
 }

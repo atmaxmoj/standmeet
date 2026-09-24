@@ -122,4 +122,7 @@ var (
 	// must either move the default to another entry first, or keep this
 	// one.
 	ErrProviderIsDefault = errors.New("provider is the default")
+	// ErrInvalidRefillCron —— the gas_refill_cron string is not a valid schedule (standard 5-field
+	// cron or @daily/@hourly/@weekly). Rejected at write time so a bad schedule is never stored.
+	ErrInvalidRefillCron = errors.New("invalid gas refill cron")
 )

@@ -18,7 +18,7 @@ const ALL_PROVIDERS: readonly { id: BYOAIProvider; label: string }[] = [
 export function BYOAIEditor() {
   const hook = useBYOAI();
   return (
-    <div className="space-y-5">
+    <div className="space-y-5" data-testid="byoai-editor">
       <MasterToggle hook={hook} />
       <ProviderPicker hook={hook} />
       <BlurbField hook={hook} />
@@ -34,6 +34,7 @@ function SaveRow({ hook }: { hook: BYOAIHook }) {
       <SaveHint loading={hook.loading} saving={hook.saving} error={hook.error} />
       <button
         type="button"
+        data-testid="byoai-save"
         onClick={() => { void hook.save(); }}
         disabled={hook.saving || hook.loading}
         className="mono text-[11px] tracking-[0.16em] uppercase px-3.5 py-2 bg-(--color-ink) text-(--color-paper) hover:bg-(--color-accent) transition-colors disabled:opacity-50"
@@ -65,7 +66,7 @@ function SaveHint({
 }
 
 function Hint({ cls, text }: { cls: string; text: string }) {
-  return <span className={`mono text-[10px] tracking-[0.12em] ${cls}`}>{text}</span>;
+  return <span data-testid="byoai-hint" className={`mono text-[10px] tracking-[0.12em] ${cls}`}>{text}</span>;
 }
 
 function MasterToggle({ hook }: { hook: BYOAIHook }) {
@@ -108,6 +109,7 @@ function ToggleBtn({ enabled, onToggle }: { enabled: boolean; onToggle: () => vo
   return (
     <button
       type="button"
+      data-testid="byoai-toggle"
       onClick={onToggle}
       className={`mono text-[11px] tracking-[0.16em] uppercase px-3.5 py-2 transition-colors shrink-0 ${cls}`}
     >
@@ -127,7 +129,7 @@ function ProviderChips({
 }: { providers: readonly BYOAIProvider[]; toggle: (p: BYOAIProvider) => void }) {
   const t = useTranslations('adminPages.byoai');
   return (
-    <div>
+    <div data-testid="byoai-providers">
       <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-2">
         {t('acceptedProviders')}
       </div>

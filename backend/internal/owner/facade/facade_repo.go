@@ -24,4 +24,8 @@ var (
 	NewKeypairRepo        = repo.NewKeypairRepo
 	NewPromptRepo         = repo.NewPromptRepo
 	NewRepo               = repo.NewRepo
+
+	// GasRefillPeriodicJobs — the periodic gas-tank auto-refill job (re-opens a metered provider's
+	// budget when its gas_refill_cron ticks). Lives in repo (the layer allowed to import periodic).
+	GasRefillPeriodicJobs = repo.GasRefillPeriodicJobs
 )

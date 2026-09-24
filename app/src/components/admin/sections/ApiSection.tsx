@@ -20,7 +20,6 @@ import { EmbedPanel } from '@/components/admin/sections/api/EmbedPanel';
 import { MCPServersPanel } from '@/components/admin/sections/api/MCPServersPanel';
 import { AIProviderPanel } from '@/components/admin/sections/api/AIProviderPanel';
 import { APIKeysPanel } from '@/components/admin/sections/api/APIKeysPanel';
-import { ProviderBookPanel } from '@/components/admin/sections/api/ProviderBookPanel';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 import { useTokens, type TokenItem, type TokensHook } from '@/lib/admin/use-tokens';
 
@@ -66,7 +65,6 @@ function Ready({ hook }: { hook: TokensHook }) {
           to sign with; this one is for third-party programs. */}
       <APIKeysPanel />
       <AIProviderPanel />
-      <ProviderBookPanel />
       <MCPClientPanel />
       <MCPDownloadPanel />
       <MCPServersPanel />

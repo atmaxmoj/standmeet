@@ -31,7 +31,7 @@ test.beforeAll(async ({ playwright }) => {
 
 test.describe('gas · the owner can read the gauge and fill the tank', () => {
   test('a tank with no fuel in it reads as unmetered, not as empty', async ({ adminPage }) => {
-    await gotoAdminSection(adminPage, 'api-mcp');
+    await gotoAdminSection(adminPage, 'providers');
     // "0" would say the opposite of what is true: nothing is metered here, and an owner who reads
     // an empty gauge believes their visitors are already blocked.
     await expect(adminPage.getByTestId(`provider-gas-${CLAIM_LABEL}`))
@@ -39,7 +39,7 @@ test.describe('gas · the owner can read the gauge and fill the tank', () => {
   });
 
   test('filling it puts a reading on the gauge', async ({ adminPage }) => {
-    await gotoAdminSection(adminPage, 'api-mcp');
+    await gotoAdminSection(adminPage, 'providers');
     await adminPage.getByTestId(`provider-gas-input-${CLAIM_LABEL}`).fill('250000');
     await adminPage.getByTestId(`provider-gas-fill-${CLAIM_LABEL}`).click();
 
@@ -50,14 +50,14 @@ test.describe('gas · the owner can read the gauge and fill the tank', () => {
 
   test('the reading survives a reload — it is stored, not local state',
     async ({ adminPage }) => {
-      await gotoAdminSection(adminPage, 'api-mcp');
+      await gotoAdminSection(adminPage, 'providers');
       await adminPage.reload();
       await expect(adminPage.getByTestId(`provider-gas-${CLAIM_LABEL}`))
         .toHaveText('250.0k / 250.0k', { timeout: 8_000 });
     });
 
   test('removing the gauge puts it back to unmetered', async ({ adminPage }) => {
-    await gotoAdminSection(adminPage, 'api-mcp');
+    await gotoAdminSection(adminPage, 'providers');
     await adminPage.getByTestId(`provider-gas-unmeter-${CLAIM_LABEL}`).click();
     await expect(adminPage.getByTestId(`provider-gas-${CLAIM_LABEL}`))
       .toHaveText('unmetered', { timeout: 5_000 });

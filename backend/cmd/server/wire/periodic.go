@@ -35,6 +35,7 @@ func collectPeriodicJobs(d *deps.Runtime) []periodic.Job {
 	jobs := d.JobsModule.PeriodicJobs()
 	jobs = append(jobs, corpus.IndexPeriodicJobs(d.CorpusIndexer, soleOwnerID(d))...)
 	jobs = append(jobs, stats.UsagePeriodicJobs(d.InferenceUsageRepo)...)
+	jobs = append(jobs, owner.GasRefillPeriodicJobs(d.OwnerRepo)...)
 	jobs = append(jobs, monitor.PeriodicJobs(d.MonitorRepo)...)
 	if d.SandboxWorkspaces != nil {
 		jobs = append(jobs, d.SandboxWorkspaces.PeriodicJobs()...)

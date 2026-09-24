@@ -29,6 +29,10 @@ export const ProviderViewSchema = z.object({
   gas_tokens: z.number().nullable(),
   // gas_remaining —— how much is left (derived on read, no counter column). null = unmetered.
   gas_remaining: z.number().nullable(),
+  // gas_refill_cron —— auto-refill schedule (5-field cron or @daily/@hourly/@weekly, UTC).
+  // '' = manual pool (never auto-refills). The backend omitempty-free default is '', but tolerate
+  // absence for forward-compat.
+  gas_refill_cron: z.string().default(''),
 });
 export type ProviderView = z.infer<typeof ProviderViewSchema>;
 
@@ -50,6 +54,7 @@ export interface ProvidersHook {
   setDefaultProvider: (id: string) => Promise<void>;
   deleteProvider: (id: string) => Promise<void>;
   setGas: (id: string, tokens: number | null) => Promise<void>;
+  setRefillCron: (id: string, cron: string) => Promise<void>;
 }
 
 export const providersStore = createResourceStore<ProviderView[]>({
@@ -70,6 +75,7 @@ export function useProviders(): ProvidersHook {
     setDefaultProvider,
     deleteProvider,
     setGas,
+    setRefillCron,
   };
 }
 
@@ -100,6 +106,15 @@ async function deleteProvider(id: string): Promise<void> {
 async function setGas(id: string, tokens: number | null): Promise<void> {
   const updated = await adminAPI.patch(
     `/providers/${id}`, { gas_tokens: tokens }, ProviderViewSchema,
+  );
+  providersStore.getState().mutate((prev) =>
+    (prev ?? []).map((p) => p.id === updated.id ? updated : p));
+}
+
+// setRefillCron —— set (or clear, with '') the auto-refill schedule on a tank.
+async function setRefillCron(id: string, cron: string): Promise<void> {
+  const updated = await adminAPI.patch(
+    `/providers/${id}`, { gas_refill_cron: cron }, ProviderViewSchema,
   );
   providersStore.getState().mutate((prev) =>
     (prev ?? []).map((p) => p.id === updated.id ? updated : p));

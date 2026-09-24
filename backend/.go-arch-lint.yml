@@ -1167,6 +1167,7 @@ deps:
       - ownerdb
       - pgstore
       - cryptobox
+      - periodic # gas-tank auto-refill declares its own daily job (same repo-layer pattern as statsrepo/monitorrepo)
     anyVendorDeps: true
   ownerusecase:
     mayDependOn:

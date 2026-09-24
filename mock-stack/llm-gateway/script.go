@@ -29,6 +29,10 @@ type ScriptedTool struct {
 	Name string          `json:"name"`
 	Args json.RawMessage `json:"args"`
 	Key  string          `json:"key"`
+	// Reasoning —— when set, the openai-compat wire emits this as a reasoning_content delta on the
+	// tool-call assistant message (how Groq gpt-oss-* stream their thinking). It then rides in the
+	// history, and a guard can assert the backend does NOT echo it back on the next turn.
+	Reasoning string `json:"reasoning,omitempty"`
 	// Also —— other calls dispatched together with the Name/Args one, **in the same
 	// message**. Empty = the old behavior (one call per turn).
 	//

@@ -29,7 +29,10 @@ SET label      = COALESCE(sqlc.narg(label), label),
     gas_tokens = CASE WHEN sqlc.arg(set_gas)::boolean THEN sqlc.narg(gas_tokens) ELSE gas_tokens END,
     -- Filling the tank moves the mark the spend is counted from. Without it a refill would be
     -- swallowed by everything already spent — there is no counter column to reset.
-    gas_filled_at = CASE WHEN sqlc.arg(set_gas)::boolean THEN now() ELSE gas_filled_at END
+    gas_filled_at = CASE WHEN sqlc.arg(set_gas)::boolean THEN now() ELSE gas_filled_at END,
+    -- gas_refill_cron: NULL keeps the stored value; '' clears it (back to a manual pool); a cron
+    -- string sets the auto-refill schedule. Validated in Go before it reaches here.
+    gas_refill_cron = COALESCE(sqlc.narg(gas_refill_cron), gas_refill_cron)
 WHERE id = sqlc.arg(id) AND owner_id = sqlc.arg(owner_id)
 RETURNING *;
 
@@ -54,3 +57,13 @@ DELETE FROM owner_providers WHERE id = $1 AND owner_id = $2 AND NOT is_default;
 
 -- name: CountOwnerProviders :one
 SELECT COUNT(*)::int FROM owner_providers WHERE owner_id = $1;
+
+-- name: ListRefillableProviders :many
+-- Providers with an auto-refill schedule set — the periodic gas-refill job iterates these and
+-- re-opens the tank (bumps gas_filled_at) when a scheduled tick has passed since the last fill.
+SELECT id, owner_id, gas_refill_cron, gas_filled_at FROM owner_providers WHERE gas_refill_cron <> '';
+
+-- name: BumpProviderGasFilledAt :execrows
+-- Re-open a metered tank: move the "count spend from here" mark to now, which restores the full
+-- gas_tokens budget without a counter column. Used only by the refill job.
+UPDATE owner_providers SET gas_filled_at = now() WHERE id = $1;

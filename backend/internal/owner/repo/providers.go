@@ -44,6 +44,7 @@ type ProviderRow struct {
 	Provider      string
 	Endpoint      string
 	Model         string
+	GasRefillCron string
 	KeyEnc        []byte
 	IsDefault     bool
 	KeyConfigured bool
@@ -90,6 +91,7 @@ func toProviderRow(p *db.OwnerProvider) ProviderRow {
 		Endpoint: p.Endpoint, Model: p.Model, KeyEnc: p.KeyEnc,
 		IsDefault: p.IsDefault, KeyConfigured: len(p.KeyEnc) > 0,
 		GasTokens: p.GasTokens, GasFilledAt: pgstore.OptTime(p.GasFilledAt),
+		GasRefillCron: p.GasRefillCron,
 	}
 }
 
@@ -208,9 +210,12 @@ type UpdateProviderInput struct {
 	Endpoint  *string
 	Model     *string
 	GasTokens *int64
-	OwnerID   string
-	ID        string
-	SetGas    bool
+	// GasRefillCron —— nil keeps the stored schedule; "" clears it (manual pool); a cron string
+	// sets auto-refill. Validated in the op layer before it reaches here.
+	GasRefillCron *string
+	OwnerID       string
+	ID            string
+	SetGas        bool
 }
 
 // UpdateProvider —— a partial update. Not found → ErrProviderNotFound
@@ -248,6 +253,7 @@ func buildUpdateProviderParams(
 		Label: in.Label, Provider: in.Provider,
 		Endpoint: in.Endpoint, Model: in.Model,
 		SetGas: in.SetGas, GasTokens: in.GasTokens,
+		GasRefillCron: in.GasRefillCron,
 	}, nil
 }
 

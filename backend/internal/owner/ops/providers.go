@@ -127,7 +127,9 @@ var (
 			"endpoint":{"type":"string"},
 			"model":{"type":"string"},
 			"gas_tokens":{"type":["integer","null"],
-				"description":"Remaining tokens on this tank; null = unmetered."}
+				"description":"Remaining tokens on this tank; null = unmetered."},
+			"gas_refill_cron":{"type":"string",
+				"description":"Auto-refill: cron or @daily/@hourly/@weekly (UTC); empty=manual."}
 		},
 		"required":["id"]
 	}`)
@@ -146,6 +148,7 @@ type providerOut struct {
 	Provider      string `json:"provider"`
 	Endpoint      string `json:"endpoint"`
 	Model         string `json:"model"`
+	GasRefillCron string `json:"gas_refill_cron"`
 	KeyConfigured bool   `json:"key_configured"`
 	IsDefault     bool   `json:"is_default"`
 }
@@ -154,7 +157,7 @@ func providerPayload(p *repo.ProviderRow, remaining *int64) providerOut {
 	return providerOut{
 		ID: p.ID, Label: p.Label, Provider: p.Provider, Endpoint: p.Endpoint,
 		Model: p.Model, KeyConfigured: p.KeyConfigured, IsDefault: p.IsDefault,
-		GasTokens: p.GasTokens, GasRemaining: remaining,
+		GasTokens: p.GasTokens, GasRemaining: remaining, GasRefillCron: p.GasRefillCron,
 	}
 }
 
@@ -216,12 +219,13 @@ func marshalProvider(
 // GasTokens is three-state: not given = unchanged; null = drop metering; a number = set the
 // tank to that amount.
 type providerUpdateArgs struct {
-	Label     *string `json:"label"`
-	Provider  *string `json:"provider"`
-	Endpoint  *string `json:"endpoint"`
-	Model     *string `json:"model"`
-	GasTokens *int64  `json:"gas_tokens"`
-	ID        string  `json:"id"`
+	Label         *string `json:"label"`
+	Provider      *string `json:"provider"`
+	Endpoint      *string `json:"endpoint"`
+	Model         *string `json:"model"`
+	GasTokens     *int64  `json:"gas_tokens"`
+	GasRefillCron *string `json:"gas_refill_cron"`
+	ID            string  `json:"id"`
 }
 
 func updateProvider(d ProvidersDeps) fp.Invoke {
@@ -234,6 +238,7 @@ func updateProvider(d ProvidersDeps) fp.Invoke {
 			OwnerID: ownerID, ID: in.ID, Label: in.Label, Provider: in.Provider,
 			Endpoint: in.Endpoint, Model: in.Model,
 			SetGas: rawHasKey(raw, "gas_tokens"), GasTokens: in.GasTokens,
+			GasRefillCron: in.GasRefillCron,
 		})
 		if uerr != nil {
 			return nil, providerErr("update provider", uerr)

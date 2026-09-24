@@ -190,14 +190,14 @@ type contentGuardModel struct {
 func (m *contentGuardModel) Generate(
 	ctx context.Context, input []*schema.Message, opts ...model.Option,
 ) (*schema.Message, error) {
-	return m.inner.Generate(ctx, ensureMessageContent(input), opts...)
+	return m.inner.Generate(ctx, ensureMessageContent(stripReasoningContent(input)), opts...)
 }
 
 //nolint:wrapcheck // transparent decorator — see Generate.
 func (m *contentGuardModel) Stream(
 	ctx context.Context, input []*schema.Message, opts ...model.Option,
 ) (*schema.StreamReader[*schema.Message], error) {
-	return m.inner.Stream(ctx, ensureMessageContent(input), opts...)
+	return m.inner.Stream(ctx, ensureMessageContent(stripReasoningContent(input)), opts...)
 }
 
 // transparent decorator — see Generate.

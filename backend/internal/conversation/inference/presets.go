@@ -58,7 +58,10 @@ var presetTable = map[string]ProviderPreset{
 	},
 	"groq": {
 		Name: "groq", Label: "Groq",
-		BaseURL: "https://api.groq.com/openai", KeyPrefix: "gsk_",
+		// Groq serves the OpenAI-compatible API under /openai/v1, and the adapter appends only
+		// "/chat/completions" — so the base must include /openai/v1, or turns 404 (verified live:
+		// ".../openai" 404s at POST /openai/chat/completions; ".../openai/v1" → 200).
+		BaseURL: "https://api.groq.com/openai/v1", KeyPrefix: "gsk_",
 	},
 	"siliconflow": {
 		Name: "siliconflow", Label: "SiliconFlow",

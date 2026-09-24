@@ -67,9 +67,9 @@ async function postScript(
  *  embed it in the turn message that should invoke the tool. Only a request
  *  containing that tag consumes this registration. */
 export async function scriptMockToolCall(
-  request: APIRequestContext, call: ScriptedToolCall,
+  request: APIRequestContext, call: ScriptedToolCall, opts?: { reasoning?: string },
 ): Promise<string> {
-  return postScript(request, 'next_tool', { name: call.name, args: call.args });
+  return postScript(request, 'next_tool', { name: call.name, args: call.args, reasoning: opts?.reasoning });
 }
 
 /** Register several tool calls the model emits **in one message** — what a real

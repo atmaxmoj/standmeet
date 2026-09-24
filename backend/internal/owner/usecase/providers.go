@@ -204,6 +204,11 @@ func SetDefaultProvider(ctx context.Context, d ProvidersDeps, ownerID, id string
 func UpdateProvider(
 	ctx context.Context, d ProvidersDeps, in *repo.UpdateProviderInput,
 ) (repo.ProviderRow, error) {
+	if in.GasRefillCron != nil {
+		if verr := repo.ValidRefillCron(*in.GasRefillCron); verr != nil {
+			return repo.ProviderRow{}, fmt.Errorf("%w: %w", entity.ErrInvalidRefillCron, verr)
+		}
+	}
 	row, err := d.Owners.UpdateProvider(ctx, in)
 	if err != nil {
 		return repo.ProviderRow{}, fmt.Errorf("update provider: %w", err)

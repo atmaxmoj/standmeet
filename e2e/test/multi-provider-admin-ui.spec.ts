@@ -40,7 +40,7 @@ test.beforeAll(async ({ playwright }) => {
 
 test.describe('provider book · the owner can see the book and edit it', () => {
   test('the panel lists the entry claim created, marked default', async ({ adminPage }) => {
-    await gotoAdminSection(adminPage, 'api-mcp');
+    await gotoAdminSection(adminPage, 'providers');
     await expect(adminPage.getByTestId('provider-book-panel')).toBeVisible();
     await expect(
       adminPage.getByTestId('provider-list').getByTestId('provider-default-badge'),
@@ -50,7 +50,7 @@ test.describe('provider book · the owner can see the book and edit it', () => {
 
   test('adding an entry from the form puts it in the list with its key set',
     async ({ adminPage }) => {
-      await gotoAdminSection(adminPage, 'api-mcp');
+      await gotoAdminSection(adminPage, 'providers');
       await addProvider(adminPage, { label: UI_LABEL, model: UI_MODEL, key: 'sk-ui-000000000000' });
 
       const row = adminPage.getByTestId(`provider-row-${UI_LABEL}`);
@@ -63,7 +63,7 @@ test.describe('provider book · the owner can see the book and edit it', () => {
 
   test('making it default moves the badge; the old default keeps its row',
     async ({ adminPage }) => {
-      await gotoAdminSection(adminPage, 'api-mcp');
+      await gotoAdminSection(adminPage, 'providers');
       const row = adminPage.getByTestId(`provider-row-${UI_LABEL}`);
       await expect(row).toBeVisible({ timeout: 5_000 });
       await adminPage.getByTestId(`provider-make-default-${UI_LABEL}`).click();
@@ -79,7 +79,7 @@ test.describe('provider book · the owner can see the book and edit it', () => {
 
   test('deleting the default is refused with a sentence, not a status code',
     async ({ adminPage }) => {
-      await gotoAdminSection(adminPage, 'api-mcp');
+      await gotoAdminSection(adminPage, 'providers');
       const row = adminPage.getByTestId(`provider-row-${UI_LABEL}`);
       await expect(row.getByTestId('provider-default-badge')).toBeVisible({ timeout: 5_000 });
 
@@ -97,7 +97,7 @@ test.describe('provider book · the code modal reaches it', () => {
       // Move the default back onto claim's entry FIRST. If the picked entry were also the default,
       // the turn below would land on it either way and this test could not fail — a picker wired to
       // nothing would read exactly the same.
-      await gotoAdminSection(adminPage, 'api-mcp');
+      await gotoAdminSection(adminPage, 'providers');
       await adminPage.getByTestId(`provider-make-default-${CLAIM_LABEL}`).click();
       await expect(
         adminPage.getByTestId(`provider-row-${CLAIM_LABEL}`).getByTestId('provider-default-badge'),

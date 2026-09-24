@@ -148,6 +148,10 @@ CREATE TABLE owner_providers (
     -- gas_filled_at —— 上次加油的时刻，也就是"从这儿开始算账"。没有它，加满一箱油会被
     -- 之前花掉的量当场吃掉——没有计数器列可以清零，那个零点必须自己记一处。
     gas_filled_at timestamptz,
+    -- gas_refill_cron —— 自动加油的计划（标准 5 段 cron 或 @daily/@hourly/@weekly，按 UTC 解释）。
+    -- 空 = 手动油箱（默认，今天的行为不变）。设了之后，周期任务在每个计划刻到点时把 gas_filled_at
+    -- 推到 now()，重新开满预算——正是免费层"每天重置"的表达方式。写入前在 Go 里校验过。
+    gas_refill_cron text        NOT NULL DEFAULT '',
     created_at  timestamptz   NOT NULL DEFAULT now(),
     UNIQUE (owner_id, label)
 );
