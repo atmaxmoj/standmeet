@@ -13,7 +13,12 @@ import type {
   SSEEvent,
   TurnMsg,
 } from '@standmeet/sdk-core';
-import { adoptStoredSession, isRetrievalTool, pageDocContext } from '@standmeet/sdk-core';
+import {
+  adoptStoredSession, forgetBYOAI, hasVisitorGrant, isRetrievalTool, pageDocContext,
+  readBYOAIVaultMeta, storeBYOAI,
+  type BYOAICredFull,
+} from '@standmeet/sdk-core';
+import { byoaiHeaders, issueChatSession, savedKeyInUse } from './chat-byok.js';
 import { useStandMeet } from './provider.js';
 
 export interface ChatMessage {
@@ -44,10 +49,28 @@ export interface ChatState {
   streaming: boolean;
   tool: ChatTool | null;
   error: string | null;
+  // errorCode —— the machine code of the last turn's error ('rate_limited', …), so the UI can offer
+  // a way forward (bring your own key) instead of only saying what went wrong.
+  errorCode: string | null;
+  byok: ChatBYOK;
   send: (text: string) => Promise<void>;
   // clear —— the visitor wipes this page's conversation: transcript, its localStorage copy, and the
   // client's remembered history. The next question starts a fresh conversation.
   clear: () => void;
+}
+
+// ChatBYOK —— the visitor's own key for this chat (see chat-byok.ts). active: turns run on it.
+export interface ChatBYOK {
+  // available —— may this visitor bring a key at all. Never for a coded visitor: the code's owner
+  // pays for their turns (owner rule 2026-09-25), so they are never asked to — even when the code's
+  // own quota is spent or its provider rate-limits, and even if a key is saved in this browser.
+  available: boolean;
+  active: boolean;
+  provider: string | null;
+  // use —— save the key (encrypted, this browser) and continue the conversation on it.
+  use: (cred: BYOAICredFull) => Promise<void>;
+  // forget —— drop the saved key; the next turn goes back to the owner's tier.
+  forget: () => void;
 }
 
 export function useChatSession(input: IssueSessionInput): ChatState {
@@ -57,7 +80,14 @@ export function useChatSession(input: IssueSessionInput): ChatState {
   const [streaming, setStreaming] = useState(false);
   const [tool, setTool] = useState<ChatTool | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const sessionRef = useRef<{ id: string; token: string; system: string } | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
+  // granted —— this visitor holds a code (read once, at mount: /gate stores it before the page).
+  const [granted] = useState(() => hasVisitorGrant());
+  const [byokActive, setByokActive] = useState(() => !granted && savedKeyInUse());
+  const sessionRef = useRef<{ id: string; token: string; system: string; byoai: boolean } | null>(null);
+  // messagesRef —— the live transcript, so switching to the visitor's key can carry it as history.
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
   // cardHTML —— tool name → its ui:// card html, from the session's tool_specs.
   const cardHTML = useRef<Record<string, string>>({});
   // The transcript as restored at mount — seeded back as history on the first turn so the model
@@ -85,11 +115,40 @@ export function useChatSession(input: IssueSessionInput): ChatState {
     if (sessionRef.current) client.clearHistory(sessionRef.current.id);
     sessionRef.current = null; // a fresh conversation on the next question
     setError(null);
+    setErrorCode(null);
     setTool(null);
   }, [client]);
 
+  // restartOnTier —— the next turn opens a fresh session (the tier changed) and seeds it with the
+  // conversation so far, so the model still remembers.
+  const restartOnTier = useCallback((): void => {
+    sessionRef.current = null;
+    restoredRef.current = messagesRef.current.filter((m) => m.text !== '');
+    seededRef.current = false;
+    setError(null);
+    setErrorCode(null);
+  }, []);
+
+  const byok: ChatBYOK = {
+    available: !granted,
+    active: byokActive,
+    provider: byokActive ? (readBYOAIVaultMeta()?.provider ?? null) : null,
+    use: async (cred) => {
+      if (granted) return; // a coded visitor's turns stay on the code
+      await storeBYOAI(cred);
+      setByokActive(true);
+      restartOnTier();
+    },
+    forget: () => {
+      forgetBYOAI();
+      setByokActive(false);
+      restartOnTier();
+    },
+  };
+
   const send = useCallback(async (text: string): Promise<void> => {
     setError(null);
+    setErrorCode(null);
     setStreaming(true);
     setTool(null);
     appendVisitor(setMessages, text, nextID());
@@ -105,14 +164,16 @@ export function useChatSession(input: IssueSessionInput): ChatState {
         // name, allotment, and turn count all get silently dropped. Only open a
         // fresh session from `input` when there's no issued session to adopt
         // (a passing anonymous reader).
-        const s = adoptStoredSession() ?? await client.issueSession(input);
+        // A code's grant wins; otherwise the visitor's own key when one is in use.
+        const adopted = adoptStoredSession();
+        const s = adopted ?? await issueChatSession(client, input, byokActive);
         // The system prompt is assembled once per session (fragment + this
         // session's persona). Skipping assembly means an empty system prompt,
         // and the answers that come out have nothing to do with this owner
         // (F-O-2).
         sessionRef.current = {
           id: s.conversation_id, token: s.session_token,
-          system: await client.composeSystem(s),
+          system: await client.composeSystem(s), byoai: adopted === null && byokActive,
         };
         cardHTML.current = cardsByTool(s.tool_specs);
       }
@@ -126,12 +187,16 @@ export function useChatSession(input: IssueSessionInput): ChatState {
       }
       const sess = sessionRef.current;
       // pageDocContext: the page the visitor is on, so "can I use it?" means this page.
-      const turn = client.streamMessage(sess.id, sess.token, text, sess.system, undefined, pageDocContext());
+      const headers = await byoaiHeaders(sess.byoai, sess.token);
+      const turn = client.streamMessage(sess.id, sess.token, text, sess.system, headers, pageDocContext());
       for await (const ev of turn) {
         applyEvent(setMessages, assistantID, ev, cardHTML.current);
         if (ev.kind === 'tool') setTool(ev.name === null ? null : { name: ev.name, label: ev.label });
         if (ev.kind === 'token') setTool(null); // real text is streaming → drop the throbber
-        if (ev.kind === 'error') setError(ev.message);
+        if (ev.kind === 'error') {
+          setError(ev.message);
+          setErrorCode(ev.code);
+        }
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -139,9 +204,9 @@ export function useChatSession(input: IssueSessionInput): ChatState {
       setStreaming(false);
       setTool(null);
     }
-  }, [client, input, nextID]);
+  }, [client, input, nextID, byokActive]);
 
-  return { messages, streaming, tool, error, send, clear };
+  return { messages, streaming, tool, error, errorCode, byok, send, clear };
 }
 
 // ---- page-granular localStorage persistence ----

@@ -6,13 +6,13 @@
 'use client';
 
 import type { DocContext } from '@standmeet/agent-core';
+import { readBYOAIVaultMeta } from '@standmeet/sdk-core';
 
 import {
   issueBYOAISession, issueCodeSession, issuePublicSession,
   openDocConversation,
   type PublicSessionResponse,
 } from '@/lib/api/public';
-import { readBYOAIVaultMeta } from '@/lib/gate/byoai-vault';
 import { loadStoredSession } from '@/lib/gate/use-gate';
 import { useBlockStore } from '@/lib/visitor/block-store';
 import { useDockButtonsStore } from '@/lib/visitor/dock-buttons-store';

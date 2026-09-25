@@ -15,14 +15,13 @@
 // only render.
 
 import { useCallback, useState } from 'react';
-import { VISITOR_SESSION_STORAGE_KEY } from '@standmeet/sdk-core';
+import { storeBYOAI, VISITOR_SESSION_STORAGE_KEY } from '@standmeet/sdk-core';
 
 import {
   issueBYOAISession,
   issueCodeSession,
   type PublicSessionResponse,
 } from '@/lib/api/public';
-import { storeBYOAI } from '@/lib/gate/byoai-vault';
 import { useVisitorSessionStore } from '@/lib/visitor/session-store';
 import { rememberVisitorName } from '@/lib/visitor/visitor-name';
 

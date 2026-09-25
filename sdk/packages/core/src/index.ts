@@ -17,6 +17,13 @@ export type {
 export { readSSE } from './sse.js';
 export { isRetrievalTool } from './tool-shape.js';
 export { pageCardTheme } from './card-theme.js';
+// byoai —— the visitor's own key: encrypted browser storage + the per-turn header envelope.
+export {
+  keyStorageAvailable, storeBYOAI, forgetBYOAI, readBYOAIVaultMeta, readBYOAICredFull, wrapBYOAIKey,
+} from './byoai.js';
+export type { BYOAIVaultMeta, BYOAICredFull } from './byoai.js';
+export { PRESETS, lookupPreset } from './presets.js';
+export type { InferencePreset } from './presets.js';
 export type { CardTheme } from './card-theme.js';
 // grant —— the grant the visitor already holds. A microsite adopts it
 // rather than opening a fresh anonymous session of its own.

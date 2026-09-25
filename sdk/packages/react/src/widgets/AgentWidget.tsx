@@ -16,14 +16,16 @@
 
 import React, { useEffect, useState } from 'react';
 import {
-  adoptedDockButtons, hasVisitorGrant, publicChatEnabled, type AdoptedDockButton,
+  adoptedDockButtons, byoaiOffered, hasVisitorGrant, keyStorageAvailable, publicChatEnabled,
+  type AdoptedDockButton,
 } from '@standmeet/sdk-core';
 
 import { StandMeetProvider } from '../provider.js';
-import { useChatSession, type ChatMessage } from '../use-chat-session.js';
+import { useChatSession, type ChatMessage, type ChatState } from '../use-chat-session.js';
 import { AnswerText } from '../AnswerText.js';
 import { gateHref } from './client.js';
 import { McpAppCard } from './McpAppCard.js';
+import { ByokPanel } from './ByokPanel.js';
 
 export interface AgentWidgetProps {
   readonly placeholder?: string;
@@ -36,13 +38,24 @@ export function AgentWidget(props: AgentWidgetProps): React.ReactElement {
   //   • a stored grant (arrived with a code) → the code's agent, inline; OR
   //   • the owner wired a public inference provider (publicChatEnabled) → answer a codeless visitor
   //     inline over the public tier.
-  // Neither → the gate handoff (the pre-public-inference behavior). Default false until resolved.
-  const [inline, setInline] = useState(false);
-  useEffect(() => { setInline(hasVisitorGrant() || publicChatEnabled()); }, []);
+  // Neither, but this browser can hold a key → the visitor brings their own (owner decision
+  // 2026-09-25: out of quota → offer BYOK, not a dead-end redirect). Otherwise the gate handoff.
+  // 'gate' until resolved, so a client-rendered microsite never flashes the wrong state.
+  const [mode, setMode] = useState<WidgetMode>('gate');
+  useEffect(() => { setMode(widgetMode()); }, []);
 
-  return inline
-    ? <StandMeetProvider baseURL=""><InlineAgent /></StandMeetProvider>
-    : <GateHandoff placeholder={props.placeholder} examples={props.examples} />;
+  return mode === 'gate'
+    ? <GateHandoff placeholder={props.placeholder} examples={props.examples} />
+    : <StandMeetProvider baseURL=""><InlineAgent needsKey={mode === 'byok'} /></StandMeetProvider>;
+}
+
+type WidgetMode = 'inline' | 'byok' | 'gate';
+
+// widgetMode —— a grant or the owner's usable public tier → inline; else the visitor's own key
+// when this page can store one (a secure context); else the gate.
+function widgetMode(): WidgetMode {
+  if (hasVisitorGrant() || publicChatEnabled()) return 'inline';
+  return keyStorageAvailable() ? 'byok' : 'gate';
 }
 
 // GateHandoff —— codeless: the ask box carries the question to /gate.
@@ -91,12 +104,20 @@ function GateHandoff({ placeholder, examples }: AgentWidgetProps): React.ReactEl
 }
 
 // InlineAgent —— granted: the code's agent, inline. Corpus/persona/quota inherit through the
-// adopted session; the dock buttons inherit through the stored blob.
-function InlineAgent(): React.ReactElement {
+// adopted session; the dock buttons inherit through the stored blob. needsKey: the owner's public
+// tier can't serve, so the visitor asks on their own key (ByokPanel) until one is in use.
+function InlineAgent({ needsKey }: { readonly needsKey: boolean }): React.ReactElement {
   const chat = useChatSession({ mode: 'public' }); // adopted grant overrides this input
   const [dock, setDock] = useState<readonly AdoptedDockButton[]>([]);
   const [draft, setDraft] = useState('');
-  useEffect(() => { setDock(adoptedDockButtons()); }, []);
+  // offerTaken —— the visitor opened the BYOK panel from an offer (rate-limited / page allows it).
+  const [offerTaken, setOfferTaken] = useState(false);
+  const [offerable, setOfferable] = useState(false);
+  useEffect(() => { setDock(adoptedDockButtons()); setOfferable(byoaiOffered()); }, []);
+  // Never for a coded visitor (chat.byok.available): the code's owner pays for their turns.
+  const canOffer = chat.byok.available && !chat.byok.active;
+  const showPanel = canOffer && (needsKey || offerTaken);
+  const showOffer = canOffer && !showPanel && (chat.errorCode === 'rate_limited' || offerable);
 
   const send = (text: string) => {
     const t = text.trim();
@@ -114,7 +135,7 @@ function InlineAgent(): React.ReactElement {
     // one number that separates them, and it belongs next to data-mode, which is here for exactly
     // the same reason.
     <section
-      data-testid="agent-widget" data-mode="inline" data-dock-count={dock.length}
+      data-testid="agent-widget" data-mode={needsKey ? 'byok' : 'inline'} data-dock-count={dock.length}
       className="w-full"
     >
       {/* Clear/new-conversation — the visitor can wipe this page's stored chat. Icon-only (↺) so it
@@ -163,6 +184,10 @@ function InlineAgent(): React.ReactElement {
         </p>
       )}
 
+      <ByokControls
+        chat={chat} showPanel={showPanel} showOffer={showOffer} onOffer={() => setOfferTaken(true)}
+      />
+
       {dock.length > 0 && (
         <div data-testid="agent-widget-dock" className="flex flex-wrap gap-2 mb-4">
           {dock.map((b) => (
@@ -186,10 +211,10 @@ function InlineAgent(): React.ReactElement {
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder={chat.streaming ? 'thinking…' : 'Ask anything…'}
+          placeholder={askPlaceholder(chat.streaming, showPanel && needsKey)}
           aria-label="Ask a question"
           data-testid="agent-widget-input"
-          disabled={chat.streaming}
+          disabled={chat.streaming || (showPanel && needsKey)}
           className="flex-1 bg-transparent font-serif text-[20px] text-(--color-ink) placeholder:text-(--color-faint) outline-none disabled:opacity-60"
         />
         <button
@@ -202,6 +227,46 @@ function InlineAgent(): React.ReactElement {
         </button>
       </form>
     </section>
+  );
+}
+
+function askPlaceholder(streaming: boolean, needsKey: boolean): string {
+  if (streaming) return 'thinking…';
+  return needsKey ? 'Add your AI key above to ask' : 'Ask anything…';
+}
+
+// ByokControls —— the visitor's-own-key affordances: an offer when the owner's tier can't serve
+// this turn (rate-limited) or the page allows BYOK, the panel to enter a key, and — once a key is
+// in use — which one, with a way to forget it.
+function ByokControls({ chat, showPanel, showOffer, onOffer }: {
+  readonly chat: ChatState;
+  readonly showPanel: boolean;
+  readonly showOffer: boolean;
+  readonly onOffer: () => void;
+}): React.ReactElement {
+  return (
+    <>
+      {showOffer && (
+        <button
+          type="button" data-testid="agent-widget-byok-offer" onClick={onOffer}
+          className="mb-3 mono text-[11px] tracking-[0.06em] text-(--color-accent) underline"
+        >
+          Use your own AI key instead →
+        </button>
+      )}
+      {showPanel && <ByokPanel onUse={chat.byok.use} />}
+      {chat.byok.active && (
+        <p data-testid="agent-widget-byok-active" className="mb-3 mono text-[10.5px] text-(--color-faint)">
+          on your {chat.byok.provider ?? ''} key ·{' '}
+          <button
+            type="button" data-testid="agent-widget-byok-forget" onClick={chat.byok.forget}
+            className="underline hover:text-(--color-accent)"
+          >
+            forget it
+          </button>
+        </p>
+      )}
+    </>
   );
 }
 

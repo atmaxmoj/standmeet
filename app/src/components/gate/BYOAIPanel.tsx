@@ -17,18 +17,19 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import {
+  keyStorageAvailable, lookupPreset, PRESETS, type InferencePreset,
+} from '@standmeet/sdk-core';
 
 import { SelectField } from '@/components/atoms/SelectField';
 import { KeyRow } from '@/components/gate/BYOAIKeyRow';
 import { ModelLoaderRow } from '@/components/inference/ModelLoaderRow';
-import { lookupPreset, PRESETS, type InferencePreset } from '@/lib/inference/presets';
 import {
   initialProviderForm, setEndpoint, setModel, switchProvider,
   EMPTY_DEFAULTS, type ProviderFormState,
 } from '@/lib/inference/provider-form';
 import { useModelList, type ModelListHook } from '@/lib/inference/use-model-list';
 import { postGateHref } from '@/lib/gate/code-panel-logic';
-import { keyStorageAvailable } from '@/lib/gate/key-storage';
 import type { GateHook } from '@/lib/gate/use-gate';
 
 type Props = {

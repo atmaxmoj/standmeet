@@ -28,9 +28,8 @@ import {
   httpPromptSource, httpAgentTurnStreamer, httpTurnRecovery,
   type HttpBYOAIHeaders,
 } from '@standmeet/sdk';
+import { readBYOAICredFull, wrapBYOAIKey } from '@standmeet/sdk-core';
 
-import { wrapBYOAIKey } from '@/lib/gate/byoai-envelope';
-import { readBYOAICredFull } from '@/lib/gate/byoai-vault';
 import {
   restoreSession, revalidateSession, revalidateStored, seedEphemeralStores,
 } from '@/lib/page/use-chat-restore';
