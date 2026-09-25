@@ -8,6 +8,7 @@
 //   card height → self-sizing height
 
 import { useEffect, useRef, useState } from 'react';
+import { pageCardTheme } from '@standmeet/sdk-core';
 
 import { callVisitorTool } from '@/lib/api/public';
 import { getAppCardState, setAppCardState } from '@/lib/api/app-state';
@@ -121,7 +122,9 @@ async function runCardReady(c: Ctx): Promise<void> {
   const token = loadStoredSession()?.session_token ?? '';
   const state = await getAppCardState(c.conversationID, token, c.tool);
   c.win.postMessage(
-    { type: 'mcp-ui:data', data: parseResult(c.result), tool: c.tool, state }, '*',
+    // theme —— the page's design tokens, so the card matches light/dark (it can't see our CSS).
+    { type: 'mcp-ui:data', data: parseResult(c.result), tool: c.tool, state, theme: pageCardTheme() },
+    '*',
   );
 }
 

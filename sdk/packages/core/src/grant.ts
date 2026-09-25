@@ -139,6 +139,16 @@ export function publicChatEnabled(): boolean {
   return el?.getAttribute('content') === 'true';
 }
 
+// pageDocContext —— the page the visitor is on, for the agent ("can I use IT?" → this page). The
+// title comes from the page's og:title (the owner's SEO title, injected when the microsite is
+// served), falling back to <title>. null outside a browser or when the page has no title.
+export function pageDocContext(): { title: string } | null {
+  if (typeof document === 'undefined') return null;
+  const og = document.querySelector('meta[property="og:title"]')?.getAttribute('content') ?? '';
+  const title = (og !== '' ? og : document.title).trim();
+  return title === '' ? null : { title };
+}
+
 // byoaiOffered —— should this page offer the reader the "bring your own key"
 // path? Someone who arrived with a grant shouldn't be asked —— what they
 // hold outranks a bring-your-own key, and it came from the owner.

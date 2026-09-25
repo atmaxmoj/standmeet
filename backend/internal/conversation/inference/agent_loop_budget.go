@@ -25,6 +25,7 @@ import (
 
 	"github.com/cloudwego/eino/adk"
 
+	"github.com/atmaxmoj/standmeet/internal/infra/httpx"
 	"github.com/atmaxmoj/standmeet/internal/infra/textcut"
 )
 
@@ -261,6 +262,10 @@ func deadlineWall(ctx context.Context, err error) bool {
 //     prove it was answering), so don't prolong the visitor's wait with another call.
 func surfaceInsteadOfForce(ctx context.Context, state *turnState, err error) bool {
 	if !errors.Is(err, adk.ErrExceedMaxIterations) && state.product != "" {
+		return true
+	}
+	// Rate-limited past the turn's wait budget: a synthesis call would hit the same wall.
+	if errors.Is(err, httpx.ErrRetryTooLong) {
 		return true
 	}
 	return ctx.Err() != nil && len(state.evidence) == 0

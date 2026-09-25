@@ -65,7 +65,7 @@ func classifyDirectStatus(err error) (StreamErrClass, bool) {
 		return StreamErrClass{Code: "invalid_api_key", Status: http.StatusUnauthorized}, true
 	case errors.Is(err, ErrUnsupportedProvider):
 		return StreamErrClass{Code: "unsupported_provider", Status: http.StatusBadRequest}, true
-	case errors.Is(err, ErrRateLimited):
+	case errors.Is(err, ErrRateLimited), errors.Is(err, httpx.ErrRetryTooLong):
 		return StreamErrClass{Code: "rate_limited", Status: http.StatusTooManyRequests}, true
 	case errors.Is(err, ErrTimeout), errors.Is(err, context.DeadlineExceeded):
 		return StreamErrClass{Code: "timeout", Status: http.StatusGatewayTimeout}, true
@@ -77,7 +77,7 @@ func classifyDirectStatus(err error) (StreamErrClass, bool) {
 // trace to the UI (CLAUDE.md: errors must be user-friendly).
 var friendlyMessages = map[string]string{
 	"timeout":              "That took too long — try a shorter, more specific question.",
-	"rate_limited":         "I'm getting rate-limited. Give it a moment and ask again.",
+	"rate_limited":         "The AI is busy right now — give it a minute and ask again.",
 	"overloaded":           "The AI provider is overloaded — please try again shortly.",
 	"invalid_api_key":      "The AI provider key isn't working — the owner needs to fix it.",
 	"owner_unconfigured":   "This page doesn't have an AI provider set up yet.",

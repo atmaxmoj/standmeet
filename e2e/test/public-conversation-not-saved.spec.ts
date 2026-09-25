@@ -52,10 +52,10 @@ test.describe('conversations · owner can stop saving public conversations', () 
   });
 
   test('saved by default; toggled off → answered but not stored; earlier turns kept',
-    async ({ adminPage, playwright }) => {
+    async ({ adminPage, playwright, browser }) => {
       test.setTimeout(180_000);
       const request = await playwright.request.newContext();
-      const visitor = await (await playwright.chromium.launch()).newPage();
+      const visitor = await (await browser.newContext()).newPage();
       await openReader(visitor, `/p/${SLUG}`);
       await expect(visitor.getByTestId('agent-widget')).toHaveAttribute('data-mode', 'inline', { timeout: 20_000 });
 
@@ -78,7 +78,7 @@ test.describe('conversations · owner can stop saving public conversations', () 
       expect(messageCount(UNSAVED_Q), 'saving off → the turn is not stored').toBe(0);
       expect(messageCount(SAVED_Q), 'turning saving off deletes nothing').toBeGreaterThan(0);
 
-      await visitor.close();
+      await visitor.context().close();
       await request.dispose();
     });
 });

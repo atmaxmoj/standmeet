@@ -17,6 +17,7 @@
 
 import type {
   CorpusCard,
+  DocContext,
   MicrositeLink,
   WikiLandingView,
   OutputLandingView,
@@ -102,6 +103,8 @@ export interface StandMeetClient {
     content: string,
     system: string,
     byoai?: BYOAIHeaders,
+    // doc —— the page the visitor is on (a microsite passes pageDocContext()).
+    doc?: DocContext | null,
   ): AsyncGenerator<SSEEvent, void, unknown>;
   // seedHistory —— prime a conversation's history (e.g. a transcript restored from localStorage after
   // a reload), so the next turn carries it and the model remembers. Memory is owned by the client
@@ -183,8 +186,8 @@ export function createClient(opts: ClientOptions = {}): StandMeetClient {
     fetchCorpusCards: () => fetchCorpusCards(f, baseURL),
     fetchMicrosites: () => fetchMicrosites(f, baseURL),
     issueSession: (input) => issueSession(f, baseURL, input),
-    streamMessage: (id, token, content, system, byoai) =>
-      streamMessage(f, baseURL, id, token, content, system, byoai, histories),
+    streamMessage: (id, token, content, system, byoai, doc) =>
+      streamMessage(f, baseURL, { id, token, content, system, byoai, doc }, histories),
     seedHistory: (id, msgs) => { histories.set(id, msgs.slice(-maxHistoryMsgs)); },
     clearHistory: (id) => { histories.delete(id); },
     composeSystem: (session) => composeSystem(f, baseURL, session),
@@ -348,12 +351,20 @@ async function issueSession(
 // secretly in here, because that would cost extra HTTP round trips, and a
 // caller usually composes once per session and reuses it for the whole
 // session.
+// Turn —— one turn's inputs (grouped: the parameter list had grown to nine).
+interface Turn {
+  id: string;
+  token: string;
+  content: string;
+  system: string;
+  byoai: BYOAIHeaders | undefined;
+  doc: DocContext | null | undefined;
+}
+
 async function* streamMessage(
-  f: typeof fetch, baseURL: string,
-  conversationID: string, sessionToken: string, content: string,
-  system: string, byoai: BYOAIHeaders | undefined,
-  histories: Map<string, TurnMsg[]>,
+  f: typeof fetch, baseURL: string, turn: Turn, histories: Map<string, TurnMsg[]>,
 ): AsyncGenerator<SSEEvent, void, unknown> {
+  const { id: conversationID, token: sessionToken, content, system, byoai } = turn;
   const res = await f(`${baseURL}/api/v1/agent/turn`, {
     method: 'POST',
     headers: buildMessageHeaders(sessionToken, byoai),
@@ -361,6 +372,8 @@ async function* streamMessage(
       system,
       user_message: content,
       conversation_id: conversationID,
+      // doc_context —— which page the visitor is on, so "this"/"it" resolves to it.
+      ...(turn.doc ? { doc_context: turn.doc } : {}),
       // What was said earlier in this session (F-O-7). The backend uses
       // `req.History` to assemble the model messages, and **won't**
       // backfill it by conversation_id —— leave this empty and the model

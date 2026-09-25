@@ -15,11 +15,14 @@ export type {
   TurnMsg,
 } from './client.js';
 export { readSSE } from './sse.js';
+export { isRetrievalTool } from './tool-shape.js';
+export { pageCardTheme } from './card-theme.js';
+export type { CardTheme } from './card-theme.js';
 // grant —— the grant the visitor already holds. A microsite adopts it
 // rather than opening a fresh anonymous session of its own.
 export {
   adoptStoredSession, hasVisitorGrant, adoptedDockButtons, pageAllowsBYOAI, byoaiOffered,
-  publicSearchEnabled, publicChatEnabled,
+  publicSearchEnabled, publicChatEnabled, pageDocContext,
   VISITOR_SESSION_STORAGE_KEY,
 } from './grant.js';
 export type { AdoptedSession, AdoptedDockButton, AdoptedToolSpec } from './grant.js';
@@ -49,5 +52,6 @@ export type {
   SSEDoneEvent,
   SSEErrorEvent,
   CitedRef,
+  DocContext,
   SessionMode,
 } from './types.js';

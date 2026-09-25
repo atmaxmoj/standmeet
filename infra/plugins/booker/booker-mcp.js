@@ -532,24 +532,25 @@ async function doListBookings(s, args) {
 // ── cards (content.go, verbatim) ──
 const slotsCardHTML = `<!doctype html><html><head><meta charset="utf-8">
 <style>
- :root{font-family:ui-serif,Georgia,serif;color:#1B1814}
+ :root{--ink:#1B1814;--paper:#F3EFE6;--accent:#B5391C;--muted:#6b5d4f;--rule:#d9d0c2;
+   font-family:ui-serif,Georgia,serif;color:var(--ink)}
  body{margin:0;padding:2px}
  details{font:13px ui-serif,Georgia,serif}
  summary{cursor:pointer;list-style:none;padding:2px 0;user-select:none}
  summary::-webkit-details-marker{display:none}
- .kicker{font:600 12px ui-monospace,monospace;color:#6b5d4f}
- .cal{margin-top:8px;border-top:1px solid #d9d0c2;padding-top:8px}
+ .kicker{font:600 12px ui-monospace,monospace;color:var(--muted)}
+ .cal{margin-top:8px;border-top:1px solid var(--rule);padding-top:8px}
  .days{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
- .day{padding:5px 9px;border:1px solid #1B1814;background:#F3EFE6;cursor:pointer;
+ .day{padding:5px 9px;border:1px solid var(--ink);background:var(--paper);color:var(--ink);cursor:pointer;
    font:12px ui-monospace,monospace}
- .day[aria-pressed=true]{background:#B5391C;color:#fff;border-color:#B5391C}
+ .day[aria-pressed=true]{background:var(--accent);color:#fff;border-color:var(--accent)}
  .times{display:flex;flex-wrap:wrap;gap:6px}
- .chip{padding:6px 10px;border:1px solid #1B1814;background:#F3EFE6;cursor:pointer;
+ .chip{padding:6px 10px;border:1px solid var(--ink);background:var(--paper);color:var(--ink);cursor:pointer;
    font:13px ui-serif,Georgia,serif}
- .chip:hover{background:#1B1814;color:#F3EFE6}
- .chip.readonly{border-color:#d9d0c2;color:#6b5d4f;cursor:default}
- .chip.readonly:hover{background:#F3EFE6;color:#6b5d4f}
- .empty{margin-top:8px;color:#6b5d4f;font-size:12px}
+ .chip:hover{background:var(--ink);color:var(--paper)}
+ .chip.readonly{border-color:var(--rule);color:var(--muted);cursor:default}
+ .chip.readonly:hover{background:var(--paper);color:var(--muted)}
+ .empty{margin-top:8px;color:var(--muted);font-size:12px}
 </style></head><body>
 <script>
 (function(){
@@ -639,6 +640,10 @@ const slotsCardHTML = `<!doctype html><html><head><meta charset="utf-8">
    if(e.data&&e.data.type==="mcp-ui:data"){
      var d=e.data.data||{};
      canBook = d.can_book === true;
+     // theme —— the host page's design tokens, so the card matches a dark page.
+     var t=e.data.theme;
+     if(t&&typeof t==="object")Object.keys(t).forEach(function(k){
+       if(typeof t[k]==="string")document.documentElement.style.setProperty("--"+k,t[k]); });
      render(Array.isArray(d.slots)?d.slots:[]); h();
    }
  });

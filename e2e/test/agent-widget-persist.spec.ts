@@ -57,12 +57,12 @@ test.describe('AgentWidget · conversation persists in localStorage at page gran
   });
 
   test('reload keeps the transcript and the model still remembers; a second page is independent',
-    async ({ playwright }) => {
+    async ({ playwright, browser }) => {
       test.setTimeout(120_000);
       const request = await playwright.request.newContext();
       await resetGatewayRequests(request);
 
-      const reader = await (await playwright.chromium.launch()).newPage();
+      const reader = await (await browser.newContext()).newPage();
       await openReader(reader, `/p/${SLUG}`);
       await expect(reader.getByTestId('agent-widget')).toHaveAttribute('data-mode', 'inline', { timeout: 20_000 });
 
@@ -100,14 +100,14 @@ test.describe('AgentWidget · conversation persists in localStorage at page gran
         'resetting the widget does not delete the server-side conversation').toBeGreaterThan(0);
 
       // A different page has its own (empty) conversation — no cross-page bleed.
-      const other = await (await playwright.chromium.launch()).newPage();
+      const other = await (await browser.newContext()).newPage();
       await openReader(other, `/p/${SLUG2}`);
       await expect(other.getByTestId('agent-widget')).toBeVisible({ timeout: 20_000 });
       await expect(other.getByTestId('agent-widget-transcript'), 'a different page starts fresh')
         .not.toContainText(A1);
 
-      await reader.close();
-      await other.close();
+      await reader.context().close();
+      await other.context().close();
       await request.dispose();
     });
 });

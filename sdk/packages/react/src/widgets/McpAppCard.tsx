@@ -10,6 +10,7 @@
 // are not wired here yet; cards that need them wait for the main-chat host to move into the SDK.
 
 import React, { useEffect, useRef, useState } from 'react';
+import { pageCardTheme } from '@standmeet/sdk-core';
 
 import type { ChatCard } from '../use-chat-session.js';
 
@@ -52,9 +53,10 @@ interface Ctx {
 
 const HANDLERS: Record<string, (d: Record<string, unknown>, c: Ctx) => void> = {
   'mcp-ui:ready': (_, c) => {
-    c.win.postMessage(
-      { type: 'mcp-ui:data', data: parseResult(c.card.result), tool: c.card.tool, state: {} }, '*',
-    );
+    c.win.postMessage({
+      type: 'mcp-ui:data', data: parseResult(c.card.result), tool: c.card.tool, state: {},
+      theme: pageCardTheme(), // the page's tokens, so the card matches light/dark
+    }, '*');
   },
   'mcp-ui:submit': (d, c) => { if (typeof d['value'] === 'string') c.onAsk(d['value']); },
   'mcp-ui:height': (d, c) => {

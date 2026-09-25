@@ -60,6 +60,20 @@ func notifyRetry(ctx context.Context, attempt int) {
 	}
 }
 
+// publicMaxRetryWait —— the longest a public-tier turn waits out a provider's rate limit. The
+// public tier runs on the owner's free provider (e.g. Groq free: every step 429 with a 31–43s
+// retry-after, prod 2026-09-25) and the visitor sat in silence for minutes; past this, the turn
+// fails fast with "busy, try again in a minute". Coded / BYOAI turns keep waiting as before.
+const publicMaxRetryWait = 10 * time.Second
+
+// withTierRetryBudget —— caps the retry wait for a public turn; other tiers are unchanged.
+func withTierRetryBudget(ctx context.Context, mode string) context.Context {
+	if mode != "public" {
+		return ctx
+	}
+	return httpx.WithMaxRetryWait(ctx, publicMaxRetryWait)
+}
+
 // retryHTTPClient —— goes through httpx's unified client (retry + backoff), with inference's
 // own OnRetry hook attached. blockInternal → wires in an SSRF-guarding dialer (used for
 // untrusted BYOAI endpoints; blocks internal networks + pins against DNS-rebind).

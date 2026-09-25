@@ -62,12 +62,12 @@ test.describe('AgentWidget · shows an animated progress throbber while the agen
   });
 
   test('a throbber shows while the turn is in flight and disappears once the answer lands',
-    async ({ playwright }) => {
+    async ({ playwright, browser }) => {
       test.setTimeout(120_000);
       const request = await playwright.request.newContext();
       const tag = await scriptMockReplyText(request, ANSWER);
 
-      const reader = await (await playwright.chromium.launch()).newPage();
+      const reader = await (await browser.newContext()).newPage();
       await openReader(reader, `/p/${SLUG}`);
       await expect(reader.getByTestId('agent-widget')).toHaveAttribute('data-mode', 'inline', { timeout: 20_000 });
 
@@ -82,7 +82,7 @@ test.describe('AgentWidget · shows an animated progress throbber while the agen
       await expect(reader.getByTestId('agent-widget-transcript')).toContainText(ANSWER, { timeout: 30_000 });
       await expect(throbber, 'the throbber clears when the answer lands').toBeHidden();
 
-      await reader.close();
+      await reader.context().close();
       await request.dispose();
     });
 });

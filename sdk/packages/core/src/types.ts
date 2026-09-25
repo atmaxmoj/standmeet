@@ -254,3 +254,11 @@ export type SSEToolEvent = {
 export type SSEEvent = SSETokenEvent | SSEDoneEvent | SSEErrorEvent | SSEToolEvent;
 
 export type SessionMode = 'public' | 'code' | 'byoai';
+
+// DocContext —— the page the visitor is on, sent with a turn so the agent resolves "this"/"it" to
+// it (the backend's AgentDocContext). Only the title is required; path/genre name a corpus doc.
+export interface DocContext {
+  readonly title: string;
+  readonly path?: string;
+  readonly genre?: string;
+}

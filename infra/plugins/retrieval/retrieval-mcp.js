@@ -33,30 +33,37 @@ Ground your answer in what you actually read. Quote output entries verbatim when
 
 const searchCardHTML = `<!doctype html><html><head><meta charset="utf-8">
 <style>
- :root{font-family:ui-serif,Georgia,serif;color:#1B1814}
+ :root{--ink:#1B1814;--muted:#6b5d4f;--faint:#8a7c6a;--accent:#B5391C;--rule:#d9d0c2;
+   font-family:ui-serif,Georgia,serif;color:var(--ink)}
  body{margin:0;padding:4px 2px}
  details{font:13px ui-serif,Georgia,serif}
  summary{font:600 12px ui-monospace,monospace;cursor:pointer;list-style:none;
-   color:#6b5d4f;padding:2px 0;user-select:none}
+   color:var(--muted);padding:2px 0;user-select:none}
  summary::-webkit-details-marker{display:none}
- summary:hover{color:#B5391C}
- ul{list-style:none;margin:6px 0 0;padding:0;border-top:1px solid #d9d0c2}
+ summary:hover{color:var(--accent)}
+ ul{list-style:none;margin:6px 0 0;padding:0;border-top:1px solid var(--rule)}
  li{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px;padding:6px 0;
-   border-bottom:1px solid #ece5d8}
- .genre{font:11px ui-monospace,monospace;color:#8a7c6a;text-transform:uppercase}
- .genre.out{color:#B5391C}
+   border-bottom:1px solid var(--rule)}
+ .genre{font:11px ui-monospace,monospace;color:var(--faint);text-transform:uppercase}
+ .genre.out{color:var(--accent)}
  .title{font-weight:600}
- .summary{flex-basis:100%;font-size:12px;color:#6b5d4f}
+ .summary{flex-basis:100%;font-size:12px;color:var(--muted)}
 </style></head><body>
 <script>
 (function(){
  var tool="corpus_search";
  function h(){ parent.postMessage({type:"mcp-ui:height",
    height:document.documentElement.scrollHeight+8},"*"); }
+ // theme —— the host page's design tokens, so the card matches a dark page.
+ function theme(t){ if(!t||typeof t!=="object")return;
+   Object.keys(t).forEach(function(k){
+     if(typeof t[k]==="string")document.documentElement.style.setProperty("--"+k,t[k]); }); }
  function esc(s){var d=document.createElement("div");d.textContent=s==null?"":s;return d.innerHTML;}
  function attr(s){return esc(s).replace(/"/g,"&quot;");}
- function render(hits){
-   hits=Array.isArray(hits)?hits:[];
+ // render —— the tool returns {hits, note?} (a bare array in older builds). Reading only the bare
+ // array made every search read "searched · 0 entries" (prod 2026-09-25).
+ function render(d){
+   var hits=Array.isArray(d)?d:(d&&Array.isArray(d.hits)?d.hits:[]);
    var label=(tool==="corpus_list"?"browsed":"searched")+" · "+hits.length+" entries";
    var rows=hits.map(function(x){
      var g=x.genre==="output"?"genre out":"genre";
@@ -72,7 +79,7 @@ const searchCardHTML = `<!doctype html><html><head><meta charset="utf-8">
  window.addEventListener("message",function(e){
    if(e.data&&e.data.type==="mcp-ui:data"){
      if(typeof e.data.tool==="string"&&e.data.tool)tool=e.data.tool;
-     render(e.data.data); h();
+     theme(e.data.theme); render(e.data.data); h();
    }
  });
  parent.postMessage({type:"mcp-ui:ready"},"*");

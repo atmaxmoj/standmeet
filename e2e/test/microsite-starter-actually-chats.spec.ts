@@ -53,7 +53,7 @@ test.describe('microsites · the starter the panel hands you is a working chat p
   });
 
   test('publishing the untouched starter produces a page a reader can ask on',
-    async ({ adminPage: page, playwright }) => {
+    async ({ adminPage: page, playwright, browser }) => {
       // The editor starts a fresh page pre-filled with the starter template; publishing it
       // untouched is the whole test.
       await openReader(page, '/admin/edit/new');
@@ -77,7 +77,7 @@ test.describe('microsites · the starter the panel hands you is a working chat p
       // ([[mock-llm-pure-registration-kv]]).
       const tag = await scriptMockReplyText(request, ANSWER);
 
-      const reader = await (await playwright.chromium.launch()).newPage();
+      const reader = await (await browser.newContext()).newPage();
       await openReader(reader, `/p/${SLUG}`);
 
       const box = sm(reader, 'ask');
@@ -86,7 +86,7 @@ test.describe('microsites · the starter the panel hands you is a working chat p
       await box.press('Enter');
       await expect(sm(reader, 'answer')).toContainText(ANSWER, { timeout: 30_000 });
 
-      await reader.close();
+      await reader.context().close();
       await request.dispose();
     });
 });

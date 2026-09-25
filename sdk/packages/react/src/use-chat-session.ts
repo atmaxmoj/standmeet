@@ -13,7 +13,7 @@ import type {
   SSEEvent,
   TurnMsg,
 } from '@standmeet/sdk-core';
-import { adoptStoredSession } from '@standmeet/sdk-core';
+import { adoptStoredSession, isRetrievalTool, pageDocContext } from '@standmeet/sdk-core';
 import { useStandMeet } from './provider.js';
 
 export interface ChatMessage {
@@ -122,7 +122,9 @@ export function useChatSession(input: IssueSessionInput): ChatState {
         }
       }
       const sess = sessionRef.current;
-      for await (const ev of client.streamMessage(sess.id, sess.token, text, sess.system)) {
+      // pageDocContext: the page the visitor is on, so "can I use it?" means this page.
+      const turn = client.streamMessage(sess.id, sess.token, text, sess.system, undefined, pageDocContext());
+      for await (const ev of turn) {
         applyEvent(setMessages, assistantID, ev, cardHTML.current);
         if (ev.kind === 'tool') setTool(ev.name === null ? null : { name: ev.name, label: ev.label });
         if (ev.kind === 'token') setTool(null); // real text is streaming → drop the throbber
@@ -231,11 +233,12 @@ function applyEvent(
 }
 
 // withCard —— a finished tool that ships a card gets it attached to this turn's message.
+// Retrieval tools don't (same rule as the main chat): the throbber already says "searching".
 function withCard(
   m: ChatMessage, done: { name: string; result: string } | undefined,
   cardHTML: Record<string, string>,
 ): ChatMessage {
-  const html = done === undefined ? '' : (cardHTML[done.name] ?? '');
+  const html = done === undefined || isRetrievalTool(done.name) ? '' : (cardHTML[done.name] ?? '');
   if (done === undefined || html === '') return m;
   return { ...m, cards: [...(m.cards ?? []), { tool: done.name, result: done.result, html }] };
 }

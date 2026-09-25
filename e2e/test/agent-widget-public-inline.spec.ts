@@ -39,6 +39,9 @@ test.describe('AgentWidget · codeless answers inline only when a public provide
   let providerID = '';
 
   test.beforeAll(async ({ playwright }: { playwright: Playwright }) => {
+    // One microsite build inside the hook: without this the hook keeps the default 30s timeout
+    // and is killed before waitForBuild's own 180s budget matters (a ~40s build on a loaded host).
+    test.setTimeout(300_000);
     resetInstance();
     const request = await playwright.request.newContext();
     await claim(request, findSetupToken(), OWNER);
@@ -64,13 +67,13 @@ test.describe('AgentWidget · codeless answers inline only when a public provide
   });
 
   test('quota available → codeless ask answers inline, no /gate redirect',
-    async ({ playwright }) => {
+    async ({ playwright, browser }) => {
       test.setTimeout(120_000);
       const request = await playwright.request.newContext();
       await resetGatewayRequests(request);
       const tag = await scriptMockReplyText(request, ANSWER);
 
-      const reader = await (await playwright.chromium.launch()).newPage();
+      const reader = await (await browser.newContext()).newPage();
       await openReader(reader, `/p/${SLUG}`);
       const widget = reader.getByTestId('agent-widget');
       await expect(widget).toBeVisible({ timeout: 20_000 });
@@ -82,24 +85,24 @@ test.describe('AgentWidget · codeless answers inline only when a public provide
         .toContainText(ANSWER, { timeout: 30_000 });
       expect(reader.url(), 'stayed on the page — no gate redirect').toContain(`/p/${SLUG}`);
 
-      await reader.close();
+      await reader.context().close();
       await request.dispose();
     });
 
   test('no usable quota → codeless falls back to the gate handoff',
-    async ({ playwright }) => {
+    async ({ browser }) => {
       test.setTimeout(60_000);
       // Exhaust the public provider's tank: a metered tank filled now with 0 budget → 0 remaining.
       execSQL(`UPDATE owner_providers SET gas_tokens=0, gas_filled_at=now() WHERE id='${providerID}'`);
 
-      const reader = await (await playwright.chromium.launch()).newPage();
+      const reader = await (await browser.newContext()).newPage();
       await openReader(reader, `/p/${SLUG}`);
       const widget = reader.getByTestId('agent-widget');
       await expect(widget).toBeVisible({ timeout: 20_000 });
       await expect(widget, 'no quota → the widget keeps the gate handoff, not inline')
         .toHaveAttribute('data-mode', 'gate');
 
-      await reader.close();
+      await reader.context().close();
     });
 });
 

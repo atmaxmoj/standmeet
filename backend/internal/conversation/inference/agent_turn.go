@@ -140,6 +140,7 @@ func RunAgentTurn(
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), timeout)
 	defer cancel()
 	ctx = withLLMLog(ctx, log) // so the retry transport (http_retry.go) can log
+	ctx = withTierRetryBudget(ctx, in.Mode)
 	start := time.Now()
 	log.Info("agent turn start", "model", credModel(in.Cred), "mode", in.Mode,
 		"tools", len(in.Tools), "timeout_s", int(timeout.Seconds()))

@@ -18,12 +18,12 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import type { PublicSessionToolSpec } from '@standmeet/sdk-core';
+import { isRetrievalTool, type PublicSessionToolSpec } from '@standmeet/sdk-core';
 
 import { McpAppCard } from '@/components/page/McpAppCard';
 import { useToolSpecsStore, uiHtmlForTool } from '@/lib/visitor/tool-specs-store';
 import {
-  cardKindFor, jsonPretty, isRetrievalTool, retrievalCounts,
+  cardKindFor, jsonPretty, retrievalCounts,
   type RetrievalCounts,
 } from '@/lib/page/tool-call-shape';
 import type { ToolCallView } from '@/lib/page/use-chat';

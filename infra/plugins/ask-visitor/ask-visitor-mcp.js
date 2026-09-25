@@ -40,15 +40,16 @@ Discipline:
 // posts the visitor's choice back via mcp-ui:submit.
 const cardHTML = `<!doctype html><html><head><meta charset="utf-8">
 <style>
- :root{font-family:ui-serif,Georgia,serif;color:#1B1814}
+ :root{--ink:#1B1814;--paper:#F3EFE6;--accent:#B5391C;
+   font-family:ui-serif,Georgia,serif;color:var(--ink)}
  body{margin:0;padding:12px}
  .q{font:600 14px ui-monospace,monospace;margin:0 0 10px}
- button{display:block;width:100%;text-align:left;margin:4px 0;padding:8px 10px;
-   border:1px solid #1B1814;background:#F3EFE6;cursor:pointer;font:14px ui-serif,Georgia,serif}
- button:hover{background:#1B1814;color:#F3EFE6}
- button[aria-pressed=true]{background:#B5391C;color:#fff;border-color:#B5391C}
+ button{display:block;width:100%;text-align:left;margin:4px 0;padding:8px 10px;color:var(--ink);
+   border:1px solid var(--ink);background:var(--paper);cursor:pointer;font:14px ui-serif,Georgia,serif}
+ button:hover{background:var(--ink);color:var(--paper)}
+ button[aria-pressed=true]{background:var(--accent);color:#fff;border-color:var(--accent)}
  .row{display:flex;gap:8px}.row button{width:auto}
- .submit{margin-top:10px;border-color:#B5391C;color:#B5391C;text-align:center}
+ .submit{margin-top:10px;border-color:var(--accent);color:var(--accent);text-align:center}
  textarea{width:100%;box-sizing:border-box;margin-top:8px;font:14px ui-serif,Georgia,serif}
  [data-answered=true]{opacity:.55;pointer-events:none}
 </style></head><body data-testid="ask-visitor-card">
@@ -60,6 +61,11 @@ const cardHTML = `<!doctype html><html><head><meta charset="utf-8">
  function send(v){ if(answered)return; answered=true;
    document.body.setAttribute("data-answered","true");
    parent.postMessage({type:"mcp-ui:submit",value:v},"*"); }
+ // theme —— the host page's design tokens (ink/paper/accent…), so the card matches a dark page;
+ // missing tokens keep the built-in light palette.
+ function theme(t){ if(!t||typeof t!=="object")return;
+   Object.keys(t).forEach(function(k){
+     if(typeof t[k]==="string")document.documentElement.style.setProperty("--"+k,t[k]); }); }
  function postHeight(){ parent.postMessage(
    {type:"mcp-ui:height",height:document.documentElement.scrollHeight+8},"*"); }
  function render(d){
@@ -94,7 +100,7 @@ const cardHTML = `<!doctype html><html><head><meta charset="utf-8">
    }
  }
  window.addEventListener("message",function(e){
-   if(e.data&&e.data.type==="mcp-ui:data"){ render(e.data.data||{}); postHeight(); }
+   if(e.data&&e.data.type==="mcp-ui:data"){ theme(e.data.theme); render(e.data.data||{}); postHeight(); }
  });
  parent.postMessage({type:"mcp-ui:ready"},"*");
 })();

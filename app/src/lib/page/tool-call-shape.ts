@@ -18,27 +18,8 @@ export function cardKindFor(name: string): CardKind {
   return 'none';
 }
 
-// isRetrievalTool —— the corpus_* retrieval family. These tools **don't**
-// each render their own ui:// sandbox card: a real model can retrieve a
-// dozen-plus times in one turn, and a per-call card would stack up and
-// fill the screen (UX-10). They fold into one RetrievalSummary line
-// instead; "what got read" is carried by the citations footer (original
-// design: corpus_read never doubly renders a card).
-//
-// The test is a **prefix**, not a name list. This used to hardcode 4
-// names while the backend registers 8 (search/read/list/links/map/
-// resolve/peek/grep) —— the 4 added later weren't counted, and
-// cardKindFor also returned 'none' for them, so neither branch rendered
-// anything, making them completely invisible: in the real environment
-// the agent ran 2 searches + 3 greps + 1 read in a turn, and the visitor
-// saw `searched 2 · read 1` (F-A-29). A hand-copied name list repeats the
-// same mistake **every time** a new retrieval tool is added; a prefix
-// doesn't.
-const RETRIEVAL_PREFIX = 'corpus_';
-
-export function isRetrievalTool(name: string): boolean {
-  return name.startsWith(RETRIEVAL_PREFIX);
-}
+// isRetrievalTool (which tools fold into the retrieval summary) lives in @standmeet/sdk-core:
+// the embedded widget needs the same rule.
 
 // ENTRY_READ_TOOLS —— the tools that open a **specific entry's** content.
 // peek belongs here: it pulls that note's own material (title/tags/

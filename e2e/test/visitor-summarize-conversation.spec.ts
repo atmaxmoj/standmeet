@@ -38,6 +38,12 @@ function reportCardInFrame(page: Page) {
     .getByTestId('tool-card-summarize_conversation');
 }
 
+// CARD_WAIT —— how long the report card may take to appear after the visitor sends. Measured on a
+// loaded dev host (2026-09-25, "agent turn prepared" log): assembling the turn's tools alone took
+// up to 9.7s before the model was even called, so the old 10s window failed a different case on
+// each run. The assertion is unchanged — only the time it may take.
+const CARD_WAIT = 30_000;
+
 const OWNER = {
   email: 'summary-owner@example.com',
   password: 'correct-horse-battery-staple',
@@ -165,7 +171,7 @@ async function reportInlineCardTest(page: Page, playwright: Playwright): Promise
   // The report card (the summarize plugin's ui:// sandbox card) renders in the chat
   // stream; look inside the frame for its content.
   await expect(page.getByTestId('mcp-app-card-summarize_conversation'),
-    'report card rendered').toBeVisible({ timeout: 10_000 });
+    'report card rendered').toBeVisible({ timeout: CARD_WAIT });
   const card = reportCardInFrame(page);
   const reportID = await card.getAttribute('data-report-id');
   expect(reportID, 'report id 透到 card data attribute').toBeTruthy();
@@ -207,7 +213,7 @@ async function reportPDFDownloadUITest(page: Page, playwright: Playwright): Prom
   await enterChatWithCode(page);
   await fireFirstTurn(page, `summarize what we discussed${toolTag}${replyTag}`);
   await expect(page.getByTestId('mcp-app-card-summarize_conversation'))
-    .toBeVisible({ timeout: 10_000 });
+    .toBeVisible({ timeout: CARD_WAIT });
   const card = reportCardInFrame(page);
   const reportID = await card.getAttribute('data-report-id');
   expect(reportID).toBeTruthy();
@@ -238,7 +244,7 @@ async function reportStyledTest(page: Page, playwright: Playwright): Promise<voi
   await enterChatWithCode(page);
   await fireFirstTurn(page, `summarize what we discussed${toolTag}${replyTag}`);
   await expect(page.getByTestId('mcp-app-card-summarize_conversation'))
-    .toBeVisible({ timeout: 10_000 });
+    .toBeVisible({ timeout: CARD_WAIT });
   const card = reportCardInFrame(page);
   const reportID = await card.getAttribute('data-report-id');
   expect(reportID).toBeTruthy();

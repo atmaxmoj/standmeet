@@ -28,11 +28,20 @@ func (rt *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if berr != nil {
 		return nil, fmt.Errorf("httpx: buffer request body: %w", berr)
 	}
+	return rt.attempts(req, body)
+}
+
+// attempts —— the retry loop: send, and either stop (success / deterministic failure / last try),
+// give up at once (the wait exceeds the ctx's budget, see retry_budget.go), or wait and resend.
+func (rt *retryTransport) attempts(req *http.Request, body []byte) (*http.Response, error) {
 	var resp *http.Response
 	var err error
 	for attempt := 0; attempt <= rt.max; attempt++ {
 		rewindReqBody(req, body)
 		resp, err = rt.base.RoundTrip(req)
+		if waitOverBudget(req.Context(), resp, err, retryWait(resp, rt.baseDelay, attempt)) {
+			return giveUpTooLong(resp)
+		}
 		if rt.stop(req.Context(), resp, err, attempt) {
 			break
 		}
