@@ -29,6 +29,15 @@ export interface AdoptedSession {
   readonly session_token: string;
   readonly system_prompt_part_ids?: readonly string[];
   readonly system_prompt_persona?: string;
+  // tool_specs —— the code's tools as issued (incl. each tool's own ui:// card html), so the
+  // embedded agent renders the same cards the main chat does. Only the fields a card needs.
+  readonly tool_specs?: readonly AdoptedToolSpec[];
+}
+
+// AdoptedToolSpec —— the slice of PublicSessionToolSpec a card host reads.
+export interface AdoptedToolSpec {
+  readonly name: string;
+  readonly ui_html?: string;
 }
 
 // adoptStoredSession —— is there an already-issued session in the browser?
@@ -49,7 +58,15 @@ export function adoptStoredSession(): AdoptedSession | null {
     session_token: token,
     system_prompt_part_ids: stringArrayField(raw, 'system_prompt_part_ids'),
     system_prompt_persona: stringField(raw, 'system_prompt_persona'),
+    tool_specs: toolSpecsField(raw),
   };
+}
+
+function toolSpecsField(raw: Record<string, unknown>): readonly AdoptedToolSpec[] {
+  const list = raw['tool_specs'];
+  if (!Array.isArray(list)) return [];
+  return list.filter((x): x is AdoptedToolSpec =>
+    typeof x === 'object' && x !== null && typeof (x as Record<string, unknown>)['name'] === 'string');
 }
 
 // hasVisitorGrant —— did this reader arrive with a grant already? **The

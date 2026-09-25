@@ -23,6 +23,7 @@ import { StandMeetProvider } from '../provider.js';
 import { useChatSession, type ChatMessage } from '../use-chat-session.js';
 import { AnswerText } from '../AnswerText.js';
 import { gateHref } from './client.js';
+import { McpAppCard } from './McpAppCard.js';
 
 export interface AgentWidgetProps {
   readonly placeholder?: string;
@@ -142,6 +143,11 @@ function InlineAgent(): React.ReactElement {
               ? <p className="mono text-[12px] tracking-[0.04em] text-(--color-muted)">{m.text}</p>
               : <div className="font-serif text-(--color-ink) text-[18px] leading-[1.6]">
                   <AnswerText text={m.text} />
+                  {/* The tool's own card (ask_visitor's question): answering it sends the
+                      choice as the visitor's next message, same as the main chat. */}
+                  {(m.cards ?? []).map((c, i) => (
+                    <McpAppCard key={`${c.tool}-${i}`} card={c} onAsk={send} />
+                  ))}
                 </div>}
           </li>
         ))}

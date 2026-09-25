@@ -44,6 +44,16 @@ type turnState struct {
 	// out" and "the budget ran out but the answer was rescued" aren't the same thing (F-A-40).
 	forcedFinal bool
 	recovered   bool
+	// returnedDirectly —— a return-directly tool ran: its result (the card) is this turn's
+	// product even with no answer text.
+	returnedDirectly bool
+}
+
+// hasProduct —— the turn produced something for the visitor: answer text, or a return-directly
+// tool's card (prod 2026-09-24: ask_visitor's card turn was read as "no answer", the forced
+// synthesis ran on top of it, and Groq rejected it with 400 — the visitor got nothing).
+func hasProduct(state *turnState) bool {
+	return state.product != "" || state.returnedDirectly
 }
 
 // endAssistantRound —— a streaming assistant round hit EOF: classify its text (tool-suffixed

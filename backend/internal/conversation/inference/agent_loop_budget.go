@@ -132,7 +132,7 @@ func logTurnStop(log *slog.Logger, state *turnState) {
 // `stop == "max_tokens"`: any "closed normally but produced nothing" outcome should hit this
 // one boundary, not get repatched per new finish_reason ([[lesson-not-swept-to-neighbours]]).
 func ensureProduct(ctx context.Context, em *loopEmit, state *turnState) {
-	if state.product != "" || state.forcedFinal {
+	if hasProduct(state) || state.forcedFinal {
 		return
 	}
 	// No tool ran even once, no evidence at all: the model **did nothing and closed

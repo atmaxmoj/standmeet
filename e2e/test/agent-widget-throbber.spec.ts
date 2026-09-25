@@ -37,6 +37,9 @@ test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } })
 
 test.describe('AgentWidget · shows an animated progress throbber while the agent works', () => {
   test.beforeAll(async ({ playwright }: { playwright: Playwright }) => {
+    // One microsite build inside the hook: without this the hook keeps the default timeout and
+    // is killed before waitForBuild's own 180s budget matters (a ~40s build on a loaded host).
+    test.setTimeout(300_000);
     resetInstance();
     const request = await playwright.request.newContext();
     await claim(request, findSetupToken(), OWNER);

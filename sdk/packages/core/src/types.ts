@@ -247,6 +247,9 @@ export type SSEToolEvent = {
   readonly kind: 'tool';
   readonly name: string | null;
   readonly label: string;
+  // completed —— on a finish: which tool and its raw result, so a consumer can render the tool's
+  // own card (ask_visitor's question) from the session's tool_specs[].ui_html.
+  readonly completed?: { readonly name: string; readonly result: string };
 };
 export type SSEEvent = SSETokenEvent | SSEDoneEvent | SSEErrorEvent | SSEToolEvent;
 

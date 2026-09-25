@@ -24,6 +24,11 @@ const SHARED_ROOT = process.env.MICROSITES_ROOT || '/srv/microsites';
 const TEMPLATE = '/opt/builder/template';
 const NODE_MODULES = '/opt/builder/node_modules';
 const POLL_INTERVAL_MS = 1000;
+// PRERENDER_TIMEOUT_MS —— a best-effort step must be bounded: a hung SSR render (owner code that
+// keeps the event loop alive) would otherwise hold the single-lane build queue indefinitely. On
+// timeout execFileSync kills the child and throws → logged as "prerender skipped", page still ships.
+// Declared up here: the build loop below starts at module top level, before later consts exist.
+const PRERENDER_TIMEOUT_MS = 60_000;
 
 console.log(`[builder] starting; backend=${BACKEND} shared=${SHARED_ROOT}`);
 
@@ -52,18 +57,22 @@ async function processJob(job) {
   const { build_id, page_id, source_files, entry } = job;
   console.log(`[builder] build ${build_id} (page ${page_id})`);
   const workDir = `/tmp/work/${build_id}`;
+  // ms —— per-step wall time, logged with the outcome: a build that took 3 minutes instead of 25s
+  // used to leave only "start" and "OK" behind, so which step ate the time was unknowable.
+  const ms = {};
+  const timed = (step, fn) => { const t = Date.now(); try { return fn(); } finally { ms[step] = Date.now() - t; } };
   try {
-    setupViteProject(workDir, source_files, entry);
-    runViteBuild(workDir);
-    prerender(workDir);
+    timed('setup', () => setupViteProject(workDir, source_files, entry));
+    timed('vite', () => runViteBuild(workDir));
+    timed('prerender', () => prerender(workDir));
     const outDir = `${SHARED_ROOT}/${page_id}/${build_id}/dist`;
     mkdirSync(dirname(outDir), { recursive: true });
     cpSync(join(workDir, 'dist'), outDir, { recursive: true });
     await markBuilt(build_id, `${page_id}/${build_id}/dist`);
-    console.log(`[builder] build ${build_id} OK`);
+    console.log(`[builder] build ${build_id} OK ${JSON.stringify(ms)}`);
   } catch (e) {
     const msg = e?.message || String(e);
-    console.error(`[builder] build ${build_id} failed:`, msg);
+    console.error(`[builder] build ${build_id} failed ${JSON.stringify(ms)}:`, msg);
     await markFailed(build_id, msg.slice(0, 2000));
   } finally {
     rmSync(workDir, { recursive: true, force: true });
@@ -133,7 +142,9 @@ function runViteBuild(workDir) {
 // process so a crash can't take down this long-running daemon and its memory is freed on exit.
 function prerender(workDir) {
   const vite = join(workDir, 'node_modules', 'vite', 'bin', 'vite.js');
-  const opts = { cwd: workDir, stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' };
+  const opts = {
+    cwd: workDir, stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', timeout: PRERENDER_TIMEOUT_MS,
+  };
   try {
     execFileSync(
       'node',

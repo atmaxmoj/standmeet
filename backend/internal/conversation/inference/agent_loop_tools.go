@@ -89,7 +89,16 @@ func emitToolCompleted(em *loopEmit, mv *adk.MessageVariant, state *turnState) {
 	// The receipt half of the claim gate (F-A-37): a tool that answered without failing is what
 	// lets this turn's answer say the action happened.
 	markToolOK(state, mv.ToolName, msg.Content)
+	// A return-directly tool (ask_visitor, a report card) ends the turn with its result as the
+	// product: ensureProduct must not read that as "no answer" and force a synthesis on top.
+	state.returnedDirectly = state.returnedDirectly || returnsDirectly(em, mv.ToolName)
 	em.sink.ToolCompleted(mv.ToolName, msg.Content)
+}
+
+// returnsDirectly —— is `name` a return-directly tool in this turn? nil input (a bare loop in a
+// test harness) has none.
+func returnsDirectly(em *loopEmit, name string) bool {
+	return em.in != nil && em.in.ReturnDirectly[name]
 }
 
 // failedToolResultBytes —— how much of a failing tool's answer to keep. A refusal is a

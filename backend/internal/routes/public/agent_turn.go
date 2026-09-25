@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"slices"
+	"time"
 
 	"github.com/cloudwego/eino/components/tool"
 
@@ -37,6 +38,7 @@ func runAgentTurn(
 	h *Handlers, w http.ResponseWriter, r *http.Request,
 	auth authedVisitor, req *inference.AgentTurnRequest,
 ) {
+	queued := time.Now()
 	release, ok := acquireOrReject(h, w, r, auth)
 	if !ok {
 		return
@@ -44,7 +46,7 @@ func runAgentTurn(
 	// defer is a **fallback**, not the normal path: normally the slot releases the moment
 	// `done` fires (TurnEnded). release is idempotent, calling from both paths is safe (F-A-42).
 	defer release()
-	dispatchTurn(h, w, r, turnSlot{auth: auth, release: release}, req)
+	dispatchTurn(h, w, r, turnSlot{auth: auth, release: release, waited: time.Since(queued)}, req)
 }
 
 // ghostWire —— the `ghost` epilogue payload (SSE data). Owned by the route (the kernel is

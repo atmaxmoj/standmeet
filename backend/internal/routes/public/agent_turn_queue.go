@@ -35,8 +35,14 @@ func dispatchTurn(
 	if !preflightAgentTurnQuota(r, h, auth, w, req.ConversationID) {
 		return
 	}
+	assembling := time.Now()
 	ts := collectVisitorTools(r.Context(), h, auth, req.ConversationID)
 	defer closeBindings(ts.Bindings)
+	// The time before "agent turn start": a turn that sat 8-11s here (dev under load) logged
+	// nothing, so the slot wait and the block assembly (per-session plugin dials) were
+	// indistinguishable.
+	h.Log.Info("agent turn prepared", "slot_wait_ms", slot.waited.Milliseconds(),
+		"assemble_ms", time.Since(assembling).Milliseconds(), "tools", len(ts.Tools))
 	inference.RunAgentTurn(r.Context(), h.Log, w, &inference.AgentTurnInput{
 		Cred: cred, Req: req,
 		Tools:            ts.Tools,
@@ -62,6 +68,7 @@ func dispatchTurn(
 type turnSlot struct {
 	release func()
 	auth    authedVisitor
+	waited  time.Duration // how long acquiring the slot took (logged with the assembly time)
 }
 
 // turnQueueTimeout —— max wait for a global concurrency slot before returning "server busy".

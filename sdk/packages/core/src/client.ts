@@ -491,11 +491,10 @@ async function composeSystem(
 }
 
 // translateAgentSSE —— agent turn's SSE → this SDK's events. `text` / `done`
-// / `error` map directly across; the agent path also sends `tool_started` /
-// `tool_completed` / `ghost` / `retrying`, which **this minimal consumer
-// ignores for now** (embed only renders text). Ignoring isn't dropping: a
-// host that wants to render tool cards should use the agent-core path
-// instead.
+// / `error` map directly across; `tool_started` / `tool_completed` become
+// `tool` events (a throbber label, and on completion the tool's name + raw
+// result so a host can render the tool's own card). `ghost` / `retrying`
+// are ignored here.
 //
 // **Wraps up and releases the connection the moment `done` arrives**
 // (F-A-42). This used to keep reading until EOF —— but the backend still
@@ -564,7 +563,9 @@ function parseFrameToToken(raw: string): SSEEvent | null {
     return { kind: 'tool', name, label };
   }
   if (evType === 'tool_completed') {
-    return { kind: 'tool', name: null, label: '' };
+    const d = safeParse(evData) as { name?: string; result?: unknown };
+    const result = typeof d.result === 'string' ? d.result : JSON.stringify(d.result ?? {});
+    return { kind: 'tool', name: null, label: '', completed: { name: d.name ?? '', result } };
   }
   return null;
 }

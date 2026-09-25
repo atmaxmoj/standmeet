@@ -22,7 +22,7 @@ export {
   publicSearchEnabled, publicChatEnabled,
   VISITOR_SESSION_STORAGE_KEY,
 } from './grant.js';
-export type { AdoptedSession, AdoptedDockButton } from './grant.js';
+export type { AdoptedSession, AdoptedDockButton, AdoptedToolSpec } from './grant.js';
 // parseAnswerText —— the half shared by both rendering faces (F-O-8):
 // parsing lives here, rendering is implemented separately by each.
 export { parseAnswerText } from './answer-text.js';

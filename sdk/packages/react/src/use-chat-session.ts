@@ -21,6 +21,16 @@ export interface ChatMessage {
   role: 'visitor' | 'assistant';
   text: string;
   citedWikiIDs?: readonly string[];
+  // cards —— tools this turn ran that ship their own ui:// card (ask_visitor's question). Same
+  // cards the main chat renders; the html comes from the session's tool_specs.
+  cards?: readonly ChatCard[];
+}
+
+// ChatCard —— one tool's card: its html (sandboxed by the renderer) + the raw result it shows.
+export interface ChatCard {
+  tool: string;
+  result: string;
+  html: string;
 }
 
 // ChatTool —— the tool the agent is running right now, for a progress throbber. null = plain thinking.
@@ -48,6 +58,8 @@ export function useChatSession(input: IssueSessionInput): ChatState {
   const [tool, setTool] = useState<ChatTool | null>(null);
   const [error, setError] = useState<string | null>(null);
   const sessionRef = useRef<{ id: string; token: string; system: string } | null>(null);
+  // cardHTML —— tool name → its ui:// card html, from the session's tool_specs.
+  const cardHTML = useRef<Record<string, string>>({});
   // The transcript as restored at mount — seeded back as history on the first turn so the model
   // remembers across the reload. Seeded once (the client accumulates the rest itself thereafter).
   const restoredRef = useRef<readonly ChatMessage[]>(messages);
@@ -99,6 +111,7 @@ export function useChatSession(input: IssueSessionInput): ChatState {
           id: s.conversation_id, token: s.session_token,
           system: await client.composeSystem(s),
         };
+        cardHTML.current = cardsByTool(s.tool_specs);
       }
       // First turn after a restore: seed the restored transcript as this conversation's history, so
       // the model remembers what was said before the reload. Once — the client accumulates the rest.
@@ -110,7 +123,7 @@ export function useChatSession(input: IssueSessionInput): ChatState {
       }
       const sess = sessionRef.current;
       for await (const ev of client.streamMessage(sess.id, sess.token, text, sess.system)) {
-        applyEvent(setMessages, assistantID, ev);
+        applyEvent(setMessages, assistantID, ev, cardHTML.current);
         if (ev.kind === 'tool') setTool(ev.name === null ? null : { name: ev.name, label: ev.label });
         if (ev.kind === 'token') setTool(null); // real text is streaming → drop the throbber
         if (ev.kind === 'error') setError(ev.message);
@@ -157,7 +170,8 @@ function loadPersisted(): ChatMessage[] {
 function savePersisted(messages: readonly ChatMessage[]): void {
   try {
     if (typeof localStorage === 'undefined') return;
-    const keep = messages.filter((m) => m.text !== '').slice(-MAX_PERSIST);
+    const keep = messages.filter((m) => m.text !== '' || (m.cards?.length ?? 0) > 0)
+      .slice(-MAX_PERSIST);
     if (keep.length === 0) {
       localStorage.removeItem(pageKey());
       return;
@@ -205,12 +219,34 @@ function appendAssistant(
 
 function applyEvent(
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>,
-  id: string, ev: SSEEvent,
+  id: string, ev: SSEEvent, cardHTML: Record<string, string>,
 ): void {
   setMessages((prev) => prev.map((m) => {
     if (m.id !== id) return m;
     if (ev.kind === 'token') return { ...m, text: m.text + ev.text };
     if (ev.kind === 'done') return { ...m, citedWikiIDs: ev.cited_wiki_ids };
+    if (ev.kind === 'tool') return withCard(m, ev.completed, cardHTML);
     return m;
   }));
+}
+
+// withCard —— a finished tool that ships a card gets it attached to this turn's message.
+function withCard(
+  m: ChatMessage, done: { name: string; result: string } | undefined,
+  cardHTML: Record<string, string>,
+): ChatMessage {
+  const html = done === undefined ? '' : (cardHTML[done.name] ?? '');
+  if (done === undefined || html === '') return m;
+  return { ...m, cards: [...(m.cards ?? []), { tool: done.name, result: done.result, html }] };
+}
+
+// cardsByTool —— tool name → ui:// card html, for the tools that ship one.
+function cardsByTool(
+  specs: readonly { name: string; ui_html?: string }[] | undefined,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const s of specs ?? []) {
+    if (s.ui_html !== undefined && s.ui_html !== '') out[s.name] = s.ui_html;
+  }
+  return out;
 }
