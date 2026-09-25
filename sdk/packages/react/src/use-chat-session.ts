@@ -65,9 +65,12 @@ export function useChatSession(input: IssueSessionInput): ChatState {
   const restoredRef = useRef<readonly ChatMessage[]>(messages);
   const seededRef = useRef(false);
   const counter = useRef(0);
+  // Per-mount prefix: restored messages keep the ids they were saved with ("m1", "m2", …), and a
+  // counter restarting at 1 after a reload handed new messages the same ids — duplicate React keys.
+  const idPrefix = useRef(Math.random().toString(36).slice(2, 8));
   const nextID = useCallback((): string => {
     counter.current += 1;
-    return `m${counter.current}`;
+    return `${idPrefix.current}-${counter.current}`;
   }, []);
 
   // Persist the transcript once a turn settles (not on every streamed token). Wrapped in try/catch
@@ -163,7 +166,8 @@ function loadPersisted(): ChatMessage[] {
     const raw = localStorage.getItem(pageKey());
     if (raw === null) return [];
     const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter(isChatMessage) : [];
+    // withoutCards also cleans storage written before cards stopped being persisted.
+    return Array.isArray(parsed) ? parsed.filter(isChatMessage).map(withoutCards) : [];
   } catch {
     return [];
   }
@@ -172,8 +176,9 @@ function loadPersisted(): ChatMessage[] {
 function savePersisted(messages: readonly ChatMessage[]): void {
   try {
     if (typeof localStorage === 'undefined') return;
-    const keep = messages.filter((m) => m.text !== '' || (m.cards?.length ?? 0) > 0)
-      .slice(-MAX_PERSIST);
+    // Text only: a card's html is a snapshot of that turn, and persisting it resurrected stale
+    // cards (old palette, old bugs) on every reload.
+    const keep = messages.filter((m) => m.text !== '').map(withoutCards).slice(-MAX_PERSIST);
     if (keep.length === 0) {
       localStorage.removeItem(pageKey());
       return;
@@ -190,6 +195,12 @@ function clearPersisted(): void {
   } catch {
     /* ignore */
   }
+}
+
+function withoutCards(m: ChatMessage): ChatMessage {
+  return m.citedWikiIDs === undefined
+    ? { id: m.id, role: m.role, text: m.text }
+    : { id: m.id, role: m.role, text: m.text, citedWikiIDs: m.citedWikiIDs };
 }
 
 function isChatMessage(v: unknown): v is ChatMessage {

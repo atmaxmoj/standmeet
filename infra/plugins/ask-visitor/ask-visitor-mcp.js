@@ -67,7 +67,7 @@ const cardHTML = `<!doctype html><html><head><meta charset="utf-8">
    Object.keys(t).forEach(function(k){
      if(typeof t[k]==="string")document.documentElement.style.setProperty("--"+k,t[k]); }); }
  function postHeight(){ parent.postMessage(
-   {type:"mcp-ui:height",height:document.documentElement.scrollHeight+8},"*"); }
+   {type:"mcp-ui:height",height:Math.ceil(document.body.getBoundingClientRect().height)+8},"*"); }
  function render(d){
    kind=d.kind||"radio";
    document.body.setAttribute("data-kind",kind);

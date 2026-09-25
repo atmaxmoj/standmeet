@@ -556,7 +556,7 @@ const slotsCardHTML = `<!doctype html><html><head><meta charset="utf-8">
 (function(){
  var byDay={}, order=[], sel="", canBook=true;
  function h(){parent.postMessage({type:"mcp-ui:height",
-   height:document.documentElement.scrollHeight+8},"*");}
+   height:Math.ceil(document.body.getBoundingClientRect().height)+8},"*");}
  function fmtDay(d){return d.toLocaleDateString([],{weekday:"short",month:"short",day:"numeric"});}
  function fmtTime(d){return d.toLocaleTimeString([],{hour:"numeric",minute:"2-digit"});}
  function slotZone(){
@@ -686,7 +686,7 @@ const bookedCardHTML = `<!doctype html><html><head><meta charset="utf-8">
 (function(){
  var seq=0, pending={}, statePending={};
  function h(){parent.postMessage({type:"mcp-ui:height",
-   height:document.documentElement.scrollHeight+8},"*");}
+   height:Math.ceil(document.body.getBoundingClientRect().height)+8},"*");}
  function el(tag,cls,txt){var e=document.createElement(tag);
    if(cls)e.className=cls; if(txt!=null)e.textContent=txt; return e;}
  function fmt(s,e){

@@ -53,7 +53,7 @@ const searchCardHTML = `<!doctype html><html><head><meta charset="utf-8">
 (function(){
  var tool="corpus_search";
  function h(){ parent.postMessage({type:"mcp-ui:height",
-   height:document.documentElement.scrollHeight+8},"*"); }
+   height:Math.ceil(document.body.getBoundingClientRect().height)+8},"*"); }
  // theme —— the host page's design tokens, so the card matches a dark page.
  function theme(t){ if(!t||typeof t!=="object")return;
    Object.keys(t).forEach(function(k){

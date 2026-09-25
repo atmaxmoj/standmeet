@@ -89,7 +89,7 @@ const reportCardHTML = `<!doctype html><html><head><meta charset="utf-8">
 <script>
 (function(){
  function h(){parent.postMessage({type:"mcp-ui:height",
-   height:document.documentElement.scrollHeight+8},"*");}
+   height:Math.ceil(document.body.getBoundingClientRect().height)+8},"*");}
  function esc(s){var d=document.createElement("div");d.textContent=s==null?"":s;return d.innerHTML;}
  function attr(s){return esc(s).replace(/"/g,"&quot;");}
  function render(d){

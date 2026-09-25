@@ -85,6 +85,11 @@ async function cardTurn(rf: RequestFactory, browser: Browser): Promise<void> {
   await ask(visitor, `can I use it in French ${tag}`);
 
   const frame = await assertCard(visitor);
+  // The card is sized to its content. The cards measured documentElement.scrollHeight, which
+  // never drops below the iframe's own height: every report ratcheted it up to the 600px cap,
+  // leaving a tall blank box (prod, Claude-in-Chrome, 2026-09-25).
+  await expect.poll(() => visitor.getByTestId('mcp-app-card-ask_visitor').evaluate((e) => e.clientHeight),
+    { timeout: 10_000, message: 'a 3-option card is not a 600px box' }).toBeLessThan(320);
   // The turn is over (its stop line is logged) and it ended as the card — no forced synthesis.
   await expect.poll(() => turnLog(logBefore).includes('agent turn stop'), {
     timeout: 20_000, message: 'the card turn finished',
@@ -131,6 +136,15 @@ async function darkCard(rf: RequestFactory, browser: Browser): Promise<void> {
     .evaluate((el) => getComputedStyle(el).color);
   expect(luminance(pageBg), 'the page really is dark').toBeLessThan(0.3);
   expect(luminance(textColor), 'the card question is light text on the dark page').toBeGreaterThan(0.5);
+
+  // A reload restores the conversation text, never a stored card: the card html is a snapshot of
+  // that moment, and persisting it resurrected stale cards forever (prod: old "searched · 0
+  // entries" + light-palette cards kept coming back after v0.1.67 fixed both).
+  await visitor.reload();
+  await expect(visitor.getByTestId('agent-widget-transcript'), 'the question survives the reload')
+    .toContainText('can I use it in French', { timeout: 20_000 });
+  expect(await visitor.getByTestId('agent-widget').locator('iframe').count(),
+    'no card is restored from storage').toBe(0);
   await visitor.context().close();
   await request.dispose();
 }
