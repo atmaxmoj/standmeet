@@ -107,7 +107,8 @@ function GateHandoff({ placeholder, examples }: AgentWidgetProps): React.ReactEl
 // adopted session; the dock buttons inherit through the stored blob. needsKey: the owner's public
 // tier can't serve, so the visitor asks on their own key (ByokPanel) until one is in use.
 function InlineAgent({ needsKey }: { readonly needsKey: boolean }): React.ReactElement {
-  const chat = useChatSession({ mode: 'public' }); // adopted grant overrides this input
+  // adopted grant overrides this input; a saved key is used up front only when the owner has no quota
+  const chat = useChatSession({ mode: 'public' }, { autoUseSavedKey: needsKey });
   const [dock, setDock] = useState<readonly AdoptedDockButton[]>([]);
   const [draft, setDraft] = useState('');
   // offerTaken —— the visitor opened the BYOK panel from an offer (rate-limited / page allows it).
@@ -185,7 +186,8 @@ function InlineAgent({ needsKey }: { readonly needsKey: boolean }): React.ReactE
       )}
 
       <ByokControls
-        chat={chat} showPanel={showPanel} showOffer={showOffer} onOffer={() => setOfferTaken(true)}
+        chat={chat} showPanel={showPanel} showOffer={showOffer}
+        onOffer={() => { if (chat.byok.saved) chat.byok.useSaved(); else setOfferTaken(true); }}
       />
 
       {dock.length > 0 && (
@@ -251,7 +253,7 @@ function ByokControls({ chat, showPanel, showOffer, onOffer }: {
           type="button" data-testid="agent-widget-byok-offer" onClick={onOffer}
           className="mb-3 mono text-[11px] tracking-[0.06em] text-(--color-accent) underline"
         >
-          Use your own AI key instead →
+          {chat.byok.saved ? 'Use your saved AI key instead →' : 'Use your own AI key instead →'}
         </button>
       )}
       {showPanel && <ByokPanel onUse={chat.byok.use} />}

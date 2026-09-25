@@ -66,6 +66,9 @@ export interface ChatBYOK {
   // own quota is spent or its provider rate-limits, and even if a key is saved in this browser.
   available: boolean;
   active: boolean;
+  // saved —— a key is saved in this browser (e.g. from /gate) but not in use; useSaved switches to it.
+  saved: boolean;
+  useSaved: () => void;
   provider: string | null;
   // use —— save the key (encrypted, this browser) and continue the conversation on it.
   use: (cred: BYOAICredFull) => Promise<void>;
@@ -73,7 +76,14 @@ export interface ChatBYOK {
   forget: () => void;
 }
 
-export function useChatSession(input: IssueSessionInput): ChatState {
+// ChatOptions —— autoUseSavedKey: start on a key already saved in this browser. Only when the
+// owner's tier can't serve (owner rule: BYOK is for when the owner has no quota — a saved key must
+// not quietly take over while the owner's quota is fine).
+export interface ChatOptions {
+  autoUseSavedKey?: boolean;
+}
+
+export function useChatSession(input: IssueSessionInput, opts: ChatOptions = {}): ChatState {
   const client = useStandMeet();
   // Restore this page's transcript from localStorage (page-granular key), so a reload keeps the chat.
   const [messages, setMessages] = useState<ChatMessage[]>(() => loadPersisted());
@@ -83,7 +93,9 @@ export function useChatSession(input: IssueSessionInput): ChatState {
   const [errorCode, setErrorCode] = useState<string | null>(null);
   // granted —— this visitor holds a code (read once, at mount: /gate stores it before the page).
   const [granted] = useState(() => hasVisitorGrant());
-  const [byokActive, setByokActive] = useState(() => !granted && savedKeyInUse());
+  const [byokActive, setByokActive] = useState(
+    () => !granted && opts.autoUseSavedKey === true && savedKeyInUse(),
+  );
   const sessionRef = useRef<{ id: string; token: string; system: string; byoai: boolean } | null>(null);
   // messagesRef —— the live transcript, so switching to the visitor's key can carry it as history.
   const messagesRef = useRef(messages);
@@ -132,6 +144,12 @@ export function useChatSession(input: IssueSessionInput): ChatState {
   const byok: ChatBYOK = {
     available: !granted,
     active: byokActive,
+    saved: !granted && !byokActive && savedKeyInUse(),
+    useSaved: () => {
+      if (granted) return;
+      setByokActive(true);
+      restartOnTier();
+    },
     provider: byokActive ? (readBYOAIVaultMeta()?.provider ?? null) : null,
     use: async (cred) => {
       if (granted) return; // a coded visitor's turns stay on the code

@@ -44,6 +44,8 @@ const VISITOR_KEY = 'sk-fake-visitor-key-for-byok-flow';
 const TURN_WAIT = 90_000;
 const VISITOR_MODEL = 'visitor-chosen-model';
 const ANSWER = 'Answered on the visitor key.';
+const OWNER_TIER_ANSWER = 'Answered on the owner tier again.';
+const PUBLIC_KEY = 'sk-public';
 const CODE = 'OWNERPAYS-001';
 const CODE_KEY = 'sk-code-fake-key-the-owner-pays';
 const CODED_ANSWER = 'Answered on the code the owner pays for.';
@@ -63,7 +65,7 @@ test.describe('AgentWidget · bring your own key when the owner has no quota', (
     await claim(request, findSetupToken(), OWNER);
     const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
     const pub = await createProvider(request, csrf, {
-      label: 'public-free', provider: 'deepseek', endpoint: MOCK, model: 'model-public', key: 'sk-public',
+      label: 'public-free', provider: 'deepseek', endpoint: MOCK, model: 'model-public', key: PUBLIC_KEY,
     });
     providerID = pub.id;
     execSQL(`UPDATE roles SET provider_id='${pub.id}' WHERE name='public'`);
@@ -146,6 +148,18 @@ async function rateLimitedOffersByok(rf: RequestFactory, browser: Browser): Prom
   const tag = await scriptMockReplyText(request, ANSWER);
   await ask(visitor, `what do you build ${tag}`);
   await expectVisitorKeyServed(visitor, request, tag);
+
+  // Next visit, the owner's quota is serving again: the saved key does NOT take over. BYOK is for
+  // when the owner has no quota (Chrome check 2026-09-25: a key saved on /gate earlier silently ran
+  // every turn on the visitor's own account while the owner's tier was fine).
+  await visitor.reload();
+  await expect(visitor.getByTestId('agent-widget')).toHaveAttribute('data-mode', 'inline', { timeout: 20_000 });
+  const back = await scriptMockReplyText(request, OWNER_TIER_ANSWER);
+  await ask(visitor, `back again ${back}`);
+  await expect(visitor.getByTestId('agent-widget-transcript'))
+    .toContainText(OWNER_TIER_ANSWER, { timeout: TURN_WAIT });
+  expect((await lastGatewayRequest(request, back)).auth_prefix, 'the owner tier serves again')
+    .toBe(PUBLIC_KEY.slice(0, 8));
   await visitor.context().close();
   await request.dispose();
 }
