@@ -352,7 +352,12 @@ services:
   # minio —— bundled S3-compatible object storage (self-contained stack).
   # Bucket "standmeet" auto-created on first backend boot via internal/storage.
   minio:
-    image: minio/minio:RELEASE.2025-04-08T15-41-24Z
+    # Silo (github.com/pgsty/silo): the maintained community fork of MinIO, drop-in — same S3 API,
+    # MINIO_* env, on-disk format; `server …` argv translated by its entrypoint; curl included.
+    # MinIO deleted minio/minio from Docker Hub on 2026-09-11 (quay no longer anonymous), so the
+    # old pin no longer pulls. A stopgap: the default store is to become our own, with an
+    # owner-configured S3 as the alternative.
+    image: pgsty/silo:RELEASE.2026-09-16T00-00-00Z
     restart: unless-stopped
     command: server /data --console-address ":9201"
     environment:
