@@ -99,10 +99,14 @@ RUN for p in ask-visitor booker retrieval summarize mail-sender caldav smtp goog
 FROM alpine:3.21 AS geoip
 RUN apk add --no-cache curl
 # Pinned month, with fallbacks (db-ip keeps a few recent months live).
+# Bounded: with no timeout a stalled connection hung the release for 30 minutes (v0.1.73 CI, both
+# arches stuck on this step) and the fallback months were never tried. A stall now fails the
+# attempt, retries, and falls through to the next month.
 ARG GEOIP_MONTH=2026-09
 RUN mkdir -p /srv/geoip && \
     for m in "$GEOIP_MONTH" 2026-08 2026-07; do \
-      if curl -fsSL "https://download.db-ip.com/free/dbip-city-lite-$m.mmdb.gz" -o /tmp/geo.gz; then \
+      if curl -fsSL --connect-timeout 20 --max-time 300 --retry 3 --retry-all-errors \
+           "https://download.db-ip.com/free/dbip-city-lite-$m.mmdb.gz" -o /tmp/geo.gz; then \
         gunzip -c /tmp/geo.gz > /srv/geoip/dbip-city-lite.mmdb && break; \
       fi; \
     done && \
