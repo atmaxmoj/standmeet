@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"strings"
 
@@ -90,19 +91,28 @@ func (d *docker) projectContainers(ctx context.Context, project string) ([]sibli
 
 // recreate — pull newImage, then replace the container IN PLACE: stop + remove the old one and
 // create a new one from its OWN inspected config (same name, env, volumes, networks, labels,
-// restart policy — everything) with only the image changed. Nothing is invented, so the secrets in
-// its env and the data on its volumes ride along untouched.
+// restart policy — everything) with the image changed and the old image's baked ENV dropped (the
+// new image brings its own). Nothing is invented, so the secrets in its env and the data on its
+// volumes ride along untouched.
 func (d *docker) recreate(ctx context.Context, s sibling, newImage string) error {
-	if err := d.pull(ctx, newImage); err != nil {
-		return err
-	}
 	insp, err := d.cli.ContainerInspect(ctx, s.id)
 	if err != nil {
 		return fmt.Errorf("inspect %s: %w", s.service, err)
 	}
+	// A container's Config.Env already holds its IMAGE's ENV, merged in when it was created. Copied
+	// as is, the old image's values become explicit env and override the new image's forever —
+	// prod 2026-09-26: the builder kept reporting STANDMEET_VERSION=v0.1.72 after the v0.1.73
+	// upgrade, and the version gate refused all its work. Keep only what the deployment set.
+	// Read BEFORE the pull: the pull moves the tag, and on a containerd image store the untagged
+	// old image can no longer be inspected, even while its container still runs.
+	oldImageEnv := d.imageEnv(ctx, insp.Image)
+	if err := d.pull(ctx, newImage); err != nil {
+		return err
+	}
 	name := strings.TrimPrefix(insp.Name, "/")
 	cfg := insp.Config
 	cfg.Image = newImage
+	cfg.Env = withoutImageEnv(cfg.Env, oldImageEnv)
 
 	timeout := stopTimeout
 	if err := d.cli.ContainerStop(ctx, s.id, container.StopOptions{Timeout: &timeout}); err != nil {
@@ -126,6 +136,33 @@ func (d *docker) recreate(ctx context.Context, s sibling, newImage string) error
 		return fmt.Errorf("start %s: %w", s.service, err)
 	}
 	return nil
+}
+
+// imageEnv — the ENV an image bakes in. Empty when the image cannot be inspected (e.g. pruned):
+// then nothing is stripped, the old behaviour, logged so the stale-env risk is visible.
+func (d *docker) imageEnv(ctx context.Context, imageID string) []string {
+	img, _, err := d.cli.ImageInspectWithRaw(ctx, imageID)
+	if err != nil || img.Config == nil {
+		log.Printf("[updater] cannot read the old image's env (%v); keeping the container env as is", err)
+		return nil
+	}
+	return img.Config.Env
+}
+
+// withoutImageEnv — env minus the entries that came, unchanged, from the image. An entry the
+// deployment overrode (same key, different value) is the deployment's and stays.
+func withoutImageEnv(env, imageEnv []string) []string {
+	fromImage := make(map[string]bool, len(imageEnv))
+	for _, e := range imageEnv {
+		fromImage[e] = true
+	}
+	kept := make([]string, 0, len(env))
+	for _, e := range env {
+		if !fromImage[e] {
+			kept = append(kept, e)
+		}
+	}
+	return kept
 }
 
 // splitNetworks — ContainerCreate attaches exactly one endpoint; the rest are connected after.

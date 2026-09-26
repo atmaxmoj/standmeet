@@ -32,7 +32,12 @@ ENV MICROSITES_ROOT=/srv/microsites
 # work only to a builder of its own version, so an old builder that outlives an upgrade builds
 # nothing with the old SDK. A missed build-arg leaves "dev", which no release backend accepts:
 # the builder then idles loudly (backend logs "builder version mismatch") instead of silently.
+#
+# Written to a FILE, not ENV: a file is the image's own, while a container's env can outlive the
+# image it came from (prod 2026-09-26: the updater carried STANDMEET_VERSION=v0.1.72 into the
+# v0.1.73 builder, and the gate refused every build). The binary's version is burned in the same
+# way on the backend side (-ldflags), never read from env.
 ARG STANDMEET_VERSION=dev
-ENV STANDMEET_VERSION=${STANDMEET_VERSION}
+RUN echo "${STANDMEET_VERSION}" > /opt/builder/VERSION
 
 CMD ["node", "/opt/builder/runner.mjs"]

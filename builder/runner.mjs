@@ -17,7 +17,7 @@
 // The child processes run async, never execFileSync: a sync child blocks the event loop, and a
 // blocked loop sends no lease renewals — a long build would then look like a dead builder.
 
-import { mkdirSync, writeFileSync, cpSync, existsSync, rmSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, cpSync, existsSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -29,9 +29,14 @@ const SHARED_ROOT = process.env.MICROSITES_ROOT || '/srv/microsites';
 const TEMPLATE = '/opt/builder/template';
 const NODE_MODULES = '/opt/builder/node_modules';
 const POLL_INTERVAL_MS = 1000;
-// VERSION —— this builder's release, baked into the image (builder/Dockerfile). The backend gives
-// work only to a builder of its own version: an old builder outliving an upgrade gets nothing.
-const VERSION = process.env.STANDMEET_VERSION || 'dev';
+// VERSION —— this builder's release, baked into the image as a file (builder/Dockerfile) — never
+// read from env, which can outlive the image it came from. The backend gives work only to a
+// builder of its own version: an old builder outliving an upgrade gets nothing.
+const VERSION = readVersion();
+
+function readVersion() {
+  try { return readFileSync('/opt/builder/VERSION', 'utf8').trim() || 'dev'; } catch { return 'dev'; }
+}
 // PRERENDER_TIMEOUT_MS —— a best-effort step must be bounded: a hung SSR render (owner code that
 // keeps the event loop alive) would otherwise hold the single-lane build queue indefinitely. On
 // timeout the child is killed and the step throws → logged as "prerender skipped", page still ships.

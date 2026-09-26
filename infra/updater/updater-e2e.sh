@@ -42,13 +42,33 @@ cleanup() {
 trap cleanup EXIT
 
 # publish_svc <version> — build the tiny test service at $1 and MOVE :latest to it (what cutting a
-# release does). The image bakes its version into /version and mounts a /data volume.
+# release does). The image bakes its version into /version AND into its ENV (SVC_VERSION), and
+# mounts a /data volume. The ENV copy is what prod's builder does (STANDMEET_VERSION): a container's
+# inspected Config.Env already holds its image's ENV, so an updater that copies it verbatim pins
+# the OLD value over the new image (prod 2026-09-26: builder stuck reporting v0.1.72 after v0.1.73).
+#
+# :latest is moved IN THE REGISTRY only, never on this daemon — exactly what a release does (CI
+# pushes; the host's local :latest keeps pointing at the running image until the updater pulls).
+# Building v2 as local :latest would untag v1 on the host before the updater even starts, a state
+# prod never has.
 publish_svc() {
   d="$(mktemp -d)"
-  printf 'FROM alpine:3.20\nARG VER\nRUN echo "$VER" > /version\nVOLUME /data\nCMD ["sleep","infinity"]\n' >"$d/Dockerfile"
-  docker build -q --build-arg VER="$1" -t "$SVC:latest" "$d" >/dev/null
-  docker push -q "$SVC:latest" >/dev/null
+  printf 'FROM alpine:3.20\nARG VER\nRUN echo "$VER" > /version\nENV SVC_VERSION=$VER\nVOLUME /data\nCMD ["sleep","infinity"]\n' >"$d/Dockerfile"
+  docker build -q --build-arg VER="$1" -t "$SVC:$1" "$d" >/dev/null
+  docker push -q "$SVC:$1" >/dev/null
   rm -rf "$d"
+  retag_latest "$1"
+}
+
+# retag_latest <tag> — point the registry's :latest at <tag>'s manifest (registry API, no daemon).
+retag_latest() {
+  accept='application/vnd.oci.image.index.v1+json,application/vnd.docker.distribution.manifest.list.v2+json,application/vnd.oci.image.manifest.v1+json,application/vnd.docker.distribution.manifest.v2+json'
+  repo="${SVC#"$REG"/}"
+  hdr="$work/manifest.hdr"
+  body="$work/manifest.json"
+  curl -sf -H "Accept: $accept" -D "$hdr" -o "$body" "http://$REG/v2/$repo/manifests/$1"
+  ctype="$(grep -i '^content-type:' "$hdr" | cut -d' ' -f2- | tr -d '\r')"
+  curl -sf -X PUT -H "Content-Type: $ctype" --data-binary "@$body" "http://$REG/v2/$repo/manifests/latest" >/dev/null
 }
 
 log "building the updater under test ($UPDATER_IMG)"
@@ -68,6 +88,8 @@ services:
     image: $SVC:latest
     pull_policy: always
     command: ["sleep", "infinity"]
+    environment:
+      - OPERATOR_SET=kept
     volumes:
       - "data:/data"
   updater:
@@ -120,5 +142,14 @@ cons_after="$(projcons)"
 [ "$cons_after" = "$cons_before" ] || { log "FAIL: project containers $cons_before -> $cons_after — a parallel stack appeared"; exit 1; }
 [ "$(docker inspect "$cid" -f '{{index .Config.Labels "com.docker.compose.project"}}')" = "$PROJECT" ] \
   || { log "FAIL: upgraded container is not in project $PROJECT"; exit 1; }
+env_ver="$(docker exec "$cid" sh -c 'echo "$SVC_VERSION"')"
+[ "$env_ver" = "v2" ] || {
+  log "FAIL: the image's ENV reads '$env_ver' after the upgrade, expected v2 — the updater copied the"
+  log "      old image's ENV into the new container and pinned it (prod: builder stuck on v0.1.72)."
+  dc logs updater | tail -20
+  exit 1; }
+[ "$(docker exec "$cid" sh -c 'echo "$OPERATOR_SET"')" = "kept" ] || {
+  log "FAIL: the deployment's own env (OPERATOR_SET) was lost — only the image's ENV may be replaced."
+  exit 1; }
 
 log "PASS: v1 -> v2 in place; marker '$MARK' survived; no twin (updater discovered project=$PROJECT itself, no project name given)"
