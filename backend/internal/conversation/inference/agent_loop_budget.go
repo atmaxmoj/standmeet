@@ -25,7 +25,6 @@ import (
 
 	"github.com/cloudwego/eino/adk"
 
-	"github.com/atmaxmoj/standmeet/internal/infra/httpx"
 	"github.com/atmaxmoj/standmeet/internal/infra/textcut"
 )
 
@@ -209,6 +208,9 @@ func handleTerminalError(
 	maxIter := errors.Is(err, adk.ErrExceedMaxIterations)
 	if surfaceInsteadOfForce(ctx, state, err) {
 		em.sink.Error(err)
+		// The error IS this turn's ending: ensureProduct must not force a synthesis after it —
+		// another call into the same wall, and text after the error frame.
+		state.forcedFinal = true
 		return false
 	}
 	// Otherwise force a no-tool synthesis. On MaxIterations the model may have streamed only
@@ -264,8 +266,9 @@ func surfaceInsteadOfForce(ctx context.Context, state *turnState, err error) boo
 	if !errors.Is(err, adk.ErrExceedMaxIterations) && state.product != "" {
 		return true
 	}
-	// Rate-limited past the turn's wait budget: a synthesis call would hit the same wall.
-	if errors.Is(err, httpx.ErrRetryTooLong) {
+	// Rate-limited (past the turn's wait budget, or the provider's own 429 after our retries):
+	// a synthesis call would hit the same wall.
+	if IsRateLimited(err) {
 		return true
 	}
 	return ctx.Err() != nil && len(state.evidence) == 0

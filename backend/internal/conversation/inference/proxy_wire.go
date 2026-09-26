@@ -314,7 +314,8 @@ func emitError(
 ) {
 	cls := ClassifyStreamErr(err)
 	// Raw error → log (ops); friendly text → user (never leak NodeRunError/stack).
-	log.Warn("agent turn stream error", "code", cls.Code, logErrKey, err)
+	log.Warn("agent turn stream error",
+		"code", cls.Code, logErrKey, err, "err_chain", errChain(err))
 	payload := errorPayloadShape{Code: cls.Code, Message: FriendlyMessage(cls.Code)}
 	body, merr := json.Marshal(payload)
 	if merr != nil {

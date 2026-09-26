@@ -8,7 +8,14 @@ package inference
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
+	"reflect"
+	"strings"
+
+	"github.com/anthropics/anthropic-sdk-go"
+	einoopenai "github.com/cloudwego/eino-ext/components/model/openai"
+	openai "github.com/meguminnnnnnnnn/go-openai"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/httpx"
 )
@@ -59,13 +66,81 @@ func ClassifyStreamErr(err error) StreamErrClass {
 	return StreamErrClass{Code: "internal", Status: http.StatusInternalServerError}
 }
 
+// upstreamStatus —— the HTTP status the AI provider answered with, when the error carries one.
+// The provider SDKs (eino's openai and claude models) return their own error types; nothing
+// mapped them onto the sentinels above, so a provider 429 / 401 / 529 fell through to "internal"
+// and the visitor read "Something went wrong on my end" — our fault, when it was the provider's
+// answer. This is the one place those types are read.
+//
+// The openai model does NOT pass go-openai's *APIError up: it converts it into its own
+// eino-ext *APIError (components/model/openai convOrigAPIError), a new value with no Unwrap. So
+// that is the type read here; go-openai's *RequestError is not converted and reaches us as is.
+func upstreamStatus(err error) int {
+	var oaiAPI *einoopenai.APIError
+	if errors.As(err, &oaiAPI) {
+		return oaiAPI.HTTPStatusCode
+	}
+	var oaiReq *openai.RequestError
+	if errors.As(err, &oaiReq) {
+		return oaiReq.HTTPStatusCode
+	}
+	var claude *anthropic.Error
+	if errors.As(err, &claude) {
+		return claude.StatusCode
+	}
+	return 0
+}
+
+// errChain —— the concrete type at each unwrap level, with its full package path. Classification
+// reads types, not text: when an error is misclassified, the message alone cannot say which layer
+// broke the chain, and this line can. The package path matters: %T alone printed
+// "*openai.APIError" for eino-ext's type, which is not go-openai's — two packages named openai.
+func errChain(err error) string {
+	var parts []string
+	for e := err; e != nil; e = errors.Unwrap(e) {
+		t := reflect.TypeOf(e)
+		pkg := t.PkgPath()
+		if t.Kind() == reflect.Pointer {
+			pkg = t.Elem().PkgPath()
+		}
+		parts = append(parts, fmt.Sprintf("%s (%s)", t, pkg))
+	}
+	return strings.Join(parts, " > ")
+}
+
+// upstreamSentinels —— provider status → the sentinel that already carries its meaning.
+var upstreamSentinels = map[int]error{
+	http.StatusTooManyRequests:    ErrRateLimited,
+	http.StatusUnauthorized:       ErrInvalidAPIKey,
+	http.StatusForbidden:          ErrInvalidAPIKey,
+	http.StatusServiceUnavailable: ErrOverloaded,
+	529:                           ErrOverloaded, // Anthropic's "overloaded"
+}
+
+// normalizeUpstream —— err, joined with the sentinel its provider status means (if any), so every
+// errors.Is check below sees the provider's answer.
+func normalizeUpstream(err error) error {
+	if s, ok := upstreamSentinels[upstreamStatus(err)]; ok {
+		return errors.Join(err, s)
+	}
+	return err
+}
+
+// IsRateLimited —— the provider said "not this fast": its own 429 after our retries, or a
+// retry-after longer than this turn is willing to wait.
+func IsRateLimited(err error) bool {
+	err = normalizeUpstream(err)
+	return errors.Is(err, ErrRateLimited) || errors.Is(err, httpx.ErrRetryTooLong)
+}
+
 func classifyDirectStatus(err error) (StreamErrClass, bool) {
+	err = normalizeUpstream(err)
 	switch {
 	case errors.Is(err, ErrInvalidAPIKey):
 		return StreamErrClass{Code: "invalid_api_key", Status: http.StatusUnauthorized}, true
 	case errors.Is(err, ErrUnsupportedProvider):
 		return StreamErrClass{Code: "unsupported_provider", Status: http.StatusBadRequest}, true
-	case errors.Is(err, ErrRateLimited), errors.Is(err, httpx.ErrRetryTooLong):
+	case IsRateLimited(err):
 		return StreamErrClass{Code: "rate_limited", Status: http.StatusTooManyRequests}, true
 	case errors.Is(err, ErrTimeout), errors.Is(err, context.DeadlineExceeded):
 		return StreamErrClass{Code: "timeout", Status: http.StatusGatewayTimeout}, true
@@ -97,6 +172,7 @@ func FriendlyMessage(code string) string {
 
 func classifyServiceStatus(err error) (StreamErrClass, bool) {
 	const svc = http.StatusServiceUnavailable
+	err = normalizeUpstream(err)
 	switch {
 	case errors.Is(err, ErrOwnerProviderUnconfigured):
 		return StreamErrClass{Code: "owner_unconfigured", Status: svc}, true
