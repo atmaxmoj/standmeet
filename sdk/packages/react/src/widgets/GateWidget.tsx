@@ -7,6 +7,7 @@
 'use client';
 
 import React from 'react';
+import { useT } from '../i18n.js';
 
 export interface GateWidgetProps {
   readonly label?: string;
@@ -14,6 +15,7 @@ export interface GateWidgetProps {
 }
 
 export function GateWidget({ label, sublabel }: GateWidgetProps): React.ReactElement {
+  const t = useT();
   return (
     <a
       href="/gate"
@@ -21,13 +23,13 @@ export function GateWidget({ label, sublabel }: GateWidgetProps): React.ReactEle
       className="group block border border-(--color-rule) hover:border-(--color-accent) transition-colors rounded-[3px] px-5 py-4 no-underline"
     >
       <div className="mono text-[10px] tracking-[0.22em] uppercase text-(--color-faint) group-hover:text-(--color-accent) transition-colors mb-1">
-        access
+        {t('gateKicker')}
       </div>
       <div className="font-serif text-(--color-ink) text-[18px] leading-[1.35]">
-        {label ?? 'Have a code, or want in?'}
+        {label ?? t('gateLabel')}
       </div>
       <div className="mono text-[11px] text-(--color-muted) mt-1 group-hover:text-(--color-accent) transition-colors">
-        {sublabel ?? 'enter a code · bring your own key · request access ↗'}
+        {sublabel ?? t('gateSublabel')}
       </div>
     </a>
   );

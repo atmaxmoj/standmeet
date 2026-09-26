@@ -5,18 +5,21 @@
 
 import React, { useState } from 'react';
 import { lookupPreset, PRESETS, type BYOAICredFull } from '@standmeet/sdk-core';
+import { useT } from '../i18n.js';
 
 const FIELD = 'w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-accent) outline-none mono text-[12px] text-(--color-ink) py-1';
 
 export function ByokPanel(
   { onUse }: { readonly onUse: (cred: BYOAICredFull) => Promise<void> },
 ): React.ReactElement {
+  const t = useT();
   const [provider, setProvider] = useState('anthropic');
   const [endpoint, setEndpoint] = useState(lookupPreset('anthropic')?.baseUrl ?? '');
   const [model, setModel] = useState('');
   const [key, setKey] = useState('');
   const [failed, setFailed] = useState(false);
   const ready = key.trim().length > 12 && endpoint.trim() !== '' && model.trim() !== '';
+  const keyPrefix = lookupPreset(provider)?.keyPrefix;
 
   const pick = (name: string): void => {
     setProvider(name);
@@ -34,39 +37,39 @@ export function ByokPanel(
       className="mb-4 border border-(--color-rule) rounded-[3px] p-3 flex flex-col gap-2"
       onSubmit={(e) => { e.preventDefault(); if (ready) submit(); }}
     >
-      <p className="font-serif text-[15px] text-(--color-muted) leading-[1.5]">
-        The free quota here is used up. Bring your own AI key to keep asking — it stays encrypted in
-        this browser, goes out only with your questions, and reads only what&apos;s public.
-      </p>
+      <p className="font-serif text-[15px] text-(--color-muted) leading-[1.5]">{t('byokIntro')}</p>
       <select
-        data-testid="agent-widget-byok-provider" aria-label="AI provider" value={provider}
+        data-testid="agent-widget-byok-provider" aria-label={t('byokProvider')} value={provider}
         onChange={(e) => pick(e.target.value)} className={FIELD}
       >
         {PRESETS.map((p) => <option key={p.name} value={p.name}>{p.label}</option>)}
       </select>
       <input
-        data-testid="agent-widget-byok-endpoint" aria-label="Endpoint" value={endpoint}
-        onChange={(e) => setEndpoint(e.target.value)} placeholder="https://…" className={FIELD}
+        data-testid="agent-widget-byok-endpoint" aria-label={t('byokEndpoint')} value={endpoint}
+        onChange={(e) => setEndpoint(e.target.value)} placeholder={URL_HINT} className={FIELD}
       />
       <input
-        data-testid="agent-widget-byok-model" aria-label="Model" value={model}
-        onChange={(e) => setModel(e.target.value)} placeholder="model id" className={FIELD}
+        data-testid="agent-widget-byok-model" aria-label={t('byokModel')} value={model}
+        onChange={(e) => setModel(e.target.value)} placeholder={t('byokModelPlaceholder')} className={FIELD}
       />
       <input
-        data-testid="agent-widget-byok-key" aria-label="API key" type="password" value={key}
+        data-testid="agent-widget-byok-key" aria-label={t('byokKey')} type="password" value={key}
         autoComplete="new-password" onChange={(e) => setKey(e.target.value)}
-        placeholder={lookupPreset(provider)?.keyPrefix ? `${lookupPreset(provider)?.keyPrefix}…` : 'API key'}
+        placeholder={keyPrefix ? `${keyPrefix}…` : t('byokKey')}
         className={FIELD}
       />
       {failed && (
-        <p className="mono text-[11px] text-(--color-accent)">Couldn&apos;t save the key in this browser.</p>
+        <p className="mono text-[11px] text-(--color-accent)">{t('byokSaveFailed')}</p>
       )}
       <button
         type="submit" data-testid="agent-widget-byok-submit" disabled={!ready}
         className="self-end mono text-[11px] tracking-[0.14em] uppercase text-(--color-accent) disabled:opacity-40"
       >
-        use my key ↗
+        {t('byokSubmit')}
       </button>
     </form>
   );
 }
+
+// A URL shape, not a word.
+const URL_HINT = 'https://…';

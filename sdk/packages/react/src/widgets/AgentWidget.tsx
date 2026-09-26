@@ -26,6 +26,7 @@ import { AnswerText } from '../AnswerText.js';
 import { gateHref } from './client.js';
 import { McpAppCard } from './McpAppCard.js';
 import { ByokPanel } from './ByokPanel.js';
+import { useT, type T } from '../i18n.js';
 
 export interface AgentWidgetProps {
   readonly placeholder?: string;
@@ -60,6 +61,7 @@ function widgetMode(): WidgetMode {
 
 // GateHandoff —— codeless: the ask box carries the question to /gate.
 function GateHandoff({ placeholder, examples }: AgentWidgetProps): React.ReactElement {
+  const t = useT();
   const [q, setQ] = useState('');
   const ask = (question: string) => { window.location.href = gateHref(question); };
   return (
@@ -71,8 +73,8 @@ function GateHandoff({ placeholder, examples }: AgentWidgetProps): React.ReactEl
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder={placeholder ?? 'Ask anything…'}
-          aria-label="Ask a question"
+          placeholder={placeholder ?? t('askPlaceholder')}
+          aria-label={t('askLabel')}
           data-testid="agent-widget-input"
           className="flex-1 bg-transparent font-serif text-[20px] text-(--color-ink) placeholder:text-(--color-faint) outline-none"
         />
@@ -81,7 +83,7 @@ function GateHandoff({ placeholder, examples }: AgentWidgetProps): React.ReactEl
           data-testid="agent-widget-ask"
           className="mono text-[11px] tracking-[0.14em] uppercase text-(--color-accent) hover:tracking-[0.2em] transition-all shrink-0"
         >
-          ask ↗
+          {t('ask')}
         </button>
       </form>
       {examples !== undefined && examples.length > 0 && (
@@ -109,6 +111,7 @@ function GateHandoff({ placeholder, examples }: AgentWidgetProps): React.ReactEl
 function InlineAgent({ needsKey }: { readonly needsKey: boolean }): React.ReactElement {
   // adopted grant overrides this input; a saved key is used up front only when the owner has no quota
   const chat = useChatSession({ mode: 'public' }, { autoUseSavedKey: needsKey });
+  const t = useT();
   const [dock, setDock] = useState<readonly AdoptedDockButton[]>([]);
   const [draft, setDraft] = useState('');
   // offerTaken —— the visitor opened the BYOK panel from an offer (rate-limited / page allows it).
@@ -121,10 +124,10 @@ function InlineAgent({ needsKey }: { readonly needsKey: boolean }): React.ReactE
   const showOffer = canOffer && !showPanel && (chat.errorCode === 'rate_limited' || offerable);
 
   const send = (text: string) => {
-    const t = text.trim();
-    if (t === '' || chat.streaming) return;
+    const q = text.trim();
+    if (q === '' || chat.streaming) return;
     setDraft('');
-    void chat.send(t);
+    void chat.send(q);
   };
 
   return (
@@ -147,11 +150,11 @@ function InlineAgent({ needsKey }: { readonly needsKey: boolean }): React.ReactE
             type="button"
             data-testid="agent-widget-clear"
             onClick={() => chat.clear()}
-            aria-label="New conversation"
-            title="New conversation"
+            aria-label={t('newConversation')}
+            title={t('newConversation')}
             className="mono text-[11px] text-(--color-faint) hover:text-(--color-accent) transition-colors"
           >
-            ↺
+            {CLEAR_GLYPH}
           </button>
         </div>
       )}
@@ -176,17 +179,17 @@ function InlineAgent({ needsKey }: { readonly needsKey: boolean }): React.ReactE
       </ol>
 
       {chat.streaming && lastIsEmptyAssistant(chat.messages) && (
-        <ChatThrobber label={chat.tool?.label ?? 'thinking'} />
+        <ChatThrobber label={chat.tool?.label ?? t('thinking')} />
       )}
 
       {chat.error !== null && (
         <p data-testid="agent-widget-error" className="mono text-[11px] text-(--color-accent) mb-3">
-          {chat.error}
+          {errorText(chat, t)}
         </p>
       )}
 
       <ByokControls
-        chat={chat} showPanel={showPanel} showOffer={showOffer}
+        chat={chat} t={t} showPanel={showPanel} showOffer={showOffer}
         onOffer={() => { if (chat.byok.saved) chat.byok.useSaved(); else setOfferTaken(true); }}
       />
 
@@ -213,8 +216,8 @@ function InlineAgent({ needsKey }: { readonly needsKey: boolean }): React.ReactE
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder={askPlaceholder(chat.streaming, showPanel && needsKey)}
-          aria-label="Ask a question"
+          placeholder={askPlaceholder(t, chat.streaming, showPanel && needsKey)}
+          aria-label={t('askLabel')}
           data-testid="agent-widget-input"
           disabled={chat.streaming || (showPanel && needsKey)}
           className="flex-1 bg-transparent font-serif text-[20px] text-(--color-ink) placeholder:text-(--color-faint) outline-none disabled:opacity-60"
@@ -225,23 +228,33 @@ function InlineAgent({ needsKey }: { readonly needsKey: boolean }): React.ReactE
           disabled={chat.streaming}
           className="mono text-[11px] tracking-[0.14em] uppercase text-(--color-accent) hover:tracking-[0.2em] transition-all shrink-0 disabled:opacity-50"
         >
-          ask ↗
+          {t('ask')}
         </button>
       </form>
     </section>
   );
 }
 
-function askPlaceholder(streaming: boolean, needsKey: boolean): string {
-  if (streaming) return 'thinking…';
-  return needsKey ? 'Add your AI key above to ask' : 'Ask anything…';
+// A glyph, not a word: the button's words are its aria-label and title.
+const CLEAR_GLYPH = '↺';
+
+function askPlaceholder(t: T, streaming: boolean, needsKey: boolean): string {
+  if (streaming) return `${t('thinking')}…`;
+  return t(needsKey ? 'needKeyPlaceholder' : 'askPlaceholder');
+}
+
+// errorText —— a known error code speaks the visitor's language; otherwise the server's own
+// (English) sentence, which is still better than nothing.
+function errorText(chat: ChatState, t: T): string | null {
+  return chat.errorCode === 'rate_limited' ? t('errRateLimited') : chat.error;
 }
 
 // ByokControls —— the visitor's-own-key affordances: an offer when the owner's tier can't serve
 // this turn (rate-limited) or the page allows BYOK, the panel to enter a key, and — once a key is
 // in use — which one, with a way to forget it.
-function ByokControls({ chat, showPanel, showOffer, onOffer }: {
+function ByokControls({ chat, t, showPanel, showOffer, onOffer }: {
   readonly chat: ChatState;
+  readonly t: T;
   readonly showPanel: boolean;
   readonly showOffer: boolean;
   readonly onOffer: () => void;
@@ -253,18 +266,21 @@ function ByokControls({ chat, showPanel, showOffer, onOffer }: {
           type="button" data-testid="agent-widget-byok-offer" onClick={onOffer}
           className="mb-3 mono text-[11px] tracking-[0.06em] text-(--color-accent) underline"
         >
-          {chat.byok.saved ? 'Use your saved AI key instead →' : 'Use your own AI key instead →'}
+          {t(chat.byok.saved ? 'useSavedKey' : 'useOwnKey')}
         </button>
       )}
       {showPanel && <ByokPanel onUse={chat.byok.use} />}
       {chat.byok.active && (
-        <p data-testid="agent-widget-byok-active" className="mb-3 mono text-[10.5px] text-(--color-faint)">
-          on your {chat.byok.provider ?? ''} key ·{' '}
+        <p
+          data-testid="agent-widget-byok-active"
+          className="mb-3 mono text-[10.5px] text-(--color-faint) flex gap-2"
+        >
+          <span>{t('onYourKey', { provider: chat.byok.provider ?? '' })}</span>
           <button
             type="button" data-testid="agent-widget-byok-forget" onClick={chat.byok.forget}
             className="underline hover:text-(--color-accent)"
           >
-            forget it
+            {t('forgetKey')}
           </button>
         </p>
       )}

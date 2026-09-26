@@ -13,6 +13,7 @@ import { adoptStoredSession, publicSearchEnabled } from '@standmeet/sdk-core';
 import type { CallToolResult } from '@standmeet/sdk-core';
 
 import { widgetClient } from './client.js';
+import { useT } from '../i18n.js';
 
 type BlockToolState = 'idle' | 'pending' | 'done' | 'error';
 
@@ -41,6 +42,7 @@ export interface UseBlockTool {
 
 // useBlockTool — the primitive: bind to ONE block tool over the adopted session.
 export function useBlockTool(toolName: string): UseBlockTool {
+  const t = useT();
   const [state, setState] = useState<BlockToolState>('idle');
   const [result, setResult] = useState<unknown>(undefined);
   const [error, setError] = useState<string | null>(null);
@@ -78,12 +80,12 @@ export function useBlockTool(toolName: string): UseBlockTool {
     try {
       active = await resolveSession();
     } catch {
-      setError('the plugin could not be reached');
+      setError(t('blockUnreachable'));
       setState('error');
       return;
     }
     if (active === null) {
-      setError('no visitor session — open this page with an access code');
+      setError(t('blockNeedCode'));
       setState('error');
       return;
     }
@@ -93,7 +95,7 @@ export function useBlockTool(toolName: string): UseBlockTool {
         active.conversation_id, active.session_token, toolName, args ?? {},
       );
     } catch {
-      setError('the plugin could not be reached');
+      setError(t('blockUnreachable'));
       setState('error');
       return;
     }
@@ -101,10 +103,10 @@ export function useBlockTool(toolName: string): UseBlockTool {
       setResult(out.result);
       setState('done');
     } else {
-      setError(out.detail ?? out.reason ?? 'the plugin refused this request');
+      setError(out.detail ?? out.reason ?? t('blockRefused'));
       setState('error');
     }
-  }, [resolveSession, toolName]);
+  }, [resolveSession, toolName, t]);
 
   return { call, result, error, state, granted: session !== null || publicEligible };
 }
@@ -123,8 +125,9 @@ export interface BlockWidgetProps {
 // BlockWidget — the drop-in: a control that runs `tool` with `args` and renders its result.
 // data-state exposes ready / pending / done / error / no-session for a page (and e2e) to react to.
 export function BlockWidget(
-  { tool, args, runLabel = 'Run', autoRun = false }: BlockWidgetProps,
+  { tool, args, runLabel, autoRun = false }: BlockWidgetProps,
 ): React.ReactElement {
+  const t = useT();
   const { call, result, error, state, granted } = useBlockTool(tool);
   const dataState = !granted ? 'no-session' : state === 'idle' ? 'ready' : state;
 
@@ -142,9 +145,7 @@ export function BlockWidget(
   if (!granted) {
     return (
       <div data-testid="block-widget" data-tool={tool} data-state={dataState}>
-        <p data-testid="block-widget-no-session">
-          Open this page with an access code to use this.
-        </p>
+        <p data-testid="block-widget-no-session">{t('blockNoSession')}</p>
       </div>
     );
   }
@@ -157,7 +158,7 @@ export function BlockWidget(
         disabled={state === 'pending'}
         onClick={() => { void call(args); }}
       >
-        {runLabel}
+        {runLabel ?? t('blockRun')}
       </button>
       {error !== null && <div data-testid="block-widget-error">{error}</div>}
       {result !== undefined && (

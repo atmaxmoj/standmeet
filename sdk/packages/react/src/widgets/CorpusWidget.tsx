@@ -12,6 +12,7 @@ import React, { useEffect, useState } from 'react';
 import { applyCorpusQuery, type CorpusCard, type WikiLandingView } from '@standmeet/sdk-core';
 
 import { paragraphsOf, widgetClient } from './client.js';
+import { resolveLocale, useT } from '../i18n.js';
 
 export interface CorpusWidgetProps {
   readonly heading?: string;
@@ -23,14 +24,14 @@ export interface CorpusWidgetProps {
 // resolveLang —— which language to ask the wiki-landing endpoint for. Explicit prop wins; else the
 // visitor's stored choice (same 'sm-lang' key the pages use), else their browser, else English. The
 // backend picks the matching `[!i18n]` pane, so the preview never shows both languages + radio markup.
+// Notes carry only en/zh panes, so every other UI locale reads the English pane.
 function resolveLang(explicit?: string): string {
   if (explicit) return explicit;
-  try { const s = localStorage.getItem('sm-lang'); if (s === 'en' || s === 'zh') return s; } catch { /* private */ }
-  try { if (navigator.language?.toLowerCase().startsWith('zh')) return 'zh'; } catch { /* ssr */ }
-  return 'en';
+  return resolveLocale() === 'zh' ? 'zh' : 'en';
 }
 
 export function CorpusWidget({ heading, limit, query, lang }: CorpusWidgetProps): React.ReactElement | null {
+  const t = useT();
   const [cards, setCards] = useState<CorpusCard[]>([]);
   useEffect(() => { widgetClient.fetchCorpusCards().then(setCards).catch(() => undefined); }, []);
 
@@ -40,7 +41,7 @@ export function CorpusWidget({ heading, limit, query, lang }: CorpusWidgetProps)
   return (
     <section data-testid="corpus-widget" className="w-full">
       <div className="mono text-[10px] tracking-[0.22em] uppercase text-(--color-faint) mb-7">
-        {heading ?? 'from the corpus'}
+        {heading ?? t('corpusHeading')}
       </div>
       {/* Structural layout is INLINE, not Tailwind utilities: a consumer whose Tailwind does not scan
           the SDK (the microsite builder, a third-party embed) never compiles `flex-col`, so `flex`
@@ -62,6 +63,7 @@ function selectCards(
 }
 
 function CorpusNote({ card, index, lang }: { card: CorpusCard; index: number; lang: string }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [paras, setParas] = useState<string[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -107,7 +109,7 @@ function CorpusNote({ card, index, lang }: { card: CorpusCard; index: number; la
       {open && (
         <div data-testid={`corpus-widget-body-${card.path}`} className="pl-8 mt-4">
           {loading && paras === null && (
-            <p className="mono text-[11px] text-(--color-faint)">reading…</p>
+            <p className="mono text-[11px] text-(--color-faint)">{t('corpusReading')}</p>
           )}
           {paras !== null && paras.map((p, i) => (
             <p key={i} className="text-(--color-ink) text-[17px] leading-[1.65] mb-3 max-w-[54ch]">
@@ -118,7 +120,7 @@ function CorpusNote({ card, index, lang }: { card: CorpusCard; index: number; la
             href={`/wiki/${card.path}`}
             className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-accent) hover:tracking-[0.2em] transition-all inline-block mt-1"
           >
-            read in full ↗
+            {t('corpusOpen')}
           </a>
         </div>
       )}

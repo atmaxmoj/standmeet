@@ -10,6 +10,7 @@ import React, { useEffect, useState } from 'react';
 import type { MicrositeLink } from '@standmeet/sdk-core';
 
 import { widgetClient } from './client.js';
+import { useT } from '../i18n.js';
 
 export interface PageNavWidgetProps {
   readonly heading?: string;
@@ -19,6 +20,7 @@ export interface PageNavWidgetProps {
 export function PageNavWidget(
   { heading, exclude }: PageNavWidgetProps,
 ): React.ReactElement | null {
+  const t = useT();
   const [pages, setPages] = useState<MicrositeLink[]>([]);
   useEffect(() => { widgetClient.fetchMicrosites().then(setPages).catch(() => undefined); }, []);
 
@@ -27,7 +29,7 @@ export function PageNavWidget(
   return (
     <nav data-testid="page-nav-widget" className="w-full">
       <div className="mono text-[10px] tracking-[0.22em] uppercase text-(--color-faint) mb-4">
-        {heading ?? 'elsewhere on this site'}
+        {heading ?? t('pageNavHeading')}
       </div>
       {/* Inline structural layout (see CorpusWidget): a consumer that doesn't compile `flex-col`
           would otherwise run the nav links horizontally. */}
