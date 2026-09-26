@@ -24,6 +24,7 @@ var (
 // Errors/vars (impl: entity).
 var (
 	ErrMicrositeBuildNotFound    = entity.ErrMicrositeBuildNotFound
+	ErrBuilderVersionMismatch    = entity.ErrBuilderVersionMismatch
 	ErrMicrositeNotFound         = entity.ErrMicrositeNotFound
 	ErrMicrositeSlugTaken        = entity.ErrMicrositeSlugTaken
 	ErrMicrositeStoreNotWritable = entity.ErrMicrositeStoreNotWritable

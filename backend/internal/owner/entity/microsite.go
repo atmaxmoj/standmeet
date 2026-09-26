@@ -59,6 +59,10 @@ var ErrMicrositeNotFound = errors.New("microsite not found")
 // ErrMicrositeBuildNotFound —— build_id lookup found no build.
 var ErrMicrositeBuildNotFound = errors.New("microsite build not found")
 
+// ErrBuilderVersionMismatch —— a builder of another version asked for work. Not a fault: during an
+// upgrade the old builder outlives the old backend; it is given nothing.
+var ErrBuilderVersionMismatch = errors.New("builder version mismatch")
+
 // ErrMicrositeSlugTaken —— an active page with this slug already exists
 // under this owner.
 var ErrMicrositeSlugTaken = errors.New("microsite slug already taken")

@@ -87,15 +87,9 @@ type claimResponse struct {
 
 func claimBuild(deps BuilderDeps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if v := r.Header.Get("X-Builder-Version"); v != deps.Version {
-			// Not an error: during an upgrade the old builder polls the new backend until the
-			// updater replaces it. It gets nothing, and the new builder takes the work.
-			deps.Log.Warn("builder version mismatch: no work handed out",
-				"builder_version", v, "backend_version", deps.Version)
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
-		build, err := deps.Builds.ClaimPending(r.Context(), buildLease)
+		build, err := owner.ClaimBuildForBuilder(
+			r.Context(), deps.Builds, r.Header.Get("X-Builder-Version"), deps.Version, buildLease,
+		)
 		if err != nil {
 			respondClaim(deps, w, err, &build)
 			return
@@ -137,6 +131,12 @@ func renewLease(deps BuilderDeps) http.HandlerFunc {
 func respondClaim(
 	deps BuilderDeps, w http.ResponseWriter, err error, _ *owner.MicrositeBuild,
 ) {
+	if errors.Is(err, owner.ErrBuilderVersionMismatch) {
+		// Not a fault: the old builder polls the new backend until the updater replaces it.
+		deps.Log.Warn("no work handed out", logKeyErr, err)
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
 	if errors.Is(err, owner.ErrMicrositeBuildNotFound) {
 		w.WriteHeader(http.StatusNoContent)
 		return

@@ -114,6 +114,7 @@ var (
 	PromoteToLive              = usecase.PromoteToLive
 	PromoteToStaging           = usecase.PromoteToStaging
 	AutopublishHomepageOnBuilt = usecase.AutopublishHomepageOnBuilt
+	ClaimBuildForBuilder       = usecase.ClaimBuildForBuilder
 	PublicReady                = usecase.PublicReady
 	Recover                    = usecase.Recover
 	ConfirmEmailChange         = usecase.ConfirmEmailChange
