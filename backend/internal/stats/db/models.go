@@ -407,6 +407,7 @@ type MicrositeBuild struct {
 	ErrorMessage string
 	CreatedAt    pgtype.Timestamptz
 	BuiltAt      pgtype.Timestamptz
+	ClaimedAt    pgtype.Timestamptz
 }
 
 type NoteRef struct {

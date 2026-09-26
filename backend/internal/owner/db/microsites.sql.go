@@ -11,19 +11,27 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const claimPendingBuild = `-- name: ClaimPendingBuild :one
-SELECT id, page_id, status, source_files, output_path,
-       error_message, created_at, built_at
-FROM microsite_builds
-WHERE status = 'pending'
-ORDER BY created_at ASC
-LIMIT 1
-FOR UPDATE SKIP LOCKED
+const claimBuild = `-- name: ClaimBuild :one
+UPDATE microsite_builds
+SET status = 'building', claimed_at = now()
+WHERE id = (
+    SELECT id FROM microsite_builds
+    WHERE status = 'pending'
+       OR (status = 'building'
+           AND (claimed_at IS NULL OR claimed_at < now() - make_interval(secs => $1::float8)))
+    ORDER BY created_at ASC
+    LIMIT 1
+    FOR UPDATE SKIP LOCKED
+)
+RETURNING id, page_id, status, source_files, output_path,
+          error_message, created_at, built_at, claimed_at
 `
 
-// Concurrency-safe via FOR UPDATE SKIP LOCKED; the usecase calls SetBuilding immediately after claiming.
-func (q *Queries) ClaimPendingBuild(ctx context.Context) (MicrositeBuild, error) {
-	row := q.db.QueryRow(ctx, claimPendingBuild)
+// One statement, so the pick and the lease are atomic: two builders can never take the same row.
+// Claimable = pending, or `building` whose lease ran out (its builder is gone). $1 is the lease
+// length in seconds.
+func (q *Queries) ClaimBuild(ctx context.Context, leaseSecs float64) (MicrositeBuild, error) {
+	row := q.db.QueryRow(ctx, claimBuild, leaseSecs)
 	var i MicrositeBuild
 	err := row.Scan(
 		&i.ID,
@@ -34,6 +42,7 @@ func (q *Queries) ClaimPendingBuild(ctx context.Context) (MicrositeBuild, error)
 		&i.ErrorMessage,
 		&i.CreatedAt,
 		&i.BuiltAt,
+		&i.ClaimedAt,
 	)
 	return i, err
 }
@@ -116,7 +125,7 @@ const createMicrositeBuild = `-- name: CreateMicrositeBuild :one
 INSERT INTO microsite_builds (page_id, source_files)
 VALUES ($1, $2)
 RETURNING id, page_id, status, source_files, output_path,
-          error_message, created_at, built_at
+          error_message, created_at, built_at, claimed_at
 `
 
 type CreateMicrositeBuildParams struct {
@@ -136,13 +145,14 @@ func (q *Queries) CreateMicrositeBuild(ctx context.Context, arg CreateMicrositeB
 		&i.ErrorMessage,
 		&i.CreatedAt,
 		&i.BuiltAt,
+		&i.ClaimedAt,
 	)
 	return i, err
 }
 
 const getLatestBuiltMicrositeBuild = `-- name: GetLatestBuiltMicrositeBuild :one
 SELECT id, page_id, status, source_files, output_path,
-       error_message, created_at, built_at
+       error_message, created_at, built_at, claimed_at
 FROM microsite_builds
 WHERE page_id = $1 AND status = 'built'
 ORDER BY created_at DESC
@@ -168,13 +178,14 @@ func (q *Queries) GetLatestBuiltMicrositeBuild(ctx context.Context, pageID pgtyp
 		&i.ErrorMessage,
 		&i.CreatedAt,
 		&i.BuiltAt,
+		&i.ClaimedAt,
 	)
 	return i, err
 }
 
 const getLatestMicrositeBuild = `-- name: GetLatestMicrositeBuild :one
 SELECT id, page_id, status, source_files, output_path,
-       error_message, created_at, built_at
+       error_message, created_at, built_at, claimed_at
 FROM microsite_builds
 WHERE page_id = $1
 ORDER BY created_at DESC
@@ -193,13 +204,14 @@ func (q *Queries) GetLatestMicrositeBuild(ctx context.Context, pageID pgtype.UUI
 		&i.ErrorMessage,
 		&i.CreatedAt,
 		&i.BuiltAt,
+		&i.ClaimedAt,
 	)
 	return i, err
 }
 
 const getMicrositeBuild = `-- name: GetMicrositeBuild :one
 SELECT id, page_id, status, source_files, output_path,
-       error_message, created_at, built_at
+       error_message, created_at, built_at, claimed_at
 FROM microsite_builds
 WHERE id = $1
 `
@@ -216,6 +228,7 @@ func (q *Queries) GetMicrositeBuild(ctx context.Context, id pgtype.UUID) (Micros
 		&i.ErrorMessage,
 		&i.CreatedAt,
 		&i.BuiltAt,
+		&i.ClaimedAt,
 	)
 	return i, err
 }
@@ -443,6 +456,22 @@ func (q *Queries) RenameMicrosite(ctx context.Context, arg RenameMicrositeParams
 	return i, err
 }
 
+const renewBuildLease = `-- name: RenewBuildLease :execrows
+UPDATE microsite_builds
+SET claimed_at = now()
+WHERE id = $1 AND status = 'building'
+`
+
+// The builder is still working on this build. 0 rows = it is no longer `building` (settled, or
+// the row is gone).
+func (q *Queries) RenewBuildLease(ctx context.Context, id pgtype.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, renewBuildLease, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const restoreMicrosite = `-- name: RestoreMicrosite :one
 UPDATE microsites
 SET status = 'active', updated_at = now()
@@ -518,30 +547,6 @@ func (q *Queries) RollbackMicrositeLive(ctx context.Context, id pgtype.UUID) (Mi
 	return i, err
 }
 
-const setMicrositeBuildBuilding = `-- name: SetMicrositeBuildBuilding :one
-UPDATE microsite_builds
-SET status = 'building'
-WHERE id = $1
-RETURNING id, page_id, status, source_files, output_path,
-          error_message, created_at, built_at
-`
-
-func (q *Queries) SetMicrositeBuildBuilding(ctx context.Context, id pgtype.UUID) (MicrositeBuild, error) {
-	row := q.db.QueryRow(ctx, setMicrositeBuildBuilding, id)
-	var i MicrositeBuild
-	err := row.Scan(
-		&i.ID,
-		&i.PageID,
-		&i.Status,
-		&i.SourceFiles,
-		&i.OutputPath,
-		&i.ErrorMessage,
-		&i.CreatedAt,
-		&i.BuiltAt,
-	)
-	return i, err
-}
-
 const setMicrositeBuildBuilt = `-- name: SetMicrositeBuildBuilt :one
 UPDATE microsite_builds
 SET status      = 'built',
@@ -549,7 +554,7 @@ SET status      = 'built',
     built_at    = now()
 WHERE id = $1
 RETURNING id, page_id, status, source_files, output_path,
-          error_message, created_at, built_at
+          error_message, created_at, built_at, claimed_at
 `
 
 type SetMicrositeBuildBuiltParams struct {
@@ -569,6 +574,7 @@ func (q *Queries) SetMicrositeBuildBuilt(ctx context.Context, arg SetMicrositeBu
 		&i.ErrorMessage,
 		&i.CreatedAt,
 		&i.BuiltAt,
+		&i.ClaimedAt,
 	)
 	return i, err
 }
@@ -580,7 +586,7 @@ SET status        = 'failed',
     built_at      = now()
 WHERE id = $1
 RETURNING id, page_id, status, source_files, output_path,
-          error_message, created_at, built_at
+          error_message, created_at, built_at, claimed_at
 `
 
 type SetMicrositeBuildFailedParams struct {
@@ -600,6 +606,7 @@ func (q *Queries) SetMicrositeBuildFailed(ctx context.Context, arg SetMicrositeB
 		&i.ErrorMessage,
 		&i.CreatedAt,
 		&i.BuiltAt,
+		&i.ClaimedAt,
 	)
 	return i, err
 }

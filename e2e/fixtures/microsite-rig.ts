@@ -154,6 +154,19 @@ export async function publishPage(
   expect(live.status, 'promote to live').toBe(200);
 }
 
+// queueBuild —— create → write source → "build", and stop there: returns the queued build's id
+// without waiting for it. For a spec whose subject is what happens to that build next (who claims
+// it, whether it survives its builder) rather than the page it produces.
+export async function queueBuild(
+  request: APIRequestContext, csrf: string, slug: string, source: string,
+): Promise<string> {
+  await pageAPI(request, csrf, 'post', '/', { slug, title: slug });
+  await pageAPI(request, csrf, 'put', `/${slug}/files`, { path: 'App.tsx', content: source });
+  const started = await pageAPI(request, csrf, 'post', `/${slug}/build`);
+  expect(started.status, 'start build').toBe(200);
+  return started.body['build_id'] as string;
+}
+
 // SHIPPED_HOMEPAGE —— the default homepage source, read from the very file the backend embeds
 // (`//go:embed defaulthomepage/App.tsx`, owner/usecase/default_homepage.go). Never re-typed here:
 // a spec whose subject is "the homepage the product ships" would silently stop testing that the

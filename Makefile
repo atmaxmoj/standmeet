@@ -1577,7 +1577,7 @@ release-build: sdk-build builder-vendor
 	    backend)   docker build -t $$img -f backend/Dockerfile --target production \
 	                 --build-arg STANDMEET_VERSION=$(TAG) . ;; \
 	    app)       docker build -t $$img ./app ;; \
-	    builder)   docker build -t $$img ./builder ;; \
+	    builder)   docker build -t $$img --build-arg STANDMEET_VERSION=$(TAG) ./builder ;; \
 	    im-bridge) docker build -t $$img -f im-bridge/Dockerfile . ;; \
 	    db)        docker build -t $$img -f infra/db/Dockerfile . ;; \
 	    updater)   docker build -t $$img -f infra/updater/Dockerfile . ;; \
@@ -1783,7 +1783,7 @@ release-push: secrets secrets-image
 	  case $$svc in \
 	    backend)   ctx="-f backend/Dockerfile --target production --build-arg STANDMEET_VERSION=$(TAG) ." ;; \
 	    app)       ctx="./app" ;; \
-	    builder)   ctx="./builder" ;; \
+	    builder)   ctx="--build-arg STANDMEET_VERSION=$(TAG) ./builder" ;; \
 	    im-bridge) ctx="-f im-bridge/Dockerfile ." ;; \
 	    db)        ctx="-f infra/db/Dockerfile ." ;; \
 	    updater)   ctx="-f infra/updater/Dockerfile ." ;; \
@@ -1824,7 +1824,7 @@ release-push-one:
 	  case "$(SVC)" in \
 	    backend)   ctx="-f backend/Dockerfile --target production --build-arg STANDMEET_VERSION=$(TAG) ." ;; \
 	    app)       ctx="./app" ;; \
-	    builder)   ctx="./builder" ;; \
+	    builder)   ctx="--build-arg STANDMEET_VERSION=$(TAG) ./builder" ;; \
 	    im-bridge) ctx="-f im-bridge/Dockerfile ." ;; \
 	    db)        ctx="-f infra/db/Dockerfile ." ;; \
 	    updater)   ctx="-f infra/updater/Dockerfile ." ;; \

@@ -6,29 +6,40 @@
 // docker.sock; relies on shared named volume with backend.
 //
 // Per tick (~1s):
-//   1. POST /internal/builds/claim — backend atomically marks one
-//      pending build as 'building' and returns { build_id, page_id,
-//      entry, source_files }
+//   1. POST /internal/builds/claim (X-Builder-Version) — backend atomically marks one build
+//      'building', starts its lease, and returns { build_id, page_id, entry, source_files,
+//      lease_ms }. A backend of another version hands out nothing (204).
 //   2. Lay out template + owner files into /tmp/work/<build_id>/
-//   3. Run `vite build` → dist
+//   3. Run `vite build` → dist — renewing the lease (POST /internal/builds/<id>/lease) meanwhile
 //   4. cp dist → /srv/microsites/<page_id>/<build_id>/dist
 //   5. PATCH /internal/builds/<id> { status: built|failed, ... }
+//
+// The child processes run async, never execFileSync: a sync child blocks the event loop, and a
+// blocked loop sends no lease renewals — a long build would then look like a dead builder.
 
 import { mkdirSync, writeFileSync, cpSync, existsSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { setTimeout as delay } from 'node:timers/promises';
 
+const run = promisify(execFile);
 const BACKEND = process.env.BACKEND_INTERNAL_URL || 'http://backend:8000';
 const SHARED_ROOT = process.env.MICROSITES_ROOT || '/srv/microsites';
 const TEMPLATE = '/opt/builder/template';
 const NODE_MODULES = '/opt/builder/node_modules';
 const POLL_INTERVAL_MS = 1000;
+// VERSION —— this builder's release, baked into the image (builder/Dockerfile). The backend gives
+// work only to a builder of its own version: an old builder outliving an upgrade gets nothing.
+const VERSION = process.env.STANDMEET_VERSION || 'dev';
 // PRERENDER_TIMEOUT_MS —— a best-effort step must be bounded: a hung SSR render (owner code that
 // keeps the event loop alive) would otherwise hold the single-lane build queue indefinitely. On
-// timeout execFileSync kills the child and throws → logged as "prerender skipped", page still ships.
+// timeout the child is killed and the step throws → logged as "prerender skipped", page still ships.
 // Declared up here: the build loop below starts at module top level, before later consts exist.
 const PRERENDER_TIMEOUT_MS = 60_000;
+// VITE_TIMEOUT_MS —— the client build is not best-effort, but it must be bounded too: a hung vite
+// holds the single lane forever. On timeout the build is marked failed with the reason.
+const VITE_TIMEOUT_MS = 300_000;
 
 console.log(`[builder] starting; backend=${BACKEND} shared=${SHARED_ROOT}`);
 
@@ -47,24 +58,32 @@ while (true) {
 }
 
 async function claimJob() {
-  const res = await fetch(`${BACKEND}/internal/builds/claim`, { method: 'POST' });
+  const res = await fetch(`${BACKEND}/internal/builds/claim`, {
+    method: 'POST', headers: { 'X-Builder-Version': VERSION },
+  });
   if (res.status === 204) return null;
   if (!res.ok) throw new Error(`claim: ${res.status}`);
   return res.json();
 }
 
 async function processJob(job) {
-  const { build_id, page_id, source_files, entry } = job;
+  const { build_id, page_id, source_files, entry, lease_ms } = job;
   console.log(`[builder] build ${build_id} (page ${page_id})`);
   const workDir = `/tmp/work/${build_id}`;
   // ms —— per-step wall time, logged with the outcome: a build that took 3 minutes instead of 25s
   // used to leave only "start" and "OK" behind, so which step ate the time was unknowable.
   const ms = {};
-  const timed = (step, fn) => { const t = Date.now(); try { return fn(); } finally { ms[step] = Date.now() - t; } };
+  const timed = async (step, fn) => {
+    const t = Date.now();
+    try { return await fn(); } finally { ms[step] = Date.now() - t; }
+  };
+  // Renew at a quarter of the lease the backend set: three renewals can be lost before the build
+  // is taken for dead.
+  const renewal = setInterval(() => { void renewLease(build_id); }, lease_ms / 4);
   try {
-    timed('setup', () => setupViteProject(workDir, source_files, entry));
-    timed('vite', () => runViteBuild(workDir));
-    timed('prerender', () => prerender(workDir));
+    await timed('setup', () => setupViteProject(workDir, source_files, entry));
+    await timed('vite', () => runViteBuild(workDir));
+    await timed('prerender', () => prerender(workDir));
     const outDir = `${SHARED_ROOT}/${page_id}/${build_id}/dist`;
     mkdirSync(dirname(outDir), { recursive: true });
     cpSync(join(workDir, 'dist'), outDir, { recursive: true });
@@ -75,7 +94,19 @@ async function processJob(job) {
     console.error(`[builder] build ${build_id} failed ${JSON.stringify(ms)}:`, msg);
     await markFailed(build_id, msg.slice(0, 2000));
   } finally {
+    clearInterval(renewal);
     rmSync(workDir, { recursive: true, force: true });
+  }
+}
+
+// renewLease —— tell the backend this build is still being worked on. Best-effort: a missed
+// renewal only matters if the lease runs out, and then the build is rebuilt, not lost.
+async function renewLease(buildID) {
+  try {
+    const res = await fetch(`${BACKEND}/internal/builds/${buildID}/lease`, { method: 'POST' });
+    if (!res.ok) console.warn(`[builder] build ${buildID} lease renewal: ${res.status}`);
+  } catch (e) {
+    console.warn(`[builder] build ${buildID} lease renewal failed:`, e?.message || e);
   }
 }
 
@@ -113,19 +144,21 @@ function setupViteProject(workDir, files, entry) {
 // After capturing it, the **working directory must be stripped** too: `/tmp/work/<uuid>/` is our
 // internal address; printing it to the owner just sends them hunting for a file that doesn't exist.
 // What's left is a relative path like `src/owner/App.tsx:3:1`.
-function runViteBuild(workDir) {
+async function runViteBuild(workDir) {
   try {
-    execFileSync(
+    await run(
       'node',
       [join(workDir, 'node_modules', 'vite', 'bin', 'vite.js'), 'build', '--logLevel', 'error'],
       {
         cwd: workDir,
-        stdio: ['ignore', 'pipe', 'pipe'],
         encoding: 'utf8',
+        timeout: VITE_TIMEOUT_MS,
+        maxBuffer: 16 * 1024 * 1024,
         env: { ...process.env, NODE_ENV: 'production' },
       },
     );
   } catch (e) {
+    if (e?.killed) throw new Error(`the build took longer than ${VITE_TIMEOUT_MS / 60_000} minutes and was stopped`);
     throw new Error(viteFailureText(e, workDir));
   }
 }
@@ -140,18 +173,18 @@ function runViteBuild(workDir) {
 // or any SSR-build hiccup, throws here — we log and leave the plain client build in place. The page
 // still works from the bundle; it's only missing the prerendered copy. Runs in its own node
 // process so a crash can't take down this long-running daemon and its memory is freed on exit.
-function prerender(workDir) {
+async function prerender(workDir) {
   const vite = join(workDir, 'node_modules', 'vite', 'bin', 'vite.js');
   const opts = {
-    cwd: workDir, stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', timeout: PRERENDER_TIMEOUT_MS,
+    cwd: workDir, encoding: 'utf8', timeout: PRERENDER_TIMEOUT_MS, maxBuffer: 16 * 1024 * 1024,
   };
   try {
-    execFileSync(
+    await run(
       'node',
       [vite, 'build', '--ssr', 'src/entry-server.tsx', '--outDir', 'dist-server', '--logLevel', 'error'],
       { ...opts, env: { ...process.env, NODE_ENV: 'production' } },
     );
-    execFileSync('node', ['prerender.mjs'], opts);
+    await run('node', ['prerender.mjs'], opts);
   } catch (e) {
     const said = `${e?.stderr ?? ''}${e?.stdout ?? ''}`.trim() || e?.message || String(e);
     console.warn(`[builder] prerender skipped (page still served, not prerendered): ${said.slice(0, 300)}`);
@@ -160,7 +193,7 @@ function prerender(workDir) {
 
 function viteFailureText(e, workDir) {
   const said = `${e?.stderr ?? ''}${e?.stdout ?? ''}`.trim();
-  // Fall back to execFileSync's own message only when the compiler said nothing at all (e.g. the
+  // Fall back to execFile's own message only when the compiler said nothing at all (e.g. the
   // process got killed) — say what we actually know, don't invent a more specific reason.
   const text = said === '' ? (e?.message ?? String(e)) : said;
   return stripWorkDir(dropStackFrames(text), workDir);

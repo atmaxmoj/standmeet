@@ -3,9 +3,17 @@
 // no auth (internal-network trust).
 //
 // Three endpoints:
-//   POST /internal/builds/claim         —— builder polls for pending (atomically marks
-//                                          it building before returning); no pending -> 204
+//   POST /internal/builds/claim         —— builder polls for work (atomically marks it building
+//                                          and starts its lease); nothing to take -> 204
+//   POST /internal/builds/{id}/lease    —— builder is still working: renew the lease
 //   PATCH /internal/builds/{id}         —— builder reports built / failed when done
+//
+// Two rules keep a build from being lost with its builder (prod, 2026-09-26 upgrade):
+//   - Version: a builder only gets work from a backend of its own version (X-Builder-Version).
+//     During an upgrade the old builder outlives the old backend by tens of seconds; without this
+//     it built pages with the old SDK and marked them built.
+//   - Lease: a `building` build whose builder stopped renewing is claimable again. Without it a
+//     builder killed mid-build left the build `building` forever.
 //
 // Placed in the sys layer because sys is already allowed to depend on postgres + usecases;
 // not in the admin / public layer because it must not go through owner-session auth.
@@ -19,6 +27,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -40,6 +49,9 @@ type BuilderDeps struct {
 	// so the delete guard protects a pooled asset a live page embeds (via the SDK AssetWidget).
 	// Injected from the corpus side (it owns the asset repo); nil-safe, best-effort.
 	RebuildAssetRefs AssetRefRebuilder
+	// Version —— this backend's release version; a builder of any other version gets no work.
+	// Last: its length word is the only non-pointer data here (govet fieldalignment).
+	Version string
 }
 
 // AssetRefRebuilder —— recomputes a microsite's pool-asset references from its built source.
@@ -51,21 +63,39 @@ type AssetRefRebuilder func(
 // prefix.
 func MountBuilds(r chi.Router, deps BuilderDeps) {
 	r.Post("/builds/claim", claimBuild(deps))
+	r.Post("/builds/{id}/lease", renewLease(deps))
 	r.Patch("/builds/{id}", patchBuild(deps))
 }
 
+// buildLease —— how long a claimed build stays its builder's without a renewal. The builder
+// renews at a fraction of it (it is sent in the claim response, so the builder never holds a
+// second copy); a build that outlives it unrenewed is claimable again.
+const buildLease = 60 * time.Second
+
+// logKeyErr —— the slog key every error line in this file uses.
+const logKeyErr = "err"
+
 // claimResponse field order follows govet fieldalignment: the map (pointer-heavy) goes
-// first, the three strings follow to keep padding tight.
+// first, the strings follow to keep padding tight.
 type claimResponse struct {
 	SourceFiles map[string]string `json:"source_files"`
 	BuildID     string            `json:"build_id"`
 	PageID      string            `json:"page_id"`
 	Entry       string            `json:"entry"`
+	LeaseMS     int64             `json:"lease_ms"`
 }
 
 func claimBuild(deps BuilderDeps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		build, err := deps.Builds.ClaimPending(r.Context())
+		if v := r.Header.Get("X-Builder-Version"); v != deps.Version {
+			// Not an error: during an upgrade the old builder polls the new backend until the
+			// updater replaces it. It gets nothing, and the new builder takes the work.
+			deps.Log.Warn("builder version mismatch: no work handed out",
+				"builder_version", v, "backend_version", deps.Version)
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		build, err := deps.Builds.ClaimPending(r.Context(), buildLease)
 		if err != nil {
 			respondClaim(deps, w, err, &build)
 			return
@@ -78,9 +108,28 @@ func claimBuild(deps BuilderDeps) http.HandlerFunc {
 			PageID:      build.PageID,
 			Entry:       entry,
 			SourceFiles: build.SourceFiles,
+			LeaseMS:     buildLease.Milliseconds(),
 		}
 		if encErr := json.NewEncoder(w).Encode(resp); encErr != nil {
-			deps.Log.Error("encode claim resp", "err", encErr)
+			deps.Log.Error("encode claim resp", logKeyErr, encErr)
+		}
+	}
+}
+
+// renewLease —— the builder is still working on {id}. 404 = the build is no longer `building`
+// (settled, or its row is gone): the builder may stop renewing.
+func renewLease(deps BuilderDeps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := chi.URLParam(r, "id")
+		err := deps.Builds.RenewLease(r.Context(), id)
+		switch {
+		case err == nil:
+			w.WriteHeader(http.StatusNoContent)
+		case errors.Is(err, owner.ErrMicrositeBuildNotFound):
+			http.Error(w, "build not building", http.StatusNotFound)
+		default:
+			deps.Log.Error("renew build lease", logKeyErr, err, "build_id", id)
+			http.Error(w, "renew lease failed", http.StatusInternalServerError)
 		}
 	}
 }
@@ -92,7 +141,7 @@ func respondClaim(
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
-	deps.Log.Error("claim build", "err", err)
+	deps.Log.Error("claim build", logKeyErr, err)
 	http.Error(w, "claim build failed", http.StatusInternalServerError)
 }
 
@@ -159,7 +208,7 @@ func respondPatchErr(deps BuilderDeps, w http.ResponseWriter, id, status string,
 		http.Error(w, "build not found", http.StatusNotFound)
 		return
 	}
-	deps.Log.Error("patch build", "err", err, "build_id", id, "reported_status", status)
+	deps.Log.Error("patch build", logKeyErr, err, "build_id", id, "reported_status", status)
 	http.Error(w, "patch build failed", http.StatusInternalServerError)
 }
 
@@ -193,12 +242,12 @@ func runPostBuiltHooks(r *http.Request, deps BuilderDeps, built *owner.Microsite
 	if aerr := owner.AutopublishHomepageOnBuilt(
 		r.Context(), owner.MicrositeDeps{Pages: deps.Pages, Builds: deps.Builds}, built, deps.Log,
 	); aerr != nil {
-		deps.Log.Error("homepage auto-publish on built", "err", aerr)
+		deps.Log.Error("homepage auto-publish on built", logKeyErr, aerr)
 	}
 	if rerr := rebuildMicrositeAssetRefs(
 		r.Context(), deps, built.PageID, built.SourceFiles,
 	); rerr != nil {
-		deps.Log.Error("microsite asset refs on built", "err", rerr)
+		deps.Log.Error("microsite asset refs on built", logKeyErr, rerr)
 	}
 }
 

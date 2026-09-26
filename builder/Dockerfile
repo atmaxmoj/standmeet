@@ -28,4 +28,11 @@ RUN mkdir -p /tmp/work /srv/microsites
 ENV BACKEND_INTERNAL_URL=http://backend:8000
 ENV MICROSITES_ROOT=/srv/microsites
 
+# STANDMEET_VERSION —— the same release tag the backend binary is stamped with. The backend hands
+# work only to a builder of its own version, so an old builder that outlives an upgrade builds
+# nothing with the old SDK. A missed build-arg leaves "dev", which no release backend accepts:
+# the builder then idles loudly (backend logs "builder version mismatch") instead of silently.
+ARG STANDMEET_VERSION=dev
+ENV STANDMEET_VERSION=${STANDMEET_VERSION}
+
 CMD ["node", "/opt/builder/runner.mjs"]

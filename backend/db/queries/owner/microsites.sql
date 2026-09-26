@@ -132,38 +132,46 @@ WHERE id = $1;
 INSERT INTO microsite_builds (page_id, source_files)
 VALUES ($1, $2)
 RETURNING id, page_id, status, source_files, output_path,
-          error_message, created_at, built_at;
+          error_message, created_at, built_at, claimed_at;
 
--- name: ClaimPendingBuild :one
--- Concurrency-safe via FOR UPDATE SKIP LOCKED; the usecase calls SetBuilding immediately after claiming.
-SELECT id, page_id, status, source_files, output_path,
-       error_message, created_at, built_at
-FROM microsite_builds
-WHERE status = 'pending'
-ORDER BY created_at ASC
-LIMIT 1
-FOR UPDATE SKIP LOCKED;
+-- name: ClaimBuild :one
+-- One statement, so the pick and the lease are atomic: two builders can never take the same row.
+-- Claimable = pending, or `building` whose lease ran out (its builder is gone). $1 is the lease
+-- length in seconds.
+UPDATE microsite_builds
+SET status = 'building', claimed_at = now()
+WHERE id = (
+    SELECT id FROM microsite_builds
+    WHERE status = 'pending'
+       OR (status = 'building'
+           AND (claimed_at IS NULL OR claimed_at < now() - make_interval(secs => sqlc.arg(lease_secs)::float8)))
+    ORDER BY created_at ASC
+    LIMIT 1
+    FOR UPDATE SKIP LOCKED
+)
+RETURNING id, page_id, status, source_files, output_path,
+          error_message, created_at, built_at, claimed_at;
+
+-- name: RenewBuildLease :execrows
+-- The builder is still working on this build. 0 rows = it is no longer `building` (settled, or
+-- the row is gone).
+UPDATE microsite_builds
+SET claimed_at = now()
+WHERE id = $1 AND status = 'building';
 
 -- name: GetMicrositeBuild :one
 SELECT id, page_id, status, source_files, output_path,
-       error_message, created_at, built_at
+       error_message, created_at, built_at, claimed_at
 FROM microsite_builds
 WHERE id = $1;
 
 -- name: GetLatestMicrositeBuild :one
 SELECT id, page_id, status, source_files, output_path,
-       error_message, created_at, built_at
+       error_message, created_at, built_at, claimed_at
 FROM microsite_builds
 WHERE page_id = $1
 ORDER BY created_at DESC
 LIMIT 1;
-
--- name: SetMicrositeBuildBuilding :one
-UPDATE microsite_builds
-SET status = 'building'
-WHERE id = $1
-RETURNING id, page_id, status, source_files, output_path,
-          error_message, created_at, built_at;
 
 -- name: SetMicrositeBuildBuilt :one
 UPDATE microsite_builds
@@ -172,7 +180,7 @@ SET status      = 'built',
     built_at    = now()
 WHERE id = $1
 RETURNING id, page_id, status, source_files, output_path,
-          error_message, created_at, built_at;
+          error_message, created_at, built_at, claimed_at;
 
 -- name: SetMicrositeBuildFailed :one
 UPDATE microsite_builds
@@ -181,7 +189,7 @@ SET status        = 'failed',
     built_at      = now()
 WHERE id = $1
 RETURNING id, page_id, status, source_files, output_path,
-          error_message, created_at, built_at;
+          error_message, created_at, built_at, claimed_at;
 
 -- name: GetLatestBuiltMicrositeBuild :one
 -- The one the preview should show: this page's **most recent successful build**.
@@ -192,7 +200,7 @@ RETURNING id, page_id, status, source_files, output_path,
 -- Nor staging_build_id: that requires the agent to remember an extra promote_to_staging call, and
 -- forgetting it shows nothing -- but the owner wants to "see what it just did".
 SELECT id, page_id, status, source_files, output_path,
-       error_message, created_at, built_at
+       error_message, created_at, built_at, claimed_at
 FROM microsite_builds
 WHERE page_id = $1 AND status = 'built'
 ORDER BY created_at DESC

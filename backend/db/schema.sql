@@ -835,7 +835,10 @@ CREATE TABLE microsite_builds (
     output_path     text          NOT NULL DEFAULT '',
     error_message   text          NOT NULL DEFAULT '',
     created_at      timestamptz   NOT NULL DEFAULT now(),
-    built_at        timestamptz
+    built_at        timestamptz,
+    -- claimed_at —— the lease of the builder working on this row; refreshed while it builds. A
+    -- `building` row whose lease ran out belongs to a builder that is gone and is claimable again.
+    claimed_at      timestamptz
 );
 
 -- A microsite's own persistence namespace is NOT a table here. Each page gets its OWN Postgres

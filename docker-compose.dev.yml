@@ -65,7 +65,7 @@ services:
         # dev 也盖版本章。不盖的话 dev 报 "dev"，而 "dev" 不是发行版本号 ——
         # 于是升级检查在 dev 走的是「比不了」那条分支，线上走的是「比得了」那条，
         # 两边根本不是同一条路。盖一个**落后的**发行号，dev 就跟一台该升级的真实例一样。
-        STANDMEET_VERSION: v0.0.1
+        STANDMEET_VERSION: &dev-version v0.0.1
     restart: unless-stopped
     environment:
       - HOST=0.0.0.0
@@ -405,6 +405,10 @@ services:
       options: { max-size: "50m", max-file: "3" }
     build:
       context: ./builder
+      args:
+        # The backend's own version (the anchor above), never a second literal: the backend hands
+        # work only to a builder of its own version.
+        STANDMEET_VERSION: *dev-version
     restart: unless-stopped
     environment:
       - BACKEND_INTERNAL_URL=http://backend:8000

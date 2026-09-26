@@ -54,6 +54,7 @@ func buildServerDeps(d *deps.Runtime) *Deps {
 		},
 		Builds: sysroutes.BuilderDeps{
 			Log: d.Log, Builds: d.MicrositeBuildRepo, Pages: d.MicrositeRepo,
+			Version:  port.AppVersion(),
 			Notifier: d.BuildNotifier, RebuildAssetRefs: micrositeAssetRefRebuilder(d),
 		},
 		IM:           sysroutes.IMDeps{Log: d.Log, Token: telegramTokenReader(d)},

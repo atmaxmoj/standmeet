@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 
@@ -111,27 +112,38 @@ func (r *MicrositeBuildRepo) GetByID(
 	return toDomainBuild(&row)
 }
 
-// ClaimPending atomically grabs one pending build, marks it 'building', and
-// returns it. Returns ErrMicrositeBuildNotFound if there's no pending
-// build, so the caller can translate that to 204.
-func (r *MicrositeBuildRepo) ClaimPending(ctx context.Context) (entity.MicrositeBuild, error) {
-	// A simplified SELECT ... FOR UPDATE SKIP LOCKED + UPDATE: first SELECT
-	// one pending row, then SetBuilding. Two round trips, but SKIP LOCKED
-	// keeps it concurrency-safe; the builder only runs one instance for now,
-	// so this is fine as-is.
-	q := db.New(r.pool)
-	pending, err := q.ClaimPendingBuild(ctx)
+// ClaimPending atomically takes one claimable build — pending, or `building` whose lease is older
+// than `lease` (its builder is gone) — marks it 'building' and starts its lease. One statement, so
+// two builders never take the same row. Returns ErrMicrositeBuildNotFound when there is nothing to
+// take, so the caller can translate that to 204.
+func (r *MicrositeBuildRepo) ClaimPending(
+	ctx context.Context, lease time.Duration,
+) (entity.MicrositeBuild, error) {
+	row, err := db.New(r.pool).ClaimBuild(ctx, lease.Seconds())
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return entity.MicrositeBuild{}, entity.ErrMicrositeBuildNotFound
 		}
-		return entity.MicrositeBuild{}, fmt.Errorf("select pending build: %w", err)
-	}
-	row, err := q.SetMicrositeBuildBuilding(ctx, pending.ID)
-	if err != nil {
-		return entity.MicrositeBuild{}, fmt.Errorf("mark building: %w", err)
+		return entity.MicrositeBuild{}, fmt.Errorf("claim build: %w", err)
 	}
 	return toDomainBuild(&row)
+}
+
+// RenewLease —— the builder is still working on this build. ErrMicrositeBuildNotFound = it is no
+// longer `building` (settled, or the row is gone), so the builder's work on it is moot.
+func (r *MicrositeBuildRepo) RenewLease(ctx context.Context, id string) error {
+	pgID, perr := pgstore.ParseUUID(id)
+	if perr != nil {
+		return fmt.Errorf("parse build id: %w", perr)
+	}
+	n, err := db.New(r.pool).RenewBuildLease(ctx, pgID)
+	if err != nil {
+		return fmt.Errorf("renew build lease: %w", err)
+	}
+	if n == 0 {
+		return entity.ErrMicrositeBuildNotFound
+	}
+	return nil
 }
 
 // MarkBuilt —— the builder marks a build done after vite finishes;
