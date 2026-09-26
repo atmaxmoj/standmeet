@@ -58,15 +58,21 @@ silently stopped working looks exactly like one that works. The dev and prod sta
 their testids: e2e and the real-environment audits both locate by them, and neither is the
 build that goes to visitors.
 
-### Two domains
+### One domain
 
 - **the app** — your public page. Coolify assigns it from `SERVICE_FQDN_APP_3000`.
-- **object storage** — `SERVICE_FQDN_MINIO_9000`, e.g. `files.yourdomain`.
 
-The second one is not optional. Images you attach to notes are handed to visitors as signed
-URLs, and those URLs go to a *browser*, which cannot resolve `minio:9000`. Point
-`STORAGE_PUBLIC_URL` at something the public internet can reach or every image renders as a
-zero-sized box — which neither a screenshot nor a DOM assertion will show you.
+Object storage needs no domain. Images and attachments reach the browser through the
+backend (`GET /api/v1/assets/{id}`, a signed link the backend checks), which reads the bytes
+from storage over the internal network — so leave `STORAGE_PUBLIC_URL` empty.
+
+### Object storage
+
+The bundled store is the `minio` service, running
+[Silo](https://github.com/pgsty/silo) (`pgsty/silo`), the maintained community fork of MinIO:
+the same S3 API, `MINIO_*` settings and on-disk format. MinIO deleted `minio/minio` from
+Docker Hub on 2026-09-11, so a compose that still pins it no longer pulls; an existing
+MinIO data volume is read by Silo as-is.
 
 ### Secrets
 

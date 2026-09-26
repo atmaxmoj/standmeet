@@ -61,7 +61,7 @@ services:
       timeout: 3s
       retries: 10
   minio:
-    image: minio/minio:RELEASE.2025-04-08T15-41-24Z
+    image: pgsty/silo:RELEASE.2026-09-16T00-00-00Z  # MinIO fork; minio/minio no longer pulls (see docker-compose.prod.yml)
     command: ["server", "/data"]
     environment:
       - MINIO_ROOT_USER=standmeet
