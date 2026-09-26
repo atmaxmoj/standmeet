@@ -206,6 +206,19 @@ export function useChatSession(input: IssueSessionInput, opts: ChatOptions = {})
       const sess = sessionRef.current;
       // pageDocContext: the page the visitor is on, so "can I use it?" means this page.
       const headers = await byoaiHeaders(sess.byoai, sess.token);
+      if (sess.byoai && headers === undefined) {
+        // The key saved in this browser can't be read (prod 2026-09-26: the wrap key was gone from
+        // IndexedDB, the envelope still in localStorage). Sending the turn keyless ran it on the
+        // owner's provider while this widget said "on your key". Don't send: drop the broken entry
+        // and ask for the key again.
+        forgetBYOAI();
+        setByokActive(false);
+        sessionRef.current = null;
+        setMessages((ms) => ms.filter((m) => m.id !== assistantID));
+        setError(KEY_UNREADABLE);
+        setErrorCode('byoai_key_unreadable');
+        return;
+      }
       const turn = client.streamMessage(sess.id, sess.token, text, sess.system, headers, pageDocContext());
       for await (const ev of turn) {
         applyEvent(setMessages, assistantID, ev, cardHTML.current);
@@ -226,6 +239,9 @@ export function useChatSession(input: IssueSessionInput, opts: ChatOptions = {})
 
   return { messages, streaming, tool, error, errorCode, byok, send, clear };
 }
+
+// KEY_UNREADABLE —— the error's plain-English form; the widget shows its catalog translation by code.
+const KEY_UNREADABLE = 'The AI key saved in this browser can\'t be read any more — add it again.';
 
 // ---- page-granular localStorage persistence ----
 

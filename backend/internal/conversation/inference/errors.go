@@ -32,6 +32,9 @@ var (
 	ErrServerSide      = errors.New("inference: provider 5xx")
 	ErrTimeout         = errors.New("inference: timeout")
 	ErrNetwork         = errors.New("inference: network failure")
+	// ErrBYOAIKeyRequired —— a byoai session's turn arrived without a usable visitor key
+	// (missing headers, or an envelope that doesn't open). Refused: never the owner's provider.
+	ErrBYOAIKeyRequired = errors.New("inference: byoai session without the visitor's key")
 	// ErrOwnerProviderUnconfigured —— owner row's ai_provider_key_enc
 	// still empty; visitor chat must show a friendly fallback.
 	ErrOwnerProviderUnconfigured = errors.New("owner AI provider not configured")
@@ -133,11 +136,24 @@ func IsRateLimited(err error) bool {
 	return errors.Is(err, ErrRateLimited) || errors.Is(err, httpx.ErrRetryTooLong)
 }
 
-func classifyDirectStatus(err error) (StreamErrClass, bool) {
-	err = normalizeUpstream(err)
+// classifyKeyStatus —— the two "no usable key" classes: the visitor's key didn't arrive (byoai),
+// or the provider rejected the key it got.
+func classifyKeyStatus(err error) (StreamErrClass, bool) {
 	switch {
+	case errors.Is(err, ErrBYOAIKeyRequired):
+		return StreamErrClass{Code: "byoai_key_required", Status: http.StatusUnauthorized}, true
 	case errors.Is(err, ErrInvalidAPIKey):
 		return StreamErrClass{Code: "invalid_api_key", Status: http.StatusUnauthorized}, true
+	}
+	return StreamErrClass{}, false
+}
+
+func classifyDirectStatus(err error) (StreamErrClass, bool) {
+	err = normalizeUpstream(err)
+	if c, ok := classifyKeyStatus(err); ok {
+		return c, true
+	}
+	switch {
 	case errors.Is(err, ErrUnsupportedProvider):
 		return StreamErrClass{Code: "unsupported_provider", Status: http.StatusBadRequest}, true
 	case IsRateLimited(err):
@@ -155,6 +171,7 @@ var friendlyMessages = map[string]string{
 	"rate_limited":         "The AI is busy right now — give it a minute and ask again.",
 	"overloaded":           "The AI provider is overloaded — please try again shortly.",
 	"invalid_api_key":      "The AI provider key isn't working — the owner needs to fix it.",
+	"byoai_key_required":   "Your AI key didn't come through — add it again to keep asking.",
 	"owner_unconfigured":   "This page doesn't have an AI provider set up yet.",
 	"unsupported_provider": "That AI provider isn't supported here.",
 	"network":              "Network problem reaching the AI provider. Please try again.",

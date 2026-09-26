@@ -120,7 +120,9 @@ function InlineAgent({ needsKey }: { readonly needsKey: boolean }): React.ReactE
   useEffect(() => { setDock(adoptedDockButtons()); setOfferable(byoaiOffered()); }, []);
   // Never for a coded visitor (chat.byok.available): the code's owner pays for their turns.
   const canOffer = chat.byok.available && !chat.byok.active;
-  const showPanel = canOffer && (needsKey || offerTaken);
+  // A saved key that can't be read (or that the server says never arrived) → ask for it again.
+  const keyLost = KEY_LOST_CODES.has(chat.errorCode ?? '');
+  const showPanel = canOffer && (needsKey || offerTaken || keyLost);
   const showOffer = canOffer && !showPanel && (chat.errorCode === 'rate_limited' || offerable);
 
   const send = (text: string) => {
@@ -246,8 +248,14 @@ function askPlaceholder(t: T, streaming: boolean, needsKey: boolean): string {
 // errorText —— a known error code speaks the visitor's language; otherwise the server's own
 // (English) sentence, which is still better than nothing.
 function errorText(chat: ChatState, t: T): string | null {
-  return chat.errorCode === 'rate_limited' ? t('errRateLimited') : chat.error;
+  if (chat.errorCode === 'rate_limited') return t('errRateLimited');
+  if (KEY_LOST_CODES.has(chat.errorCode ?? '')) return t('errKeyUnreadable');
+  return chat.error;
 }
+
+// KEY_LOST_CODES —— the visitor's own key didn't reach the provider: this browser can't read the
+// saved key (byoai_key_unreadable, caught before sending), or the server got none (byoai_key_required).
+const KEY_LOST_CODES = new Set(['byoai_key_unreadable', 'byoai_key_required']);
 
 // ByokControls —— the visitor's-own-key affordances: an offer when the owner's tier can't serve
 // this turn (rate-limited) or the page allows BYOK, the panel to enter a key, and — once a key is

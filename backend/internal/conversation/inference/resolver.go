@@ -62,7 +62,15 @@ type OwnerKeyResolver struct {
 func (r *OwnerKeyResolver) Resolve(
 	ctx context.Context, in *ResolveInput,
 ) (*Cred, error) {
-	if in.Mode == "byoai" && in.Visitor.HasKey() {
+	if in.Mode == "byoai" {
+		// A byoai session is served by the visitor's key or not at all. It used to fall through
+		// to the owner's provider when no key came (prod 2026-09-26: a browser that lost its
+		// saved key's wrap key sent none; the turn ran on the owner's free tier and sat out its
+		// rate limits for minutes while the widget said "on your deepseek key"). That was also a
+		// billing hole: a keyless byoai session chatted on the owner's provider, unmetered.
+		if !in.Visitor.HasKey() {
+			return nil, ErrBYOAIKeyRequired
+		}
 		// Untrusted is decided by **this path**, never passed in by the caller — the endpoint
 		// the visitor gave must pass through the SSRF gate.
 		return validateCred(credFields{

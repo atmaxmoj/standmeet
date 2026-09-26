@@ -23,7 +23,7 @@ import { createRole } from '@/fixtures/roles';
 import { publishPage } from '@/fixtures/microsite-rig';
 import { createProvider } from '@/fixtures/providers';
 import {
-  lastGatewayRequest, scriptMockRateLimit, scriptMockReplyText,
+  gatewayRequestExists, lastGatewayRequest, resetGatewayRequests, scriptMockRateLimit, scriptMockReplyText,
 } from '@/fixtures/mock-llm-script';
 
 const MOCK = 'http://llm-gateway:9300';
@@ -88,6 +88,12 @@ test.describe('AgentWidget · bring your own key when the owner has no quota', (
 
   test('quota spent → BYOK mode (no /gate) → the visitor key answers; a reload reuses it',
     async ({ playwright, browser }) => { await noQuotaOpensByok(playwright.request, browser); });
+
+  // Prod (Claude-in-Chrome, 2026-09-26): the owner's browser had lost its saved key's wrap key —
+  // the IndexedDB entry gone, the localStorage envelope still there. The widget still said "on your
+  // deepseek key", sent the turn with no key, and the backend ran it on the owner's provider.
+  test('a saved key this browser can no longer read: the visitor is asked to add it again; the owner never pays',
+    async ({ playwright, browser }) => { await unreadableSavedKey(playwright.request, browser); });
 
   // Owner rule: a coded visitor is the owner's guest — the owner pays, and they are never asked to
   // bring a key. Not even when a key is already saved in their browser, and not when the code's own
@@ -186,6 +192,49 @@ async function noQuotaOpensByok(rf: RequestFactory, browser: Browser): Promise<v
   await expect(visitor.getByTestId('agent-widget-transcript'))
     .toContainText('Second answer on the saved key.', { timeout: TURN_WAIT });
   expect((await lastGatewayRequest(request, tag2)).auth_prefix).toBe(VISITOR_KEY.slice(0, 8));
+  await visitor.context().close();
+  await request.dispose();
+}
+
+async function unreadableSavedKey(rf: RequestFactory, browser: Browser): Promise<void> {
+  test.setTimeout(360_000); // several turns, each up to TURN_WAIT
+  // The public tank is spent (the previous case), so the widget opens in BYOK mode.
+  const request = await rf.newContext();
+  // Script tags are stable across runs and the gateway's request ring outlives a run: without this,
+  // "no provider answered" would read the previous run's record.
+  await resetGatewayRequests(request);
+  const visitor = await openWidget(browser, 'byok');
+  await enterKey(visitor);
+  // The browser loses the wrap key, the saved envelope stays — the state the owner's browser was in.
+  await visitor.evaluate(() => new Promise<void>((resolve, reject) => {
+    const open = indexedDB.open('standmeet-byoai', 1);
+    open.onerror = () => reject(new Error(`open the key store: ${String(open.error)}`));
+    open.onsuccess = () => {
+      const tx = open.result.transaction('wrap', 'readwrite');
+      tx.objectStore('wrap').delete('v1');
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(new Error(`drop the wrap key: ${String(tx.error)}`));
+    };
+  }));
+  await visitor.reload();
+  await expect(visitor.getByTestId('agent-widget')).toHaveAttribute('data-mode', 'byok', { timeout: 20_000 });
+
+  const tag = await scriptMockReplyText(request, 'Answered on somebody else\'s key.');
+  await ask(visitor, `what do you build ${tag}`);
+  await expect(visitor.getByTestId('agent-widget-error'), 'the visitor is told their key must be added again')
+    .toContainText(/key/i, { timeout: TURN_WAIT });
+  await expect(visitor.getByTestId('agent-widget-byok'), 'the key panel is back').toBeVisible({ timeout: 10_000 });
+  expect(await gatewayRequestExists(request, tag.trim()), 'no provider answered that turn — least of all the owner\'s')
+    .toBe(false);
+
+  // Adding the key again brings the visitor back on their own key. Fresh conversation first: the
+  // unsent question stays in the transcript and rides along as history, and the mock matches a tag
+  // anywhere in the request (a mock artifact, not the product — same as the rate-limited case).
+  await enterKey(visitor);
+  await visitor.getByTestId('agent-widget-clear').click();
+  const again = await scriptMockReplyText(request, ANSWER);
+  await ask(visitor, `what do you build ${again}`);
+  await expectVisitorKeyServed(visitor, request, again);
   await visitor.context().close();
   await request.dispose();
 }
