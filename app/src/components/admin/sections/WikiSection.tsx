@@ -11,19 +11,19 @@ import { useCallback, useState } from 'react';
 import { corpusHref } from '@/lib/corpus/href';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { Chip } from '@/components/admin/atoms/Chip';
-import { CorpusEntryForm, corpusParentOptions } from '@/components/admin/sections/corpus/CorpusEntryForm';
+import { CorpusEntryForm } from '@/components/admin/sections/corpus/CorpusEntryForm';
 import { WikiEditForm, WikiPromoteRow } from '@/components/admin/sections/wiki/WikiRowForms';
 import { CorpusViewToggle } from '@/components/admin/atoms/CorpusViewToggle';
 import { CorpusTreeGrid } from '@/components/admin/sections/corpus/CorpusTreeGrid';
 import { CorpusSearchRow } from '@/components/admin/sections/corpus/CorpusSearchRow';
 import { TagFilterRow } from '@/components/admin/sections/corpus/TagFilterRow';
-import { corpusListing, filterByTag, taggedPagePath } from '@/lib/admin/corpus-listing';
+import { corpusListing } from '@/lib/admin/corpus-listing';
 import { useCorpusSearch } from '@/lib/admin/use-corpus-search';
 import { useCorpusGrowth } from '@/lib/admin/use-corpus-growth';
 import { useGenreTags } from '@/lib/admin/use-genre-tags';
 import { DANGER_ACTION_CLASS } from '@/lib/ui/danger-action';
 import { useCorpusView } from '@/lib/admin/corpus-view';
-import { descendantCounts, pickExcerpt } from '@/lib/admin/corpus-tree';
+import { pickExcerpt } from '@/lib/admin/corpus-tree';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 import {
   useCorpusActions,
@@ -31,10 +31,11 @@ import {
   type CorpusEntryInput,
 } from '@/lib/admin/use-corpus-actions';
 import {
-  pickWikiBodyState, useWiki, loadWikiTreeChildren, WikiSummarySchema,
+  activeTagOf, pickWikiBodyState, useWiki, loadWikiTreeChildren,
   type WikiHook, type WikiSummary,
 } from '@/lib/admin/use-wiki';
 import { runWith } from '@/lib/admin/use-corpus-form';
+import { totalLabel } from '@/lib/state/create-paged-store';
 import { stampDay } from '@/lib/ui/format-time';
 import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 
@@ -44,40 +45,35 @@ export function WikiSection() {
   useEffectErrorToast(actions.error);
   return (
     <>
-      <Header hook={hook} actions={actions} />
+      <Header actions={actions} />
       <WikiBody hook={hook} actions={actions} />
     </>
   );
 }
 
-// wikiTrueCount —— the real COUNT(*) (growth), not the loaded first page. `rows.length` is capped by
-// the page limit, so the header read "50 entries" against a 223-note corpus while the sidebar pulse
-// — reading the same growth COUNT(*) — correctly said 223. Same class as F-L-4 (dashboard) and
-// F-L-5 (raw tabs); the wiki header was the sibling surface neither swept. Growth may be undefined
-// mid-load → fall back to the loaded length.
-function wikiTrueCount(
-  loaded: number, growth: ReturnType<typeof useCorpusGrowth>['growth'],
-): number {
-  return growth?.by_tier.wiki ?? loaded;
+// wikiCount —— the genre's real COUNT(*) (growth), the same number the sidebar pulse reads; never
+// the loaded page (the header once read "50 entries" against a 223-note corpus, F-L-4 class), and
+// not the page total either: that one narrows with the tag chip. Null until growth arrives.
+function wikiCount(growth: ReturnType<typeof useCorpusGrowth>['growth']): number | null {
+  return growth?.by_tier.wiki ?? null;
 }
 
-function Header({ hook, actions }: { hook: WikiHook; actions: CorpusActionsHook }) {
+function Header({ actions }: { actions: CorpusActionsHook }) {
   const tk = useTranslations('adminCorpus.kicker');
   const tc = useTranslations('adminCorpus.count');
   const [creating, setCreating] = useState(false);
   const { growth } = useCorpusGrowth();
-  const total = wikiTrueCount(hook.rows.length, growth);
   return (
     <>
       <SectionHeader
         kicker={tk('wiki')}
         slug="wiki"
-        count={hook.status === 'ready' ? tc('entries', { n: total }) : ''}
+        count={totalLabel(wikiCount(growth), (n) => tc('entries', { n }))}
         action={<NewBtn onClick={() => setCreating(true)} disabled={creating} />}
       />
       {creating ? (
         <div className="mb-6">
-          <CreateForm actions={actions} rows={hook.rows} onDone={() => setCreating(false)} />
+          <CreateForm actions={actions} onDone={() => setCreating(false)} />
         </div>
       ) : null}
     </>
@@ -97,9 +93,7 @@ function NewBtn({ onClick, disabled }: { onClick: () => void; disabled: boolean 
   );
 }
 
-function CreateForm({
-  actions, rows, onDone,
-}: { actions: CorpusActionsHook; rows: readonly WikiSummary[]; onDone: () => void }) {
+function CreateForm({ actions, onDone }: { actions: CorpusActionsHook; onDone: () => void }) {
   const toast = useToast();
   const ta = useTranslations('adminCorpus.action');
   const tt = useTranslations('adminCorpus.toast');
@@ -112,7 +106,7 @@ function CreateForm({
       busy={actions.pending}
       submitLabel={ta('create')}
       testidPrefix="wiki-create"
-      parentOptions={corpusParentOptions(rows)}
+      parentList="/corpus/wiki"
       onSubmit={onSubmit}
       onCancel={onDone}
     />
@@ -120,49 +114,36 @@ function CreateForm({
 }
 
 function WikiBody({ hook, actions }: { hook: WikiHook; actions: CorpusActionsHook }) {
-  const [activeTag, setActiveTag] = useState<string | null>(null);
   const map = {
     loading: <ListSkeleton count={3} />,
     error: <ErrorBlock message={hook.error ?? ''} />,
     empty: <EmptyState />,
-    list: <ReadyBody rows={hook.rows} actions={actions} activeTag={activeTag} setActiveTag={setActiveTag} />,
+    list: <ReadyBody page={hook} actions={actions} />,
   } as const;
   return map[pickWikiBodyState(hook)];
 }
 
-function ReadyBody({
-  rows, actions, activeTag, setActiveTag,
-}: {
-  rows: readonly WikiSummary[];
-  actions: CorpusActionsHook;
-  activeTag: string | null;
-  setActiveTag: (t: string | null) => void;
-}) {
+function ReadyBody({ page, actions }: { page: WikiHook; actions: CorpusActionsHook }) {
   const [view, setView] = useCorpusView('wiki');
   // The tag row comes from **the whole genre**, not just the loaded page — the latter would mean
   // a tag that only exists outside that page gets no chip at all, so it's neither clickable nor
   // discoverable as missing (the second half of F-L-23).
   const tags = useGenreTags('wiki');
+  const activeTag = activeTagOf(page);
   // Picking a tag = switch to grid view (F-L-30). The tree is **address hierarchy** and lazy
   // loaded, `CorpusLazyTree` doesn't take rows at all, so "filtering" on the tree would just be
   // thrown away silently: the chip lights up, the tree doesn't change a single row — the screen
   // would be lying. A tag is a **flat query**, and its answer is the grid. Switching views is
-  // visible, and a visible honest switch beats an invisible filter.
+  // visible, and a visible honest switch beats an invisible filter. The tag is a page param: the
+  // server filters before the LIMIT (F-L-23).
+  const { setParams } = page;
   const pickTag = useCallback((t: string | null) => {
-    setActiveTag(t);
+    setParams({ tag: t ?? '' });
     t === null || setView('grid');
-  }, [setActiveTag, setView]);
+  }, [setParams, setView]);
   // "Which collection is being shown, where does paging come from" is derived by corpusListing (that's not rendering).
   const search = useCorpusSearch('wiki');
-  const listing = corpusListing({
-    search, searchRows: search.rows, tagRows: filterByTag(rows, activeTag), view,
-    gridSource: {
-      pagePath: taggedPagePath('/corpus/wiki/page', activeTag), schema: WikiSummarySchema,
-    },
-  });
-  // Address tree is derived + cascading delete: count descendants for each entry, warn how many
-  // will also be deleted when it's deleted.
-  const childCounts = descendantCounts(listing.rows);
+  const listing = corpusListing({ search, searchRows: search.rows, page, view });
   return (
     <>
       <CorpusSearchRow hook={search} />
@@ -173,14 +154,13 @@ function ReadyBody({
         <CorpusViewToggle view={listing.view} onChange={setView} />
       </div>
       <CorpusTreeGrid
-        view={listing.view} rows={listing.rows} testid="wiki-list"
+        view={listing.view} rows={listing.rows} more={listing.more} testid="wiki-list"
         rowTestid={(r) => `wiki-row-${r.id}`}
         loadChildren={loadWikiTreeChildren}
-        {...listing.gridProps}
         renderCard={(row, { hasChildren }) => (
           <WikiCard
             entry={row} actions={actions}
-            childCount={childCounts[row.id] ?? 0} hasChildren={hasChildren}
+            childCount={row.descendants} hasChildren={hasChildren}
           />
         )}
       />

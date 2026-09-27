@@ -1,84 +1,71 @@
-// corpus_page.go —— keyset pagination (infinite scroll) for the admin corpus grid. Fetches
-// one page at a time (created_at DESC, id DESC composite cursor), paired with path_titles so
-// the server can slug out an address (correct even for a half-loaded page). Shares the
-// TreeChild carrier with the lazy tree (grid doesn't need has_children, leaves it false).
-// Owner-scoped, all statuses.
+// corpus_page.go —— one page of one genre, newest first, on the shared paginator
+// (docs/design/paging.md). corpus.list, the admin grids, the parent pickers and writings.list all
+// read it. Each row carries its root→leaf title chain (the address, right on a partial page) and
+// its descendant count (the delete warning, F-L-24). Owner-scoped, all statuses.
 
 package repo
 
 import (
 	"context"
 	"fmt"
-	"time"
-
-	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus/db"
 	"github.com/atmaxmoj/standmeet/internal/corpus/entity"
+	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
-// PageCursor —— keyset position (the previous page's last row). nil = first page.
-type PageCursor struct {
-	CreatedAt time.Time
-	ID        string
+// NoteFilter —— the filters every genre's list page takes. Tag: carries this tag. Q: title
+// substring. State: published / draft, and for raw unprocessed / promoted / flagged. Empty = any.
+type NoteFilter struct {
+	Tag   string `json:"tag"`
+	Q     string `json:"q"`
+	State string `json:"state"`
 }
 
 type pageReq struct {
 	pool    *pgstore.Pool
-	cursor  *PageCursor
 	ownerID string
 	genre   string
-	// tag —— "" = no filter. Filtering must happen **when the page is fetched**: if the client
-	// gets a page and filters afterward, it's only filtering that page, yet the panel treats
-	// the result as the answer for the whole corpus (F-L-23: 137 math notes showed as 1).
-	tag   string
-	limit int32
+	filter  NoteFilter
+	req     paging.Request
 }
 
-func adminPageFetch[T any](
-	ctx context.Context, req pageReq, toDomain func(*db.CorpusNote) T,
-) ([]TreeChild[T], error) {
-	ownerUUID, err := pgstore.ParseUUID(req.ownerID)
+func notesPage[T any](
+	ctx context.Context, pr *pageReq, toDomain func(*db.CorpusNote) T,
+) (paging.Page[TreeChild[T]], error) {
+	owner, err := pgstore.ParseUUID(pr.ownerID)
 	if err != nil {
-		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
+		return paging.Page[TreeChild[T]]{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	cp, cerr := pageCursorParams(req.cursor)
-	if cerr != nil {
-		return nil, cerr
+	after, err := pgstore.CursorArgs(pr.req.After)
+	if err != nil {
+		return paging.Page[TreeChild[T]]{}, fmt.Errorf("list %s page: %w", pr.genre, err)
 	}
-	rows, qerr := db.New(req.pool).ListNotesByOwnerPage(ctx, db.ListNotesByOwnerPageParams{
-		OwnerID: ownerUUID, Genre: req.genre, Column3: cp.ts, Column4: cp.id,
-		Limit: req.limit, Column6: req.tag,
+	q := db.New(pr.pool)
+	f := pr.filter
+	rows, err := q.ListNotesPage(ctx, db.ListNotesPageParams{
+		OwnerID: owner, Genre: pr.genre, Tag: f.Tag, Q: f.Q, State: f.State,
+		AfterAt: after.At, AfterID: after.ID, Lim: pr.req.Fetch(),
 	})
-	if qerr != nil {
-		return nil, fmt.Errorf("list page: %w", qerr)
-	}
-	out := make([]TreeChild[T], 0, len(rows))
-	for i := range rows {
-		out = append(out, TreeChild[T]{
-			Entry: toDomain(&rows[i].CorpusNote), PathTitles: rows[i].PathTitles,
-		})
-	}
-	return out, nil
-}
-
-// cursorPg —— the keyset cursor as pg params (both invalid = first page).
-type cursorPg struct {
-	ts pgtype.Timestamptz
-	id pgtype.UUID
-}
-
-// pageCursorParams —— nil cursor → NULL params (first page); else the keyset values.
-func pageCursorParams(c *PageCursor) (cursorPg, error) {
-	if c == nil {
-		return cursorPg{ts: pgtype.Timestamptz{Valid: false}, id: pgtype.UUID{Valid: false}}, nil
-	}
-	id, err := pgstore.ParseUUID(c.ID)
 	if err != nil {
-		return cursorPg{}, fmt.Errorf("parse cursor id: %w", err)
+		return paging.Page[TreeChild[T]]{}, fmt.Errorf("list %s page: %w", pr.genre, err)
 	}
-	return cursorPg{ts: pgtype.Timestamptz{Time: c.CreatedAt, Valid: true}, id: id}, nil
+	total, err := q.CountNotes(ctx, db.CountNotesParams{
+		OwnerID: owner, Genre: pr.genre, Tag: f.Tag, Q: f.Q, State: f.State,
+	})
+	if err != nil {
+		return paging.Page[TreeChild[T]]{}, fmt.Errorf("count %s: %w", pr.genre, err)
+	}
+	page := paging.Cut(rows, pr.req, func(r *db.ListNotesPageRow) paging.Cursor {
+		n := &r.CorpusNote
+		return paging.Cursor{At: n.CreatedAt.Time, ID: pgstore.FormatUUID(n.ID)}
+	})
+	return paging.Each(page, func(r *db.ListNotesPageRow) TreeChild[T] {
+		return TreeChild[T]{
+			Entry: toDomain(&r.CorpusNote), PathTitles: r.PathTitles, Descendants: r.Descendants,
+		}
+	}).WithTotal(total), nil
 }
 
 // listGenreTags —— every tag used anywhere in one genre. Corpus-wide, not page-scoped: if the
@@ -105,33 +92,37 @@ func (r *WikiRepo) ListTags(ctx context.Context, ownerID string) ([]string, erro
 	return listGenreTags(ctx, r.pool, ownerID, genreWiki)
 }
 
-// ListPage —— one grid page of the wiki genre (owner-scoped, all statuses). tag "" = no filter.
+// ListPage —— one page of the wiki genre.
 func (r *WikiRepo) ListPage(
-	ctx context.Context, ownerID string, cursor *PageCursor, limit int32, tag string,
-) ([]TreeChild[entity.Wiki], error) {
-	req := pageReq{r.pool, cursor, ownerID, genreWiki, tag, limit}
-	return adminPageFetch(ctx, req, toDomainWiki)
+	ctx context.Context, ownerID string, f NoteFilter, req paging.Request,
+) (paging.Page[TreeChild[entity.Wiki]], error) {
+	return notesPage(ctx, &pageReq{r.pool, ownerID, genreWiki, f, req}, toDomainWiki)
 }
 
-// ListPage —— one grid page of the output genre. tag "" = no filter.
+// ListPage —— one page of the output genre.
 func (r *OutputRepo) ListPage(
-	ctx context.Context, ownerID string, cursor *PageCursor, limit int32, tag string,
-) ([]TreeChild[entity.Output], error) {
-	req := pageReq{r.pool, cursor, ownerID, genreOutput, tag, limit}
-	return adminPageFetch(ctx, req, toDomainOutput)
+	ctx context.Context, ownerID string, f NoteFilter, req paging.Request,
+) (paging.Page[TreeChild[entity.Output]], error) {
+	return notesPage(ctx, &pageReq{r.pool, ownerID, genreOutput, f, req}, toDomainOutput)
 }
 
-// ListPage —— one grid page of the raw inbox genre. tag "" = no filter.
+// ListPage —— one page of the raw inbox.
 func (r *RawRepo) ListPage(
-	ctx context.Context, ownerID string, cursor *PageCursor, limit int32, tag string,
-) ([]TreeChild[entity.Raw], error) {
-	return adminPageFetch(ctx, pageReq{r.pool, cursor, ownerID, genreRaw, tag, limit}, toDomainRaw)
+	ctx context.Context, ownerID string, f NoteFilter, req paging.Request,
+) (paging.Page[TreeChild[entity.Raw]], error) {
+	return notesPage(ctx, &pageReq{r.pool, ownerID, genreRaw, f, req}, toDomainRaw)
 }
 
-// ListPage —— one grid page of writings (genre='writing'). tag "" = no filter.
+// ListPage —— one page of a NoteRepo's genre (subjectivity).
+func (r *NoteRepo) ListPage(
+	ctx context.Context, ownerID string, f NoteFilter, req paging.Request,
+) (paging.Page[TreeChild[Note]], error) {
+	return notesPage(ctx, &pageReq{r.pool, ownerID, r.genre, f, req}, noteFromRow)
+}
+
+// ListPage —— one page of writings (genre='writing').
 func (r *WritingRepo) ListPage(
-	ctx context.Context, ownerID string, cursor *PageCursor, limit int32, tag string,
-) ([]TreeChild[entity.Writing], error) {
-	req := pageReq{r.pool, cursor, ownerID, genreWriting, tag, limit}
-	return adminPageFetch(ctx, req, toDomainWriting)
+	ctx context.Context, ownerID string, f NoteFilter, req paging.Request,
+) (paging.Page[TreeChild[entity.Writing]], error) {
+	return notesPage(ctx, &pageReq{r.pool, ownerID, genreWriting, f, req}, toDomainWriting)
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/corpus/entity"
 	"github.com/atmaxmoj/standmeet/internal/corpus/repo"
 	"github.com/atmaxmoj/standmeet/internal/corpus/usecase"
+	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 )
 
 // rawStatus — this is exactly what the sidebar's "needs sorting" badge counts:
@@ -168,49 +169,25 @@ func pathOrNil(p string) *string {
 	return &p
 }
 
-func listRawItems(
-	ctx context.Context, deps usecase.Deps, ownerID string, limit int32,
-) ([]corpusItemOut, error) {
-	rows, err := deps.Raw.ListByOwner(ctx, ownerID, limit)
-	if err != nil {
-		return nil, fmt.Errorf("list raw: %w", err)
-	}
-	paths := usecase.RawTreePaths(rows)
-	out := make([]corpusItemOut, 0, len(rows))
-	for i := range rows {
-		out = append(out, rawItem(&rows[i], paths[rows[i].ID()]))
-	}
-	return out, nil
+// listedEntry —— the four genres' row types corpus.list pages over. A named set, not any: this
+// path only ever serves these, and pinning them down means nothing else goes out through it.
+type listedEntry interface {
+	entity.Raw | entity.Wiki | entity.Output | repo.Note
 }
 
-func listWikiItems(
-	ctx context.Context, deps usecase.Deps, ownerID string, limit int32,
-) ([]corpusItemOut, error) {
-	rows, err := deps.Wiki.ListByOwner(ctx, ownerID, limit)
+// pageItems —— a page of tree rows as the unified shape: the address from the row's title chain,
+// the descendant count from the query (the delete warning, F-L-24).
+func pageItems[T listedEntry](
+	p paging.Page[repo.TreeChild[T]], err error, toItem func(*T, string) corpusItemOut,
+) (paging.Page[corpusItemOut], error) {
 	if err != nil {
-		return nil, fmt.Errorf("list wiki: %w", err)
+		return paging.Page[corpusItemOut]{}, fmt.Errorf("list corpus: %w", err)
 	}
-	paths := usecase.WikiTreePaths(rows)
-	out := make([]corpusItemOut, 0, len(rows))
-	for i := range rows {
-		out = append(out, wikiItem(&rows[i], paths[rows[i].ID()]))
-	}
-	return out, nil
-}
-
-func listOutputItems(
-	ctx context.Context, deps usecase.Deps, ownerID string, limit int32,
-) ([]corpusItemOut, error) {
-	rows, err := deps.Output.ListByOwner(ctx, ownerID, limit)
-	if err != nil {
-		return nil, fmt.Errorf("list output: %w", err)
-	}
-	paths := usecase.OutputTreePaths(rows)
-	out := make([]corpusItemOut, 0, len(rows))
-	for i := range rows {
-		out = append(out, outputItem(&rows[i], paths[rows[i].ID()]))
-	}
-	return out, nil
+	return paging.Each(p, func(c *repo.TreeChild[T]) corpusItemOut {
+		item := toItem(&c.Entry, usecase.PathFromTitles(c.PathTitles))
+		item.Descendants = c.Descendants
+		return item
+	}), nil
 }
 
 func getRawItem(
@@ -260,18 +237,11 @@ func subjectivityItem(row *repo.Note) corpusItemOut {
 	}
 }
 
-func listSubjectivityItems(
-	ctx context.Context, deps usecase.Deps, ownerID string, limit int32,
-) ([]corpusItemOut, error) {
-	rows, err := deps.Subjectivity.ListByOwner(ctx, ownerID, limit)
-	if err != nil {
-		return nil, fmt.Errorf("list subjectivity: %w", err)
-	}
-	out := make([]corpusItemOut, 0, len(rows))
-	for i := range rows {
-		out = append(out, subjectivityItem(&rows[i]))
-	}
-	return out, nil
+// subjectivityPathItem —— a listed self-model entry, with the address its page row carries.
+func subjectivityPathItem(row *repo.Note, path string) corpusItemOut {
+	item := subjectivityItem(row)
+	item.Path = pathOrNil(path)
+	return item
 }
 
 // getSubjectivityItem — reads back one self-model entry.

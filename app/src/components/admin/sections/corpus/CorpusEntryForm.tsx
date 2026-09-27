@@ -11,25 +11,12 @@ import type { ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
 
 import { SelectField } from '@/components/atoms/SelectField';
+import { PickerSearchField } from '@/components/admin/PickerSearchField';
 import {
   appendBlock, dropAssetRef, useCorpusForm, type CorpusFormHook,
 } from '@/lib/admin/use-corpus-form';
 import type { CorpusEntryInput, PromoteInput } from '@/lib/admin/use-corpus-actions';
-
-// CorpusParentOption —— one option in the "attach under which node" dropdown
-// (an existing entry).
-export interface CorpusParentOption {
-  id: string;
-  label: string;
-}
-
-// corpusParentOptions —— rows → parent candidates. Label prefers the tree address
-// (path), falling back to title.
-export function corpusParentOptions(
-  rows: readonly { id: string; title: string; path?: string | null }[],
-): CorpusParentOption[] {
-  return rows.map((r) => ({ id: r.id, label: r.path ?? r.title }));
-}
+import { useParentPicker } from '@/lib/admin/use-parent-picker';
 
 export interface CorpusEntryFormProps {
   initial?: Partial<CorpusEntryInput>;
@@ -46,7 +33,8 @@ export interface CorpusEntryFormProps {
   // so giving them a heading would just be structure for its own sake.
   heading?: string;
   bodyVisible?: boolean;
-  parentOptions?: readonly CorpusParentOption[];
+  // parentList —— the genre's list path (/corpus/wiki): shows the "attach under" picker over it.
+  parentList?: string;
   // renderAssets —— the assets section. It's a callback rather than a plain
   // ReactNode because "insert into body" needs to mutate body, and body's state
   // lives in this form — handing out a write entry point is safer than letting
@@ -92,7 +80,7 @@ export function CorpusEntryForm(props: CorpusEntryFormProps) {
       />
       <TagsField form={form} testid={props.testidPrefix} />
       <CitableField form={form} testid={props.testidPrefix} />
-      <ParentSlot form={form} testid={props.testidPrefix} options={props.parentOptions} />
+      <ParentSlot form={form} testid={props.testidPrefix} listPath={props.parentList} />
       <FormActions
         form={form} busy={props.busy} bodyVisible={bodyVisible}
         submitLabel={props.submitLabel} testid={props.testidPrefix}
@@ -203,13 +191,9 @@ export function HeroFields(
 }
 
 function ParentSlot(
-  { form, testid, options }: {
-    form: CorpusFormHook;
-    testid: string;
-    options?: readonly CorpusParentOption[];
-  },
+  { form, testid, listPath }: { form: CorpusFormHook; testid: string; listPath?: string },
 ) {
-  return options ? <ParentField form={form} testid={testid} options={options} /> : null;
+  return listPath ? <ParentField form={form} testid={testid} listPath={listPath} /> : null;
 }
 
 export interface PromoteFormProps {
@@ -304,25 +288,32 @@ function TagsField({ form, testid }: { form: CorpusFormHook; testid: string }) {
 }
 
 function ParentField({
-  form, testid, options,
-}: { form: CorpusFormHook; testid: string; options: readonly CorpusParentOption[] }) {
+  form, testid, listPath,
+}: { form: CorpusFormHook; testid: string; listPath: string }) {
   const t = useTranslations('adminCorpus');
+  const picker = useParentPicker(listPath);
+  // A div, not a label: the search box and the select are two controls, each named on its own.
   return (
-    <label className="block">
+    <div className="block">
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) block mb-1">
         {t('form.parent')}
       </span>
+      <PickerSearchField
+        value={picker.query} onChange={picker.setQuery}
+        placeholder={t('form.parentSearch')} testid={`${testid}-parent-search`}
+      />
       <SelectField
         value={form.parentID}
         onChange={(e) => form.setParentID(e.target.value)}
         testid={`${testid}-parent`}
+        aria-label={t('form.parent')}
         className="w-full"
         mono
       >
         <option value="">{t('common.noneRoot')}</option>
-        {options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+        {picker.options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
       </SelectField>
-    </label>
+    </div>
   );
 }
 

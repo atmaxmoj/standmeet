@@ -144,8 +144,14 @@ test.describe('API-key facade · 安全爆破 / DoS / no-leak', () => {
 
   test('brute-forcing fabricated keys only ever yields 401',
     ({ playwright }) => run(playwright, checkBruteForce));
-  test('per-key rate limit trips 429; other keys isolated',
-    ({ playwright }) => run(playwright, checkRateLimit));
+  // Budget: every facade call under the limit runs one sandbox turn — measured 1.2–6 s alone and
+  // up to 9 s on a loaded host (backend logs, 2026-09-27) — and this case makes six of them (five
+  // under budget, one on the good key); the 429s answer before the sandbox, in milliseconds. The
+  // default 30 s cannot hold six 9 s calls.
+  test('per-key rate limit trips 429; other keys isolated', ({ playwright }) => {
+    test.setTimeout(120_000);
+    return run(playwright, checkRateLimit);
+  });
   test('oversized request body is bounded (413), not hung',
     ({ playwright }) => run(playwright, checkBodyDoS));
   test('valid outward key cannot reach admin/mcp; no owner tool leaks',

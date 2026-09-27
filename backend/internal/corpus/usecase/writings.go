@@ -92,33 +92,21 @@ func UnpublishWriting(
 	return p, nil
 }
 
-// ListAllWritings —— one page of the admin list, drafts included, newest first (the same keyset
-// page query the admin grid reads; docs/design/paging.md). tag narrows it ("" = every writing).
+// ListAllWritings —— one page of the admin list, drafts included, newest first (the corpus page
+// query every genre reads; docs/design/paging.md), narrowed by f.
 func ListAllWritings(
-	ctx context.Context, deps WritingsDeps, ownerID, tag string, req paging.Request,
+	ctx context.Context, deps WritingsDeps, ownerID string, f repo.NoteFilter, req paging.Request,
 ) (paging.Page[entity.Writing], error) {
 	if ownerID == "" {
 		return paging.Page[entity.Writing]{}, apierr.ErrEmptyField
 	}
-	rows, err := deps.Writings.ListPage(ctx, ownerID, corpusCursor(req.After), req.Fetch(), tag)
+	page, err := deps.Writings.ListPage(ctx, ownerID, f, req)
 	if err != nil {
 		return paging.Page[entity.Writing]{}, fmt.Errorf("list writings: %w", err)
 	}
-	out := make([]entity.Writing, 0, len(rows))
-	for i := range rows {
-		out = append(out, rows[i].Entry)
-	}
-	return paging.Cut(out, req, func(w *entity.Writing) paging.Cursor {
-		return paging.Cursor{At: w.CreatedAt(), ID: w.ID()}
+	return paging.Each(page, func(c *repo.TreeChild[entity.Writing]) entity.Writing {
+		return c.Entry
 	}), nil
-}
-
-// corpusCursor —— a paging cursor as the corpus page query's keyset position (nil = first page).
-func corpusCursor(c *paging.Cursor) *repo.PageCursor {
-	if c == nil {
-		return nil
-	}
-	return &repo.PageCursor{CreatedAt: c.At, ID: c.ID}
 }
 
 // ListPublishedWritings —— public list, already-published only.

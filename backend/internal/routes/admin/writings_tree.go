@@ -1,16 +1,14 @@
-// writings_tree.go — writings's lazy tree + grid keyset pagination (the same scale-safe
-// mechanism as raw/wiki/output, except writings has its own /writings route + a heavier
-// item: slug/cover/asset URL). GET /writings/tree?parent= is one lazily-loaded layer;
-// GET /writings/page?cursor= is one page. writings is corpus_notes's genre='writing',
-// so the backend reuses the TreeChild/PageCursor machinery.
+// writings_tree.go — writings's lazy tree (the same scale-safe mechanism as raw/wiki/output,
+// except writings has its own /writings route + a heavier item: slug/cover/asset URL).
+// GET /writings/tree?parent= is one lazily-loaded layer. The grid pages through writings.list
+// (GET /writings/) like every other owner list (docs/design/paging.md).
 //
 // **The last place in this domain that connects straight to the domain's facade.** The
-// save route has already moved into the convergence point (see writings.go); the tree
-// and page routes have no corresponding op yet — they're views unique to the panel (one
-// lazily-loaded layer / one keyset page), MCP doesn't need them, so nobody has declared
-// an operation for them yet. The writingView family of helpers lives here alongside them
-// for the same reason: they only serve these two routes, and moving them elsewhere would
-// just spread this debt onto an otherwise clean file.
+// save route has already moved into the convergence point (see writings.go); the tree route
+// has no corresponding op yet — it's a view unique to the panel (one lazily-loaded layer),
+// MCP doesn't need it, so nobody has declared an operation for it yet. The writingView
+// family of helpers lives here alongside it for the same reason: they only serve this route,
+// and moving them elsewhere would just spread this debt onto an otherwise clean file.
 
 package admin
 
@@ -123,20 +121,12 @@ func toWritingView(wg *corpus.Writing) writingView {
 	}
 }
 
-// WritingsTreeProvider — one lazy-tree layer + one page (implemented concretely by
-// *corpus.WritingRepo).
+// WritingsTreeProvider — one lazy-tree layer (implemented concretely by *corpus.WritingRepo).
+// The grid pages through writings.list (GET /writings/, docs/design/paging.md).
 type WritingsTreeProvider interface {
 	ListChildrenTree(
 		ctx context.Context, ownerID string, parentID *string,
 	) ([]corpus.TreeChild[corpus.Writing], error)
-	ListPage(
-		ctx context.Context, ownerID string, cursor *corpus.PageCursor, limit int32, tag string,
-	) ([]corpus.TreeChild[corpus.Writing], error)
-}
-
-type writingsPageResponse struct {
-	NextCursor string        `json:"next_cursor,omitempty"`
-	Items      []writingView `json:"items"`
 }
 
 func (h *Handlers) treeWritings() http.HandlerFunc {
@@ -156,46 +146,6 @@ func (h *Handlers) treeWritings() http.HandlerFunc {
 		}
 		writeWritingsJSON(h, w, "encode writings tree", items)
 	}
-}
-
-func (h *Handlers) pageWritings() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ownerID := middleware.OwnerIDFrom(r.Context())
-		cursor, cerr := decodeCursor(r.URL.Query().Get("cursor"))
-		if cerr != nil {
-			writeError(h.Log, w, envBadReq("bad cursor"))
-			return
-		}
-		rows, err := h.WritingsAdmin.Tree.ListPage(
-			r.Context(), ownerID, cursor, gridPageSize+1, pageTag(r),
-		)
-		if err != nil {
-			h.Log.Error("page writings", "err", err)
-			writeError(h.Log, w, serverErr())
-			return
-		}
-		writeWritingsPage(r, h, w, rows)
-	}
-}
-
-func writeWritingsPage(
-	r *http.Request, h *Handlers, w http.ResponseWriter,
-	rows []corpus.TreeChild[corpus.Writing],
-) {
-	page := rows
-	next := ""
-	if len(rows) > gridPageSize {
-		page = rows[:gridPageSize]
-		last := &page[len(page)-1].Entry
-		next = encodeCursor(last.CreatedAt(), last.ID())
-	}
-	items := make([]writingView, 0, len(page))
-	for i := range page {
-		items = append(items, toWritingViewResolved(r, h, &page[i].Entry))
-	}
-	pageHeader(w)
-	resp := writingsPageResponse{Items: items, NextCursor: next}
-	logEncodeErr(h.Log, "encode writings page", json.NewEncoder(w).Encode(resp))
 }
 
 func writeWritingsJSON(h *Handlers, w http.ResponseWriter, msg string, items []writingView) {

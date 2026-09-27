@@ -17,11 +17,11 @@ import { javascript } from '@codemirror/lang-javascript';
 import { SeoPanel } from '@/components/admin/sections/microsites/SeoPanel';
 import { EditorViewToggle } from '@/components/admin/sections/microsites/EditorViewToggle';
 import { editorGridCls, editorColCls, type EditorView } from '@/lib/admin/editor-view';
-import { useAutoBuild } from '@/lib/admin/use-auto-build';
+import { shipSettled, useAutoBuild } from '@/lib/admin/use-auto-build';
 import { useAdminSession } from '@/lib/admin/use-admin-session';
 import { IMPORTABLE_MODULES, STARTER, type ImportableModule } from '@/lib/admin/microsite-imports';
 import {
-  loadDraft, stageFiles, shipFilesLive, previewView, previewIsLive, usePinnedPreviewSrc,
+  loadDraft, stageFiles, previewView, previewIsLive, usePinnedPreviewSrc,
   useMicrosite, useMicrosites, type BuildView, type MicrositeSummary, type DraftFiles,
 } from '@/lib/admin/use-microsites';
 import { useAction } from '@/lib/ui/use-action';
@@ -67,7 +67,7 @@ export function PageEditor({ slug }: { slug: string }) {
 
   // Auto-build on edit: the preview follows live as the owner types (debounced), no "build preview"
   // click. Hung off the edit handler so a programmatic draft load (openExisting) never triggers it.
-  const scheduleBuild = useAutoBuild(pageSlug, files, setBuild);
+  const { schedule: scheduleBuild, settle } = useAutoBuild(pageSlug, files, setBuild);
   const setActiveContent = useCallback((v: string) => {
     setFiles((prev) => ({ ...prev, [active]: v }));
     scheduleBuild();
@@ -78,9 +78,12 @@ export function PageEditor({ slug }: { slug: string }) {
     setActive((cur) => (path === '' ? cur : path));
   }, []);
 
+  // Publish takes over the edit it follows: the pending auto-build becomes this build (settle), so
+  // one build goes live and one build writes the status line.
   const publish = useCallback(() => {
-    void run(() => shipFilesLive(pageSlug.trim(), files, build, setBuild), { success: t('published') });
-  }, [run, pageSlug, files, build, t]);
+    void run(() => shipSettled(pageSlug.trim(), files, build, settle, setBuild),
+      { success: t('published') });
+  }, [run, pageSlug, files, build, settle, t]);
 
   return (
     <div data-testid="microsite-editor">

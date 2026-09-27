@@ -1,7 +1,7 @@
-// corpus_views.go — item shapes and converters for the tree view / page view.
+// corpus_views.go — item shapes and converters for the tree view.
 //
-// These two views are browsing shapes **unique to the panel** (lazily-loaded tree nodes,
-// fetched by page) and don't go through the outbound convergence point: the convergence
+// The tree is a browsing shape **unique to the panel** (lazily-loaded tree nodes) and
+// doesn't go through the outbound convergence point: the convergence
 // point gives "one corpus entry", these views need "which nodes are at this layer, is
 // there another layer below". That's why item carries has_children — that's positional
 // information, not an attribute of the corpus entry itself.
@@ -41,6 +41,8 @@ type rawListItem struct {
 	// HasChildren — tree-view only: whether this node can still be drilled into (the
 	// lazily-loaded layer).
 	HasChildren bool `json:"has_children,omitempty"`
+	// Descendants — how many entries sit under this node: what a delete takes along (F-L-24).
+	Descendants int32 `json:"descendants,omitempty"`
 }
 
 type wikiListItem struct {
@@ -53,6 +55,7 @@ type wikiListItem struct {
 	CreatedAt    string   `json:"created_at"`
 	Tags         []string `json:"tags"`
 	SourceRawIDs []string `json:"source_raw_ids"`
+	Descendants  int32    `json:"descendants,omitempty"`
 	ShowAsSource bool     `json:"show_as_source"`
 	Published    bool     `json:"published"`
 	HasChildren  bool     `json:"has_children,omitempty"`
@@ -66,6 +69,7 @@ type outputListItem struct {
 	CreatedAt     string   `json:"created_at"`
 	Tags          []string `json:"tags"`
 	SourceWikiIDs []string `json:"source_wiki_ids"`
+	Descendants   int32    `json:"descendants,omitempty"`
 	ShowAsSource  bool     `json:"show_as_source"`
 	Published     bool     `json:"published"`
 	HasChildren   bool     `json:"has_children,omitempty"`
@@ -162,14 +166,14 @@ func logEncodeErr(log *slog.Logger, msg string, err error) {
 	}
 }
 
-// treeItem — the three item kinds the tree/page views can emit. Written as a named
+// treeItem — the three item kinds the tree view can emit. Written as a named
 // constraint rather than any: this write path only ever serves these three, and pinning
 // it down means no one can casually send something else out through it.
 type treeItem interface {
 	rawListItem | wikiListItem | outputListItem
 }
 
-// writeItemsJSON — the tree/page views' shared 200 + array response.
+// writeItemsJSON — the tree view's shared 200 + array response.
 func writeItemsJSON[T treeItem](log *slog.Logger, w http.ResponseWriter, msg string, items []T) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)

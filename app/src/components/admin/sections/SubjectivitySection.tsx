@@ -27,6 +27,7 @@ import { runWith } from '@/lib/admin/use-corpus-form';
 import {
   useSubjectivity, loadSubjectivityTreeChildren, type SubjectivityEntry,
 } from '@/lib/admin/use-subjectivity';
+import { totalLabel } from '@/lib/state/create-paged-store';
 import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 
 export function SubjectivitySection() {
@@ -53,7 +54,7 @@ function Header(
       <SectionHeader
         kicker={tk('subjectivity')}
         slug="subjectivity"
-        count={hook.state === 'list' ? tc('notes', { n: hook.rows.length }) : ''}
+        count={totalLabel(hook.page.total, (n) => tc('notes', { n }))}
         action={<NewBtn onClick={() => setCreating(true)} disabled={creating} />}
       />
       {creating ? (
@@ -115,7 +116,7 @@ function Body(
 ) {
   const map = {
     loading: <ListSkeleton count={3} />,
-    error: <ErrorBlock message={hook.error ?? ''} />,
+    error: <ErrorBlock message={hook.page.error ?? ''} />,
     empty: <EmptyState />,
     list: <ReadyBody hook={hook} actions={actions} />,
   } as const;
@@ -123,7 +124,7 @@ function Body(
 }
 
 // ReadyBody —— the tree/grid, same as wiki/output/raw: a lazy hierarchy from
-// /corpus/subjectivity/tree (tree view) or the flat card wall over the loaded rows (grid view).
+// /corpus/subjectivity/tree (tree view) or the flat card wall over the paged list (grid view).
 function ReadyBody(
   { hook, actions }: { hook: SubjectivityHookT; actions: CorpusActionsHook },
 ) {
@@ -134,7 +135,7 @@ function ReadyBody(
         <CorpusViewToggle view={view} onChange={setView} />
       </div>
       <CorpusTreeGrid
-        view={view} rows={hook.rows} testid="subjectivity-list"
+        view={view} rows={hook.page.items} more={hook.page} testid="subjectivity-list"
         rowTestid={(r) => `subjectivity-row-${r.id}`}
         loadChildren={loadSubjectivityTreeChildren}
         renderCard={(row, { hasChildren }) => (

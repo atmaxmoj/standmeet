@@ -161,6 +161,16 @@ func uniquePath(base string, taken map[string]string) string {
 // mismatch and reject everything under ACL.
 func SlugifyTitle(title string) string { return PathSegment(title) }
 
+// PathFromTitles —— the address of a row whose root→leaf title chain the query already walked
+// (a page or tree row's path_titles). Empty chain = no address.
+func PathFromTitles(titles []string) string {
+	segs := make([]string, len(titles))
+	for i, t := range titles {
+		segs[i] = PathSegment(t)
+	}
+	return strings.Join(segs, "/")
+}
+
 // PathSegment —— converts a title into a URL-safe path segment: lowercase; letters/digits
 // (including unicode, since the citext path column can hold it) count as words, everything
 // else counts as a separator → FieldsFunc splits words + joins with '-' (automatically trims

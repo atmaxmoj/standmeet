@@ -11,31 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const countNoteDescendants = `-- name: CountNoteDescendants :one
-WITH RECURSIVE sub AS (
-  SELECT cn.id FROM corpus_notes cn
-  WHERE cn.parent_id = $2 AND cn.owner_id = $1 AND cn.genre = $3
-  UNION ALL
-  SELECT n.id FROM corpus_notes n JOIN sub ON n.parent_id = sub.id
-)
-SELECT count(*) FROM sub
-`
-
-type CountNoteDescendantsParams struct {
-	OwnerID  pgtype.UUID
-	ParentID pgtype.UUID
-	Genre    string
-}
-
-// Exact recursive descendant count for one node — the delete-cascade warning
-// ("also deletes its N child entries"). On-demand (one user action), not per level.
-func (q *Queries) CountNoteDescendants(ctx context.Context, arg CountNoteDescendantsParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countNoteDescendants, arg.OwnerID, arg.ParentID, arg.Genre)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const countNoteStats = `-- name: CountNoteStats :one
 SELECT
   count(*) AS entries,
@@ -62,6 +37,43 @@ func (q *Queries) CountNoteStats(ctx context.Context, arg CountNoteStatsParams) 
 	var i CountNoteStatsRow
 	err := row.Scan(&i.Entries, &i.Roots, &i.Gated)
 	return i, err
+}
+
+const countNotes = `-- name: CountNotes :one
+SELECT count(*)::int FROM corpus_notes t
+WHERE t.owner_id = $1 AND t.genre = $2 AND NOT t.archived
+  AND ($3::text = '' OR $3::text = ANY(t.tags))
+  AND ($4::text = '' OR t.title ILIKE '%' || $4 || '%')
+  AND ($5::text = ''
+    OR ($5 = 'published' AND t.published)
+    OR ($5 = 'draft' AND NOT t.published)
+    OR ($5 = 'unprocessed' AND t.promoted_to IS NULL)
+    OR ($5 = 'promoted' AND t.promoted_to IS NOT NULL)
+    OR ($5 = 'flagged' AND t.flagged_private))
+`
+
+type CountNotesParams struct {
+	OwnerID pgtype.UUID
+	Genre   string
+	Tag     string
+	Q       string
+	State   string
+}
+
+// The page's total: how many entries of one genre match the ListNotesPage filters, cursor aside.
+// A separate query, not a page column: a page with no rows has nowhere to carry it. Keep the
+// filters identical to ListNotesPage's.
+func (q *Queries) CountNotes(ctx context.Context, arg CountNotesParams) (int32, error) {
+	row := q.db.QueryRow(ctx, countNotes,
+		arg.OwnerID,
+		arg.Genre,
+		arg.Tag,
+		arg.Q,
+		arg.State,
+	)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
 const createNote = `-- name: CreateNote :one
@@ -1026,10 +1038,18 @@ WITH RECURSIVE up AS (
   UNION ALL
   SELECT up.leaf_id, p.id, p.parent_id, p.title || up.path_titles
   FROM corpus_notes p JOIN up ON p.id = up.parent_id
+), down AS (
+  -- every descendant of each node in this layer, for the delete warning (F-L-24)
+  SELECT d.parent_id AS root_id, d.id FROM corpus_notes d JOIN corpus_notes l ON d.parent_id = l.id
+  WHERE l.owner_id = $1 AND l.genre = $2
+    AND (($3::uuid IS NULL AND l.parent_id IS NULL) OR l.parent_id = $3)
+  UNION ALL
+  SELECT down.root_id, e.id FROM corpus_notes e JOIN down ON e.parent_id = down.id
 )
 SELECT n.id, n.owner_id, n.genre, n.parent_id, n.title, n.body, n.tags, n.aliases, n.source_ids, n.show_as_source, n.excerpt, n.published, n.css_classes, n.lang, n.lang_labels, n.obsidian_source_path, n.obsidian_imported_at, n.obsidian_frontmatter, n.inbox_source, n.inbox_meta, n.flagged_private, n.archived, n.promoted_to, n.slug, n.visibility, n.locked_body, n.cover_headline, n.cover_hue, n.cover_image_asset_id, n.read_minutes, n.cross_refs, n.published_at, n.created_at, n.updated_at,
        EXISTS(SELECT 1 FROM corpus_notes ch WHERE ch.parent_id = n.id AND ch.genre = $2) AS has_children,
-       (SELECT u.path_titles FROM up u WHERE u.leaf_id = n.id AND u.parent_id IS NULL LIMIT 1) AS path_titles
+       (SELECT u.path_titles FROM up u WHERE u.leaf_id = n.id AND u.parent_id IS NULL LIMIT 1) AS path_titles,
+       (SELECT count(*) FROM down WHERE down.root_id = n.id)::int AS descendants
 FROM corpus_notes n
 WHERE n.owner_id = $1 AND n.genre = $2
   AND (($3::uuid IS NULL AND n.parent_id IS NULL) OR n.parent_id = $3)
@@ -1046,6 +1066,7 @@ type ListNoteChildrenAdminRow struct {
 	CorpusNote  CorpusNote
 	HasChildren bool
 	PathTitles  []string
+	Descendants int32
 }
 
 // Admin lazy tree layer: one parent's direct children as FULL rows (body/tags/excerpt/…) +
@@ -1098,6 +1119,7 @@ func (q *Queries) ListNoteChildrenAdmin(ctx context.Context, arg ListNoteChildre
 			&i.CorpusNote.UpdatedAt,
 			&i.HasChildren,
 			&i.PathTitles,
+			&i.Descendants,
 		); err != nil {
 			return nil, err
 		}
@@ -1177,66 +1199,85 @@ func (q *Queries) ListNotesByOwner(ctx context.Context, arg ListNotesByOwnerPara
 	return items, nil
 }
 
-const listNotesByOwnerPage = `-- name: ListNotesByOwnerPage :many
-WITH RECURSIVE up AS (
+const listNotesPage = `-- name: ListNotesPage :many
+WITH RECURSIVE page AS (
+  SELECT p.id FROM corpus_notes p
+  WHERE p.owner_id = $1 AND p.genre = $2 AND NOT p.archived
+    AND ($3::text = '' OR $3::text = ANY(p.tags))
+    AND ($4::text = '' OR p.title ILIKE '%' || $4 || '%')
+    AND ($5::text = ''
+      OR ($5 = 'published' AND p.published)
+      OR ($5 = 'draft' AND NOT p.published)
+      OR ($5 = 'unprocessed' AND p.promoted_to IS NULL)
+      OR ($5 = 'promoted' AND p.promoted_to IS NOT NULL)
+      OR ($5 = 'flagged' AND p.flagged_private))
+    AND ($6::timestamptz IS NULL
+      OR (p.created_at, p.id) < ($6, $7::uuid))
+  ORDER BY p.created_at DESC, p.id DESC
+  LIMIT $8
+), up AS (
   SELECT c.id AS leaf_id, c.id, c.parent_id, ARRAY[c.title]::text[] AS path_titles
-  FROM corpus_notes c
-  WHERE c.owner_id = $1 AND c.genre = $2
-    AND ($3::timestamptz IS NULL OR (c.created_at, c.id) < ($3::timestamptz, $4::uuid))
+  FROM corpus_notes c JOIN page ON page.id = c.id
   UNION ALL
-  SELECT up.leaf_id, p.id, p.parent_id, p.title || up.path_titles
-  FROM corpus_notes p JOIN up ON p.id = up.parent_id
+  SELECT up.leaf_id, a.id, a.parent_id, a.title || up.path_titles
+  FROM corpus_notes a JOIN up ON a.id = up.parent_id
+), down AS (
+  SELECT d.parent_id AS root_id, d.id FROM corpus_notes d JOIN page ON d.parent_id = page.id
+  UNION ALL
+  SELECT down.root_id, e.id FROM corpus_notes e JOIN down ON e.parent_id = down.id
 )
 SELECT n.id, n.owner_id, n.genre, n.parent_id, n.title, n.body, n.tags, n.aliases, n.source_ids, n.show_as_source, n.excerpt, n.published, n.css_classes, n.lang, n.lang_labels, n.obsidian_source_path, n.obsidian_imported_at, n.obsidian_frontmatter, n.inbox_source, n.inbox_meta, n.flagged_private, n.archived, n.promoted_to, n.slug, n.visibility, n.locked_body, n.cover_headline, n.cover_hue, n.cover_image_asset_id, n.read_minutes, n.cross_refs, n.published_at, n.created_at, n.updated_at,
-       (SELECT u.path_titles FROM up u WHERE u.leaf_id = n.id AND u.parent_id IS NULL LIMIT 1) AS path_titles
-FROM corpus_notes n
-WHERE n.owner_id = $1 AND n.genre = $2
-  AND ($3::timestamptz IS NULL OR (n.created_at, n.id) < ($3::timestamptz, $4::uuid))
-  AND ($6::text IS NULL OR $6::text = '' OR $6::text = ANY(n.tags))
+       (SELECT u.path_titles FROM up u WHERE u.leaf_id = n.id AND u.parent_id IS NULL LIMIT 1) AS path_titles,
+       (SELECT count(*) FROM down WHERE down.root_id = n.id)::int AS descendants
+FROM corpus_notes n JOIN page ON page.id = n.id
 ORDER BY n.created_at DESC, n.id DESC
-LIMIT $5
 `
 
-type ListNotesByOwnerPageParams struct {
+type ListNotesPageParams struct {
 	OwnerID pgtype.UUID
 	Genre   string
-	Column3 pgtype.Timestamptz
-	Column4 pgtype.UUID
-	Limit   int32
-	Column6 string
+	Tag     string
+	Q       string
+	State   string
+	AfterAt pgtype.Timestamptz
+	AfterID pgtype.UUID
+	Lim     int32
 }
 
-type ListNotesByOwnerPageRow struct {
-	CorpusNote CorpusNote
-	PathTitles []string
+type ListNotesPageRow struct {
+	CorpusNote  CorpusNote
+	PathTitles  []string
+	Descendants int32
 }
 
-// Grid pagination (infinite scroll): keyset on (created_at DESC, id DESC). $3/$4 = the
-// last row's (created_at, id) cursor — both NULL = first page. Composite tiebreak because
-// a vault sync batch can share created_at. LIMIT $5 (+1 caller-side → has_more). Full row
-// via sqlc.embed + path_titles so the server slugifies the address even on a partial page.
+// One page of one genre, newest first (docs/design/paging.md): corpus.list, the admin grids and
+// the parent pickers all read it. Every filter runs here, before the LIMIT: a filter applied to a
+// loaded page reports "none match" while matches sit on page 2 (F-L-23).
 //
-// $6 = tag filter (” / NULL = no filter). It has to live HERE, next to the ORDER BY and the
-// LIMIT, because the page is what the cursor walks: filtering client-side after the fact means
-// the filter only ever sees one page, which is how the panel came to report 1 math note against
-// a corpus holding 137 (F-L-23). The recursive CTE stays unfiltered on purpose — it only exists
-// to resolve each returned row's ancestor titles, and narrowing it would not change any answer.
-func (q *Queries) ListNotesByOwnerPage(ctx context.Context, arg ListNotesByOwnerPageParams) ([]ListNotesByOwnerPageRow, error) {
-	rows, err := q.db.Query(ctx, listNotesByOwnerPage,
+//	tag   — the entry carries this tag (empty = any).
+//	q     — case-insensitive substring of the title (empty = any).
+//	state — empty = all; published / draft; raw only: unprocessed / promoted / flagged.
+//
+// The page is picked first; ancestor titles (the address) and descendant counts (the delete
+// warning, F-L-24) are then computed for its rows only. CountNotes gives the page's total.
+func (q *Queries) ListNotesPage(ctx context.Context, arg ListNotesPageParams) ([]ListNotesPageRow, error) {
+	rows, err := q.db.Query(ctx, listNotesPage,
 		arg.OwnerID,
 		arg.Genre,
-		arg.Column3,
-		arg.Column4,
-		arg.Limit,
-		arg.Column6,
+		arg.Tag,
+		arg.Q,
+		arg.State,
+		arg.AfterAt,
+		arg.AfterID,
+		arg.Lim,
 	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListNotesByOwnerPageRow
+	var items []ListNotesPageRow
 	for rows.Next() {
-		var i ListNotesByOwnerPageRow
+		var i ListNotesPageRow
 		if err := rows.Scan(
 			&i.CorpusNote.ID,
 			&i.CorpusNote.OwnerID,
@@ -1273,6 +1314,7 @@ func (q *Queries) ListNotesByOwnerPage(ctx context.Context, arg ListNotesByOwner
 			&i.CorpusNote.CreatedAt,
 			&i.CorpusNote.UpdatedAt,
 			&i.PathTitles,
+			&i.Descendants,
 		); err != nil {
 			return nil, err
 		}

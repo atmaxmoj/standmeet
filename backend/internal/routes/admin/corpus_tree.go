@@ -2,15 +2,14 @@
 // admin corpus tree (an empty parent means the root layer). Owner-scoped, stateless.
 // Expanding each node fires one request; the full tree is never pulled at once, keeping
 // admin scale-safe on a large corpus. The response shape is a flat list item +
-// has_children (can it be drilled into). path is the root→leaf title chain slugified
-// server-side (SlugifyTitle is the single source, so the frontend never computes its own
-// copy — prevents drift).
+// has_children (can it be drilled into) + descendants (what a delete takes along, F-L-24).
+// path is the root→leaf title chain slugified server-side (PathFromTitles is the single
+// source, so the frontend never computes its own copy — prevents drift).
 
 package admin
 
 import (
 	"net/http"
-	"strings"
 
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	"github.com/atmaxmoj/standmeet/internal/infra/middleware"
@@ -27,9 +26,7 @@ func (h *Handlers) treeWiki() http.HandlerFunc {
 		}
 		items := make([]wikiListItem, 0, len(rows))
 		for i := range rows {
-			it := wikiItemFromDomain(&rows[i].Entry, slugJoin(rows[i].PathTitles))
-			it.HasChildren = rows[i].HasChildren
-			items = append(items, it)
+			items = append(items, wikiTreeItem(&rows[i]))
 		}
 		writeItemsJSON(h.Log, w, "encode wiki tree", items)
 	}
@@ -46,9 +43,7 @@ func (h *Handlers) treeOutput() http.HandlerFunc {
 		}
 		items := make([]outputListItem, 0, len(rows))
 		for i := range rows {
-			it := outputItemFromDomain(&rows[i].Entry, slugJoin(rows[i].PathTitles))
-			it.HasChildren = rows[i].HasChildren
-			items = append(items, it)
+			items = append(items, outputTreeItem(&rows[i]))
 		}
 		writeItemsJSON(h.Log, w, "encode output tree", items)
 	}
@@ -71,34 +66,32 @@ func (h *Handlers) treeRaw() http.HandlerFunc {
 	}
 }
 
+// wikiTreeItem / outputTreeItem —— one tree child → list item, with its drill-down flag and the
+// descendant count a delete takes along (F-L-24).
+func wikiTreeItem(c *corpus.TreeChild[corpus.Wiki]) wikiListItem {
+	it := wikiItemFromDomain(&c.Entry, corpus.PathFromTitles(c.PathTitles))
+	it.HasChildren, it.Descendants = c.HasChildren, c.Descendants
+	return it
+}
+
+func outputTreeItem(c *corpus.TreeChild[corpus.Output]) outputListItem {
+	it := outputItemFromDomain(&c.Entry, corpus.PathFromTitles(c.PathTitles))
+	it.HasChildren, it.Descendants = c.HasChildren, c.Descendants
+	return it
+}
+
 // rawTreeItem —— one raw tree child → list item. Shares rawItemBase so the tree view carries the
 // same clean Preview / Status as the flat list (F-R-1: the tree path used to build its own item and
 // leaked raw markup into the card); only the tree-specific fields are added here.
 func rawTreeItem(c *corpus.TreeChild[corpus.Raw]) rawListItem {
 	row := &c.Entry
 	it := rawItemFromDomain(row)
-	it.HasChildren = c.HasChildren
-	if p := slugJoin(c.PathTitles); p != "" {
-		it.Path = &p
-	}
+	it.HasChildren, it.Descendants = c.HasChildren, c.Descendants
+	it.Path = ptrIfNonEmpty(corpus.PathFromTitles(c.PathTitles))
 	if pid, ok := row.ParentID(); ok {
 		it.ParentID = &pid
 	}
 	return it
-}
-
-// slugJoin — joins the root→leaf title chain into an address after slugifying;
-// SlugifyTitle is the single slug source, so frontend and backend never compute it
-// separately.
-func slugJoin(titles []string) string {
-	if len(titles) == 0 {
-		return ""
-	}
-	segs := make([]string, len(titles))
-	for i, t := range titles {
-		segs[i] = corpus.SlugifyTitle(t)
-	}
-	return strings.Join(segs, "/")
 }
 
 // optParent — an empty ?parent= → nil (the root layer); non-empty → a pointer.

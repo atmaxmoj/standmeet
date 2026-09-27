@@ -55,6 +55,7 @@
   "form": {
     "title": "title",
     "parent": "parent node (optional)",
+    "parentSearch": "タイトルで検索",
     "entryHeading": "the note itself (body, files, tags)"
   },
   "seoEditor": {
@@ -118,6 +119,7 @@
     "hueViolet": "violet",
     "hueAcid": "acid",
     "parent": "parent (reader tree)",
+    "currentParent": "現在の親",
     "publishImmediately": "publish immediately",
     "coverImage": "cover image (optional)",
     "chooseCover": "choose an image",

@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus/entity"
+	"github.com/atmaxmoj/standmeet/internal/corpus/repo"
 	"github.com/atmaxmoj/standmeet/internal/corpus/usecase"
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 	"github.com/atmaxmoj/standmeet/internal/infra/paging"
@@ -154,22 +155,23 @@ func (d WritingsDeps) assetURLs(ctx context.Context, wg *entity.Writing) map[str
 	return urls
 }
 
-type writingListArgs struct {
-	Tag string `json:"tag"`
-}
-
 var writingListFilters = json.RawMessage(`{
 	"type":"object",
-	"properties":{"tag":{"type":"string","description":"Only writings with this tag."}}
+	"properties":{
+		"tag":{"type":"string","description":"Only writings with this tag."},
+		"q":{"type":"string","description":"Case-insensitive substring of the title."},
+		"state":{"type":"string","enum":["","published","draft"],
+			"description":"Only published writings, or only drafts."}
+	}
 }`)
 
 func listWritings(deps WritingsDeps) fp.Invoke {
 	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
-		in, perr := paging.ParseArgs[writingListArgs](raw)
+		in, perr := paging.ParseArgs[repo.NoteFilter](raw)
 		if perr != nil {
 			return nil, fp.BadInput("invalid arguments: " + perr.Error())
 		}
-		page, err := usecase.ListAllWritings(ctx, deps.Writings, ownerID, in.Filter.Tag, in.Req)
+		page, err := usecase.ListAllWritings(ctx, deps.Writings, ownerID, in.Filter, in.Req)
 		if err != nil {
 			return nil, writingErr(err)
 		}

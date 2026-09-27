@@ -58,7 +58,7 @@ test.describe('corpus.create · a broken multilingual body is refused', () => {
   });
 
   test('and the note was NOT created', async () => {
-    const list = await callTool<{ title: string }[]>(
+    const { items: list } = await callTool<{ items: { title: string }[] }>(
       api, token, sid, 'corpus.list', { genre: 'wiki' },
     );
     expect(list.some((e) => e.title === 'Broken'), 'nothing was written').toBe(false);
@@ -87,10 +87,10 @@ test.describe('corpus.check_i18n · the same answer, without writing', () => {
   });
 
   test('and writes nothing', async () => {
-    const list = await callTool<{ title: string }[]>(
+    const page = await callTool<{ total: number }>(
       api, token, sid, 'corpus.list', { genre: 'wiki' },
     );
-    expect(list.length, 'only the accepted note exists').toBe(1);
+    expect(page.total, 'only the accepted note exists').toBe(1);
   });
 
   test('a good body reports the languages it found', async () => {

@@ -95,8 +95,10 @@ export async function adminGenreList(
   request: APIRequestContext, owner: SyncOwner, genre: string,
 ): Promise<AdminNote[]> {
   const { csrf } = await loginAPI(request, owner.email, owner.password);
-  const res = await request.get(`${BACKEND}/api/admin/corpus/${genre}`, { headers: { 'X-Csrftoken': csrf } });
-  return await res.json() as AdminNote[];
+  const res = await request.get(`${BACKEND}/api/admin/corpus/${genre}?limit=200`, {
+    headers: { 'X-Csrftoken': csrf },
+  });
+  return (await res.json() as { items: AdminNote[] }).items;
 }
 
 // adminNoteRefs —— owner admin's outbound/backlinks title list for one note.

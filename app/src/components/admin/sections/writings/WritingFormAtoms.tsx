@@ -7,8 +7,10 @@ import { useTranslations } from 'next-intl';
 import type { ReactNode } from 'react';
 
 import { Btn } from '@/components/admin/atoms/Btn';
+import { PickerSearchField } from '@/components/admin/PickerSearchField';
 import { SelectField } from '@/components/atoms/SelectField';
 import { WritingEditor } from '@/components/writings/editor';
+import { currentParent, useParentPicker } from '@/lib/admin/use-parent-picker';
 import type { PendingFile } from '@/lib/writings/upload-asset';
 
 export function WritingFieldRow({ children }: { children: ReactNode }) {
@@ -72,23 +74,32 @@ export function CoverHueSelect({
 // Options come from the caller (other writings); cycles (attaching under one's
 // own descendant) are blocked with a 400 by the backend's reparent validation.
 export function ParentSelect({
-  value, options, onChange,
-}: { value: string; options: { id: string; title: string }[]; onChange: (v: string) => void }) {
+  value, excludeID, onChange,
+}: { value: string; excludeID: string; onChange: (v: string) => void }) {
   const t = useTranslations('adminCorpus');
+  const picker = useParentPicker('/writings/', {
+    exclude: excludeID, current: currentParent(value, t('writings.currentParent')), labelBy: 'title',
+  });
+  // A div, not a label: the search box and the select are two controls, each named on its own.
   return (
-    <label className="flex flex-col gap-1">
+    <div className="flex flex-col gap-1">
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted)">
         {t('writings.parent')}
       </span>
+      <PickerSearchField
+        value={picker.query} onChange={picker.setQuery}
+        placeholder={t('form.parentSearch')} testid="writing-parent-search"
+      />
       <SelectField
         value={value}
         onChange={(e) => onChange(e.target.value)}
         testid="writing-field-parent"
+        aria-label={t('writings.parent')}
       >
         <option value="">{t('common.noneRoot')}</option>
-        {options.map((o) => <option key={o.id} value={o.id}>{o.title}</option>)}
+        {picker.options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
       </SelectField>
-    </label>
+    </div>
   );
 }
 

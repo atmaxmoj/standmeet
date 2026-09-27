@@ -85,7 +85,7 @@ interface WikiRow { id: string; title: string; parent_id?: string | null }
 
 async function wikiList(adminPage: Page): Promise<WikiRow[]> {
   const res = await adminPage.request.get(`${BACKEND}/api/admin/corpus/wiki?limit=200`);
-  return await res.json() as WikiRow[];
+  return (await res.json() as { items: WikiRow[] }).items;
 }
 
 async function entryID(adminPage: Page, title: string): Promise<string> {

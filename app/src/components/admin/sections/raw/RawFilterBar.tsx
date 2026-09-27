@@ -21,7 +21,8 @@ const FILTER_KEY: Record<RawFilter, string> = {
 
 type Props = {
   filter: RawFilter;
-  counts: Record<RawFilter, number>;
+  // counts —— each tab's server total; undefined until they arrive (the tab shows no number).
+  counts: Record<RawFilter, number> | undefined;
   setFilter: (f: RawFilter) => void;
 };
 
@@ -29,7 +30,7 @@ export function RawFilterBar({ filter, counts, setFilter }: Props) {
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {ORDER.map((f) => (
-        <FilterButton key={f} f={f} active={f === filter} count={counts[f]} setFilter={setFilter} />
+        <FilterButton key={f} f={f} active={f === filter} count={counts?.[f]} setFilter={setFilter} />
       ))}
     </div>
   );
@@ -37,7 +38,7 @@ export function RawFilterBar({ filter, counts, setFilter }: Props) {
 
 function FilterButton({
   f, active, count, setFilter,
-}: { f: RawFilter; active: boolean; count: number; setFilter: (f: RawFilter) => void }) {
+}: { f: RawFilter; active: boolean; count: number | undefined; setFilter: (f: RawFilter) => void }) {
   const t = useTranslations('adminCorpus.filter');
   const cls = active
     ? 'text-(--color-ink) border-b border-(--color-accent)'

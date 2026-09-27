@@ -177,8 +177,8 @@ interface WikiRow { id: string; title: string }
 // idOfPath —— the ancestor's own id, looked up by the title seedWiki gave it (each path segment
 // becomes a node whose title is that segment).
 async function idOfPath(request: APIRequestContext, title: string): Promise<string> {
-  const rows = await callTool<WikiRow[]>(
-    request, token, sid, 'corpus.list', { genre: 'wiki', limit: 200 },
+  const { items: rows } = await callTool<{ items: WikiRow[] }>(
+    request, token, sid, 'corpus.list', { genre: 'wiki', q: title },
   );
   const hit = rows.find((r) => r.title === title);
   expect(hit, `the seeded ancestor "${title}" must exist`).toBeTruthy();

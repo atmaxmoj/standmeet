@@ -26,28 +26,26 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/corpus/usecase"
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
+	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 )
 
 // The genre constants + which genres each op accepts all live in genres.go — that question used
 // to be answered separately in three places, now it's answered in one.
 
-const (
-	// defaultCorpusLimit / maxCorpusLimit —— the list window. Admin and MCP share one bound.
-	defaultCorpusLimit = 50
-	maxCorpusLimit     = 200
-	// previewMaxLen —— length of the clean lead paragraph shown on a card.
-	previewMaxLen = 200
-)
+// previewMaxLen —— length of the clean lead paragraph shown on a card.
+const previewMaxLen = 200
 
 // CorpusReads —— list / get. The write half lives in corpus_write.go.
 func CorpusReads(deps usecase.Deps) []fp.Op {
 	return []fp.Op{
 		{
 			ID: "corpus.list",
-			Description: "List corpus entries of one genre, newest first. genre is 'raw', " +
-				"'wiki' or 'output'. Raw items carry their body (the card edits it in place); " +
-				"wiki and output carry a clean lead preview — fetch the body with corpus.get.",
-			InputSchema: corpusListSchema,
+			Description: "List corpus entries of one genre, newest first, one page at a time " +
+				"({items, next_cursor, total}). genre is 'raw', 'wiki', 'output' or " +
+				"'subjectivity'. Filter by tag, title substring (q) or state. Raw items carry " +
+				"their body (the card edits it in place); the others carry a clean lead preview " +
+				"— fetch the body with corpus.get.",
+			InputSchema: paging.Schema(corpusListFilters),
 			Kind:        fp.Read,
 			Reach:       fp.OwnerRead(),
 			Invoke:      listCorpus(deps),
@@ -66,11 +64,16 @@ func CorpusReads(deps usecase.Deps) []fp.Op {
 }
 
 var (
-	corpusListSchema = json.RawMessage(`{
+	corpusListFilters = json.RawMessage(`{
 		"type":"object",
 		"properties":{
-			"genre":{"type":"string","description":"'raw' | 'wiki' | 'output'."},
-			"limit":{"type":"integer","description":"Max rows (default 50, max 200)."}
+			"genre":{"type":"string","description":"'raw' | 'wiki' | 'output' | 'subjectivity'."},
+			"tag":{"type":"string","description":"Only entries carrying this tag."},
+			"q":{"type":"string","description":"Case-insensitive substring of the title."},
+			"state":{"type":"string",
+				"enum":["","published","draft","unprocessed","promoted","flagged"],
+				"description":
+				"published / draft; for raw also unprocessed, promoted, flagged (private)."}
 		},
 		"required":["genre"]
 	}`)
@@ -126,11 +129,14 @@ type corpusItemOut struct {
 	Backlinks     []refOut `json:"backlinks,omitempty"`
 	// Assets — images / attachments hung on this entry. They belong to the article;
 	// visibility is inherited from it.
-	Assets       []usecase.AssetView `json:"assets,omitempty"`
-	IndexJobID   int64               `json:"index_job_id,omitempty"` // see Indexed
-	ShowAsSource bool                `json:"show_as_source"`
-	Published    bool                `json:"published"`
-	HasChildren  bool                `json:"has_children,omitempty"`
+	Assets     []usecase.AssetView `json:"assets,omitempty"`
+	IndexJobID int64               `json:"index_job_id,omitempty"` // see Indexed
+	// Descendants —— how many entries sit under this one (list rows): what a delete takes with
+	// it. Counted by the server, never from the rows a client happened to load (F-L-24).
+	Descendants  int32 `json:"descendants,omitempty"`
+	ShowAsSource bool  `json:"show_as_source"`
+	Published    bool  `json:"published"`
+	HasChildren  bool  `json:"has_children,omitempty"`
 	// FlaggedPrivate —— raw's "don't let this one out" flag. **No read endpoint used to send
 	// it back at all**: the admin panel couldn't get it (`RawAdminViewSchema` defaulted it to
 	// `false`, so every entry displayed as not-private), and the owner's AI couldn't get it
@@ -145,35 +151,23 @@ type refOut struct {
 	Title string `json:"title"`
 }
 
+// corpusListArgs —— corpus.list's own filters (cursor and limit are paging's).
 type corpusListArgs struct {
 	Genre string `json:"genre"`
-	Limit int32  `json:"limit"`
+	Tag   string `json:"tag"`
+	Q     string `json:"q"`
+	State string `json:"state"`
 }
 
-func decodeCorpusList(raw json.RawMessage) (corpusListArgs, error) {
-	var in corpusListArgs
-	if err := json.Unmarshal(raw, &in); err != nil {
+func decodeCorpusList(raw json.RawMessage) (paging.Parsed[corpusListArgs], error) {
+	in, err := paging.ParseArgs[corpusListArgs](raw)
+	if err != nil {
 		return in, fp.BadInput("invalid arguments: " + err.Error())
 	}
 	// The read ops accept four genres — list and get are two granularities of the same
 	// thing; if one accepted subjectivity and the other didn't, the panel could fetch a
 	// single entry but never list it.
-	if err := requireGenre(in.Genre); err != nil {
-		return in, err
-	}
-	in.Limit = clampCorpusLimit(in.Limit)
-	return in, nil
-}
-
-// clampCorpusLimit —— unset / invalid → the default window; the upper bound is fixed.
-func clampCorpusLimit(n int32) int32 {
-	if n <= 0 {
-		return defaultCorpusLimit
-	}
-	if n > maxCorpusLimit {
-		return maxCorpusLimit
-	}
-	return n
+	return in, requireGenre(in.Filter.Genre)
 }
 
 func listCorpus(deps usecase.Deps) fp.Invoke {
@@ -182,26 +176,31 @@ func listCorpus(deps usecase.Deps) fp.Invoke {
 		if perr != nil {
 			return nil, perr
 		}
-		items, err := listByGenre(ctx, deps, ownerID, in)
+		page, err := listByGenre(ctx, deps, ownerID, in)
 		if err != nil {
 			return nil, corpusErr(err)
 		}
-		return json.Marshal(items)
+		return json.Marshal(page)
 	}
 }
 
 func listByGenre(
-	ctx context.Context, deps usecase.Deps, ownerID string, in corpusListArgs,
-) ([]corpusItemOut, error) {
-	switch in.Genre {
+	ctx context.Context, deps usecase.Deps, ownerID string, in paging.Parsed[corpusListArgs],
+) (paging.Page[corpusItemOut], error) {
+	f := repo.NoteFilter{Tag: in.Filter.Tag, Q: in.Filter.Q, State: in.Filter.State}
+	switch in.Filter.Genre {
 	case genreRaw:
-		return listRawItems(ctx, deps, ownerID, in.Limit)
+		p, err := deps.Raw.ListPage(ctx, ownerID, f, in.Req)
+		return pageItems(p, err, rawItem)
 	case genreWiki:
-		return listWikiItems(ctx, deps, ownerID, in.Limit)
+		p, err := deps.Wiki.ListPage(ctx, ownerID, f, in.Req)
+		return pageItems(p, err, wikiItem)
 	case genreSubjectivity:
-		return listSubjectivityItems(ctx, deps, ownerID, in.Limit)
+		p, err := deps.Subjectivity.ListPage(ctx, ownerID, f, in.Req)
+		return pageItems(p, err, subjectivityPathItem)
 	default:
-		return listOutputItems(ctx, deps, ownerID, in.Limit)
+		p, err := deps.Output.ListPage(ctx, ownerID, f, in.Req)
+		return pageItems(p, err, outputItem)
 	}
 }
 
@@ -326,6 +325,7 @@ var corpusErrClasses = []struct {
 	as       func() error
 }{
 	{apierr.ErrEmptyField, func() error { return fp.BadInput("required field is empty") }},
+	{paging.ErrBadCursor, func() error { return fp.BadInput("bad cursor") }},
 	{entity.ErrParentNotFound, func() error { return fp.BadInput("parent entry not found") }},
 	{entity.ErrParentCycle, func() error { return fp.BadInput("parent would create a cycle") }},
 	{entity.ErrSiblingSlugTaken, func() error {

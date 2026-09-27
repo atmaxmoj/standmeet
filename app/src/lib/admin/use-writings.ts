@@ -1,14 +1,13 @@
-// use-writings —— state for /admin/writings. A zustand store manages list cache +
-// status; actions: create / update / publish / unpublish / delete.
-
-import { useEffect } from 'react';
+// use-writings —— state for /admin/writings: the paged list, the header counts, and the actions
+// create / update / publish / unpublish / delete.
 
 import { z } from 'zod';
 
 import { adminAPI } from '@/lib/api/admin';
+import { fetchListTotal } from '@/lib/api/list-total';
 import { bumpCorpusEpoch } from '@/lib/admin/corpus-tree-epoch';
+import { createPagedStore, usePaged, type PagedState } from '@/lib/state/create-paged-store';
 import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
-import type { ResourceStatus } from '@/lib/state/status';
 import type { PendingFile } from '@/lib/writings/upload-asset';
 
 export const AdminWritingViewSchema = z.object({
@@ -63,10 +62,12 @@ export interface WritingSaveBundle {
   files: PendingFile[];
 }
 
+// WritingCounts —— the header's "N writings · M drafts", from the server's totals.
+export interface WritingCounts { published: number; drafts: number }
+
 export interface WritingsHook {
-  status: ResourceStatus;
-  writings: readonly AdminWritingView[];
-  error: string | null;
+  page: PagedState<AdminWritingView>;
+  counts: WritingCounts | undefined;
   refresh: () => Promise<void>;
   createWriting: (bundle: WritingSaveBundle) => Promise<void>;
   updateWriting: (id: string, bundle: WritingSaveBundle) => Promise<void>;
@@ -75,40 +76,36 @@ export interface WritingsHook {
   unpublishWriting: (id: string) => Promise<void>;
 }
 
-export const writingsStore = createResourceStore<AdminWritingView[]>({
-  name: 'writings',
-  fetcher: () => fetchEveryWriting(),
+// writingsPage —— writings.list, one page at a time (docs/design/paging.md): the grid, the list
+// view and the header all read it. It used to read every page into the browser.
+export const writingsPage = createPagedStore({
+  name: 'writings', path: '/writings/', item: AdminWritingViewSchema,
 });
 
-const WritingsPageSchema = z.object({
-  items: z.array(AdminWritingViewSchema), next_cursor: z.string().optional(),
+const writingCountsStore = createResourceStore<WritingCounts>({
+  name: 'writing-counts',
+  fetcher: async () => {
+    const [published, drafts] = await Promise.all([
+      fetchListTotal('/api/admin/writings/?state=published'),
+      fetchListTotal('/api/admin/writings/?state=draft'),
+    ]);
+    return { published, drafts };
+  },
 });
 
-// fetchEveryWriting —— every writing, page by page. ponytail: the section's list view and its
-// parent picker still hold the whole set in the browser; they move onto the paged grid with the
-// corpus sections (docs/design/paging.md, ledger). Reading every page keeps it complete meanwhile
-// — a capped read would drop the oldest writings without a word.
-async function fetchEveryWriting(): Promise<AdminWritingView[]> {
-  const out: AdminWritingView[] = [];
-  let cursor = '';
-  do {
-    const qs = cursor === '' ? '?limit=200' : `?limit=200&cursor=${encodeURIComponent(cursor)}`;
-    const page = await adminAPI.get(`/writings/${qs}`, WritingsPageSchema);
-    out.push(...page.items);
-    cursor = page.next_cursor ?? '';
-  } while (cursor !== '');
-  return out;
+// refreshWritings —— after a writing was added or removed (or an import landed): the page and the
+// counts both re-read. Where a row now sits is the server's to say.
+async function refreshWritings(): Promise<void> {
+  await Promise.all([writingsPage.getState().reload(), writingCountsStore.getState().refresh()]);
 }
 
 export function useWritings(): WritingsHook {
-  const r = useResource(writingsStore);
-  const ensureLoaded = r.ensureLoaded;
-  useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
+  const page = usePaged(writingsPage);
+  const counts = useResource(writingCountsStore);
   return {
-    status: r.status,
-    writings: r.data ?? [],
-    error: r.error,
-    refresh: writingsStore.getState().refresh,
+    page,
+    counts: counts.data,
+    refresh: refreshWritings,
     createWriting,
     updateWriting,
     deleteWriting,
@@ -119,11 +116,11 @@ export function useWritings(): WritingsHook {
 
 // The mutation throws (no longer swallowed into false): the caller finishes
 // up with useAction (one-click actions), or inline try/catch (forms: stay open on failure).
+// An edit replaces the row in place, so editing a writing on page 3 does not jump to page 1.
 async function updateWriting(id: string, bundle: WritingSaveBundle): Promise<void> {
   const fd = buildWritingFormData(bundle);
   const updated = await adminAPI.patchForm(`/writings/${id}`, fd, AdminWritingViewSchema);
-  writingsStore.getState().mutate((prev) =>
-    (prev ?? []).map((w) => w.id === updated.id ? updated : w));
+  writingsPage.getState().patch(updated.id, () => updated);
   bumpCorpusEpoch();
 }
 
@@ -137,8 +134,8 @@ async function updateWriting(id: string, bundle: WritingSaveBundle): Promise<voi
 // the codes list said "No codes yet" while the KPI counted 3).
 async function createWriting(bundle: WritingSaveBundle): Promise<void> {
   const fd = buildWritingFormData(bundle);
-  const created = await adminAPI.postForm('/writings/', fd, AdminWritingViewSchema);
-  writingsStore.getState().mutate((prev) => [created, ...(prev ?? [])]);
+  await adminAPI.postForm('/writings/', fd, AdminWritingViewSchema);
+  await refreshWritings();
   bumpCorpusEpoch();
 }
 
@@ -153,7 +150,7 @@ function buildWritingFormData(bundle: WritingSaveBundle): FormData {
 
 async function deleteWriting(id: string): Promise<void> {
   await adminAPI.deleteVoid(`/writings/${id}`);
-  writingsStore.getState().mutate((prev) => (prev ?? []).filter((w) => w.id !== id));
+  await refreshWritings();
   bumpCorpusEpoch();
 }
 
@@ -170,6 +167,6 @@ async function unpublishWriting(id: string): Promise<void> {
 async function flipPublish(id: string, publish: boolean): Promise<void> {
   const path = publish ? `/writings/${id}/publish` : `/writings/${id}/unpublish`;
   const updated = await adminAPI.post(path, {}, AdminWritingViewSchema);
-  writingsStore.getState().mutate((prev) =>
-    (prev ?? []).map((w) => w.id === updated.id ? updated : w));
+  writingsPage.getState().patch(updated.id, () => updated);
+  await writingCountsStore.getState().refresh();
 }

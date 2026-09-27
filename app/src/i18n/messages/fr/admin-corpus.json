@@ -55,6 +55,7 @@
   "form": {
     "title": "titre",
     "parent": "nœud parent (optionnel)",
+    "parentSearch": "rechercher par titre",
     "entryHeading": "la note elle-même (corps, fichiers, tags)"
   },
   "seoEditor": {
@@ -118,6 +119,7 @@
     "hueViolet": "violet",
     "hueAcid": "acide",
     "parent": "parent (arborescence de lecteur)",
+    "currentParent": "parent actuel",
     "publishImmediately": "publier immédiatement",
     "coverImage": "image de couverture (optionnel)",
     "chooseCover": "choisir une image",

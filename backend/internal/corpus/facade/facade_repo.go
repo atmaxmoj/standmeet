@@ -20,7 +20,6 @@ type (
 	NoteRepo            = repo.NoteRepo
 	OutputMeta          = repo.OutputMeta
 	OutputRepo          = repo.OutputRepo
-	PageCursor          = repo.PageCursor
 	RawRepo             = repo.RawRepo
 	SEORepo             = repo.SEORepo
 	SlugTitle           = repo.SlugTitle

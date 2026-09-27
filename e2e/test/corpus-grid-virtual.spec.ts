@@ -2,9 +2,9 @@
 // one keyset page at a time (never the whole corpus) and windows the DOM (only visible rows
 // rendered). Guards the other half of the owner's scale-safe ask ("the grid also needs a
 // virtual list — no performance problems").
-//   1. the first page loads (one /page request, no cursor); a page-2 row is neither fetched
-//      nor in the DOM;
-//   2. scrolling to the end fires a cursored /page request and the page-2 row appears;
+//   1. the first page loads (one corpus.list request, no cursor); a page-2 row is neither
+//      fetched nor in the DOM;
+//   2. scrolling to the end fires a cursored request and the page-2 row appears;
 //   3. the DOM stays windowed — far fewer row nodes than items loaded.
 
 import { test, expect } from '@/fixtures/test';
@@ -22,8 +22,8 @@ const OWNER = {
   fullName: 'Grid Virtual Owner',
 };
 
-// gridPageSize is 30 on the backend; seed a bit over one page so page 2 exists.
-const SEED = 33;
+// A page is 50 (the shared paginator's default); seed a bit over one page so page 2 exists.
+const SEED = 53;
 let firstID = '';
 let lastID = '';
 
@@ -53,7 +53,7 @@ test.describe('admin corpus virtual grid', () => {
       const pageReqs: string[] = [];
       adminPage.on('request', (r) => {
         const u = r.url();
-        if (u.includes('/corpus/wiki/page')) pageReqs.push(u);
+        if (/\/api\/admin\/corpus\/wiki(\?|$)/.test(u)) pageReqs.push(u);
       });
 
       await gotoAdminSection(adminPage, 'wiki');
@@ -65,9 +65,9 @@ test.describe('admin corpus virtual grid', () => {
       await expect.poll(() => pageReqs.filter((u) => !u.includes('cursor=')).length).toBe(1);
       expect(pageReqs.some((u) => u.includes('cursor='))).toBeFalsy();
 
-      // Windowing: far fewer row nodes in the DOM than the 30 items loaded.
+      // Windowing: far fewer row nodes in the DOM than the 50 items loaded.
       const domRows = await adminPage.getByTestId(/^wiki-row-/).count();
-      expect(domRows).toBeLessThan(30);
+      expect(domRows).toBeLessThan(50);
 
       // Scroll the grid container to the end → the next page loads (cursored request).
       await adminPage.getByTestId('wiki-list').evaluate((el) => {

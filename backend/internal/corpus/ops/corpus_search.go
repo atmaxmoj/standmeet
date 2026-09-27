@@ -2,7 +2,9 @@
 //
 // Why it has to exist (F-L-39/40/41): the owner's corpus holds 575 wiki entries + 450 raw
 // entries, and this side used to have only two read ops — `corpus.list` (the newest page, capped
-// at 200, **no offset**) and `corpus.get` (which requires already knowing the id). So "open my
+// at 200, **no offset**; it pages with a cursor since v0.1.84, but walking 1000 entries to find
+// one by content is still no way to find it) and `corpus.get` (which requires already knowing
+// the id). So "open my
 // good-regulator-theorem note" was impossible from the owner's AI client, and on `/admin/wiki`
 // the only tools were a tag filter plus eyeballing a two-column grid.
 //
@@ -53,7 +55,8 @@ func CorpusSearch(deps usecase.Deps) []fp.Op {
 		// retry with a different word.
 		Description: "Find corpus entries by what they say. Full-text over title + body " +
 			"inside one genre, with offset paging. Use this when you know roughly what a note " +
-			"says but not its id — corpus.list only shows the newest page. This is a lexical " +
+			"says but not its id — corpus.list walks every entry newest first (or narrows by " +
+			"title with q), which is slow for finding one note by content. This is a lexical " +
 			"index: substrings inside a word, terms glued to punctuation, and CJK tokenize " +
 			"badly, so an empty result does NOT mean the corpus lacks the material — retry " +
 			"with a distinctive whole word before concluding it isn't there.",
@@ -62,6 +65,21 @@ func CorpusSearch(deps usecase.Deps) []fp.Op {
 		Reach:       fp.OwnerRead(),
 		Invoke:      searchCorpus(deps),
 	}}
+}
+
+// searchLimitDefault / searchLimitMax —— the search window. Search is ranked by relevance and
+// pages by offset, so it keeps its own bound instead of the list cursor.
+const (
+	searchLimitDefault = 50
+	searchLimitMax     = 200
+)
+
+// clampSearchLimit —— unset / invalid → the default window; the upper bound is fixed.
+func clampSearchLimit(n int32) int32 {
+	if n <= 0 {
+		return searchLimitDefault
+	}
+	return min(n, searchLimitMax)
 }
 
 type corpusSearchArgs struct {
@@ -82,7 +100,7 @@ func decodeCorpusSearch(raw json.RawMessage) (corpusSearchArgs, error) {
 	if err := fp.RequireArgs([2]string{"query", in.Query}); err != nil {
 		return in, err
 	}
-	in.Limit = clampCorpusLimit(in.Limit)
+	in.Limit = clampSearchLimit(in.Limit)
 	if in.Offset < 0 {
 		in.Offset = 0
 	}

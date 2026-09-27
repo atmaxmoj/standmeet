@@ -77,7 +77,15 @@ envelope. That is deliberate: a bare-array list op is the unbounded shape this d
   `last_seen_at`) uses that column as `At`. A nullable order column is coalesced in the
   query and in the cursor the same way.
 
-The corpus and writings page handlers move onto this util. Their copies are deleted.
+The corpus and writings page handlers moved onto this util and their copies are deleted
+(v0.1.84): the admin grids read corpus.list / writings.list, and `/corpus/{genre}/page`,
+`/writings/page`, `corpus.PageCursor` and `use-corpus-page.ts` are gone. corpus.list picks the page
+first, then computes each row's address (root→leaf titles) and descendant count for that page only;
+the old query walked the whole genre's ancestry on every page.
+
+**Counts that used to come from loaded rows now come from the server.** A row's `descendants` (the
+delete warning's "also deletes N", F-L-24) is counted by the list query; the raw tabs are each
+filter's `total`; the writings header is the published / draft totals.
 
 ## Frontend util — `lib/ui/use-paged-list.ts` + `components/ui/LoadMore.tsx`
 
@@ -93,7 +101,7 @@ The corpus and writings page handlers move onto this util. Their copies are dele
 - `<LoadMore>`: a sentinel that loads the next page when it scrolls into view, and a button
   with the same action for keyboard users and for when the observer never fires. Hidden when
   `hasMore` is false.
-- `use-corpus-page.ts` moves onto it and is deleted (todo). The monitor panel's own
+- `use-corpus-page.ts` moved onto it and is deleted (v0.1.84). The monitor panel's own
   prev/next pager over one fetched window was deleted in v0.1.82: one paginator.
 
 ## Pickers
@@ -122,8 +130,10 @@ typing narrows on the server. One source, one shape.
 | API keys | api_keys.list (+ total) | owner-created | done v0.1.83 |
 | IP bans | ip_bans.list (+ total) | owner-created | done v0.1.83 |
 | microsites | microsite.list (+ slug, scope, q, total) | owner-created | done v0.1.83 |
-| corpus / admin writings grid | (hand-written routes) | already paged | move onto util (todo) |
-| admin writings list view + parent picker | reads every page of writings.list | — | todo, with the grid |
+| corpus (raw / wiki / output / subjectivity) | corpus.list (+ tag, q, state, total); rows carry descendants | hard cap (50 / 200) | done v0.1.84 |
+| admin corpus grids + writings grid | the section's corpus.list / writings.list page (the /page routes are deleted) | own copy | done v0.1.84 |
+| admin writings list view, header, parent picker | writings.list (+ q, state) | read every page | done v0.1.84 |
+| corpus parent pickers (wiki / output create, writings) | the genre's list with q (use-parent-picker) | loaded rows only | done v0.1.84 |
 
 Joins that replaced "look the id up in the full list": code rows carry `role_name`, embed rows
 carry `code`. A code card's "opens" select reads one shared options page (newest 200 pages) plus

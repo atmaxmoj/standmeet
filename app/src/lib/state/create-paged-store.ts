@@ -109,6 +109,12 @@ export function createPagedStore<S extends ItemSchema>(
   });
 }
 
+// reloadIfLoaded —— re-read a list another list's write touched (a promote adds to the next
+// genre), unless nobody has opened it yet: it loads fresh on first view anyway.
+export async function reloadIfLoaded<T>(store: PagedStore<T>): Promise<void> {
+  if (store.getState().status !== 'idle') await store.getState().reload();
+}
+
 // totalLabel —— a section header's count from the server's total; '' until it is known.
 export function totalLabel(total: number | null, format: (n: number) => string): string {
   return total === null ? '' : format(total);

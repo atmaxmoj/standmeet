@@ -35,12 +35,6 @@ export interface WritingFormValues {
   publish: boolean;
 }
 
-// ParentOption —— one entry in the "set parent" dropdown (another writing).
-export interface ParentOption {
-  id: string;
-  title: string;
-}
-
 // WritingFormSubmit —— values + files pending upload. The caller in
 // WritingsSection converts this into a WritingSaveBundle for createWriting / updateWriting.
 export interface WritingFormSubmit {
@@ -62,9 +56,9 @@ interface Props {
   showPublishToggle: boolean;
   submitLabel: string;
   submitTestId: string;
-  // parentOptions —— candidates for the "set parent" dropdown (other writings;
-  // self already excluded on edit).
-  parentOptions: ParentOption[];
+  // writingID —— the writing being edited ('' on create): the "set parent" picker leaves it out,
+  // so a writing cannot be its own parent.
+  writingID: string;
   // assetURLs —— pre-resolved URL map for standmeet-asset:<id> refs inside the editor body.
   // Empty ({}) on create; passed by the caller from AdminWritingView.asset_urls on edit.
   assetURLs?: Record<string, string>;
@@ -135,7 +129,7 @@ function WritingFormBody({
         <WritingField label={tw('fieldTags')} testid="writing-field-tags" value={values.tags}
           onChange={(v) => set('tags', v)} placeholder={tp('writingTags')} />
       </WritingFieldRow>
-      <ParentSelect value={values.parentID} options={props.parentOptions}
+      <ParentSelect value={values.parentID} excludeID={props.writingID}
         onChange={(v) => set('parentID', v)} />
       <CoverImagePicker value={values.coverAsset}
         onChange={(v) => set('coverAsset', v)}

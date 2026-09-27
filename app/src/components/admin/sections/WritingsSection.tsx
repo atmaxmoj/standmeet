@@ -18,11 +18,11 @@ import { ListPane } from '@/components/admin/ListPane';
 import { ObsidianBar } from '@/components/admin/sections/writings/ObsidianBar';
 import {
   WritingForm, EMPTY_VALUES,
-  type WritingFormValues, type WritingFormSubmit, type ParentOption,
+  type WritingFormValues, type WritingFormSubmit,
 } from '@/components/admin/sections/writings/WritingForm';
 import {
-  useWritings, loadWritingTreeChildren, AdminWritingViewSchema,
-  type WritingsHook, type AdminWritingView,
+  useWritings, loadWritingTreeChildren,
+  type WritingsHook, type WritingCounts, type AdminWritingView,
   type WritingSaveBundle, type WritingSaveData,
 } from '@/lib/admin/use-writings';
 import { useAction } from '@/lib/ui/use-action';
@@ -35,7 +35,7 @@ export function WritingsSection() {
   const hook = useWritings();
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<AdminWritingView | null>(null);
-  useEffectErrorToast(hook.error);
+  useEffectErrorToast(hook.page.error);
   return (
     <>
       <SectionHeader
@@ -50,7 +50,6 @@ export function WritingsSection() {
       {creating && (
         <WritingCreateModal
           onClose={() => setCreating(false)} onCreate={hook.createWriting}
-          parentOptions={parentOptionsFor(hook.writings, '')}
         />
       )}
     </>
@@ -61,15 +60,14 @@ export function WritingsSection() {
 // the "N writings · M drafts" label is a real plural (ICU per locale), not string concat.
 type CountT = ReturnType<typeof useTranslations<'adminCorpus.count'>>;
 
+// writingCountLabel —— from the server's published / draft totals, never the loaded rows.
 function writingCountLabel(hook: WritingsHook, tc: CountT): string {
-  return hook.status === 'ready' ? formatWritingCount(hook.writings, tc) : '';
+  return hook.counts ? formatWritingCount(hook.counts, tc) : '';
 }
 
-function formatWritingCount(writings: WritingsHook['writings'], tc: CountT): string {
-  const published = writings.filter((w) => w.published).length;
-  const drafts = writings.length - published;
-  const base = tc('writings', { n: published });
-  return drafts === 0 ? base : `${base} · ${tc('drafts', { n: drafts })}`;
+function formatWritingCount(counts: WritingCounts, tc: CountT): string {
+  const base = tc('writings', { n: counts.published });
+  return counts.drafts === 0 ? base : `${base} · ${tc('drafts', { n: counts.drafts })}`;
 }
 
 function Intro() {
@@ -106,7 +104,6 @@ function InlineEditor({ writing, hook, onClose }: {
         </div>
         <WritingEditModal
           writing={writing} onClose={onClose} onUpdate={hook.updateWriting}
-          parentOptions={parentOptionsFor(hook.writings, writing.id)}
         />
       </div>
       <EditorSideRail bodyMD="" />
@@ -116,7 +113,7 @@ function InlineEditor({ writing, hook, onClose }: {
 
 function WritingsListBody({ hook, onEdit }: { hook: WritingsHook; onEdit: EditFn }) {
   return (
-    <ListPane status={hook.status} count={hook.writings.length} empty={<EmptyState />}>
+    <ListPane status={hook.page.status} count={hook.page.items.length} empty={<EmptyState />}>
       <WritingList hook={hook} onEdit={onEdit} />
     </ListPane>
   );
@@ -139,10 +136,9 @@ function WritingList({ hook, onEdit }: { hook: WritingsHook; onEdit: EditFn }) {
         <CorpusViewToggle view={view} onChange={setView} />
       </div>
       <CorpusTreeGrid
-        view={view} rows={hook.writings} testid="writing-list"
+        view={view} rows={hook.page.items} more={hook.page} testid="writing-list"
         rowTestid={(w) => `writing-row-${w.slug}`}
         loadChildren={loadWritingTreeChildren}
-        gridSource={{ pagePath: '/writings/page', schema: AdminWritingViewSchema }}
         renderCard={(row) => <WritingCard writing={row} hook={hook} onEdit={onEdit} />}
       />
     </>
@@ -263,11 +259,10 @@ function useHandleDelete(id: string, hook: WritingsHook, run: Run) {
 }
 
 function WritingCreateModal({
-  onClose, onCreate, parentOptions,
+  onClose, onCreate,
 }: {
   onClose: () => void;
   onCreate: (bundle: WritingSaveBundle) => Promise<void>;
-  parentOptions: ParentOption[];
 }) {
   const tw = useTranslations('adminCorpus.writingForm');
   const ta = useTranslations('adminCorpus.action');
@@ -283,7 +278,7 @@ function WritingCreateModal({
         showPublishToggle
         submitLabel={ta('create')}
         submitTestId="writing-create-submit"
-        parentOptions={parentOptions}
+        writingID=""
         onClose={onClose}
         onSubmit={(s) => onCreate(toBundle(s, true))}
       />
@@ -292,12 +287,11 @@ function WritingCreateModal({
 }
 
 function WritingEditModal({
-  writing, onClose, onUpdate, parentOptions,
+  writing, onClose, onUpdate,
 }: {
   writing: AdminWritingView;
   onClose: () => void;
   onUpdate: (id: string, bundle: WritingSaveBundle) => Promise<void>;
-  parentOptions: ParentOption[];
 }) {
   const tw = useTranslations('adminCorpus.writingForm');
   const tcom = useTranslations('adminCorpus.common');
@@ -314,22 +308,12 @@ function WritingEditModal({
         submitLabel={tcom('save')}
         submitTestId="writing-edit-submit"
         assetURLs={writing.asset_urls ?? {}}
-        parentOptions={parentOptions}
+        writingID={writing.id}
         onClose={onClose}
         onSubmit={(s) => onUpdate(writing.id, toBundle(s, false))}
       />
     </div>
   );
-}
-
-// parentOptionsFor —— candidates for "set parent" = other writings (excludes self, to prevent
-// self-parenting; deep cycles are blocked by the backend).
-function parentOptionsFor(
-  writings: WritingsHook['writings'], excludeID: string,
-): ParentOption[] {
-  return writings
-    .filter((w) => w.id !== excludeID)
-    .map((w) => ({ id: w.id, title: w.title }));
 }
 
 function writingToValues(w: AdminWritingView): WritingFormValues {

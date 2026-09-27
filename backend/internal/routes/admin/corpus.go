@@ -5,9 +5,9 @@
 // internal/corpus/ops); this layer keeps only the REST shape: genre in the path, id in
 // the path, everything else in the body, and whether a success returns 200, 201, or 204.
 //
-// The tree view and page view (/tree, /page) are browsing shapes **unique to the panel**
-// and don't go through the convergence point: they return tree nodes, not "one corpus
-// entry".
+// The tree view (/tree) is a browsing shape **unique to the panel** and doesn't go through
+// the convergence point: it returns tree nodes, not "one corpus entry". The grid pages through
+// corpus.list like every other owner list (docs/design/paging.md).
 
 package admin
 
@@ -27,18 +27,16 @@ import (
 // CorpusDeps — dependencies for the admin corpus handlers.
 //
 // Face — corpus ability is taken through the convergence point. Corpus is only kept
-// for the tree/page views, the two panel-unique views that still connect directly.
+// for the tree view and the tag row, the panel-unique views that still connect directly.
 type CorpusDeps struct {
 	Corpus corpus.Deps
 	Face   *dispatcher.Face
 }
 
 const (
-	defaultCorpusLimit = 50
-	maxCorpusLimit     = 200
-	paramGenre         = "genre"
-	paramEntryID       = "id"
-	paramAssetID       = "asset_id"
+	paramGenre   = "genre"
+	paramEntryID = "id"
+	paramAssetID = "asset_id"
 )
 
 // MountCorpus mounts corpus's list + create routes: genre is a path parameter (merging
@@ -46,7 +44,8 @@ const (
 // parameter, and shouldn't have been split into different endpoints).
 func (h *Handlers) MountCorpus(r chi.Router) {
 	face := h.Corpus.Face
-	r.Get("/corpus/{genre}", h.dispatchOp(face, "corpus.list", corpusListArgs, jsonOK))
+	r.Get("/corpus/{genre}", h.dispatchOp(face, "corpus.list",
+		pagedWithURLParam(paramGenre, "tag", "q", "state"), jsonOK))
 	r.Post("/corpus/{genre}", h.dispatchOp(face, "corpus.create", corpusBodyArgs, jsonCreated))
 	// search — finds an entry by content. The list only gives the latest page, while an
 	// owner's corpus runs to thousands of entries: "open my good-regulator-theorem entry"
@@ -55,9 +54,6 @@ func (h *Handlers) MountCorpus(r chi.Router) {
 	r.Get("/corpus/{genre}/tree", h.byGenre(map[string]http.HandlerFunc{
 		"raw": h.treeRaw(), "wiki": h.treeWiki(), "output": h.treeOutput(),
 		"subjectivity": h.treeSubjectivity(),
-	}))
-	r.Get("/corpus/{genre}/page", h.byGenre(map[string]http.HandlerFunc{
-		"raw": h.pageRaw(), "wiki": h.pageWiki(), "output": h.pageOutput(),
 	}))
 	// tags — every tag this genre has ever used (corpus-wide). The panel's tag row reads
 	// this.
@@ -83,19 +79,6 @@ func (h *Handlers) byGenre(m map[string]http.HandlerFunc) http.HandlerFunc {
 			Status: http.StatusNotFound, Code: "unknown_genre", Message: "unknown corpus genre",
 		})
 	}
-}
-
-// corpusListArgs — genre in the path, limit in the query. The convergence point side only
-// accepts one flat args shape.
-//
-// If limit fails to parse it's simply dropped and the domain picks the default —
-// ?limit=abc isn't an error, it's "unstated".
-func corpusListArgs(r *http.Request) (json.RawMessage, error) {
-	fields := map[string]json.RawMessage{
-		paramGenre: quoteJSON(chi.URLParam(r, paramGenre)),
-	}
-	addPositiveInts(fields, r.URL.Query(), "limit")
-	return marshalArgs(fields)
 }
 
 // corpusSearchArgs — genre in the path, the query term and pagination in the query

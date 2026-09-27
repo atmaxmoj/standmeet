@@ -83,9 +83,9 @@ async function opensWithoutARequestStorm({ adminPage }: { adminPage: Page }): Pr
 // owner's own admin API).
 async function citationOf(page: Page, title: string): Promise<boolean | undefined> {
   return await page.evaluate(async (t: string) => {
-    const list = await (await fetch('/api/admin/corpus/wiki?limit=100', {
+    const list = (await (await fetch(`/api/admin/corpus/wiki?limit=100&q=${encodeURIComponent(t)}`, {
       credentials: 'include',
-    })).json() as Array<{ id: string; title: string }>;
+    })).json() as { items: Array<{ id: string; title: string }> }).items;
     const row = list.find((w) => w.title === t);
     if (!row) return undefined;
     const d = await (await fetch(`/api/admin/corpus/wiki/${row.id}`, {
@@ -182,9 +182,9 @@ const CHILD = 'A Child Of The Citable Entry';
 // own admin API).
 async function parentOf(page: Page, title: string): Promise<string | null | undefined> {
   return await page.evaluate(async (t: string) => {
-    const list = await (await fetch('/api/admin/corpus/wiki?limit=100', {
+    const list = (await (await fetch(`/api/admin/corpus/wiki?limit=100&q=${encodeURIComponent(t)}`, {
       credentials: 'include',
-    })).json() as Array<{ id: string; title: string }>;
+    })).json() as { items: Array<{ id: string; title: string }> }).items;
     const row = list.find((w) => w.title === t);
     if (!row) return undefined;
     const d = await (await fetch(`/api/admin/corpus/wiki/${row.id}`, {

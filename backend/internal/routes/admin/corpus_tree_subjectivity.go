@@ -29,6 +29,7 @@ type subjectivityListItem struct {
 	ID           string   `json:"id"`
 	Title        string   `json:"title"`
 	Tags         []string `json:"tags"`
+	Descendants  int32    `json:"descendants,omitempty"`
 	ShowAsSource bool     `json:"show_as_source"`
 	HasChildren  bool     `json:"has_children,omitempty"`
 }
@@ -51,20 +52,18 @@ func (h *Handlers) treeSubjectivity() http.HandlerFunc {
 	}
 }
 
-// subjectivityTreeItem — one child → list item (path goes through slugJoin, the same slug
+// subjectivityTreeItem — one child → list item (path goes through PathFromTitles, the same slug
 // source as every other genre).
 func subjectivityTreeItem(c *corpus.TreeChild[corpus.Note]) subjectivityListItem {
 	n := &c.Entry
-	it := subjectivityListItem{
+	return subjectivityListItem{
 		ID:           n.ID,
 		Title:        n.Title,
 		Tags:         ensureSlice(n.Tags),
 		ShowAsSource: n.ShowAsSource,
 		HasChildren:  c.HasChildren,
+		Descendants:  c.Descendants,
 		ParentID:     n.ParentID,
+		Path:         ptrIfNonEmpty(corpus.PathFromTitles(c.PathTitles)),
 	}
-	if p := slugJoin(c.PathTitles); p != "" {
-		it.Path = &p
-	}
-	return it
 }

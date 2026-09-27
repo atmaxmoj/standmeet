@@ -55,6 +55,7 @@
   "form": {
     "title": "标题",
     "parent": "父节点（可选）",
+    "parentSearch": "按标题搜索",
     "entryHeading": "笔记本身（正文、文件、标签）"
   },
   "seoEditor": {
@@ -118,6 +119,7 @@
     "hueViolet": "紫罗兰",
     "hueAcid": "酸绿",
     "parent": "父级（阅读器树）",
+    "currentParent": "当前父级",
     "publishImmediately": "立即发布",
     "coverImage": "封面图（可选）",
     "chooseCover": "选择一张图",

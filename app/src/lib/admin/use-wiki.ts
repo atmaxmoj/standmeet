@@ -1,14 +1,13 @@
-// use-wiki —— /admin/wiki state. GET /api/admin/corpus/wiki returns a list.
+// use-wiki —— /admin/wiki state: corpus.list for the wiki genre, one page at a time
+// (docs/design/paging.md). The tag chip is a page param: the server filters before the LIMIT, so a
+// tag reaches entries on every page (F-L-23).
 
 'use client';
 
 import { z } from 'zod';
 
-import { useEffect } from 'react';
-
 import { adminAPI } from '@/lib/api/admin';
-import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
-import type { ResourceStatus } from '@/lib/state/status';
+import { createPagedStore, usePaged, type PagedState } from '@/lib/state/create-paged-store';
 
 export const WikiSummarySchema = z.object({
   id: z.string(), title: z.string(), excerpt: z.string(),
@@ -18,6 +17,8 @@ export const WikiSummarySchema = z.object({
   show_as_source: z.boolean(), published: z.boolean(),
   // tree view only: this node can be drilled into (lazy layer).
   has_children: z.boolean().optional(),
+  // descendants —— how many entries a delete takes along, counted by the server (F-L-24).
+  descendants: z.number().optional().default(0),
 });
 export type WikiSummary = z.infer<typeof WikiSummarySchema>;
 
@@ -29,26 +30,25 @@ export function loadWikiTreeChildren(parentID: string): Promise<WikiSummary[]> {
 
 export type WikiBodyState = 'loading' | 'error' | 'empty' | 'list';
 
-export interface WikiHook {
-  status: ResourceStatus;
-  rows: readonly WikiSummary[];
-  error: string | null;
-}
+export type WikiHook = PagedState<WikiSummary>;
 
-export const wikiStore = createResourceStore<WikiSummary[]>({
-  name: 'wiki',
-  fetcher: () => adminAPI.get('/corpus/wiki', z.array(WikiSummarySchema)),
+export const wikiPage = createPagedStore({
+  name: 'wiki', path: '/corpus/wiki', item: WikiSummarySchema, params: { tag: '' },
 });
 
 export function useWiki(): WikiHook {
-  const r = useResource(wikiStore);
-  const ensureLoaded = r.ensureLoaded;
-  useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
-  return { status: r.status, rows: r.data ?? [], error: r.error };
+  return usePaged(wikiPage);
 }
 
+// activeTagOf —— the tag chip the list is filtered by (null = none).
+export function activeTagOf(page: WikiHook): string | null {
+  return (page.params.tag ?? '') === '' ? null : (page.params.tag ?? null);
+}
+
+// pickWikiBodyState —— "empty" only when the genre is empty: with a tag chosen, an empty page is
+// the tag's answer, not "you have no wiki yet".
 export function pickWikiBodyState(hook: WikiHook): WikiBodyState {
   if (hook.status === 'idle' || hook.status === 'loading') return 'loading';
   if (hook.status === 'error') return 'error';
-  return hook.rows.length === 0 ? 'empty' : 'list';
+  return hook.items.length === 0 && activeTagOf(hook) === null ? 'empty' : 'list';
 }

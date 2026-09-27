@@ -2,8 +2,8 @@
 // for the three tiers raw / wiki / output.
 //
 // Each action returns Promise<boolean> (true on success, false on failure
-// with setError). The caller handles the toast; list stores reset() after a
-// mutation → refetched on the next visit.
+// with setError). The caller handles the toast. The genre's paged list re-reads after a create or
+// delete and patches the row after an edit (docs/design/paging.md).
 
 'use client';
 
@@ -14,10 +14,11 @@ import { z } from 'zod';
 import { adminAPI, RawAdminViewSchema } from '@/lib/api/admin';
 import { onCorpusChanged } from '@/lib/admin/corpus-changed';
 
-import { outputStore, OutputSummarySchema } from '@/lib/admin/use-output';
-import { rawStore } from '@/lib/admin/use-raw';
-import { subjectivityStore, SubjectivitySummarySchema } from '@/lib/admin/use-subjectivity';
-import { wikiStore, WikiSummarySchema } from '@/lib/admin/use-wiki';
+import { outputPage, OutputSummarySchema } from '@/lib/admin/use-output';
+import { patchRaw, refreshRaw } from '@/lib/admin/use-raw';
+import { subjectivityPage, SubjectivitySummarySchema } from '@/lib/admin/use-subjectivity';
+import { wikiPage, WikiSummarySchema } from '@/lib/admin/use-wiki';
+import { reloadIfLoaded } from '@/lib/state/create-paged-store';
 
 export interface RawUpdateInput {
   body: string;
@@ -277,9 +278,7 @@ async function doUpdateRaw(id: string, input: RawUpdateInput): Promise<void> {
     // string means "explicitly clear", which would wipe out the cover he set last time.
     ...heroPatch(input),
   }, RawAdminViewSchema);
-  rawStore.getState().mutate(
-    (prev) => (prev ?? []).map((r) => r.id === id ? updated : r),
-  );
+  await patchRaw(updated);
 }
 
 // doDeleteRaw —— deletes one raw entry. **Removed from the list**, not left
@@ -287,86 +286,80 @@ async function doUpdateRaw(id: string, input: RawUpdateInput): Promise<void> {
 // wiki / output), and it won't come back even on refresh.
 async function doDeleteRaw(id: string): Promise<void> {
   await adminAPI.deleteVoid(`/corpus/raw/${id}`);
-  rawStore.getState().mutate((prev) => (prev ?? []).filter((r) => r.id !== id));
+  await refreshRaw();
 }
 
 async function doPromoteRaw(id: string, input: PromoteInput): Promise<void> {
   await adminAPI.postVoid(`/corpus/raw/${id}/promote`, input);
-  // The raw row has no promoted_to field in the frontend view; just refresh to pull the backend's state back in.
-  rawStore.getState().reset();
-  wikiStore.getState().reset();
+  await Promise.all([refreshRaw(), reloadIfLoaded(wikiPage)]);
 }
-
-// ─── wiki ───────────────────────────────────────────────────
 
 // ─── subjectivity ───────────────────────────────────────────
 //
 // Byte-for-byte the same shape as wiki / output — the same `/corpus/{genre}`
 // route, the same input. **Not a single genre special-case anywhere here**: it isn't an exception, just the fourth genre.
+//
+// A create or delete re-reads the page (where the row now sits is the server's to say); an edit
+// replaces the row in place, keeping the descendant count the list query computed.
 
 async function doCreateSubjectivity(input: CorpusEntryInput): Promise<void> {
-  const created = await adminAPI.post(
-    '/corpus/subjectivity', input, SubjectivitySummarySchema);
-  subjectivityStore.getState().mutate((prev) => [created, ...(prev ?? [])]);
+  await adminAPI.postVoid('/corpus/subjectivity', input);
+  await subjectivityPage.getState().reload();
 }
 
 async function doUpdateSubjectivity(id: string, input: CorpusEntryInput): Promise<void> {
   const updated = await adminAPI.patch(
     `/corpus/subjectivity/${id}`, input, SubjectivitySummarySchema);
-  subjectivityStore.getState().mutate(
-    (prev) => (prev ?? []).map((n) => n.id === id ? updated : n),
-  );
+  subjectivityPage.getState().patch(id, () => updated);
 }
 
+// ─── wiki ───────────────────────────────────────────────────
+
 async function doCreateWiki(input: CorpusEntryInput): Promise<void> {
-  const created = await adminAPI.post('/corpus/wiki', input, WikiSummarySchema);
-  wikiStore.getState().mutate((prev) => [created, ...(prev ?? [])]);
+  await adminAPI.postVoid('/corpus/wiki', input);
+  await wikiPage.getState().reload();
 }
 
 async function doUpdateWiki(id: string, input: CorpusEntryInput): Promise<void> {
   const updated = await adminAPI.patch(`/corpus/wiki/${id}`, input, WikiSummarySchema);
-  wikiStore.getState().mutate(
-    (prev) => (prev ?? []).map((w) => w.id === id ? updated : w),
-  );
+  wikiPage.getState().patch(id, (prev) => ({ ...updated, descendants: prev.descendants }));
 }
 
 async function doDeleteWiki(id: string): Promise<void> {
   await adminAPI.deleteVoid(`/corpus/wiki/${id}`);
-  wikiStore.getState().mutate((prev) => (prev ?? []).filter((w) => w.id !== id));
+  await wikiPage.getState().reload();
 }
 
 async function doPromoteWiki(id: string, input: PromoteInput): Promise<void> {
   await adminAPI.postVoid(`/corpus/wiki/${id}/promote`, input);
-  outputStore.getState().reset();
+  await reloadIfLoaded(outputPage);
 }
 
 async function doUpdateWikiSEO(id: string, input: SEOUpdateInput): Promise<SEOWriteResult> {
   const res = await adminAPI.patch(`/corpus/wiki/${id}/seo`, input, SEOWriteResultSchema);
-  wikiStore.getState().reset();
+  wikiPage.getState().patch(id, (w) => ({ ...w, ...input }));
   return res;
 }
 
 // ─── output ─────────────────────────────────────────────────
 
 async function doCreateOutput(input: CorpusEntryInput): Promise<void> {
-  const created = await adminAPI.post('/corpus/output', input, OutputSummarySchema);
-  outputStore.getState().mutate((prev) => [created, ...(prev ?? [])]);
+  await adminAPI.postVoid('/corpus/output', input);
+  await outputPage.getState().reload();
 }
 
 async function doUpdateOutput(id: string, input: CorpusEntryInput): Promise<void> {
   const updated = await adminAPI.patch(`/corpus/output/${id}`, input, OutputSummarySchema);
-  outputStore.getState().mutate(
-    (prev) => (prev ?? []).map((o) => o.id === id ? updated : o),
-  );
+  outputPage.getState().patch(id, (prev) => ({ ...updated, descendants: prev.descendants }));
 }
 
 async function doDeleteOutput(id: string): Promise<void> {
   await adminAPI.deleteVoid(`/corpus/output/${id}`);
-  outputStore.getState().mutate((prev) => (prev ?? []).filter((o) => o.id !== id));
+  await outputPage.getState().reload();
 }
 
 async function doUpdateOutputSEO(id: string, input: SEOUpdateInput): Promise<SEOWriteResult> {
   const res = await adminAPI.patch(`/corpus/output/${id}/seo`, input, SEOWriteResultSchema);
-  outputStore.getState().reset();
+  outputPage.getState().patch(id, (o) => ({ ...o, published: input.published }));
   return res;
 }

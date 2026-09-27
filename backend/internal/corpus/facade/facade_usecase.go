@@ -108,6 +108,7 @@ var (
 	ResolveWikiNodeID              = usecase.ResolveWikiNodeID
 	RewriteCrossLinksForRender     = usecase.RewriteCrossLinksForRender
 	RewriteWikiCrossLinksForRender = usecase.RewriteWikiCrossLinksForRender
+	PathFromTitles                 = usecase.PathFromTitles
 	SaveWriting                    = usecase.SaveWriting
 	SlugifyTitle                   = usecase.SlugifyTitle
 	SyncNotePath                   = usecase.SyncNotePath

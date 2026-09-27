@@ -104,8 +104,8 @@ async function findExistingChild(
   request: APIRequestContext, apiToken: string, sessionId: string,
   title: string, parentID: string,
 ): Promise<string> {
-  const rows = await callTool<WikiRow[]>(
-    request, apiToken, sessionId, 'corpus.list', { genre: 'wiki', limit: 200 },
+  const { items: rows } = await callTool<{ items: WikiRow[] }>(
+    request, apiToken, sessionId, 'corpus.list', { genre: 'wiki', q: title, limit: 200 },
   );
   const wantParent = parentID === '' ? null : parentID;
   const hit = rows.find((r) => r.title === title && (r.parent_id ?? null) === wantParent);

@@ -27,25 +27,25 @@ import { stampDay } from '@/lib/ui/format-time';
 import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 
 import type { RawAdminView } from '@/lib/api/admin';
-import type { ResourceStatus } from '@/lib/state/status';
+import type { PagedState } from '@/lib/state/create-paged-store';
 
 // status — this column's three outcomes must stay distinct (F-N-7). It used to be just
 // `rows.length === 0 ? emptyState : list`, so when the `/admin/raw` GET failed the page said
 // "no raw entries yet, push one from your MCP client" — a line the owner would act on, when
 // the truth was the fetch failed.
-type Props = { rows: readonly RawAdminView[]; status: ResourceStatus };
+type Props = { page: PagedState<RawAdminView> };
 
-export function RawRowList({ rows, status }: Props) {
+export function RawRowList({ page }: Props) {
   const actions = useCorpusActions();
   const [view, setView] = useCorpusView('raw');
   useEffectErrorToast(actions.error);
   return (
-    <ListPane status={status} count={rows.length} empty={<EmptyState />}>
+    <ListPane status={page.status} count={page.items.length} empty={<EmptyState />}>
       <div className="flex justify-end mb-4">
         <CorpusViewToggle view={view} onChange={setView} />
       </div>
       <CorpusTreeGrid
-        view={view} rows={rows} testid="raw-list"
+        view={view} rows={page.items} more={page} testid="raw-list"
         rowTestid={(r) => `raw-row-${r.id}`}
         loadChildren={loadRawTreeChildren}
         renderCard={(row, { hasChildren }) => (

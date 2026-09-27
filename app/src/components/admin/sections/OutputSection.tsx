@@ -16,7 +16,7 @@ import styles from '@/components/admin/sections/OutputSection.module.css';
 import { CorpusViewToggle } from '@/components/admin/atoms/CorpusViewToggle';
 import { CorpusTreeGrid } from '@/components/admin/sections/corpus/CorpusTreeGrid';
 import { useCorpusView } from '@/lib/admin/corpus-view';
-import { CorpusEntryForm, corpusParentOptions } from '@/components/admin/sections/corpus/CorpusEntryForm';
+import { CorpusEntryForm } from '@/components/admin/sections/corpus/CorpusEntryForm';
 import { OutputEditForm } from '@/components/admin/sections/output/OutputRowForms';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 import {
@@ -25,9 +25,10 @@ import {
   type CorpusEntryInput,
 } from '@/lib/admin/use-corpus-actions';
 import {
-  pickOutputBodyState, useOutput, loadOutputTreeChildren, OutputSummarySchema,
+  pickOutputBodyState, useOutput, loadOutputTreeChildren,
   type OutputHook, type OutputSummary,
 } from '@/lib/admin/use-output';
+import { totalLabel } from '@/lib/state/create-paged-store';
 import { runWith } from '@/lib/admin/use-corpus-form';
 import { DANGER_ACTION_CLASS } from '@/lib/ui/danger-action';
 import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
@@ -54,12 +55,12 @@ function Header({ hook, actions }: { hook: OutputHook; actions: CorpusActionsHoo
       <SectionHeader
         kicker={tk('output')}
         slug="output"
-        count={hook.status === 'ready' ? tc('artifacts', { n: hook.rows.length }) : ''}
+        count={totalLabel(hook.total, (n) => tc('artifacts', { n }))}
         action={<NewBtnGroup onClick={() => setCreating(true)} disabled={creating} />}
       />
       {creating ? (
         <div className="mb-6">
-          <CreateForm actions={actions} rows={hook.rows} onDone={() => setCreating(false)} />
+          <CreateForm actions={actions} onDone={() => setCreating(false)} />
         </div>
       ) : null}
     </>
@@ -107,9 +108,7 @@ function NewBtnGroup({ onClick, disabled }: { onClick: () => void; disabled: boo
   );
 }
 
-function CreateForm({
-  actions, rows, onDone,
-}: { actions: CorpusActionsHook; rows: readonly OutputSummary[]; onDone: () => void }) {
+function CreateForm({ actions, onDone }: { actions: CorpusActionsHook; onDone: () => void }) {
   const toast = useToast();
   const ta = useTranslations('adminCorpus.action');
   const tt = useTranslations('adminCorpus.toast');
@@ -122,7 +121,7 @@ function CreateForm({
       busy={actions.pending}
       submitLabel={ta('create')}
       testidPrefix="output-create"
-      parentOptions={corpusParentOptions(rows)}
+      parentList="/corpus/output"
       onSubmit={onSubmit}
       onCancel={onDone}
     />
@@ -134,14 +133,14 @@ function OutputBody({ hook, actions }: { hook: OutputHook; actions: CorpusAction
     loading: <ListSkeleton count={3} />,
     error: <ErrorBlock message={hook.error ?? ''} />,
     empty: <EmptyState />,
-    list: <OutputList rows={hook.rows} actions={actions} />,
+    list: <OutputList page={hook} actions={actions} />,
   } as const;
   return map[pickOutputBodyState(hook)];
 }
 
 // OutputList —— tree ⇄ grid toggle over the same cover-strip cards. Output entries
 // carry parent_id/path like the rest of the corpus, so hierarchy is a real view.
-function OutputList({ rows, actions }: { rows: readonly OutputSummary[]; actions: CorpusActionsHook }) {
+function OutputList({ page, actions }: { page: OutputHook; actions: CorpusActionsHook }) {
   const [view, setView] = useCorpusView('output');
   return (
     <>
@@ -149,10 +148,9 @@ function OutputList({ rows, actions }: { rows: readonly OutputSummary[]; actions
         <CorpusViewToggle view={view} onChange={setView} />
       </div>
       <CorpusTreeGrid
-        view={view} rows={rows} testid="output-list"
+        view={view} rows={page.items} more={page} testid="output-list"
         rowTestid={(r) => `output-row-${r.id}`}
         loadChildren={loadOutputTreeChildren}
-        gridSource={{ pagePath: '/corpus/output/page', schema: OutputSummarySchema }}
         renderCard={(row) => <OutputCard entry={row} actions={actions} />}
       />
     </>

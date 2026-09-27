@@ -18,12 +18,14 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
-// TreeChild —— one lazy-tree layer node: the full domain entry + its root→leaf title
-// chain (slugified into the address at the route layer) + whether it can be drilled
-// into. Generic over the genre's domain type.
+// TreeChild —— one tree or page node: the full domain entry + its root→leaf title chain
+// (slugified into the address at the route layer) + whether it can be drilled into (tree
+// layers only) + how many entries sit under it (the delete warning, F-L-24). Generic over the
+// genre's domain type.
 type TreeChild[T any] struct {
 	Entry       T
 	PathTitles  []string
+	Descendants int32
 	HasChildren bool
 }
 
@@ -52,6 +54,7 @@ func adminChildren[T any](
 				Entry:       toDomain(&row.CorpusNote),
 				HasChildren: row.HasChildren,
 				PathTitles:  row.PathTitles,
+				Descendants: row.Descendants,
 			}
 		})
 }

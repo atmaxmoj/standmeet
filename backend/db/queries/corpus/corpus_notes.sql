@@ -64,10 +64,18 @@ WITH RECURSIVE up AS (
   UNION ALL
   SELECT up.leaf_id, p.id, p.parent_id, p.title || up.path_titles
   FROM corpus_notes p JOIN up ON p.id = up.parent_id
+), down AS (
+  -- every descendant of each node in this layer, for the delete warning (F-L-24)
+  SELECT d.parent_id AS root_id, d.id FROM corpus_notes d JOIN corpus_notes l ON d.parent_id = l.id
+  WHERE l.owner_id = $1 AND l.genre = $2
+    AND (($3::uuid IS NULL AND l.parent_id IS NULL) OR l.parent_id = $3)
+  UNION ALL
+  SELECT down.root_id, e.id FROM corpus_notes e JOIN down ON e.parent_id = down.id
 )
 SELECT sqlc.embed(n),
        EXISTS(SELECT 1 FROM corpus_notes ch WHERE ch.parent_id = n.id AND ch.genre = $2) AS has_children,
-       (SELECT u.path_titles FROM up u WHERE u.leaf_id = n.id AND u.parent_id IS NULL LIMIT 1) AS path_titles
+       (SELECT u.path_titles FROM up u WHERE u.leaf_id = n.id AND u.parent_id IS NULL LIMIT 1) AS path_titles,
+       (SELECT count(*) FROM down WHERE down.root_id = n.id)::int AS descendants
 FROM corpus_notes n
 WHERE n.owner_id = $1 AND n.genre = $2
   AND (($3::uuid IS NULL AND n.parent_id IS NULL) OR n.parent_id = $3)
@@ -83,45 +91,61 @@ FROM corpus_notes
 WHERE owner_id = $1 AND genre = $2
 ORDER BY 1;
 
--- name: ListNotesByOwnerPage :many
--- Grid pagination (infinite scroll): keyset on (created_at DESC, id DESC). $3/$4 = the
--- last row's (created_at, id) cursor — both NULL = first page. Composite tiebreak because
--- a vault sync batch can share created_at. LIMIT $5 (+1 caller-side → has_more). Full row
--- via sqlc.embed + path_titles so the server slugifies the address even on a partial page.
---
--- $6 = tag filter ('' / NULL = no filter). It has to live HERE, next to the ORDER BY and the
--- LIMIT, because the page is what the cursor walks: filtering client-side after the fact means
--- the filter only ever sees one page, which is how the panel came to report 1 math note against
--- a corpus holding 137 (F-L-23). The recursive CTE stays unfiltered on purpose — it only exists
--- to resolve each returned row's ancestor titles, and narrowing it would not change any answer.
-WITH RECURSIVE up AS (
+-- name: ListNotesPage :many
+-- One page of one genre, newest first (docs/design/paging.md): corpus.list, the admin grids and
+-- the parent pickers all read it. Every filter runs here, before the LIMIT: a filter applied to a
+-- loaded page reports "none match" while matches sit on page 2 (F-L-23).
+--   tag   — the entry carries this tag (empty = any).
+--   q     — case-insensitive substring of the title (empty = any).
+--   state — empty = all; published / draft; raw only: unprocessed / promoted / flagged.
+-- The page is picked first; ancestor titles (the address) and descendant counts (the delete
+-- warning, F-L-24) are then computed for its rows only. CountNotes gives the page's total.
+WITH RECURSIVE page AS (
+  SELECT p.id FROM corpus_notes p
+  WHERE p.owner_id = sqlc.arg('owner_id') AND p.genre = sqlc.arg('genre') AND NOT p.archived
+    AND (sqlc.arg('tag')::text = '' OR sqlc.arg('tag')::text = ANY(p.tags))
+    AND (sqlc.arg('q')::text = '' OR p.title ILIKE '%' || sqlc.arg('q') || '%')
+    AND (sqlc.arg('state')::text = ''
+      OR (sqlc.arg('state') = 'published' AND p.published)
+      OR (sqlc.arg('state') = 'draft' AND NOT p.published)
+      OR (sqlc.arg('state') = 'unprocessed' AND p.promoted_to IS NULL)
+      OR (sqlc.arg('state') = 'promoted' AND p.promoted_to IS NOT NULL)
+      OR (sqlc.arg('state') = 'flagged' AND p.flagged_private))
+    AND (sqlc.narg('after_at')::timestamptz IS NULL
+      OR (p.created_at, p.id) < (sqlc.narg('after_at'), sqlc.narg('after_id')::uuid))
+  ORDER BY p.created_at DESC, p.id DESC
+  LIMIT sqlc.arg('lim')
+), up AS (
   SELECT c.id AS leaf_id, c.id, c.parent_id, ARRAY[c.title]::text[] AS path_titles
-  FROM corpus_notes c
-  WHERE c.owner_id = $1 AND c.genre = $2
-    AND ($3::timestamptz IS NULL OR (c.created_at, c.id) < ($3::timestamptz, $4::uuid))
+  FROM corpus_notes c JOIN page ON page.id = c.id
   UNION ALL
-  SELECT up.leaf_id, p.id, p.parent_id, p.title || up.path_titles
-  FROM corpus_notes p JOIN up ON p.id = up.parent_id
+  SELECT up.leaf_id, a.id, a.parent_id, a.title || up.path_titles
+  FROM corpus_notes a JOIN up ON a.id = up.parent_id
+), down AS (
+  SELECT d.parent_id AS root_id, d.id FROM corpus_notes d JOIN page ON d.parent_id = page.id
+  UNION ALL
+  SELECT down.root_id, e.id FROM corpus_notes e JOIN down ON e.parent_id = down.id
 )
 SELECT sqlc.embed(n),
-       (SELECT u.path_titles FROM up u WHERE u.leaf_id = n.id AND u.parent_id IS NULL LIMIT 1) AS path_titles
-FROM corpus_notes n
-WHERE n.owner_id = $1 AND n.genre = $2
-  AND ($3::timestamptz IS NULL OR (n.created_at, n.id) < ($3::timestamptz, $4::uuid))
-  AND ($6::text IS NULL OR $6::text = '' OR $6::text = ANY(n.tags))
-ORDER BY n.created_at DESC, n.id DESC
-LIMIT $5;
+       (SELECT u.path_titles FROM up u WHERE u.leaf_id = n.id AND u.parent_id IS NULL LIMIT 1) AS path_titles,
+       (SELECT count(*) FROM down WHERE down.root_id = n.id)::int AS descendants
+FROM corpus_notes n JOIN page ON page.id = n.id
+ORDER BY n.created_at DESC, n.id DESC;
 
--- name: CountNoteDescendants :one
--- Exact recursive descendant count for one node — the delete-cascade warning
--- ("also deletes its N child entries"). On-demand (one user action), not per level.
-WITH RECURSIVE sub AS (
-  SELECT cn.id FROM corpus_notes cn
-  WHERE cn.parent_id = $2 AND cn.owner_id = $1 AND cn.genre = $3
-  UNION ALL
-  SELECT n.id FROM corpus_notes n JOIN sub ON n.parent_id = sub.id
-)
-SELECT count(*) FROM sub;
+-- name: CountNotes :one
+-- The page's total: how many entries of one genre match the ListNotesPage filters, cursor aside.
+-- A separate query, not a page column: a page with no rows has nowhere to carry it. Keep the
+-- filters identical to ListNotesPage's.
+SELECT count(*)::int FROM corpus_notes t
+WHERE t.owner_id = sqlc.arg('owner_id') AND t.genre = sqlc.arg('genre') AND NOT t.archived
+  AND (sqlc.arg('tag')::text = '' OR sqlc.arg('tag')::text = ANY(t.tags))
+  AND (sqlc.arg('q')::text = '' OR t.title ILIKE '%' || sqlc.arg('q') || '%')
+  AND (sqlc.arg('state')::text = ''
+    OR (sqlc.arg('state') = 'published' AND t.published)
+    OR (sqlc.arg('state') = 'draft' AND NOT t.published)
+    OR (sqlc.arg('state') = 'unprocessed' AND t.promoted_to IS NULL)
+    OR (sqlc.arg('state') = 'promoted' AND t.promoted_to IS NOT NULL)
+    OR (sqlc.arg('state') = 'flagged' AND t.flagged_private));
 
 -- name: GetNoteMetaByID :one
 -- meta only (no body): for walking up to compute the tree-derived path / checking ACL, not for reading the body.

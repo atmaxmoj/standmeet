@@ -87,8 +87,9 @@ function updateEntry(
   return callTool<CorpusItem>(request, apiToken, sid, 'corpus.update', args);
 }
 
-function listGenre(request: APIRequestContext, genre: string): Promise<CorpusItem[]> {
-  return callTool<CorpusItem[]>(request, apiToken, sid, 'corpus.list', { genre });
+async function listGenre(request: APIRequestContext, genre: string): Promise<CorpusItem[]> {
+  const page = await callTool<{ items: CorpusItem[] }>(request, apiToken, sid, 'corpus.list', { genre });
+  return page.items;
 }
 
 async function titleInList(
@@ -243,10 +244,9 @@ async function adminRawRow(
     headers: { 'X-Csrftoken': csrf },
   });
   expect(res.ok(), 'precondition: the admin raw list answers').toBeTruthy();
-  const body = (await res.json()) as { items?: { id: string }[] } | { id: string }[];
-  const rows = (Array.isArray(body) ? body : body.items ?? []) as {
-    id: string; flagged_private?: boolean; tags?: string[];
-  }[];
+  const { items: rows } = (await res.json()) as {
+    items: { id: string; flagged_private?: boolean; tags?: string[] }[];
+  };
   const row = rows.find((r) => r.id === id);
   expect(row, 'precondition: the entry is still in the raw list').toBeDefined();
   return row ?? {};

@@ -9,14 +9,13 @@
 // in `shown`, so the count is accurate, which is why this test can't go red in e2e.
 //
 // The real trigger condition is **pagination**: prod has 574 wiki entries, `shown` only
-// holds the current page, and a child on another page can't be counted. To make this fail
-// red, enough cross-page entries need to be seeded first -- that test hasn't been written
-// yet. **Until it is, that 0 does not get touched in code** (can't prove red, can't fix; see
-// iron rule 3).
+// holds the current page, and a child on another page can't be counted. That half is
+// corpus-paging.spec.ts ("the delete warning counts a child that sits on another page"): it
+// went red on the client-side count, and the count now comes from the server (each row's
+// `descendants`, v0.1.84).
 //
-// Why keep this test: it locks in the "already-loaded half" behavior, and writing down
-// "what it doesn't cover" here keeps the next person from mistaking this green for
-// insurance covering the whole bug (see [[verifier-can-lie-about-its-own-coverage]]).
+// Why keep this test: it locks in the "already-loaded half" behavior — parent and child created
+// through the panel, the everyday case.
 
 import { test, expect } from '@/fixtures/test';
 import type { Page, Playwright } from '@playwright/test';
@@ -66,7 +65,7 @@ interface WikiRow { id: string; title: string }
 
 async function wikiList(adminPage: Page): Promise<WikiRow[]> {
   const res = await adminPage.request.get(`${BACKEND}/api/admin/corpus/wiki?limit=200`);
-  return await res.json() as WikiRow[];
+  return (await res.json() as { items: WikiRow[] }).items;
 }
 
 async function entryID(adminPage: Page, title: string): Promise<string> {

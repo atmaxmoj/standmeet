@@ -55,6 +55,7 @@
   "form": {
     "title": "titel",
     "parent": "übergeordnete node (optional)",
+    "parentSearch": "nach Titel suchen",
     "entryHeading": "die notiz selbst (haupttext, dateien, tags)"
   },
   "seoEditor": {
@@ -118,6 +119,7 @@
     "hueViolet": "violett",
     "hueAcid": "säure",
     "parent": "übergeordnete (leser tree)",
+    "currentParent": "aktuell übergeordnet",
     "publishImmediately": "sofort veröffentlichen",
     "coverImage": "cover-bild (optional)",
     "chooseCover": "bild auswählen",

@@ -1,14 +1,12 @@
-// use-output —— /admin/output state. GET /api/admin/corpus/output returns a list.
+// use-output —— /admin/output state: corpus.list for the output genre, one page at a time
+// (docs/design/paging.md). The header counts the server's total, never the loaded rows.
 
 'use client';
-
-import { useEffect } from 'react';
 
 import { z } from 'zod';
 
 import { adminAPI } from '@/lib/api/admin';
-import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
-import type { ResourceStatus } from '@/lib/state/status';
+import { createPagedStore, usePaged, type PagedState } from '@/lib/state/create-paged-store';
 
 export const OutputSummarySchema = z.object({
   id: z.string(), title: z.string(), tags: z.array(z.string()),
@@ -16,6 +14,7 @@ export const OutputSummarySchema = z.object({
   parent_id: z.string().nullable().optional(), path: z.string().nullable().optional(),
   show_as_source: z.boolean(), published: z.boolean(),
   has_children: z.boolean().optional(),
+  descendants: z.number().optional().default(0),
 });
 export type OutputSummary = z.infer<typeof OutputSummarySchema>;
 
@@ -27,26 +26,18 @@ export function loadOutputTreeChildren(parentID: string): Promise<OutputSummary[
 
 export type OutputBodyState = 'loading' | 'error' | 'empty' | 'list';
 
-export interface OutputHook {
-  status: ResourceStatus;
-  rows: readonly OutputSummary[];
-  error: string | null;
-}
+export type OutputHook = PagedState<OutputSummary>;
 
-export const outputStore = createResourceStore<OutputSummary[]>({
-  name: 'output',
-  fetcher: () => adminAPI.get('/corpus/output', z.array(OutputSummarySchema)),
+export const outputPage = createPagedStore({
+  name: 'output', path: '/corpus/output', item: OutputSummarySchema,
 });
 
 export function useOutput(): OutputHook {
-  const r = useResource(outputStore);
-  const ensureLoaded = r.ensureLoaded;
-  useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
-  return { status: r.status, rows: r.data ?? [], error: r.error };
+  return usePaged(outputPage);
 }
 
 export function pickOutputBodyState(hook: OutputHook): OutputBodyState {
   if (hook.status === 'idle' || hook.status === 'loading') return 'loading';
   if (hook.status === 'error') return 'error';
-  return hook.rows.length === 0 ? 'empty' : 'list';
+  return hook.items.length === 0 ? 'empty' : 'list';
 }
