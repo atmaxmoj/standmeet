@@ -1,7 +1,10 @@
 # Event bus, transactional outbox, and webhooks
 
-Status: **implemented** (2026-09-26; decisions in *Decided*). Full-suite acceptance, the release
-and the real-environment acceptance are **pending**. This document is the design and the progress
+Status: **released in v0.1.76** (2026-09-27; decisions in *Decided*). Full-suite acceptance passed
+(`docs/full-suite-failures.md`, round 2026-09-26: final run 1987/3, the three test-side reds closed
+`REPEAT=5`); the production smoke ran on sijie.xyz
+(`e2e/manual-runs/2026-09-27-release-smoke/`). **Pending:** the standmeet.com deploy and its 60 s
+real-environment check (S5, S6), which need the owner's KV namespace and hook secret. This document is the design and the progress
 ledger: a phase is ticked only when its acceptance specs have run green. Where the build refined
 the plan, the sections below state what was built and why.
 
@@ -1008,7 +1011,9 @@ the process and never starves visitor requests. Each case is simulated with an i
     poison an event (only a failing database does), so this one is a UT on the op
     (`stats/ops/tasks_requeue_test.go`), not an e2e.
 
-**Final acceptance: every test in this repo green (pending).**
+**Final acceptance: every test in this repo green — passed 2026-09-27** (lint, backend-test,
+test-unit, im-bridge-test, updater-e2e, every eval but the interactive `eval-ask`, dsh-plugin-test
+14/0, and the full e2e run; see `docs/full-suite-failures.md`).
 
 `make dsh-plugin-test` follows DSH itself, not dsh-testkit. `@deepseek-ai/cordis-plugin-hmr` 1.0.18
 (2026-09-22) removed `registerConfig` in a patch release, so every DSH that dsh-testkit 0.4.4 accepts
