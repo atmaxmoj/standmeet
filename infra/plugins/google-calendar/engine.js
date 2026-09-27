@@ -37,7 +37,9 @@ const SEAM = {
         summary: a.summary, description: a.description, start: a.start, end: a.end,
         timeZone: a.time_zone, visitorEmail: a.visitor_email, idempotencyKey: randHex(),
       }),
-      canon: (r) => ({ eventId: (r && r.id) || '', htmlLink: (r && r.htmlLink) || '' }),
+      // invited — whether the calendar itself mailed the attendee (the binding says so); a
+      // binding that does not say means it did not.
+      canon: (r) => ({ eventId: (r && r.id) || '', htmlLink: (r && r.htmlLink) || '', invited: (r && r.invited) === true }),
     },
     delete_event: {
       method: 'cancel_event',

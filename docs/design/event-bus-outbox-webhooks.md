@@ -8,7 +8,10 @@ email in the inbox, `booking.created` through the bus, cancel, revoke. It found 
 this work, all in the booking card and the gate: F-C-61 ⭐ the booking claims a calendar invite was
 emailed when the CalDAV calendar sends none (`booker-mcp.js:327`), F-C-62 the card labels a CalDAV
 link "View on Google Calendar" (`:778`), F-C-63 cancel claims `sent_updates_to` the same way
-(`:523`), F-I-2 two gate lines untranslated in Chinese. **Pending:** the standmeet.com deploy and its 60 s
+(`:523`), F-I-2 two gate lines untranslated in Chinese. All four are now e2e tests
+(`booking-invite-caldav`, `visitor-name-picker-zh`), proven RED on v0.1.76 and fixed after it: the
+calendar reports whether it invited, and when it did not the booker mails an iTIP invite / cancel
+(`docs/full-suite-failures.md`, round 2026-09-27). **Pending:** the standmeet.com deploy and its 60 s
 real-environment check (S5, S6), which need the owner's KV namespace and hook secret. This document is the design and the progress
 ledger: a phase is ticked only when its acceptance specs have run green. Where the build refined
 the plan, the sections below state what was built and why.

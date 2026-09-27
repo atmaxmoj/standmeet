@@ -83,7 +83,14 @@
     "capacityNote": "Halten Sie den <strong>selben Namen</strong> verwenden und Ihre Chats bleiben als Sie gruppiert; ein <strong>anderer Name</strong> liest wie eine neue Person und startet ein separates Gespräch. Code an jemand anderen weitergeben? Haben Sie ihn scannen und ihren eigenen Namen wählen. Lieber kein Name? <strong>Skip</strong> nimmt auch einen des Codes Namen als Gast — und später zurück kommen beginnt über als neuer Gast.",
     "start": "start ↵",
     "skip": "überspringen",
-    "starting": "starte chat"
+    "starting": "starte chat",
+    "kicker": "zugang gewährt · code {code}",
+    "kickerNoCode": "bevor wir beginnen",
+    "defaultGreeting": "Das ist die KI von {handle}. Frag sie alles — sie antwortet mit der Stimme von {handle}, gestützt auf echte Arbeit.",
+    "defaultGreetingAnon": "Frag diese KI alles — sie antwortet mit der Stimme des Inhabers, gestützt auf echte Arbeit.",
+    "capacity": "Bis zu {max, plural, one {# Person kann} other {# Personen können}} diesen Code nutzen — {count} schon dabei.",
+    "namePlaceholder": "dein Name",
+    "emailPlaceholder": "E-Mail (optional, für Termineinladungen)"
   },
   "wikiTopBar": {
     "brand": "standmeet",

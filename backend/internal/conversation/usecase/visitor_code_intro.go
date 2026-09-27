@@ -17,8 +17,12 @@ import (
 
 // CodeIntroResult —— for the name picker's display.
 type CodeIntroResult struct {
-	Label    string
+	Label string
+	// Greeting —— the role's own greeting, in the words the owner wrote. Empty = the role set
+	// none; the picker then renders its default greeting in the visitor's UI language, from
+	// Handle. The server assembles no sentence: one built here is in one language only (F-I-2).
 	Greeting string
+	Handle   string
 	// MicrositeSlug —— which page this code opens. Empty = opens the default
 	// visitor conversation (today's behavior). The landing decision is given here
 	// because the frontend is **already** calling codes/intro when a visitor arrives
@@ -45,23 +49,21 @@ func CodeIntro(
 	}
 	return CodeIntroResult{
 		Label:         code.Label,
-		Greeting:      resolveCodeGreeting(ctx, deps, &code),
+		Greeting:      roleGreeting(ctx, deps, &code),
+		Handle:        ownerHandleOrEmpty(ctx, deps, code.OwnerID),
 		MicrositeSlug: code.MicrositeSlug,
 		MaxMembers:    derefInt32(code.MaxMembers),
 		MemberCount:   count,
 	}, nil
 }
 
-// resolveCodeGreeting —— uses the role's greeting if it set one, otherwise assembles a
-// default from the owner handle.
-func resolveCodeGreeting(
-	ctx context.Context, deps *VisitorSessionDeps, code *access.Code,
-) string {
+// roleGreeting —— the greeting the code's role set; "" when it set none (or the role is gone).
+func roleGreeting(ctx context.Context, deps *VisitorSessionDeps, code *access.Code) string {
 	role, err := deps.Roles.GetByID(ctx, code.OwnerID, code.AssumedRoleID)
-	if err == nil && role.Greeting() != "" {
-		return role.Greeting()
+	if err != nil {
+		return ""
 	}
-	return defaultGreeting(ownerHandleOrEmpty(ctx, deps, code.OwnerID))
+	return role.Greeting()
 }
 
 func ownerHandleOrEmpty(ctx context.Context, deps *VisitorSessionDeps, ownerID string) string {
@@ -70,16 +72,6 @@ func ownerHandleOrEmpty(ctx context.Context, deps *VisitorSessionDeps, ownerID s
 		return ""
 	}
 	return owner.Handle
-}
-
-func defaultGreeting(handle string) string {
-	if handle == "" {
-		return "Ask this AI anything — it answers in the owner's voice, grounded in real work."
-	}
-	return fmt.Sprintf(
-		"This is %s's AI. Ask it anything — it answers in %s's voice, grounded in their real work.",
-		handle, handle,
-	)
 }
 
 func derefInt32(p *int32) int32 {

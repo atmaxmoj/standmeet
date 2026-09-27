@@ -1,3 +1,53 @@
+# Smoke findings — round 2026-09-27 (v0.1.76 release smoke → e2e, branch `embed-update-hook`)
+
+The manual release smoke on sijie.xyz (iCloud CalDAV + SMTP) found four defects
+(`docs/real-env-verification/items/release-smoke.md`). Each one is now an e2e test. Each test was
+proven RED with `make test-red` on the v0.1.76 images, before any fix was built. Archive:
+`e2e/test-results-archive/20260927T051824Z/`.
+
+| id | spec | RED on v0.1.76 (read from the archive) |
+|---|---|---|
+| F-C-61 | `booking-invite-caldav` step 1 | `no Mailpit message to carla.guest@… containing "METHOD:REQUEST"`: no invite mail at all |
+| F-C-62 | `booking-invite-caldav` step 2 | not reached: it sits behind step 1's red ([[two-guards-dying-at-one-line]]) |
+| F-C-63 | `booking-invite-caldav` step 3 | not reached: it sits behind step 1's red |
+| F-I-2 | `visitor-name-picker-zh` | greeting received `This is zhpicker's AI. Ask it anything — …` (English in the zh UI) |
+
+## Batch S1 — the visitor is told only what happened (F-C-61 / 62 / 63)
+
+**Mechanism.** `invited_email` in the `calendar_book` result was the session email, returned
+unconditionally. Google mails the attendee itself (`sendUpdates=all`). A CalDAV PUT of a VEVENT
+with an ATTENDEE and no ORGANIZER mails nobody. So on CalDAV the card said "calendar invite emailed"
+and no mail went out. Cancel had the same gap. The card also labelled the owner's login-walled
+`.ics` URL "View on Google Calendar".
+
+**Fix (one root, one fact per owner).**
+- The calendar seam's `insert_event` result carries `invited`. The calendar decides it: the Google
+  binding answers `$count(attendees) > 0`; CalDAV answers `false` and gives no link.
+- When the calendar did not invite, the booker mails an iTIP `METHOD:REQUEST` through the mail seam
+  (`ical_event`). The UID is the calendar event id. The ORGANIZER is the owner.
+- The mail seam's receipt carries `calendar`: the mail went out with the text/calendar part. The
+  SMTP block sets it. A mail block that cannot attach the part leaves it false. Then the booker does
+  not call the mail an invite.
+- The booking row stores `invited_by` (`calendar` | `mail` | `''`). Cancel, owner cancel and
+  reschedule send `METHOD:CANCEL` for a `mail` invite. `sent_updates_to` names the address only
+  when someone was told.
+- The card link label is provider-neutral ("Open in calendar").
+
+## Batch S2 — the name picker speaks the UI language (F-I-2)
+
+**Mechanism.** The kicker and both placeholders were literals in `VisitorNamePicker.tsx`. The
+backend built the default greeting in English (`defaultGreeting`). `use-code-intro.ts` built the
+capacity line in English. Text built outside the catalog cannot be translated.
+
+**Fix.** The backend returns the role's greeting as written ('' when none) plus the owner `handle`.
+The picker renders every line from `visitor.visitorNamePicker` (7 new keys, all 8 locales). The en
+copy is unchanged, so `code-intro-greeting` still asserts the same text.
+
+**Close:** one build, then `REPEAT=5` on the two new specs plus the neighbours they touch
+(`booking-invite-truth`, `visitor-cancel-booking`, `supplier-provider-agnostic`,
+`supplier-happy-matrix`, `booking-confirmation-email`, `code-intro-greeting`,
+`visitor-name-picker`, `supplier-calendar-cancel-tool`, `tool-calendar-cancel-booking`).
+
 # Full-suite failures — round 2026-09-26 (branch `embed-update-hook`, event bus / outbox / webhooks, uncommitted)
 
 Two full runs. Logs: run 1 `scratchpad/accept-logs/.accept-test-fresh.log`, run 2

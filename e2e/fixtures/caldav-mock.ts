@@ -31,6 +31,7 @@ function ical(iso: string): string {
 
 /** CalDAVEvent —— one event recorded by the mock (fields normalized to match the gcal side). */
 export interface CalDAVEvent {
+  uid: string;
   summary: string;
   start: string;
   end: string;

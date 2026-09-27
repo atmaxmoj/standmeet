@@ -110,17 +110,18 @@ func mailSend(
 	}
 	// The receipt carries the id the provider gave (F-C-55). Empty = this path (SMTP) can't
 	// produce one, not a failure.
-	return marshalSendReceipt(rcpt.ProviderID)
+	return marshalSendReceipt(rcpt)
 }
 
-// marshalSendReceipt — `{"ok":true,"provider_id":"…"}`. Like its neighboring marshal helpers,
-// takes a concrete type and wraps errors in place (wrapcheck requires an external package's
-// error to be wrapped once within this package).
-func marshalSendReceipt(providerID string) (json.RawMessage, error) {
+// marshalSendReceipt — `{"ok":true,"provider_id":"…","calendar":bool}`. Like its neighboring
+// marshal helpers, takes a concrete type and wraps errors in place (wrapcheck requires an external
+// package's error to be wrapped once within this package).
+func marshalSendReceipt(rcpt MailReceipt) (json.RawMessage, error) {
 	b, err := json.Marshal(struct {
 		ProviderID string `json:"provider_id,omitempty"`
 		OK         bool   `json:"ok"`
-	}{ProviderID: providerID, OK: true})
+		Calendar   bool   `json:"calendar"`
+	}{ProviderID: rcpt.ProviderID, OK: true, Calendar: rcpt.Calendar})
 	if err != nil {
 		return nil, fmt.Errorf("supplier invoke: marshal send receipt: %w", err)
 	}

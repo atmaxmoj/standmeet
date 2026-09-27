@@ -83,7 +83,14 @@
     "capacityNote": "Keep using the <strong>same name</strong> and your chats stay grouped as you; a <strong>different name</strong> reads as a new person and starts a separate conversation. Passing the code to someone else? Have them scan it and pick their own name. Rather not give a name? <strong>Skip</strong> takes one of the code's names too, as a guest — and coming back later starts over as a new guest.",
     "start": "start ↵",
     "skip": "skip",
-    "starting": "starting chat"
+    "starting": "starting chat",
+    "kicker": "प्रवेश मिला · कोड {code}",
+    "kickerNoCode": "शुरू करने से पहले",
+    "defaultGreeting": "यह {handle} का AI है। कुछ भी पूछिए — यह {handle} की आवाज़ में, उनके असली काम के आधार पर जवाब देता है।",
+    "defaultGreetingAnon": "इस AI से कुछ भी पूछिए — यह मालिक की आवाज़ में, असली काम के आधार पर जवाब देता है।",
+    "capacity": "इस कोड को अधिकतम {max} लोग इस्तेमाल कर सकते हैं — {count} पहले से शामिल।",
+    "namePlaceholder": "आपका नाम",
+    "emailPlaceholder": "ईमेल (वैकल्पिक, मीटिंग आमंत्रण के लिए)"
   },
   "wikiTopBar": {
     "brand": "standmeet",

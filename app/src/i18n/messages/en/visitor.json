@@ -83,7 +83,14 @@
     "capacityNote": "Keep using the <strong>same name</strong> and your chats stay grouped as you; a <strong>different name</strong> reads as a new person and starts a separate conversation. Passing the code to someone else? Have them scan it and pick their own name. Rather not give a name? <strong>Skip</strong> takes one of the code's names too, as a guest — and coming back later starts over as a new guest.",
     "start": "start ↵",
     "skip": "skip",
-    "starting": "starting chat"
+    "starting": "starting chat",
+    "kicker": "access granted · code {code}",
+    "kickerNoCode": "before we begin",
+    "defaultGreeting": "This is {handle}'s AI. Ask it anything — it answers in {handle}'s voice, grounded in their real work.",
+    "defaultGreetingAnon": "Ask this AI anything — it answers in the owner's voice, grounded in real work.",
+    "capacity": "Up to {max, plural, one {# person} other {# people}} can use this code — {count} already in.",
+    "namePlaceholder": "your name",
+    "emailPlaceholder": "email (optional, for meeting invites)"
   },
   "wikiTopBar": {
     "brand": "standmeet",

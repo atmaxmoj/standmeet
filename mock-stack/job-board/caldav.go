@@ -47,6 +47,9 @@ const busyStyleComponent = "component"
 
 // caldavEvent —— one recorded event (normalized fields, for test assertions).
 type caldavEvent struct {
+	// UID —— the event's own id. An invite mailed about this event must carry the same UID, or
+	// the visitor's calendar cannot tie the invite (and a later cancel) to it.
+	UID       string   `json:"uid"`
 	Summary   string   `json:"summary"`
 	Start     string   `json:"start"`
 	End       string   `json:"end"`
@@ -222,6 +225,8 @@ func parseVEvent(body string) caldavEvent {
 
 func applyVEventField(ev *caldavEvent, key, val string) {
 	switch key {
+	case "UID":
+		ev.UID = val
 	case "SUMMARY":
 		ev.Summary = val
 	case "DTSTART":

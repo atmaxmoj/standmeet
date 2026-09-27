@@ -137,6 +137,7 @@ type busyPeriod struct {
 type insertReply struct {
 	EventID  string `json:"eventId"`
 	HTMLLink string `json:"htmlLink"`
+	Invited  bool   `json:"invited"`
 }
 
 // Name / Kind / Connected — the Supplier base surface. Kind "block": this supplier is served by an
@@ -234,7 +235,7 @@ func (p *blockCalendarProxy) InsertEvent(
 	if uerr := json.Unmarshal(out, &r); uerr != nil {
 		return adapters.InsertedEvent{}, fmt.Errorf("calendar block insert_event decode: %w", uerr)
 	}
-	return adapters.InsertedEvent{EventID: r.EventID, HTMLLink: r.HTMLLink}, nil
+	return adapters.InsertedEvent(r), nil
 }
 
 // DeleteEvent — call the block's `delete_event` tool (404 absorbed block-side).

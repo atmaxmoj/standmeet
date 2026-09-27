@@ -22,7 +22,7 @@ import {
   useIssuePendingCode,
   type IssueOutcome,
 } from '@/lib/gate/use-issue-pending-code';
-import { memberCapacityLine, useCodeIntro } from '@/lib/gate/use-code-intro';
+import { useCodeIntroLines } from '@/lib/gate/use-code-intro';
 import {
   loadVisitorName,
   loadVisitorEmail,
@@ -42,7 +42,7 @@ function Modal() {
   const [email, setEmail] = useState(loadVisitorEmail);
   const [full, setFull] = useState(false);
   const code = usePendingCodeStore((s) => s.code);
-  const intro = useCodeIntro();
+  const intro = useCodeIntroLines();
   const { issue, busy } = useIssuePendingCode();
   const onSubmit = () => { void settleOutcome(submitPickerName(name, email, issue), setFull); };
   const onDismiss = () => { void settleOutcome(dismissPicker(issue), setFull); };
@@ -56,11 +56,11 @@ function Modal() {
       onClick={(e) => { (e.target === e.currentTarget) && onDismiss(); }}
     >
       <div className="sm-visitor-name-card sm-rise">
-        <PickerHeader code={code} greeting={intro?.greeting ?? ''} />
+        <PickerHeader code={code} greeting={intro.greeting} />
         <PickerBody
           name={name} onName={setName} email={email} onEmail={setEmail}
           going={busy} full={full}
-          capacityLine={memberCapacityLine(intro)}
+          capacityLine={intro.capacity}
           onSubmit={onSubmit}
           onDismiss={onDismiss}
         />
@@ -95,8 +95,8 @@ function PickerHeader({ code, greeting }: { code: string | null; greeting: strin
   const t = useTranslations('visitor.visitorNamePicker');
   return (
     <div className="sm-visitor-name-head">
-      <div className="sm-smallcaps">
-        {code ? `access granted · code ${code}` : 'before we begin'}
+      <div className="sm-smallcaps" data-testid="visitor-name-kicker">
+        {code ? t('kicker', { code }) : t('kickerNoCode')}
       </div>
       {greeting !== '' && (
         <p className="sm-visitor-name-greeting" data-testid="visitor-name-greeting">
@@ -173,7 +173,7 @@ function PickerForm(props: BodyProps) {
         type="text"
         value={props.name}
         onChange={(e) => props.onName(e.target.value)}
-        placeholder="your name"
+        placeholder={t('namePlaceholder')}
         autoFocus
         className="sm-visitor-name-input"
         data-testid="visitor-name-input"
@@ -182,7 +182,7 @@ function PickerForm(props: BodyProps) {
         type="email"
         value={props.email}
         onChange={(e) => props.onEmail(e.target.value)}
-        placeholder="email (optional, for meeting invites)"
+        placeholder={t('emailPlaceholder')}
         className="sm-visitor-name-input"
         data-testid="visitor-email-input"
       />

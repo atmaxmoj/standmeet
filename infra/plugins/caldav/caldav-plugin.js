@@ -205,7 +205,10 @@ function apply(ctx) {
       if (r.status >= 400) throw new Error(`caldav calendar-query: status ${r.status}`)
       return { busy: busyFromCalendarData(r.body, timeMin, timeMax) }
     },
-    // insertEvent — PUT a VEVENT (UID idempotent).
+    // insertEvent — PUT a VEVENT (UID idempotent). The VEVENT carries the ATTENDEE but no
+    // ORGANIZER, so no CalDAV server schedules it: nobody is mailed (invited:false), and the booker
+    // mails the invite itself. No htmlLink: the .ics URL is the owner's login-walled resource, not a
+    // page a visitor can open (F-C-62).
     async insertEvent(conn, ev) {
       const uid = (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`).replace(/[^a-zA-Z0-9-]/g, '')
       const url = `${conn.url.replace(/\/$/, '')}/${uid}.ics`
@@ -217,7 +220,7 @@ function apply(ctx) {
         ), ICS,
       )
       if (r.status >= 400) throw new Error(`caldav insert: status ${r.status}`)
-      return { eventId: uid, htmlLink: url }
+      return { eventId: uid, htmlLink: '', invited: false }
     },
     // listCalendars — discover the account's calendars by name, so switching calendars is a pick,
     // not a hand-typed collection URL. Walks principal → calendar-home-set → the calendars under it.

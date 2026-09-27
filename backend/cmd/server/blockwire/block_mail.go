@@ -41,17 +41,21 @@ func newBlockMailProxy(m *plugin.Manifest, vault blockCredVault) *blockMailProxy
 // sendArgs — the send operation's own fields (the owner's credentials are merged in separately, as
 // an opaque blob). Keys match the block's `send` tool inputSchema.
 type sendArgs struct {
-	To      string `json:"to"`
-	Subject string `json:"subject"`
-	Body    string `json:"body"`
-	HTML    string `json:"html,omitempty"`
+	// ICalEvent —— the iTIP part to attach; a block that cannot attach one leaves it undeclared.
+	ICalEvent *adapters.ICalEvent `json:"ical_event,omitempty"`
+	To        string              `json:"to"`
+	Subject   string              `json:"subject"`
+	Body      string              `json:"body"`
+	HTML      string              `json:"html,omitempty"`
 	// MessageID —— the Message-ID header; a retried send repeats it.
 	MessageID string `json:"message_id,omitempty"`
 }
 
-// sendReply — the block's `send` tool result shape: { id }.
+// sendReply — the block's `send` tool result shape: { id, calendar }. calendar — the block attached
+// the iTIP part; a block that never says so did not.
 type sendReply struct {
-	ID string `json:"id"`
+	ID       string `json:"id"`
+	Calendar bool   `json:"calendar"`
 }
 
 // Name / Kind / Connected — the Supplier base surface. Kind "block": served by an MCP block, not an
@@ -87,5 +91,5 @@ func (p *blockMailProxy) Send(
 	if uerr := json.Unmarshal(out, &r); uerr != nil {
 		return adapters.MailReceipt{}, fmt.Errorf("mail block send decode: %w", uerr)
 	}
-	return adapters.MailReceipt{ProviderID: r.ID}, nil
+	return adapters.MailReceipt{ProviderID: r.ID, Calendar: r.Calendar}, nil
 }

@@ -83,7 +83,14 @@
     "capacityNote": "一直用<strong>同一个名字</strong>，你的对话就以「你」为单位归组；<strong>换个名字</strong>会被视作新的人，另起一段对话。要把访问码给别人？让他们扫码并选自己的名字。不想给名字？<strong>跳过</strong>同样会占用该访问码的一个名字，作为访客——而之后再回来会以一个新访客身份重新开始。",
     "start": "开始 ↵",
     "skip": "跳过",
-    "starting": "正在开始聊天"
+    "starting": "正在开始聊天",
+    "kicker": "已获准进入 · 访问码 {code}",
+    "kickerNoCode": "开始之前",
+    "defaultGreeting": "这是 {handle} 的 AI。尽管问——它用 {handle} 的口吻回答，依据是其真实的作品。",
+    "defaultGreetingAnon": "尽管问这个 AI——它用主理人的口吻回答，依据是真实的作品。",
+    "capacity": "最多 {max} 人可以使用这个访问码——已有 {count} 人加入。",
+    "namePlaceholder": "你的名字",
+    "emailPlaceholder": "邮箱（可选，用于接收会议邀请）"
   },
   "wikiTopBar": {
     "brand": "standmeet",

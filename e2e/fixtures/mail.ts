@@ -249,6 +249,39 @@ export async function waitForMailToContaining(
   throw new Error(`no Mailpit message to ${to} containing "${needle}" within ${timeoutMs}ms`);
 }
 
+/**
+ * waitForRawMailToContaining —— the full content of the first message to `to` that contains
+ * `needle`: its raw source (headers + MIME structure) followed by every attached / inline part,
+ * decoded. A calendar invite lives in a `text/calendar` part that the Text/HTML views don't show,
+ * and the part may be quoted-printable or base64 on the wire, so it is searched decoded.
+ */
+export async function waitForRawMailToContaining(
+  request: APIRequestContext, to: string, needle: string, timeoutMs = 15_000,
+): Promise<string> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const res = await request.get(`${MAILPIT}/api/v1/messages`);
+    const body = res.status() === 200 ? await res.json() as { messages?: MailpitMessage[] } : {};
+    for (const m of (body.messages ?? []).filter((x) => x.To.some((t) => t.Address === to))) {
+      const full = await messageWithParts(request, m.ID);
+      if (full.includes(needle)) return full;
+    }
+    await new Promise((r) => { setTimeout(r, 300); });
+  }
+  throw new Error(`no Mailpit message to ${to} containing "${needle}" within ${timeoutMs}ms`);
+}
+
+async function messageWithParts(request: APIRequestContext, id: string): Promise<string> {
+  const raw = await (await request.get(`${MAILPIT}/api/v1/message/${id}/raw`)).text();
+  const meta = await (await request.get(`${MAILPIT}/api/v1/message/${id}`)).json() as {
+    Attachments?: { PartID: string }[]; Inline?: { PartID: string }[];
+  };
+  const parts = [...(meta.Attachments ?? []), ...(meta.Inline ?? [])];
+  const decoded = await Promise.all(parts.map(async (p) =>
+    (await request.get(`${MAILPIT}/api/v1/message/${id}/part/${p.PartID}`)).text()));
+  return [raw, ...decoded].join('\n');
+}
+
 async function fetchMessageEnvelope(
   request: APIRequestContext, id: string,
 ): Promise<MailEnvelope> {

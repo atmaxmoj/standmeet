@@ -60,7 +60,7 @@ async function main() {
   server.registerTool(
     'insert_event',
     {
-      description: 'Create a meeting: PUT a VEVENT. Returns { eventId, htmlLink }.',
+      description: 'Create a meeting: PUT a VEVENT. Returns { eventId, htmlLink, invited }.',
       inputSchema: {
         ...conn,
         summary: z.string(),

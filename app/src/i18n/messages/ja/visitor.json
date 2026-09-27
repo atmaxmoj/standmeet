@@ -83,7 +83,14 @@
     "capacityNote": "Keep using the <strong>same name</strong> and your chats stay grouped as you; a <strong>different name</strong> reads as a new person and starts a separate conversation. Passing the code to someone else? Have them scan it and pick their own name. Rather not give a name? <strong>Skip</strong> takes one of the code's names too, as a guest — and coming back later starts over as a new guest.",
     "start": "start ↵",
     "skip": "skip",
-    "starting": "starting chat"
+    "starting": "starting chat",
+    "kicker": "アクセス許可 · コード {code}",
+    "kickerNoCode": "はじめる前に",
+    "defaultGreeting": "これは {handle} の AI です。何でも聞いてください。{handle} の口調で、実際の仕事に基づいて答えます。",
+    "defaultGreetingAnon": "この AI に何でも聞いてください。オーナーの口調で、実際の仕事に基づいて答えます。",
+    "capacity": "このコードは最大 {max} 人まで使えます — すでに {count} 人が参加。",
+    "namePlaceholder": "あなたの名前",
+    "emailPlaceholder": "メール（任意、会議の招待用）"
   },
   "wikiTopBar": {
     "brand": "standmeet",

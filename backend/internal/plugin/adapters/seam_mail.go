@@ -36,14 +36,27 @@ type MailReceipt struct {
 	// response body, SendGrid puts it in the `X-Message-Id` header — **where it lives is up
 	// to the binding's response mapping**; this field only carries the result.
 	ProviderID string `json:"provider_id,omitempty"`
+	// Calendar —— the message went out carrying its ICalEvent as a text/calendar part. False =
+	// no calendar part left with it (none asked for, or this provider cannot attach one), so the
+	// sender must not call it a calendar invite.
+	Calendar bool `json:"calendar"`
+}
+
+// ICalEvent —— an iTIP message (RFC 5546) to carry as the mail's text/calendar part, so the
+// recipient's mail client offers it as a calendar invite (REQUEST) or cancellation (CANCEL).
+type ICalEvent struct {
+	Method  string `json:"method"`  // REQUEST | CANCEL — the VCALENDAR's METHOD
+	Content string `json:"content"` // the whole VCALENDAR
 }
 
 // MailMessage —— one message to send (carries no SMTP credentials).
 type MailMessage struct {
-	To      string `json:"to"`
-	Subject string `json:"subject"`
-	Body    string `json:"body"`
-	HTML    string `json:"html"` // empty = plain text
+	// ICalEvent —— nil = an ordinary mail.
+	ICalEvent *ICalEvent `json:"ical_event,omitempty"`
+	To        string     `json:"to"`
+	Subject   string     `json:"subject"`
+	Body      string     `json:"body"`
+	HTML      string     `json:"html"` // empty = plain text
 	// MessageID —— the Message-ID header ("<id@host>"); empty = the provider picks one. A retried
 	// job sends the same id, so most mailboxes fold a duplicate into one.
 	MessageID string `json:"message_id,omitempty"`

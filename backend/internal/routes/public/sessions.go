@@ -137,7 +137,8 @@ type codeIntroRequest struct {
 
 type codeIntroResponse struct {
 	Label    string `json:"label"`
-	Greeting string `json:"greeting"`
+	Greeting string `json:"greeting"` // "" = the role set none; the picker renders its own default
+	Handle   string `json:"handle"`
 	// MicrositeSlug —— which page this code opens. Empty string means the default
 	// conversation, not "no answer".
 	MicrositeSlug string `json:"microsite_slug"`
@@ -166,7 +167,7 @@ func writeCodeIntro(
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	resp := codeIntroResponse{
-		Label: res.Label, Greeting: res.Greeting,
+		Label: res.Label, Greeting: res.Greeting, Handle: res.Handle,
 		MicrositeSlug: res.MicrositeSlug,
 		MaxMembers:    res.MaxMembers, MemberCount: res.MemberCount,
 	}

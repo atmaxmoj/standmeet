@@ -310,21 +310,30 @@ async function commitBooking(s, topic, tz, slot, durationMin) {
   try {
     inserted = await insertEvent(s, topic, tz, slot, end, summary)
   } catch (e) { await gwBlockstoreRelease(bookingsColl, holdKey); return friendlyCalErr(e) }
+  // Who told the visitor: the calendar itself (Google, sendUpdates=all), or our own iTIP mail when
+  // the calendar tells nobody (CalDAV). '' = nobody — the card and the model must then say so.
+  const invite = { uid: inserted.event_id, summary, description: buildDescription(s, topic), start: slot, end }
+  let invitedBy = ''
+  if (s.visitorEmail) {
+    if (inserted.invited) invitedBy = 'calendar'
+    else if (await mailInvite(s, 'REQUEST', invite, s.visitorEmail)) invitedBy = 'mail'
+  }
   let bookingID = ''
   try {
-    bookingID = await persistBooking(s, inserted, summary, slot, end)
+    bookingID = await persistBooking(s, inserted, summary, slot, end, invitedBy)
     // A booking without its booking.created would never notify the owner: both, or neither.
     const notice = s.notifyOwner ? { summary, visitor_name: s.visitorName, start_at: rfc(slot) } : undefined
     await gwBookingRecord(s.ownerID, 'created', bookingID, notice)
   } catch (e) {
     if (bookingID) { try { await gwBlockstoreDeleteByID(bookingsColl, bookingID) } catch { /* orphan row */ } }
     await compensateDelete(s, inserted.event_id)
+    if (invitedBy === 'mail') await mailInvite(s, 'CANCEL', invite, s.visitorEmail)
     await gwBlockstoreRelease(bookingsColl, holdKey)
     return friendlyCalErr(e)
   }
   return mustJSON({
     ok: true, event_id: inserted.event_id, html_link: inserted.html_link,
-    start: rfc(slot), end: rfc(end), invited_email: s.visitorEmail, can_email: await ownerCanEmail(s.ownerID),
+    start: rfc(slot), end: rfc(end), invited_email: invitedBy ? s.visitorEmail : '', can_email: await ownerCanEmail(s.ownerID),
   })
 }
 async function insertEvent(s, topic, tz, slot, end, summary) {
@@ -332,14 +341,74 @@ async function insertEvent(s, topic, tz, slot, end, summary) {
     summary, description: buildDescription(s, topic), start: rfc(slot), end: rfc(end), time_zone: tz, visitor_email: s.visitorEmail,
   })
   const ev = JSON.parse(resp)
-  return { event_id: ev.event_id || '', html_link: ev.html_link || '' }
+  return { event_id: ev.event_id || '', html_link: ev.html_link || '', invited: ev.invited === true }
 }
-async function persistBooking(s, ev, summary, startDT, endDT) {
+async function persistBooking(s, ev, summary, startDT, endDT, invitedBy) {
   return gwBlockstoreInsert(bookingsColl, {
     owner_id: s.ownerID, subject_id: s.subjectID, subject_kind: s.subjectKind, conversation_id: s.conversationID,
     google_event_id: ev.event_id, google_html_link: ev.html_link, summary,
-    visitor_email: s.visitorEmail, start_at: rfc(startDT), end_at: rfc(endDT),
+    visitor_email: s.visitorEmail, start_at: rfc(startDT), end_at: rfc(endDT), invited_by: invitedBy,
   })
+}
+
+// ── iTIP invites by mail (RFC 5546) — for a calendar that tells nobody itself ──
+
+const icalUTC = (dt) => dt.toUTC().toFormat("yyyyLLdd'T'HHmmss'Z'")
+const icalText = (v) =>
+  String(v == null ? '' : v).replace(/\\/g, '\\\\').replace(/\r?\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;')
+// icalFold — RFC 5545 §3.1: a content line longer than 75 octets continues on a line that starts with a space.
+const icalFold = (line) => (line.match(/.{1,72}/gu) || ['']).join('\r\n ')
+
+// itip — one VCALENDAR carrying METHOD. UID is the calendar event's id, so the visitor's calendar ties
+// a later CANCEL to the invite it accepted; the CANCEL bumps SEQUENCE, as RFC 5546 requires.
+function itip(method, ev, organizer, attendee) {
+  const cancel = method === 'CANCEL'
+  const lines = [
+    'BEGIN:VCALENDAR', 'PRODID:-//StandMeet//Booker//EN', 'VERSION:2.0', `METHOD:${method}`, 'BEGIN:VEVENT',
+    `UID:${ev.uid}`, `DTSTAMP:${icalUTC(DateTime.now())}`,
+    `DTSTART:${icalUTC(ev.start)}`, `DTEND:${icalUTC(ev.end)}`,
+    `SEQUENCE:${cancel ? 1 : 0}`, `STATUS:${cancel ? 'CANCELLED' : 'CONFIRMED'}`,
+    `SUMMARY:${icalText(ev.summary)}`,
+  ]
+  if (ev.description) lines.push(`DESCRIPTION:${icalText(ev.description)}`)
+  lines.push(`ORGANIZER;CN="${String(organizer.name).replace(/"/g, '')}":mailto:${organizer.email}`)
+  lines.push(`ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:${attendee}`)
+  lines.push('END:VEVENT', 'END:VCALENDAR')
+  return lines.map(icalFold).join('\r\n') + '\r\n'
+}
+
+// mailInvite — mail the attendee an invite (REQUEST) or a cancellation (CANCEL) through the mail
+// seam. True only when the mail went out carrying the calendar part — the receipt says so; a mail
+// supplier that cannot attach one did not send an invite, whatever the text said.
+async function mailInvite(s, method, ev, to) {
+  const [ownerName, ownerEmail, ownerTZ] = await Promise.all(
+    ['full_name', 'email', 'timezone'].map((f) => gwOwnerMeta(s.ownerID, f)))
+  if (!emailValid(to) || !emailValid(ownerEmail)) return false
+  const when = fmtWhen(rfc(ev.start), confirmationZone('', ownerTZ))
+  const cancel = method === 'CANCEL'
+  const msg = {
+    to,
+    subject: `${cancel ? 'Cancelled' : 'Invitation'}: ${ev.summary}`,
+    body: `Hi,\n\n${cancel ? 'This meeting was cancelled' : 'You are invited to a meeting'}:\n\n  ${ev.summary}\n  ${when}\n` +
+      `\n— sent on behalf of ${ownerName}\n`,
+    ical_event: { method, content: itip(method, ev, { name: ownerName, email: ownerEmail }, to) },
+  }
+  try {
+    return JSON.parse(await gwSupplierInvoke(s.ownerID, 'mail', 'send', msg)).calendar === true
+  } catch { return false }
+}
+
+// notifyCancel — tell the visitor a booking is gone. A calendar that sent the invite sends the
+// cancellation on delete (attendee_email); a mailed invite gets a mailed CANCEL. Returns the address
+// that was told, '' when nobody was.
+async function notifyCancel(s, b) {
+  if (b.invited_by === 'calendar') return b.visitor_email
+  if (b.invited_by !== 'mail') return ''
+  const ev = {
+    uid: b.google_event_id, summary: b.summary,
+    start: DateTime.fromISO(b.start_at), end: DateTime.fromISO(b.end_at),
+  }
+  return (await mailInvite(s, 'CANCEL', ev, b.visitor_email)) ? b.visitor_email : ''
 }
 // compensateDelete — the calendar event of a booking that failed to persist, deleted by a durable
 // host job (retried across restarts), not one attempt from this short-lived process.
@@ -485,7 +554,7 @@ async function doCancel(s, args) {
   if (err) return err
   try { await deleteBooking(s.ownerID, booking) } catch { return bookErr('cancel_failed', "couldn't cancel the meeting right now — please try again later") }
   await recordQuietly(s, 'cancelled', bookingID)
-  return '{"ok":true,"cancelled":true}'
+  return mustJSON({ ok: true, cancelled: true, sent_updates_to: await notifyCancel(s, booking) })
 }
 async function doReschedule(s, args) {
   if (!Array.isArray(args.preferred_times) || args.preferred_times.length === 0) return bookErr('invalid_args', 'preferred_times required')
@@ -498,6 +567,7 @@ async function doReschedule(s, args) {
   let ok = false; try { ok = JSON.parse(wire).ok === true } catch { ok = false }
   if (!ok) return wire // original untouched
   try { await deleteBooking(s.ownerID, old) } catch { return wire /* best-effort: new one already succeeded */ }
+  await notifyCancel(s, old) // the new slot carried its own invite; the old one must be withdrawn
   await recordQuietly(s, 'rescheduled', oldID)
   return wire
 }
@@ -520,7 +590,7 @@ async function doCancelByID(s, args) {
   await recordQuietly(s, 'cancelled', rec.id)
   return mustJSON({
     booking_id: args.booking_id, google_event_id: doc.google_event_id, summary: doc.summary,
-    cancelled: true, sent_updates_to: doc.visitor_email,
+    cancelled: true, sent_updates_to: await notifyCancel(s, doc),
   })
 }
 function clampListLimit(n) { return (!n || n <= 0) ? listBookingsDefaultLimit : Math.min(n, listBookingsMaxLimit) }
@@ -775,7 +845,7 @@ const bookedCardHTML = `<!doctype html><html><head><meta charset="utf-8">
    var time=el("div","time",fmt(d.start,d.end)); time.setAttribute("data-testid","book-card-time");
    root.appendChild(time);
    if(d.html_link){
-     var link=el("a","link","View on Google Calendar");
+     var link=el("a","link","Open in calendar");
      link.setAttribute("href",d.html_link); link.setAttribute("target","_blank");
      link.setAttribute("rel","noopener"); link.setAttribute("data-testid","book-card-link");
      root.appendChild(link);
@@ -862,7 +932,7 @@ async function main() {
 
   server.registerTool('calendar_book', {
     description:
-      "Create the meeting on the owner's Google Calendar. Only call after you have gathered topic, " +
+      "Create the meeting on the owner's calendar. Only call after you have gathered topic, " +
       'duration (15-180 minutes), and one or more visitor-confirmed preferred start times in RFC3339 ' +
       'format. The invite goes to the email the visitor gave when they entered (if any) — you do not ' +
       'supply a recipient; the result tells you what happened. Read `invited_email` on the result and ' +

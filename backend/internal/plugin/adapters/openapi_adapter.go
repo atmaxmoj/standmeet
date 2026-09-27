@@ -165,6 +165,7 @@ type insertEventInput struct {
 type insertedResult struct {
 	EventID  string `json:"id"`
 	HTMLLink string `json:"htmlLink"`
+	Invited  bool   `json:"invited"`
 }
 
 type cancelInput struct {

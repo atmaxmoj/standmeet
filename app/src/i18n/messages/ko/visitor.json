@@ -83,7 +83,14 @@
     "capacityNote": "Keep using the <strong>same name</strong> and your chats stay grouped as you; a <strong>different name</strong> reads as a new person and starts a separate conversation. Passing the code to someone else? Have them scan it and pick their own name. Rather not give a name? <strong>Skip</strong> takes one of the code's names too, as a guest — and coming back later starts over as a new guest.",
     "start": "start ↵",
     "skip": "skip",
-    "starting": "starting chat"
+    "starting": "starting chat",
+    "kicker": "접근 허용 · 코드 {code}",
+    "kickerNoCode": "시작하기 전에",
+    "defaultGreeting": "{handle}의 AI입니다. 무엇이든 물어보세요 — {handle}의 목소리로, 실제 작업에 근거해 답합니다.",
+    "defaultGreetingAnon": "이 AI에게 무엇이든 물어보세요 — 주인의 목소리로, 실제 작업에 근거해 답합니다.",
+    "capacity": "이 코드는 최대 {max}명이 사용할 수 있습니다 — 이미 {count}명 참여.",
+    "namePlaceholder": "이름",
+    "emailPlaceholder": "이메일 (선택, 회의 초대용)"
   },
   "wikiTopBar": {
     "brand": "standmeet",

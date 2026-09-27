@@ -83,7 +83,14 @@
     "capacityNote": "Continuez à utiliser le <strong>même nom</strong> et vos chats restent groupés comme vous ; un <strong>nom différent</strong> se lit comme une nouvelle personne et commence une conversation séparée. Passer le code à quelqu'un d'autre ? Qu'il le scanne et choisisse son propre nom. Plutôt ne pas donner de nom ? <strong>Ignorer</strong> prend aussi l'un des noms du code, comme un invité — et revenir plus tard recommence comme un nouvel invité.",
     "start": "démarrer ↵",
     "skip": "ignorer",
-    "starting": "démarrage du chat"
+    "starting": "démarrage du chat",
+    "kicker": "accès accordé · code {code}",
+    "kickerNoCode": "avant de commencer",
+    "defaultGreeting": "Voici l'IA de {handle}. Posez-lui n'importe quelle question : elle répond avec la voix de {handle}, ancrée dans son vrai travail.",
+    "defaultGreetingAnon": "Posez n'importe quelle question à cette IA : elle répond avec la voix du propriétaire, ancrée dans un vrai travail.",
+    "capacity": "Jusqu'à {max, plural, one {# personne peut} other {# personnes peuvent}} utiliser ce code — {count} déjà là.",
+    "namePlaceholder": "votre nom",
+    "emailPlaceholder": "e-mail (facultatif, pour les invitations)"
   },
   "wikiTopBar": {
     "brand": "standmeet",

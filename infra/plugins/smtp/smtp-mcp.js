@@ -110,8 +110,9 @@ async function main() {
   server.registerTool(
     'send',
     {
-      description: 'Send one email through the owner\'s SMTP server. Returns { id } (empty when the ' +
-        'server gives no message id). A send failure throws a classified, friendly reason.',
+      description: 'Send one email through the owner\'s SMTP server. Returns { id, calendar } (id is ' +
+        'empty when the server gives no message id; calendar is true when ical_event rode along as ' +
+        'the text/calendar part). A send failure throws a classified, friendly reason.',
       inputSchema: {
         ...conn,
         to: z.string(),
@@ -121,6 +122,9 @@ async function main() {
         // message_id — the Message-ID header ("<id@host>"). A retried send repeats it, so most
         // mailboxes fold the duplicate into one.
         message_id: z.string().optional(),
+        // ical_event — an iTIP VCALENDAR (METHOD REQUEST / CANCEL). nodemailer puts it in as the
+        // text/calendar alternative, so the recipient's mail client offers it as an invite.
+        ical_event: z.object({ method: z.string(), content: z.string() }).optional(),
       },
     },
     async (c) => {
@@ -129,11 +133,12 @@ async function main() {
         info = await transportFor(c).sendMail({
           from: fromHeader(c), to: c.to, subject: c.subject,
           text: c.body, html: c.html || undefined, messageId: c.message_id || undefined,
+          icalEvent: c.ical_event ? { method: c.ical_event.method, content: c.ical_event.content } : undefined,
         })
       } catch (e) {
         throw sendFault(e)
       }
-      return asText({ id: (info && info.messageId) || '' })
+      return asText({ id: (info && info.messageId) || '', calendar: Boolean(c.ical_event) })
     },
   )
 

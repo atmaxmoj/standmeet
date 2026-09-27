@@ -1,10 +1,10 @@
 # release-smoke — the core features, after every release
 
 - **Module:** After a release reaches the live instance, a visitor can still do what the product is for: be let in by a code, get answers grounded in the owner's corpus, book a meeting that lands on the real calendar, and get the email the chat promised. The owner is told about the booking, and the event bus carried every step. Driven by hand in the owner's Chrome, with a code issued for this run only.
-- **Surface:** `https://sijie.xyz/?code=<selftest code>` as the visitor; `/admin/tasks` and `/admin/codes` as the owner; the owner's Gmail web view; the owner's Google Calendar web view.
-- **Real dep:** The live instance at the released version, its connected Google Calendar, its mail supplier, a real model, and the owner's Gmail inbox.
-- **Exclusive:** google-calendar · gmail-inbox
-- **Backing e2e:** `chat-book-success` · `supplier-send-confirmation-tool` · `booking-owner-notify` · `events-side-effects-durable` · `events-index-via-bus` · `tasks-panel` — each covers one step below on the mock stack; this item is the same path on the real one.
+- **Surface:** `https://sijie.xyz/?code=<selftest code>` as the visitor; `/admin/tasks` and `/admin/codes` as the owner; the owner's Gmail web view; the web view of the owner's active calendar (iCloud CalDAV on sijie.xyz since 2026-09).
+- **Real dep:** The live instance at the released version, its active calendar supplier, its mail supplier, a real model, and the owner's Gmail inbox.
+- **Exclusive:** calendar · gmail-inbox
+- **Backing e2e:** `chat-book-success` · `booking-invite-caldav` · `supplier-send-confirmation-tool` · `booking-owner-notify` · `events-side-effects-durable` · `events-index-via-bus` · `tasks-panel` — each covers one step below on the mock stack; this item is the same path on the real one.
 
 ## Checks
 
@@ -24,9 +24,14 @@
 - **Backing test:** `transcript-grounding-visible.spec.ts` · see [[chat-grounding]]
 
 ### 4 — A booking lands on the real calendar ⭐
-- **Steps:** Ask to book a 30-minute call at a named free slot next week. Wait for the booking card. Open Google Calendar in its own tab at that day. Open the event.
+- **Steps:** Ask to book a 30-minute call at a named free slot next week. Wait for the booking card. Open the owner's calendar in its own tab at that day. Open the event.
 - **Expected:** The event is there at the booked time, and its guest list holds the `+selftest` address.
 - **Backing test:** `chat-book-success.spec.ts` · see [[booking-book]]
+
+### 4b — The calendar invite reaches the visitor ⭐ (F-C-61)
+- **Steps:** Read the card's invite line. Open the owner's Gmail in its own tab. Search for the `+selftest` address and "Invitation".
+- **Expected:** The card names the `+selftest` address only if an invitation is in the inbox. Gmail shows that mail as a calendar invite (an RSVP bar) for the booked time. The card offers no link to a calendar the visitor cannot open (F-C-62).
+- **Backing test:** `booking-invite-caldav.spec.ts` · `booking-invite-truth.spec.ts`
 
 ### 5 — The confirmation email arrives
 - **Steps:** In the booking card, send the confirmation to the profile address. Open the owner's Gmail in its own tab. Search for the `+selftest` address.
@@ -44,9 +49,9 @@
 - **Backing test:** `tasks-panel.spec.ts` · `events-side-effects-durable.spec.ts`
 
 ### 8 — Cancelling removes the event
-- **Steps:** Cancel the booking by its booking id through the owner MCP. Reload the calendar day.
-- **Expected:** The event is gone from the calendar.
-- **Backing test:** `tool-calendar-cancel-booking.spec.ts`
+- **Steps:** Cancel the booking by its booking id through the owner MCP. Read `sent_updates_to`. Reload the calendar day. Search the Gmail inbox for the `+selftest` address and "Cancelled".
+- **Expected:** The event is gone from the calendar. The visitor has a cancellation for the same event, and `sent_updates_to` names the address only when that mail is there (F-C-63).
+- **Backing test:** `tool-calendar-cancel-booking.spec.ts` · `booking-invite-caldav.spec.ts`
 
 ### 9 — The selftest code is revoked
 - **Steps:** Revoke the code through the owner MCP. Open the site with the same `?code=` in a new tab.

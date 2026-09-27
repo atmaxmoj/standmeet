@@ -92,7 +92,8 @@ export const fetchOutputLanding = (slug: string) => client().fetchOutputLanding(
 // member cap/used count).
 const CodeIntroSchema = z.object({
   label: z.string(),
-  greeting: z.string(),
+  greeting: z.string(), // '' = the role set none; the picker renders its translated default
+  handle: z.string(),
   max_members: z.number(),
   member_count: z.number(),
 });

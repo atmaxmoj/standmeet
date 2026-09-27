@@ -56,8 +56,11 @@ type InsertEventReq struct {
 	VisitorEmail string    `json:"visitor_email"`
 }
 
-// InsertedEvent —— the identifier of the created event.
+// InsertedEvent —— the identifier of the created event. Invited —— the calendar itself mailed
+// the attendee its invite (Google with sendUpdates=all); false = nobody was told, and the
+// consumer must invite by mail itself if it wants the attendee to know.
 type InsertedEvent struct {
 	EventID  string `json:"event_id"`
 	HTMLLink string `json:"html_link"`
+	Invited  bool   `json:"invited"`
 }
