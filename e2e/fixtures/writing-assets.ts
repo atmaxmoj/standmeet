@@ -52,12 +52,12 @@ export async function assertAdminBodyHasURI(
   request: APIRequestContext, owner: OwnerCreds, slug: string,
 ): Promise<void> {
   const { csrf } = await loginAPI(request, owner.email, owner.password);
-  const res = await request.get('/api/admin/writings/', {
+  const res = await request.get('/api/admin/writings/?limit=200', {
     headers: { 'X-Csrftoken': csrf },
   });
-  const writings = await res.json() as Array<{
+  const { items: writings } = await res.json() as { items: Array<{
     slug: string; body_md: string; asset_urls: Record<string, string>;
-  }>;
+  }> };
   const writing = writings.find((p) => p.slug === slug);
   if (!writing) throw new Error(`${slug} not in admin list`);
   // a real UUID v4 (8-4-4-4-12); not the pending- prefix

@@ -13,6 +13,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	"github.com/atmaxmoj/standmeet/internal/plugin/blockstore"
@@ -62,10 +63,11 @@ func (p *micrositeDocStore) CountAll(ctx context.Context, pageID string) (int64,
 	return n, err
 }
 
-func (p *micrositeDocStore) AllRecords(
-	ctx context.Context, pageID string,
+func (p *micrositeDocStore) RecordsPage(
+	ctx context.Context, pageID string, after *paging.Cursor, limit int32,
 ) ([]owner.MicrositeDocument, error) {
-	recs, err := p.store.AllRecords(ctx, blockstore.KindMicrosite, pageID)
+	recs, err := p.store.RecordsPage(
+		ctx, blockstore.KindMicrosite, pageID, recordsAfter(after), limit)
 	if missingSchema(err) {
 		return []owner.MicrositeDocument{}, nil
 	}
@@ -76,9 +78,18 @@ func (p *micrositeDocStore) AllRecords(
 	for i := range recs {
 		out = append(out, owner.MicrositeDocument{
 			ID: recs[i].ID, Collection: recs[i].Collection, Doc: recs[i].Doc,
+			CreatedAt: recs[i].CreatedAt,
 		})
 	}
 	return out, nil
+}
+
+// recordsAfter —— a paging cursor as blockstore's keyset position (zero = the first page).
+func recordsAfter(c *paging.Cursor) blockstore.RecordsAfter {
+	if c == nil {
+		return blockstore.RecordsAfter{}
+	}
+	return blockstore.RecordsAfter{At: c.At, ID: c.ID}
 }
 
 func (p *micrositeDocStore) DeleteByID(

@@ -22,7 +22,7 @@ import { useAdminSession } from '@/lib/admin/use-admin-session';
 import { IMPORTABLE_MODULES, STARTER, type ImportableModule } from '@/lib/admin/microsite-imports';
 import {
   loadDraft, stageFiles, shipFilesLive, previewView, previewIsLive, usePinnedPreviewSrc,
-  useMicrosites, type BuildView, type MicrositeSummary, type DraftFiles,
+  useMicrosite, useMicrosites, type BuildView, type MicrositeSummary, type DraftFiles,
 } from '@/lib/admin/use-microsites';
 import { useAction } from '@/lib/ui/use-action';
 
@@ -285,8 +285,7 @@ function AddFileButton(
 // PreviewPane — the page's live render, resolved from the shared microsites list by slug. Its own
 // component so PageEditor doesn't carry the list lookup + empty/render branch.
 function PreviewPane({ slug }: { slug: string }) {
-  const hook = useMicrosites();
-  const staged = hook.rows.find((r) => r.slug === slug.trim());
+  const { row: staged } = useMicrosite(slug.trim());
   return staged === undefined ? <PreviewEmpty /> : <EditorPreview page={staged} />;
 }
 

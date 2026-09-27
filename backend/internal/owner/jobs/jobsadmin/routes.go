@@ -23,14 +23,17 @@ package jobsadmin
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	authmw "github.com/atmaxmoj/standmeet/internal/infra/middleware"
+	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmodel"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc"
 )
@@ -249,34 +252,51 @@ type applicationView struct {
 func listApplications(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := authmw.OwnerIDFrom(r.Context())
-		apps, err := deps.Apps.ListByOwner(r.Context(), ownerID)
+		req, perr := pageRequest(r)
+		if perr != nil {
+			writeJSONErr(deps.Log, w, apierr.Envelope{
+				Status: http.StatusBadRequest, Code: "bad_request", Message: "bad cursor",
+			})
+			return
+		}
+		page, err := deps.Apps.ListPage(r.Context(), ownerID, r.URL.Query().Get("q"), req)
 		if err != nil {
 			deps.Log.Error("list applications", logErrKey, err)
 			writeServerErr(deps.Log, w)
 			return
 		}
-		writeApplicationsList(deps.Log, w, apps)
+		writeApplicationsPage(deps.Log, w, page)
 	}
 }
 
-func writeApplicationsList(
-	log *slog.Logger, w http.ResponseWriter, apps []jobsmodel.Application,
-) {
-	items := make([]applicationView, 0, len(apps))
-	for i := range apps {
-		items = append(items, applicationView{
-			ID:            apps[i].ID,
-			Company:       apps[i].JobSnapshot.Company,
-			Role:          apps[i].JobSnapshot.Title,
-			Status:        apps[i].Status,
-			SubmittedAt:   nullTime(apps[i].SubmittedAt),
-			CreatedAt:     apps[i].CreatedAt,
-			ResumeContent: apps[i].ResumeContent,
-		})
+// pageRequest —— ?cursor= and ?limit= as a page request (docs/design/paging.md).
+func pageRequest(r *http.Request) (paging.Request, error) {
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit")) //nolint:errcheck // absent/bad = default
+	a := paging.Args{Cursor: r.URL.Query().Get("cursor"), Limit: limit}
+	req, err := a.Parse()
+	if err != nil {
+		return paging.Request{}, fmt.Errorf("page request: %w", err)
 	}
+	return req, nil
+}
+
+func writeApplicationsPage(
+	log *slog.Logger, w http.ResponseWriter, page paging.Page[jobsmodel.Application],
+) {
+	out := paging.Each(page, func(a *jobsmodel.Application) applicationView {
+		return applicationView{
+			ID:            a.ID,
+			Company:       a.JobSnapshot.Company,
+			Role:          a.JobSnapshot.Title,
+			Status:        a.Status,
+			SubmittedAt:   nullTime(a.SubmittedAt),
+			CreatedAt:     a.CreatedAt,
+			ResumeContent: a.ResumeContent,
+		}
+	})
 	w.Header().Set(ctHeader, ctJSON)
 	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(items); err != nil {
+	if err := json.NewEncoder(w).Encode(out); err != nil {
 		log.Error("encode applications", logErrKey, err)
 	}
 }

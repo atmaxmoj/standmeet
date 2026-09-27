@@ -51,6 +51,8 @@ export const CodeViewSchema = z.object({
   // rather than required: an older backend simply does not send the field, and one
   // missing key must not blank the entire codes screen.
   bundle: z.string().nullish().transform((v) => v ?? ''),
+  // role_name —— the assumed role's name, joined on list rows; '' on a write receipt.
+  role_name: z.string().nullish().transform((v) => v ?? ''),
 });
 export type CodeView = z.infer<typeof CodeViewSchema>;
 

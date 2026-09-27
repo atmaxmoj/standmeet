@@ -12,6 +12,7 @@ import (
 	"maps"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/events"
+	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 	"github.com/atmaxmoj/standmeet/internal/owner/repo"
 )
@@ -241,13 +242,14 @@ func dropPageStore(ctx context.Context, deps MicrositeDeps, pageID string) error
 
 // ListPages — for admin to display all active pages.
 func ListPages(
-	ctx context.Context, deps MicrositeDeps, ownerID string,
-) ([]entity.Microsite, error) {
-	pages, err := deps.Pages.ListByOwner(ctx, ownerID)
+	ctx context.Context, deps MicrositeDeps, ownerID string, f repo.MicrositeFilter,
+	req paging.Request,
+) (paging.Page[entity.Microsite], error) {
+	page, err := deps.Pages.ListPage(ctx, ownerID, f, req)
 	if err != nil {
-		return nil, fmt.Errorf("list pages: %w", err)
+		return paging.Page[entity.Microsite]{}, fmt.Errorf("list pages: %w", err)
 	}
-	return pages, nil
+	return page, nil
 }
 
 // --- helpers ---------------------------------------------------------------

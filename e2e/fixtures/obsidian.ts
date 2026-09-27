@@ -91,13 +91,14 @@ export async function listAdminWritings(
   asset_urls: Record<string, string>;
 }>> {
   const { csrf } = await loginAPI(request, owner.email, owner.password);
-  const res = await request.get('/api/admin/writings/', { headers: { 'X-Csrftoken': csrf } });
-  return await res.json() as Array<{
+  const res = await request.get('/api/admin/writings/?limit=200', { headers: { 'X-Csrftoken': csrf } });
+  const { items } = await res.json() as { items: Array<{
     id: string; slug: string; title: string; tags: string[];
     body_md: string; published: boolean; cover_hue: string;
     cover_headline: string; cover_image_asset_id: string;
     asset_urls: Record<string, string>;
-  }>;
+  }> };
+  return items;
 }
 
 // makeVaultMD —— generate a .md file string with frontmatter + body.

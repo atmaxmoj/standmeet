@@ -34,7 +34,7 @@ type IPBansAdminDeps struct {
 func (h *Handlers) MountIPBans(r chi.Router) {
 	face := h.IPBansAdmin.Face
 	r.Route("/ip-bans", func(r chi.Router) {
-		r.Get("/", h.dispatchOp(face, "ip_bans.list", emptyArgs, jsonOK))
+		r.Get("/", h.dispatchOp(face, "ip_bans.list", pagedQueryArgs(), jsonOK))
 		r.Post("/", h.dispatchOp(face, "ip_bans.add", bodyArgs, jsonOK))
 		r.Delete("/{id}", h.dispatchOp(face, "ip_bans.remove", urlParamArgs("id"), jsonOK))
 	})

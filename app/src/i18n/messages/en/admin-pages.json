@@ -214,6 +214,7 @@
     "seoImagePlaceholder": "share-card image URL (og:image)"
   },
   "assets": {
+    "searchPlaceholder": "search by filename",
     "intro": "Every image and file you've uploaded, shared across your corpus and microsites. An asset still used by an entry or a page can't be deleted — remove it there first; the failed delete names what's using it.",
     "error": "couldn't load your assets — reload to try again.",
     "empty": "No assets yet. Add one from the corpus editor or a microsite's asset widget.",

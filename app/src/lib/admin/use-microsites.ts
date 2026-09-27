@@ -5,11 +5,12 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { z } from 'zod';
+import { create } from 'zustand';
 
 import { adminAPI } from '@/lib/api/admin';
 import { fetchHomepageSEO } from '@/lib/api/microsites';
 import { APIError } from '@/lib/api/api-error';
-import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
+import { createPagedStore, usePaged, type PagedState } from '@/lib/state/create-paged-store';
 import type { ResourceStatus } from '@/lib/state/status';
 import { useLongPoll } from '@/lib/long-poll/use-long-poll';
 
@@ -96,6 +97,7 @@ export interface MicrositesHook {
   status: ResourceStatus;
   rows: readonly MicrositeSummary[];
   error: string | null;
+  page: PagedState<MicrositeSummary>;
   refresh: () => Promise<void>;
   createPage: (slug: string, title: string) => Promise<void>;
   writeFile: (slug: string, path: string, content: string) => Promise<void>;
@@ -110,27 +112,85 @@ export interface MicrositesHook {
   setSEO: (slug: string, title: string, description: string, image: string) => Promise<void>;
 }
 
-export const micrositesStore = createResourceStore<MicrositeSummary[]>({
-  name: 'microsites',
-  fetcher: () => adminAPI.get('/microsites', z.array(MicrositeSummarySchema)),
+// micrositesPage —— the pages table: every page but the homepage (which has its own card), newest
+// first, one page at a time (docs/design/paging.md).
+export const micrositesPage = createPagedStore({
+  name: 'microsites', path: '/microsites', item: MicrositeSummarySchema, params: { scope: 'pages' },
 });
 
+// micrositeOptionsPage —— the page options in a code card's "opens" select. One shared store for
+// every card (a store per card would be one request per card). ponytail: the newest 200 pages
+// only; a card keeps its current page as an option even when it is older. Add a search box to
+// the select if an owner ever passes 200 pages.
+const micrositeOptionsPage = createPagedStore({
+  name: 'microsite-options', path: '/microsites', item: MicrositeSummarySchema,
+  params: { limit: '200' },
+});
+
+// micrositesVersion —— bumped whenever a page changes (a mutation here, or a build settling
+// elsewhere): every single-page read (useMicrosite) re-reads on it.
+const micrositesVersion = create<{ v: number; bump: () => void }>((set) => ({
+  v: 0, bump: () => set((s) => ({ v: s.v + 1 })),
+}));
+
+// refreshMicrosites —— re-read everything that shows a page: the table, the options, one-page reads.
+async function refreshMicrosites(): Promise<void> {
+  micrositesVersion.getState().bump();
+  await Promise.all([micrositesPage, micrositeOptionsPage, allMicrositesPage]
+    .filter((s) => s.getState().status !== 'idle')
+    .map((s) => s.getState().reload()));
+}
+
 export function useMicrosites(): MicrositesHook {
-  const r = useResource(micrositesStore);
-  const ensureLoaded = r.ensureLoaded;
-  useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
+  const page = usePaged(micrositesPage);
   // The owner is often directing an agent to change this page in another window. A held long-poll
   // (GET /microsites/wait answers the instant a build settles, cursor = version) makes the panel
   // follow those builds live without a manual refresh. It runs in a WORKER so the held socket never
   // sits on the main thread's connections and blocks navigation — terminating the worker on unmount
   // (inside useLongPoll) kills the held request instantly ([[long-poll-worker-infra]]).
-  useLongPoll({ url: '/api/admin/microsites/wait' }, () => { void micrositesStore.getState().refresh(); });
+  useLongPoll({ url: '/api/admin/microsites/wait' }, () => { void refreshMicrosites(); });
   return {
-    status: r.status, rows: r.data ?? [], error: r.error,
-    refresh: micrositesStore.getState().refresh,
+    status: page.status, rows: page.items, error: page.error, page,
+    refresh: refreshMicrosites,
     createPage, writeFile, build, getBuild, promote, setByoai, rollback, removePage, unpublish, renamePage,
     setSEO,
   };
+}
+
+// useMicrosite —— one page by slug ('' = none), read on its own: the editor, the SEO panel and the
+// homepage card need their page whether or not it is on the table's loaded page. Re-reads when
+// anything changes a page (micrositesVersion) and follows builds via the same long-poll.
+export function useMicrosite(slug: string): { row: MicrositeSummary | undefined; loaded: boolean } {
+  const [state, setState] = useState<{ slug: string; row: MicrositeSummary | undefined }>(
+    { slug: '', row: undefined },
+  );
+  const version = micrositesVersion((s) => s.v);
+  useLongPoll({ url: '/api/admin/microsites/wait' }, () => { micrositesVersion.getState().bump(); });
+  useEffect(() => {
+    let alive = true;
+    if (slug === '') return undefined;
+    void adminAPI.get(`/microsites?slug=${encodeURIComponent(slug)}`, OnePageSchema)
+      .then((r) => { if (alive) setState({ slug, row: r.items[0] }); })
+      .catch(() => { if (alive) setState({ slug, row: undefined }); });
+    return () => { alive = false; };
+  }, [slug, version]);
+  return { row: state.slug === slug ? state.row : undefined, loaded: state.slug === slug };
+}
+
+const OnePageSchema = z.object({ items: z.array(MicrositeSummarySchema) });
+
+// allMicrositesPage —— every page, homepage included (the data section lists each page's store).
+const allMicrositesPage = createPagedStore({
+  name: 'microsites-all', path: '/microsites', item: MicrositeSummarySchema,
+});
+
+export function useAllMicrosites(): PagedState<MicrositeSummary> {
+  return usePaged(allMicrositesPage);
+}
+
+// useMicrositeOptions —— the pages a code can open (shared by every code card).
+export function useMicrositeOptions(): readonly MicrositeSummary[] {
+  return usePaged(micrositeOptionsPage).items;
 }
 
 // A mutation always throws, finished up by the caller with useAction
@@ -138,14 +198,14 @@ export function useMicrosites(): MicrositesHook {
 // build never ran" and "the build ran but failed" would be indistinguishable on screen.
 async function createPage(slug: string, title: string): Promise<void> {
   await adminAPI.post('/microsites/', { slug, title }, z.object({ slug: z.string() }));
-  await micrositesStore.getState().refresh();
+  await refreshMicrosites();
 }
 
 // renamePage — change the page's slug (its /p/<slug> address). Bound codes follow by id; the
 // caller navigates to the new editor route on success.
 async function renamePage(slug: string, newSlug: string): Promise<void> {
   await adminAPI.put(`/microsites/${slug}/slug`, { new_slug: newSlug }, z.object({}).passthrough());
-  await micrositesStore.getState().refresh();
+  await refreshMicrosites();
 }
 
 // seoInit — a page's current SEO values as plain strings (the editor's initial field state). In
@@ -207,7 +267,7 @@ async function setSEO(slug: string, title: string, description: string, image: s
   await adminAPI.put(`/microsites/${slug}/seo`,
     { seo_title: title, seo_description: description, seo_image: image },
     z.object({}).passthrough());
-  await micrositesStore.getState().refresh();
+  await refreshMicrosites();
 }
 
 async function writeFile(slug: string, path: string, content: string): Promise<void> {
@@ -225,7 +285,7 @@ async function getBuild(buildID: string): Promise<BuildView> {
 async function promote(slug: string, buildID: string): Promise<void> {
   await adminAPI.post(`/microsites/${slug}/live`, { build_id: buildID },
     z.object({}).passthrough());
-  await micrositesStore.getState().refresh();
+  await refreshMicrosites();
 }
 
 // DraftFiles — the editor's file bundle: path → source. The mini-IDE loads it (loadDraft), edits
@@ -251,7 +311,7 @@ export async function stageFiles(
   const started = await build(slug);
   onTick(started);
   const settled = await pollBuild(started.build_id, onTick);
-  await micrositesStore.getState().refresh();
+  await refreshMicrosites();
   return settled;
 }
 
@@ -316,12 +376,12 @@ const POLL_MS = 1500;
 // their consequences are different.
 async function rollback(slug: string): Promise<void> {
   await adminAPI.post(`/microsites/${slug}/rollback`, {}, z.object({}).passthrough());
-  await micrositesStore.getState().refresh();
+  await refreshMicrosites();
 }
 
 async function removePage(slug: string): Promise<void> {
   await adminAPI.deleteVoid(`/microsites/${slug}`);
-  await micrositesStore.getState().refresh();
+  await refreshMicrosites();
 }
 
 // unpublish —— clear the live build entirely so the page serves nothing. This is how the reserved
@@ -329,20 +389,20 @@ async function removePage(slug: string): Promise<void> {
 // reverts `/` to the built-in DefaultHome; the draft is kept for re-publishing.
 async function unpublish(slug: string): Promise<void> {
   await adminAPI.post(`/microsites/${slug}/unpublish`, {}, z.object({}).passthrough());
-  await micrositesStore.getState().refresh();
+  await refreshMicrosites();
 }
 
 async function setByoai(slug: string, allow: boolean): Promise<void> {
   await adminAPI.put(`/microsites/${slug}/byoai`, { allow_byoai: allow },
     z.object({}).passthrough());
-  await micrositesStore.getState().refresh();
+  await refreshMicrosites();
 }
 
 // rows defaults to hook.rows, but the section passes the homepage-filtered rows: the homepage is
 // pulled out into its own card, so an instance with only a `home` page has an empty *table* and
 // must show the empty state, not a list with the home row stripped out to nothing.
 export function pickMicrositesBodyState(
-  hook: MicrositesHook,
+  hook: Pick<MicrositesHook, 'status' | 'error' | 'rows'>,
   rows: readonly MicrositeSummary[] = hook.rows,
 ): MicrositesBodyState {
   // Once there's data, the list keeps showing — a background refresh flips

@@ -21,6 +21,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/access/entity"
 	"github.com/atmaxmoj/standmeet/internal/access/repo"
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
+	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 )
 
 // RolesDeps — repos needed by roles CRUD. Skills / MCPServers / Prompts validate
@@ -114,18 +115,18 @@ func createRoleRow(
 	return role, nil
 }
 
-// ListRoles — admin / MCP role.list.
+// ListRoles — admin / MCP role.list: one page, narrowed by a name search.
 func ListRoles(
-	ctx context.Context, deps RolesDeps, ownerID string,
-) ([]entity.Role, error) {
+	ctx context.Context, deps RolesDeps, ownerID, search string, req paging.Request,
+) (paging.Page[entity.Role], error) {
 	if ownerID == "" {
-		return nil, apierr.ErrEmptyField
+		return paging.Page[entity.Role]{}, apierr.ErrEmptyField
 	}
-	rows, err := deps.Roles.ListByOwner(ctx, ownerID)
+	page, err := deps.Roles.ListPage(ctx, ownerID, search, req)
 	if err != nil {
-		return nil, fmt.Errorf("list roles: %w", err)
+		return paging.Page[entity.Role]{}, fmt.Errorf("list roles: %w", err)
 	}
-	return rows, nil
+	return page, nil
 }
 
 // GetRole — admin / MCP role.get.

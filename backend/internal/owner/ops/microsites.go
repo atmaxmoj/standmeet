@@ -19,6 +19,7 @@ import (
 	"time"
 
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
+	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 	"github.com/atmaxmoj/standmeet/internal/owner/usecase"
 )
@@ -50,9 +51,10 @@ func micrositeReadOps(deps usecase.MicrositeDeps) []fp.Op {
 	return []fp.Op{
 		{
 			ID: "microsite.list",
-			Description: "List the owner's microsites with what is live, what is waiting in " +
-				"staging, and when each was last touched.",
-			InputSchema: noArgs,
+			Description: "List the owner's microsites, newest first, one page at a time " +
+				"({items, next_cursor, total}): what is live, what is waiting in staging, and " +
+				"when each was last touched. Filter by slug, search slug or title.",
+			InputSchema: paging.Schema(micrositeListFilters),
 			Kind:        fp.Read,
 			Reach:       fp.OwnerRead(),
 			Invoke:      listMicrosites(deps),
@@ -218,56 +220,6 @@ func toBuildOut(b *entity.MicrositeBuild) buildOut {
 	}
 }
 
-func listMicrosites(deps usecase.MicrositeDeps) fp.Invoke {
-	return func(ctx context.Context, ownerID string, _ json.RawMessage) (json.RawMessage, error) {
-		rows, err := usecase.ListPages(ctx, deps, ownerID)
-		if err != nil {
-			return nil, micrositeErr(err)
-		}
-		out := make([]micrositeOut, 0, len(rows))
-		for i := range rows {
-			v := toMicrositeOut(&rows[i])
-			attachLatestBuild(ctx, deps, &v)
-			attachPreviewURL(&v, ownerID, deps.PreviewSigningKey)
-			out = append(out, v)
-		}
-		return json.Marshal(out)
-	}
-}
-
-// attachLatestBuild —— fills in the two build facets the panel needs. Leave either blank if it
-// can't be fetched: **the list must not fail because of this one field**, or the owner can't even
-// see what pages they have. Missing a refresh hint beats the whole page failing to load.
-//
-// The two facets are deliberately different builds:
-//   - LatestBuildStatus is the most recent build of ANY status, so the panel can say "building…"
-//     while the agent's build is still in flight.
-//   - LatestBuildID is the most recent SUCCESSFUL build — the one the preview route actually
-//     serves (ResolvePreviewBuild → GetLatestBuiltForPage). The frontend pins the iframe to this
-//     id and swaps the frame when it changes. Pinning it to the latest ANY-status build instead
-//     stuck the preview blank: the iframe loaded while a build was still pending (preview has no
-//     artifact yet → blank), and when that same build later succeeded the id didn't change, so the
-//     frame was never swapped to the now-built content.
-func attachLatestBuild(ctx context.Context, deps usecase.MicrositeDeps, v *micrositeOut) {
-	if latest, err := deps.Builds.GetLatestForPage(ctx, v.ID); err == nil {
-		v.LatestBuildStatus = latest.Status
-	}
-	if built, err := deps.Builds.GetLatestBuiltForPage(ctx, v.ID); err == nil {
-		v.LatestBuildID = built.ID
-	}
-}
-
-// attachPreviewURL —— signs a 10-minute preview address. No key → don't give one (the
-// preview won't open then, but the list itself still works — missing a preview beats the
-// whole page failing to load).
-func attachPreviewURL(v *micrositeOut, ownerID, key string) {
-	if key == "" || v.LatestBuildID == "" {
-		return
-	}
-	token := usecase.NewPreviewToken(key, ownerID, v.Slug, time.Now())
-	v.PreviewURL = "/api/v1/microsites/" + v.Slug + "/preview/" + token
-}
-
 func getMicrositeBuild(deps usecase.MicrositeDeps) fp.Invoke {
 	return func(ctx context.Context, _ string, raw json.RawMessage) (json.RawMessage, error) {
 		in, perr := decodePageArgs(raw)
@@ -326,6 +278,7 @@ var micrositeErrClasses = []struct {
 	sentinel error
 	as       func() error
 }{
+	{paging.ErrBadCursor, func() error { return fp.BadInput("bad cursor") }},
 	{entity.ErrMicrositeNotFound, func() error {
 		return fp.Coded(fp.NotFound("page not found"), "page_not_found")
 	}},

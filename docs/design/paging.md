@@ -114,15 +114,21 @@ typing narrows on the server. One source, one shape.
 | monitor sessions | monitor.sessions | hard cap | done v0.1.82 |
 | code members | codes.list_members (+ total) | unbounded | done v0.1.82 |
 | embeds (moved up: its rows now carry the code string) | embeds.list | owner-created | done v0.1.82 |
-| microsite store docs | microsite.store_docs | unbounded | todo |
-| assets | assets.list | unbounded | todo |
-| applications | (admin route; no op yet) | unbounded | todo |
-| writings (MCP) | writings.list | unbounded | todo |
-| roles | role.list | owner-created | todo |
-| API keys | api_keys.list | owner-created | todo |
-| IP bans | ip_bans.list | owner-created | todo |
-| microsites | microsite.list | owner-created | todo |
-| corpus / admin writings grid | (hand-written routes) | already paged | move onto util |
+| microsite store docs | microsite.store_docs (+ total) | unbounded (500/page cap) | done v0.1.83 |
+| assets | assets.list (+ kind, q, total) | unbounded | done v0.1.83 |
+| applications | GET /admin/applications (+ q, total) | unbounded | done v0.1.83 |
+| writings (MCP) | writings.list (+ tag) | unbounded | done v0.1.83 |
+| roles | role_list (+ q, total); oldest first | owner-created | done v0.1.83 |
+| API keys | api_keys.list (+ total) | owner-created | done v0.1.83 |
+| IP bans | ip_bans.list (+ total) | owner-created | done v0.1.83 |
+| microsites | microsite.list (+ slug, scope, q, total) | owner-created | done v0.1.83 |
+| corpus / admin writings grid | (hand-written routes) | already paged | move onto util (todo) |
+| admin writings list view + parent picker | reads every page of writings.list | — | todo, with the grid |
+
+Joins that replaced "look the id up in the full list": code rows carry `role_name`, embed rows
+carry `code`. A code card's "opens" select reads one shared options page (newest 200 pages) plus
+the code's own page. Order is per list: newest first everywhere except roles (oldest first, so
+the builtin public role leads); the cursor is (time, id) either way.
 
 Out of scope: one conversation's transcript, resume drafts and the job pool (TTL), the
 activity feed and task views (recent-only by design).

@@ -1,11 +1,10 @@
-// use-admin-applications —— fetch hook for /admin/applications.
-
-import { useEffect, useState } from 'react';
+// use-admin-applications —— /admin/applications state: one page at a time, searched on the server
+// (docs/design/paging.md).
 
 import { z } from 'zod';
 
 import { ResumeContentSchema } from '@/lib/admin/draft-detail';
-import { safeJson } from '@/lib/api/typed-json';
+import { createPagedStore, usePaged, type PagedState } from '@/lib/state/create-paged-store';
 
 // resume_content —— this is what the detail card's snapshot block renders
 // (F-E-23: that block used to be just a title and blank space, and nowhere
@@ -17,28 +16,31 @@ const AdminApplicationRowSchema = z.object({
 });
 export type AdminApplicationRow = z.infer<typeof AdminApplicationRowSchema>;
 
-const ENDPOINT = '/api/admin/applications/';
+// applicationsPage —— newest first; `q` (company / role / status) narrows on the server. The
+// page's total is every application, search or not: the header counts what was committed.
+const applicationsPage = createPagedStore({
+  name: 'applications', path: '/applications/', item: AdminApplicationRowSchema, params: { q: '' },
+});
 
-interface State {
-  rows: AdminApplicationRow[];
+export interface ApplicationsHook {
+  rows: readonly AdminApplicationRow[];
+  total: number | null;
   loading: boolean;
   error: string | null;
+  query: string;
+  setQuery: (q: string) => void;
+  page: PagedState<AdminApplicationRow>;
 }
 
-export function useAdminApplications(): State {
-  const [state, setState] = useState<State>({ rows: [], loading: true, error: null });
-  useEffect(() => { void load(setState); }, []);
-  return state;
-}
-
-async function load(setState: (s: State) => void): Promise<void> {
-  try {
-    const res = await fetch(ENDPOINT, { credentials: 'include' });
-    if (!res.ok) throw new Error(`list applications: ${res.status}`);
-    const rows = await safeJson(res, z.array(AdminApplicationRowSchema));
-    setState({ rows, loading: false, error: null });
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : 'load applications failed';
-    setState({ rows: [], loading: false, error: msg });
-  }
+export function useAdminApplications(): ApplicationsHook {
+  const page = usePaged(applicationsPage);
+  return {
+    rows: page.items,
+    total: page.total,
+    loading: page.status === 'idle' || page.status === 'loading',
+    error: page.status === 'error' ? page.error ?? 'load failed' : null,
+    query: page.params.q ?? '',
+    setQuery: (q) => page.setParams({ q }),
+    page,
+  };
 }

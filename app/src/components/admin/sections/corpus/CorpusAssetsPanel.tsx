@@ -18,6 +18,8 @@ import { useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 
 import { FilePicker } from '@/components/admin/atoms/FilePicker';
+import { LoadMore } from '@/components/admin/LoadMore';
+import { PickerSearchField } from '@/components/admin/PickerSearchField';
 import { SelectField } from '@/components/atoms/SelectField';
 import {
   clearFileInput, formatBytes, useCorpusAssets,
@@ -122,9 +124,30 @@ function PoolList(
     testid: string;
   },
 ) {
+  const ta = useTranslations('adminPages.assets');
+  // The pool pages: a search narrows it on the server, load more brings older assets.
+  const pool = useAssets();
+  const others = pool.assets.filter((a) => !onThisEntry.includes(a.asset_id));
+  return (
+    <>
+      <PickerSearchField
+        value={pool.query} onChange={pool.setQuery} testid={`${testid}-pool-search`}
+        placeholder={ta('searchPlaceholder')}
+      />
+      <PoolRows others={others} insertIntoBody={insertIntoBody} testid={testid} />
+      <LoadMore page={pool.page} testid={`${testid}-pool-load-more`} />
+    </>
+  );
+}
+
+function PoolRows(
+  { others, insertIntoBody, testid }: {
+    others: readonly PoolAsset[];
+    insertIntoBody: (markdown: string) => void;
+    testid: string;
+  },
+) {
   const t = useTranslations('adminCorpus.assets');
-  const { assets } = useAssets();
-  const others = assets.filter((a) => !onThisEntry.includes(a.asset_id));
   return others.length === 0 ? (
     <p className="mono text-[10.5px] text-(--color-faint) mt-1" data-testid={`${testid}-pool-empty`}>
       {t('poolEmpty')}

@@ -15,16 +15,19 @@ import { useTranslations } from 'next-intl';
 
 import Link from 'next/link';
 
+import { LoadMore } from '@/components/admin/LoadMore';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { DeleteLink } from '@/components/admin/sections/MicrositesDeleteLink';
 import { Toggle } from '@/components/atoms/Toggle';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 import {
   pickMicrositesBodyState,
+  useMicrosite,
   useMicrosites,
   type MicrositesHook,
   type MicrositeSummary,
 } from '@/lib/admin/use-microsites';
+import { totalLabel } from '@/lib/state/create-paged-store';
 import { useAction } from '@/lib/ui/use-action';
 import { stampDay } from '@/lib/ui/format-time';
 
@@ -39,9 +42,10 @@ export function MicrositesSection() {
   const t = useTranslations('adminPages.microsites');
   const hook = useMicrosites();
   // The homepage is NOT one row among the /p/<slug> pages: it's served at the site root `/` (the
-  // owner's domain), so it gets its own card above and is filtered out of the table below.
-  const home = hook.rows.find((r) => r.slug === HOMEPAGE_SLUG);
-  const others = hook.rows.filter((r) => r.slug !== HOMEPAGE_SLUG);
+  // owner's domain), so it gets its own card above, read on its own; the table's query leaves it
+  // out (scope=pages).
+  const { row: home } = useMicrosite(HOMEPAGE_SLUG);
+  const others = hook.rows;
   return (
     <>
       <SectionHeader
@@ -53,7 +57,7 @@ export function MicrositesSection() {
         // Only visible on a real-prod eyeball check.
         kicker={t('kicker')}
         slug="microsites"
-        count={others.length > 0 ? String(others.length) : ''}
+        count={totalLabel(hook.page.total, String)}
       />
       <Intro />
       <HomepageCard home={home} />
@@ -141,7 +145,7 @@ function MicrositesBody({ hook, rows }: { hook: MicrositesHook; rows: readonly M
     loading: <ListSkeleton count={3} />,
     error: <ErrorBlock message={hook.error ?? ''} />,
     empty: <EmptyState />,
-    list: <MicrositesTable rows={rows} />,
+    list: <><MicrositesTable rows={rows} /><LoadMore page={hook.page} testid="microsites-load-more" /></>,
   } as const;
   return map[pickMicrositesBodyState(hook, rows)];
 }

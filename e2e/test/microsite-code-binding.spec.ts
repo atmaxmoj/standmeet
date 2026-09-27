@@ -67,7 +67,7 @@ async function makeCode(request: APIRequestContext, csrf: string, label: string)
 
 async function pages(request: APIRequestContext, csrf: string): Promise<PageRow[]> {
   const got = await adminJSON(request, csrf, 'get', '/microsites/');
-  return (got.body['microsites'] ?? got.body['pages'] ?? got.body) as unknown as PageRow[];
+  return got.body['items'];
 }
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });

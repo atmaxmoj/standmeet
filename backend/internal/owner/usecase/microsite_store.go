@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 )
@@ -71,7 +72,10 @@ type MicrositeDocStore interface {
 		ctx context.Context, pageID, collection string, filter json.RawMessage,
 	) ([]json.RawMessage, error)
 	CountAll(ctx context.Context, pageID string) (int64, error)
-	AllRecords(ctx context.Context, pageID string) ([]entity.MicrositeDocument, error)
+	// RecordsPage —— up to limit documents, newest first, after the cursor (nil = first page).
+	RecordsPage(
+		ctx context.Context, pageID string, after *paging.Cursor, limit int32,
+	) ([]entity.MicrositeDocument, error)
 	DeleteByID(ctx context.Context, pageID, collection, recordID string) error
 }
 
@@ -182,19 +186,26 @@ func VisitorQuery(
 	return docs, nil
 }
 
-// OwnerListDocs — every document a page holds, for the admin management view.
+// OwnerListDocs — one page of the documents a page holds, newest first, for the admin management
+// view (docs/design/paging.md); the page reports how many documents the page holds.
 func OwnerListDocs(
-	ctx context.Context, deps MicrositeDeps, ownerID, slug string,
-) ([]entity.MicrositeDocument, error) {
+	ctx context.Context, deps MicrositeDeps, ownerID, slug string, req paging.Request,
+) (paging.Page[entity.MicrositeDocument], error) {
 	page, err := lookupPage(ctx, deps, ownerID, slug)
 	if err != nil {
-		return []entity.MicrositeDocument{}, err
+		return paging.Page[entity.MicrositeDocument]{}, err
 	}
-	docs, lerr := deps.Docs.AllRecords(ctx, page.ID)
+	docs, lerr := deps.Docs.RecordsPage(ctx, page.ID, req.After, req.Fetch())
 	if lerr != nil {
-		return []entity.MicrositeDocument{}, fmt.Errorf("list page docs: %w", lerr)
+		return paging.Page[entity.MicrositeDocument]{}, fmt.Errorf("list page docs: %w", lerr)
 	}
-	return docs, nil
+	n, cerr := deps.Docs.CountAll(ctx, page.ID)
+	if cerr != nil {
+		return paging.Page[entity.MicrositeDocument]{}, fmt.Errorf("count page docs: %w", cerr)
+	}
+	return paging.Cut(docs, req, func(d *entity.MicrositeDocument) paging.Cursor {
+		return paging.Cursor{At: d.CreatedAt, ID: d.ID}
+	}).WithTotal(int32(n)), nil
 }
 
 // OwnerDeleteDoc — the owner removes one document by id from the management view.

@@ -9,10 +9,16 @@ SET reason = EXCLUDED.reason,
     created_at = now()
 RETURNING *;
 
--- name: ListBannedIPs :many
-SELECT * FROM banned_ips
-WHERE owner_id = $1
-ORDER BY created_at DESC;
+-- name: ListBannedIPsPage :many
+-- One page of the owner's bans, newest first, expired ones included (docs/design/paging.md).
+SELECT sqlc.embed(b),
+  (SELECT COUNT(*) FROM banned_ips b2 WHERE b2.owner_id = sqlc.arg('owner_id'))::int AS total
+FROM banned_ips b
+WHERE b.owner_id = sqlc.arg('owner_id')
+  AND (sqlc.narg('after_at')::timestamptz IS NULL
+    OR (b.created_at, b.id) < (sqlc.narg('after_at'), sqlc.narg('after_id')::uuid))
+ORDER BY b.created_at DESC, b.id DESC
+LIMIT sqlc.arg('lim');
 
 -- name: UnbanIPByID :exec
 DELETE FROM banned_ips

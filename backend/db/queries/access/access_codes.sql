@@ -73,12 +73,14 @@ SELECT * FROM access_codes WHERE owner_id = $1 ORDER BY created_at DESC;
 -- page side sees the code (ListMicrositesByOwner carries bound_codes).
 -- LEFT JOIN: an unbound code has an empty slug, which is "opens the default visitor
 -- conversation", not missing data.
--- state: '' / 'all' = every code; 'active' / 'revoked' / 'expired' as CountAccessCodesByState
+-- state: empty or 'all' = every code; 'active' / 'revoked' / 'expired' as CountAccessCodesByState
 -- defines them. q: case-insensitive substring of code or label. Both apply before the LIMIT
 -- (docs/design/paging.md).
-SELECT ac.*, COALESCE(cp.slug, '')::text AS microsite_slug
+SELECT ac.*, COALESCE(cp.slug, '')::text AS microsite_slug,
+  COALESCE(ro.name, '')::text AS role_name
 FROM access_codes ac
 LEFT JOIN microsites cp ON cp.id = ac.microsite_id AND cp.status != 'deleted'
+LEFT JOIN roles ro ON ro.id = ac.assumed_role_id
 WHERE ac.owner_id = sqlc.arg('owner_id')
   AND (sqlc.arg('state')::text IN ('', 'all')
     OR (sqlc.arg('state') = 'revoked' AND ac.status = 'revoked')

@@ -33,15 +33,14 @@ const OWNER = {
 };
 
 interface MCPSession { request: APIRequestContext; token: string; sid: string }
-interface PoolAsset { asset_id: string; original_filename: string; size_bytes: number }
 let s: MCPSession;
 let entry: string;
 
 // poolCount —— how many assets sit in the owner's global pool right now (MCP assets.list, the same
 // surface the Assets panel reads). Used to prove dedup at the pool level, not just in the return value.
 async function poolCount(): Promise<number> {
-  const pool = await callTool<PoolAsset[]>(s.request, s.token, s.sid, 'assets.list', {});
-  return pool.length;
+  const pool = await callTool<{ total: number }>(s.request, s.token, s.sid, 'assets.list', {});
+  return pool.total;
 }
 
 test.beforeAll(async ({ playwright }: { playwright: Playwright }) => {

@@ -97,7 +97,7 @@ test.describe('writing crosslinks: [[X]] resolves + backlinks', () => {
     async ({ request, page }) => {
       const { token: tok, sid } = await mcpSession(request, 'delete-crosslink-token');
       // Get writing-a's id: straight from writings.list.
-      const rows = await callTool<{ id: string; slug: string }[]>(
+      const { items: rows } = await callTool<{ items: { id: string; slug: string }[] }>(
         request, tok, sid, 'writings.list', {},
       );
       const aRow = rows.find((p) => p.slug === 'writing-a');

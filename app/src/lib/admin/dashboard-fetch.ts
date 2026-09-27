@@ -22,17 +22,6 @@ async function okJSON(url: string): Promise<unknown> {
   return await res.json();
 }
 
-export async function fetchItemCount(url: string): Promise<number> {
-  const raw: unknown = await okJSON(url);
-  if (Array.isArray(raw)) return raw.length;
-  const parsed = ItemsWrapper.safeParse(raw);
-  // Failing to parse is not 0 either: a shape change is a real incident, don't fold it into a number that looks normal.
-  if (!parsed.success) {
-    throw new APIError(200, 'dashboard_bad_shape', 'Couldn’t read this count. Reload and retry.');
-  }
-  return (parsed.data.items ?? []).length;
-}
-
 const RecentRowSchema = z.object({
   id: z.string(),
   visitor_name: z.string().optional().default(''),

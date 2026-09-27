@@ -59,6 +59,40 @@ FROM microsites cp
 WHERE cp.owner_id = $1 AND cp.status != 'deleted'
 ORDER BY cp.created_at DESC;
 
+-- name: ListMicrositesPage :many
+-- One page of the admin list, newest first (docs/design/paging.md), with the same bound_codes.
+-- slug: empty = every page, else only that one (the editor and the homepage block read one row).
+-- scope: 'pages' = every page but the homepage (the reserved slug 'home' has its own block).
+-- q: case-insensitive substring of the slug or the title. total: how many match, on every page.
+SELECT cp.id, cp.owner_id, cp.slug, cp.title, cp.status,
+       cp.live_build_id, cp.staging_build_id, cp.previous_live_build_id,
+       cp.allow_byoai, cp.store_writable, cp.seo_title, cp.seo_description, cp.seo_image,
+       cp.created_at, cp.updated_at,
+       COALESCE(
+           ARRAY(
+               SELECT ac.code::text FROM access_codes ac
+               WHERE ac.microsite_id = cp.id AND ac.status = 'active'
+               ORDER BY ac.created_at
+           ),
+           ARRAY[]::text[]
+       )::text[] AS bound_codes,
+       (SELECT COUNT(*) FROM microsites c2
+        WHERE c2.owner_id = sqlc.arg('owner_id') AND c2.status != 'deleted'
+          AND (sqlc.arg('slug')::text = '' OR c2.slug = sqlc.arg('slug'))
+          AND (sqlc.arg('scope')::text <> 'pages' OR c2.slug <> 'home')
+          AND (sqlc.arg('q')::text = '' OR c2.slug ILIKE '%' || sqlc.arg('q') || '%'
+            OR c2.title ILIKE '%' || sqlc.arg('q') || '%'))::int AS total
+FROM microsites cp
+WHERE cp.owner_id = sqlc.arg('owner_id') AND cp.status != 'deleted'
+  AND (sqlc.arg('slug')::text = '' OR cp.slug = sqlc.arg('slug'))
+  AND (sqlc.arg('scope')::text <> 'pages' OR cp.slug <> 'home')
+  AND (sqlc.arg('q')::text = '' OR cp.slug ILIKE '%' || sqlc.arg('q') || '%'
+    OR cp.title ILIKE '%' || sqlc.arg('q') || '%')
+  AND (sqlc.narg('after_at')::timestamptz IS NULL
+    OR (cp.created_at, cp.id) < (sqlc.narg('after_at'), sqlc.narg('after_id')::uuid))
+ORDER BY cp.created_at DESC, cp.id DESC
+LIMIT sqlc.arg('lim');
+
 -- name: RenameMicrosite :one
 -- Change a microsite's slug (its /p/<slug> address). The owner+slug unique index rejects a
 -- collision. Access codes reference the microsite by id, so their bindings follow the rename.

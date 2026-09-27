@@ -36,8 +36,8 @@ async function renamePage(
 
 async function slugs(request: APIRequestContext, csrf: string): Promise<string[]> {
   const res = await request.get(`${BACKEND}/api/admin/microsites`, { headers: { 'X-Csrftoken': csrf } });
-  const rows = await res.json() as Array<{ slug: string }>;
-  return rows.map((r) => r.slug);
+  const { items } = await res.json() as { items: Array<{ slug: string }> };
+  return items.map((r) => r.slug);
 }
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });

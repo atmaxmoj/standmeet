@@ -170,9 +170,9 @@ async function checkRevokeNothingSaysSo(r: APIRequestContext): Promise<void> {
 
 // roleOf —— the seeded role id (api_keys.list carries assumed_role_id).
 async function roleOf(r: APIRequestContext): Promise<string> {
-  const keys = await callTool<Array<{ id: string; assumed_role_id: string }>>(
+  const keys = await callTool<{ items: Array<{ id: string; assumed_role_id: string }> }>(
     r, token, sid, 'api_keys.list', {});
-  return keys[0]!.assumed_role_id;
+  return keys.items[0]!.assumed_role_id;
 }
 
 test.describe('API-key facade · /api/pub/v1 行为守护', () => {

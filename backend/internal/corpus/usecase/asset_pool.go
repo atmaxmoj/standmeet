@@ -10,36 +10,36 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus/entity"
+	"github.com/atmaxmoj/standmeet/internal/corpus/repo"
+	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 )
 
 // ErrAssetReferenced —— refuse to delete an asset a corpus entry or microsite still
 // references. The caller turns this + ReferencesOf into "used by … — remove those first".
 var ErrAssetReferenced = errors.New("asset is still referenced")
 
-// ListPoolAssets —— the owner's whole asset pool, newest first.
+// ListPoolAssets —— one page of the owner's asset pool, newest first.
 func ListPoolAssets(
-	ctx context.Context, deps AssetsDeps, ownerID string,
-) ([]entity.Asset, error) {
-	assets, err := deps.Repo.ListByOwner(ctx, ownerID)
+	ctx context.Context, deps AssetsDeps, ownerID string, f repo.AssetFilter, req paging.Request,
+) (paging.Page[entity.Asset], error) {
+	page, err := deps.Repo.ListPage(ctx, ownerID, f, req)
 	if err != nil {
-		return nil, fmt.Errorf("list pool assets: %w", err)
+		return paging.Page[entity.Asset]{}, fmt.Errorf("list pool assets: %w", err)
 	}
-	return assets, nil
+	return page, nil
 }
 
-// ListPoolAssetViews —— the pool with presigned URLs, for the Assets manager UI.
+// ListPoolAssetViews —— one page of the pool with presigned URLs, for the Assets manager UI.
 func ListPoolAssetViews(
-	ctx context.Context, deps AssetsDeps, ownerID string,
-) ([]AssetView, error) {
-	assets, err := ListPoolAssets(ctx, deps, ownerID)
+	ctx context.Context, deps AssetsDeps, ownerID string, f repo.AssetFilter, req paging.Request,
+) (paging.Page[AssetView], error) {
+	page, err := ListPoolAssets(ctx, deps, ownerID, f, req)
 	if err != nil {
-		return nil, err
+		return paging.Page[AssetView]{}, err
 	}
-	out := make([]AssetView, 0, len(assets))
-	for i := range assets {
-		out = append(out, assetView(&assets[i], deps.Repo))
-	}
-	return out, nil
+	return paging.Each(page, func(a *entity.Asset) AssetView {
+		return assetView(a, deps.Repo)
+	}), nil
 }
 
 // AssetReferences —— who references one asset (the "used by …" list). Scoped to owner:

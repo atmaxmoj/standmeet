@@ -17,11 +17,10 @@ import { MembersBlock } from '@/components/admin/sections/codes/MembersBlock';
 import { SelectField } from '@/components/atoms/SelectField';
 import { buildShareLink } from '@/lib/admin/code-share';
 import { usePrompts, type PromptView } from '@/lib/admin/use-prompts';
-import { useRoles } from '@/lib/admin/use-roles';
 import { useAction } from '@/lib/ui/use-action';
 
 import { CODE_MUTATIONS, type CodeView } from '@/lib/admin/use-codes';
-import { useMicrosites } from '@/lib/admin/use-microsites';
+import { useMicrositeOptions } from '@/lib/admin/use-microsites';
 
 type Props = {
   code: CodeView;
@@ -190,7 +189,7 @@ function RoleCol({ code }: { code: CodeView }) {
   return (
     <MetaPair label={t('codeCard.roleLabel')}>
       <div className="flex flex-col gap-1">
-        <RoleLink roleID={code.assumed_role_id} />
+        <RoleLink roleID={code.assumed_role_id} roleName={code.role_name} />
         <RoleFrozenLine />
       </div>
     </MetaPair>
@@ -202,16 +201,14 @@ function RoleCol({ code }: { code: CodeView }) {
 // language, but here the owner had to cross-reference `e1db285a…` against /admin/roles.
 // The role's name is exactly what the owner named it ("public"/"ext-mcp-verify") — the only
 // clue to who this code is meant for.
-// rolesStore is a shared resource store, so every card calling it still fires only one GET.
-// roleLabel — prefer the name; fall back to a truncated ID before it loads (better ugly than
-// a blank that jumps).
-function roleLabel(roles: readonly { id: string; name: string }[], roleID: string): string {
-  return roles.find((r) => r.id === roleID)?.name ?? `${roleID.slice(0, 8)}…`;
+// The name comes on the code row itself (the list joins it): the roles list pages, so a card can
+// no longer look it up there. roleLabel — the name; a truncated id when the role is gone.
+function roleLabel(roleName: string, roleID: string): string {
+  return roleName || `${roleID.slice(0, 8)}…`;
 }
 
-function RoleLink({ roleID }: { roleID: string }) {
-  const { roles } = useRoles();
-  const label = roleLabel(roles, roleID);
+function RoleLink({ roleID, roleName }: { roleID: string; roleName: string }) {
+  const label = roleLabel(roleName, roleID);
   return (
     <a
       href="/admin/roles"
@@ -279,10 +276,19 @@ function QRCol({ code, onShowQR }: { code: CodeView; onShowQR: (c: CodeView) => 
 // no "add another page" action available. The empty option = unbind, spelled out explicitly
 // as "visitor chat": without that, "no page attached" and "this build just doesn't show the
 // binding yet" would look identical on screen.
+// withCurrentPage —— the page options, plus this code's current page when it is not among them (it
+// is older than the options' first page), so the select still shows what the code opens.
+function withCurrentPage(
+  options: readonly { id: string; slug: string }[], current: string,
+): readonly { id: string; slug: string }[] {
+  const missing = current !== '' && !options.some((p) => p.slug === current);
+  return missing ? [{ id: `current-${current}`, slug: current }, ...options] : options;
+}
+
 function OpensCol({ code }: { code: CodeView }) {
   const t = useTranslations('adminAccess');
   const { setMicrosite } = CODE_MUTATIONS;
-  const { rows } = useMicrosites();
+  const rows = withCurrentPage(useMicrositeOptions(), code.microsite_slug);
   const run = useAction();
   const onPick = (slug: string) => run(
     () => setMicrosite(code.id, slug),

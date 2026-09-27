@@ -61,12 +61,12 @@ async function checkIPBans(r: APIRequestContext): Promise<void> {
   const added = await callTool<{ id: string; ip: string }>(
     r, token, sid, 'ip_bans.add', { ip: '203.0.113.7' });
   expect(added.ip, 'ip_bans.add echoes ip').toBe('203.0.113.7');
-  const listed = await callTool<Array<{ id: string; ip: string }>>(
+  const listed = await callTool<{ items: Array<{ id: string; ip: string }> }>(
     r, token, sid, 'ip_bans.list', {});
-  expect(listed.some((b) => b.id === added.id), 'list shows the ban').toBe(true);
+  expect(listed.items.some((b) => b.id === added.id), 'list shows the ban').toBe(true);
   await callTool(r, token, sid, 'ip_bans.remove', { id: added.id });
-  const after = await callTool<Array<{ id: string }>>(r, token, sid, 'ip_bans.list', {});
-  expect(after.some((b) => b.id === added.id), 'ban gone after remove').toBe(false);
+  const after = await callTool<{ items: Array<{ id: string }> }>(r, token, sid, 'ip_bans.list', {});
+  expect(after.items.some((b) => b.id === added.id), 'ban gone after remove').toBe(false);
 }
 
 async function checkDomains(r: APIRequestContext): Promise<void> {

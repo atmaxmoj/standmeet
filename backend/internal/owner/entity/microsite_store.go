@@ -3,6 +3,7 @@ package entity
 import (
 	"encoding/json"
 	"errors"
+	"time"
 )
 
 // MicrositeDocument — one stored document in a microsite's persistence namespace, paired with its
@@ -11,6 +12,7 @@ import (
 // page's OWN Postgres schema (page_<id>, the blockstore pattern) — physical isolation, not a shared
 // table keyed by id, dropped with the page.
 type MicrositeDocument struct {
+	CreatedAt  time.Time
 	ID         string
 	Collection string
 	Doc        json.RawMessage

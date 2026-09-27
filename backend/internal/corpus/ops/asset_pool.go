@@ -11,11 +11,11 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus/entity"
+	"github.com/atmaxmoj/standmeet/internal/corpus/repo"
 	"github.com/atmaxmoj/standmeet/internal/corpus/usecase"
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
+	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 )
-
-var noAssetArgsSchema = json.RawMessage(`{"type":"object","properties":{}}`)
 
 var assetIDSchema = json.RawMessage(`{
 	"type":"object",
@@ -120,23 +120,32 @@ func mergeUploadBytes(ctx context.Context, in *usecase.PoolUploadInput) {
 func assetsListOp(deps usecase.Deps) fp.Op {
 	return fp.Op{
 		ID: "assets.list",
-		Description: "List every asset in your global pool (images + attachments), newest " +
-			"first, each with a reachable URL.",
-		InputSchema: noAssetArgsSchema,
+		Description: "List the assets in your global pool (images + attachments), newest " +
+			"first, one page at a time ({items, next_cursor, total}), each with a reachable URL. " +
+			"Filter by kind, search the filename.",
+		InputSchema: paging.Schema(assetListFilters),
 		Kind:        fp.Read,
 		Reach:       fp.OwnerRead(),
 		Invoke:      listPoolAssets(deps),
 	}
 }
 
+var assetListFilters = json.RawMessage(`{
+	"type":"object",
+	"properties":{
+		"kind":{"type":"string","enum":["","image","attachment"],"description":"Only this kind."},
+		"q":{"type":"string","description":"Case-insensitive substring of the filename."}
+	}
+}`)
+
 func listPoolAssets(deps usecase.Deps) fp.Invoke {
-	return func(ctx context.Context, ownerID string, _ json.RawMessage) (json.RawMessage, error) {
+	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
 		if !deps.HasMedia() {
 			return nil, fp.OpErr("list assets", errNoMedia)
 		}
-		views, err := usecase.ListPoolAssetViews(ctx, deps.Media.Assets, ownerID)
+		views, err := poolPage(ctx, deps, ownerID, raw)
 		if err != nil {
-			return nil, fp.OpErr("list assets", err)
+			return nil, err
 		}
 		out, merr := json.Marshal(views)
 		if merr != nil {
@@ -144,6 +153,29 @@ func listPoolAssets(deps usecase.Deps) fp.Invoke {
 		}
 		return out, nil
 	}
+}
+
+// poolPage —— the args decoded and one page of the pool read.
+func poolPage(
+	ctx context.Context, deps usecase.Deps, ownerID string, raw json.RawMessage,
+) (paging.Page[usecase.AssetView], error) {
+	in, perr := paging.ParseArgs[repo.AssetFilter](raw)
+	if perr != nil {
+		return paging.Page[usecase.AssetView]{}, fp.BadInput("invalid arguments: " + perr.Error())
+	}
+	views, err := usecase.ListPoolAssetViews(ctx, deps.Media.Assets, ownerID, in.Filter, in.Req)
+	if err != nil {
+		return paging.Page[usecase.AssetView]{}, assetListErr(err)
+	}
+	return views, nil
+}
+
+// assetListErr —— a cursor this server did not issue is the caller's error; the rest are ours.
+func assetListErr(err error) error {
+	if errors.Is(err, paging.ErrBadCursor) {
+		return fp.BadInput("bad cursor")
+	}
+	return fp.OpErr("list assets", err)
 }
 
 func assetsPoolDeleteOp(deps usecase.Deps) fp.Op {

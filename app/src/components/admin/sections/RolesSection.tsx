@@ -18,7 +18,9 @@ import { RoleProviderConfig } from '@/components/admin/sections/roles/RoleProvid
 import { RoleGhostConfig } from '@/components/admin/sections/roles/RoleGhostConfig';
 import { RoleWaypointsConfig } from '@/components/admin/sections/roles/RoleWaypointsConfig';
 import { ListPane } from '@/components/admin/ListPane';
+import { LoadMore } from '@/components/admin/LoadMore';
 import { SelectField } from '@/components/atoms/SelectField';
+import { totalLabel } from '@/lib/state/create-paged-store';
 import { usePrompts, type PromptView } from '@/lib/admin/use-prompts';
 import {
   roleUpdatePayload, useRoles, type RolesHook, type RoleView, type WriteRoleInput,
@@ -87,8 +89,9 @@ function RoleCreateModalSlot({
   return open ? <RoleCreateModal onClose={onClose} onCreate={onCreate} /> : null;
 }
 
+// titleCount —— the server's total (the list pages), never the loaded rows.
 function titleCount(hook: RolesHook): string {
-  return hook.status === 'ready' ? `${hook.roles.length}` : '';
+  return totalLabel(hook.page.total, String);
 }
 
 function Intro() {
@@ -107,6 +110,7 @@ function RolesBody({ hook }: { hook: RolesHook }) {
   return (
     <ListPane status={hook.status} count={hook.roles.length} empty={<EmptyRoles />}>
       <RoleList hook={hook} />
+      <LoadMore page={hook.page} testid="roles-load-more" />
     </ListPane>
   );
 }

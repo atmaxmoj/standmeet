@@ -10,7 +10,9 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 
+import { LoadMore } from '@/components/admin/LoadMore';
 import { SectionHeader } from '@/components/admin/SectionHeader';
+import { totalLabel } from '@/lib/state/create-paged-store';
 import { ApplicationDetailModal } from '@/components/admin/ApplicationDetailModal';
 import { toDraftModel } from '@/lib/admin/draft-detail';
 import {
@@ -26,41 +28,33 @@ import {
 
 export function ApplicationsSection() {
   const t = useTranslations('adminJobs');
-  const { rows, loading, error } = useAdminApplications();
+  const hook = useAdminApplications();
   const [opened, setOpened] = useState<Application | null>(null);
-  const [query, setQuery] = useState('');
-  const shown = filterApplications(rows, query);
+  const total = hook.total ?? 0;
   // Count says "N committed", not "N sent": no code marks a row as sent, so
-  // the phrase `N sent` would be false on every instance (F-E-3).
+  // the phrase `N sent` would be false on every instance (F-E-3). The server's total — every
+  // application, not the loaded page and not the search's matches.
   return (
     <>
       <SectionHeader
         kicker={t('applications.kicker')}
         slug="applications"
-        count={loading ? t('applications.loading') : t('applications.titleCommitted', { count: rows.length })}
+        count={totalLabel(hook.total, (count) => t('applications.titleCommitted', { count }))}
       />
       <Intro />
-      <SearchField value={query} onChange={setQuery} show={rows.length > 0} />
+      {/* The recruiter calls about a job; the owner types the company or the role. Searched on the
+          server, so an application on page 3 is found. */}
+      <SearchField value={hook.query} onChange={hook.setQuery} show={total > 0} />
       <ListBody
-        rows={shown} total={rows.length} query={query}
-        loading={loading} error={error} onOpen={setOpened}
+        rows={hook.rows} total={total} query={hook.query}
+        loading={hook.loading} error={hook.error} onOpen={setOpened}
       />
+      <LoadMore page={hook.page} testid="applications-load-more" />
       {opened && (
         <ApplicationDetailModal app={opened} onClose={() => setOpened(null)} />
       )}
     </>
   );
-}
-
-// filterApplications —— case-insensitive match over company / role / status: the recruiter calls
-// about a job, and the owner types the company or the role to find that application fast.
-function filterApplications(
-  rows: readonly AdminApplicationRow[], query: string,
-): readonly AdminApplicationRow[] {
-  const q = query.trim().toLowerCase();
-  return q === ''
-    ? rows
-    : rows.filter((r) => `${r.company} ${r.role} ${r.status}`.toLowerCase().includes(q));
 }
 
 // SearchField —— shown only once there are applications to search. Uses the one shared text input.

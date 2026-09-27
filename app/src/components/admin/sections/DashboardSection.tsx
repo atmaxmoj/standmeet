@@ -10,7 +10,8 @@ import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
-import { fetchItemCount, type DashboardRecentRow } from '@/lib/admin/dashboard-fetch';
+import type { DashboardRecentRow } from '@/lib/admin/dashboard-fetch';
+import { fetchListTotal } from '@/lib/api/list-total';
 import { useRecentConversations } from '@/lib/admin/use-recent-conversations';
 import { Sparkline } from '@/components/admin/atoms/Sparkline';
 import {
@@ -179,7 +180,7 @@ type CountState =
 function useApplicationCount(): { sent: CountState } {
   const [sent, setSent] = useState<CountState>({ kind: 'loading' });
   useEffect(() => {
-    void fetchItemCount('/api/admin/applications/')
+    void fetchListTotal('/api/admin/applications/')
       .then((n) => setSent({ kind: 'ok', n }))
       .catch(() => setSent({ kind: 'error' }));
   }, []);

@@ -14,6 +14,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/corpus/db"
 	"github.com/atmaxmoj/standmeet/internal/corpus/entity"
+	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
@@ -134,17 +135,41 @@ func (r *AssetRepo) GetByID(ctx context.Context, assetID string) (entity.Asset, 
 // The asset_references junction (record / clear / count / list-by-referrer / owner-filter) lives
 // in asset_references.go — this file is the pool CRUD.
 
-// ListByOwner —— the whole pool for one owner (the Assets manager).
-func (r *AssetRepo) ListByOwner(ctx context.Context, ownerID string) ([]entity.Asset, error) {
+// AssetFilter —— which assets a pool page holds: Kind (empty = every kind), Q (filename).
+type AssetFilter struct {
+	Kind string `json:"kind"`
+	Q    string `json:"q"`
+}
+
+// ListPage —— one page of an owner's pool, newest first (the Assets manager and the pickers);
+// the page reports how many match.
+func (r *AssetRepo) ListPage(
+	ctx context.Context, ownerID string, f AssetFilter, req paging.Request,
+) (paging.Page[entity.Asset], error) {
 	ownerUUID, perr := pgstore.ParseUUID(ownerID)
 	if perr != nil {
-		return nil, fmt.Errorf("parse owner id: %w", perr)
+		return paging.Page[entity.Asset]{}, fmt.Errorf("parse owner id: %w", perr)
 	}
-	rows, err := db.New(r.pool).ListAssetsByOwner(ctx, ownerUUID)
+	after, err := pgstore.CursorArgs(req.After)
 	if err != nil {
-		return nil, fmt.Errorf("list assets by owner: %w", err)
+		return paging.Page[entity.Asset]{}, fmt.Errorf("list assets: %w", err)
 	}
-	return mapAssets(rows), nil
+	rows, err := db.New(r.pool).ListAssetsPage(ctx, db.ListAssetsPageParams{
+		OwnerID: ownerUUID, Kind: f.Kind, Q: f.Q,
+		AfterAt: after.At, AfterID: after.ID, Lim: req.Fetch(),
+	})
+	if err != nil {
+		return paging.Page[entity.Asset]{}, fmt.Errorf("list assets: %w", err)
+	}
+	out := make([]entity.Asset, 0, len(rows))
+	total := int32(0)
+	for i := range rows {
+		out = append(out, toDomainAsset(&rows[i].Asset))
+		total = rows[i].Total
+	}
+	return paging.Cut(out, req, func(a *entity.Asset) paging.Cursor {
+		return paging.Cursor{At: a.CreatedAt, ID: a.ID}
+	}).WithTotal(total), nil
 }
 
 // FindByContentKey —— an owner's pool asset with the same filename AND content hash. Returns a
@@ -155,30 +180,33 @@ func (r *AssetRepo) ListByOwner(ctx context.Context, ownerID string) ([]entity.A
 // byte-identical row — the pool must not grow on re-reference. A different name, or different
 // bytes, is a distinct asset.
 //
-// ponytail: a linear scan of the owner's pool — fine at personal-corpus scale (hundreds of assets);
-// a unique index on (owner_id, original_filename, sha256) would index this AND close the narrow
-// concurrent-insert race (two identical uploads racing could both miss the scan and both insert).
+// ponytail: a lookup without a unique index — two identical uploads racing could both miss it and
+// both insert. A unique index on (owner_id, original_filename, sha256) would close that race.
 func (r *AssetRepo) FindByContentKey(
 	ctx context.Context, ownerID, filename, sha256 string,
 ) (entity.Asset, error) {
 	if filename == "" || sha256 == "" {
 		return entity.Asset{}, nil
 	}
-	assets, err := r.ListByOwner(ctx, ownerID)
+	ownerUUID, perr := pgstore.ParseUUID(ownerID)
+	if perr != nil {
+		return entity.Asset{}, fmt.Errorf("parse owner id: %w", perr)
+	}
+	rows, err := db.New(r.pool).FindAssetByContentKey(ctx, db.FindAssetByContentKeyParams{
+		OwnerID: ownerUUID, OriginalFilename: filename, Sha256: sha256,
+	})
 	if err != nil {
 		return entity.Asset{}, fmt.Errorf("find asset by content key: %w", err)
 	}
-	return matchByContentKey(assets, filename, sha256), nil
+	return firstAsset(rows), nil
 }
 
-// matchByContentKey —— first asset whose filename AND content hash match, or a zero-value asset.
-func matchByContentKey(assets []entity.Asset, filename, sha256 string) entity.Asset {
-	for i := range assets {
-		if assets[i].OriginalFilename == filename && assets[i].SHA256 == sha256 {
-			return assets[i]
-		}
+// firstAsset —— the first row as an asset, or a zero-value asset (empty ID) when there is none.
+func firstAsset(rows []db.Asset) entity.Asset {
+	if len(rows) == 0 {
+		return entity.Asset{}
 	}
-	return entity.Asset{}
+	return toDomainAsset(&rows[0])
 }
 
 // ── pool delete ───────────────────────────────────────────────────────────────

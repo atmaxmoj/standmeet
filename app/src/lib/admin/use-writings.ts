@@ -77,8 +77,28 @@ export interface WritingsHook {
 
 export const writingsStore = createResourceStore<AdminWritingView[]>({
   name: 'writings',
-  fetcher: () => adminAPI.get('/writings/', z.array(AdminWritingViewSchema)),
+  fetcher: () => fetchEveryWriting(),
 });
+
+const WritingsPageSchema = z.object({
+  items: z.array(AdminWritingViewSchema), next_cursor: z.string().optional(),
+});
+
+// fetchEveryWriting —— every writing, page by page. ponytail: the section's list view and its
+// parent picker still hold the whole set in the browser; they move onto the paged grid with the
+// corpus sections (docs/design/paging.md, ledger). Reading every page keeps it complete meanwhile
+// — a capped read would drop the oldest writings without a word.
+async function fetchEveryWriting(): Promise<AdminWritingView[]> {
+  const out: AdminWritingView[] = [];
+  let cursor = '';
+  do {
+    const qs = cursor === '' ? '?limit=200' : `?limit=200&cursor=${encodeURIComponent(cursor)}`;
+    const page = await adminAPI.get(`/writings/${qs}`, WritingsPageSchema);
+    out.push(...page.items);
+    cursor = page.next_cursor ?? '';
+  } while (cursor !== '');
+  return out;
+}
 
 export function useWritings(): WritingsHook {
   const r = useResource(writingsStore);

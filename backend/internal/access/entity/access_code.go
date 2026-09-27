@@ -40,6 +40,9 @@ type Code struct {
 	AssumedRoleID        string
 	InlinePrompt         string
 	MicrositeSlug        string
+	// RoleName —— the assumed role's name, filled by the list read (a joined column). The list
+	// pages, so a reader can no longer look the name up in "every role" it fetched on its own.
+	RoleName string
 	// Bundle —— the name of the bundle this code carries, or "".
 	//
 	// The NAME rather than the id: this field exists so the owner can read "what can

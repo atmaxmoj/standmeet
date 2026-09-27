@@ -853,6 +853,7 @@ deps:
       - apierr
       - jobs             # a fetch runs as one jobs.fetch_source job per source
       - events           # … and records jobs.fetched (Recorder only)
+      - paging           # the applications list reads one page at a time
     anyVendorDeps: true
 
   # jobdedup — J.6c: cross-source dedup (canonical URL + composite key).
@@ -889,6 +890,7 @@ deps:
       - apierr
       - jobsuc
       - jobs             # the fetch receipt's job ids (jobs.JobID)
+      - paging           # the applications list takes ?cursor=&limit= and answers a page
     anyVendorDeps: true
 
   # Depends on domain because it needs to marshal the real domain structure (not fudged into []byte).
@@ -1003,6 +1005,7 @@ deps:
     mayDependOn:
       - pgstore
       - securitydb
+      - paging      # the ban list reads one page at a time (docs/design/paging.md)
     anyVendorDeps: true
   securitycaptcha:
     mayDependOn:
@@ -1015,6 +1018,7 @@ deps:
       - facadeparity
       - events      # a ban records ip_ban.added …
       - pgstore     # … in the same transaction as its row (InTx)
+      - paging      # the list op takes cursor/limit and answers the page envelope
     anyVendorDeps: true
   security:
     mayDependOn:
@@ -1106,6 +1110,7 @@ deps:
       - facadeparity
       - apierr
       - corpusi18n
+      - paging      # list ops take cursor/limit and answer the page envelope
     anyVendorDeps: true
   # corpusentity — a document carries where it came from (integration.Integrations). That value
   # object used to live on the supplier side; it belongs to corpus, and moved there with the domain
@@ -1135,6 +1140,7 @@ deps:
       - pgstore
       # textcut — raw's derived title is truncated by character; truncating by byte would make postgres reject the whole write.
       - textcut
+      - paging   # list queries fetch one page and cut it (docs/design/paging.md)
     anyVendorDeps: true
   corpususecase:
     mayDependOn:
@@ -1156,6 +1162,7 @@ deps:
       # textcut — truncation of the path segment and the lead line; same reasoning as corpusrepo.
       - textcut
       - events      # writing.published / writing.unpublished commit with the switch
+      - paging      # the list use cases take and answer a page
     anyVendorDeps: true
 
   # access — #135 access domain (facade + DDD guts). The facade depends only on its own guts; the guts are layered with no cycles.
@@ -1272,11 +1279,13 @@ deps:
       - pgstore
       - cryptobox
       - periodic # gas-tank auto-refill declares its own daily job (same repo-layer pattern as statsrepo/monitorrepo)
+      - paging   # list queries fetch one page and cut it (docs/design/paging.md)
     anyVendorDeps: true
   ownerusecase:
     mayDependOn:
       - ownerentity
       - ownerrepo
+      - paging   # the list use cases take and answer a page
       - marketplace
       - corpus
       - access
@@ -1452,6 +1461,7 @@ deps:
   cmd:
     mayDependOn:
       - jobsriver          # River's own migrator runs at boot, after pgstore.Migrate
+      - paging             # the microsite store adapter maps the blockstore records page onto a paging.Page
       # providermodels — the owner's "load models" button: the root side unlocks the vault's own key and asks the endpoint.
       # The visitor face uses the same code (the key travels with the request), so it lives in infra rather than any one domain (F-R-11).
       - providermodels

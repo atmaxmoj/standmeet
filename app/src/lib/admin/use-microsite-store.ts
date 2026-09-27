@@ -1,14 +1,17 @@
 // use-microsite-store —— the owner's management view of one microsite's data store (the
 // per-page NoSQL namespace visitors write into). Backed by the admin store routes:
-//   GET    /api/admin/microsites/{slug}/store                          → list docs
+//   GET    /api/admin/microsites/{slug}/store                          → one page of docs, newest first
 //   DELETE /api/admin/microsites/{slug}/store/{collection}/{record_id} → delete one
 //   DELETE /api/admin/microsites/{slug}/store                          → clear the store
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { z } from 'zod';
 
 import { adminAPI } from '@/lib/api/admin';
+import {
+  createPagedStore, usePaged, type PagedState, type PagedStore,
+} from '@/lib/state/create-paged-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
 const StoreDocSchema = z.object({
@@ -19,38 +22,29 @@ const StoreDocSchema = z.object({
 });
 export type StoreDoc = z.infer<typeof StoreDocSchema>;
 
-const StoreDocsSchema = z.object({
-  slug: z.string(),
-  docs: z.array(StoreDocSchema),
-});
-
-interface State {
-  docs: StoreDoc[];
+export interface MicrositeStoreHook {
+  docs: readonly StoreDoc[];
   status: ResourceStatus;
-}
-
-export function useMicrositeStore(slug: string): State & {
+  page: PagedState<StoreDoc>;
   reload: () => void;
   deleteDoc: (collection: string, recordID: string) => Promise<void>;
   clear: () => Promise<void>;
-} {
-  const [state, setState] = useState<State>({ docs: [], status: 'loading' });
-  const reload = useCallback(() => { void load(slug, setState); }, [slug]);
-  useEffect(() => { reload(); }, [reload]);
+}
+
+// useMicrositeStore —— one page of the page's documents at a time (docs/design/paging.md), in this
+// component's own store (each page's panel lists its own store).
+export function useMicrositeStore(slug: string): MicrositeStoreHook {
+  const [store] = useState<PagedStore<StoreDoc>>(() => createPagedStore({
+    name: 'microsite-store', path: `/microsites/${slug}/store`, item: StoreDocSchema,
+  }));
+  const page = usePaged(store);
+  const { reload: reloadPage } = page;
+  const reload = useCallback(() => { void reloadPage(); }, [reloadPage]);
   const deleteDoc = useCallback(
     (collection: string, recordID: string) =>
       adminAPI.deleteVoid(`/microsites/${slug}/store/${collection}/${recordID}`),
     [slug],
   );
   const clear = useCallback(() => adminAPI.deleteVoid(`/microsites/${slug}/store`), [slug]);
-  return { ...state, reload, deleteDoc, clear };
-}
-
-async function load(slug: string, setState: (s: State) => void): Promise<void> {
-  try {
-    const res = await adminAPI.get(`/microsites/${slug}/store`, StoreDocsSchema);
-    setState({ docs: res.docs, status: 'ready' });
-  } catch {
-    setState({ docs: [], status: 'error' });
-  }
+  return { docs: page.items, status: page.status, page, reload, deleteDoc, clear };
 }

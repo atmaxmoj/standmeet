@@ -167,6 +167,7 @@
     }
   },
   "roles": {
+    "searchPlaceholder": "rechercher un rôle",
     "new": "+ nouveau rôle",
     "intro": "Un rôle regroupe une invite (personnage), une liste positive d'URI du corpus que l'agent peut lire, un ensemble de compétences, et quels serveurs MCP il peut appeler. Les codes ne portent pas les permissions directement — chaque code <em>assume</em> un rôle au moment de l'émission et cet instantané est figé pour cette session. Modifier un rôle et seules les sessions futures le sentiront.",
     "empty": "Aucun rôle pour l'instant — public est normalement pré-chargé à la revendication du propriétaire.",

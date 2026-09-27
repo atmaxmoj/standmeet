@@ -13,12 +13,12 @@
 // The plaintext secret is shown exactly once, at mint time (justCreated);
 // after that only the prefix remains in the list — this page must not become a place someone can scrape keys from.
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import { z } from 'zod';
 
 import { adminAPI } from '@/lib/api/admin';
-import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
+import { createPagedStore, usePaged, type PagedState } from '@/lib/state/create-paged-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
 const APIKeySchema = z.object({
@@ -46,15 +46,14 @@ export interface APIKeysHook {
   keys: readonly APIKeyItem[];
   justCreated: CreatedAPIKey | null;
   error: string | null;
+  page: PagedState<APIKeyItem>;
   createKey: (label: string, roleID: string) => Promise<void>;
   revokeKey: (id: string) => Promise<void>;
   dismissCreated: () => void;
 }
 
-const keysStore = createResourceStore<APIKeyItem[]>({
-  name: 'api-keys',
-  fetcher: () => adminAPI.get('/api-keys', z.array(APIKeySchema)),
-});
+// keysPage —— one page at a time, newest first (docs/design/paging.md).
+const keysPage = createPagedStore({ name: 'api-keys', path: '/api-keys', item: APIKeySchema });
 
 // justCreated is **local to the component**, a one-time state that never enters the store.
 //
@@ -63,28 +62,26 @@ const keysStore = createResourceStore<APIKeyItem[]>({
 // that even the product itself can't retrieve it again. Putting it in the
 // store would let it live across pages, which is exactly "the list becomes a place to scrape keys from".
 export function useAPIKeys(): APIKeysHook {
-  const res = useResource(keysStore);
+  // usePaged loads page 1 on mount (a store does not start itself; without it the panel renders
+  // with a list that stays empty forever — a "looks fine" shape).
+  const page = usePaged(keysPage);
   const [justCreated, setJustCreated] = useState<CreatedAPIKey | null>(null);
-  // The first mount needs to actually fetch once — a resource store doesn't
-  // start itself. Without this line, the panel renders, the header is there,
-  // **only the list stays empty forever**: a "looks fine" shape.
-  const { ensureLoaded } = res;
-  useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
   return {
-    status: res.status,
-    keys: res.data ?? [],
+    status: page.status,
+    keys: page.items,
     justCreated,
-    error: res.error,
+    error: page.error,
+    page,
     createKey: async (label, roleID) => {
       const created = await adminAPI.post(
         '/api-keys', { label, assumed_role_id: roleID }, CreatedAPIKeySchema,
       );
       setJustCreated(created);
-      await keysStore.getState().refresh();
+      await keysPage.getState().reload();
     },
     revokeKey: async (id) => {
       await adminAPI.post(`/api-keys/${id}/revoke`, {}, z.unknown());
-      await keysStore.getState().refresh();
+      await keysPage.getState().reload();
     },
     dismissCreated: () => { setJustCreated(null); },
   };

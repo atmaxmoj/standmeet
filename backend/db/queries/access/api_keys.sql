@@ -16,10 +16,16 @@ WHERE secret_hash = $1
   AND status = 'active'
   AND (expires_at IS NULL OR expires_at > now());
 
--- name: ListAPIKeysByOwner :many
-SELECT * FROM api_keys
-WHERE owner_id = $1
-ORDER BY created_at DESC;
+-- name: ListAPIKeysPage :many
+-- One page of the owner's keys, newest first, revoked ones included (docs/design/paging.md).
+SELECT sqlc.embed(k),
+  (SELECT COUNT(*) FROM api_keys k2 WHERE k2.owner_id = sqlc.arg('owner_id'))::int AS total
+FROM api_keys k
+WHERE k.owner_id = sqlc.arg('owner_id')
+  AND (sqlc.narg('after_at')::timestamptz IS NULL
+    OR (k.created_at, k.id) < (sqlc.narg('after_at'), sqlc.narg('after_id')::uuid))
+ORDER BY k.created_at DESC, k.id DESC
+LIMIT sqlc.arg('lim');
 
 -- name: GetAPIKeyByID :one
 SELECT * FROM api_keys

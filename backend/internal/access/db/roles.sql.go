@@ -389,33 +389,65 @@ func (q *Queries) ListRoleWaypoints(ctx context.Context, roleID pgtype.UUID) ([]
 	return items, nil
 }
 
-const listRolesByOwner = `-- name: ListRolesByOwner :many
-SELECT id, owner_id, name, description, greeting, prompt_id, is_builtin, dock_buttons, require_ghost_evidence, provider_id, gas_metered, created_at, updated_at FROM roles WHERE owner_id = $1 ORDER BY is_builtin DESC, name ASC
+const listRolesPage = `-- name: ListRolesPage :many
+SELECT r.id, r.owner_id, r.name, r.description, r.greeting, r.prompt_id, r.is_builtin, r.dock_buttons, r.require_ghost_evidence, r.provider_id, r.gas_metered, r.created_at, r.updated_at,
+  (SELECT COUNT(*) FROM roles r2 WHERE r2.owner_id = $1
+    AND ($2::text = '' OR r2.name ILIKE '%' || $2 || '%'))::int AS total
+FROM roles r
+WHERE r.owner_id = $1
+  AND ($2::text = '' OR r.name ILIKE '%' || $2 || '%')
+  AND ($3::timestamptz IS NULL
+    OR (r.created_at, r.id) > ($3, $4::uuid))
+ORDER BY r.created_at ASC, r.id ASC
+LIMIT $5
 `
 
-func (q *Queries) ListRolesByOwner(ctx context.Context, ownerID pgtype.UUID) ([]Role, error) {
-	rows, err := q.db.Query(ctx, listRolesByOwner, ownerID)
+type ListRolesPageParams struct {
+	OwnerID pgtype.UUID
+	Q       string
+	AfterAt pgtype.Timestamptz
+	AfterID pgtype.UUID
+	Lim     int32
+}
+
+type ListRolesPageRow struct {
+	Role  Role
+	Total int32
+}
+
+// One page of the owner's roles in the order they were made, oldest first (docs/design/paging.md):
+// the builtin public role is made at claim, so it leads. The cursor walks forward (>), not back.
+// q: case-insensitive substring of the name. total: how many match, on every page.
+func (q *Queries) ListRolesPage(ctx context.Context, arg ListRolesPageParams) ([]ListRolesPageRow, error) {
+	rows, err := q.db.Query(ctx, listRolesPage,
+		arg.OwnerID,
+		arg.Q,
+		arg.AfterAt,
+		arg.AfterID,
+		arg.Lim,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Role
+	var items []ListRolesPageRow
 	for rows.Next() {
-		var i Role
+		var i ListRolesPageRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.OwnerID,
-			&i.Name,
-			&i.Description,
-			&i.Greeting,
-			&i.PromptID,
-			&i.IsBuiltin,
-			&i.DockButtons,
-			&i.RequireGhostEvidence,
-			&i.ProviderID,
-			&i.GasMetered,
-			&i.CreatedAt,
-			&i.UpdatedAt,
+			&i.Role.ID,
+			&i.Role.OwnerID,
+			&i.Role.Name,
+			&i.Role.Description,
+			&i.Role.Greeting,
+			&i.Role.PromptID,
+			&i.Role.IsBuiltin,
+			&i.Role.DockButtons,
+			&i.Role.RequireGhostEvidence,
+			&i.Role.ProviderID,
+			&i.Role.GasMetered,
+			&i.Role.CreatedAt,
+			&i.Role.UpdatedAt,
+			&i.Total,
 		); err != nil {
 			return nil, err
 		}

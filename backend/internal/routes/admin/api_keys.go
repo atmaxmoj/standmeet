@@ -28,7 +28,7 @@ type APIKeysAdminDeps struct {
 // MountAPIKeys mounts the /api-keys subrouter.
 func (h *Handlers) MountAPIKeys(r chi.Router) {
 	face := h.APIKeysAdmin.Face
-	r.Get("/api-keys", h.dispatchOp(face, "api_keys.list", emptyArgs, jsonOK))
+	r.Get("/api-keys", h.dispatchOp(face, "api_keys.list", pagedQueryArgs(), jsonOK))
 	r.Post("/api-keys", h.dispatchOp(face, "api_keys.create", bodyArgs, jsonOK))
 	r.Patch("/api-keys/{id}", h.dispatchOp(face, "api_keys.update", bodyWithURLParam("id"), jsonOK))
 	r.Post("/api-keys/{id}/revoke",

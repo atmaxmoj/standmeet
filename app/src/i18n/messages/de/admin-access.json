@@ -167,6 +167,7 @@
     }
   },
   "roles": {
+    "searchPlaceholder": "Rollen suchen",
     "new": "+ neue rolle",
     "intro": "Eine Rolle bündelt einen Prompt (Person), eine positive Liste von Corpus-URIs, die der Agent lesen kann, eine Reihe von Skills und welche MCP-Server er aufrufen darf. Codes tragen Berechtigungen nicht direkt — jeder Code <em>nimmt an</em> einer Rolle bei Ausgabe an und dieser Snapshot ist für diese Sitzung eingefroren. Eine Rolle bearbeiten und nur zukünftige Sitzungen spüren es.",
     "empty": "Noch keine Rollen — öffentlich wird normalerweise beim Eigentümer-Claim initialisiert.",

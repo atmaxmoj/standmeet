@@ -106,8 +106,9 @@ async function commitApplication(): Promise<void> {
 }
 
 async function rollBack(): Promise<void> {
-  const pages = await mcp<{ slug: string; live_build_id?: string }[]>('microsite.list', {});
-  const build = pages.find((p) => p.slug === PAGE)?.live_build_id ?? '';
+  const pages = await mcp<{ items: { slug: string; live_build_id?: string }[] }>(
+    'microsite.list', { slug: PAGE });
+  const build = pages.items.find((p) => p.slug === PAGE)?.live_build_id ?? '';
   await mcp('microsite.promote_to_live', { slug: PAGE, build_id: build }); // leaves a previous
   await mcp('microsite.rollback', { slug: PAGE });
 }

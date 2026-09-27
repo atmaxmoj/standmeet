@@ -12,29 +12,30 @@ import { useState } from 'react';
 
 import { useTranslations } from 'next-intl';
 
+import { LoadMore } from '@/components/admin/LoadMore';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 import {
   pickMicrositesBodyState,
-  useMicrosites,
-  type MicrositesHook,
+  useAllMicrosites,
   type MicrositeSummary,
 } from '@/lib/admin/use-microsites';
+import { totalLabel, type PagedState } from '@/lib/state/create-paged-store';
 import { useMicrositeStore, type StoreDoc } from '@/lib/admin/use-microsite-store';
 import { useAction } from '@/lib/ui/use-action';
 
 export function DataSection() {
   const t = useTranslations('adminPages.data');
-  const hook = useMicrosites();
+  const page = useAllMicrosites();
   return (
     <>
       <SectionHeader
         kicker={t('kicker')}
         slug="data"
-        count={hook.rows.length > 0 ? String(hook.rows.length) : ''}
+        count={totalLabel(page.total, String)}
       />
       <Intro />
-      <Body hook={hook} />
+      <Body page={page} />
     </>
   );
 }
@@ -48,14 +49,14 @@ function Intro() {
   );
 }
 
-function Body({ hook }: { hook: MicrositesHook }) {
+function Body({ page }: { page: PagedState<MicrositeSummary> }) {
   const map = {
     loading: <ListSkeleton count={3} />,
-    error: <ErrorBlock message={hook.error ?? ''} />,
+    error: <ErrorBlock message={page.error ?? ''} />,
     empty: <EmptyState />,
-    list: <StoreList rows={hook.rows} />,
+    list: <><StoreList rows={page.items} /><LoadMore page={page} testid="data-load-more" /></>,
   } as const;
-  return map[pickMicrositesBodyState(hook)];
+  return map[pickMicrositesBodyState({ status: page.status, error: page.error, rows: page.items })];
 }
 
 function ErrorBlock({ message }: { message: string }) {
@@ -149,6 +150,7 @@ function DocList({ slug, store }: { slug: string; store: Store }) {
     <div className="flex flex-col gap-2">
       <ClearButton slug={slug} store={store} />
       {store.docs.map((d) => <DocRow key={d.id} doc={d} store={store} />)}
+      <LoadMore page={store.page} testid={`data-docs-load-more-${slug}`} />
     </div>
   );
 }

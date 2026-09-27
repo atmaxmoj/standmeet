@@ -159,7 +159,7 @@ test.describe('writings: atomic image upload via multipart save', () => {
       // Diagnostic: confirm writing stored cover_image_asset_id + asset_urls resolved
       const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
       const adminRes = await request.get('/api/admin/writings/', { headers: { 'X-Csrftoken': csrf } });
-      const adminWritings = await adminRes.json() as Array<{ slug: string; cover_image_asset_id: string; asset_urls: Record<string, string> }>;
+      const { items: adminWritings } = await adminRes.json() as { items: Array<{ slug: string; cover_image_asset_id: string; asset_urls: Record<string, string> }> };
       const stored = adminWritings.find((p) => p.slug === 'with-cover');
       expect(stored).toBeTruthy();
       expect(stored?.cover_image_asset_id).toMatch(/^[0-9a-f-]{36}$/);
@@ -316,7 +316,7 @@ test.describe('writings: set parent in editor → reader tree nesting', () => {
 async function adminWritingID(request: APIRequestContext, slug: string): Promise<string> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   const res = await request.get('/api/admin/writings/', { headers: { 'X-Csrftoken': csrf } });
-  const list = await res.json() as Array<{ id: string; slug: string }>;
+  const { items: list } = await res.json() as { items: Array<{ id: string; slug: string }> };
   const found = list.find((w) => w.slug === slug);
   if (!found) throw new Error(`writing ${slug} not found`);
   return found.id;

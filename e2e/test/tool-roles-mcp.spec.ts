@@ -62,8 +62,8 @@ async function expectDeleteRemovesIt(
     request, apiToken, sid, 'role_delete', { role_id: created.id },
   );
   expect(del.ok).toBe(true);
-  const list = await callTool<RoleRow[]>(request, apiToken, sid, 'role_list', {});
-  expect(list.find((r) => r.id === created.id)).toBeUndefined();
+  const { items } = await callTool<{ items: RoleRow[] }>(request, apiToken, sid, 'role_list', {});
+  expect(items.find((r) => r.id === created.id)).toBeUndefined();
 }
 
 // expectUnknownSkillRejected —— attaching a skill that doesn't exist: the role write must say
@@ -105,7 +105,7 @@ test.describe('Phase E-6 roles CRUD via MCP', () => {
       expect(created.name).toBe('recruiter-default');
       expect(created.id).toMatch(/^[0-9a-f-]{36}$/);
 
-      const list = await callTool<RoleRow[]>(
+      const { items: list } = await callTool<{ items: RoleRow[] }>(
         request, apiToken, sid, 'role_list', {},
       );
       const found = list.find((r) => r.id === created.id);
@@ -137,7 +137,7 @@ test.describe('Phase E-6 roles CRUD via MCP', () => {
   test('role_delete on builtin publicRow returns isError',
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
-      const list = await callTool<RoleRow[]>(
+      const { items: list } = await callTool<{ items: RoleRow[] }>(
         request, apiToken, sid, 'role_list', {},
       );
       const publicRow = list.find((r) => r.is_builtin === true);

@@ -11,10 +11,30 @@ RETURNING *;
 SELECT * FROM assets
 WHERE id = $1;
 
--- name: ListAssetsByOwner :many
+-- name: FindAssetByContentKey :many
+-- The owner's pool asset with this filename AND content hash (the dedup key), oldest first; the
+-- caller takes the first. :many rather than :one so "none" is an empty result, not an error.
 SELECT * FROM assets
-WHERE owner_id = $1
-ORDER BY created_at DESC;
+WHERE owner_id = $1 AND original_filename = $2 AND sha256 = $3
+ORDER BY created_at ASC, id ASC
+LIMIT 1;
+
+-- name: ListAssetsPage :many
+-- One page of the owner's pool, newest first (docs/design/paging.md). kind: empty = every kind,
+-- else 'image' or 'attachment'. q: case-insensitive substring of the original filename.
+-- total: how many match, on every page.
+SELECT sqlc.embed(a),
+  (SELECT COUNT(*) FROM assets a2 WHERE a2.owner_id = sqlc.arg('owner_id')
+    AND (sqlc.arg('kind')::text = '' OR a2.kind = sqlc.arg('kind'))
+    AND (sqlc.arg('q')::text = '' OR a2.original_filename ILIKE '%' || sqlc.arg('q') || '%'))::int AS total
+FROM assets a
+WHERE a.owner_id = sqlc.arg('owner_id')
+  AND (sqlc.arg('kind')::text = '' OR a.kind = sqlc.arg('kind'))
+  AND (sqlc.arg('q')::text = '' OR a.original_filename ILIKE '%' || sqlc.arg('q') || '%')
+  AND (sqlc.narg('after_at')::timestamptz IS NULL
+    OR (a.created_at, a.id) < (sqlc.narg('after_at'), sqlc.narg('after_id')::uuid))
+ORDER BY a.created_at DESC, a.id DESC
+LIMIT sqlc.arg('lim');
 
 -- name: DeleteAssetByID :one
 -- Pool delete of a single asset the caller has already confirmed is unreferenced

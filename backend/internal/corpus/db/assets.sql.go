@@ -162,6 +162,52 @@ func (q *Queries) FilterOwnedAssetIDs(ctx context.Context, arg FilterOwnedAssetI
 	return items, nil
 }
 
+const findAssetByContentKey = `-- name: FindAssetByContentKey :many
+SELECT id, owner_id, holder_id, kind, storage_key, content_type, size_bytes, sha256, original_filename, created_at FROM assets
+WHERE owner_id = $1 AND original_filename = $2 AND sha256 = $3
+ORDER BY created_at ASC, id ASC
+LIMIT 1
+`
+
+type FindAssetByContentKeyParams struct {
+	OwnerID          pgtype.UUID
+	OriginalFilename string
+	Sha256           string
+}
+
+// The owner's pool asset with this filename AND content hash (the dedup key), oldest first; the
+// caller takes the first. :many rather than :one so "none" is an empty result, not an error.
+func (q *Queries) FindAssetByContentKey(ctx context.Context, arg FindAssetByContentKeyParams) ([]Asset, error) {
+	rows, err := q.db.Query(ctx, findAssetByContentKey, arg.OwnerID, arg.OriginalFilename, arg.Sha256)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Asset
+	for rows.Next() {
+		var i Asset
+		if err := rows.Scan(
+			&i.ID,
+			&i.OwnerID,
+			&i.HolderID,
+			&i.Kind,
+			&i.StorageKey,
+			&i.ContentType,
+			&i.SizeBytes,
+			&i.Sha256,
+			&i.OriginalFilename,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getAssetByID = `-- name: GetAssetByID :one
 SELECT id, owner_id, holder_id, kind, storage_key, content_type, size_bytes, sha256, original_filename, created_at FROM assets
 WHERE id = $1
@@ -237,43 +283,6 @@ func (q *Queries) ListAssetReferencesByAsset(ctx context.Context, assetID pgtype
 	return items, nil
 }
 
-const listAssetsByOwner = `-- name: ListAssetsByOwner :many
-SELECT id, owner_id, holder_id, kind, storage_key, content_type, size_bytes, sha256, original_filename, created_at FROM assets
-WHERE owner_id = $1
-ORDER BY created_at DESC
-`
-
-func (q *Queries) ListAssetsByOwner(ctx context.Context, ownerID pgtype.UUID) ([]Asset, error) {
-	rows, err := q.db.Query(ctx, listAssetsByOwner, ownerID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Asset
-	for rows.Next() {
-		var i Asset
-		if err := rows.Scan(
-			&i.ID,
-			&i.OwnerID,
-			&i.HolderID,
-			&i.Kind,
-			&i.StorageKey,
-			&i.ContentType,
-			&i.SizeBytes,
-			&i.Sha256,
-			&i.OriginalFilename,
-			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listAssetsByReferrer = `-- name: ListAssetsByReferrer :many
 SELECT a.id, a.owner_id, a.holder_id, a.kind, a.storage_key, a.content_type, a.size_bytes, a.sha256, a.original_filename, a.created_at FROM assets a
 JOIN asset_references r ON r.asset_id = a.id
@@ -308,6 +317,77 @@ func (q *Queries) ListAssetsByReferrer(ctx context.Context, arg ListAssetsByRefe
 			&i.Sha256,
 			&i.OriginalFilename,
 			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAssetsPage = `-- name: ListAssetsPage :many
+SELECT a.id, a.owner_id, a.holder_id, a.kind, a.storage_key, a.content_type, a.size_bytes, a.sha256, a.original_filename, a.created_at,
+  (SELECT COUNT(*) FROM assets a2 WHERE a2.owner_id = $1
+    AND ($2::text = '' OR a2.kind = $2)
+    AND ($3::text = '' OR a2.original_filename ILIKE '%' || $3 || '%'))::int AS total
+FROM assets a
+WHERE a.owner_id = $1
+  AND ($2::text = '' OR a.kind = $2)
+  AND ($3::text = '' OR a.original_filename ILIKE '%' || $3 || '%')
+  AND ($4::timestamptz IS NULL
+    OR (a.created_at, a.id) < ($4, $5::uuid))
+ORDER BY a.created_at DESC, a.id DESC
+LIMIT $6
+`
+
+type ListAssetsPageParams struct {
+	OwnerID pgtype.UUID
+	Kind    string
+	Q       string
+	AfterAt pgtype.Timestamptz
+	AfterID pgtype.UUID
+	Lim     int32
+}
+
+type ListAssetsPageRow struct {
+	Asset Asset
+	Total int32
+}
+
+// One page of the owner's pool, newest first (docs/design/paging.md). kind: empty = every kind,
+// else 'image' or 'attachment'. q: case-insensitive substring of the original filename.
+// total: how many match, on every page.
+func (q *Queries) ListAssetsPage(ctx context.Context, arg ListAssetsPageParams) ([]ListAssetsPageRow, error) {
+	rows, err := q.db.Query(ctx, listAssetsPage,
+		arg.OwnerID,
+		arg.Kind,
+		arg.Q,
+		arg.AfterAt,
+		arg.AfterID,
+		arg.Lim,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAssetsPageRow
+	for rows.Next() {
+		var i ListAssetsPageRow
+		if err := rows.Scan(
+			&i.Asset.ID,
+			&i.Asset.OwnerID,
+			&i.Asset.HolderID,
+			&i.Asset.Kind,
+			&i.Asset.StorageKey,
+			&i.Asset.ContentType,
+			&i.Asset.SizeBytes,
+			&i.Asset.Sha256,
+			&i.Asset.OriginalFilename,
+			&i.Asset.CreatedAt,
+			&i.Total,
 		); err != nil {
 			return nil, err
 		}

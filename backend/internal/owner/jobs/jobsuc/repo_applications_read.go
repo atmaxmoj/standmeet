@@ -12,6 +12,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmodel"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc/db"
@@ -71,28 +72,49 @@ func (r *ApplicationRepo) GetByAccessCode(
 	return toDomainApplication(&row)
 }
 
-// ListByOwner — used by the admin "what have I applied to" view; ordered by created_at desc.
-func (r *ApplicationRepo) ListByOwner(
-	ctx context.Context, ownerID string,
-) ([]jobsmodel.Application, error) {
+// ListPage — one page of the admin "what have I applied to" view, newest first; the page reports
+// how many applications there are.
+func (r *ApplicationRepo) ListPage(
+	ctx context.Context, ownerID, search string, req paging.Request,
+) (paging.Page[jobsmodel.Application], error) {
 	owner, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
-		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
+		return paging.Page[jobsmodel.Application]{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
+	}
+	after, err := pgstore.CursorArgs(req.After)
+	if err != nil {
+		return paging.Page[jobsmodel.Application]{}, fmt.Errorf("list applications: %w", err)
 	}
 	q := db.New(r.pool)
-	rows, err := q.ListApplicationsByOwner(ctx, owner)
+	rows, err := q.ListApplicationsPage(ctx, db.ListApplicationsPageParams{
+		OwnerID: owner, Q: search, AfterAt: after.At, AfterID: after.ID, Lim: req.Fetch(),
+	})
 	if err != nil {
-		return nil, fmt.Errorf("list applications: %w", err)
+		return paging.Page[jobsmodel.Application]{}, fmt.Errorf("list applications: %w", err)
 	}
+	total, err := q.CountApplications(ctx, owner)
+	if err != nil {
+		return paging.Page[jobsmodel.Application]{}, fmt.Errorf("count applications: %w", err)
+	}
+	page, err := applicationsPage(rows, req)
+	return page.WithTotal(total), err
+}
+
+// applicationsPage —— the rows as domain applications, cut to the page.
+func applicationsPage(
+	rows []db.ListApplicationsPageRow, req paging.Request,
+) (paging.Page[jobsmodel.Application], error) {
 	out := make([]jobsmodel.Application, 0, len(rows))
 	for i := range rows {
-		app, terr := toDomainApplication(&rows[i])
+		app, terr := toDomainApplication(&rows[i].Application)
 		if terr != nil {
-			return nil, terr
+			return paging.Page[jobsmodel.Application]{}, terr
 		}
 		out = append(out, app)
 	}
-	return out, nil
+	return paging.Cut(out, req, func(a *jobsmodel.Application) paging.Cursor {
+		return paging.Cursor{At: a.CreatedAt, ID: a.ID}
+	}), nil
 }
 
 func toDomainApplication(row *db.Application) (jobsmodel.Application, error) {

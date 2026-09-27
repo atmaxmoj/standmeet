@@ -38,7 +38,7 @@ interface BuildPayload { build_id: string; status: string }
 // The list is **a row per page**, the same shape as the admin panel's (this MCP
 // version used to wrap it in an extra {pages:[...]} layer, and only carried
 // id/slug/title, with no way to tell live/staging status).
-type ListPayload = PagePayload[];
+type ListPayload = { items: PagePayload[] };
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 test.describe('microsite lifecycle: staging → live → list → delete', () => {
@@ -70,7 +70,7 @@ test.describe('microsite lifecycle: staging → live → list → delete', () =>
 
       const inList = await callTool<ListPayload>(
         request, apiToken, sid, 'microsite.list', {});
-      expect(inList.find((p) => p.slug === SLUG)).toBeTruthy();
+      expect(inList.items.find((p) => p.slug === SLUG)).toBeTruthy();
 
       // From the UI's side: admin microsites section → click view live ↗ →
       // /p/<slug> renders.
@@ -88,7 +88,7 @@ test.describe('microsite lifecycle: staging → live → list → delete', () =>
 
       const afterDelete = await callTool<ListPayload>(
         request, apiToken, sid, 'microsite.list', {});
-      expect(afterDelete.find((p) => p.slug === SLUG)).toBeUndefined();
+      expect(afterDelete.items.find((p) => p.slug === SLUG)).toBeUndefined();
 
       // Currently on the /p/<slug> standalone React page, no admin nav; page.goBack()
       // returns to /admin/microsites (equivalent to "the user hits browser-back

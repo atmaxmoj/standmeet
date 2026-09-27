@@ -37,7 +37,7 @@ func (h *Handlers) MountWritings(r chi.Router) {
 	face := h.WritingsAdmin.Face
 	save := h.saveWritingViaFace(face)
 	r.Route("/writings", func(r chi.Router) {
-		r.Get("/", h.dispatchOp(face, "writings.list", emptyArgs, jsonOK))
+		r.Get("/", h.dispatchOp(face, "writings.list", pagedQueryArgs("tag"), jsonOK))
 		r.Get("/tree", h.treeWritings())
 		r.Get("/page", h.pageWritings())
 		r.Post("/", save(http.StatusCreated, ""))

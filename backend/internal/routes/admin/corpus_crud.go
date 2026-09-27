@@ -40,7 +40,7 @@ func (h *Handlers) MountCorpusCRUD(r chi.Router) {
 	// The global asset pool (Resources → Assets): list everything, upload straight in (the
 	// panel's file picker, no corpus entry needed), delete one (refused, naming who uses it,
 	// while referenced), and read who references one.
-	r.Get("/assets", h.dispatchOp(face, "assets.list", emptyArgs, jsonOK))
+	r.Get("/assets", h.dispatchOp(face, "assets.list", pagedQueryArgs("kind", "q"), jsonOK))
 	r.Post("/assets", h.uploadPoolAsset())
 	r.Delete("/assets/{asset_id}",
 		h.dispatchOp(face, "assets.pool_delete", assetPoolIDArgs, noContent))

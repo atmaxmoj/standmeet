@@ -13,16 +13,19 @@ import { adminAPI } from '@/lib/api/admin';
 import { useAssets, isImage } from '@/lib/admin/use-assets';
 import { useAction } from '@/lib/ui/use-action';
 import { SelectField } from '@/components/atoms/SelectField';
+import { PickerSearchField } from '@/components/admin/PickerSearchField';
 
 const CHOOSE = '__choose__'; // the inert placeholder option
 
 export function FaviconEditor() {
   const t = useTranslations('adminShell.account');
-  const { assets } = useAssets();
+  const ta = useTranslations('adminPages.assets');
+  // Images only, filtered on the server; the pool pages, so a search narrows the choice.
+  const pool = useAssets('image');
   const run = useAction();
   const [bust, setBust] = useState(() => Date.now()); // cache-buster to refresh the preview after a set
   const [sel, setSel] = useState(CHOOSE);
-  const images = assets.filter(isImage);
+  const images = pool.assets.filter(isImage);
 
   // The placeholder option is inert; any real choice (an asset id, or '' = default) is applied.
   const apply = (value: string): void => {
@@ -37,6 +40,10 @@ export function FaviconEditor() {
   return (
     <div data-testid="favicon-editor">
       <div className="sm-smallcaps mb-2">{t('favicon')}</div>
+      <PickerSearchField
+        value={pool.query} onChange={pool.setQuery} testid="favicon-search"
+        placeholder={ta('searchPlaceholder')}
+      />
       <div className="flex items-center gap-3">
         <Image
           src={`/favicon.ico?v=${bust}`}

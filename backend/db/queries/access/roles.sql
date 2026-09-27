@@ -31,8 +31,20 @@ SELECT * FROM roles WHERE id = $1 AND owner_id = $2;
 -- name: GetRoleByName :one
 SELECT * FROM roles WHERE owner_id = $1 AND name = $2;
 
--- name: ListRolesByOwner :many
-SELECT * FROM roles WHERE owner_id = $1 ORDER BY is_builtin DESC, name ASC;
+-- name: ListRolesPage :many
+-- One page of the owner's roles in the order they were made, oldest first (docs/design/paging.md):
+-- the builtin public role is made at claim, so it leads. The cursor walks forward (>), not back.
+-- q: case-insensitive substring of the name. total: how many match, on every page.
+SELECT sqlc.embed(r),
+  (SELECT COUNT(*) FROM roles r2 WHERE r2.owner_id = sqlc.arg('owner_id')
+    AND (sqlc.arg('q')::text = '' OR r2.name ILIKE '%' || sqlc.arg('q') || '%'))::int AS total
+FROM roles r
+WHERE r.owner_id = sqlc.arg('owner_id')
+  AND (sqlc.arg('q')::text = '' OR r.name ILIKE '%' || sqlc.arg('q') || '%')
+  AND (sqlc.narg('after_at')::timestamptz IS NULL
+    OR (r.created_at, r.id) > (sqlc.narg('after_at'), sqlc.narg('after_id')::uuid))
+ORDER BY r.created_at ASC, r.id ASC
+LIMIT sqlc.arg('lim');
 
 -- name: UpdateRole :one
 UPDATE roles

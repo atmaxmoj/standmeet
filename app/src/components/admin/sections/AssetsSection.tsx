@@ -15,7 +15,9 @@ import { FilePicker } from '@/components/admin/atoms/FilePicker';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { FaviconEditor } from '@/components/admin/sections/page/FaviconEditor';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
+import { LoadMore } from '@/components/admin/LoadMore';
 import { isImage, sizeLabel, useAssets, type PoolAsset } from '@/lib/admin/use-assets';
+import { totalLabel } from '@/lib/state/create-paged-store';
 import { useAction } from '@/lib/ui/use-action';
 
 export function AssetsSection() {
@@ -26,7 +28,7 @@ export function AssetsSection() {
       <SectionHeader
         kicker={t('kicker')}
         slug="assets"
-        count={hook.assets.length > 0 ? String(hook.assets.length) : ''}
+        count={totalLabel(hook.page.total, String)}
       />
       <Intro />
       <FaviconBlock />
@@ -118,12 +120,15 @@ function EmptyState() {
 
 function AssetGrid({ hook }: { hook: Hook }) {
   return (
-    <div
-      data-testid="assets-list"
-      className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3"
-    >
-      {hook.assets.map((a) => <AssetCard key={a.asset_id} asset={a} hook={hook} />)}
-    </div>
+    <>
+      <div
+        data-testid="assets-list"
+        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3"
+      >
+        {hook.assets.map((a) => <AssetCard key={a.asset_id} asset={a} hook={hook} />)}
+      </div>
+      <LoadMore page={hook.page} testid="assets-load-more" />
+    </>
   );
 }
 

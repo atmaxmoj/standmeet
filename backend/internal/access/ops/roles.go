@@ -25,6 +25,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/access/entity"
 	"github.com/atmaxmoj/standmeet/internal/access/usecase"
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
+	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 )
 
 // RolesDeps — role use cases + "which blocks may be mounted on dock buttons".
@@ -53,9 +54,10 @@ func Roles(d RolesDeps) []fp.Op {
 	return []fp.Op{
 		{
 			ID: "role_list",
-			Description: "List the owner's roles (incl. public builtin) with their corpus " +
-				"URIs, attached skills / mcp servers, per-role switches and active code count.",
-			InputSchema: noArgs,
+			Description: "List the owner's roles (incl. public builtin), oldest first, one " +
+				"page at a time ({items, next_cursor, total}), with their corpus URIs, attached " +
+				"skills / mcp servers, per-role switches and active code count. Search by name.",
+			InputSchema: paging.Schema(roleListFilters),
 			Kind:        fp.Read,
 			Reach:       fp.OwnerRead(),
 			Invoke:      listRoles(d),
@@ -246,20 +248,33 @@ func nonNilDockButtons(in []entity.DockButtonConfig) []entity.DockButtonConfig {
 	return in
 }
 
+type roleListArgs struct {
+	Q string `json:"q"`
+}
+
+var roleListFilters = json.RawMessage(`{
+	"type":"object",
+	"properties":{
+		"q":{"type":"string","description":"Case-insensitive substring of the role name."}
+	}
+}`)
+
 func listRoles(d RolesDeps) fp.Invoke {
 	extras := extrasOr(d.Extras)
-	return func(ctx context.Context, ownerID string, _ json.RawMessage) (json.RawMessage, error) {
-		rows, err := usecase.ListRoles(ctx, d.Roles, ownerID)
+	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
+		in, perr := paging.ParseArgs[roleListArgs](raw)
+		if perr != nil {
+			return nil, fp.BadInput("invalid arguments: " + perr.Error())
+		}
+		page, err := usecase.ListRoles(ctx, d.Roles, ownerID, in.Filter.Q, in.Req)
 		if err != nil {
 			return nil, roleErr(err)
 		}
-		out := make([]json.RawMessage, 0, len(rows))
-		for i := range rows {
-			row, merr := marshalRole(ctx, d.Roles, extras, &rows[i])
-			if merr != nil {
-				return nil, merr
-			}
-			out = append(out, row)
+		out, merr := paging.Map(page, func(rl *entity.Role) (json.RawMessage, error) {
+			return marshalRole(ctx, d.Roles, extras, rl)
+		})
+		if merr != nil {
+			return nil, merr
 		}
 		return json.Marshal(out)
 	}

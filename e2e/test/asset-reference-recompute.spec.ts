@@ -160,8 +160,8 @@ async function poolAssetIDs(): Promise<string[]> {
     headers: { 'X-Csrftoken': csrf },
   });
   expect(res.status()).toBe(200);
-  const assets = await res.json() as { asset_id: string }[];
-  return assets.map((a) => a.asset_id);
+  const { items } = await res.json() as { items: { asset_id: string }[] };
+  return items.map((a) => a.asset_id);
 }
 
 // poolDelete —— the admin pool delete. This is an API-level reference-integrity test (the

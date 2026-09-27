@@ -167,6 +167,7 @@
     }
   },
   "roles": {
+    "searchPlaceholder": "buscar roles",
     "new": "+ rol nuevo",
     "intro": "Un rol agrupa un aviso (carácter), una lista positiva de URI de corpus que el agente puede leer, un conjunto de habilidades y qué servidores MCP puede llamar. Los códigos no llevan permisos directamente — cada código <em>asume</em> un rol en el momento de la emisión y esa instantánea se congela para esa sesión. Edite un rol y solo futuras sesiones lo sienten.",
     "empty": "Sin roles aún — lo público normalmente se siembra en la solicitud del propietario.",

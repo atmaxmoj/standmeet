@@ -106,10 +106,10 @@ async function checkInstance(r: APIRequestContext): Promise<void> {
 }
 
 async function checkSEO(r: APIRequestContext): Promise<void> {
-  const pages = await callTool<Array<{
+  const pages = await callTool<{ items: Array<{
     slug: string; seo_title: string; seo_description: string; seo_image: string;
-  }>>(r, token, sid, 'microsite.list', {});
-  const row = pages.find((p) => p.slug === SEO_PAGE.slug);
+  }> }>(r, token, sid, 'microsite.list', { slug: SEO_PAGE.slug });
+  const row = pages.items.find((p) => p.slug === SEO_PAGE.slug);
   expect(row, 'microsite.list contains the seeded page').toBeDefined();
   expect(row!.seo_title, 'seo_title read back').toBe(SEO_PAGE.seoTitle);
   expect(row!.seo_description, 'seo_description read back').toBe(SEO_PAGE.seoDescription);
@@ -156,8 +156,8 @@ async function checkEmptyRegistries(r: APIRequestContext): Promise<void> {
   const reqs = await callTool<{ items: unknown[] }>(r, token, sid, 'access_requests.list', {});
   expect(Array.isArray(reqs.items), 'access_requests.list page').toBe(true);
 
-  const bans = await callTool<unknown[]>(r, token, sid, 'ip_bans.list', {});
-  expect(Array.isArray(bans), 'ip_bans.list array').toBe(true);
+  const bans = await callTool<{ items: unknown[] }>(r, token, sid, 'ip_bans.list', {});
+  expect(Array.isArray(bans.items), 'ip_bans.list page').toBe(true);
 
   const domains = await callTool<{ domains: string[] }>(r, token, sid, 'domains.list', {});
   expect(Array.isArray(domains.domains), 'domains.list.domains array').toBe(true);

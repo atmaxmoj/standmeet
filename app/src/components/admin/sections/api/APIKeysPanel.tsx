@@ -22,9 +22,11 @@ import { useTranslations } from 'next-intl';
 
 import { AdminSectionHead } from '@/components/admin/AdminSectionHead';
 import { ListPane } from '@/components/admin/ListPane';
+import { LoadMore } from '@/components/admin/LoadMore';
 import { SelectField } from '@/components/atoms/SelectField';
 import { useAPIKeys, type APIKeyItem } from '@/lib/admin/use-api-keys';
-import { useRoles } from '@/lib/admin/use-roles';
+import { PickerSearchField } from '@/components/admin/PickerSearchField';
+import { useRolePicker, type RolePicker } from '@/lib/admin/use-roles';
 import { useAction } from '@/lib/ui/use-action';
 
 // INPUT_CLASS — the existing input style on this page (bottom border only,
@@ -39,7 +41,8 @@ const INPUT_CLASS =
 export function APIKeysPanel() {
   const t = useTranslations('adminIntegrations.apiKeys');
   const hook = useAPIKeys();
-  const roles = useRoles();
+  // The roles list pages: the mint row's picker offers the first page, a search narrows it.
+  const roles = useRolePicker();
   return (
     <div data-testid="api-keys-panel">
       <AdminSectionHead>{t('heading')}</AdminSectionHead>
@@ -47,8 +50,9 @@ export function APIKeysPanel() {
       <NewSecret created={hook.justCreated} onDismiss={hook.dismissCreated} />
       <MintRow
         hook={hook}
-        roleIDs={roles.roles.map((r) => ({ id: r.id, name: r.name }))}
-        fallbackRole={firstRoleID(roles.roles)}
+        roles={roles}
+        roleIDs={roles.page.items.map((r) => ({ id: r.id, name: r.name }))}
+        fallbackRole={firstRoleID(roles.page.items)}
       />
       <KeyList keys={hook.keys} hook={hook} />
     </div>
@@ -84,6 +88,7 @@ function NewSecret(
 
 interface MintProps {
   hook: ReturnType<typeof useAPIKeys>;
+  roles: RolePicker;
   roleIDs: { id: string; name: string }[];
   // fallbackRole — which role to use when none is picked yet. **The parent
   // component computes it and passes it down**: presentation layer stays at
@@ -91,8 +96,9 @@ interface MintProps {
   fallbackRole: string;
 }
 
-function MintRow({ hook, roleIDs, fallbackRole }: MintProps) {
+function MintRow({ hook, roles, roleIDs, fallbackRole }: MintProps) {
   const t = useTranslations('adminIntegrations.apiKeys');
+  const ta = useTranslations('adminAccess');
   const [label, setLabel] = useState('');
   const [roleID, setRoleID] = useState('');
   const run = useAction();
@@ -112,6 +118,10 @@ function MintRow({ hook, roleIDs, fallbackRole }: MintProps) {
       </label>
       <label>
         <span className="sm-smallcaps block mb-1">{t('roleField')}</span>
+        <PickerSearchField
+          value={roles.query} onChange={roles.setQuery} testid="api-key-new-role-search"
+          placeholder={ta('roles.searchPlaceholder')}
+        />
         {/* SelectField instead of a bare <select> — dropdowns must have one
             look only (the gate check-one-select left by UX-47 caught me
             red-handed). */}
@@ -158,6 +168,7 @@ function KeyList({ keys, hook }: { keys: readonly APIKeyItem[]; hook: ReturnType
       <ul className="space-y-2">
         {keys.map((k) => <KeyRow key={k.id} row={k} hook={hook} />)}
       </ul>
+      <LoadMore page={hook.page} testid="api-keys-load-more" />
     </ListPane>
   );
 }

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/security/db"
 )
@@ -59,22 +60,34 @@ func (r *BannedIPRepo) Ban(ctx context.Context, in *IPInput) (BannedIP, error) {
 	return decodeBannedIP(&row), nil
 }
 
-// List — all of the owner's bans (including expired ones, so admin can see
-// history; most recent first).
-func (r *BannedIPRepo) List(ctx context.Context, ownerID string) ([]BannedIP, error) {
+// List — one page of the owner's bans (including expired ones, so admin can see
+// history; most recent first); the page reports how many bans there are.
+func (r *BannedIPRepo) List(
+	ctx context.Context, ownerID string, req paging.Request,
+) (paging.Page[BannedIP], error) {
 	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
-		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
+		return paging.Page[BannedIP]{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	rows, qerr := db.New(r.pool).ListBannedIPs(ctx, ownerUUID)
+	after, err := pgstore.CursorArgs(req.After)
+	if err != nil {
+		return paging.Page[BannedIP]{}, fmt.Errorf("list banned ips: %w", err)
+	}
+	rows, qerr := db.New(r.pool).ListBannedIPsPage(ctx, db.ListBannedIPsPageParams{
+		OwnerID: ownerUUID, AfterAt: after.At, AfterID: after.ID, Lim: req.Fetch(),
+	})
 	if qerr != nil {
-		return nil, fmt.Errorf("list banned ips: %w", qerr)
+		return paging.Page[BannedIP]{}, fmt.Errorf("list banned ips: %w", qerr)
 	}
 	out := make([]BannedIP, 0, len(rows))
+	total := int32(0)
 	for i := range rows {
-		out = append(out, decodeBannedIP(&rows[i]))
+		out = append(out, decodeBannedIP(&rows[i].BannedIp))
+		total = rows[i].Total
 	}
-	return out, nil
+	return paging.Cut(out, req, func(b *BannedIP) paging.Cursor {
+		return paging.Cursor{At: b.CreatedAt, ID: b.ID}
+	}).WithTotal(total), nil
 }
 
 // Unban — unban by id (owner-scoped). Nonexistent id counts as success (idempotent).

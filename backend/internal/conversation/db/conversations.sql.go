@@ -303,7 +303,7 @@ type ListConversationsPageRow struct {
 
 // One page of the owner's conversations, most recent activity first (docs/design/paging.md).
 // turn_count is derived from dialogs: count visitor-role messages (one visitor message per dialog),
-// no stored count field. code: ” = every conversation, else only those on that code string
+// no stored count field. code: empty = every conversation, else only those on that code string
 // (case-insensitive). total: how many conversations match the filter on every page — an
 // uncorrelated subquery (evaluated once), not COUNT(*) OVER (), which would also apply the
 // cursor and count only what is left.

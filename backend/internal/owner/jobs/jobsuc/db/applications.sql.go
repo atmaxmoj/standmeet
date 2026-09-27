@@ -11,6 +11,19 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countApplications = `-- name: CountApplications :one
+SELECT COUNT(*)::int FROM applications WHERE owner_id = $1
+`
+
+// How many applications the owner has in all, search or not: the header counts what was
+// committed, and "no matches" is an empty page with a non-zero total.
+func (q *Queries) CountApplications(ctx context.Context, ownerID pgtype.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, countApplications, ownerID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const createApplication = `-- name: CreateApplication :one
 INSERT INTO applications (id, owner_id, access_code_id, job_snapshot, resume_content)
 VALUES ($1, $2, $3, $4, $5)
@@ -109,32 +122,60 @@ func (q *Queries) GetApplicationByAccessCode(ctx context.Context, arg GetApplica
 	return i, err
 }
 
-const listApplicationsByOwner = `-- name: ListApplicationsByOwner :many
-SELECT id, owner_id, access_code_id, job_snapshot, resume_content,
-       status, submitted_at, created_at
-FROM applications
-WHERE owner_id = $1
-ORDER BY created_at DESC
+const listApplicationsPage = `-- name: ListApplicationsPage :many
+SELECT a.id, a.owner_id, a.access_code_id, a.job_snapshot, a.resume_content, a.status, a.submitted_at, a.created_at
+FROM applications a
+WHERE a.owner_id = $1
+  AND ($2::text = ''
+    OR (a.job_snapshot->>'company') ILIKE '%' || $2 || '%'
+    OR (a.job_snapshot->>'title') ILIKE '%' || $2 || '%'
+    OR a.status ILIKE '%' || $2 || '%')
+  AND ($3::timestamptz IS NULL
+    OR (a.created_at, a.id) < ($3, $4::uuid))
+ORDER BY a.created_at DESC, a.id DESC
+LIMIT $5
 `
 
-func (q *Queries) ListApplicationsByOwner(ctx context.Context, ownerID pgtype.UUID) ([]Application, error) {
-	rows, err := q.db.Query(ctx, listApplicationsByOwner, ownerID)
+type ListApplicationsPageParams struct {
+	OwnerID pgtype.UUID
+	Q       string
+	AfterAt pgtype.Timestamptz
+	AfterID pgtype.UUID
+	Lim     int32
+}
+
+type ListApplicationsPageRow struct {
+	Application Application
+}
+
+// One page of the owner's applications, newest first (docs/design/paging.md). q: case-insensitive
+// substring of the company, the role or the status (the recruiter calls; the owner types the
+// company). The page's total comes from CountApplications, not a column here: a search that
+// matches nothing returns no rows to carry it.
+func (q *Queries) ListApplicationsPage(ctx context.Context, arg ListApplicationsPageParams) ([]ListApplicationsPageRow, error) {
+	rows, err := q.db.Query(ctx, listApplicationsPage,
+		arg.OwnerID,
+		arg.Q,
+		arg.AfterAt,
+		arg.AfterID,
+		arg.Lim,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Application
+	var items []ListApplicationsPageRow
 	for rows.Next() {
-		var i Application
+		var i ListApplicationsPageRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.OwnerID,
-			&i.AccessCodeID,
-			&i.JobSnapshot,
-			&i.ResumeContent,
-			&i.Status,
-			&i.SubmittedAt,
-			&i.CreatedAt,
+			&i.Application.ID,
+			&i.Application.OwnerID,
+			&i.Application.AccessCodeID,
+			&i.Application.JobSnapshot,
+			&i.Application.ResumeContent,
+			&i.Application.Status,
+			&i.Application.SubmittedAt,
+			&i.Application.CreatedAt,
 		); err != nil {
 			return nil, err
 		}

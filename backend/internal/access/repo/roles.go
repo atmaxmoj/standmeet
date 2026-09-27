@@ -123,31 +123,6 @@ func (r *RoleRepo) UpsertBuiltin(
 	return toDomainRoleBare(&row), nil
 }
 
-// ListByOwner —— used by the admin /admin/roles listing and the visitor-session
-// lookup. Returned Roles have their three join groups hydrated (each join is
-// N+1; N is usually ≤5 on the visitor dimension so unoptimized — a batch
-// ListWithJoins query in commit 4 would fix that).
-func (r *RoleRepo) ListByOwner(ctx context.Context, ownerID string) ([]entity.Role, error) {
-	ownerUUID, oerr := pgstore.ParseUUID(ownerID)
-	if oerr != nil {
-		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
-	}
-	q := db.New(r.pool)
-	rows, err := q.ListRolesByOwner(ctx, ownerUUID)
-	if err != nil {
-		return nil, fmt.Errorf("list roles: %w", err)
-	}
-	out := make([]entity.Role, 0, len(rows))
-	for i := range rows {
-		hydrated, herr := hydrateRole(ctx, q, &rows[i])
-		if herr != nil {
-			return nil, herr
-		}
-		out = append(out, hydrated)
-	}
-	return out, nil
-}
-
 // GetByID —— hydrates the three join groups for a single detail view.
 func (r *RoleRepo) GetByID(ctx context.Context, ownerID, roleID string) (entity.Role, error) {
 	args, perr := parseRoleIDArgs(ownerID, roleID)

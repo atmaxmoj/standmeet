@@ -88,28 +88,52 @@ func (q *Queries) IsIPBannedAnywhere(ctx context.Context, ip string) (bool, erro
 	return banned, err
 }
 
-const listBannedIPs = `-- name: ListBannedIPs :many
-SELECT id, owner_id, ip, reason, expires_at, created_at FROM banned_ips
-WHERE owner_id = $1
-ORDER BY created_at DESC
+const listBannedIPsPage = `-- name: ListBannedIPsPage :many
+SELECT b.id, b.owner_id, b.ip, b.reason, b.expires_at, b.created_at,
+  (SELECT COUNT(*) FROM banned_ips b2 WHERE b2.owner_id = $1)::int AS total
+FROM banned_ips b
+WHERE b.owner_id = $1
+  AND ($2::timestamptz IS NULL
+    OR (b.created_at, b.id) < ($2, $3::uuid))
+ORDER BY b.created_at DESC, b.id DESC
+LIMIT $4
 `
 
-func (q *Queries) ListBannedIPs(ctx context.Context, ownerID pgtype.UUID) ([]BannedIp, error) {
-	rows, err := q.db.Query(ctx, listBannedIPs, ownerID)
+type ListBannedIPsPageParams struct {
+	OwnerID pgtype.UUID
+	AfterAt pgtype.Timestamptz
+	AfterID pgtype.UUID
+	Lim     int32
+}
+
+type ListBannedIPsPageRow struct {
+	BannedIp BannedIp
+	Total    int32
+}
+
+// One page of the owner's bans, newest first, expired ones included (docs/design/paging.md).
+func (q *Queries) ListBannedIPsPage(ctx context.Context, arg ListBannedIPsPageParams) ([]ListBannedIPsPageRow, error) {
+	rows, err := q.db.Query(ctx, listBannedIPsPage,
+		arg.OwnerID,
+		arg.AfterAt,
+		arg.AfterID,
+		arg.Lim,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []BannedIp
+	var items []ListBannedIPsPageRow
 	for rows.Next() {
-		var i BannedIp
+		var i ListBannedIPsPageRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.OwnerID,
-			&i.Ip,
-			&i.Reason,
-			&i.ExpiresAt,
-			&i.CreatedAt,
+			&i.BannedIp.ID,
+			&i.BannedIp.OwnerID,
+			&i.BannedIp.Ip,
+			&i.BannedIp.Reason,
+			&i.BannedIp.ExpiresAt,
+			&i.BannedIp.CreatedAt,
+			&i.Total,
 		); err != nil {
 			return nil, err
 		}

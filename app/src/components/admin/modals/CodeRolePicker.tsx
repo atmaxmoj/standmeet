@@ -1,42 +1,53 @@
 // CodeRolePicker — the role dropdown inside the code create modal. A.3-IAM.
 // Split out to keep CreateCodeFields.tsx under max-lines.
+//
+// The roles list pages (docs/design/paging.md): the dropdown offers the first page and a search
+// narrows it on the server.
 
 import { useTranslations } from 'next-intl';
 
+import { PickerSearchField } from '@/components/admin/PickerSearchField';
 import { SelectField } from '@/components/atoms/SelectField';
-import { useRoles, type RoleView } from '@/lib/admin/use-roles';
+import { useRolePicker, type RolePicker } from '@/lib/admin/use-roles';
 import type { CodeFormHook } from '@/lib/admin/use-code-form';
 
 type Props = { form: CodeFormHook };
 
 export function CodeRolePicker({ form }: Props) {
-  const hook = useRoles();
+  const picker = useRolePicker();
   return (
     // The subtitle says **what happens if left blank**: the default is `invited`
     // (can read your curated corpus), because issuing a code is itself an invitation.
     // To grant only the public slice, pick `public` in the dropdown.
     <CodeRolePickerSection title="role" subtitle="frozen at issue; blank = invited">
-      <CodeRolePickerSelect form={form} roles={hook.roles} />
+      <CodeRolePickerSelect form={form} picker={picker} />
     </CodeRolePickerSection>
   );
 }
 
 function CodeRolePickerSelect({
-  form, roles,
-}: { form: CodeFormHook; roles: readonly RoleView[] }) {
+  form, picker,
+}: { form: CodeFormHook; picker: RolePicker }) {
   const t = useTranslations('adminShell.codeModal');
+  const ta = useTranslations('adminAccess');
   return (
-    <SelectField
-      className="w-full"
-      value={form.values.assumedRoleID}
-      onChange={(e) => form.setAssumedRoleID(e.target.value)}
-      testid="code-field-role"
-    >
-      <option value="">{t('roleDefault')}</option>
-      {roles.map((r) => (
-        <option key={r.id} value={r.id}>{r.name}</option>
-      ))}
-    </SelectField>
+    <>
+      <PickerSearchField
+        value={picker.query} onChange={picker.setQuery} testid="code-field-role-search"
+        placeholder={ta('roles.searchPlaceholder')}
+      />
+      <SelectField
+        className="w-full"
+        value={form.values.assumedRoleID}
+        onChange={(e) => form.setAssumedRoleID(e.target.value)}
+        testid="code-field-role"
+      >
+        <option value="">{t('roleDefault')}</option>
+        {picker.page.items.map((r) => (
+          <option key={r.id} value={r.id}>{r.name}</option>
+        ))}
+      </SelectField>
+    </>
   );
 }
 

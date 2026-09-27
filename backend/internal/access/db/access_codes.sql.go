@@ -565,9 +565,11 @@ func (q *Queries) ListAccessCodesByOwner(ctx context.Context, ownerID pgtype.UUI
 }
 
 const listAccessCodesPage = `-- name: ListAccessCodesPage :many
-SELECT ac.id, ac.owner_id, ac.code, ac.label, ac.purpose, ac.ghosts, ac.expires_at, ac.status, ac.max_turns_per_session, ac.max_members, ac.require_ghost_evidence, ac.provider_id, ac.microsite_id, ac.bundle_id, ac.limit_per_period, ac.slug, ac.created_at, ac.assumed_role_id, ac.prompt_id, ac.inline_prompt, COALESCE(cp.slug, '')::text AS microsite_slug
+SELECT ac.id, ac.owner_id, ac.code, ac.label, ac.purpose, ac.ghosts, ac.expires_at, ac.status, ac.max_turns_per_session, ac.max_members, ac.require_ghost_evidence, ac.provider_id, ac.microsite_id, ac.bundle_id, ac.limit_per_period, ac.slug, ac.created_at, ac.assumed_role_id, ac.prompt_id, ac.inline_prompt, COALESCE(cp.slug, '')::text AS microsite_slug,
+  COALESCE(ro.name, '')::text AS role_name
 FROM access_codes ac
 LEFT JOIN microsites cp ON cp.id = ac.microsite_id AND cp.status != 'deleted'
+LEFT JOIN roles ro ON ro.id = ac.assumed_role_id
 WHERE ac.owner_id = $1
   AND ($2::text IN ('', 'all')
     OR ($2 = 'revoked' AND ac.status = 'revoked')
@@ -617,6 +619,7 @@ type ListAccessCodesPageRow struct {
 	PromptID             pgtype.UUID
 	InlinePrompt         string
 	MicrositeSlug        string
+	RoleName             string
 }
 
 // One page of the owner's codes, newest first, plus **which page this code opens**. The
@@ -624,7 +627,7 @@ type ListAccessCodesPageRow struct {
 // page side sees the code (ListMicrositesByOwner carries bound_codes).
 // LEFT JOIN: an unbound code has an empty slug, which is "opens the default visitor
 // conversation", not missing data.
-// state: ” / 'all' = every code; 'active' / 'revoked' / 'expired' as CountAccessCodesByState
+// state: empty or 'all' = every code; 'active' / 'revoked' / 'expired' as CountAccessCodesByState
 // defines them. q: case-insensitive substring of code or label. Both apply before the LIMIT
 // (docs/design/paging.md).
 func (q *Queries) ListAccessCodesPage(ctx context.Context, arg ListAccessCodesPageParams) ([]ListAccessCodesPageRow, error) {
@@ -666,6 +669,7 @@ func (q *Queries) ListAccessCodesPage(ctx context.Context, arg ListAccessCodesPa
 			&i.PromptID,
 			&i.InlinePrompt,
 			&i.MicrositeSlug,
+			&i.RoleName,
 		); err != nil {
 			return nil, err
 		}

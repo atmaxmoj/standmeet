@@ -21,12 +21,10 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/corpus/entity"
 	"github.com/atmaxmoj/standmeet/internal/corpus/usecase"
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
+	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 )
 
 const writingPreviewMaxLen = 200
-
-// noArgs — shared schema for operations that take no parameters.
-var noArgs = json.RawMessage(`{"type":"object","properties":{}}`)
 
 // WritingsDeps — the dependencies this group needs. The Tx one carries asset
 // storage (deleting an article must delete its images along with it; listing
@@ -43,9 +41,9 @@ func Writings(deps WritingsDeps) []fp.Op {
 		writingsCreateOp(deps),
 		{
 			ID: "writings.list",
-			Description: "List every writing, draft and published, newest first, with body " +
-				"and the resolved URLs of the images it embeds.",
-			InputSchema: noArgs,
+			Description: "List writings, drafts and published, newest first, one page at a time " +
+				"({items, next_cursor}), with body and the resolved URLs of the images they embed.",
+			InputSchema: paging.Schema(writingListFilters),
 			Kind:        fp.Read,
 			Reach:       fp.OwnerRead(),
 			Invoke:      listWritings(deps),
@@ -156,17 +154,28 @@ func (d WritingsDeps) assetURLs(ctx context.Context, wg *entity.Writing) map[str
 	return urls
 }
 
+type writingListArgs struct {
+	Tag string `json:"tag"`
+}
+
+var writingListFilters = json.RawMessage(`{
+	"type":"object",
+	"properties":{"tag":{"type":"string","description":"Only writings with this tag."}}
+}`)
+
 func listWritings(deps WritingsDeps) fp.Invoke {
-	return func(ctx context.Context, ownerID string, _ json.RawMessage) (json.RawMessage, error) {
-		rows, err := usecase.ListAllWritings(ctx, deps.Writings, ownerID)
+	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
+		in, perr := paging.ParseArgs[writingListArgs](raw)
+		if perr != nil {
+			return nil, fp.BadInput("invalid arguments: " + perr.Error())
+		}
+		page, err := usecase.ListAllWritings(ctx, deps.Writings, ownerID, in.Filter.Tag, in.Req)
 		if err != nil {
 			return nil, writingErr(err)
 		}
-		out := make([]writingOut, 0, len(rows))
-		for i := range rows {
-			out = append(out, deps.toWritingOut(ctx, &rows[i]))
-		}
-		return json.Marshal(out)
+		return json.Marshal(paging.Each(page, func(w *entity.Writing) writingOut {
+			return deps.toWritingOut(ctx, w)
+		}))
 	}
 }
 

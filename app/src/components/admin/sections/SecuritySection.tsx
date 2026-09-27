@@ -10,7 +10,9 @@ import type { ReactNode } from 'react';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { ListPane } from '@/components/admin/ListPane';
+import { LoadMore } from '@/components/admin/LoadMore';
 import { useIPBans, type IPBansHook, type BanView } from '@/lib/admin/use-ip-bans';
+import { totalLabel } from '@/lib/state/create-paged-store';
 import { useAction } from '@/lib/ui/use-action';
 import { useEffectErrorToast } from '@/lib/ui/toast';
 
@@ -23,7 +25,7 @@ export function SecuritySection() {
       <SectionHeader
         kicker={t('kickerSecurity')}
         slug="ip-bans"
-        count={hook.status === 'ready' ? `${hook.bans.length}` : ''}
+        count={totalLabel(hook.page.total, String)}
       />
       <Intro />
       <BanForm onBan={hook.banIP} />
@@ -99,6 +101,7 @@ function BansBody({ hook }: { hook: IPBansHook }) {
   return (
     <ListPane status={hook.status} count={hook.bans.length} empty={<EmptyBans />}>
       <BansList hook={hook} />
+      <LoadMore page={hook.page} testid="ip-bans-load-more" />
     </ListPane>
   );
 }

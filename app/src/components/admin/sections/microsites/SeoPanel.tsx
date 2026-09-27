@@ -13,7 +13,7 @@ import { useCallback, useState } from 'react';
 import { useTranslations } from 'next-intl';
 
 import {
-  useMicrosites, useHomepageSeoInit, seoPanelInit, type SeoInit,
+  useMicrosite, useMicrosites, useHomepageSeoInit, seoPanelInit, type SeoInit,
 } from '@/lib/admin/use-microsites';
 import { useAction } from '@/lib/ui/use-action';
 
@@ -22,12 +22,13 @@ import { useAction } from '@/lib/ui/use-action';
 const HOMEPAGE_SLUG = 'home';
 
 export function SeoPanel({ slug }: { slug: string }) {
-  const { rows, setSEO } = useMicrosites();
+  const { setSEO } = useMicrosites();
   const trimmed = slug.trim();
   const isHome = trimmed === HOMEPAGE_SLUG;
   // The homepage loads its current SEO from the owner store; a /p page reads its own row.
   const home = useHomepageSeoInit(isHome);
-  const { init, ready } = seoPanelInit(isHome, home, rows.find((r) => r.slug === trimmed));
+  const { row } = useMicrosite(trimmed);
+  const { init, ready } = seoPanelInit(isHome, home, row);
   // A brand-new page has no slug until it is named; the homepage waits for its owner-store SEO to
   // load so the fields show the real values, not a flash of empty (`ready`).
   return (trimmed === '' || !ready)

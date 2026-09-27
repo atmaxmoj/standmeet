@@ -416,6 +416,117 @@ func (q *Queries) ListMicrositesByOwner(ctx context.Context, ownerID pgtype.UUID
 	return items, nil
 }
 
+const listMicrositesPage = `-- name: ListMicrositesPage :many
+SELECT cp.id, cp.owner_id, cp.slug, cp.title, cp.status,
+       cp.live_build_id, cp.staging_build_id, cp.previous_live_build_id,
+       cp.allow_byoai, cp.store_writable, cp.seo_title, cp.seo_description, cp.seo_image,
+       cp.created_at, cp.updated_at,
+       COALESCE(
+           ARRAY(
+               SELECT ac.code::text FROM access_codes ac
+               WHERE ac.microsite_id = cp.id AND ac.status = 'active'
+               ORDER BY ac.created_at
+           ),
+           ARRAY[]::text[]
+       )::text[] AS bound_codes,
+       (SELECT COUNT(*) FROM microsites c2
+        WHERE c2.owner_id = $1 AND c2.status != 'deleted'
+          AND ($2::text = '' OR c2.slug = $2)
+          AND ($3::text <> 'pages' OR c2.slug <> 'home')
+          AND ($4::text = '' OR c2.slug ILIKE '%' || $4 || '%'
+            OR c2.title ILIKE '%' || $4 || '%'))::int AS total
+FROM microsites cp
+WHERE cp.owner_id = $1 AND cp.status != 'deleted'
+  AND ($2::text = '' OR cp.slug = $2)
+  AND ($3::text <> 'pages' OR cp.slug <> 'home')
+  AND ($4::text = '' OR cp.slug ILIKE '%' || $4 || '%'
+    OR cp.title ILIKE '%' || $4 || '%')
+  AND ($5::timestamptz IS NULL
+    OR (cp.created_at, cp.id) < ($5, $6::uuid))
+ORDER BY cp.created_at DESC, cp.id DESC
+LIMIT $7
+`
+
+type ListMicrositesPageParams struct {
+	OwnerID pgtype.UUID
+	Slug    string
+	Scope   string
+	Q       string
+	AfterAt pgtype.Timestamptz
+	AfterID pgtype.UUID
+	Lim     int32
+}
+
+type ListMicrositesPageRow struct {
+	ID                  pgtype.UUID
+	OwnerID             pgtype.UUID
+	Slug                string
+	Title               string
+	Status              string
+	LiveBuildID         pgtype.UUID
+	StagingBuildID      pgtype.UUID
+	PreviousLiveBuildID pgtype.UUID
+	AllowByoai          bool
+	StoreWritable       bool
+	SeoTitle            *string
+	SeoDescription      *string
+	SeoImage            *string
+	CreatedAt           pgtype.Timestamptz
+	UpdatedAt           pgtype.Timestamptz
+	BoundCodes          []string
+	Total               int32
+}
+
+// One page of the admin list, newest first (docs/design/paging.md), with the same bound_codes.
+// slug: empty = every page, else only that one (the editor and the homepage block read one row).
+// scope: 'pages' = every page but the homepage (the reserved slug 'home' has its own block).
+// q: case-insensitive substring of the slug or the title. total: how many match, on every page.
+func (q *Queries) ListMicrositesPage(ctx context.Context, arg ListMicrositesPageParams) ([]ListMicrositesPageRow, error) {
+	rows, err := q.db.Query(ctx, listMicrositesPage,
+		arg.OwnerID,
+		arg.Slug,
+		arg.Scope,
+		arg.Q,
+		arg.AfterAt,
+		arg.AfterID,
+		arg.Lim,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListMicrositesPageRow
+	for rows.Next() {
+		var i ListMicrositesPageRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.OwnerID,
+			&i.Slug,
+			&i.Title,
+			&i.Status,
+			&i.LiveBuildID,
+			&i.StagingBuildID,
+			&i.PreviousLiveBuildID,
+			&i.AllowByoai,
+			&i.StoreWritable,
+			&i.SeoTitle,
+			&i.SeoDescription,
+			&i.SeoImage,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.BoundCodes,
+			&i.Total,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const renameMicrosite = `-- name: RenameMicrosite :one
 UPDATE microsites
 SET slug = $3, updated_at = now()

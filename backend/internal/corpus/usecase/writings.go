@@ -20,6 +20,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/corpus/repo"
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	"github.com/atmaxmoj/standmeet/internal/infra/events"
+	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
@@ -91,19 +92,33 @@ func UnpublishWriting(
 	return p, nil
 }
 
-// ListAllWritings —— admin list, includes drafts; ordered by published_at desc,
-// nulls last.
+// ListAllWritings —— one page of the admin list, drafts included, newest first (the same keyset
+// page query the admin grid reads; docs/design/paging.md). tag narrows it ("" = every writing).
 func ListAllWritings(
-	ctx context.Context, deps WritingsDeps, ownerID string,
-) ([]entity.Writing, error) {
+	ctx context.Context, deps WritingsDeps, ownerID, tag string, req paging.Request,
+) (paging.Page[entity.Writing], error) {
 	if ownerID == "" {
-		return nil, apierr.ErrEmptyField
+		return paging.Page[entity.Writing]{}, apierr.ErrEmptyField
 	}
-	rows, err := deps.Writings.ListByOwner(ctx, ownerID)
+	rows, err := deps.Writings.ListPage(ctx, ownerID, corpusCursor(req.After), req.Fetch(), tag)
 	if err != nil {
-		return nil, fmt.Errorf("list writings: %w", err)
+		return paging.Page[entity.Writing]{}, fmt.Errorf("list writings: %w", err)
 	}
-	return rows, nil
+	out := make([]entity.Writing, 0, len(rows))
+	for i := range rows {
+		out = append(out, rows[i].Entry)
+	}
+	return paging.Cut(out, req, func(w *entity.Writing) paging.Cursor {
+		return paging.Cursor{At: w.CreatedAt(), ID: w.ID()}
+	}), nil
+}
+
+// corpusCursor —— a paging cursor as the corpus page query's keyset position (nil = first page).
+func corpusCursor(c *paging.Cursor) *repo.PageCursor {
+	if c == nil {
+		return nil
+	}
+	return &repo.PageCursor{CreatedAt: c.At, ID: c.ID}
 }
 
 // ListPublishedWritings —— public list, already-published only.

@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
+	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 	"github.com/atmaxmoj/standmeet/internal/owner/usecase"
 )
@@ -17,9 +18,10 @@ import (
 func micrositeStoreOps(deps usecase.MicrositeDeps) []fp.Op {
 	return []fp.Op{
 		{
-			ID:          "microsite.store_docs",
-			Description: "Every document a page's data store holds, for management.",
-			InputSchema: pageSlugSchema,
+			ID: "microsite.store_docs",
+			Description: "The documents a page's data store holds, newest first, one page at a " +
+				"time ({items, next_cursor, total}), for management.",
+			InputSchema: paging.Schema(pageSlugSchema),
 			Kind:        fp.Read,
 			Reach:       fp.OwnerRead(),
 			Invoke:      listMicrositeDocs(deps),
@@ -62,10 +64,9 @@ type micrositeDocOut struct {
 	Doc        json.RawMessage `json:"doc"`
 }
 
-// storeDocsOut —— a page's whole store: the slug and every document in it.
-type storeDocsOut struct {
-	Slug string            `json:"slug"`
-	Docs []micrositeDocOut `json:"docs"`
+// pageSlugArgs —— the store listing's one filter: which page.
+type pageSlugArgs struct {
+	Slug string `json:"slug"`
 }
 
 // storeDocRefArgs —— addresses one document for deletion.
@@ -77,26 +78,21 @@ type storeDocRefArgs struct {
 
 func listMicrositeDocs(deps usecase.MicrositeDeps) fp.Invoke {
 	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
-		in, perr := decodePageSlug(raw)
+		in, perr := paging.ParseArgs[pageSlugArgs](raw)
 		if perr != nil {
-			return nil, perr
+			return nil, fp.BadInput("invalid arguments: " + perr.Error())
 		}
-		docs, err := usecase.OwnerListDocs(ctx, deps, ownerID, in.Slug)
+		if err := fp.RequireArgs([2]string{"slug", in.Filter.Slug}); err != nil {
+			return nil, err
+		}
+		page, err := usecase.OwnerListDocs(ctx, deps, ownerID, in.Filter.Slug, in.Req)
 		if err != nil {
 			return nil, micrositeErr(err)
 		}
-		return json.Marshal(storeDocsOut{Slug: in.Slug, Docs: toDocOut(docs)})
+		return json.Marshal(paging.Each(page, func(d *entity.MicrositeDocument) micrositeDocOut {
+			return micrositeDocOut{ID: d.ID, Collection: d.Collection, Doc: d.Doc}
+		}))
 	}
-}
-
-func toDocOut(docs []entity.MicrositeDocument) []micrositeDocOut {
-	out := make([]micrositeDocOut, 0, len(docs))
-	for i := range docs {
-		out = append(out, micrositeDocOut{
-			ID: docs[i].ID, Collection: docs[i].Collection, Doc: docs[i].Doc,
-		})
-	}
-	return out
 }
 
 func deleteMicrositeDoc(deps usecase.MicrositeDeps) fp.Invoke {

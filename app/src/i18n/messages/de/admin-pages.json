@@ -214,6 +214,7 @@
     "seoImagePlaceholder": "share-card-bild-URL (og:image)"
   },
   "assets": {
+    "searchPlaceholder": "nach Dateiname suchen",
     "intro": "Alle Bilder und Dateien, die du hochgeladen hast – gemeinsam von Korpus und Microsites genutzt. Ein Asset, das noch von einem Eintrag oder einer Seite verwendet wird, kann nicht gelöscht werden – entferne es dort zuerst; der fehlgeschlagene Löschversuch nennt, was es verwendet.",
     "error": "Assets konnten nicht geladen werden – lade neu, um es erneut zu versuchen.",
     "empty": "Noch keine Assets. Füge eines im Korpus-Editor oder über das Asset-Widget einer Microsite hinzu.",

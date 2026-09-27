@@ -2,12 +2,14 @@
 // use-prompts; adds the three corpus_uris + skill_ids + mcp_server_ids joins
 // + the active_codes count (read-only, computed by the server).
 
-import { useEffect } from 'react';
+import { useState } from 'react';
 
 import { z } from 'zod';
 
 import { adminAPI } from '@/lib/api/admin';
-import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
+import {
+  createPagedStore, usePaged, type PagedState, type PagedStore,
+} from '@/lib/state/create-paged-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
 // DockButtonConfig —— #109/#110 config for one chat dock button: which block it's attached to + the trigger phrase it sends on click.
@@ -105,49 +107,62 @@ export interface RolesHook {
   status: ResourceStatus;
   roles: readonly RoleView[];
   error: string | null;
-  refresh: () => Promise<void>;
+  page: PagedState<RoleView>;
   createRole: (input: WriteRoleInput) => Promise<RoleView>;
   updateRole: (id: string, input: WriteRoleInput) => Promise<RoleView>;
   deleteRole: (id: string) => Promise<void>;
 }
 
-export const rolesStore = createResourceStore<RoleView[]>({
-  name: 'roles',
-  fetcher: () => adminAPI.get('/roles/', z.array(RoleViewSchema)),
-});
+// rolesPage —— the roles section's list, oldest first (the builtin public role leads), one page
+// at a time (docs/design/paging.md).
+export const rolesPage = createPagedStore({ name: 'roles', path: '/roles/', item: RoleViewSchema });
 
 export function useRoles(): RolesHook {
-  const r = useResource(rolesStore);
-  const ensureLoaded = r.ensureLoaded;
-  useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
+  const page = usePaged(rolesPage);
   return {
-    status: r.status,
-    roles: r.data ?? [],
-    error: r.error,
-    refresh: rolesStore.getState().refresh,
+    status: page.status,
+    roles: page.items,
+    error: page.error,
+    page,
     createRole,
     updateRole,
     deleteRole,
   };
 }
 
+export interface RolePicker {
+  page: PagedState<RoleView>;
+  query: string;
+  setQuery: (q: string) => void;
+}
+
+// useRolePicker —— a picker's own view of the roles: the first page, narrowed on the server as
+// the owner types. Its own store, so typing in a picker never filters the roles section.
+export function useRolePicker(): RolePicker {
+  const [store] = useState<PagedStore<RoleView>>(() => createPagedStore({
+    name: 'role-picker', path: '/roles/', item: RoleViewSchema, params: { q: '' },
+  }));
+  const page = usePaged(store);
+  return { page, query: page.params.q ?? '', setQuery: (q) => page.setParams({ q }) };
+}
+
 // The mutation throws (no longer swallowed into null / false): the caller
 // finishes up with useAction (success toast / failure report), or inline try/catch.
+// A create or delete re-reads the page (where the row now sits is the server's to say); an edit
+// updates the row in place, so editing a role on page 3 does not jump back to page 1.
 async function createRole(input: WriteRoleInput): Promise<RoleView> {
   const created = await adminAPI.post('/roles/', input, RoleViewSchema);
-  rolesStore.getState().mutate((prev) => [...(prev ?? []), created]);
+  await rolesPage.getState().reload();
   return created;
 }
 
 async function updateRole(id: string, input: WriteRoleInput): Promise<RoleView> {
   const updated = await adminAPI.put(`/roles/${id}`, input, RoleViewSchema);
-  rolesStore.getState().mutate(
-    (prev) => (prev ?? []).map((r) => (r.id === id ? updated : r)),
-  );
+  rolesPage.getState().patch(id, () => updated);
   return updated;
 }
 
 async function deleteRole(id: string): Promise<void> {
   await adminAPI.deleteVoid(`/roles/${id}`);
-  rolesStore.getState().mutate((prev) => (prev ?? []).filter((r) => r.id !== id));
+  await rolesPage.getState().reload();
 }

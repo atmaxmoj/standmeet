@@ -9,10 +9,12 @@ package ops
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/events"
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
+	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/security/ban"
 )
@@ -43,9 +45,10 @@ func IPBans(d IPBanDeps) []fp.Op {
 	repo, rec := d.Bans, d.Events
 	return []fp.Op{
 		{
-			ID:          "ip_bans.list",
-			Description: "List all IPs the owner has banned, expired ones included.",
-			InputSchema: emptyArgs,
+			ID: "ip_bans.list",
+			Description: "List the IPs the owner has banned, expired ones included, newest " +
+				"first, one page at a time ({items, next_cursor, total}).",
+			InputSchema: paging.Schema(nil),
 			Kind:        fp.Read,
 			Reach:       fp.OwnerRead(),
 			Invoke:      listIPBans(repo),
@@ -70,8 +73,6 @@ func IPBans(d IPBanDeps) []fp.Op {
 }
 
 var (
-	emptyArgs = json.RawMessage(`{"type":"object","properties":{}}`)
-
 	ipBanAddSchema = json.RawMessage(`{
 		"type":"object",
 		"properties":{
@@ -107,16 +108,19 @@ func toIPBanOut(b *ban.BannedIP) ipBanOut {
 }
 
 func listIPBans(repo *ban.BannedIPRepo) fp.Invoke {
-	return func(ctx context.Context, ownerID string, _ json.RawMessage) (json.RawMessage, error) {
-		bans, err := repo.List(ctx, ownerID)
+	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
+		in, perr := paging.ParseArgs[struct{}](raw)
+		if perr != nil {
+			return nil, fp.BadInput("invalid arguments: " + perr.Error())
+		}
+		page, err := repo.List(ctx, ownerID, in.Req)
+		if errors.Is(err, paging.ErrBadCursor) {
+			return nil, fp.BadInput("bad cursor")
+		}
 		if err != nil {
 			return nil, fp.OpErr("list ip bans", err)
 		}
-		out := make([]ipBanOut, 0, len(bans))
-		for i := range bans {
-			out = append(out, toIPBanOut(&bans[i]))
-		}
-		return json.Marshal(out)
+		return json.Marshal(paging.Each(page, toIPBanOut))
 	}
 }
 

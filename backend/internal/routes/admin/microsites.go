@@ -43,7 +43,8 @@ const previewWaitTimeout = 25 * time.Second
 func (h *Handlers) MountMicrosites(r chi.Router) {
 	face := h.MicrositesAdmin.Face
 	r.Route("/microsites", func(r chi.Router) {
-		r.Get("/", h.dispatchOp(face, "microsite.list", emptyArgs, jsonOK))
+		r.Get("/", h.dispatchOp(face, "microsite.list",
+			pagedQueryArgs("slug", "scope", "q"), jsonOK))
 		// wait — a UI-only long-poll (no MCP counterpart, so not a facade op): the preview
 		// panel holds this open and is answered the instant a build settles, following the
 		// agent's edits without a fixed poll interval.
@@ -99,7 +100,7 @@ func (h *Handlers) mountMicrositeItem(r chi.Router, face *dispatcher.Face) {
 		// store — the owner's management view of this page's data store: read every doc,
 		// delete one by (collection, record_id), or clear the whole store.
 		r.Get("/store",
-			h.dispatchOp(face, "microsite.store_docs", urlParamArgs("slug"), jsonOK))
+			h.dispatchOp(face, "microsite.store_docs", pagedWithURLParam("slug"), jsonOK))
 		r.Delete("/store",
 			h.dispatchOp(face, "microsite.store_clear", urlParamArgs("slug"), jsonOK))
 		r.Delete("/store/{collection}/{record_id}",

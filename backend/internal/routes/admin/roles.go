@@ -27,7 +27,7 @@ type RolesAdminDeps struct {
 func (h *Handlers) MountRoles(r chi.Router) {
 	face := h.RolesAdmin.Face
 	r.Route("/roles", func(r chi.Router) {
-		r.Get("/", h.dispatchOp(face, "role_list", emptyArgs, jsonOK))
+		r.Get("/", h.dispatchOp(face, "role_list", pagedQueryArgs("q"), jsonOK))
 		r.Post("/", h.dispatchOp(face, "role_create", bodyArgs, jsonCreated))
 		r.Get("/{role_id}", h.dispatchOp(face, "roles.get", urlParamArgs("role_id"), jsonOK))
 		r.Put("/{role_id}",

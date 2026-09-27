@@ -91,7 +91,9 @@ async function listDocs(slug: string): Promise<StoreDocs> {
     headers: { 'X-Csrftoken': csrf },
   });
   expect(res.status()).toBe(200);
-  return res.json() as Promise<StoreDocs>;
+  // The list pages (docs/design/paging.md); these specs hold a handful of docs, one page.
+  const page = await res.json() as { items: StoreDoc[] };
+  return { slug, docs: page.items };
 }
 
 function deleteDoc(slug: string, collection: string, recordID: string) {

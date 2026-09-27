@@ -45,8 +45,11 @@ type codeRow struct {
 	// judged by its role exactly as before. This is the field that makes "what can this
 	// code do" readable off the codes list instead of simulated across three screens
 	// (`docs/design/plugin/frontend.md` §3).
-	Bundle string   `json:"bundle"`
-	Ghosts []string `json:"ghosts"`
+	Bundle string `json:"bundle"`
+	// RoleName —— the assumed role's name, on list rows (omitted on write receipts, which do
+	// not join it). A reader shows it instead of looking the id up in a list of roles.
+	RoleName string   `json:"role_name,omitempty"`
+	Ghosts   []string `json:"ghosts"`
 	// MemberCount — how many people have claimed it so far. **Sending the cap alone isn't
 	// enough**: with only the cap, a full code and a brand-new code look identical in the
 	// panel, while the visitor side is already blocked by member_quota_reached (F-D-2). The
@@ -66,6 +69,7 @@ func toCodeRow(c *entity.Code, memberCount int32) codeRow {
 		ExpiresAt:     formatOptionalTime(c.ExpiresAt),
 		MicrositeSlug: c.MicrositeSlug,
 		Bundle:        c.Bundle,
+		RoleName:      c.RoleName,
 		MemberCount:   memberCount,
 	}
 }

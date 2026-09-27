@@ -90,10 +90,11 @@ export async function getRoleByName(
   request: APIRequestContext,
   name: string,
 ): Promise<RoleView> {
-  const res = await request.get(`${BACKEND}/api/admin/roles/`);
+  // The list pages on the server: search by name rather than scan page 1.
+  const res = await request.get(`${BACKEND}/api/admin/roles/?q=${encodeURIComponent(name)}`);
   if (res.status() !== 200) throw new Error(`list roles failed: ${res.status()}`);
-  const list = await res.json() as RoleView[];
-  const role = list.find((r) => r.name === name);
+  const { items } = await res.json() as { items: RoleView[] };
+  const role = items.find((r) => r.name === name);
   if (!role) throw new Error(`role ${name} not found`);
   return role;
 }

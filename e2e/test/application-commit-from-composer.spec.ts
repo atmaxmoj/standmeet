@@ -80,8 +80,8 @@ test.describe('jobs · the composer SEND actually commits', () => {
 async function countApplications(page: Page): Promise<number> {
   return await page.evaluate(async () => {
     const r = await fetch('/api/admin/applications', { credentials: 'include' });
-    const rows = await r.json() as unknown[];
-    return Array.isArray(rows) ? rows.length : -1;
+    const page = await r.json() as { total?: number };
+    return page.total ?? -1;
   });
 }
 

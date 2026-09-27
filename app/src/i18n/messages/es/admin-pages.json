@@ -214,6 +214,7 @@
     "seoImagePlaceholder": "URL de imagen de tarjeta (og:image)"
   },
   "assets": {
+    "searchPlaceholder": "buscar por nombre de archivo",
     "intro": "Todas las imágenes y archivos que has subido, compartidos entre tu corpus y tus microsites. Un recurso que aún usa una entrada o una página no se puede eliminar: quítalo allí primero; el borrado fallido indica qué lo usa.",
     "error": "no se pudieron cargar tus recursos: recarga para intentarlo de nuevo.",
     "empty": "Aún no hay recursos. Añade uno desde el editor del corpus o el widget de recurso de una microsite.",

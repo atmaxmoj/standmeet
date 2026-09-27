@@ -23,6 +23,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/access/usecase"
 	"github.com/atmaxmoj/standmeet/internal/infra/events"
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
+	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 )
 
 // APIKeysDeps — the key repo + the seam for validating a role when issuing a key + "which
@@ -74,9 +75,10 @@ func APIKeys(d APIKeysDeps) []fp.Op {
 		},
 		{
 			ID: "api_keys.list",
-			Description: "List all API keys for the owner (id / label / prefix / assumed " +
-				"role / status / rate limit / expiry / last-used). The secret is never returned.",
-			InputSchema: noArgs,
+			Description: "List the owner's API keys, newest first, one page at a time " +
+				"({items, next_cursor, total}): id / label / prefix / assumed role / status / " +
+				"rate limit / expiry / last-used. The secret is never returned.",
+			InputSchema: paging.Schema(nil),
 			Kind:        fp.Read,
 			Reach:       fp.OwnerRead(),
 			Invoke:      listAPIKeys(d),
@@ -227,19 +229,21 @@ func parseAPIKeyExpiry(s string) (*time.Time, error) {
 }
 
 func listAPIKeys(d APIKeysDeps) fp.Invoke {
-	return func(ctx context.Context, ownerID string, _ json.RawMessage) (json.RawMessage, error) {
-		rows, err := d.Keys.ListByOwner(ctx, ownerID)
+	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
+		in, perr := paging.ParseArgs[struct{}](raw)
+		if perr != nil {
+			return nil, fp.BadInput("invalid arguments: " + perr.Error())
+		}
+		page, err := d.Keys.ListPage(ctx, ownerID, in.Req)
 		if err != nil {
 			return nil, apiKeyErr(err)
 		}
 		extras := extrasOr(d.Extras)
-		out := make([]json.RawMessage, 0, len(rows))
-		for i := range rows {
-			one, merr := marshalAPIKey(ctx, extras, &rows[i])
-			if merr != nil {
-				return nil, merr
-			}
-			out = append(out, one)
+		out, merr := paging.Map(page, func(k *entity.APIKey) (json.RawMessage, error) {
+			return marshalAPIKey(ctx, extras, k)
+		})
+		if merr != nil {
+			return nil, merr
 		}
 		return json.Marshal(out)
 	}
@@ -340,4 +344,5 @@ var apiKeyErrClasses = []struct {
 		return fp.BadInput("assumed_role_id is required")
 	}},
 	{entity.ErrAPIKeyNotFound, func() error { return fp.NotFound("api key not found") }},
+	{paging.ErrBadCursor, func() error { return fp.BadInput("bad cursor") }},
 }

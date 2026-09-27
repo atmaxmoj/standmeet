@@ -16,7 +16,6 @@ import { useAdminSession } from '@/lib/admin/use-admin-session';
 import { CodeSearchField } from '@/components/admin/CodeSearchField';
 import { LoadMore } from '@/components/admin/LoadMore';
 import { useCodePicker, type CodePicker as CodePickerHook, type CodeView } from '@/lib/admin/use-codes';
-import { useRoles, type RoleView } from '@/lib/admin/use-roles';
 
 export function PreviewSection() {
   const t = useTranslations('adminPages.preview');
@@ -90,13 +89,14 @@ function CodePicker({ picker, selected, onPick }: {
 // Falls back to the id rather than leaving it blank when unavailable — a code
 // pointing at a deleted role is a real state that happens; making it visible is
 // better than making it disappear.
-function roleLabel(roleId: string, roles: readonly RoleView[]): string {
-  return roles.find((r) => r.id === roleId)?.name ?? `${roleId.slice(0, 8)}…`;
+// The name now rides on the code row (the list joins it); the roles list pages, so it is no
+// longer looked up there.
+function roleLabel(code: CodeView): string {
+  return code.role_name || `${code.assumed_role_id.slice(0, 8)}…`;
 }
 
 function CodePickerCard({ code, active, onClick }: { code: CodeView; active: boolean; onClick: () => void }) {
   const t = useTranslations('adminPages.preview');
-  const roles = useRoles();
   return (
     <button
       type="button" onClick={onClick}
@@ -108,7 +108,7 @@ function CodePickerCard({ code, active, onClick }: { code: CodeView; active: boo
     >
       <div className="font-serif text-[15px] text-(--color-ink)">{code.label}</div>
       <div className="mono text-[10px] text-(--color-muted) mt-0.5">
-        {t('cardCodeRole', { code: code.code, role: roleLabel(code.assumed_role_id, roles.roles) })}
+        {t('cardCodeRole', { code: code.code, role: roleLabel(code) })}
       </div>
     </button>
   );

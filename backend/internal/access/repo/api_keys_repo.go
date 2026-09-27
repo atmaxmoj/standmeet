@@ -12,6 +12,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/access/db"
 	"github.com/atmaxmoj/standmeet/internal/access/entity"
+	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
@@ -70,23 +71,34 @@ func (r *APIKeyRepo) GetBySecretHash(
 	return decodeAPIKey(&row), nil
 }
 
-// ListByOwner —— all of the owner's keys, newest first (includes revoked, for the admin view).
-func (r *APIKeyRepo) ListByOwner(
-	ctx context.Context, ownerID string) ([]entity.APIKey, error,
-) {
+// ListPage —— one page of the owner's keys, newest first (includes revoked, for the admin
+// view); the page reports how many keys there are.
+func (r *APIKeyRepo) ListPage(
+	ctx context.Context, ownerID string, req paging.Request,
+) (paging.Page[entity.APIKey], error) {
 	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
-		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
+		return paging.Page[entity.APIKey]{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	rows, qerr := db.New(r.pool).ListAPIKeysByOwner(ctx, ownerUUID)
+	after, err := pgstore.CursorArgs(req.After)
+	if err != nil {
+		return paging.Page[entity.APIKey]{}, fmt.Errorf("list api keys: %w", err)
+	}
+	rows, qerr := db.New(r.pool).ListAPIKeysPage(ctx, db.ListAPIKeysPageParams{
+		OwnerID: ownerUUID, AfterAt: after.At, AfterID: after.ID, Lim: req.Fetch(),
+	})
 	if qerr != nil {
-		return nil, fmt.Errorf("list api keys: %w", qerr)
+		return paging.Page[entity.APIKey]{}, fmt.Errorf("list api keys: %w", qerr)
 	}
 	out := make([]entity.APIKey, 0, len(rows))
+	total := int32(0)
 	for i := range rows {
-		out = append(out, decodeAPIKey(&rows[i]))
+		out = append(out, decodeAPIKey(&rows[i].ApiKey))
+		total = rows[i].Total
 	}
-	return out, nil
+	return paging.Cut(out, req, func(k *entity.APIKey) paging.Cursor {
+		return paging.Cursor{At: k.CreatedAt, ID: k.ID}
+	}).WithTotal(total), nil
 }
 
 // GetByID —— owner-scoped fetch (BOLA guard: a key not owned by ownerID → ErrAPIKeyNotFound).

@@ -143,9 +143,9 @@ async function openRoles(page: Page) {
 // grantOf —— this role's actual current corpus_uris (read back the true value from the owner's own API).
 async function grantOf(page: Page): Promise<string[]> {
   return await page.evaluate(async (name: string) => {
-    const roles = await (await fetch('/api/admin/roles/', { credentials: 'include' }))
-      .json() as Array<{ name: string; corpus_uris: string[] }>;
-    return roles.find((r) => r.name === name)?.corpus_uris ?? [];
+    const roles = await (await fetch(`/api/admin/roles/?q=${encodeURIComponent(name)}`, { credentials: 'include' }))
+      .json() as { items: Array<{ name: string; corpus_uris: string[] }> };
+    return roles.items.find((r) => r.name === name)?.corpus_uris ?? [];
   }, ROLE);
 }
 

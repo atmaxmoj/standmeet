@@ -60,8 +60,8 @@ async function unbanIP(request: APIRequestContext, csrf: string, id: string): Pr
 
 async function listContains(request: APIRequestContext, ip: string): Promise<boolean> {
   const res = await request.get(`${BACKEND}/api/admin/ip-bans/`);
-  const rows = await res.json() as { ip: string }[];
-  return rows.some((r) => r.ip === ip);
+  const { items } = await res.json() as { items: { ip: string }[] };
+  return items.some((r) => r.ip === ip);
 }
 
 async function publicStatusFrom(request: APIRequestContext, ip: string): Promise<number> {

@@ -238,33 +238,57 @@ func (q *Queries) ListAPIKeySkillDenials(ctx context.Context, keyID pgtype.UUID)
 	return items, nil
 }
 
-const listAPIKeysByOwner = `-- name: ListAPIKeysByOwner :many
-SELECT id, owner_id, assumed_role_id, label, prefix, secret_hash, rate_limit_rpm, status, expires_at, last_used_at, created_at FROM api_keys
-WHERE owner_id = $1
-ORDER BY created_at DESC
+const listAPIKeysPage = `-- name: ListAPIKeysPage :many
+SELECT k.id, k.owner_id, k.assumed_role_id, k.label, k.prefix, k.secret_hash, k.rate_limit_rpm, k.status, k.expires_at, k.last_used_at, k.created_at,
+  (SELECT COUNT(*) FROM api_keys k2 WHERE k2.owner_id = $1)::int AS total
+FROM api_keys k
+WHERE k.owner_id = $1
+  AND ($2::timestamptz IS NULL
+    OR (k.created_at, k.id) < ($2, $3::uuid))
+ORDER BY k.created_at DESC, k.id DESC
+LIMIT $4
 `
 
-func (q *Queries) ListAPIKeysByOwner(ctx context.Context, ownerID pgtype.UUID) ([]ApiKey, error) {
-	rows, err := q.db.Query(ctx, listAPIKeysByOwner, ownerID)
+type ListAPIKeysPageParams struct {
+	OwnerID pgtype.UUID
+	AfterAt pgtype.Timestamptz
+	AfterID pgtype.UUID
+	Lim     int32
+}
+
+type ListAPIKeysPageRow struct {
+	ApiKey ApiKey
+	Total  int32
+}
+
+// One page of the owner's keys, newest first, revoked ones included (docs/design/paging.md).
+func (q *Queries) ListAPIKeysPage(ctx context.Context, arg ListAPIKeysPageParams) ([]ListAPIKeysPageRow, error) {
+	rows, err := q.db.Query(ctx, listAPIKeysPage,
+		arg.OwnerID,
+		arg.AfterAt,
+		arg.AfterID,
+		arg.Lim,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ApiKey
+	var items []ListAPIKeysPageRow
 	for rows.Next() {
-		var i ApiKey
+		var i ListAPIKeysPageRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.OwnerID,
-			&i.AssumedRoleID,
-			&i.Label,
-			&i.Prefix,
-			&i.SecretHash,
-			&i.RateLimitRpm,
-			&i.Status,
-			&i.ExpiresAt,
-			&i.LastUsedAt,
-			&i.CreatedAt,
+			&i.ApiKey.ID,
+			&i.ApiKey.OwnerID,
+			&i.ApiKey.AssumedRoleID,
+			&i.ApiKey.Label,
+			&i.ApiKey.Prefix,
+			&i.ApiKey.SecretHash,
+			&i.ApiKey.RateLimitRpm,
+			&i.ApiKey.Status,
+			&i.ApiKey.ExpiresAt,
+			&i.ApiKey.LastUsedAt,
+			&i.ApiKey.CreatedAt,
+			&i.Total,
 		); err != nil {
 			return nil, err
 		}

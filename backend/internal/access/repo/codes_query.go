@@ -161,6 +161,7 @@ func codeFromListRow(row *db.ListAccessCodesPageRow) entity.Code {
 		InlinePrompt: row.InlinePrompt, MicrositeID: row.MicrositeID,
 	})
 	c.MicrositeSlug = row.MicrositeSlug
+	c.RoleName = row.RoleName
 	return c
 }
 

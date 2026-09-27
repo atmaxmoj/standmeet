@@ -214,6 +214,7 @@
     "seoImagePlaceholder": "URL de l'image de partage (og:image)"
   },
   "assets": {
+    "searchPlaceholder": "rechercher par nom de fichier",
     "intro": "Toutes les images et fichiers que vous avez importés, partagés entre votre corpus et vos microsites. Un asset encore utilisé par une entrée ou une page ne peut pas être supprimé : retirez-le d'abord là-bas ; la suppression échouée indique ce qui l'utilise.",
     "error": "impossible de charger vos assets — rechargez pour réessayer.",
     "empty": "Aucun asset pour l'instant. Ajoutez-en un depuis l'éditeur du corpus ou le widget asset d'une microsite.",

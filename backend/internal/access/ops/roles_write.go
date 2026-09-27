@@ -16,6 +16,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/access/usecase"
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
+	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 )
 
 type roleWriteArgs struct {
@@ -223,6 +224,7 @@ var roleErrClasses = []struct {
 	as       func() error
 }{
 	{apierr.ErrEmptyField, func() error { return fp.BadInput("name is required") }},
+	{paging.ErrBadCursor, func() error { return fp.BadInput("bad cursor") }},
 	{entity.ErrTooManyDockButtons, func() error {
 		return fp.BadInput("at most two dock buttons")
 	}},
