@@ -2,8 +2,13 @@
 
 Status: **released in v0.1.76** (2026-09-27; decisions in *Decided*). Full-suite acceptance passed
 (`docs/full-suite-failures.md`, round 2026-09-26: final run 1987/3, the three test-side reds closed
-`REPEAT=5`); the production smoke ran on sijie.xyz
-(`e2e/manual-runs/2026-09-27-release-smoke/`). **Pending:** the standmeet.com deploy and its 60 s
+`REPEAT=5`); the production smoke (`docs/real-env-verification/items/release-smoke.md`, driven by
+hand with a selftest code) passed on sijie.xyz: grounded answers, a real booking, the confirmation
+email in the inbox, `booking.created` through the bus, cancel, revoke. It found four defects outside
+this work, all in the booking card and the gate: F-C-61 ⭐ the booking claims a calendar invite was
+emailed when the CalDAV calendar sends none (`booker-mcp.js:327`), F-C-62 the card labels a CalDAV
+link "View on Google Calendar" (`:778`), F-C-63 cancel claims `sent_updates_to` the same way
+(`:523`), F-I-2 two gate lines untranslated in Chinese. **Pending:** the standmeet.com deploy and its 60 s
 real-environment check (S5, S6), which need the owner's KV namespace and hook secret. This document is the design and the progress
 ledger: a phase is ticked only when its acceptance specs have run green. Where the build refined
 the plan, the sections below state what was built and why.
