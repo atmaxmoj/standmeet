@@ -55,9 +55,12 @@ type Handlers struct {
 	// EmbedNonce —— one-time jti record for embed JWTs (replay protection, fail-closed).
 	// Shares a Redis store with Sigv1.
 	EmbedNonce access.EmbedNonceStore
-	QueryQueue *session.QueryQueue
-	Ledger     *conversation.WaypointLedger
-	Ghosts     conversation.GhostDeps
+	// EmbedSyncMode —— the embed's sync mode by its public key id (embed_sync.go). Wired at the
+	// composition root; its errors are already display errors.
+	EmbedSyncMode func(ctx context.Context, kid string) (string, error)
+	QueryQueue    *session.QueryQueue
+	Ledger        *conversation.WaypointLedger
+	Ghosts        conversation.GhostDeps
 	// PubSearchGuard —— per-IP cap on codeless (public-tier) tool dispatch, the server-side bound
 	// on anonymous corpus search. impl = middleware.PubSearchGuard, injected in. nil → no cap.
 	PubSearchGuard PubSearchGuard
@@ -81,6 +84,8 @@ func (h *Handlers) Mount(r chi.Router) {
 	// codes/intro —— public pre-issue peek for the name picker (code travels in the body,
 	// never lands in the URL log).
 	r.Post("/codes/intro", h.codeIntro())
+	// embeds/{kid} —— the embed's sync mode, for the site behind it (embed_sync.go).
+	r.Get("/embeds/{kid}", h.getEmbedSync())
 	r.Post("/inference/models", h.listInferenceModels())
 
 	// ── requires a visitor session (validated uniformly by the decorator) ──

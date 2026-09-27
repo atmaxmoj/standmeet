@@ -294,7 +294,13 @@
       "originsHelp": "Scheme + host, no trailing path (https://acme.example). The widget is refused on any origin not listed here.",
       "hookField": "更新フック URL · 任意",
       "hookPlaceholder": "https://acme.example/api/corpus-hook",
-      "hookHelp": "この埋め込みのコードが読めるノートに変更があるたびに、署名付きイベントがここへ送られ、サイトは表示内容を更新できます。空欄 = フックなし。空にするとフックは削除されます。",
+      "hookHelp": "この埋め込みのコードが読めるノートに変更があるたびに、署名付きイベントがここへ送られ、サイトはコピーを更新できます。コピーモードでは必須です。",
+      "syncModeField": "同期方式",
+      "syncMode": { "live": "リアルタイム", "copy": "コピー · RSS + フック" },
+      "syncModeHelp": {
+        "live": "サイトはリクエストのたびにこのインスタンスを読みます。常に最新で、フックは不要です。",
+        "copy": "サイトはコピーを保持し（そこから RSS とサイトマップを配信できます）、更新フックが変更点を知らせます。"
+      },
       "save": "create embed",
       "saveEdit": "save changes",
       "cancel": "cancel",

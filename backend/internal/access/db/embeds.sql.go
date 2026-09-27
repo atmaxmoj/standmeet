@@ -12,9 +12,9 @@ import (
 )
 
 const createEmbed = `-- name: CreateEmbed :one
-INSERT INTO embeds (owner_id, code_id, label, allowed_origins, key_id, public_key)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, owner_id, code_id, label, allowed_origins, key_id, public_key, created_at, updated_at
+INSERT INTO embeds (owner_id, code_id, label, allowed_origins, key_id, public_key, sync_mode)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, owner_id, code_id, label, allowed_origins, key_id, public_key, sync_mode, created_at, updated_at
 `
 
 type CreateEmbedParams struct {
@@ -24,6 +24,7 @@ type CreateEmbedParams struct {
 	AllowedOrigins []byte
 	KeyID          pgtype.UUID
 	PublicKey      *string
+	SyncMode       string
 }
 
 func (q *Queries) CreateEmbed(ctx context.Context, arg CreateEmbedParams) (Embed, error) {
@@ -34,6 +35,7 @@ func (q *Queries) CreateEmbed(ctx context.Context, arg CreateEmbedParams) (Embed
 		arg.AllowedOrigins,
 		arg.KeyID,
 		arg.PublicKey,
+		arg.SyncMode,
 	)
 	var i Embed
 	err := row.Scan(
@@ -44,6 +46,7 @@ func (q *Queries) CreateEmbed(ctx context.Context, arg CreateEmbedParams) (Embed
 		&i.AllowedOrigins,
 		&i.KeyID,
 		&i.PublicKey,
+		&i.SyncMode,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -65,7 +68,7 @@ func (q *Queries) DeleteEmbed(ctx context.Context, arg DeleteEmbedParams) error 
 }
 
 const getEmbed = `-- name: GetEmbed :one
-SELECT id, owner_id, code_id, label, allowed_origins, key_id, public_key, created_at, updated_at FROM embeds WHERE id = $1 AND owner_id = $2
+SELECT id, owner_id, code_id, label, allowed_origins, key_id, public_key, sync_mode, created_at, updated_at FROM embeds WHERE id = $1 AND owner_id = $2
 `
 
 type GetEmbedParams struct {
@@ -84,6 +87,7 @@ func (q *Queries) GetEmbed(ctx context.Context, arg GetEmbedParams) (Embed, erro
 		&i.AllowedOrigins,
 		&i.KeyID,
 		&i.PublicKey,
+		&i.SyncMode,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -113,8 +117,20 @@ func (q *Queries) GetEmbedAuthByKeyID(ctx context.Context, keyID pgtype.UUID) (G
 	return i, err
 }
 
+const getEmbedSyncModeByKeyID = `-- name: GetEmbedSyncModeByKeyID :one
+SELECT sync_mode FROM embeds WHERE key_id = $1
+`
+
+// The public read a consuming site makes (GET /api/v1/embeds/{kid}); the kid is already public.
+func (q *Queries) GetEmbedSyncModeByKeyID(ctx context.Context, keyID pgtype.UUID) (string, error) {
+	row := q.db.QueryRow(ctx, getEmbedSyncModeByKeyID, keyID)
+	var sync_mode string
+	err := row.Scan(&sync_mode)
+	return sync_mode, err
+}
+
 const listEmbedsByOwner = `-- name: ListEmbedsByOwner :many
-SELECT id, owner_id, code_id, label, allowed_origins, key_id, public_key, created_at, updated_at FROM embeds WHERE owner_id = $1 ORDER BY created_at DESC
+SELECT id, owner_id, code_id, label, allowed_origins, key_id, public_key, sync_mode, created_at, updated_at FROM embeds WHERE owner_id = $1 ORDER BY created_at DESC
 `
 
 func (q *Queries) ListEmbedsByOwner(ctx context.Context, ownerID pgtype.UUID) ([]Embed, error) {
@@ -134,6 +150,7 @@ func (q *Queries) ListEmbedsByOwner(ctx context.Context, ownerID pgtype.UUID) ([
 			&i.AllowedOrigins,
 			&i.KeyID,
 			&i.PublicKey,
+			&i.SyncMode,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -147,11 +164,42 @@ func (q *Queries) ListEmbedsByOwner(ctx context.Context, ownerID pgtype.UUID) ([
 	return items, nil
 }
 
+const setEmbedSyncMode = `-- name: SetEmbedSyncMode :one
+UPDATE embeds
+SET sync_mode = $3, updated_at = now()
+WHERE id = $1 AND owner_id = $2
+RETURNING id, owner_id, code_id, label, allowed_origins, key_id, public_key, sync_mode, created_at, updated_at
+`
+
+type SetEmbedSyncModeParams struct {
+	ID       pgtype.UUID
+	OwnerID  pgtype.UUID
+	SyncMode string
+}
+
+func (q *Queries) SetEmbedSyncMode(ctx context.Context, arg SetEmbedSyncModeParams) (Embed, error) {
+	row := q.db.QueryRow(ctx, setEmbedSyncMode, arg.ID, arg.OwnerID, arg.SyncMode)
+	var i Embed
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.CodeID,
+		&i.Label,
+		&i.AllowedOrigins,
+		&i.KeyID,
+		&i.PublicKey,
+		&i.SyncMode,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const updateEmbed = `-- name: UpdateEmbed :one
 UPDATE embeds
 SET label = $3, allowed_origins = $4, updated_at = now()
 WHERE id = $1 AND owner_id = $2
-RETURNING id, owner_id, code_id, label, allowed_origins, key_id, public_key, created_at, updated_at
+RETURNING id, owner_id, code_id, label, allowed_origins, key_id, public_key, sync_mode, created_at, updated_at
 `
 
 type UpdateEmbedParams struct {
@@ -177,6 +225,7 @@ func (q *Queries) UpdateEmbed(ctx context.Context, arg UpdateEmbedParams) (Embed
 		&i.AllowedOrigins,
 		&i.KeyID,
 		&i.PublicKey,
+		&i.SyncMode,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

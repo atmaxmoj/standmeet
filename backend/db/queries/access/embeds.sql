@@ -1,6 +1,6 @@
 -- name: CreateEmbed :one
-INSERT INTO embeds (owner_id, code_id, label, allowed_origins, key_id, public_key)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO embeds (owner_id, code_id, label, allowed_origins, key_id, public_key, sync_mode)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: GetEmbedAuthByKeyID :one
@@ -23,6 +23,16 @@ UPDATE embeds
 SET label = $3, allowed_origins = $4, updated_at = now()
 WHERE id = $1 AND owner_id = $2
 RETURNING *;
+
+-- name: SetEmbedSyncMode :one
+UPDATE embeds
+SET sync_mode = $3, updated_at = now()
+WHERE id = $1 AND owner_id = $2
+RETURNING *;
+
+-- name: GetEmbedSyncModeByKeyID :one
+-- The public read a consuming site makes (GET /api/v1/embeds/{kid}); the kid is already public.
+SELECT sync_mode FROM embeds WHERE key_id = $1;
 
 -- name: DeleteEmbed :exec
 DELETE FROM embeds WHERE id = $1 AND owner_id = $2;

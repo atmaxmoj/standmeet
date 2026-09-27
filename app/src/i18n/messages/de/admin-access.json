@@ -294,7 +294,13 @@
       "originsHelp": "Schema + Host, kein nachgeordneter Pfad (https://acme.example). Das Widget wird auf jedem Ursprung abgelehnt, der nicht aufgelistet ist.",
       "hookField": "Update-Hook-URL · optional",
       "hookPlaceholder": "https://acme.example/api/corpus-hook",
-      "hookHelp": "Jede Änderung an einer Notiz, die der Code dieses Embeds lesen darf, wird als signiertes Ereignis hierher gesendet, damit die Website ihre Anzeige aktualisieren kann. Leer = kein Hook; Leeren entfernt den Hook.",
+      "hookHelp": "Jede Änderung an einer Notiz, die der Code dieses Embeds lesen darf, wird als signiertes Ereignis hierher gesendet, damit die Website ihre Kopie aktualisieren kann. Ein Kopie-Embed braucht einen.",
+      "syncModeField": "Synchronisierung",
+      "syncMode": { "live": "live", "copy": "Kopie · RSS + Hook" },
+      "syncModeHelp": {
+        "live": "Die Website liest diese Instanz bei jeder Anfrage. Immer aktuell; kein Hook.",
+        "copy": "Die Website hält eine Kopie (daraus kann sie RSS und eine Sitemap liefern), und der Update-Hook meldet, was sich geändert hat."
+      },
       "save": "embed erstellen",
       "saveEdit": "änderungen speichern",
       "cancel": "abbrechen",

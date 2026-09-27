@@ -19,8 +19,28 @@ type Embed struct {
 	Label          string
 	KeyID          string
 	PublicKey      string
+	SyncMode       string // SyncLive | SyncCopy
 	AllowedOrigins []string
 }
+
+// How the site behind an embed keeps up with the corpus (docs/design/event-bus-outbox-webhooks.md,
+// *Embed sync mode*): SyncCopy = it keeps a copy, and the embed's update hook tells it what
+// changed; SyncLive = it reads the instance per request and has no hook.
+const (
+	SyncLive = "live"
+	SyncCopy = "copy"
+)
+
+// NewEmbed —— what a create asks for.
+type NewEmbed struct {
+	CodeID         string
+	Label          string
+	SyncMode       string
+	AllowedOrigins []string
+}
+
+// ValidSyncMode —— whether m is one of the two modes.
+func ValidSyncMode(m string) bool { return m == SyncLive || m == SyncCopy }
 
 // EmbedCreated — the result of creating an embed: the embed itself + the private key PEM,
 // which is **returned only this once**. The private key goes into the widget's JS

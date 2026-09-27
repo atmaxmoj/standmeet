@@ -294,7 +294,13 @@
       "originsHelp": "Scheme + host, no trailing path (https://acme.example). The widget is refused on any origin not listed here.",
       "hookField": "업데이트 훅 URL · 선택",
       "hookPlaceholder": "https://acme.example/api/corpus-hook",
-      "hookHelp": "이 임베드의 코드가 읽을 수 있는 노트가 바뀔 때마다 서명된 이벤트가 여기로 전송되어, 사이트가 표시 내용을 새로 고칠 수 있습니다. 비워 두면 훅 없음, 비우면 훅이 삭제됩니다.",
+      "hookHelp": "이 임베드의 코드가 읽을 수 있는 노트가 바뀔 때마다 서명된 이벤트가 여기로 전송되어, 사이트가 사본을 새로 고칠 수 있습니다. 사본 모드에는 꼭 필요합니다.",
+      "syncModeField": "동기화 방식",
+      "syncMode": { "live": "실시간", "copy": "사본 · RSS + 훅" },
+      "syncModeHelp": {
+        "live": "사이트가 요청할 때마다 이 인스턴스를 직접 읽습니다. 항상 최신이며 훅이 필요 없습니다.",
+        "copy": "사이트가 사본을 보관하고(이를 바탕으로 RSS와 사이트맵을 제공할 수 있음), 업데이트 훅이 무엇이 바뀌었는지 알려 줍니다."
+      },
       "save": "create embed",
       "saveEdit": "save changes",
       "cancel": "cancel",

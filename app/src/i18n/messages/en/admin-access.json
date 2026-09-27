@@ -294,7 +294,13 @@
       "originsHelp": "Scheme + host, no trailing path (https://acme.example). The widget is refused on any origin not listed here.",
       "hookField": "update hook url · optional",
       "hookPlaceholder": "https://acme.example/api/corpus-hook",
-      "hookHelp": "Every change to a note this embed's code can read is sent here as a signed event, so the site can refresh what it shows. Empty = no hook; clearing it removes the hook.",
+      "hookHelp": "Every change to a note this embed's code can read is sent here as a signed event, so the site can refresh its copy. A copy embed needs one.",
+      "syncModeField": "sync mode",
+      "syncMode": { "live": "live", "copy": "copy · RSS + hook" },
+      "syncModeHelp": {
+        "live": "The site reads this instance on every request. Always current; no hook.",
+        "copy": "The site keeps a copy (it can serve RSS and a sitemap from it), and the update hook tells it what changed."
+      },
       "save": "create embed",
       "saveEdit": "save changes",
       "cancel": "cancel",

@@ -68,6 +68,7 @@ var (
 			"label":{"type":"string"},
 			"allowed_origins":{"type":"array","items":{"type":"string"},
 				"description":"Origins the widget may run on. Empty = any."},
+			"sync_mode":{"type":"string","enum":["live","copy"],"description":` + syncModeDoc + `},
 			"update_hook_url":{"type":"string","description":` + updateHookDoc + `}
 		},
 		"required":["code_id"]
@@ -78,6 +79,7 @@ var (
 			"embed_id":{"type":"string"},
 			"label":{"type":"string"},
 			"allowed_origins":{"type":"array","items":{"type":"string"}},
+			"sync_mode":{"type":"string","enum":["live","copy"],"description":` + syncModeDoc + `},
 			"update_hook_url":{"type":"string","description":` + updateHookDoc + `}
 		},
 		"required":["embed_id"]
@@ -94,6 +96,7 @@ var (
 type embedArgs struct {
 	Label          *string   `json:"label"`
 	AllowedOrigins *[]string `json:"allowed_origins"`
+	SyncMode       *string   `json:"sync_mode"`
 	UpdateHookURL  *string   `json:"update_hook_url"`
 	ID             string    `json:"embed_id"`
 	CodeID         string    `json:"code_id"`
@@ -110,6 +113,7 @@ type embedOut struct {
 	CodeID         string     `json:"code_id"`
 	Label          string     `json:"label"`
 	KeyID          string     `json:"key_id"`
+	SyncMode       string     `json:"sync_mode"`
 	CreatedAt      string     `json:"created_at"`
 	PrivateKey     string     `json:"private_key,omitempty"`
 	Secret         string     `json:"secret,omitempty"`
@@ -122,7 +126,7 @@ func toEmbedOut(e *entity.Embed) embedOut {
 		origins = []string{}
 	}
 	return embedOut{
-		ID: e.ID, CodeID: e.CodeID, Label: e.Label, KeyID: e.KeyID,
+		ID: e.ID, CodeID: e.CodeID, Label: e.Label, KeyID: e.KeyID, SyncMode: e.SyncMode,
 		AllowedOrigins: origins,
 		CreatedAt:      e.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
@@ -163,15 +167,15 @@ func createEmbed(d EmbedsDeps) fp.Invoke {
 		if perr != nil {
 			return nil, perr
 		}
-		if err := fp.RequireArgs([2]string{"code_id", in.CodeID}); err != nil {
+		c, err := newEmbedCreate(&in)
+		if err != nil {
 			return nil, err
 		}
-		created, err := d.Embeds.Create(ctx, ownerID, in.CodeID,
-			strOr(in.Label, ""), listOr(in.AllowedOrigins, []string{}))
+		created, err := d.Embeds.Create(ctx, ownerID, &c.spec)
 		if err != nil {
 			return nil, embedErr(err)
 		}
-		return createdOut(ctx, d, ownerID, &created, strOr(in.UpdateHookURL, ""))
+		return createdOut(ctx, d, ownerID, &created, c.hookURL)
 	}
 }
 
@@ -207,7 +211,7 @@ func updateEmbed(d EmbedsDeps) fp.Invoke {
 		if err != nil {
 			return nil, embedErr(err)
 		}
-		return updatedEmbedOut(ctx, d, ownerID, &e, in.UpdateHookURL)
+		return syncedEmbedOut(ctx, d, ownerID, &e, &in)
 	}
 }
 

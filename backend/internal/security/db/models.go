@@ -151,6 +151,15 @@ type BlockFailure struct {
 	FailedAt pgtype.Timestamptz
 }
 
+type BookingNotice struct {
+	OwnerID     pgtype.UUID
+	BookingID   string
+	Summary     string
+	VisitorName string
+	StartAt     pgtype.Timestamptz
+	CreatedAt   pgtype.Timestamptz
+}
+
 type Bundle struct {
 	ID        pgtype.UUID
 	OwnerID   pgtype.UUID
@@ -289,6 +298,7 @@ type Embed struct {
 	AllowedOrigins []byte
 	KeyID          pgtype.UUID
 	PublicKey      *string
+	SyncMode       string
 	CreatedAt      pgtype.Timestamptz
 	UpdatedAt      pgtype.Timestamptz
 }
@@ -481,18 +491,19 @@ type OwnerKeypair struct {
 }
 
 type OwnerProvider struct {
-	ID            pgtype.UUID
-	OwnerID       pgtype.UUID
-	Label         string
-	Provider      string
-	KeyEnc        []byte
-	Endpoint      string
-	Model         string
-	IsDefault     bool
-	GasTokens     *int64
-	GasFilledAt   pgtype.Timestamptz
-	GasRefillCron string
-	CreatedAt     pgtype.Timestamptz
+	ID             pgtype.UUID
+	OwnerID        pgtype.UUID
+	Label          string
+	Provider       string
+	KeyEnc         []byte
+	Endpoint       string
+	Model          string
+	IsDefault      bool
+	GasTokens      *int64
+	GasFilledAt    pgtype.Timestamptz
+	GasRefillCron  string
+	CreatedAt      pgtype.Timestamptz
+	GasExhaustedAt pgtype.Timestamptz
 }
 
 type PageContent struct {

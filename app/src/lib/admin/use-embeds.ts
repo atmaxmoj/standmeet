@@ -24,6 +24,9 @@ const EmbedSchema = z.object({
   allowed_origins: z.array(z.string()).nullish().transform((v) => v ?? []),
   // key_id —— this embed's JWT kid (the identifier for its anti-theft credential). The widget's snippet signs with this + the private key.
   key_id: z.string().nullish().transform((v) => v ?? ''),
+  // sync_mode —— how the site behind the embed keeps up: copy (it keeps a copy; the update hook
+  // tells it what changed) or live (it reads per request; no hook).
+  sync_mode: z.enum(['live', 'copy']),
   created_at: z.string(),
   // update_hook —— the webhook endpoint attached to this embed (absent = none). It hears every
   // corpus change inside the embed's code scope.
@@ -44,10 +47,14 @@ export type CreatedEmbed = z.infer<typeof CreatedEmbedSchema>;
 
 const UpdatedEmbedSchema = EmbedSchema.extend(HookSecret);
 
-// EmbedFormValues —— what the form edits. update_hook_url '' = no hook (clearing it removes one).
+export type SyncMode = EmbedView['sync_mode'];
+
+// EmbedFormValues —— what the form edits. The hook belongs to copy: a live embed sends
+// update_hook_url '' (switching to live removes the hook).
 export interface EmbedFormValues {
   label: string;
   allowed_origins: string[];
+  sync_mode: SyncMode;
   update_hook_url: string;
 }
 
@@ -120,10 +127,12 @@ export interface EmbedFormHook {
   codeID: string;
   label: string;
   origins: string;
+  syncMode: SyncMode;
   hookURL: string;
   setCodeID: (v: string) => void;
   setLabel: (v: string) => void;
   setOrigins: (v: string) => void;
+  setSyncMode: (v: SyncMode) => void;
   setHookURL: (v: string) => void;
 }
 
@@ -131,11 +140,12 @@ export function useEmbedForm(existing: EmbedView | null): EmbedFormHook {
   const [codeID, setCodeID] = useState(existing?.code_id ?? '');
   const [label, setLabel] = useState(existing?.label ?? '');
   const [origins, setOrigins] = useState((existing?.allowed_origins ?? []).join('\n'));
+  const [syncMode, setSyncMode] = useState<SyncMode>(existing?.sync_mode ?? 'live');
   const [hookURL, setHookURL] = useState(existing?.update_hook?.url ?? '');
   return {
     editing: existing !== null,
-    codeID, label, origins, hookURL,
-    setCodeID, setLabel, setOrigins, setHookURL,
+    codeID, label, origins, syncMode, hookURL,
+    setCodeID, setLabel, setOrigins, setSyncMode, setHookURL,
   };
 }
 
@@ -157,7 +167,8 @@ export async function dispatchEmbedSave(
   const values: EmbedFormValues = {
     label: form.label,
     allowed_origins: parseOrigins(form.origins),
-    update_hook_url: form.hookURL.trim(),
+    sync_mode: form.syncMode,
+    update_hook_url: form.syncMode === 'copy' ? form.hookURL.trim() : '',
   };
   if (existing === null) {
     await onCreate(form.codeID, values);

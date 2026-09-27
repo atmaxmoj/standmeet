@@ -37,6 +37,7 @@ func embedFromRow(e *db.Embed) entity.Embed {
 		AllowedOrigins: DecodeStringJSON(e.AllowedOrigins),
 		KeyID:          pgstore.FormatUUID(e.KeyID),
 		PublicKey:      derefStr(e.PublicKey),
+		SyncMode:       e.SyncMode,
 		CreatedAt:      e.CreatedAt.Time,
 		UpdatedAt:      e.UpdatedAt.Time,
 	}
@@ -74,13 +75,13 @@ func mintEmbedKey() (newEmbedKey, error) {
 // once**: it goes into the widget's JS (not the code), the server keeps only the
 // public key.
 func (r *EmbedRepo) Create(
-	ctx context.Context, ownerID, codeID, label string, origins []string,
+	ctx context.Context, ownerID string, spec *entity.NewEmbed,
 ) (entity.EmbedCreated, error) {
-	ids, err := twoUUIDs(ownerID, codeID)
+	ids, err := twoUUIDs(ownerID, spec.CodeID)
 	if err != nil {
 		return entity.EmbedCreated{}, err
 	}
-	blob, merr := marshalOrigins(origins)
+	blob, merr := marshalOrigins(spec.AllowedOrigins)
 	if merr != nil {
 		return entity.EmbedCreated{}, merr
 	}
@@ -89,8 +90,8 @@ func (r *EmbedRepo) Create(
 		return entity.EmbedCreated{}, kerr
 	}
 	row, qerr := db.New(r.pool).CreateEmbed(ctx, db.CreateEmbedParams{
-		OwnerID: ids[0], CodeID: ids[1], Label: label, AllowedOrigins: blob,
-		KeyID: key.kid, PublicKey: &key.pub,
+		OwnerID: ids[0], CodeID: ids[1], Label: spec.Label, AllowedOrigins: blob,
+		KeyID: key.kid, PublicKey: &key.pub, SyncMode: spec.SyncMode,
 	})
 	if qerr != nil {
 		return entity.EmbedCreated{}, createEmbedErr(qerr)
@@ -186,6 +187,43 @@ func (r *EmbedRepo) Update(
 		return entity.Embed{}, fmt.Errorf("update embed: %w", qerr)
 	}
 	return embedFromRow(&row), nil
+}
+
+// SetSyncMode —— changes the embed's sync mode.
+func (r *EmbedRepo) SetSyncMode(
+	ctx context.Context, ownerID, id, mode string,
+) (entity.Embed, error) {
+	ids, err := twoUUIDs(id, ownerID)
+	if err != nil {
+		return entity.Embed{}, err
+	}
+	row, qerr := db.New(r.pool).SetEmbedSyncMode(ctx, db.SetEmbedSyncModeParams{
+		ID: ids[0], OwnerID: ids[1], SyncMode: mode,
+	})
+	if qerr != nil {
+		if errors.Is(qerr, pgx.ErrNoRows) {
+			return entity.Embed{}, entity.ErrEmbedNotFound
+		}
+		return entity.Embed{}, fmt.Errorf("set embed sync mode: %w", qerr)
+	}
+	return embedFromRow(&row), nil
+}
+
+// SyncModeByKeyID —— the public read by the embed's key id. An unknown or malformed kid →
+// ErrEmbedNotFound.
+func (r *EmbedRepo) SyncModeByKeyID(ctx context.Context, keyID string) (string, error) {
+	kid, err := pgstore.ParseUUID(keyID)
+	if err != nil {
+		return "", entity.ErrEmbedNotFound
+	}
+	mode, qerr := db.New(r.pool).GetEmbedSyncModeByKeyID(ctx, kid)
+	if qerr != nil {
+		if errors.Is(qerr, pgx.ErrNoRows) {
+			return "", entity.ErrEmbedNotFound
+		}
+		return "", fmt.Errorf("embed sync mode by key id: %w", qerr)
+	}
+	return mode, nil
 }
 
 // Delete —— deletes an embed (not the code it's attached to).

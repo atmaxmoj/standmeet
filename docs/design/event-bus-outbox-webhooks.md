@@ -245,6 +245,20 @@ webhook_endpoints (id, owner_id, url, description, event_types text[] -- glob li
   `update_hook {endpoint_id, url}`, and the secret only when the endpoint was just created. The
   embed form has an *Update hook URL* field. The receiving side is described under standmeet.com
   below.
+- **Embed sync mode.** Each embed chooses how the consuming site keeps up with the corpus. The
+  embed owns this fact; the consuming site reads it and keeps no setting of its own.
+  - `copy` (*RSS + hook*): the site keeps a copy (standmeet.com: Workers KV, from which it serves
+    the blog, RSS and sitemap). The instance tells it what changed through the update hook. A
+    `copy` embed must have an update hook URL.
+  - `live`: the site reads the instance on every request and keeps no copy. There is no hook:
+    setting `live` deletes the attached endpoint, and an update hook URL sent with `live` is
+    refused (`400`, "a live embed has no update hook").
+  - `embeds.create` and `embeds.update` take `sync_mode`. It defaults to `live` on create. The
+    embed form shows it as a choice; the *Update hook URL* field belongs to `copy`.
+  - Public read: `GET /api/v1/embeds/{kid}` → `{kid, sync_mode}`. The kid is already public (it is
+    in the embed snippet); nothing secret is returned. `Cache-Control: max-age=60`.
+  - Migration: column `sync_mode` (`live` | `copy`, not null). An existing embed with an attached
+    endpoint becomes `copy`; every other embed becomes `live`.
 
 ## Where it lives
 
@@ -394,8 +408,25 @@ build.
     `Worker exceeded CPU time limit`. The account is on the free Workers plan: 50 subrequests and
     10 ms CPU per request. The bootstrap fetches every entry in both languages in one request, so
     it cannot fit. `wrangler dev` does not apply these limits, so it passed locally. The landing
-    repo was reverted to the static blog, and the embed's hook was detached. The design needs
-    either the Workers Paid plan or a fill that fits the free limits.
+    repo was reverted to the static blog, and the embed's hook was detached.
+  - Measured (Node, local): the blog subtree is 127 cards, 254 entries. A full fill is 255
+    subrequests and about 780 ms CPU. One render averages 3 ms; the slowest take 13–24 ms, above
+    the free plan's 10 ms even alone. So the copy mode needs Workers Paid; the free plan fits only
+    the live mode, and even there the heaviest notes are at risk.
+- [ ] **Embed sync mode** (see the model): `sync_mode` on the embed, the form choice, the public
+      read, the migration.
+  - **Acceptance (e2e, `embed-sync-mode`):** create a `copy` embed with a hook URL → the public
+    read says `copy` and an edit reaches the sink; switch it to `live` → the public read says
+    `live` and the next edit reaches no endpoint because the endpoint is gone (asserted as the
+    endpoint list, not an absence of deliveries); `live` with a hook URL → `400` with the sentence.
+    Upgrade: an embed with an endpoint before the migration reads `copy` after it.
+- [ ] **standmeet.com follows the embed's mode.** The Worker reads `sync_mode` by kid (cached
+      60 s).
+  - `live`: blog, RSS, sitemap and latest notes read the instance per request. No KV, no hook.
+  - `copy`: the KV copy. The hook refreshes **synchronously within a budget** (at most 4 cards per
+    invocation) and answers `200` only when KV has caught up, else `503`. The instance's durable
+    retry is then the continuation, and a refresh that fails is visible on the instance. The first
+    fill also advances one budget per page request. No reconcile cron.
 - [ ] **Acceptance:** the owner edits a note on sijie.xyz → within 60 s the standmeet.com page shows
   the change without a deploy. Checked in the real environment, recorded under
   `docs/real-env-verification/`. Open until the release and the standmeet.com deploy.

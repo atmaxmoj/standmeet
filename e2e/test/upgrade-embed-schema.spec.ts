@@ -33,7 +33,10 @@ const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 const MIGRATION_BASE = '2026-09-01-code-embed-limits.sql';
 const MIGRATION_UNIQUE = '2026-09-01-embed-one-per-code.sql';
 const MIGRATION_SIGNING = '2026-09-01-embed-signing-key.sql';
-const ALL_MIGRATIONS = [MIGRATION_BASE, MIGRATION_UNIQUE, MIGRATION_SIGNING];
+// Every later migration that alters `embeds` belongs here too: dropping the table while its ledger
+// row stays would bring the table back without that column.
+const MIGRATION_SYNC_MODE = '2026-09-27-embed-sync-mode.sql';
+const ALL_MIGRATIONS = [MIGRATION_BASE, MIGRATION_UNIQUE, MIGRATION_SIGNING, MIGRATION_SYNC_MODE];
 
 const OWNER = {
   email: 'embedupgrade@example.com', password: 'correct-horse-battery-staple',
@@ -141,7 +144,7 @@ test.describe('upgrade · deploying the new version brings up the embeds table +
       expect(limitColExists()).toBe(true);
       expect(uniqueIndexExists(), '第二个 migration（唯一约束）也随部署上来了').toBe(true);
       expect(keyColsExist(), '第三个 migration（签名密钥列）也随部署上来了').toBe(true);
-      expect(embedLedgerRows()).toBe(3);
+      expect(embedLedgerRows()).toBe(ALL_MIGRATIONS.length);
 
       // Old data isn't broken: the pre-upgrade code still exists, and still redeems.
       // A DIRECT plaintext code stays open from any origin by design (the origin

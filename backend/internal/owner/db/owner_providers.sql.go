@@ -51,7 +51,7 @@ const createOwnerProvider = `-- name: CreateOwnerProvider :one
 
 INSERT INTO owner_providers (owner_id, label, provider, key_enc, endpoint, model, is_default)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, owner_id, label, provider, key_enc, endpoint, model, is_default, gas_tokens, gas_filled_at, gas_refill_cron, created_at
+RETURNING id, owner_id, label, provider, key_enc, endpoint, model, is_default, gas_tokens, gas_filled_at, gas_refill_cron, created_at, gas_exhausted_at
 `
 
 type CreateOwnerProviderParams struct {
@@ -93,6 +93,7 @@ func (q *Queries) CreateOwnerProvider(ctx context.Context, arg CreateOwnerProvid
 		&i.GasFilledAt,
 		&i.GasRefillCron,
 		&i.CreatedAt,
+		&i.GasExhaustedAt,
 	)
 	return i, err
 }
@@ -115,7 +116,7 @@ func (q *Queries) DeleteOwnerProvider(ctx context.Context, arg DeleteOwnerProvid
 }
 
 const getDefaultOwnerProvider = `-- name: GetDefaultOwnerProvider :one
-SELECT id, owner_id, label, provider, key_enc, endpoint, model, is_default, gas_tokens, gas_filled_at, gas_refill_cron, created_at FROM owner_providers WHERE owner_id = $1 AND is_default
+SELECT id, owner_id, label, provider, key_enc, endpoint, model, is_default, gas_tokens, gas_filled_at, gas_refill_cron, created_at, gas_exhausted_at FROM owner_providers WHERE owner_id = $1 AND is_default
 `
 
 func (q *Queries) GetDefaultOwnerProvider(ctx context.Context, ownerID pgtype.UUID) (OwnerProvider, error) {
@@ -134,12 +135,13 @@ func (q *Queries) GetDefaultOwnerProvider(ctx context.Context, ownerID pgtype.UU
 		&i.GasFilledAt,
 		&i.GasRefillCron,
 		&i.CreatedAt,
+		&i.GasExhaustedAt,
 	)
 	return i, err
 }
 
 const getOwnerProvider = `-- name: GetOwnerProvider :one
-SELECT id, owner_id, label, provider, key_enc, endpoint, model, is_default, gas_tokens, gas_filled_at, gas_refill_cron, created_at FROM owner_providers WHERE id = $1 AND owner_id = $2
+SELECT id, owner_id, label, provider, key_enc, endpoint, model, is_default, gas_tokens, gas_filled_at, gas_refill_cron, created_at, gas_exhausted_at FROM owner_providers WHERE id = $1 AND owner_id = $2
 `
 
 type GetOwnerProviderParams struct {
@@ -163,12 +165,13 @@ func (q *Queries) GetOwnerProvider(ctx context.Context, arg GetOwnerProviderPara
 		&i.GasFilledAt,
 		&i.GasRefillCron,
 		&i.CreatedAt,
+		&i.GasExhaustedAt,
 	)
 	return i, err
 }
 
 const listOwnerProviders = `-- name: ListOwnerProviders :many
-SELECT id, owner_id, label, provider, key_enc, endpoint, model, is_default, gas_tokens, gas_filled_at, gas_refill_cron, created_at FROM owner_providers WHERE owner_id = $1 ORDER BY is_default DESC, label
+SELECT id, owner_id, label, provider, key_enc, endpoint, model, is_default, gas_tokens, gas_filled_at, gas_refill_cron, created_at, gas_exhausted_at FROM owner_providers WHERE owner_id = $1 ORDER BY is_default DESC, label
 `
 
 func (q *Queries) ListOwnerProviders(ctx context.Context, ownerID pgtype.UUID) ([]OwnerProvider, error) {
@@ -193,6 +196,7 @@ func (q *Queries) ListOwnerProviders(ctx context.Context, ownerID pgtype.UUID) (
 			&i.GasFilledAt,
 			&i.GasRefillCron,
 			&i.CreatedAt,
+			&i.GasExhaustedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -296,7 +300,7 @@ SET label      = COALESCE($1, label),
     -- string sets the auto-refill schedule. Validated in Go before it reaches here.
     gas_refill_cron = COALESCE($7, gas_refill_cron)
 WHERE id = $8 AND owner_id = $9
-RETURNING id, owner_id, label, provider, key_enc, endpoint, model, is_default, gas_tokens, gas_filled_at, gas_refill_cron, created_at
+RETURNING id, owner_id, label, provider, key_enc, endpoint, model, is_default, gas_tokens, gas_filled_at, gas_refill_cron, created_at, gas_exhausted_at
 `
 
 type UpdateOwnerProviderParams struct {
@@ -339,6 +343,7 @@ func (q *Queries) UpdateOwnerProvider(ctx context.Context, arg UpdateOwnerProvid
 		&i.GasFilledAt,
 		&i.GasRefillCron,
 		&i.CreatedAt,
+		&i.GasExhaustedAt,
 	)
 	return i, err
 }

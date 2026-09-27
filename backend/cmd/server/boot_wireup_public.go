@@ -6,35 +6,58 @@
 package main
 
 import (
+	"context"
+	"errors"
+	"fmt"
+	"net/http"
+
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
 	"github.com/atmaxmoj/standmeet/cmd/server/port"
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
+	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
 )
 
 func buildPublicDeps(d *deps.Runtime) publicroutes.Handlers {
 	return publicroutes.Handlers{
-		Visitor:      newVisitorSessionDeps(d),
-		SecureCookie: d.SecureCookie,
-		Outbound:     port.OutboundSender(d),
-		Owners:       d.OwnerRepo,
-		Resolver:     d.ProviderResolver,
-		Reports:      d.ChatReportRepo,
-		Sessions:     d.VisitorStore,
-		Embeds:       d.EmbedRepo,
-		EmbedNonce:   port.EmbedNonceStore(d),
-		QueryQueue:   d.QueryQueue,
-		Corpus:       d.Corpus,
-		Subjectivity: corpus.NewSubjectivityCiteResolver(d.SubjectivityRepo),
-		Ledger:       conversation.NewWaypointLedger(d.VaultSyncRepo, d.VisitorStore, d.Log),
-		Ghosts:       conversation.GhostDeps{Repo: d.GhostRepo, Events: d.Recorder()},
-		PDFRenderer:  d.ReportPDFRenderer,
-		AppState:     d.AppStateRepo,
-		Usage:        d.InferenceUsageRepo,
-		Log:          d.Log,
+		Visitor:       newVisitorSessionDeps(d),
+		SecureCookie:  d.SecureCookie,
+		Outbound:      port.OutboundSender(d),
+		Owners:        d.OwnerRepo,
+		Resolver:      d.ProviderResolver,
+		Reports:       d.ChatReportRepo,
+		Sessions:      d.VisitorStore,
+		Embeds:        d.EmbedRepo,
+		EmbedNonce:    port.EmbedNonceStore(d),
+		EmbedSyncMode: embedSyncMode(d),
+		QueryQueue:    d.QueryQueue,
+		Corpus:        d.Corpus,
+		Subjectivity:  corpus.NewSubjectivityCiteResolver(d.SubjectivityRepo),
+		Ledger:        conversation.NewWaypointLedger(d.VaultSyncRepo, d.VisitorStore, d.Log),
+		Ghosts:        conversation.GhostDeps{Repo: d.GhostRepo, Events: d.Recorder()},
+		PDFRenderer:   d.ReportPDFRenderer,
+		AppState:      d.AppStateRepo,
+		Usage:         d.InferenceUsageRepo,
+		Log:           d.Log,
+	}
+}
+
+// embedSyncMode —— the public read of an embed's sync mode, its errors already display errors: an
+// unknown kid is 404.
+func embedSyncMode(d *deps.Runtime) func(ctx context.Context, kid string) (string, error) {
+	return func(ctx context.Context, kid string) (string, error) {
+		mode, err := d.EmbedRepo.SyncModeByKeyID(ctx, kid)
+		switch {
+		case errors.Is(err, access.ErrEmbedNotFound):
+			return "", apierr.DisplayWrap(
+				http.StatusNotFound, "embed_not_found", "no embed with this key id", err)
+		case err != nil:
+			return "", fmt.Errorf("embed sync mode: %w", err)
+		}
+		return mode, nil
 	}
 }
 

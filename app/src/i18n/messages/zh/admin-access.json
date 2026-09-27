@@ -294,7 +294,13 @@
       "originsHelp": "协议 + 主机，末尾不带路径（https://acme.example）。组件在此处未列出的任何来源都会被拒绝。",
       "hookField": "更新钩子地址 · 可选",
       "hookPlaceholder": "https://acme.example/api/corpus-hook",
-      "hookHelp": "这个嵌入的访问码能读到的笔记，每次改动都会以签名事件发到这里，网站据此刷新它显示的内容。留空 = 不设钩子；清空即删除钩子。",
+      "hookHelp": "这个嵌入的访问码能读到的笔记，每次改动都会以签名事件发到这里，网站据此刷新它的副本。副本模式必须填。",
+      "syncModeField": "同步方式",
+      "syncMode": { "live": "实时", "copy": "副本 · RSS + 钩子" },
+      "syncModeHelp": {
+        "live": "网站每次请求都直接读这个实例。永远最新，不需要钩子。",
+        "copy": "网站保存一份副本（可以据此提供 RSS 和 sitemap），由更新钩子告诉它哪里变了。"
+      },
       "save": "创建嵌入",
       "saveEdit": "保存更改",
       "cancel": "取消",

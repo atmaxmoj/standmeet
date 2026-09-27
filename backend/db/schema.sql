@@ -850,6 +850,9 @@ CREATE TABLE embeds (
     -- nullable：没有 key 的 embed 退回明文 code 那条老路（向后兼容）。
     key_id           uuid,
     public_key       text,
+    -- sync_mode —— how the site behind this embed keeps up with the corpus: 'copy' = it keeps a
+    -- copy and the embed's update hook tells it what changed; 'live' = it reads per request, no hook.
+    sync_mode        text          NOT NULL DEFAULT 'live' CHECK (sync_mode IN ('live', 'copy')),
     created_at       timestamptz   NOT NULL DEFAULT now(),
     updated_at       timestamptz   NOT NULL DEFAULT now()
 );

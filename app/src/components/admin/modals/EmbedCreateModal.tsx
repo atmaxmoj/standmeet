@@ -20,7 +20,7 @@ import { ModalShell } from '@/components/admin/modals/ModalShell';
 import type { CodeView } from '@/lib/admin/use-codes';
 import {
   dispatchEmbedSave, embedModalText, useEmbedForm,
-  type EmbedFormHook, type EmbedFormValues, type EmbedView,
+  type EmbedFormHook, type EmbedFormValues, type EmbedView, type SyncMode,
 } from '@/lib/admin/use-embeds';
 
 type OnCreate = (codeID: string, values: EmbedFormValues) => Promise<void>;
@@ -45,7 +45,8 @@ export function EmbedCreateModal({ existing, codes, onClose, onCreate, onUpdate 
         <CodePicker form={form} codes={codes} />
         <LabelField form={form} />
         <OriginsField form={form} />
-        <HookField form={form} />
+        <SyncModeField form={form} />
+        {form.syncMode === 'copy' && <HookField form={form} />}
         <Footer save={text.save} disabled={form.codeID === ''} onClose={onClose} />
       </form>
     </ModalShell>
@@ -114,8 +115,31 @@ function OriginsField({ form }: { form: EmbedFormHook }) {
   );
 }
 
-// HookField —— the Update hook URL: a site that caches this embed's corpus gets a signed event on
-// every change inside the embed's code scope. Empty = no hook; clearing it removes the hook.
+const SYNC_MODES: readonly SyncMode[] = ['live', 'copy'];
+
+// SyncModeField —— how the site behind the embed keeps up with the corpus: live (it reads per
+// request) or copy (it keeps a copy, and the update hook below tells it what changed).
+function SyncModeField({ form }: { form: EmbedFormHook }) {
+  const t = useTranslations('adminAccess.embeds.form');
+  return (
+    <fieldset className="space-y-2">
+      <legend className="mb-2"><FieldKicker text={t('syncModeField')} /></legend>
+      {SYNC_MODES.map((m) => (
+        <label key={m} className="flex items-baseline gap-3 text-[13.5px] reading-tight">
+          <input
+            type="radio" name="embed-sync-mode" value={m} data-testid={`embed-sync-mode-${m}`}
+            checked={form.syncMode === m} onChange={() => form.setSyncMode(m)}
+          />
+          <span className="mono text-[12px] text-(--color-ink)">{t(`syncMode.${m}`)}</span>
+          <span className="text-(--color-muted)">{t(`syncModeHelp.${m}`)}</span>
+        </label>
+      ))}
+    </fieldset>
+  );
+}
+
+// HookField —— the Update hook URL (copy mode only): the site that keeps a copy of this embed's
+// corpus gets a signed event on every change inside the embed's code scope.
 function HookField({ form }: { form: EmbedFormHook }) {
   const t = useTranslations('adminAccess.embeds.form');
   return (

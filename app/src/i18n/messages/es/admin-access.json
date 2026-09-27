@@ -294,7 +294,13 @@
       "originsHelp": "Esquema + anfitrión, sin ruta posterior (https://acme.example). El widget se rechaza en cualquier origen no enumerado aquí.",
       "hookField": "URL del webhook de actualización · opcional",
       "hookPlaceholder": "https://acme.example/api/corpus-hook",
-      "hookHelp": "Cada cambio en una nota que el código de este embed puede leer se envía aquí como un evento firmado, para que el sitio actualice lo que muestra. Vacío = sin webhook; vaciarlo elimina el webhook.",
+      "hookHelp": "Cada cambio en una nota que el código de este embed puede leer se envía aquí como un evento firmado, para que el sitio actualice su copia. Un embed en modo copia necesita uno.",
+      "syncModeField": "sincronización",
+      "syncMode": { "live": "en vivo", "copy": "copia · RSS + webhook" },
+      "syncModeHelp": {
+        "live": "El sitio lee esta instancia en cada petición. Siempre al día; sin webhook.",
+        "copy": "El sitio guarda una copia (con ella puede servir RSS y un sitemap), y el webhook de actualización le avisa de qué cambió."
+      },
       "save": "crear embed",
       "saveEdit": "guardar cambios",
       "cancel": "cancelar",

@@ -11,6 +11,12 @@ const updateHookDoc = `"A public http(s) URL that receives a signed corpus.note.
 	`whenever a note inside this embed's code scope changes. The signing secret is returned ` +
 	`once, when the hook is first attached. An empty string removes the hook."`
 
+// syncModeDoc —— the sync_mode field's description (a JSON string).
+const syncModeDoc = `"How the site behind this embed keeps up with the corpus. ` +
+	`copy: the site keeps a copy and the update hook tells it what changed ` +
+	`(needs update_hook_url). live: the site reads the instance on every request; ` +
+	`no hook (switching to live removes it). Default live."`
+
 // EmbedHook —— the hook as the embed view shows it.
 type EmbedHook struct {
 	EndpointID string `json:"endpoint_id"`

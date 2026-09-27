@@ -56,6 +56,7 @@ var (
 	ErrDockButtonEmptyTrigger     = entity.ErrDockButtonEmptyTrigger
 	ErrGasExhausted               = entity.ErrGasExhausted
 	ErrPeriodLimitReached         = entity.ErrPeriodLimitReached
+	ErrEmbedNotFound              = entity.ErrEmbedNotFound
 	ErrEmbedOriginNotAllowed      = entity.ErrEmbedOriginNotAllowed
 	ErrEmbedTokenInvalid          = entity.ErrEmbedTokenInvalid
 	ErrMemberNotFound             = entity.ErrMemberNotFound

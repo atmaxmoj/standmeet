@@ -9,7 +9,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { expect, type APIRequestContext } from '@playwright/test';
 
 import { callTool, callToolOutcome, type ToolOutcome } from '@/fixtures/mcp';
-import { MOCK_BASE } from '@/fixtures/stack';
+import { BACKEND, MOCK_BASE } from '@/fixtures/stack';
 
 /** The address the BACKEND posts to (compose-internal name). */
 export function sinkURL(name: string): string {
@@ -108,14 +108,42 @@ export async function tryCreateHook(o: OwnerMCP, url: string): Promise<ToolOutco
 
 // ── embeds carrying an update hook (embeds.* on the owner MCP face) ──
 
-export interface HookedEmbed { id: string; update_hook?: { endpoint_id: string; url: string }; secret?: string }
+type SyncMode = 'live' | 'copy';
+
+export interface HookedEmbed {
+  id: string; key_id: string; sync_mode: SyncMode;
+  update_hook?: { endpoint_id: string; url: string }; secret?: string;
+}
 
 export async function createEmbedFor(o: OwnerMCP, codeID: string, label: string): Promise<HookedEmbed> {
   return callTool<HookedEmbed>(o.request, o.apiToken, o.sid, 'embeds.create', { code_id: codeID, label });
 }
 
+/** A hook belongs to the copy mode, so attaching one says copy. */
 export async function setEmbedHook(o: OwnerMCP, embedID: string, sink: string): Promise<HookedEmbed> {
   return callTool<HookedEmbed>(o.request, o.apiToken, o.sid, 'embeds.update', {
-    embed_id: embedID, update_hook_url: sinkURL(sink),
+    embed_id: embedID, sync_mode: 'copy', update_hook_url: sinkURL(sink),
   });
+}
+
+export async function setEmbedLive(o: OwnerMCP, embedID: string): Promise<HookedEmbed> {
+  return callTool<HookedEmbed>(o.request, o.apiToken, o.sid, 'embeds.update', { embed_id: embedID, sync_mode: 'live' });
+}
+
+/** embeds.update as an outcome: for the refusal case, where the error text is the assertion. */
+export async function tryUpdateEmbed(o: OwnerMCP, args: Record<string, unknown>): Promise<ToolOutcome> {
+  return callToolOutcome(o.request, o.apiToken, o.sid, 'embeds.update', args);
+}
+
+/** The public read a consuming site makes: the embed's sync mode by its (public) key id. */
+export async function publicSyncMode(request: APIRequestContext, kid: string): Promise<{ status: number; mode: string }> {
+  const res = await request.get(`${BACKEND}/api/v1/embeds/${kid}`);
+  const body = res.status() === 200 ? await res.json() as { sync_mode?: string } : {};
+  return { status: res.status(), mode: body.sync_mode ?? '' };
+}
+
+/** The endpoint ids on the instance (webhooks.list). */
+export async function endpointIDs(o: OwnerMCP): Promise<string[]> {
+  const out = await callTool<{ endpoints: { id: string }[] }>(o.request, o.apiToken, o.sid, 'webhooks.list', {});
+  return out.endpoints.map((e) => e.id);
 }

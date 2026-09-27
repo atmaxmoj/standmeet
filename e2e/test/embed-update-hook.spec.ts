@@ -69,6 +69,8 @@ async function hookFromTheForm(adminPage: Page): Promise<void> {
   const embed = await embedOn(O.fullCode);
   await gotoAdminSection(adminPage, 'embeds');
   await adminPage.getByTestId(`embed-edit-${embed.id}`).click();
+  // The hook belongs to the copy mode (see *Embed sync mode*).
+  await adminPage.getByTestId('embed-sync-mode-copy').check();
   await adminPage.getByTestId('embed-update-hook-url').fill(sinkURL('embed-ui'));
   await adminPage.getByTestId('embed-save').click();
   const secret = (await adminPage.getByTestId('embed-update-hook-secret').innerText()).trim();

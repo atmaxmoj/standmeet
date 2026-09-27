@@ -294,7 +294,13 @@
       "originsHelp": "Schéma + hôte, sans chemin d'accès à la fin (https://acme.example). Le widget est refusé sur toute origine non listée ici.",
       "hookField": "URL du webhook de mise à jour · facultatif",
       "hookPlaceholder": "https://acme.example/api/corpus-hook",
-      "hookHelp": "Chaque modification d'une note que le code de cet embed peut lire est envoyée ici sous forme d'événement signé, pour que le site rafraîchisse ce qu'il affiche. Vide = aucun webhook ; le vider supprime le webhook.",
+      "hookHelp": "Chaque modification d'une note que le code de cet embed peut lire est envoyée ici sous forme d'événement signé, pour que le site rafraîchisse sa copie. Un embed en mode copie en a besoin.",
+      "syncModeField": "synchronisation",
+      "syncMode": { "live": "en direct", "copy": "copie · RSS + webhook" },
+      "syncModeHelp": {
+        "live": "Le site lit cette instance à chaque requête. Toujours à jour ; pas de webhook.",
+        "copy": "Le site garde une copie (il peut en tirer un flux RSS et un sitemap), et le webhook de mise à jour lui dit ce qui a changé."
+      },
       "save": "créer un partage",
       "saveEdit": "enregistrer les changements",
       "cancel": "annuler",
