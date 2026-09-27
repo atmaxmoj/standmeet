@@ -10,20 +10,23 @@ type Props = {
   active?: boolean;
   onClick?: MouseEventHandler<HTMLButtonElement>;
   title?: string;
+  testid?: string;
 };
 
 export function Chip(props: Props) {
   const cls = resolveChipClass(props.tone, props.active, Boolean(props.onClick));
   return props.onClick
-    ? <ChipButton onClick={props.onClick} title={props.title} cls={cls}>{props.children}</ChipButton>
+    ? <ChipButton onClick={props.onClick} title={props.title} cls={cls} testid={props.testid}>{props.children}</ChipButton>
     : <ChipSpan title={props.title} cls={cls}>{props.children}</ChipSpan>;
 }
 
 function ChipButton({
-  onClick, title, cls, children,
-}: { onClick: MouseEventHandler<HTMLButtonElement>; title?: string; cls: string; children: ReactNode }) {
+  onClick, title, cls, testid, children,
+}: {
+  onClick: MouseEventHandler<HTMLButtonElement>; title?: string; cls: string; testid?: string; children: ReactNode;
+}) {
   return (
-    <button type="button" onClick={onClick} title={title} className={cls}>
+    <button type="button" onClick={onClick} title={title} className={cls} data-testid={testid}>
       {children}
     </button>
   );

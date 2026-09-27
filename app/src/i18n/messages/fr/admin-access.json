@@ -17,6 +17,9 @@
     "new": "＋ nouveau code",
     "intro": "Chaque code ouvre une partie de votre wiki à un destinataire connu — une boucle de recrutement, une présentation d'investisseur, ou un seul appel presse. Plusieurs personnes peuvent partager un code ; quand quelqu'un le saisit, l'IA demande qui ils sont et les ajoute à la liste des membres du code. Chaque carte porte un QR.",
     "empty": "Aucun code pour l'instant.",
+    "filterEmpty": "Aucun code ne correspond à ce filtre.",
+    "searchPlaceholder": "rechercher un code ou un libellé",
+    "filter": { "active": "actifs", "revoked": "révoqués", "expired": "expirés", "all": "tous" },
     "kicker": "accès · codes",
     "count": "{active} actifs · {total} au total",
     "toast": {

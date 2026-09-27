@@ -17,6 +17,9 @@
     "new": "＋ neuer code",
     "intro": "Jeder Code öffnet einen Bereich Ihres Wikis für einen bekannten Kontakt — eine Einstellungsschleife, eine Investorenpräsentation oder ein Pressegespräch. Mehrere Personen können einen Code teilen; bei der Eingabe fragt die KI, wer sie sind, und ordnet sie der Kontaktliste des Codes zu. Jede Karte hat einen QR-Code.",
     "empty": "Noch keine Codes.",
+    "filterEmpty": "Keine Codes passen zu diesem Filter.",
+    "searchPlaceholder": "Code oder Label suchen",
+    "filter": { "active": "aktiv", "revoked": "widerrufen", "expired": "abgelaufen", "all": "alle" },
     "kicker": "zugang · codes",
     "count": "{active} aktiv · {total} gesamt",
     "toast": {

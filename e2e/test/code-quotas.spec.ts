@@ -118,6 +118,8 @@ async function revokeCode(page: Page, code: string): Promise<void> {
 }
 
 async function expectRevokedRow(page: Page, code: string): Promise<void> {
+  // The list opens on active codes; a revoked one lives under the revoked filter.
+  await page.getByTestId('codes-filter-revoked').click();
   const card = page.getByTestId(`code-card-${code}`);
   await expect(card).toContainText('revoked');
 }

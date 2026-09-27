@@ -17,6 +17,9 @@
     "new": "＋ new code",
     "intro": "Each code gates a slice of your wiki for a known recipient — a hiring loop, an investor intro, or a single press call. Multiple people can share one code; when someone enters it, the AI asks who they are and assigns them to the code's member list. Each card carries a QR.",
     "empty": "No codes yet.",
+    "filterEmpty": "이 필터에 맞는 코드가 없습니다.",
+    "searchPlaceholder": "코드 또는 라벨 검색",
+    "filter": { "active": "활성", "revoked": "취소됨", "expired": "만료됨", "all": "전체" },
     "kicker": "액세스 · 코드",
     "count": "{active}개 활성 · {total}개 전체",
     "toast": {

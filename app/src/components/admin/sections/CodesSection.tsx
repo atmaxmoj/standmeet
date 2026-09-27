@@ -14,8 +14,12 @@ import { CodeCreateModal } from '@/components/admin/modals/CodeCreateModal';
 import { CodeQRModal } from '@/components/admin/modals/CodeQRModal';
 import { VisitorPreviewModal } from '@/components/admin/modals/VisitorPreviewModal';
 import { ListPane } from '@/components/admin/ListPane';
+import { Chip } from '@/components/admin/atoms/Chip';
 import { useCodeModalState } from '@/lib/admin/use-code-modals';
 import { useCodes, type CodeView, type CodesHook } from '@/lib/admin/use-codes';
+import {
+  CODE_FILTERS, filterCounts, useCodeFilter, visibleCodes, type CodeFilterHook,
+} from '@/lib/admin/code-filter';
 import { useAction } from '@/lib/ui/use-action';
 import { useReportError } from '@/lib/ui/use-report-error';
 import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
@@ -24,6 +28,7 @@ export function CodesSection() {
   const t = useTranslations('adminAccess');
   const hook = useCodes();
   const modals = useCodeModalState();
+  const filter = useCodeFilter();
   const run = useAction();
   useEffectErrorToast(hook.error);
   // revoke is a one-click destructive action → toast on both success and failure
@@ -41,8 +46,10 @@ export function CodesSection() {
         action={<NewCodeBtn open={modals.openCreate} />}
       />
       <Intro />
+      <CodeFilterRow codes={hook.codes} filter={filter} />
       <CodeListBody
         hook={hook}
+        filter={filter}
         openCreate={modals.openCreate}
         openQR={modals.openQR}
         openPreview={modals.openPreview}
@@ -78,7 +85,27 @@ function titleCount(hook: CodesHook, t: Translator): string {
 }
 
 function countActive(codes: readonly CodeView[]): number {
-  return codes.filter((c) => c.status === 'active').length;
+  return filterCounts(codes, Date.now()).active;
+}
+
+// CodeFilterRow —— status chips (each with its count) + a search over code and label.
+function CodeFilterRow({ codes, filter }: { codes: readonly CodeView[]; filter: CodeFilterHook }) {
+  const t = useTranslations('adminAccess');
+  const counts = filterCounts(codes, Date.now());
+  return (
+    <div className="flex items-center gap-2 mb-6 flex-wrap" data-testid="codes-filters">
+      {CODE_FILTERS.map((f) => (
+        <Chip key={f} active={filter.filter === f} onClick={() => filter.setFilter(f)} testid={`codes-filter-${f}`}>
+          {t(`codes.filter.${f}`)} {counts[f]}
+        </Chip>
+      ))}
+      <input
+        type="search" value={filter.query} onChange={(e) => filter.setQuery(e.target.value)}
+        placeholder={t('codes.searchPlaceholder')} aria-label={t('codes.searchPlaceholder')}
+        data-testid="codes-search" className="sm-field-input ml-auto max-w-[16em]"
+      />
+    </div>
+  );
 }
 
 function Intro() {
@@ -91,23 +118,28 @@ function Intro() {
 }
 
 function CodeListBody({
-  hook, openCreate, openQR, openPreview, revokeCode,
+  hook, filter, openCreate, openQR, openPreview, revokeCode,
 }: {
   hook: CodesHook;
+  filter: CodeFilterHook;
   openCreate: (existing?: CodeView) => void;
   openQR: (c: CodeView) => void;
   openPreview: (c: CodeView) => void;
   revokeCode: (id: string) => Promise<void>;
 }) {
+  const shown = visibleCodes(hook.codes, filter.filter, filter.query, Date.now());
+  // Outer pane: no codes at all. Inner pane: codes exist, none in this filter / search.
   return (
     <ListPane status={hook.status} count={hook.codes.length} empty={<EmptyState />}>
-      <CodeGrid
-        codes={hook.codes}
-        openEdit={openCreate}
-        openQR={openQR}
-        openPreview={openPreview}
-        revokeCode={revokeCode}
-      />
+      <ListPane status={hook.status} count={shown.length} empty={<FilteredEmpty />}>
+        <CodeGrid
+          codes={shown}
+          openEdit={openCreate}
+          openQR={openQR}
+          openPreview={openPreview}
+          revokeCode={revokeCode}
+        />
+      </ListPane>
     </ListPane>
   );
 }
@@ -143,6 +175,16 @@ function EmptyState() {
   return (
     <p className="reading italic text-(--color-muted)" data-testid="code-list">
       {t('codes.empty')}
+    </p>
+  );
+}
+
+// FilteredEmpty —— there are codes, just none in this filter / search.
+function FilteredEmpty() {
+  const t = useTranslations('adminAccess');
+  return (
+    <p className="reading italic text-(--color-muted)" data-testid="code-list-filtered-empty">
+      {t('codes.filterEmpty')}
     </p>
   );
 }

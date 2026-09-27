@@ -17,6 +17,9 @@
     "new": "＋ new code",
     "intro": "Each code gates a slice of your wiki for a known recipient — a hiring loop, an investor intro, or a single press call. Multiple people can share one code; when someone enters it, the AI asks who they are and assigns them to the code's member list. Each card carries a QR.",
     "empty": "No codes yet.",
+    "filterEmpty": "このフィルターに一致するコードはありません。",
+    "searchPlaceholder": "コードまたはラベルを検索",
+    "filter": { "active": "有効", "revoked": "失効", "expired": "期限切れ", "all": "すべて" },
     "kicker": "アクセス · コード",
     "count": "{active} 件有効 · {total} 件合計",
     "toast": {

@@ -5,7 +5,7 @@
 //   1. 3-col card layout → members + scope chips + QR visible
 //   2. QR click → QR modal / download
 //   3. quota bar → visual progress bar
-//   4. revoke → card grayed + "expired"
+//   4. revoke → card leaves the default (active) list; under the revoked filter it reads revoked
 //   5. edit code → change label / quota → save → card updates
 //   6. "view conversations →" → jumps to conversations?code=XXX
 
@@ -104,10 +104,12 @@ test.describe('admin codes extended features', () => {
       await adminPage.waitForURL(`**/admin/conversations?code=${CODE}`, { timeout: 5_000 });
     });
 
-  test('revoke code → card shows expired state',
+  test('revoke code → card leaves the active list, shows revoked under that filter',
     async ({ adminPage }) => {
       await openCodes(adminPage);
       await adminPage.getByTestId(`code-revoke-${CODE}`).click();
+      await expect(adminPage.getByTestId('codes-filter-revoked')).toContainText('1', { timeout: 5_000 });
+      await adminPage.getByTestId('codes-filter-revoked').click();
       const card = adminPage.getByTestId(`code-card-${CODE}`);
       await expect(card).toContainText(/revoked|expired/i, { timeout: 5_000 });
     });

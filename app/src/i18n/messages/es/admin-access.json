@@ -17,6 +17,9 @@
     "new": "＋ código nuevo",
     "intro": "Cada código abre una parte de su wiki para un contacto conocido — un proceso de contratación, una presentación de inversor o una llamada de prensa. Varias personas pueden compartir un código; cuando alguien lo ingresa, la IA pregunta quién es y los asigna a la lista de miembros del código. Cada tarjeta tiene un código QR.",
     "empty": "Sin códigos aún.",
+    "filterEmpty": "Ningún código coincide con este filtro.",
+    "searchPlaceholder": "buscar código o etiqueta",
+    "filter": { "active": "activos", "revoked": "revocados", "expired": "caducados", "all": "todos" },
     "kicker": "acceso · códigos",
     "count": "{active} activos · {total} en total",
     "toast": {
