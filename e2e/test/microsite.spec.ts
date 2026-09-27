@@ -253,6 +253,10 @@ async function publishFromPanel(page: Page, slug: string, source: string): Promi
   // the timeout budget accounts for queueing.
   await expect(page.getByTestId('microsite-build-status'))
     .toHaveText(/built/i, { timeout: 180_000 });
+  // "built" shows as soon as the build settles; the page goes live one step later (promote). The
+  // success toast is the end of the whole publish, so every caller sees a live page.
+  await expect(page.getByTestId('toast-success').filter({ hasText: 'Page published' }))
+    .toBeVisible({ timeout: 30_000 });
 }
 
 // fillSource -- set the active file's source in the CodeMirror editor. The testid sits on the

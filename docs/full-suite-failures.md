@@ -65,6 +65,17 @@ on the two new specs and three neighbours, 70/70. Lint green.
 - **Closed:** `REPEAT=5` on this spec, 5/5. It is the only red and it is test-side, so there is no
   new full run.
 
+## Full run on `090a36919` (embed sync mode) — 1997 passed, 1 failed, 8 skipped (1.6 h)
+
+### T2 · `microsite` "view live" — the list is read before the page is promoted (test-side)
+- **Red:** `microsite-row-view-live-nav` has no "view live ↗" link; the archived snapshot shows the
+  row as `none` / "no live build".
+- **Mechanism:** `publishFromPanel` returned at "built". The page goes live one step later
+  (promote), and the "Page published" toast marks the end. Round 2026-09-26 added that wait to the
+  multi-file case only; this helper's callers still read the list between build and promote.
+- **Fix (test side):** the wait moves into the shared helper, so every caller sees a live page.
+- **Closed:** `REPEAT=5` on `microsite`, 35/35. The only red, test-side: no new full run.
+
 # Full-suite failures — round 2026-09-26 (branch `embed-update-hook`, event bus / outbox / webhooks, uncommitted)
 
 Two full runs. Logs: run 1 `scratchpad/accept-logs/.accept-test-fresh.log`, run 2
