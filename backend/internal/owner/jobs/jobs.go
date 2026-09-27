@@ -22,6 +22,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/atmaxmoj/standmeet/internal/infra/events"
+	infrajobs "github.com/atmaxmoj/standmeet/internal/infra/jobs"
 	"github.com/atmaxmoj/standmeet/internal/infra/periodic"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsadmin"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmcp"
@@ -94,6 +96,12 @@ func (p *Plugin) PeriodicJobs() []periodic.Job {
 		},
 	)}
 }
+
+// JobKinds — this module's durable job kinds: one source's fetch (jobs.fetch_source).
+func (p *Plugin) JobKinds() []infrajobs.Kind { return jobsuc.FetchKinds(p.deps.Jobs) }
+
+// EventTypes — the event types this module records (jobs.fetched).
+func (*Plugin) EventTypes() []events.Type { return jobsuc.FetchEventTypes() }
 
 // Name — matches the plugin registry.
 func (*Plugin) Name() string { return Name }

@@ -49,9 +49,11 @@ var submodules = map[string]bool{
 }
 
 // layerOf —— the DDD layer order inside one domain (low → high). A file in layer L may import a
-// sibling subpackage of the SAME domain only from a strictly LOWER layer.
+// sibling subpackage of the SAME domain only from a strictly LOWER layer. subscriber (the domain's
+// event handlers) may use usecase and repo; nothing below it imports it.
 var layerOf = map[string]int{
-	"entity": 0, "db": 0, "infra": 0, "repo": 1, "service": 2, "usecase": 3, "facade": 4,
+	"entity": 0, "db": 0, "infra": 0, "repo": 1, "service": 2, "usecase": 3, "subscriber": 4,
+	"facade": 5,
 }
 
 // result —— what a gate found. Clean = no findings; headline is the all-clear or failure banner.

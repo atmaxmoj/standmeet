@@ -47,8 +47,10 @@ type CommitInput struct {
 	// ReuseCode — when set, the owner picked an existing code: link the application to it and DON'T
 	// issue a new one. nil = issue a fresh code from the Code* fields (the default).
 	ReuseCode *access.Code
-	OwnerID   string
-	DraftID   string
+	// OnCommit —— runs last on the commit's transaction (the events), so it commits with the rows.
+	OnCommit func(ctx context.Context, tx pgx.Tx, out *CommitOutput) error
+	OwnerID  string
+	DraftID  string
 	// ApplicationID —— caller-supplied so the PDF renders before commit (retryable on render fail).
 	ApplicationID string
 	CodePlaintext string
@@ -74,19 +76,14 @@ type CommitOutput struct {
 func (r *ApplicationRepo) Commit(
 	ctx context.Context, in *CommitInput,
 ) (CommitOutput, error) {
-	tx, err := r.pool.Begin(ctx)
-	if err != nil {
-		return CommitOutput{}, fmt.Errorf("begin tx: %w", err)
-	}
-	out, txErr := commitTx(ctx, tx, in)
-	if txErr != nil {
-		if rerr := tx.Rollback(ctx); rerr != nil {
-			return CommitOutput{}, errors.Join(txErr, fmt.Errorf("rollback: %w", rerr))
-		}
-		return CommitOutput{}, txErr
-	}
-	if cerr := tx.Commit(ctx); cerr != nil {
-		return CommitOutput{}, fmt.Errorf("commit: %w", cerr)
+	var out CommitOutput
+	if err := pgstore.InTx(ctx, r.pool, func(tx pgstore.Tx) error {
+		var txErr error
+		out, txErr = commitTx(ctx, tx, in)
+		return txErr
+	}); err != nil {
+		//nolint:wrapcheck // InTx names begin/commit; commitTx names its steps
+		return CommitOutput{}, err
 	}
 	return out, nil
 }
@@ -122,7 +119,19 @@ func writeCommitRows(
 	}); derr != nil {
 		return CommitOutput{}, fmt.Errorf("delete draft: %w", derr)
 	}
-	return CommitOutput{Application: app, AccessCode: code}, nil
+	out := CommitOutput{Application: app, AccessCode: code}
+	if oerr := onCommit(ctx, tx, in, &out); oerr != nil {
+		return CommitOutput{}, oerr
+	}
+	return out, nil
+}
+
+// onCommit —— the caller's last word on the commit's transaction (none = nothing to add).
+func onCommit(ctx context.Context, tx pgx.Tx, in *CommitInput, out *CommitOutput) error {
+	if in.OnCommit == nil {
+		return nil
+	}
+	return in.OnCommit(ctx, tx, out)
 }
 
 // DraftRenderData —— the resume + job snapshot needed to render the application PDF BEFORE the

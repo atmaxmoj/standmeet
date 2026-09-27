@@ -18,6 +18,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/conversation/inference"
 	conversationrepo "github.com/atmaxmoj/standmeet/internal/conversation/repo"
 	ownerentity "github.com/atmaxmoj/standmeet/internal/owner/entity"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	"github.com/atmaxmoj/standmeet/internal/plugin"
 	"github.com/atmaxmoj/standmeet/internal/routes/blockdesk"
 )
@@ -56,11 +57,22 @@ func (b supplierBridge) Invoke(
 	return out, nil
 }
 
-func (b supplierBridge) InvokeBackground(
+// background — supplier.invoke with background=true. This mini-host has no job runtime, so the
+// call runs before the op answers; a failure surfaces like any other.
+func (b supplierBridge) background(
 	ctx context.Context, ownerID, seam, verb string, args json.RawMessage,
-) {
-	_, _ = b.Invoke(ctx, ownerID, seam, verb, args) //nolint:errcheck // background, drop result
+) error {
+	_, err := b.Invoke(ctx, ownerID, seam, verb, args)
+	return err
 }
+
+// —— booking.record ——
+
+// bookingBridge — this mini-host keeps no outbox: a booking's events have no subscriber in an
+// eval run, so recording one is accepted and dropped.
+type bookingBridge struct{}
+
+func (bookingBridge) RecordBooking(context.Context, *owner.BookingRecord) error { return nil }
 
 // —— blockstore.* ——
 

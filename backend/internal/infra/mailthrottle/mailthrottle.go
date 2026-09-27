@@ -26,6 +26,7 @@ const (
 type Counter interface {
 	Incr(ctx context.Context, key string) (int64, error)
 	SetTTL(ctx context.Context, key string, ttl time.Duration) error
+	TTL(ctx context.Context, key string) (time.Duration, error)
 }
 
 // Throttle — a fixed-window per-recipient cap.
@@ -52,15 +53,29 @@ func recipientKey(recipient string) string {
 	return keyPrefix + hex.EncodeToString(sum[:])
 }
 
-// Allow — may this send to `recipient` proceed? Increments the recipient's fixed-window counter;
-// over budget → false. A nil throttle/counter or any Redis error → true (fail-open: never break a
-// real send just because the limiter hiccuped).
-func (t *Throttle) Allow(ctx context.Context, recipient string) bool {
+// Wait — may this send to `recipient` proceed now? Increments the recipient's fixed-window
+// counter; 0 = go, over budget → how long until the window ends (the mail job snoozes that long
+// instead of dropping the mail). A nil throttle/counter or any Redis error → 0 (fail-open: never
+// break a real send just because the limiter hiccuped).
+func (t *Throttle) Wait(ctx context.Context, recipient string) time.Duration {
 	if t == nil || t.c == nil {
-		return true
+		return 0
 	}
-	n, counted := t.bump(ctx, recipientKey(recipient))
-	return !counted || n <= t.budget // a Redis error (counted=false) fails open
+	key := recipientKey(recipient)
+	n, counted := t.bump(ctx, key)
+	if !counted || n <= t.budget { // a Redis error (counted=false) fails open
+		return 0
+	}
+	return t.left(ctx, key)
+}
+
+// left —— how long until key's window ends; the whole window when the counter cannot say.
+func (t *Throttle) left(ctx context.Context, key string) time.Duration {
+	d, err := t.c.TTL(ctx, key)
+	if err != nil || d <= 0 {
+		return t.window
+	}
+	return d
 }
 
 // bump — increments the recipient's counter and, on the first hit of a window, starts its TTL.
@@ -88,6 +103,15 @@ func (r RedisCounter) Incr(ctx context.Context, key string) (int64, error) {
 		return 0, fmt.Errorf("mailthrottle incr: %w", err)
 	}
 	return n, nil
+}
+
+// TTL implements Counter.
+func (r RedisCounter) TTL(ctx context.Context, key string) (time.Duration, error) {
+	d, err := r.RDB.TTL(ctx, key).Result()
+	if err != nil {
+		return 0, fmt.Errorf("mailthrottle ttl: %w", err)
+	}
+	return d, nil
 }
 
 // SetTTL implements Counter.

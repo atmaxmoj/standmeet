@@ -110,6 +110,9 @@ async function recoveryStaysOnTheOldAddress(playwright: PW): Promise<void> {
   const request = await playwright.request.newContext();
   const { csrf } = await login(request, OWNER.email, OWNER.password);
   expect(await requestChange(request, csrf, FIRST)).toBe(200);
+  // The confirmation to FIRST is a durable job: let it land before clearing, or it could arrive
+  // after the clear and read as the recovery phrase going to the new address.
+  await waitForMailTo(request, FIRST, 30_000);
   await clearMailpit(request);
 
   await requestRecovery(request, csrf);
@@ -146,11 +149,11 @@ async function secondRequestKillsTheFirst(
   const { csrf } = await login(request, OWNER.email, OWNER.password);
 
   expect(await requestChange(request, csrf, FIRST)).toBe(200);
-  const firstLink = confirmLinkIn(await waitForMailTo(request, FIRST), 'confirm-email');
+  const firstLink = confirmLinkIn(await waitForMailTo(request, FIRST, 30_000), 'confirm-email');
 
   await clearMailpit(request);
   expect(await requestChange(request, csrf, SECOND)).toBe(200);
-  await waitForMailTo(request, SECOND);
+  await waitForMailTo(request, SECOND, 30_000);
 
   await followMailedLink(page, firstLink);
   await expect(page.getByTestId('email-confirmed')).toBeHidden();
@@ -167,7 +170,7 @@ async function expiredLinkIsRefused(
   const request = await playwright.request.newContext();
   const { csrf } = await login(request, OWNER.email, OWNER.password);
   expect(await requestChange(request, csrf, FIRST)).toBe(200);
-  const link = confirmLinkIn(await waitForMailTo(request, FIRST), 'confirm-email');
+  const link = confirmLinkIn(await waitForMailTo(request, FIRST, 30_000), 'confirm-email');
 
   // There's no API that can produce the "already expired" state, nor should there be one.
   execSQL(

@@ -44,10 +44,22 @@ interface State {
 }
 
 // ListingsHook —— the listings view: the pool rows plus the ability to pull new jobs.
+// `pendingSources` —— while the fetch outlasts the server's wait, how many source fetches the
+// receipt says are still running in the background (0 = none / not fetching).
 export interface ListingsHook extends State {
   fetching: boolean;
+  pendingSources: number;
   fetchNow: () => Promise<void>;
 }
+
+// FetchReceiptSchema —— the fetch outlasted the server's wait: each source keeps fetching in the
+// background, one job per source. GET /listings/fetch-result answers the pool once they are done.
+const FetchReceiptSchema = z.object({ job_ids: z.array(z.number()), pending: z.literal(true) });
+const FetchAnswerSchema = z.union([ListingsSchema, FetchReceiptSchema]);
+type FetchAnswer = z.infer<typeof FetchAnswerSchema>;
+
+// RECEIPT_POLL_MS —— how often the panel re-asks while the receipt's sources are still fetching.
+const RECEIPT_POLL_MS = 2_000;
 
 // autoFetched —— fetch-on-open, once per session. The owner asked for **auto-fetch** — "why do I
 // have to ask Claude to fetch?" — but a fetch reaches out to every registered job board, so doing
@@ -79,9 +91,17 @@ function markAutoFetched(): void {
 
 // fetchNow —— pull every registered source into the pool (POST), then re-read it (GET,
 // the shared store both surfaces watch). The POST returns the pool too, but re-reading
-// keeps the sidebar badge and the list same-sourced through the one store.
-async function fetchNow(): Promise<void> {
-  await adminAPI.post('/listings/fetch', {}, ListingsSchema);
+// keeps the sidebar badge and the list same-sourced through the one store. When the POST
+// answers with a receipt instead, the state comes from the receipt: report how many sources
+// are still fetching, and re-ask until they are done.
+async function fetchNow(onPending: (sources: number) => void): Promise<void> {
+  let answer: FetchAnswer = await adminAPI.post('/listings/fetch', {}, FetchAnswerSchema);
+  while (!Array.isArray(answer)) {
+    onPending(answer.job_ids.length);
+    await new Promise((r) => { setTimeout(r, RECEIPT_POLL_MS); });
+    answer = await adminAPI.get(`/listings/fetch-result?job_ids=${answer.job_ids.join(',')}`,
+      FetchAnswerSchema);
+  }
   await listingsStore.getState().refresh();
 }
 
@@ -98,12 +118,14 @@ async function fetchNow(): Promise<void> {
 export function useAdminListings(): ListingsHook {
   const r = useResource(listingsStore);
   const [fetching, setFetching] = useState(false);
+  const [pendingSources, setPendingSources] = useState(0);
   const runFetch = useCallback(async () => {
     setFetching(true);
     try {
-      await fetchNow();
+      await fetchNow(setPendingSources);
     } finally {
       setFetching(false);
+      setPendingSources(0);
     }
   }, []);
   // Always re-read the pool on open (fast GET — shows whatever is already there); and the
@@ -116,7 +138,9 @@ export function useAdminListings(): ListingsHook {
     markAutoFetched();
     void runFetch();
   }, [runFetch]);
-  return { ...listingsState(r.data, r.status, r.error), fetching, fetchNow: runFetch };
+  return {
+    ...listingsState(r.data, r.status, r.error), fetching, pendingSources, fetchNow: runFetch,
+  };
 }
 
 // useListingsCount —— the sidebar badge: only **reads** this store, never sends its own request.

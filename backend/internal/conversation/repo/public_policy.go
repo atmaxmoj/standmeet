@@ -106,55 +106,81 @@ func (r *ChatRepo) SavesMessages(ctx context.Context, chatID string) (bool, erro
 // pruneEvery —— how often the checker looks. The cron decides WHEN; this only bounds the lag.
 const pruneEvery = 5 * time.Minute
 
+// PrunedHook —— runs on the prune's transaction after an owner's conversations were deleted
+// (n > 0), so what it writes commits with the delete.
+type PrunedHook func(ctx context.Context, tx pgstore.Tx, ownerID string, n int64) error
+
 // PrunePeriodicJobs —— the checker, for the host scheduler. r == nil → no jobs.
-func PrunePeriodicJobs(r *ChatRepo, log *slog.Logger) []periodic.Job {
+func PrunePeriodicJobs(r *ChatRepo, log *slog.Logger, pruned PrunedHook) []periodic.Job {
 	if r == nil {
 		return []periodic.Job{}
 	}
 	return []periodic.Job{periodic.Named(
 		"public conversation prune", pruneEvery,
-		func(ctx context.Context) error { return runPrune(ctx, r, log, time.Now()) },
+		func(ctx context.Context) error {
+			return (&pruneRun{r: r, log: log, pruned: pruned, now: time.Now()}).all(ctx)
+		},
 	)}
 }
 
-func runPrune(ctx context.Context, r *ChatRepo, log *slog.Logger, now time.Time) error {
-	q := db.New(r.pool)
-	rows, err := q.ListScheduledPublicPrunes(ctx)
+// pruneRun —— one pass of the checker over every owner with a schedule.
+type pruneRun struct {
+	now    time.Time
+	r      *ChatRepo
+	log    *slog.Logger
+	pruned PrunedHook
+}
+
+func (p *pruneRun) all(ctx context.Context) error {
+	rows, err := db.New(p.r.pool).ListScheduledPublicPrunes(ctx)
 	if err != nil {
 		return fmt.Errorf("list public prunes: %w", err)
 	}
 	for i := range rows {
-		if perr := pruneOne(ctx, q, log, &rows[i], now); perr != nil {
+		if perr := p.owner(ctx, &rows[i]); perr != nil {
 			return perr
 		}
 	}
 	return nil
 }
 
+// owner —— one owner's prune and the hook's writes, in one transaction.
+func (p *pruneRun) owner(ctx context.Context, row *db.ListScheduledPublicPrunesRow) error {
+	//nolint:wrapcheck // pruneOne and the hook name their steps
+	return pgstore.InTx(ctx, p.r.pool, func(tx pgstore.Tx) error {
+		n, err := pruneOne(ctx, db.New(tx), p.log, row, p.now)
+		if err != nil || n == 0 {
+			return err
+		}
+		return p.pruned(ctx, tx, pgstore.FormatUUID(row.OwnerID), n)
+	})
+}
+
 // pruneOne —— delete one owner's idle codeless conversations if the schedule is due, then move
-// the mark. Logs the count (success path included) so prod shows what a run actually removed.
+// the mark; returns how many went. Logs the count (success path included) so prod shows what a
+// run actually removed.
 func pruneOne(
 	ctx context.Context, q *db.Queries, log *slog.Logger,
 	p *db.ListScheduledPublicPrunesRow, now time.Time,
-) error {
+) (int64, error) {
 	due, err := periodic.CronDue(p.PruneCron, p.LastRunAt.Time, now)
 	if err != nil {
 		// Unexpected: a malformed cron can't be stored (ValidatePublicPolicy).
-		return fmt.Errorf("prune schedule: %w", err)
+		return 0, fmt.Errorf("prune schedule: %w", err)
 	}
 	if !due {
-		return nil
+		return 0, nil
 	}
 	n, err := q.PruneCodelessConversations(ctx, db.PruneCodelessConversationsParams{
 		OwnerID: p.OwnerID, RetentionDays: p.RetentionDays,
 	})
 	if err != nil {
-		return fmt.Errorf("prune conversations: %w", err)
+		return 0, fmt.Errorf("prune conversations: %w", err)
 	}
 	log.Info("public conversation prune", "owner", pgstore.FormatUUID(p.OwnerID),
 		"retention_days", p.RetentionDays, "deleted", n)
 	if merr := q.MarkPublicPruneRun(ctx, p.OwnerID); merr != nil {
-		return fmt.Errorf("mark public prune: %w", merr)
+		return 0, fmt.Errorf("mark public prune: %w", merr)
 	}
-	return nil
+	return n, nil
 }

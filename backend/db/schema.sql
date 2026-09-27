@@ -43,6 +43,7 @@ CREATE FUNCTION corpus_searchable(body text) RETURNS text
 
 -- Owners —— v1 单 owner（instance_settings.multi_tenant=false 锁定）；
 -- 但 schema 已经按 multi-tenant 形状建（每张领域表都会带 owner_id FK）。
+-- events: none (its facts are recorded as domain events by the owner use cases: owner.email_changed, owner.login)
 CREATE TABLE owners (
     id                   uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     email                citext        UNIQUE NOT NULL,
@@ -59,7 +60,10 @@ CREATE TABLE owners (
     -- 一次性靠确认时清空这三列实现 —— 可重放的确认链接 = 把身份挂在一封旧邮件上。
     pending_email_token_hash text          NOT NULL DEFAULT '',
     pending_email_expires_at timestamptz,
-    handle               citext        UNIQUE NOT NULL,
+    -- pending_email_job_id —— the confirmation mail's job; its state is the pending row's send
+    -- state (sending / sent / failed). NULL = no confirmation queued.
+    pending_email_job_id     bigint,
+    handle              citext        UNIQUE NOT NULL,
     full_name            text          NOT NULL,
     location             text          NOT NULL DEFAULT '',
     -- public_url —— owner 对外的完整 URL (scheme + host + port，如
@@ -127,6 +131,7 @@ CREATE TABLE owners (
 --     "地址删了订单还在，退默认地址"，所以**不用**先解绑所有引用它的 code/role。
 --   · 部分唯一索引 —— "两个默认"不可能存在，而不是"会被检查出来"。
 --     （删默认那条要拦：没有可退的了。那条在服务层，schema 表达不了"至少一条"。）
+-- events: none (owner configuration; its budget facts are recorded as gas.exhausted / gas.refilled)
 CREATE TABLE owner_providers (
     id          uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id    uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
@@ -153,6 +158,9 @@ CREATE TABLE owner_providers (
     -- 推到 now()，重新开满预算——正是免费层"每天重置"的表达方式。写入前在 Go 里校验过。
     gas_refill_cron text        NOT NULL DEFAULT '',
     created_at  timestamptz   NOT NULL DEFAULT now(),
+    -- gas_exhausted_at —— when the gate last found this tank dry. gas.exhausted fires once per
+    -- fill: only when this is unset or older than gas_filled_at.
+    gas_exhausted_at timestamptz,
     UNIQUE (owner_id, label)
 );
 CREATE INDEX owner_providers_owner_idx ON owner_providers(owner_id);
@@ -160,6 +168,7 @@ CREATE UNIQUE INDEX owner_providers_one_default ON owner_providers(owner_id) WHE
 
 -- Instance settings —— singleton（id=1，CHECK 强制）。
 -- fresh volume 初始化时种一行；setup token 跟 claim 状态由 boot 写。
+-- events: none (instance configuration)
 CREATE TABLE instance_settings (
     id                integer      PRIMARY KEY DEFAULT 1 CHECK (id = 1),
     is_claimed        boolean      NOT NULL DEFAULT false,
@@ -175,6 +184,7 @@ INSERT INTO instance_settings (id) VALUES (1) ON CONFLICT DO NOTHING;
 -- key_id 是公开 stub (owner 在 admin UI 看 + 写 ~/.standmeet/credentials.json)；
 -- public_key_pem 是 PKCS8 PEM 格式的 Ed25519 公钥。私钥永远不入库 (owner
 -- 自己保管 PEM)。撤销 = DELETE (硬删，对齐 youteacher 简化)。
+-- events: none (owner credentials; no consumer)
 CREATE TABLE owner_keypairs (
     id              uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id        uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
@@ -201,6 +211,7 @@ CREATE TABLE owner_keypairs (
 --   source_ids  —— 「从哪提升来」的上游 id（wiki←raw ids / output←wiki ids）。归一原 wiki_entries 的
 --                  source_raw_ids 与 output_entries 的 source_wiki_ids 为一列。
 --   show_as_source —— false 时 AI 可 corpus_read 拿 body，但 readCollector 不收录（meta/persona）。
+-- events: emit
 CREATE TABLE corpus_notes (
     id               uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id         uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
@@ -306,6 +317,7 @@ CREATE INDEX corpus_notes_writing_published_idx
 -- slug，只按 title case-insensitive；没中就不入边）。每次写走 "delete all where src → insert new"。
 -- 出度 = read-next（引用了哪些）；入度（按 dst）= cited-by backlinks。FK cascade：note 删 → 边消。
 -- （note_refs 的跨-genre 归一在后续 refs 统一阶段；本阶段仅把 FK 重指到统一表。）
+-- events: none (derived from corpus_notes bodies; corpus.note.changed covers the change)
 CREATE TABLE note_refs (
     src_id  uuid          NOT NULL REFERENCES corpus_notes(id) ON DELETE CASCADE,
     dst_id  uuid          NOT NULL REFERENCES corpus_notes(id) ON DELETE CASCADE,
@@ -329,6 +341,7 @@ CREATE INDEX note_refs_owner_dst_idx ON note_refs(owner_id, dst_id);
 -- freeze）；不再有 corpus_permissions / granted_skills / code_skills /
 -- code_mcp_servers 这些散落字段。#135:per-code 预约配额也不在这——booker 能力
 -- 自管(它的隔离 capstore),内核 access_codes 不认。
+-- events: none (its facts are recorded as domain events by the access use cases: code.issued, code.revoked, code.redeemed)
 CREATE TABLE access_codes (
     id                        uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id                  uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
@@ -376,6 +389,7 @@ CREATE TABLE access_codes (
 );
 CREATE UNIQUE INDEX access_codes_owner_slug_idx ON access_codes (owner_id, slug);
 
+-- events: none (a visitor identity under a code; code.redeemed is recorded by the conversation use case)
 CREATE TABLE code_members (
     id            uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     code_id       uuid          NOT NULL REFERENCES access_codes(id) ON DELETE CASCADE,
@@ -395,6 +409,7 @@ CREATE UNIQUE INDEX code_members_code_name_uniq ON code_members(code_id, display
 -- is_builtin：seed 出来的 5 个内置 skill (Code Review / Frontend Design /
 --   Resume Portfolio / Technical Interview / Conversation Report) 标 true；
 --   owner 自己加的 = false。删除时 builtin 不允许删，re-seed 也以 name 为键。
+-- events: none (owner configuration)
 CREATE TABLE skills (
     id              uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id        uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
@@ -426,6 +441,7 @@ CREATE UNIQUE INDEX skills_owner_name_uniq ON skills(owner_id, name);
 -- 把这些 server 的 tool 也加进可用列表 (ext_<server>_<tool>)。
 -- auth_header_value 落 cryptobox AES-256-GCM 密文，跟 BYOAI key 同套模式
 -- （INSTANCE_SECRET KEK）。
+-- events: none (owner configuration)
 CREATE TABLE mcp_servers (
     id                      uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id                uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
@@ -449,6 +465,7 @@ CREATE UNIQUE INDEX mcp_servers_owner_name_uniq ON mcp_servers(owner_id, name);
 -- prompt"，但 type 本身不带这个限定（未来 skill / page 也可能复用同张表）。
 -- builtin（is_builtin=true）现在只有一行 "public" —— claim 时种，删除被
 -- repo 层拒；owner 自己加的 = false。
+-- events: none (owner configuration)
 CREATE TABLE prompts (
     id           uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id     uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
@@ -471,6 +488,7 @@ CREATE UNIQUE INDEX prompts_owner_name_uniq ON prompts(owner_id, name);
 -- public role：claim 时种，is_builtin=true，公开 corpus URIs / 无 skill /
 --   无 mcp / prompt 挂 public prompt；不可删（repo 层拒）。owner 不显式
 --   选 role 时 access_code 默认挂这条。
+-- events: none (owner configuration)
 CREATE TABLE roles (
     id           uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id     uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
@@ -502,6 +520,7 @@ CREATE UNIQUE INDEX roles_owner_name_uniq ON roles(owner_id, name);
 -- role_corpus_uris —— Role 持的"可见 corpus URI 白名单"。glob 用现
 -- compileGlob 方言（** 跨 /，* 不跨）。raw://** 永远 deny，跟此表配置无关
 -- （hardcode in Role.AllowsCorpus）；空表 = 该 role 看不到任何 corpus。
+-- events: none (owner configuration, part of a role)
 CREATE TABLE role_corpus_uris (
     role_id      uuid          NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
     uri_pattern  text          NOT NULL,
@@ -515,6 +534,7 @@ CREATE TABLE role_corpus_uris (
 -- role 是「这个受众」的目的地；code 是「这一次邀约」的。合并语义（domain.MergeWaypoints）：
 -- 同 waypoint_id → code 整条覆盖 role 的，新 id → 追加；code 不配 → 完全继承 role 的。
 -- 冻结那刻仍过 FilterWaypointsByCorpus —— code 不能借覆盖引向 role 看不见的证据。
+-- events: none (owner configuration, part of a code)
 CREATE TABLE code_waypoints (
     code_id       uuid          NOT NULL REFERENCES access_codes(id) ON DELETE CASCADE,
     waypoint_id   text          NOT NULL,
@@ -525,6 +545,7 @@ CREATE TABLE code_waypoints (
     PRIMARY KEY (code_id, waypoint_id)
 );
 
+-- events: none (owner configuration, part of a role)
 CREATE TABLE role_waypoints (
     role_id       uuid          NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
     waypoint_id   text          NOT NULL,
@@ -536,6 +557,7 @@ CREATE TABLE role_waypoints (
 );
 
 -- role_skills —— Role ↔ Skill 多对多。code 不再直接挂 skill；走 role 转一层。
+-- events: none (owner configuration, part of a role)
 CREATE TABLE role_skills (
     role_id   uuid NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
     skill_id  uuid NOT NULL REFERENCES skills(id) ON DELETE CASCADE,
@@ -545,6 +567,7 @@ CREATE TABLE role_skills (
 CREATE INDEX role_skills_skill_idx ON role_skills(skill_id);
 
 -- role_mcp_servers —— Role ↔ MCP server 多对多。同上，code 不再直接挂。
+-- events: none (owner configuration, part of a role)
 CREATE TABLE role_mcp_servers (
     role_id        uuid NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
     mcp_server_id  uuid NOT NULL REFERENCES mcp_servers(id) ON DELETE CASCADE,
@@ -602,6 +625,7 @@ ALTER TABLE access_codes
 -- the referrer goes first. owner_id is the ownership link; holder_id is kept
 -- nullable only as a migration breadcrumb (the note an existing image came from);
 -- asset_references is authoritative for "in use", never holder_id.
+-- events: none (owner media pool; no consumer)
 CREATE TABLE assets (
     id                 uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id           uuid          NOT NULL,
@@ -625,6 +649,7 @@ CREATE INDEX assets_owner_idx ON assets(owner_id);
 -- referrers. Each referrer rewrites its own rows inside its own write transaction;
 -- ON DELETE CASCADE is belt-and-suspenders (the guard means an asset delete never
 -- reaches a referenced row).
+-- events: none (derived from each referrer's content, rewritten in its write)
 CREATE TABLE asset_references (
     asset_id      uuid NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
     referrer_kind text NOT NULL,
@@ -656,6 +681,7 @@ ALTER TABLE corpus_notes
 -- 时按 dst 查（只列 published 的源）。
 --
 -- FK cascade ON DELETE：src 或 dst note 删了 → 对应边自动消失。
+-- events: none (derived from writing bodies; writing.published / writing.unpublished carry the change)
 CREATE TABLE writing_refs (
     src_writing_id  uuid          NOT NULL REFERENCES corpus_notes(id) ON DELETE CASCADE,
     dst_writing_id  uuid          NOT NULL REFERENCES corpus_notes(id) ON DELETE CASCADE,
@@ -668,6 +694,7 @@ CREATE INDEX writing_refs_owner_dst_idx ON writing_refs(owner_id, dst_writing_id
 
 -- handle_aliases —— owner 改 handle 后旧 handle 入这里，旧 URL 仍能 resolve
 -- 到同一个 owner。GetByHandle 走 owners.handle 优先，未命中走 alias。
+-- events: none (derived: written by the owner's handle change)
 CREATE TABLE handle_aliases (
     handle      citext        PRIMARY KEY,
     owner_id    uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
@@ -675,6 +702,7 @@ CREATE TABLE handle_aliases (
 );
 CREATE INDEX handle_aliases_owner_idx ON handle_aliases(owner_id);
 
+-- events: none (its facts are recorded as domain events by the conversation use cases: conversation.started, conversation.pruned)
 CREATE TABLE conversations (
     id              uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id        uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
@@ -708,6 +736,7 @@ CREATE UNIQUE INDEX conversations_member_dockey_open_uniq
 -- prune_cron: a schedule deleting those idle > retention_days ('' = off, the default).
 -- last_run_at is the mark the cron is evaluated from. Coded conversations are never affected.
 -- No row = save, no prune.
+-- events: none (owner configuration)
 CREATE TABLE public_conversation_policy (
     owner_id        uuid          PRIMARY KEY REFERENCES owners(id) ON DELETE CASCADE,
     save            boolean       NOT NULL DEFAULT true,
@@ -720,6 +749,7 @@ CREATE TABLE public_conversation_policy (
 -- 恰好 2 条：role='visitor' 的 Q + role='assistant' 的 A）；dialog 只给这一轮一个身份/时序锚点
 -- （曾经 AppendDialog 借 assistant message id 冒充 dialog id，现在有真 id）。未来 backlinks /
 -- per-dialog 操作用它的 id。turn count 仍数 visitor message（每 dialog 一条），语义不变。
+-- events: none (conversation.message is recorded by the conversation use case)
 CREATE TABLE dialogs (
     id               uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     conversation_id  uuid          NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
@@ -727,6 +757,7 @@ CREATE TABLE dialogs (
 );
 CREATE INDEX dialogs_conversation_idx ON dialogs(conversation_id);
 
+-- events: none (conversation.message is recorded by the conversation use case)
 CREATE TABLE messages (
     id               uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     conversation_id  uuid          NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
@@ -758,6 +789,7 @@ CREATE TABLE messages (
 CREATE INDEX messages_dialog_idx ON messages(dialog_id);
 
 -- microsites —— owner 自定义 React 页面。
+-- events: none (its facts are recorded as domain events by the owner use cases: page.promoted_live, page.rolled_back, page.unpublished)
 CREATE TABLE microsites (
     id                     uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id               uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
@@ -803,6 +835,7 @@ CREATE INDEX access_codes_microsite_idx ON access_codes(microsite_id);
 -- 只在这些来源站上生效"。**embed 指向 code**（embed 是包着码的配置,它引用它暴露的那张码）,
 -- 不是码指向 embed。来源白名单住在这儿而不是码上：码是凭据,"widget 在哪渲染"是 embed 的属性
 -- （embed 规划 2026-09-01）。删码 → embed 跟着走（CASCADE）：没有码的 embed 无意义。
+-- events: none (owner configuration)
 CREATE TABLE embeds (
     id               uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id         uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
@@ -827,6 +860,7 @@ CREATE UNIQUE INDEX embeds_key_id_uniq ON embeds(key_id);
 -- （两个 embed 挂同一张码时，GetEmbedForCode:one 取哪份白名单是未定义的）。
 CREATE UNIQUE INDEX embeds_code_uniq ON embeds(code_id);
 
+-- events: none (microsite.build.settled is recorded by the owner use case)
 CREATE TABLE microsite_builds (
     id              uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     page_id         uuid          NOT NULL REFERENCES microsites(id) ON DELETE CASCADE,
@@ -850,6 +884,7 @@ CREATE TABLE microsite_builds (
 
 -- access_requests —— visitor 在 /<handle>/gate 留言（无 code 时）。
 -- owner 在 /admin/requests 看；open → replied (回邮件后) / closed (无视)。
+-- events: none (its facts are recorded as domain events by the access use cases: access_request.created, access_request.status_changed)
 CREATE TABLE access_requests (
     id          uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id    uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
@@ -859,7 +894,14 @@ CREATE TABLE access_requests (
     message     text          NOT NULL DEFAULT '',
     status      text          NOT NULL DEFAULT 'open'
                               CHECK (status IN ('open', 'replied', 'closed')),
-    created_at  timestamptz   NOT NULL DEFAULT now()
+    created_at  timestamptz   NOT NULL DEFAULT now(),
+    -- mail_job_id —— the approval mail's job; its state is the row's mail state
+    -- (sending / sent / failed). The row turns replied only after that mail went out.
+    mail_job_id       bigint,
+    -- notify_claimed_at —— this request took one of the owner's notification slots (the
+    -- email-bomb cap counts these per owner per hour); notified_at —— that mail went out.
+    notify_claimed_at timestamptz,
+    notified_at       timestamptz
 );
 
 CREATE INDEX access_requests_owner_status_idx
@@ -868,6 +910,7 @@ CREATE INDEX access_requests_owner_status_idx
 -- page_content —— owner public page 内容（hero / insights / projects /
 -- where / contact）。Singleton-per-owner（PK = owner_id）。各 section 用
 -- jsonb 存 schemaless 结构。设计稿 J / page-content.js 是字段语义来源。
+-- events: none (owner configuration)
 CREATE TABLE page_content (
     owner_id        uuid          PRIMARY KEY REFERENCES owners(id) ON DELETE CASCADE,
     hero_prose      text          NOT NULL DEFAULT '',
@@ -882,6 +925,7 @@ CREATE TABLE page_content (
 -- job_sources —— owner 注册的 job source（greenhouse / lever / ashby /
 -- remoteok / wwr / hn_hiring 等）。MCP `jobs.register_source` 写一行，
 -- `jobs.fetch_new` 按这条 row 找 fetcher adapter + 抓真 API。
+-- events: none (owner configuration)
 CREATE TABLE job_sources (
     id              uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id        uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
@@ -915,6 +959,7 @@ CREATE INDEX job_sources_owner_idx ON job_sources(owner_id, created_at DESC);
 -- job_fingerprints —— 跨日 dedup 用; (source_id, external_id) 见过的就
 -- 不再返回。永不过期 (TTL 用 source 级别 GC); external_id 是各 source
 -- 自带的稳定 ID (greenhouse.id / lever.id / hn.comment_id / wwr.guid 等)。
+-- events: none (derived dedup cache)
 CREATE TABLE job_fingerprints (
     source_id     uuid          NOT NULL REFERENCES job_sources(id) ON DELETE CASCADE,
     external_id   text          NOT NULL,
@@ -931,6 +976,7 @@ CREATE TABLE job_fingerprints (
 -- 用作 print 路由的源）；终稿 PDF 在 applications.commit 时由 gotenberg
 -- sidecar 抓 print 路由现场渲染 bytes 塞 MCP 响应，Claude 拿去经 Playwright
 -- MCP 投。
+-- events: none (a draft; application.committed is recorded when it is committed)
 CREATE TABLE resume_drafts (
     id               uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id         uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
@@ -960,6 +1006,7 @@ CREATE INDEX resume_drafts_expires_idx ON resume_drafts(expires_at);
 -- access_code_id 是 NOT NULL FK + ON DELETE RESTRICT（删 code 前必须先删 application）。
 -- 删 application 不级联删 code —— recruiter 即使在 application 删除后仍可用 QR
 -- 访问（直到 code 自然过期或 owner 手动 revoke）。
+-- events: none (application.committed is recorded by the jobs use case)
 CREATE TABLE applications (
     id             uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id       uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
@@ -999,6 +1046,7 @@ CREATE UNIQUE INDEX applications_access_code_uniq ON applications(access_code_id
 -- token_expires_at—— 服务端据此判断是否 refresh；NULL = 还没拿到 token（存了 creds 未授权）。
 -- connected_at    —— 非空 = 已连/已验（oauth 走完 dance / protocol 验证通过）。
 -- active          —— 一条 seam 同时只有一个供给者生效；owner 显式 activate。
+-- events: none (its facts are recorded as domain events by the block admin: supplier.connected, supplier.disconnected, supplier.activated)
 CREATE TABLE block_connections (
     id               uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id         uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
@@ -1069,6 +1117,7 @@ CREATE UNIQUE INDEX block_connections_owner_block_uniq
 -- 它还是**实时**的：`block-disable-while-attached` 证明这一闸会咬住正在跑的会话，
 -- 而 role 快照不会。
 -- (owner_id, block_id) 唯一 → upsert 安全（并发 toggle 不串）。
+-- events: none (owner configuration)
 CREATE TABLE block_enabled (
     owner_id   uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
     block_id   text          NOT NULL,
@@ -1092,18 +1141,21 @@ CREATE TABLE block_enabled (
 --
 -- 单位是 glob 而非 note id：跟 role 的正列表同一种语言，owner 写 `subjectivity://cv` 就少一条，
 -- 写 `subjectivity://**` 就把整个 genre 从这张码上收回。
+-- events: none (owner configuration, part of a code)
 CREATE TABLE code_corpus_denials (
     code_id     uuid NOT NULL REFERENCES access_codes(id) ON DELETE CASCADE,
     uri_pattern text NOT NULL,
     PRIMARY KEY (code_id, uri_pattern)
 );
 
+-- events: none (owner configuration, part of a code)
 CREATE TABLE code_block_denials (
     code_id  uuid NOT NULL REFERENCES access_codes(id) ON DELETE CASCADE,
     block_id text NOT NULL,
     PRIMARY KEY (code_id, block_id)
 );
 
+-- events: none (owner configuration, part of a code)
 CREATE TABLE code_skill_denials (
     code_id   uuid NOT NULL REFERENCES access_codes(id) ON DELETE CASCADE,
     skill_id  uuid NOT NULL REFERENCES skills(id) ON DELETE CASCADE,
@@ -1145,6 +1197,7 @@ CREATE INDEX code_skill_denials_skill_idx ON code_skill_denials(skill_id);
 --
 -- ON DELETE CASCADE: conversation / owner 被删时整盘清掉；suggestion 没
 -- 独立读价值。
+-- events: none (ghost.accepted is recorded by the conversation use case)
 CREATE TABLE conversation_ghosts (
     id                uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id          uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
@@ -1174,6 +1227,7 @@ CREATE INDEX conversation_ghosts_owner_idx
 -- 端在 sandboxed iframe 里渲，独立 /report/{id} 路由可直接打开。
 --
 -- ON DELETE CASCADE: conversation / owner 删一并清。
+-- events: none (a derived report of a conversation; no consumer)
 CREATE TABLE chat_reports (
     id                uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id          uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
@@ -1189,6 +1243,7 @@ CREATE INDEX chat_reports_owner_idx
 -- inference_usage —— #106 计费:每次 owner-key LLM 调用记一行 {model, input/output tokens}。
 -- BYOAI 是访客自付,不记(route handler 传 no-op recorder)。7 天小表:查询窗口固定 7 天,
 -- boot 时清 >7 天的老行(见 usecases.CleanupInferenceUsage)。admin /inference-usage 出按天×model 聚合。
+-- events: none (high-volume usage metering, off the bus by decision)
 CREATE TABLE inference_usage (
     id             uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id       uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
@@ -1219,6 +1274,7 @@ CREATE INDEX inference_usage_gas_idx
 -- chi.RealIP 解出的 host (跟 conversations.client_ip 同口径)。reason 给 owner
 -- 自己记备注。expires_at NULL = 永久封；非空 = 到点自动失效 (enforcement
 -- 查询带 now() 过滤)。单 owner v1 仍带 owner_id，多租户免费继承。
+-- events: none (ip_ban.added is recorded by the security op)
 CREATE TABLE banned_ips (
     id          uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id    uuid          NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
@@ -1236,6 +1292,7 @@ CREATE UNIQUE INDEX banned_ips_owner_ip_uniq ON banned_ips(owner_id, ip);
 -- 从 tool 派生（绝不收客户端值）→ 同 mcp 跨 session 隔离、同 session 跨 mcp 隔离。value
 -- 是 app 自定义 jsonb（booked 卡存 {event_id: {cancelled:true}}）。member 删（会员清理）
 -- 级联清掉其全部 app state。单 owner v1 仍带 owner_id，多租户免费继承。
+-- events: none (per-session app state; high volume, no consumer)
 CREATE TABLE mcp_app_state (
     owner_id   uuid        NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
     member_id  uuid        NOT NULL REFERENCES code_members(id) ON DELETE CASCADE,
@@ -1261,6 +1318,7 @@ CREATE TABLE mcp_app_state (
 -- rate_limit_rpm NULL = instance default. #135: no booking quota lives here —
 -- api-key sessions carry no access code, so the booker quota gate (keyed by
 -- code) never applied to them; booking config is the booker block’s own.
+-- events: none (its facts are recorded as domain events by the access use case: api_key.issued, api_key.revoked)
 CREATE TABLE api_keys (
     id              uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id        uuid        NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
@@ -1282,12 +1340,14 @@ CREATE INDEX api_keys_owner_idx ON api_keys(owner_id);
 -- api_key_block_denials / api_key_skill_denials —— per-key deny rows, mirror
 -- of code_block_denials / code_skill_denials: pure subtraction from the
 -- assumed role's grant.
+-- events: none (owner configuration, part of an API key)
 CREATE TABLE api_key_block_denials (
     key_id   uuid NOT NULL REFERENCES api_keys(id) ON DELETE CASCADE,
     block_id text NOT NULL,
     PRIMARY KEY (key_id, block_id)
 );
 
+-- events: none (owner configuration, part of an API key)
 CREATE TABLE api_key_skill_denials (
     key_id   uuid NOT NULL REFERENCES api_keys(id) ON DELETE CASCADE,
     skill_id uuid NOT NULL REFERENCES skills(id) ON DELETE CASCADE,
@@ -1300,6 +1360,7 @@ CREATE INDEX api_key_skill_denials_skill_idx ON api_key_skill_denials(skill_id);
 -- candidate only once the owner opens it here; opening exposes nothing by itself
 -- (a key whose role grants it must also exist). Runtime owner data, distinct from
 -- the dev-time KnownAPIGaps ratchet (which tracks renderer completeness).
+-- events: none (owner configuration)
 CREATE TABLE api_open_blocks (
     owner_id  uuid        NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
     block_id  text        NOT NULL,
@@ -1320,6 +1381,7 @@ CREATE TABLE api_open_blocks (
 -- verbatim rather than exploded into columns: it is the block's own declaration,
 -- the loader already reads that shape, and a second column-shaped copy is only a
 -- place for the two to disagree.
+-- events: none (block.installed is recorded by the block install op)
 CREATE TABLE installed_blocks (
     id          uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id    uuid        NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
@@ -1332,6 +1394,7 @@ CREATE TABLE installed_blocks (
 );
 
 -- bundles —— a named set of blocks; the thing a code points at.
+-- events: none (owner configuration)
 CREATE TABLE bundles (
     id          uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id    uuid        NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
@@ -1343,12 +1406,17 @@ CREATE TABLE bundles (
 -- bundle_blocks —— membership by block id, not by foreign key: a member may be a
 -- built-in (which has no row anywhere — it ships in the image) or an installed one,
 -- and a foreign key could only express the second.
+-- events: none (owner configuration, part of a bundle)
 CREATE TABLE bundle_blocks (
     bundle_id   uuid        NOT NULL REFERENCES bundles(id) ON DELETE CASCADE,
     block_id    text        NOT NULL,
     added_at    timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (bundle_id, block_id)
 );
+-- Both indexes lived only in migrations/2026-09-10-blocks-and-bundles.sql, so a fresh volume
+-- never had them (caught by TestMigrationsAddNothingToASchemaSQLDatabase).
+CREATE INDEX IF NOT EXISTS idx_bundle_blocks_block ON bundle_blocks (block_id);
+CREATE INDEX IF NOT EXISTS idx_access_codes_bundle ON access_codes (bundle_id);
 
 -- block_failures —— the owner's half of "failure has three faces". Persistent by
 -- construction: a toast that appears if the owner happens to be looking is not a
@@ -1358,6 +1426,7 @@ CREATE TABLE bundle_blocks (
 -- 按 (owner, block) 而不是 (bundle, block)：**失败是这一块本身的属性**。同一块可以在好几捆
 -- 里，按捆存就要写好几行说同一件事，然后它们各自过期。捆的健康是「我的成员里哪些失败了」，
 -- 一次 join 就答得出来。
+-- events: none (block.failed is recorded when a block starts failing)
 CREATE TABLE block_failures (
     owner_id    uuid        NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
     block_id    text        NOT NULL,
@@ -1374,6 +1443,7 @@ CREATE INDEX bundle_blocks_block_idx ON bundle_blocks (block_id);
 -- like every other binding here: editing an included bundle moves everything that reaches
 -- it. PK forbids a duplicate edge, CHECK forbids the one-hop self-cycle; a longer cycle is
 -- refused at write by a reachability walk in Go (see assembly.SetIncludes).
+-- events: none (owner configuration, part of a bundle)
 CREATE TABLE bundle_includes (
     bundle_id   uuid        NOT NULL REFERENCES bundles(id) ON DELETE CASCADE,
     includes_id uuid        NOT NULL REFERENCES bundles(id) ON DELETE CASCADE,
@@ -1391,3 +1461,254 @@ ALTER TABLE access_codes
     ADD CONSTRAINT access_codes_bundle_id_fkey
     FOREIGN KEY (bundle_id) REFERENCES bundles(id) ON DELETE SET NULL;
 CREATE INDEX access_codes_bundle_idx ON access_codes(bundle_id);
+
+-- ── event bus outbox (mirrors migrations/2026-09-26-events-outbox.sql) ──
+
+-- events —— the outbox. A row commits in the same transaction as the change it describes; the
+-- relay (internal/infra/events) claims rows with fanned_out_at IS NULL … FOR UPDATE SKIP LOCKED,
+-- enqueues one job per matching subscriber and stamps fanned_out_at in that same transaction.
+-- No sequence cursor: a cursor skips a row whose transaction took its seq early and committed late.
+-- events: none (the outbox itself)
+CREATE TABLE IF NOT EXISTS events (
+    id             uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+    seq            bigint      GENERATED ALWAYS AS IDENTITY,
+    owner_id       uuid        NULL,
+    type           text        NOT NULL,
+    subject        text        NOT NULL,
+    data           jsonb       NOT NULL DEFAULT '{}'::jsonb,
+    occurred_at    timestamptz NOT NULL DEFAULT now(),
+    fanned_out_at  timestamptz NULL,
+    -- fanout —— [{subscriber, job_id}]: which job each subscriber got (the Tasks panel's event detail).
+    fanout         jsonb       NOT NULL DEFAULT '[]'::jsonb,
+    relay_failures int         NOT NULL DEFAULT 0,
+    poisoned_at    timestamptz NULL,
+    last_error     text        NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS events_unfanned_idx ON events (seq)
+    WHERE fanned_out_at IS NULL AND poisoned_at IS NULL;
+CREATE INDEX IF NOT EXISTS events_occurred_idx ON events (occurred_at);
+-- High churn (insert, then one update), low volume: vacuum early so dead tuples do not pile up.
+ALTER TABLE events SET (autovacuum_vacuum_scale_factor = 0.02, autovacuum_analyze_scale_factor = 0.02);
+
+-- corpus_path_segment —— the SQL copy of Go's usecase.PathSegment (lowercase; runs of anything that
+-- is not a letter or digit become one '-'; cut to 80 characters; trimmed; empty → 'untitled').
+-- It exists only so the trigger can name an event's subject. The Go function is the rule;
+-- TestSQLPathSegmentMatchesGo fails the moment the two disagree.
+CREATE OR REPLACE FUNCTION corpus_path_segment(title text) RETURNS text
+LANGUAGE sql IMMUTABLE AS $$
+    SELECT coalesce(nullif(btrim(left(btrim(regexp_replace(lower(title), '[^[:alnum:]]+', '-', 'g'), '-'), 80), '-'), ''), 'untitled')
+$$;
+
+-- corpus_note_uri —— `<genre>://<path>` for a note, walking the parent chain (at most 32 levels,
+-- like Go's SyncNotePath). raw is addressed by id, writing by slug.
+CREATE OR REPLACE FUNCTION corpus_note_uri(p_genre text, p_id uuid, p_slug text, p_title text, p_parent uuid)
+RETURNS text LANGUAGE plpgsql STABLE AS $$
+DECLARE
+    segs  text[] := ARRAY[corpus_path_segment(p_title)];
+    cur   uuid   := p_parent;
+    t     text;
+    par   uuid;
+    depth int    := 0;
+BEGIN
+    IF p_genre = 'raw' THEN RETURN 'raw://' || p_id::text; END IF;
+    IF p_genre = 'writing' THEN RETURN 'writing://writings/' || p_slug; END IF;
+    WHILE cur IS NOT NULL AND depth < 32 LOOP
+        SELECT n.title, n.parent_id INTO t, par FROM corpus_notes n WHERE n.id = cur;
+        EXIT WHEN NOT FOUND;
+        segs := corpus_path_segment(t) || segs;
+        cur := par;
+        depth := depth + 1;
+    END LOOP;
+    RETURN p_genre || '://' || array_to_string(segs, '/');
+END $$;
+
+-- corpus_notes_event —— writes corpus.note.changed for every insert, delete, and update of a
+-- watched column. The WHEN clauses on the triggers below keep no-op updates (updated_at,
+-- import bookkeeping) silent.
+CREATE OR REPLACE FUNCTION corpus_notes_event() RETURNS trigger
+LANGUAGE plpgsql AS $$
+DECLARE
+    r   corpus_notes;
+    op  text;
+BEGIN
+    IF TG_OP = 'DELETE' THEN r := OLD; op := 'deleted';
+    ELSIF TG_OP = 'INSERT' THEN r := NEW; op := 'created';
+    ELSE r := NEW; op := 'updated';
+    END IF;
+    INSERT INTO events (owner_id, type, subject, data) VALUES (
+        r.owner_id, 'corpus.note.changed',
+        corpus_note_uri(r.genre, r.id, r.slug, r.title, r.parent_id),
+        jsonb_build_object(
+            'op', op, 'note_id', r.id, 'genre', r.genre,
+            'parent_id', coalesce(r.parent_id::text, ''),
+            'published', r.published,
+            'was_published', CASE WHEN TG_OP = 'UPDATE' THEN OLD.published ELSE r.published END,
+            'path_changed', TG_OP = 'UPDATE' AND (OLD.title, OLD.parent_id) IS DISTINCT FROM (NEW.title, NEW.parent_id)
+        ));
+    PERFORM pg_notify('standmeet_events', '');
+    RETURN NULL;
+END $$;
+
+DROP TRIGGER IF EXISTS corpus_notes_event_ins_del ON corpus_notes;
+CREATE TRIGGER corpus_notes_event_ins_del AFTER INSERT OR DELETE ON corpus_notes
+    FOR EACH ROW EXECUTE FUNCTION corpus_notes_event();
+
+DROP TRIGGER IF EXISTS corpus_notes_event_upd ON corpus_notes;
+CREATE TRIGGER corpus_notes_event_upd AFTER UPDATE ON corpus_notes
+    FOR EACH ROW WHEN (
+        (OLD.genre, OLD.title, OLD.body, OLD.tags, OLD.parent_id, OLD.published, OLD.show_as_source,
+         OLD.aliases, OLD.excerpt, OLD.slug, OLD.archived, OLD.css_classes, OLD.lang)
+        IS DISTINCT FROM
+        (NEW.genre, NEW.title, NEW.body, NEW.tags, NEW.parent_id, NEW.published, NEW.show_as_source,
+         NEW.aliases, NEW.excerpt, NEW.slug, NEW.archived, NEW.css_classes, NEW.lang)
+    ) EXECUTE FUNCTION corpus_notes_event();
+
+-- ── webhook endpoints (mirrors migrations/2026-09-26-webhook-endpoints.sql) ──
+
+-- webhook_endpoints —— one receiver of thin, signed events. The secret is sealed at rest
+-- (cryptobox, AAD = owner id). failing_since starts the cooldown and the 5-day auto-disable;
+-- busy_until is the per-endpoint lease that keeps at most one delivery in flight.
+-- events: none (instance configuration)
+CREATE TABLE IF NOT EXISTS webhook_endpoints (
+    id              uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id        uuid        NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    url             text        NOT NULL,
+    description     text        NOT NULL DEFAULT '',
+    -- event_types —— exact types or dotted globs ("corpus.note.*").
+    event_types     text[]      NOT NULL DEFAULT '{}',
+    secret_enc      bytea       NOT NULL,
+    -- embed_id —— the scope source; NULL = standalone (the published slice).
+    embed_id        uuid        NULL REFERENCES embeds(id) ON DELETE CASCADE,
+    enabled         boolean     NOT NULL DEFAULT true,
+    disabled_reason text        NOT NULL DEFAULT '',
+    failing_since   timestamptz NULL,
+    busy_until      timestamptz NULL,
+    created_at      timestamptz NOT NULL DEFAULT now(),
+    updated_at      timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS webhook_endpoints_owner_idx ON webhook_endpoints (owner_id);
+
+-- ── booking notices (mirrors migrations/2026-09-26-booking-notices.sql) ──
+
+-- booking_notices —— the owner's "new booking" mail, waiting for its owner.notify job. Written in
+-- the same transaction as the booking.created event, deleted once sent: a row lives only until its
+-- mail goes out, and a second run of the same event finds nothing to send.
+-- events: none (a pending notice; its event is booking.created)
+CREATE TABLE IF NOT EXISTS booking_notices (
+    owner_id      uuid        NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    booking_id    text        NOT NULL,
+    summary       text        NOT NULL,
+    visitor_name  text        NOT NULL DEFAULT '',
+    start_at      timestamptz NOT NULL,
+    created_at    timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (owner_id, booking_id)
+);
+
+-- ── visitor traffic (mirrors migrations/2026-09-06-monitor.sql; docs/design/monitor.md) ──
+-- events: none (traffic recording stays off the bus: high volume, no consumer — decided 2026-09-26)
+CREATE TABLE IF NOT EXISTS visit_viewer (
+    -- viewer_id — hash(salt, owner_id, ip, user_agent). The salt rotates monthly, so this
+    -- id cannot be linked across months. The IP itself is never stored.
+    viewer_id      text        PRIMARY KEY,
+    owner_id       uuid        NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    first_seen_at  timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS visit_viewer_owner_idx ON visit_viewer(owner_id, first_seen_at);
+-- events: none (see visit_viewer)
+CREATE TABLE IF NOT EXISTS visit_event (
+    event_id        uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id        uuid        NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    -- viewer_id — NULL for a surface with no browser (the IM bridge). Every aggregate must
+    -- tolerate it: such a row counts as one visit and zero identified viewers.
+    -- Deliberately NOT a foreign key to visit_viewer: the event is the fact, the viewer row
+    -- is a derived convenience, and an event must never be lost to a cleanup of the other.
+    viewer_id       text,
+    visit_id        text        NOT NULL,
+    created_at      timestamptz NOT NULL DEFAULT now(),
+
+    surface         text        NOT NULL,
+    -- event_name — '' means this event is a view.
+    event_name      text        NOT NULL DEFAULT '',
+    -- is_bot — bot traffic is STORED, not dropped (umami drops it). Excluded from every
+    -- default aggregate. A link-preview fetch of a coded landing URL tells the owner their
+    -- link was pasted into a chat app, which is the earliest signal the job loop produces.
+    is_bot          boolean     NOT NULL DEFAULT false,
+
+    -- url_path is DISPLAY ONLY. Never group an entity-shaped surface by it: a corpus slug
+    -- can be renamed or reparented, and grouping by path splits one entry's history into
+    -- two rows that cannot be summed. Group by (entity_kind, entity_id). See traffic.md §6.
+    url_path        text        NOT NULL DEFAULT '',
+    url_query       text        NOT NULL DEFAULT '',
+    page_title      text        NOT NULL DEFAULT '',
+    hostname        text        NOT NULL DEFAULT '',
+
+    referrer_domain text        NOT NULL DEFAULT '',
+    referrer_path   text        NOT NULL DEFAULT '',
+    utm_source      text        NOT NULL DEFAULT '',
+    utm_medium      text        NOT NULL DEFAULT '',
+    utm_campaign    text        NOT NULL DEFAULT '',
+    utm_content     text        NOT NULL DEFAULT '',
+    utm_term        text        NOT NULL DEFAULT '',
+    -- src — 'qr' when the visitor scanned a printed code, 'link' when they clicked one.
+    -- Without it a paper scan and an emailed click are the same row.
+    src             text        NOT NULL DEFAULT '',
+
+    -- entity_id — the IMMUTABLE corpus id, never a slug. entity_title is a snapshot used
+    -- only when the entity has since been deleted; the live title wins whenever the join
+    -- resolves. No foreign key: deleting a corpus entry must not erase who read it.
+    entity_kind     text        NOT NULL DEFAULT '',
+    entity_id       text        NOT NULL DEFAULT '',
+    entity_title    text        NOT NULL DEFAULT '',
+
+    -- code_id / role_id / chat_session_id / embed_id carry no foreign key for the same
+    -- reason: revoking a code must not erase the visits it brought in. The label is
+    -- snapshotted so a revoked code still reads as itself in the panel.
+    code_id         uuid,
+    code_label      text        NOT NULL DEFAULT '',
+    role_id         uuid,
+    chat_session_id uuid,
+    embed_id        uuid,
+    microsite_slug  text        NOT NULL DEFAULT '',
+
+    browser         text        NOT NULL DEFAULT '',
+    os              text        NOT NULL DEFAULT '',
+    device          text        NOT NULL DEFAULT '',
+    screen          text        NOT NULL DEFAULT '',
+    language        text        NOT NULL DEFAULT '',
+    country         text        NOT NULL DEFAULT '',
+    region          text        NOT NULL DEFAULT '',
+    city            text        NOT NULL DEFAULT '',
+
+    props           jsonb       NOT NULL DEFAULT '{}'
+);
+
+-- Index shape ported from umami (prisma/schema.prisma:152-165): every dimension the panel
+-- can group by gets (owner_id, created_at, <dimension>). The partial index carries the
+-- default read path, which always excludes bots.
+CREATE INDEX IF NOT EXISTS visit_event_owner_time_idx
+    ON visit_event(owner_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS visit_event_human_idx
+    ON visit_event(owner_id, created_at DESC) WHERE NOT is_bot;
+CREATE INDEX IF NOT EXISTS visit_event_path_idx
+    ON visit_event(owner_id, created_at, url_path);
+CREATE INDEX IF NOT EXISTS visit_event_entity_idx
+    ON visit_event(owner_id, created_at, entity_kind, entity_id);
+CREATE INDEX IF NOT EXISTS visit_event_referrer_idx
+    ON visit_event(owner_id, created_at, referrer_domain);
+CREATE INDEX IF NOT EXISTS visit_event_name_idx
+    ON visit_event(owner_id, created_at, event_name);
+CREATE INDEX IF NOT EXISTS visit_event_surface_idx
+    ON visit_event(owner_id, created_at, surface);
+CREATE INDEX IF NOT EXISTS visit_event_code_idx
+    ON visit_event(owner_id, created_at, code_id);
+CREATE INDEX IF NOT EXISTS visit_event_country_idx
+    ON visit_event(owner_id, created_at, country);
+CREATE INDEX IF NOT EXISTS visit_event_device_idx
+    ON visit_event(owner_id, created_at, device);
+CREATE INDEX IF NOT EXISTS visit_event_browser_idx
+    ON visit_event(owner_id, created_at, browser);
+CREATE INDEX IF NOT EXISTS visit_event_viewer_idx
+    ON visit_event(owner_id, viewer_id, created_at);
+CREATE INDEX IF NOT EXISTS visit_event_visit_idx
+    ON visit_event(owner_id, visit_id, created_at);

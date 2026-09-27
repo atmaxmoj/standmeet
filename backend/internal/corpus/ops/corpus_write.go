@@ -155,6 +155,7 @@ func createCorpus(deps usecase.Deps) fp.Invoke {
 		if err != nil {
 			return nil, corpusErr(err)
 		}
+		withIndexReceipt(ctx, deps, &item)
 		return json.Marshal(item)
 	}
 }
@@ -211,8 +212,20 @@ func updateCorpus(deps usecase.Deps) fp.Invoke {
 			return nil, corpusErr(err)
 		}
 		fillMedia(ctx, deps, ownerID, in.ID, &item)
+		withIndexReceipt(ctx, deps, &item)
 		return json.Marshal(item)
 	}
+}
+
+// withIndexReceipt — for the genres the search index holds, waits briefly for this write to
+// reach it and says what happened. The response never claims more than is true: "indexed" only
+// when the index job completed; otherwise the job id to follow.
+func withIndexReceipt(ctx context.Context, deps usecase.Deps, item *corpusItemOut) {
+	if deps.IndexReceipt == nil || item.Genre == genreRaw || item.ID == "" {
+		return
+	}
+	indexed, job := deps.IndexReceipt.Await(ctx, item.ID)
+	item.Indexed, item.IndexJobID = &indexed, job
 }
 
 // writeSubjectivityEntry — the fourth genre on corpus.create /

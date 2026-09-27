@@ -35,6 +35,10 @@ const FILLER_COUNT = 52;
 
 test.describe('output retrieval covers the whole corpus, not the newest-50 window', () => {
   test.beforeAll(async ({ playwright }) => {
+    // Each filler is two writes that wait for their index receipt (promote to wiki, then to
+    // output); a receipt may take up to 2 s (docs/design/event-bus-outbox-webhooks.md, *Response
+    // contract*), so the budget is the write count times that ceiling.
+    test.setTimeout(FILLER_COUNT * 2 * 2_000);
     resetInstance();
     const request = await playwright.request.newContext();
     await claim(request, findSetupToken(), {

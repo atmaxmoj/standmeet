@@ -21,6 +21,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/access/entity"
 	"github.com/atmaxmoj/standmeet/internal/access/repo"
 	"github.com/atmaxmoj/standmeet/internal/access/usecase"
+	"github.com/atmaxmoj/standmeet/internal/infra/events"
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 )
 
@@ -38,6 +39,11 @@ type APIKeysDeps struct {
 	// nowhere to be set, and a quota can't exist (F-B-11).
 	Extras        KeyExtras
 	APICandidates func() []string
+	Events        events.Recorder
+}
+
+func (d APIKeysDeps) issue() usecase.IssueAPIKeyDeps {
+	return usecase.IssueAPIKeyDeps{Keys: d.Keys, Roles: d.Roles, Events: d.Events}
 }
 
 // This group **grows on both owner facades** (F-K-1).
@@ -175,9 +181,7 @@ func createAPIKey(d APIKeysDeps) fp.Invoke {
 		if perr != nil {
 			return nil, perr
 		}
-		issued, err := usecase.IssueAPIKey(ctx, usecase.IssueAPIKeyDeps{
-			Keys: d.Keys, Roles: d.Roles,
-		}, &usecase.IssueAPIKeyInput{
+		issued, err := usecase.IssueAPIKey(ctx, d.issue(), &usecase.IssueAPIKeyInput{
 			OwnerID: ownerID, AssumedRoleID: in.AssumedRoleID, Label: in.Label,
 			RateLimitRPM: in.RateLimitRPM, ExpiresAt: in.expires,
 		})
@@ -279,7 +283,7 @@ func revokeAPIKey(d APIKeysDeps) fp.Invoke {
 		if perr != nil {
 			return nil, perr
 		}
-		if err := d.Keys.Revoke(ctx, id, ownerID); err != nil {
+		if err := usecase.RevokeAPIKey(ctx, d.issue(), ownerID, id); err != nil {
 			return nil, apiKeyErr(err)
 		}
 		return json.Marshal(apiKeyRevokedOut{ID: id, Revoked: true})

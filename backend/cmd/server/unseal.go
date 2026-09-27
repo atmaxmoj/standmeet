@@ -25,6 +25,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/infra/cryptobox"
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
 // openAIProviderKey —— unseals the owner's AI provider key.
@@ -92,4 +93,26 @@ func openMCPAuthHeader(cfg *marketplace.MCPServerConfig) (marketplace.MCPAuthHea
 		return marketplace.MCPAuthHeader{}, fmt.Errorf("open mcp auth header: %w", err)
 	}
 	return marketplace.MCPAuthHeader{Name: cfg.AuthHeaderName, Value: string(plain)}, nil
+}
+
+// webhookSecretStore —— the one read the webhook-secret opener needs.
+type webhookSecretStore interface {
+	SealedWebhookSecret(ctx context.Context, id string) (owner.SealedSecret, error)
+}
+
+// webhookSecrets —— a webhook endpoint's signing secret, opened where it is spent: the delivery
+// job signs with it and nothing keeps it. Bound to the endpoint's owner by AAD, like every other
+// sealed secret here.
+func webhookSecrets(store webhookSecretStore) owner.WebhookSecretOpener {
+	return func(ctx context.Context, endpointID string) (string, error) {
+		sealed, err := store.SealedWebhookSecret(ctx, endpointID)
+		if err != nil {
+			return "", fmt.Errorf("webhook secret: %w", err)
+		}
+		plain, err := cryptobox.Decrypt(sealed.Enc, []byte(sealed.OwnerID))
+		if err != nil {
+			return "", fmt.Errorf("open webhook secret: %w", err)
+		}
+		return string(plain), nil
+	}
 }

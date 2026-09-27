@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 )
 
@@ -63,7 +64,9 @@ type DocRef struct {
 type MicrositeDocStore interface {
 	Provision(ctx context.Context, pageID string) error
 	Drop(ctx context.Context, pageID string) error
-	Insert(ctx context.Context, pageID, collection string, doc json.RawMessage) (string, error)
+	// Insert runs on tx: the document and its microsite.store.doc_inserted commit together.
+	Insert(ctx context.Context, tx pgstore.Tx, pageID, collection string, doc json.RawMessage) (
+		string, error)
 	Query(
 		ctx context.Context, pageID, collection string, filter json.RawMessage,
 	) ([]json.RawMessage, error)
@@ -104,7 +107,16 @@ func VisitorInsert(
 	if err != nil {
 		return "", err
 	}
-	id, ierr := deps.Docs.Insert(ctx, page.ID, w.Collection, w.Doc)
+	var id string
+	ierr := pgstore.InTx(ctx, deps.Pages.Pool(), func(tx pgstore.Tx) error {
+		var derr error
+		if id, derr = deps.Docs.Insert(ctx, tx, page.ID, w.Collection, w.Doc); derr != nil {
+			return derr //nolint:wrapcheck // wrapped below
+		}
+		data := map[string]string{"collection": w.Collection, "doc_id": id}
+		return deps.Events().With(tx).Record(ctx, ownerID, MicrositeStoreDocInserted,
+			"microsite/"+page.Slug, data)
+	})
 	if ierr != nil {
 		return "", fmt.Errorf("insert page doc: %w", ierr)
 	}

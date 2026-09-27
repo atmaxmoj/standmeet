@@ -5,8 +5,10 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/atmaxmoj/standmeet/cmd/server/wire"
 
@@ -59,13 +61,17 @@ type Deps struct {
 	PublicPasswordReset    publicroutes.PasswordResetHandlers
 	PublicWritings         publicroutes.WritingHandlers
 	Builds                 sysroutes.BuilderDeps
-	IM                     sysroutes.IMDeps
-	TLSAsk                 sysroutes.TLSAskDeps
-	PrintSession           sysroutes.PrintSessionDeps
-	DiagRegistry           sysroutes.DiagRegistryDeps
-	DiagSession            sysroutes.DiagSessionDeps
-	DiagSandbox            sysroutes.DiagSandboxDeps
-	DiagSupplier           sysroutes.DiagSupplierDeps
+	// AwaitBuild —— the admin preview long-poll's wait (owner.AwaitBuildSettled, closed over the
+	// build-settle listener).
+	AwaitBuild func(ctx context.Context, ownerID string, since int64, maxWait time.Duration) (
+		int64, error)
+	IM           sysroutes.IMDeps
+	TLSAsk       sysroutes.TLSAskDeps
+	PrintSession sysroutes.PrintSessionDeps
+	DiagRegistry sysroutes.DiagRegistryDeps
+	DiagSession  sysroutes.DiagSessionDeps
+	DiagSandbox  sysroutes.DiagSandboxDeps
+	DiagSupplier sysroutes.DiagSupplierDeps
 	// PluginRegistry —— J.5: outbound plugins register their full admin REST hook set in one
 	// shot. mountAdmin calls MountAllAdminRoutes inside the WithOwner+RequireCSRF group.
 	JobsModule *pluginjobs.Plugin
@@ -91,40 +97,40 @@ type Deps struct {
 // Field order follows pointer width — enforced by govet fieldalignment — which is why the
 // two pointer-free members sit at the end rather than beside what they belong to.
 type AdminDeps struct {
-	Corpus          corpus.Deps
-	ApproveRequests owner.ApproveRequestDeps
-	Conversations   conversation.ConversationsDeps
-	Marketplace     marketplace.SearchDeps
-	Keypairs        owner.KeypairDeps
-	Claim           owner.ClaimDeps
-	MCPServers      marketplace.MCPServersDeps
-	Recovery        owner.RecoveryDeps
-	AccessRequests  access.RequestsDeps
-	EmailChange     owner.EmailChangeDeps
-	AIProvider      owner.AIProviderDeps
-	Roles           access.RolesDeps
-	Login           owner.LoginDeps
-	Assets          corpus.AssetsDeps
-	Skills          marketplace.SkillsDeps
-	Blocks          adminroutes.BlockAdminDeps
-	Owners          *owner.Repo
-	Drafts          *jobsuc.ResumeDraftRepo
-	PublicURLAdmin  owner.PublicURLDeps
-	Writings        corpus.WritingsDeps
-	WritingRefs     *corpus.WritingRefRepo
-	SEO             *corpus.SEORepo
-	Codes           *access.CodeRepo
-	CodeDenials     *access.CodeDenialRepo
-	Sessions        *session.OwnerSessionStore
-	Refresh         *session.RefreshStore
-	AccountAdmin    owner.AccountDeps
-	Applications    *jobsuc.ApplicationRepo
-	HandleAdmin     owner.HandleDeps
-	BYOAI           owner.BYOAIDeps
-	Ghosts          conversation.GhostDeps
-	Prompts         owner.PromptsDeps
-	Microsites      owner.MicrositeDeps
-	SecureCookie    bool
+	Corpus         corpus.Deps
+	Conversations  conversation.ConversationsDeps
+	Marketplace    marketplace.SearchDeps
+	Keypairs       owner.KeypairDeps
+	Claim          owner.ClaimDeps
+	MCPServers     marketplace.MCPServersDeps
+	Recovery       owner.RecoveryDeps
+	AccessRequests access.RequestsDeps
+	EmailChange    owner.EmailChangeDeps
+	AIProvider     owner.AIProviderDeps
+	Roles          access.RolesDeps
+	Login          owner.LoginDeps
+	Assets         corpus.AssetsDeps
+	Skills         marketplace.SkillsDeps
+	Blocks         adminroutes.BlockAdminDeps
+	Owners         *owner.Repo
+	VaultImports   owner.VaultImports // the import receipt and its vault.imported
+	Drafts         *jobsuc.ResumeDraftRepo
+	PublicURLAdmin owner.PublicURLDeps
+	Writings       corpus.WritingsDeps
+	WritingRefs    *corpus.WritingRefRepo
+	SEO            *corpus.SEORepo
+	Codes          *access.CodeRepo
+	CodeDenials    *access.CodeDenialRepo
+	Sessions       *session.OwnerSessionStore
+	Refresh        *session.RefreshStore
+	AccountAdmin   owner.AccountDeps
+	Applications   *jobsuc.ApplicationRepo
+	HandleAdmin    owner.HandleDeps
+	BYOAI          owner.BYOAIDeps
+	Ghosts         conversation.GhostDeps
+	Prompts        owner.PromptsDeps
+	Microsites     owner.MicrositeDeps
+	SecureCookie   bool
 }
 
 // New returns a chi router with routes already mounted, ready to hand straight to http.Server.
@@ -247,7 +253,7 @@ func obsidianDeps(deps *Deps) adminroutes.ObsidianDeps {
 		},
 		// Same owners repo: it's already where CSS lands, so the import receipt
 		// (UX-62) hangs off owner too — one instance has exactly one vault.
-		ImportReceipt: deps.Admin.Owners,
+		ImportReceipt: deps.Admin.VaultImports,
 		Log:           deps.Log,
 	}
 }
@@ -285,7 +291,7 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		AIProviderAdmin: adminroutes.AIProviderDeps{Face: wire.AdminFace(deps.Dispatch)},
 		ProvidersAdmin:  adminroutes.ProvidersAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
 		MicrositesAdmin: adminroutes.MicrositesDeps{
-			Face: wire.AdminFace(deps.Dispatch), Notifier: deps.Builds.Notifier,
+			Face: wire.AdminFace(deps.Dispatch), AwaitBuild: deps.AwaitBuild,
 		},
 		// Preview goes through the domain, not the dispatcher: it hands back **file bytes**, and
 		// the convergence path is JSON ops. Same reasoning as the public-side /p/{slug}.

@@ -4,21 +4,23 @@ import "github.com/atmaxmoj/standmeet/internal/access/entity"
 
 // Types (impl: entity).
 type (
-	APIKey                = entity.APIKey
-	Code                  = entity.Code
-	CodeMember            = entity.CodeMember
-	CorpusEntryRef        = entity.CorpusEntryRef
-	CorpusScope           = entity.CorpusScope
-	CreateAPIKeyInput     = entity.CreateAPIKeyInput
-	CreateAccessCodeInput = entity.CreateAccessCodeInput
-	DockButtonConfig      = entity.DockButtonConfig
-	Request               = entity.Request
-	Role                  = entity.Role
-	RoleSnapshot          = entity.RoleSnapshot
-	RoleSnapshotInit      = entity.RoleSnapshotInit
-	UpdateAPIKeyInput     = entity.UpdateAPIKeyInput
-	VisitorProfile        = entity.VisitorProfile
-	Waypoint              = entity.Waypoint
+	APIKey                   = entity.APIKey
+	Code                     = entity.Code
+	CodeMember               = entity.CodeMember
+	CorpusEntryRef           = entity.CorpusEntryRef
+	CorpusScope              = entity.CorpusScope
+	CreateAPIKeyInput        = entity.CreateAPIKeyInput
+	CreateAccessCodeInput    = entity.CreateAccessCodeInput
+	CreateAccessRequestInput = entity.CreateAccessRequestInput
+	DockButtonConfig         = entity.DockButtonConfig
+	NotifySlot               = entity.NotifySlot
+	Request                  = entity.Request
+	Role                     = entity.Role
+	RoleSnapshot             = entity.RoleSnapshot
+	RoleSnapshotInit         = entity.RoleSnapshotInit
+	UpdateAPIKeyInput        = entity.UpdateAPIKeyInput
+	VisitorProfile           = entity.VisitorProfile
+	Waypoint                 = entity.Waypoint
 )
 
 // Constructors/functions (impl: entity).
@@ -36,6 +38,10 @@ const (
 	InvitedRoleName        = entity.InvitedRoleName
 	PublicRoleDescription  = entity.PublicRoleDescription
 	PublicRoleName         = entity.PublicRoleName
+	AccessRequestCreated   = entity.AccessRequestCreated
+	NotifyDropped          = entity.NotifyDropped
+	NotifySend             = entity.NotifySend
+	NotifySent             = entity.NotifySent
 )
 
 // Errors/vars (impl: entity).

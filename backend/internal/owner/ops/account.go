@@ -36,11 +36,11 @@ type AccountDeps struct {
 
 // Account —— me / set_full_name / set_timezone / change_email / change_password /
 // generate_recovery.
-func Account(deps AccountDeps) []fp.Op {
+func Account(deps *AccountDeps) []fp.Op {
 	return append(accountReadOps(deps), accountCredentialOps(deps)...)
 }
 
-func accountReadOps(deps AccountDeps) []fp.Op {
+func accountReadOps(deps *AccountDeps) []fp.Op {
 	return []fp.Op{
 		{
 			ID:          "me",
@@ -48,7 +48,7 @@ func accountReadOps(deps AccountDeps) []fp.Op {
 			InputSchema: noArgs,
 			Kind:        fp.Read,
 			Reach:       fp.OwnerRead(),
-			Invoke:      readMe(deps.Account),
+			Invoke:      readMe(deps.Account, deps.EmailChange.Jobs),
 		},
 		{
 			ID:          "account.set_full_name",
@@ -73,7 +73,7 @@ func accountReadOps(deps AccountDeps) []fp.Op {
 
 // accountCredentialOps —— the three carrying credentials: panel-only, reason spelled out
 // in each entry's Reach.
-func accountCredentialOps(deps AccountDeps) []fp.Op {
+func accountCredentialOps(deps *AccountDeps) []fp.Op {
 	credentialed := func(why string) fp.Reach { return fp.Only(why, "admin") }
 	return []fp.Op{
 		{

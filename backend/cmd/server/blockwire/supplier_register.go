@@ -46,12 +46,12 @@ func EnsureBlockDispatch(d *deps.Runtime) {
 	if d.BlockDispatch != nil {
 		return
 	}
-	// The door owns the holder's construction (allocate + wire the by-id diag path + logger); the
-	// composition root only supplies the seam store it reads and the logger. One reference chain,
+	// The door owns the holder's construction (allocate + wire the by-id diag path); the
+	// composition root only supplies the seam store it reads. One reference chain,
 	// facade→core (everything-is-a-block.md rule 2): the supplier dispatch is no longer allocated
 	// outside the door.
 	d.BlockSuppliers, d.BlockDispatch = blockload.NewSupplierDispatch(
-		seamStoreAdapter{repo: d.Credentials}, d.Log)
+		seamStoreAdapter{repo: d.Credentials})
 }
 
 // DiscoverSeamProviders —— boot: assemble every supplying block into the table, then RETURN the

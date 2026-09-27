@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"maps"
 
+	"github.com/atmaxmoj/standmeet/internal/infra/events"
 	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 	"github.com/atmaxmoj/standmeet/internal/owner/repo"
 )
@@ -26,6 +27,9 @@ type MicrositeDeps struct {
 	// it, delete drops it, the store ops read/write it); nil on paths that never touch it (e.g.
 	// public serving), where the lifecycle hooks and store ops are skipped.
 	Docs MicrositeDocStore
+	// Events —— page.* and microsite.store.doc_inserted commit with their writes. Read at call
+	// time (a func, like JobsDeps.Events): this struct travels by value through every op.
+	Events func() events.Recorder
 	// PreviewSigningKey — signs the admin preview URL (HMAC-derived, never persisted). Empty:
 	// no preview URL, but the list still works.
 	PreviewSigningKey string
@@ -198,50 +202,7 @@ func PromoteToStaging(
 	return updated, nil
 }
 
-// PromoteToLive — same as above + records previous, so Rollback can use it.
-func PromoteToLive(
-	ctx context.Context, deps MicrositeDeps, ownerID, slug, buildID string,
-) (entity.Microsite, error) {
-	page, err := promoteCheck(ctx, deps, ownerID, slug, buildID)
-	if err != nil {
-		return entity.Microsite{}, err
-	}
-	updated, perr := deps.Pages.SetLive(ctx, page.ID, buildID)
-	if perr != nil {
-		return entity.Microsite{}, fmt.Errorf("set live: %w", perr)
-	}
-	return updated, nil
-}
-
-// Rollback — promotes previous_live_build_id back to live.
-func Rollback(
-	ctx context.Context, deps MicrositeDeps, ownerID, slug string,
-) (entity.Microsite, error) {
-	page, err := lookupPage(ctx, deps, ownerID, slug)
-	if err != nil {
-		return entity.Microsite{}, err
-	}
-	updated, rerr := deps.Pages.Rollback(ctx, page.ID)
-	if rerr != nil {
-		return entity.Microsite{}, fmt.Errorf("rollback: %w", rerr)
-	}
-	return updated, nil
-}
-
-// Unpublish — clear the live build so the page serves nothing; the homepage reverts to DefaultHome.
-func Unpublish(
-	ctx context.Context, deps MicrositeDeps, ownerID, slug string,
-) (entity.Microsite, error) {
-	page, err := lookupPage(ctx, deps, ownerID, slug)
-	if err != nil {
-		return entity.Microsite{}, err
-	}
-	updated, cerr := deps.Pages.ClearLive(ctx, page.ID)
-	if cerr != nil {
-		return entity.Microsite{}, fmt.Errorf("clear live: %w", cerr)
-	}
-	return updated, nil
-}
+// (PromoteToLive / Rollback / Unpublish live in microsite_live.go.)
 
 // DeletePage — soft delete (keeps the build artifact for audit). The reserved home slug is
 // refused: it is pinned to `/`, and deleting it drops the site root to the fallback with no way
@@ -316,35 +277,6 @@ func loadDraftFiles(
 	out := make(map[string]string, len(latest.SourceFiles))
 	maps.Copy(out, latest.SourceFiles)
 	return out, nil
-}
-
-func promoteCheck(
-	ctx context.Context, deps MicrositeDeps, ownerID, slug, buildID string,
-) (entity.Microsite, error) {
-	page, perr := lookupPage(ctx, deps, ownerID, slug)
-	if perr != nil {
-		return entity.Microsite{}, perr
-	}
-	build, berr := deps.Builds.GetByID(ctx, buildID)
-	if berr != nil {
-		return entity.Microsite{}, fmt.Errorf("get build: %w", berr)
-	}
-	if err := assertBuildBelongsBuilt(&page, &build, buildID); err != nil {
-		return entity.Microsite{}, err
-	}
-	return page, nil
-}
-
-func assertBuildBelongsBuilt(
-	page *entity.Microsite, build *entity.MicrositeBuild, buildID string,
-) error {
-	if build.PageID != page.ID {
-		return fmt.Errorf("build %s does not belong to %s", buildID, page.ID)
-	}
-	if build.Status != "built" {
-		return fmt.Errorf("build %s status=%s, not built", buildID, build.Status)
-	}
-	return nil
 }
 
 // (slug / path / bundle-size validators moved to microsite_validate.go for the line-count gate.)

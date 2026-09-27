@@ -17,6 +17,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/atmaxmoj/standmeet/internal/infra/jobs"
 	"github.com/atmaxmoj/standmeet/internal/infra/mcputil"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc"
 	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
@@ -31,7 +32,9 @@ func (c *jobsFiber) fetchNewBinding() *registry.MCPBinding {
 			"pooled it. Rows are headlines only; call jobs.show(cache_id) for the JD body. " +
 			"Ask twice in a day and you get the same board back, not an empty list. " +
 			"since_hours narrows the window; the pool's own TTL is 24h, so a larger " +
-			"value returns the same board.",
+			"value returns the same board. Each source is fetched in the background; " +
+			"if they are not all done within 20 seconds this returns {job_ids, pending: true} " +
+			"instead — pass job_ids to jobs.fetch_result for the same answer once done.",
 		InputSchema: json.RawMessage(`{
 			"type":"object",
 			"properties":{
@@ -43,6 +46,50 @@ func (c *jobsFiber) fetchNewBinding() *registry.MCPBinding {
 		}`),
 		Handler: c.handleFetchNew,
 	}
+}
+
+func (c *jobsFiber) fetchResultBinding() *registry.MCPBinding {
+	return &registry.MCPBinding{
+		Name: "jobs.fetch_result",
+		Description: "The answer of a jobs.fetch_new that returned {job_ids, pending: true}: " +
+			"the same shape jobs.fetch_new returns when done (jobs, failed_sources, sources, " +
+			"cross_source_dropped), or {job_ids, pending: true} again while any source is " +
+			"still being fetched. tasks.get(id) shows one source job's state.",
+		InputSchema: json.RawMessage(`{
+			"type":"object",
+			"properties":{
+				"job_ids":{"type":"array","items":{"type":"integer"},
+					"description":"The job_ids jobs.fetch_new returned."},
+				"since_hours":{"type":"number",
+					"description":"Hours back the pool reaches (default 24 = its own TTL)."}
+			},
+			"required":["job_ids"]
+		}`),
+		Handler: c.handleFetchResult,
+	}
+}
+
+type fetchResultArgsWire struct {
+	SinceHours *float64     `json:"since_hours"`
+	JobIDs     []jobs.JobID `json:"job_ids"`
+}
+
+func (c *jobsFiber) handleFetchResult(
+	ctx context.Context, ownerID string, raw json.RawMessage,
+) registry.MCPResult {
+	var args fetchResultArgsWire
+	if err := json.Unmarshal(raw, &args); err != nil || len(args.JobIDs) == 0 {
+		return registry.MCPError("job_ids is required: pass the job_ids jobs.fetch_new returned")
+	}
+	since, serr := (&fetchNewArgsWire{SinceHours: args.SinceHours}).window()
+	if serr != nil {
+		return registry.MCPError(serr.Error())
+	}
+	out, err := jobsuc.FetchResultOf(ctx, *c.jobs, ownerID, args.JobIDs, since)
+	if err != nil {
+		return jobsCapErrToResult(c.log, err, "fetch_result")
+	}
+	return c.fetchAnswer("jobs.fetch_result", &out)
 }
 
 // fetchNewArgsWire —— `since_hours` is a pointer: **omitted** and **given
@@ -93,10 +140,19 @@ func (c *jobsFiber) handleFetchNew(
 	if serr != nil {
 		return registry.MCPError(serr.Error())
 	}
-	res, err := jobsuc.FetchNewJobs(ctx, *c.jobs, ownerID, args.source(), since)
+	out, err := jobsuc.FetchNewJobs(ctx, *c.jobs, ownerID, args.source(), since)
 	if err != nil {
 		return jobsCapErrToResult(c.log, err, "fetch_new")
 	}
+	return c.fetchAnswer("jobs.fetch_new", &out)
+}
+
+// fetchAnswer —— a receipt while the fetch runs; the fetch's result once it is done.
+func (c *jobsFiber) fetchAnswer(op string, out *jobsuc.FetchOutcome) registry.MCPResult {
+	if out.Receipt != nil {
+		return mcputil.MarshalResult(c.log, op, out.Receipt)
+	}
+	res := &out.Result
 	// failures is returned alongside jobs, **not** turned into a single error:
 	// one source's error token shouldn't throw away what the other six
 	// sources fetched. The owner needs to know both "what came back" and
@@ -114,7 +170,7 @@ func (c *jobsFiber) handleFetchNew(
 	// subset of the former carrying `new`. Without this, an owner asking
 	// a second time in the same day would just get an empty array back
 	// (F-E-29).
-	return mcputil.MarshalResult(c.log, "jobs.fetch_new", map[string]any{
+	return mcputil.MarshalResult(c.log, op, map[string]any{
 		"jobs":                 poolRowViews(res.Jobs),
 		"failed_sources":       res.Failures,
 		"sources":              res.Tallies,

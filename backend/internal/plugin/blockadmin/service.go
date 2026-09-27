@@ -14,6 +14,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
+	"github.com/atmaxmoj/standmeet/internal/infra/events"
 	"github.com/atmaxmoj/standmeet/internal/plugin/adapters"
 	"github.com/atmaxmoj/standmeet/internal/plugin/credentials"
 )
@@ -34,6 +35,7 @@ type Deps struct {
 	HTTP      *http.Client
 	Verifier  ConnectionVerifier
 	Installer Installer
+	Events    events.Recorder // supplier.* commit with the connection-state change
 	Manifests []adapters.Manifest
 }
 
@@ -145,10 +147,7 @@ func (s *Service) Callback(ctx context.Context, id, code, state string) error {
 	if dance.OwnerID == "" {
 		return ErrInvalidOAuthState // state empty/expired/mismatched (expected state)
 	}
-	if err := s.exchangeAndStore(ctx, &dance, code); err != nil {
-		return err
-	}
-	return s.ensureActive(ctx, dance.OwnerID, id)
+	return s.exchangeAndStore(ctx, &dance, code) // stores, records, claims the slot
 }
 
 // Activate — claims the seam slot. Disconnect — soft disconnect. Status / List — reads.
@@ -157,7 +156,8 @@ func (s *Service) Activate(ctx context.Context, ownerID, id string) error {
 	if merr != nil {
 		return merr
 	}
-	if err := s.d.Repo.SetActive(ctx, ownerID, id, m.Seam); err != nil {
+	err := s.inTx(ctx, func(t *Service) error { return t.setActive(ctx, ownerID, id, m.Seam) })
+	if err != nil {
 		return fmt.Errorf("activate supplier: %w", err)
 	}
 	return nil
@@ -172,10 +172,15 @@ func (s *Service) Disconnect(ctx context.Context, ownerID, id string) error {
 	if merr != nil {
 		return merr
 	}
-	if err := s.d.Repo.ClearTokens(ctx, ownerID, id); err != nil {
-		return fmt.Errorf("disconnect supplier: %w", err)
-	}
-	return s.promoteFallback(ctx, ownerID, m.Seam)
+	return s.inTx(ctx, func(t *Service) error {
+		if err := t.d.Repo.ClearTokens(ctx, ownerID, id); err != nil {
+			return fmt.Errorf("disconnect supplier: %w", err)
+		}
+		if err := t.record(ctx, SupplierDisconnected, ownerID, id); err != nil {
+			return err
+		}
+		return t.promoteFallback(ctx, ownerID, m.Seam)
+	})
 }
 
 // List — the suppliers an owner has configured.
@@ -268,13 +273,19 @@ const noCredentialsReason = "fill in this supplier's credentials above, then con
 // understand (go fill in the form), the same shape as a failed connection test:
 // 200 + connected:false + one plain sentence.
 func (s *Service) markConnected(ctx context.Context, ownerID, id string) (ConnectResult, error) {
-	if err := s.d.Repo.MarkConnected(ctx, ownerID, id); err != nil {
-		if errors.Is(err, credentials.ErrNoConnection) {
-			return ConnectResult{Connected: false, Error: noCredentialsReason}, nil
+	err := s.inTx(ctx, func(t *Service) error {
+		if err := t.d.Repo.MarkConnected(ctx, ownerID, id); err != nil {
+			return fmt.Errorf("mark connected: %w", err)
 		}
-		return ConnectResult{}, fmt.Errorf("mark connected: %w", err)
+		if err := t.record(ctx, SupplierConnected, ownerID, id); err != nil {
+			return err
+		}
+		return t.ensureActive(ctx, ownerID, id)
+	})
+	if errors.Is(err, credentials.ErrNoConnection) {
+		return ConnectResult{Connected: false, Error: noCredentialsReason}, nil
 	}
-	if err := s.ensureActive(ctx, ownerID, id); err != nil {
+	if err != nil {
 		return ConnectResult{}, err
 	}
 	return ConnectResult{Connected: true}, nil
@@ -319,7 +330,7 @@ func (s *Service) claimSlotIfFree(ctx context.Context, ownerID, id, seam string)
 	if hasActive(conns) {
 		return nil
 	}
-	if serr := s.d.Repo.SetActive(ctx, ownerID, id, seam); serr != nil {
+	if serr := s.setActive(ctx, ownerID, id, seam); serr != nil {
 		return fmt.Errorf("auto-activate: %w", serr)
 	}
 	return nil

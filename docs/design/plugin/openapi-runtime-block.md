@@ -93,7 +93,7 @@ JS block on dsh with a dsh acceptance test.
 
 ## Tests (derived from this design, decoupled from any implementation)
 
-1. **dsh acceptance test** (`infra/dsh-acceptance/openapi.dsh-testkit.yaml`): the openapi block,
+1. **dsh acceptance test** (`infra/dsh-acceptance/openapi.acceptance.yaml`): the openapi block,
    loaded with a spec+binding fixture, boots on real DSH and **registers the seam verbs as tools**
    (`mcp__openapi__free_busy`, `insert_event`, `delete_event`, `verify`). No exercise — a real call
    needs a live SaaS + token, the same posture as caldav. This is what "google-calendar is a block

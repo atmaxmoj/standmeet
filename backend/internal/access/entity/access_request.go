@@ -1,6 +1,7 @@
 // access_request.go — a message left by a visitor without a code on /<handle>/gate.
 // owner reviews it at /admin/requests; open -> replied (after emailing back) / closed (ignored).
-// No auto-notify to owner, no auto-reply email — owner-curated is a deliberate product choice.
+// The owner is mailed a notice (capped against floods); the requester hears back only when the
+// owner approves — owner-curated is a deliberate product choice.
 
 package entity
 
@@ -20,7 +21,24 @@ type Request struct {
 	Email     string
 	Message   string
 	Status    string // 'open' | 'replied' | 'closed'
+	// NoticeJobID —— the approval notice's job (0 = none yet). Its state is the request's
+	// delivery state.
+	NoticeJobID int64
 }
+
+// AccessRequestCreated —— the event a submitted request records, in the same transaction as the
+// row. Subject access_request/<id>; data {request_id}.
+const AccessRequestCreated = "access_request.created"
+
+// NotifySlot —— what the owner-notification job may do for one request.
+type NotifySlot int
+
+// The slots.
+const (
+	NotifyDropped NotifySlot = iota // over the owner's cap: no mail (the request stays in admin)
+	NotifySend                      // a slot is held: send
+	NotifySent                      // already sent: nothing to do
+)
 
 // CreateAccessRequestInput — the usecase's input for creating one message.
 type CreateAccessRequestInput struct {

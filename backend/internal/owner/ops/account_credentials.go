@@ -12,17 +12,21 @@ import (
 	"encoding/json"
 
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
+	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 	"github.com/atmaxmoj/standmeet/internal/owner/usecase"
 )
 
 // ownerOut / meOut —— outbound shape (same for both faces). No password, no credential of
 // any kind.
 type ownerOut struct {
-	OwnerID   string `json:"owner_id"`
-	Email     string `json:"email"`
-	Handle    string `json:"handle"`
-	FullName  string `json:"full_name"`
-	PublicURL string `json:"public_url"`
+	// PendingEmailMail —— the confirmation mail's receipt (sending / sent / failed), while a
+	// change is pending.
+	PendingEmailMail *entity.NoticeReceipt `json:"pending_email_mail,omitempty"`
+	OwnerID          string                `json:"owner_id"`
+	Email            string                `json:"email"`
+	Handle           string                `json:"handle"`
+	FullName         string                `json:"full_name"`
+	PublicURL        string                `json:"public_url"`
 	// Timezone —— IANA timezone name. It's the owner's profile, not any one block's
 	// setting.
 	Timezone string `json:"timezone"`
@@ -38,7 +42,7 @@ type meOut struct {
 	Settings settingsOut `json:"settings"`
 }
 
-func readMe(deps usecase.AccountDeps) fp.Invoke {
+func readMe(deps usecase.AccountDeps, mailJobs usecase.MailJobs) fp.Invoke {
 	return func(ctx context.Context, ownerID string, _ json.RawMessage) (json.RawMessage, error) {
 		profile, err := deps.Owners.GetByID(ctx, ownerID)
 		if err != nil {
@@ -48,14 +52,15 @@ func readMe(deps usecase.AccountDeps) fp.Invoke {
 		if serr != nil {
 			return nil, accountErr(serr)
 		}
-		return json.Marshal(meOut{
-			Owner: ownerOut{
-				OwnerID: profile.ID, Email: profile.Email, Handle: profile.Handle,
-				FullName: profile.FullName, PublicURL: profile.PublicURL,
-				Timezone: profile.ProfileTimezone, PendingEmail: profile.PendingEmail,
-			},
-			Settings: settingsPayload(&settings),
-		})
+		out := ownerOut{
+			OwnerID: profile.ID, Email: profile.Email, Handle: profile.Handle,
+			FullName: profile.FullName, PublicURL: profile.PublicURL,
+			Timezone: profile.ProfileTimezone, PendingEmail: profile.PendingEmail,
+		}
+		if profile.PendingEmail != "" {
+			out.PendingEmailMail = usecase.MailReceiptOf(ctx, mailJobs, profile.PendingEmailJobID)
+		}
+		return json.Marshal(meOut{Owner: out, Settings: settingsPayload(&settings)})
 	}
 }
 
@@ -64,8 +69,10 @@ func readMe(deps usecase.AccountDeps) fp.Invoke {
 // immediately. The UI says two different things for those two cases, and a receipt that
 // can't tell them apart lets the owner believe the change already landed (non-unique signal).
 type emailChangeOut struct {
-	Email   string `json:"email"`
-	Pending string `json:"pending_email,omitempty"`
+	// Mail —— the confirmation mail's receipt when pending: "sent" only once it went out.
+	Mail    *entity.NoticeReceipt `json:"mail,omitempty"`
+	Email   string                `json:"email"`
+	Pending string                `json:"pending_email,omitempty"`
 }
 
 func changeEmail(deps usecase.EmailChangeDeps) fp.Invoke {
@@ -83,7 +90,7 @@ func changeEmail(deps usecase.EmailChangeDeps) fp.Invoke {
 		if err != nil {
 			return nil, accountErr(err)
 		}
-		return json.Marshal(emailChangeOut{Email: out.Email, Pending: out.Pending})
+		return json.Marshal(emailChangeOut{Email: out.Email, Pending: out.Pending, Mail: out.Mail})
 	}
 }
 

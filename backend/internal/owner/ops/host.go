@@ -1,9 +1,10 @@
 // host.go —— what this domain exposes to **sandboxed blocks** (inbound direction).
 //
-// Just one thing: reading the owner's **whitelisted** fields. Anything not whitelisted is
+// Two things. owner.meta reads the owner's **whitelisted** fields. Anything not whitelisted is
 // refused — a sandbox can ask "what timezone is the owner in", it can't scoop up the whole
 // owner record along the way. The whitelist is hardcoded here; adding a field means editing
-// this one line, visible to review.
+// this one line, visible to review. booking.record lets the booking block tell the owner's
+// instance that a booking changed (an outbox event, and the owner's notice).
 
 package ops
 
@@ -11,9 +12,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/hostop"
 	"github.com/atmaxmoj/standmeet/internal/owner/entity"
+	"github.com/atmaxmoj/standmeet/internal/owner/repo"
+	"github.com/atmaxmoj/standmeet/internal/owner/usecase"
 )
 
 // MetaLookup —— fetches the owner record (whitelisted fields only, read-only).
@@ -48,6 +52,61 @@ func HostOps(owners MetaLookup) []hostop.Op {
 			"Anything else is refused — this is not a way to read the owner row.",
 		Invoke: readOwnerMeta(owners),
 	}}
+}
+
+// BookingRecorder —— records one booking event into the outbox (usecase.BookingRecorder in prod).
+type BookingRecorder interface {
+	RecordBooking(ctx context.Context, in *usecase.BookingRecord) error
+}
+
+// BookingHostOps —— booking.record: the booking block says a booking was created, cancelled or
+// rescheduled. The event (and a new booking's owner notice) is committed before the op answers
+// ok, so a booking that answered ok cannot lose its notice to a restart.
+func BookingHostOps(rec BookingRecorder) []hostop.Op {
+	return []hostop.Op{{
+		Name: "booking.record",
+		Description: "Record that a booking was created / cancelled / rescheduled " +
+			"(event booking.<event>, subject booking/<booking_id>). A created booking may carry " +
+			"the owner's notice {summary, visitor_name, start_at}; the host mails it.",
+		Invoke: recordBooking(rec),
+	}}
+}
+
+// bookingRecordReq —— the wire shape of booking.record.
+type bookingRecordReq struct {
+	Notice    *bookingNoticeReq `json:"notice"`
+	OwnerID   string            `json:"owner_id"`
+	Event     string            `json:"event"`
+	BookingID string            `json:"booking_id"`
+}
+
+// bookingNoticeReq —— the owner's notice as the block hands it over.
+type bookingNoticeReq struct {
+	StartAt     time.Time `json:"start_at"`
+	Summary     string    `json:"summary"`
+	VisitorName string    `json:"visitor_name"`
+}
+
+func recordBooking(rec BookingRecorder) hostop.Invoke {
+	return func(ctx context.Context, raw json.RawMessage) (json.RawMessage, error) {
+		var req bookingRecordReq
+		if err := json.Unmarshal(raw, &req); err != nil {
+			return nil, fmt.Errorf("booking.record: decode: %w", err)
+		}
+		in := &usecase.BookingRecord{
+			OwnerID: req.OwnerID, Type: "booking." + req.Event, BookingID: req.BookingID,
+		}
+		if n := req.Notice; n != nil {
+			in.Notice = &repo.BookingNotice{
+				OwnerID: req.OwnerID, BookingID: req.BookingID, StartAt: n.StartAt,
+				Summary: n.Summary, VisitorName: n.VisitorName,
+			}
+		}
+		if err := rec.RecordBooking(ctx, in); err != nil {
+			return nil, fmt.Errorf("booking.record: %w", err)
+		}
+		return json.RawMessage(`{"ok":true}`), nil
+	}
 }
 
 func readOwnerMeta(owners MetaLookup) hostop.Invoke {

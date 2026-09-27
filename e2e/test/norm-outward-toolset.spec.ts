@@ -265,6 +265,14 @@ const GOLDEN_TOOLSET: readonly string[] = [
   // summary (viewers / visits / views / events / bots are five different counts),
   // and the per-viewer session panel. They belong in this golden the day they ship.
   'monitor.events', 'monitor.stats', 'monitor.sessions',
+  // The instance's own machinery (docs/design/event-bus-outbox-webhooks.md): the job queue and
+  // periodic jobs, the event stream, and webhook endpoints — the Tasks and Webhooks panels' ops.
+  'tasks.overview', 'tasks.list', 'tasks.get', 'tasks.periodic',
+  'tasks.retry', 'tasks.cancel', 'tasks.run_periodic',
+  'events.list', 'events.get', 'events.requeue',
+  'webhooks.list', 'webhooks.create', 'webhooks.update', 'webhooks.delete',
+  'webhooks.rotate_secret', 'webhooks.send_test', 'webhooks.deliveries', 'webhooks.redeliver',
+  'webhooks.event_types',
   // monitoring.set -- the owner's traffic-collection master switch (off collects nothing). It is
   // an owner setting (returns the settings envelope), but its home is the monitor panel.
   'monitoring.set',
@@ -288,7 +296,7 @@ const GOLDEN_TOOLSET: readonly string[] = [
   'api.open', 'api.close', 'api.list_candidates',
   // jobs plugin (jobs / resume / applications)
   'jobs.register_source', 'jobs.list_sources', 'jobs.unregister_source',
-  'jobs.fetch_new', 'jobs.show', 'jobs.discard',
+  'jobs.fetch_new', 'jobs.fetch_result', 'jobs.show', 'jobs.discard',
   'resume.draft', 'resume.update_draft', 'resume.discard_draft',
   'applications.commit',
 ];

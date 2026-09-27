@@ -49,7 +49,10 @@ type Deps struct {
 	Conversation conversation.OpsHost
 	Corpus       *corpus.IndexDeps
 	Owners       owner.OpsHostLookup
+	Bookings     owner.OpsBookings
 	Suppliers    supplierroutes.Invoker
+	// SupplierJobs —— supplier.invoke with background=true: the call as a durable job.
+	SupplierJobs supplierroutes.Background
 }
 
 // PerBlock — the two things that belong to only one block: its own isolated store,
@@ -77,7 +80,8 @@ func Collect(d *Deps, per *PerBlock) []hostop.Op {
 	ops := conversation.HostOps(d.Conversation)
 	ops = append(ops, corpus.CorpusHostOpsFor(d.Corpus)...)
 	ops = append(ops, owner.HostOps(d.Owners)...)
-	ops = append(ops, supplierroutes.Ops(d.Suppliers)...)
+	ops = append(ops, owner.BookingHostOps(d.Bookings)...)
+	ops = append(ops, supplierroutes.Ops(d.Suppliers, d.SupplierJobs)...)
 	ops = append(ops, blockdesk.StoreOps(per.Store)...)
 	ops = append(ops, blockdesk.ConfigOps(per.Config)...)
 	return ops
@@ -101,7 +105,6 @@ func ServeAt(ctx context.Context, log *slog.Logger, in *ServeInput) (*hostsocket
 	if lerr != nil {
 		return nil, fmt.Errorf("hostdesk: %w", lerr)
 	}
-	go srv.Serve(ctx)
 	return srv, nil
 }
 

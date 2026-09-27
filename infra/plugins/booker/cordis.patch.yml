@@ -11,5 +11,7 @@
         command: node
         args:
           - booker-mcp.js
-        cwd: !!js dshHomePath('profiles/dsh-testkit/node_modules/standmeet-booker-mcp')
+        # This package's installed directory, resolved by Node from the running profile's manifest,
+        # so the bundle works in a profile of any name.
+        cwd: !!js "process.getBuiltinModule('node:path').dirname(process.getBuiltinModule('node:module').createRequire(ctx.get('profileContext').dir + '/package.json').resolve('standmeet-booker-mcp/package.json'))"
         failOnStartupError: true

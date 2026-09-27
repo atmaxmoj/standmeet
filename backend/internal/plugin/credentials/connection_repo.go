@@ -35,6 +35,7 @@ type SecretStore interface {
 // Repo — reads/writes block_connections (metadata) + the credential value via SecretStore.
 type Repo struct {
 	pool    *pgstore.Pool
+	q       pgstore.DBTX // nil → the pool; set by With
 	secrets SecretStore
 }
 
@@ -42,6 +43,12 @@ type Repo struct {
 func NewRepo(pool *pgstore.Pool, secrets SecretStore) *Repo {
 	return &Repo{pool: pool, secrets: secrets}
 }
+
+// With —— a copy whose connection-state writes (tokens, connected, active) run on q.
+func (r *Repo) With(q pgstore.DBTX) *Repo { return &Repo{pool: r.pool, q: q, secrets: r.secrets} }
+
+// Pool —— the pool a caller opens its transaction on.
+func (r *Repo) Pool() *pgstore.Pool { return r.pool }
 
 // SaveCredentialsInput — input for saving credentials (plaintext credential JSON, encrypted
 // inside the repo).
@@ -116,7 +123,7 @@ func (r *Repo) SaveTokens(ctx context.Context, in *SaveTokensInput) error {
 	if serr != nil {
 		return fmt.Errorf("marshal scopes: %w", serr)
 	}
-	_, qerr := db.New(r.pool).UpdateBlockTokens(ctx, db.UpdateBlockTokensParams{
+	_, qerr := db.New(r.conn()).UpdateBlockTokens(ctx, db.UpdateBlockTokensParams{
 		TokenEnc:       tokEnc,
 		TokenExpiresAt: pgtype.Timestamptz{Time: in.ExpiresAt, Valid: !in.ExpiresAt.IsZero()},
 		Scopes:         scopesJSON, OwnerID: ownerUUID, BlockID: in.BlockID,
@@ -139,7 +146,7 @@ func (r *Repo) MarkConnected(ctx context.Context, ownerID, blockID string) error
 	if err != nil {
 		return fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	rows, derr := db.New(r.pool).MarkBlockConnected(ctx, db.MarkBlockConnectedParams{
+	rows, derr := db.New(r.conn()).MarkBlockConnected(ctx, db.MarkBlockConnectedParams{
 		OwnerID: ownerUUID, BlockID: blockID,
 	})
 	if derr != nil {
@@ -157,7 +164,7 @@ func (r *Repo) ClearTokens(ctx context.Context, ownerID, blockID string) error {
 	if err != nil {
 		return fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	if derr := db.New(r.pool).ClearBlockTokens(ctx,
+	if derr := db.New(r.conn()).ClearBlockTokens(ctx,
 		db.ClearBlockTokensParams{OwnerID: ownerUUID, BlockID: blockID}); derr != nil {
 		return fmt.Errorf("clear block tokens: %w", derr)
 	}
@@ -179,7 +186,7 @@ func (r *Repo) SetActive(
 	if err != nil {
 		return fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	touched, derr := db.New(r.pool).SetActiveSupplier(ctx, db.SetActiveSupplierParams{
+	touched, derr := db.New(r.conn()).SetActiveSupplier(ctx, db.SetActiveSupplierParams{
 		BlockID: blockID, OwnerID: ownerUUID, Seam: seam,
 	})
 	if derr != nil {
@@ -251,7 +258,7 @@ func (r *Repo) ListBySeam(
 	if err != nil {
 		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	rows, qerr := db.New(r.pool).ListBlockConnectionsBySeam(ctx,
+	rows, qerr := db.New(r.conn()).ListBlockConnectionsBySeam(ctx,
 		db.ListBlockConnectionsBySeamParams{OwnerID: ownerUUID, Seam: seam})
 	if qerr != nil {
 		return nil, fmt.Errorf("list block connections by seam: %w", qerr)
@@ -274,4 +281,14 @@ func (r *Repo) SeamConnected(
 		}
 	}
 	return false, nil
+}
+
+// conn —— the transaction when bound by With, else the pool.
+//
+//nolint:ireturn // DBTX is the port both a pool and a transaction satisfy
+func (r *Repo) conn() pgstore.DBTX {
+	if r.q != nil {
+		return r.q
+	}
+	return r.pool
 }

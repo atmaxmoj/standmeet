@@ -7,10 +7,13 @@ package ops
 import (
 	"context"
 	"encoding/json"
+	"slices"
+	"strings"
 	"time"
 
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
-	"github.com/atmaxmoj/standmeet/internal/stats/entity"
+	"github.com/atmaxmoj/standmeet/internal/infra/jobs"
+	"github.com/atmaxmoj/standmeet/internal/infra/periodic"
 	"github.com/atmaxmoj/standmeet/internal/stats/repo"
 )
 
@@ -172,19 +175,44 @@ type jobsOut struct {
 	Jobs []jobRowOut `json:"jobs"`
 }
 
-func scheduledJobs(registry *entity.JobRegistry) fp.Invoke {
-	return func(_ context.Context, _ string, _ json.RawMessage) (json.RawMessage, error) {
-		jobs := registry.ScheduledJobs()
+// PeriodicReader — the durable record of periodic jobs (the job runtime). It survives a
+// restart; the in-memory registry this replaced did not.
+type PeriodicReader interface {
+	Periodic(ctx context.Context) ([]jobs.PeriodicState, error)
+}
+
+func scheduledJobs(src PeriodicReader) fp.Invoke {
+	return func(ctx context.Context, _ string, _ json.RawMessage) (json.RawMessage, error) {
+		states, err := src.Periodic(ctx)
+		if err != nil {
+			return nil, fp.OpErr("periodic jobs", err)
+		}
+		slices.SortFunc(states, func(a, b jobs.PeriodicState) int {
+			return strings.Compare(a.Name, b.Name)
+		})
 		now := time.Now()
-		out := make([]jobRowOut, 0, len(jobs))
-		for i := range jobs {
+		out := make([]jobRowOut, 0, len(states))
+		for i := range states {
 			out = append(out, jobRowOut{
-				LastRun: formatOptionalTime(jobs[i].LastRun), Name: jobs[i].Name,
-				Schedule:   jobs[i].Schedule,
-				LastStatus: jobHealth(now, jobs[i].LastRun, jobs[i].Every, jobs[i].LastStatus),
+				LastRun: formatOptionalTime(states[i].LastRunAt), Name: states[i].Name,
+				Schedule: periodic.ScheduleOf(states[i].Every),
+				LastStatus: jobHealth(
+					now, states[i].LastRunAt, states[i].Every, lastStatus(&states[i])),
 			})
 		}
 		return json.Marshal(jobsOut{Jobs: out})
+	}
+}
+
+// lastStatus — the panel's words for the last run: never run → scheduled, failed → error.
+func lastStatus(s *jobs.PeriodicState) string {
+	switch {
+	case s.LastRunAt == nil:
+		return "scheduled"
+	case s.LastResult == jobs.StateCompleted:
+		return "ok"
+	default:
+		return "error"
 	}
 }
 

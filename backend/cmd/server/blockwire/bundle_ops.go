@@ -18,6 +18,7 @@ import (
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
 
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
+	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/plugin"
 	"github.com/atmaxmoj/standmeet/internal/plugin/assembly"
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
@@ -310,7 +311,14 @@ func persistAndMount(
 		return cerr
 	}
 	rec := assembly.InstalledBlock{BlockID: p.m.ID, Title: p.m.Title, Manifest: p.text}
-	if serr := d.Assembly.Install(ctx, ownerID, &rec); serr != nil {
+	serr := pgstore.InTx(ctx, d.Assembly.Pool(), func(tx pgstore.Tx) error {
+		if err := d.Assembly.With(tx).Install(ctx, ownerID, &rec); err != nil {
+			return err
+		}
+		return d.Recorder().With(tx).Record(ctx, ownerID, BlockInstalled, "block/"+p.m.ID,
+			blockData(p.m.ID))
+	})
+	if serr != nil {
 		return fp.OpErr("install block", serr)
 	}
 	// Re-installing is the owner's way of saying "I fixed it", so last time's

@@ -51,41 +51,34 @@ func (r *CodeRepo) insertMemberUnderCap(
 	if err != nil {
 		return entity.CodeMember{}, fmt.Errorf(errParseCodeIDPrefix, err)
 	}
-	row, terr := r.inTx(ctx, func(tx pgx.Tx) (db.CodeMember, error) {
-		return insertMemberTx(ctx, tx, codeUUID, displayName, anon)
-	})
-	if terr != nil {
+	// A transaction of its own, or a savepoint inside the caller's (With(tx)): the member insert
+	// then commits with whatever else that transaction writes.
+	var row db.CodeMember
+	if terr := pgstore.InTx(ctx, pgstore.Nested(r.q, r.pool), func(tx pgstore.Tx) error {
+		var ierr error
+		row, ierr = insertMemberTx(ctx, tx, codeUUID, displayName, anon)
+		return ierr
+	}); terr != nil {
+		//nolint:wrapcheck // InTx names begin/commit; fn names its steps
 		return entity.CodeMember{}, terr
 	}
 	return toDomainMember(&row), nil
 }
 
-// inTx —— opens a transaction, runs one thing, commits on success / rolls back on
-// failure. A rollback failure is joined with the original error and handed out
-// together (dropping either one would send the next person diagnosing in the
-// wrong direction).
-func (r *CodeRepo) inTx(
-	ctx context.Context, body func(pgx.Tx) (db.CodeMember, error),
-) (db.CodeMember, error) {
-	tx, terr := r.pool.Begin(ctx)
-	if terr != nil {
-		return db.CodeMember{}, fmt.Errorf("begin member tx: %w", terr)
-	}
-	row, ierr := body(tx)
-	if ierr != nil {
-		return db.CodeMember{}, rollbackWith(ctx, tx, ierr)
-	}
-	if cerr := tx.Commit(ctx); cerr != nil {
-		return db.CodeMember{}, fmt.Errorf("commit member tx: %w", cerr)
-	}
-	return row, nil
-}
+// With —— a copy whose every call runs on q (the caller's transaction). The original is unchanged.
+func (r *CodeRepo) With(q pgstore.DBTX) *CodeRepo { return &CodeRepo{pool: r.pool, q: q} }
 
-func rollbackWith(ctx context.Context, tx pgx.Tx, cause error) error {
-	if rerr := tx.Rollback(ctx); rerr != nil {
-		return errors.Join(cause, fmt.Errorf("rollback: %w", rerr))
+// Pool —— the pool a use case opens its transaction on.
+func (r *CodeRepo) Pool() *pgstore.Pool { return r.pool }
+
+// conn —— the transaction when bound by With, else the pool.
+//
+//nolint:ireturn // DBTX is the port both a pool and a transaction satisfy
+func (r *CodeRepo) conn() pgstore.DBTX {
+	if r.q != nil {
+		return r.q
 	}
-	return cause
+	return r.pool
 }
 
 func insertMemberTx(

@@ -11,7 +11,7 @@ import { useCallback, useState } from 'react';
 import { z } from 'zod';
 
 import { sessionStore } from '@/lib/admin/use-admin-session';
-import { adminAPI } from '@/lib/api/admin';
+import { adminAPI, MailReceiptSchema } from '@/lib/api/admin';
 
 const FullNameRespSchema = z.object({ full_name: z.string() });
 // EmailRespSchema —— the receipt must say clearly **what happened**:
@@ -26,12 +26,17 @@ const FullNameRespSchema = z.object({ full_name: z.string() });
 const EmailRespSchema = z.object({
   email: z.string(),
   pending_email: z.string().optional(),
+  // mail —— the confirmation mail's receipt when pending: "sent" only once it went out.
+  mail: MailReceiptSchema.optional(),
 });
 
-// EmailChangeResult —— the outcome of one email change. pending non-empty = still waiting on confirmation of the new address.
+// EmailChangeResult —— the outcome of one email change. pending non-empty = still waiting on
+// confirmation of the new address; mailSent = its confirmation mail already went out (else it is
+// still on its way).
 export interface EmailChangeResult {
   email: string;
   pending: string;
+  mailSent: boolean;
 }
 
 export interface AccountHook {
@@ -63,7 +68,9 @@ export function useAccount(): AccountHook {
           current_password: currentPassword, new_email: newEmail,
         }, EmailRespSchema);
         await sessionStore.getState().refresh();
-        return { email: res.email, pending: res.pending_email ?? '' };
+        return {
+          email: res.email, pending: res.pending_email ?? '', mailSent: res.mail?.state === 'sent',
+        };
       });
     }, [],
   );

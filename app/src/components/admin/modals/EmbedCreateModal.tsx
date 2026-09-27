@@ -1,9 +1,10 @@
 // EmbedCreateModal — one modal for both "new embed" and "edit embed".
 //
-// create: pick a code + label + allowed origins → POST /embeds.
+// create: pick a code + label + allowed origins + update hook URL → POST /embeds.
 // edit: the code is locked (swapping it would make **another** embed — the tag
-//   pasted on the outside site still points at the old code) — only label +
-//   allowed origins are editable, matching what the backend update op accepts.
+//   pasted on the outside site still points at the old code) — only label,
+//   allowed origins and the update hook URL are editable, matching what the
+//   backend update op accepts.
 //
 // Form state / save dispatch / copy all live in use-embeds (lib): the presentation
 // layer must have no `if`, branch count capped at 3.
@@ -19,15 +20,18 @@ import { ModalShell } from '@/components/admin/modals/ModalShell';
 import type { CodeView } from '@/lib/admin/use-codes';
 import {
   dispatchEmbedSave, embedModalText, useEmbedForm,
-  type EmbedFormHook, type EmbedView,
+  type EmbedFormHook, type EmbedFormValues, type EmbedView,
 } from '@/lib/admin/use-embeds';
+
+type OnCreate = (codeID: string, values: EmbedFormValues) => Promise<void>;
+type OnUpdate = (id: string, values: EmbedFormValues) => Promise<void>;
 
 type Props = {
   existing: EmbedView | null;
   codes: readonly CodeView[];
   onClose: () => void;
-  onCreate: (codeID: string, label: string, origins: string[]) => Promise<void>;
-  onUpdate: (id: string, label: string, origins: string[]) => Promise<void>;
+  onCreate: OnCreate;
+  onUpdate: OnUpdate;
 };
 
 export function EmbedCreateModal({ existing, codes, onClose, onCreate, onUpdate }: Props) {
@@ -41,6 +45,7 @@ export function EmbedCreateModal({ existing, codes, onClose, onCreate, onUpdate 
         <CodePicker form={form} codes={codes} />
         <LabelField form={form} />
         <OriginsField form={form} />
+        <HookField form={form} />
         <Footer save={text.save} disabled={form.codeID === ''} onClose={onClose} />
       </form>
     </ModalShell>
@@ -50,8 +55,8 @@ export function EmbedCreateModal({ existing, codes, onClose, onCreate, onUpdate 
 function useSubmit(
   existing: EmbedView | null,
   form: EmbedFormHook,
-  onCreate: (codeID: string, label: string, origins: string[]) => Promise<void>,
-  onUpdate: (id: string, label: string, origins: string[]) => Promise<void>,
+  onCreate: OnCreate,
+  onUpdate: OnUpdate,
 ) {
   return useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,6 +110,23 @@ function OriginsField({ form }: { form: EmbedFormHook }) {
         className="sm-field-input font-mono text-[12px] resize-y"
       />
       <p className="mono text-[9.5px] text-(--color-faint) leading-relaxed">{t('originsHelp')}</p>
+    </label>
+  );
+}
+
+// HookField —— the Update hook URL: a site that caches this embed's corpus gets a signed event on
+// every change inside the embed's code scope. Empty = no hook; clearing it removes the hook.
+function HookField({ form }: { form: EmbedFormHook }) {
+  const t = useTranslations('adminAccess.embeds.form');
+  return (
+    <label className="block space-y-2">
+      <FieldKicker text={t('hookField')} />
+      <input
+        type="url" data-testid="embed-update-hook-url" value={form.hookURL}
+        onChange={(e) => form.setHookURL(e.target.value)}
+        placeholder={t('hookPlaceholder')} className="sm-field-input font-mono text-[12px]"
+      />
+      <p className="mono text-[9.5px] text-(--color-faint) leading-relaxed">{t('hookHelp')}</p>
     </label>
   );
 }

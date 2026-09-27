@@ -134,9 +134,18 @@ export function publicSearchEnabled(): boolean {
 // same mechanism as publicSearchEnabled. When on, the codeless AgentWidget answers inline over the
 // public tier (PUBLISHED-only corpus) instead of handing a codeless visitor off to /gate.
 export function publicChatEnabled(): boolean {
-  if (typeof document === 'undefined') return false;
-  const el = document.querySelector('meta[name="standmeet-public-chat"]');
-  return el?.getAttribute('content') === 'true';
+  return publicChatMeta() === 'true';
+}
+
+// publicChatSpent —— the owner wired a public provider but its quota is gone. The codeless
+// AgentWidget then offers the visitor's own key (owner decision 2026-09-25) rather than /gate.
+export function publicChatSpent(): boolean {
+  return publicChatMeta() === 'spent';
+}
+
+function publicChatMeta(): string | null {
+  if (typeof document === 'undefined') return null;
+  return document.querySelector('meta[name="standmeet-public-chat"]')?.getAttribute('content') ?? null;
 }
 
 // pageDocContext —— the page the visitor is on, for the agent ("can I use IT?" → this page). The

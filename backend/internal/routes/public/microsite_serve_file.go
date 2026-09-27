@@ -25,14 +25,14 @@ type pageHead struct {
 	seoDescription *string
 	seoImage       *string
 	base           string
-	allowBYOAI     bool
+	// publicChat —— the public tier's state (PublicChatOn / Spent / Off); the AgentWidget reads it
+	// to decide inline (on), the visitor's own key (spent), or the /gate handoff (off).
+	publicChat string
+	allowBYOAI bool
 	// publicSearch —— whether corpus.retrieval's public_search is on for this owner. Read fresh
 	// per request (same reasoning as allowBYOAI): flip it off on the panel and the next page load
 	// carries the new value, no snapshot. The codeless corpus_search BlockWidget reads this meta.
 	publicSearch bool
-	// publicChat —— whether a usable public provider is wired; the AgentWidget reads it to decide
-	// inline (public tier) vs the /gate handoff.
-	publicChat bool
 }
 
 // tags —— the lines injected into <head>.
@@ -47,12 +47,16 @@ func (p pageHead) tags() string {
 		seoHead(p.seoTitle, p.seoDescription, p.seoImage) +
 		boolMeta("standmeet-page-byoai", p.allowBYOAI) +
 		boolMeta("standmeet-public-search", p.publicSearch) +
-		boolMeta("standmeet-public-chat", p.publicChat)
+		meta("standmeet-public-chat", p.publicChat)
 }
 
 // boolMeta —— a `<meta name content="true|false">` line, so tags() stays one short expression.
 func boolMeta(name string, on bool) string {
-	return `<meta name="` + name + `" content="` + strconv.FormatBool(on) + `">`
+	return meta(name, strconv.FormatBool(on))
+}
+
+func meta(name, content string) string {
+	return `<meta name="` + name + `" content="` + html.EscapeString(content) + `">`
 }
 
 func serveFile(log *slog.Logger, w http.ResponseWriter, fp string, head pageHead) {

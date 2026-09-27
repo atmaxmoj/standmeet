@@ -20,10 +20,17 @@ const errParseKeyIDPrefix = "parse api key id: %w"
 // APIKeyRepo —— api_keys (+ its denial and candidacy tables) repo.
 type APIKeyRepo struct {
 	pool *pgstore.Pool
+	q    pgstore.DBTX // nil → the pool; set by With
 }
 
 // NewAPIKeyRepo constructs an APIKeyRepo.
 func NewAPIKeyRepo(pool *pgstore.Pool) *APIKeyRepo { return &APIKeyRepo{pool: pool} }
+
+// With —— a copy whose every call runs on q (the caller's transaction). The original is unchanged.
+func (r *APIKeyRepo) With(q pgstore.DBTX) *APIKeyRepo { return &APIKeyRepo{pool: r.pool, q: q} }
+
+// Pool —— the pool a use case opens its transaction on.
+func (r *APIKeyRepo) Pool() *pgstore.Pool { return r.pool }
 
 // Create —— mint a key row. Returns the persisted row (with generated id + created_at).
 func (r *APIKeyRepo) Create(
@@ -37,7 +44,7 @@ func (r *APIKeyRepo) Create(
 	if rerr != nil {
 		return entity.APIKey{}, fmt.Errorf("parse role id: %w", rerr)
 	}
-	row, qerr := db.New(r.pool).CreateAPIKey(ctx, db.CreateAPIKeyParams{
+	row, qerr := db.New(r.conn()).CreateAPIKey(ctx, db.CreateAPIKeyParams{
 		OwnerID: ownerUUID, AssumedRoleID: roleUUID, Label: in.Label,
 		Prefix: in.Prefix, SecretHash: in.SecretHash, RateLimitRpm: in.RateLimitRPM,
 		ExpiresAt: pgstore.ToTimestamptz(in.ExpiresAt),
@@ -122,7 +129,7 @@ func (r *APIKeyRepo) Revoke(ctx context.Context, id, ownerID string) error {
 	if oerr != nil {
 		return fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
 	}
-	rows, qerr := db.New(r.pool).RevokeAPIKey(ctx, db.RevokeAPIKeyParams{
+	rows, qerr := db.New(r.conn()).RevokeAPIKey(ctx, db.RevokeAPIKeyParams{
 		ID: idUUID, OwnerID: ownerUUID,
 	})
 	if qerr != nil {
@@ -186,4 +193,14 @@ func decodeAPIKey(row *db.ApiKey) entity.APIKey {
 		LastUsedAt:    pgstore.OptTime(row.LastUsedAt),
 		CreatedAt:     row.CreatedAt.Time,
 	}
+}
+
+// conn —— the transaction when bound by With, else the pool.
+//
+//nolint:ireturn // DBTX is the port both a pool and a transaction satisfy
+func (r *APIKeyRepo) conn() pgstore.DBTX {
+	if r.q != nil {
+		return r.q
+	}
+	return r.pool
 }

@@ -1,27 +1,20 @@
 #!/usr/bin/env bash
-# check-periodic-via-scheduler.sh —— anything that runs on a timer runs through the one scheduler
-# (backend/internal/infra/periodic).
+# check-periodic-via-scheduler.sh —— anything that runs on a timer is a periodic job, run by the
+# job runtime (internal/infra/jobs).
 #
-# Three copies of the same loop used to exist, and each carried its own bookkeeping:
+# A domain declares what to do as data (periodic.Job, collected into jobs.Periodic by the
+# composition root); the runtime owns how often, on which process (the elected leader), and the
+# durable record of each run on the Tasks panel. A hand-written loop runs on every replica,
+# forgets its history on restart, and never appears on the panel — the in-process scheduler this
+# replaced, and three hand-written loops before it, all did exactly that.
 #
-#   - the schedule shown on the Monitor panel was HAND-WRITTEN next to the interval, so it could
-#     say "every 5m" while the ticker fired hourly and nothing would notice;
-#   - the Register call was optional, so a loop could run forever and never appear on the panel at
-#     all. corpus's Meili reconcile did exactly that, for its whole life.
-#
-# Rules:
-#
-#   1. `time.NewTicker` / `time.Tick` may only appear in internal/infra/periodic. Everything else
-#      declares a periodic.Job and lets the scheduler own the loop.
-#   2. Only the scheduler may Register a job on the board. Registering by hand means a name and a
-#      schedule string that nothing checks against the interval that actually fires.
-#
-# No baseline: the last hand-written loop was deleted in the same change that added this gate.
+# Rule: `time.NewTicker` / `time.Tick` may appear only in internal/infra/jobs/**.
+# Design: docs/design/event-bus-outbox-webhooks.md, "Enforcement".
 set -eu
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 BK="$ROOT/backend"
-ALLOWED='^internal/infra/periodic/'
+ALLOWED='^internal/infra/jobs/'
 
 # goFiles —— find, not `grep --include`: BusyBox grep (the alpine image lint) does not know that
 # flag and exits with no output, which reads exactly like a clean tree.
@@ -42,18 +35,10 @@ while IFS= read -r f; do
 	[ -n "$f" ] || continue
 	rel="${f#"$BK"/}"
 	echo "$rel" | grep -qE "$ALLOWED" && continue
-	echo "check-periodic-via-scheduler: $rel starts its own timer —— declare a periodic.Job instead; the loop, the interval and the Monitor bookkeeping belong to internal/infra/periodic."
+	echo "check-periodic-via-scheduler: $rel starts its own timer —— declare a periodic.Job instead; the job runtime (internal/infra/jobs) runs it on the leader and records every run."
 	fail=1
 done < <(goFiles | xargs grep -lE 'time\.NewTicker|time\.Tick\(' 2>/dev/null | sort)
 
-while IFS= read -r f; do
-	[ -n "$f" ] || continue
-	rel="${f#"$BK"/}"
-	echo "$rel" | grep -qE "$ALLOWED" && continue
-	echo "check-periodic-via-scheduler: $rel registers a job on the board by hand —— the schedule string must be derived from the interval that actually fires, which only the scheduler knows."
-	fail=1
-done < <(goFiles | xargs grep -lE 'jobRegistry\.Register\(|JobRegistry\)\.Register\(|board\.Register\(' 2>/dev/null | sort)
-
 [ "$fail" -eq 0 ] || exit 1
 
-echo "check-periodic-via-scheduler: every timer runs through internal/infra/periodic; the panel's schedule is derived, not asserted."
+echo "check-periodic-via-scheduler: every timer is a periodic job run by internal/infra/jobs."

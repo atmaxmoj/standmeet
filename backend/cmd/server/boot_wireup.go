@@ -44,7 +44,7 @@ func buildServerDeps(d *deps.Runtime) *Deps {
 		PublicAccessRequests:   buildPublicAccessRequestsDeps(d),
 		PublicPasswordReset:    buildPublicPasswordResetDeps(d),
 		PublicWritings: publicroutes.WritingHandlers{
-			Writings: corpus.WritingsDeps{Writings: d.WritingRepo},
+			Writings: corpus.WritingsDeps{Writings: d.WritingRepo, Events: d.Recorder()},
 			CrossLink: corpus.CrossLinkQueryDeps{
 				Writings: d.WritingRepo, WritingRefs: d.WritingRefRepo,
 			},
@@ -53,10 +53,12 @@ func buildServerDeps(d *deps.Runtime) *Deps {
 			Log:    d.Log,
 		},
 		Builds: sysroutes.BuilderDeps{
-			Log: d.Log, Builds: d.MicrositeBuildRepo, Pages: d.MicrositeRepo,
-			Version:  port.AppVersion(),
-			Notifier: d.BuildNotifier, RebuildAssetRefs: micrositeAssetRefRebuilder(d),
+			Log: d.Log, Builds: d.MicrositeBuildRepo, Version: port.AppVersion(),
+			Settle: owner.BuildSettleDeps{
+				Builds: d.MicrositeBuildRepo, Pages: d.MicrositeRepo, Events: d.Events.Recorder(),
+			},
 		},
+		AwaitBuild:   awaitBuildSettled(d),
 		IM:           sysroutes.IMDeps{Log: d.Log, Token: telegramTokenReader(d)},
 		TLSAsk:       sysroutes.TLSAskDeps{Log: d.Log, Domains: d.InstanceRepo},
 		PrintSession: sysroutes.PrintSessionDeps{Log: d.Log, Store: d.PrintStore},
@@ -82,7 +84,8 @@ func buildServerDeps(d *deps.Runtime) *Deps {
 
 // (The one-off boot maintenance step is gone: purging old inference_usage rows is now a
 // periodic job the stats domain declares, same as every other periodic job (see
-// wire/periodic.go). periodic.Start still runs once at startup, so it still happens then too.)
+// wire/periodic.go). Periodic jobs run once at start (River RunOnStart), so it still happens
+// then too.)
 
 func buildAdminDeps(d *deps.Runtime) AdminDeps {
 	return AdminDeps{
@@ -90,21 +93,25 @@ func buildAdminDeps(d *deps.Runtime) AdminDeps {
 			Instance: d.InstanceRepo, Skills: d.SkillRepo,
 			Prompts: d.PromptRepo, Roles: d.RoleRepo,
 		},
-		Login:    owner.LoginDeps{Owners: d.OwnerRepo, Sessions: d.SessionStore},
+		Login: owner.LoginDeps{
+			Owners: d.OwnerRepo, Sessions: d.SessionStore, Events: d.Recorder(),
+		},
 		Keypairs: port.KeypairDeps(d),
 		Corpus: corpus.Deps{
 			Raw: d.RawRepo, Wiki: d.WikiRepo, Output: d.OutputRepo, NoteRefs: d.NoteRefRepo,
-			Subjectivity: d.SubjectivityRepo, VaultSync: d.VaultSyncRepo, Index: d.CorpusIndexer,
+			Subjectivity: d.SubjectivityRepo, VaultSync: d.VaultSyncRepo,
+			IndexReceipt: d.IndexReceipt,
 		},
 		Conversations: conversation.ConversationsDeps{
 			Chats: d.ChatRepo, Wiki: d.WikiRepo, Writing: d.WritingRepo, Output: d.OutputRepo,
 			Subjectivity: corpus.NewSubjectivityCiteResolver(d.SubjectivityRepo),
 		},
-		Ghosts: conversation.GhostDeps{Repo: d.GhostRepo},
+		Ghosts: conversation.GhostDeps{Repo: d.GhostRepo, Events: d.Recorder()},
 		BYOAI:  owner.BYOAIDeps{Owners: d.OwnerRepo},
 		AccessRequests: access.RequestsDeps{
 			Repo:   d.AccessRequestRepo,
 			Owners: port.NewSoleOwnerLookup(d),
+			Pool:   d.DB, Events: d.Recorder(),
 		},
 		HandleAdmin:    owner.HandleDeps{Owners: d.OwnerRepo},
 		PublicURLAdmin: owner.PublicURLDeps{Owners: d.OwnerRepo},
@@ -114,10 +121,12 @@ func buildAdminDeps(d *deps.Runtime) AdminDeps {
 		AIProvider: owner.AIProviderDeps{
 			Owners: d.OwnerRepo, Providers: port.InferenceProviders{},
 		},
-		Blocks:     blocksAdminDeps(d),
-		Microsites: owner.MicrositeDeps{Pages: d.MicrositeRepo, Builds: d.MicrositeBuildRepo},
-		Skills:     marketplace.SkillsDeps{Skills: d.SkillRepo, Codes: d.CodeRepo},
-		Prompts:    owner.PromptsDeps{Prompts: d.PromptRepo},
+		Blocks: blocksAdminDeps(d),
+		Microsites: owner.MicrositeDeps{
+			Pages: d.MicrositeRepo, Builds: d.MicrositeBuildRepo, Events: d.Recorder,
+		},
+		Skills:  marketplace.SkillsDeps{Skills: d.SkillRepo, Codes: d.CodeRepo},
+		Prompts: owner.PromptsDeps{Prompts: d.PromptRepo},
 		Roles: access.RolesDeps{
 			Roles: d.RoleRepo,
 			Refs:  port.NewRoleRefValidator(d),
@@ -128,19 +137,16 @@ func buildAdminDeps(d *deps.Runtime) AdminDeps {
 			Servers: d.MCPServerRepo, Codes: d.CodeRepo, Prober: d.MCPProber,
 		},
 		Assets:       corpus.AssetsDeps{Repo: d.AssetRepo, Storage: d.StorageClient},
-		Writings:     corpus.WritingsDeps{Writings: d.WritingRepo},
+		Writings:     corpus.WritingsDeps{Writings: d.WritingRepo, Events: d.Recorder()},
 		WritingRefs:  d.WritingRefRepo,
 		SEO:          d.SEORepo,
 		Codes:        d.CodeRepo,
 		CodeDenials:  d.CodeDenialRepo,
 		Owners:       d.OwnerRepo,
+		VaultImports: owner.VaultImports{Owners: d.OwnerRepo, Events: d.Recorder()},
 		Drafts:       d.ResumeDraftRepo,
 		Applications: d.ApplicationRepo,
 		Marketplace:  marketplace.SearchDeps{Client: d.MarketplaceClient},
-		ApproveRequests: owner.ApproveRequestDeps{
-			Reqs: d.AccessRequestRepo, Codes: d.CodeRepo, Roles: d.RoleRepo,
-			Owners: d.OwnerRepo, Proxy: port.OutboundSender(d),
-		},
 		Sessions:     d.SessionStore,
 		Refresh:      d.RefreshStore,
 		SecureCookie: d.SecureCookie,
@@ -163,7 +169,6 @@ func buildDiagSessionDeps(d *deps.Runtime) sysroutes.DiagSessionDeps {
 // d.agentSkills. Shares repo references with build*Deps; called once during run(), and
 // the block closures hold these deps unchanged for the rest of the server's run.
 func registerAgentSkills(ctx context.Context, d *deps.Runtime) {
-	blockwire.SandboxWorkspaces(d)
 	// The native-key issuer feeds mount: each sandboxed reach-back block gets a per-mount key in
 	// its env, resolved back at the socket dispatch (rule 4). Injected before any block mounts.
 	mount.SetNativeKeyIssuer(d.NativeKeys)
@@ -220,9 +225,6 @@ func registerAgentSkills(ctx context.Context, d *deps.Runtime) {
 	warmCtx, cancelWarm := context.WithTimeout(ctx, 20*time.Second)
 	d.AgentSkills.WarmVisitorBlocks(warmCtx)
 	cancelWarm()
-	// Periodic jobs: declared all over, scheduled from one place. Last on purpose —
-	// declarations complete only once every plugin has registered.
-	wire.PeriodicJobs(ctx, d)
 }
 
 // buildVisitorSkillsDeps —— #131: raw block registration needs, drawn from here by
@@ -259,17 +261,18 @@ func newVisitorSessionDeps(d *deps.Runtime) conversation.VisitorSessionDeps {
 		RoleBlockConfig: blockwire.RoleBlockConfig(d),
 		// Fuel gauge (#7): tank in the owner domain, usage in stats — asks "how much is left".
 		Gas: port.OwnerGas{Providers: owner.ProvidersUseDeps{
-			Owners: d.OwnerRepo, Spend: d.InferenceUsageRepo,
+			Owners: d.OwnerRepo, Spend: d.InferenceUsageRepo, Events: d.Recorder(),
 		}},
 		// Freeze sessions with no provider onto the owner's default one — otherwise spend
 		// by anonymous/public sessions is invisible to gas accounting and gates (pentest
 		// 2026-09-01). Same Providers dependency and adapter as Gas.
 		ProviderDefault: port.OwnerGas{Providers: owner.ProvidersUseDeps{
-			Owners: d.OwnerRepo, Spend: d.InferenceUsageRepo,
+			Owners: d.OwnerRepo, Spend: d.InferenceUsageRepo, Events: d.Recorder(),
 		}},
 		// When freezing waypoints, asks "does this evidence_ref resolve to a real note?"
 		// (F-A-26). Same IndexDeps as the sandbox's corpus reads — reachable = readable.
 		CorpusRefs: corpus.NewRefResolver(wire.CorpusIndexDeps(d)),
+		Events:     d.Recorder(),
 	}
 }
 

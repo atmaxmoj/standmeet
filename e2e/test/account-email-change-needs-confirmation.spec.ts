@@ -106,7 +106,7 @@ test.describe('account · a new email must prove it is reachable before it becom
 
       // ④ Check the receipt via an external inbox: the confirmation mail went to the
       // **new** address (not the old one).
-      const body = await waitForMailTo(request, NEW_EMAIL);
+      const body = await waitForMailTo(request, NEW_EMAIL, 30_000);
       const link = confirmLinkIn(body, 'confirm-email');
 
       // ⑤ Take the real path — open the link from the mail in a browser, don't hit the

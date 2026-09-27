@@ -5,7 +5,7 @@
 // a "visible" style assertion can't tell the difference ([[button-that-cannot-be-wired]]).
 // So the criterion here is **what appears on the page after the click**.
 //
-// The second test guards honesty: dev has no STANDMEET_REDEPLOY_HOOK configured — this
+// The second test guards honesty: dev runs no updater (no STANDMEET_UPGRADE_SIGNAL) — this
 // instance has no host control, so it can't act on an upgrade. In that case the button must
 // not be labeled "upgrade". Offering an action the instance can't actually perform is worse
 // than offering none, and it lets the whole flow fail silently.

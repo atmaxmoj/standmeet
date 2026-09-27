@@ -7,7 +7,7 @@
 # (no `wire-check` / `wire` targets). schema lives in db/schema.sql
 # applied at db volume init—no goose migration runner.
 
-.PHONY: lint build test arch fmt-check max-lines routes-cyclo boundary-thin no-nil-container build-check secrets golangci-config escape-lint supplier-boundary core-agnostic core-seals-only internal-dirs domain-acyclic infra-not-domain routes-not-imported domain-facade-boundary domain-layering hostops-via-desk periodic-via-scheduler blocks-declare-in-data host-blind-to-blocks register-via-door native-key-confined
+.PHONY: lint build test arch fmt-check max-lines routes-cyclo boundary-thin no-nil-container build-check secrets golangci-config escape-lint supplier-boundary core-agnostic core-seals-only internal-dirs domain-acyclic infra-not-domain routes-not-imported domain-facade-boundary domain-layering hostops-via-desk periodic-via-scheduler blocks-declare-in-data host-blind-to-blocks register-via-door native-key-confined event-bus-gates
 
 # sqlc generation lives in the root Makefile (`make sqlc-gen`) so it works
 # the same way for app/sdk/backend devs. Don't duplicate it here.
@@ -17,7 +17,7 @@
 # typo dies before the slow arch scan.  Everything that gates a
 # commit lives here — there are no "also run X" steps anywhere else,
 # so the lefthook pre-commit and CI both just call `make lint`.
-lint: fmt-check golangci-config max-lines routes-cyclo routes-via-dispatcher hostops-via-desk periodic-via-scheduler blocks-declare-in-data boundary-thin no-nil-container no-raw-http arch supplier-boundary core-agnostic host-blind-to-blocks register-via-door native-key-confined core-seals-only internal-dirs domain-acyclic infra-not-domain routes-not-imported domain-facade-boundary domain-layering build-check golangci escape-lint
+lint: fmt-check golangci-config max-lines routes-cyclo routes-via-dispatcher hostops-via-desk periodic-via-scheduler event-bus-gates blocks-declare-in-data boundary-thin no-nil-container no-raw-http arch supplier-boundary core-agnostic host-blind-to-blocks register-via-door native-key-confined core-seals-only internal-dirs domain-acyclic infra-not-domain routes-not-imported domain-facade-boundary domain-layering build-check golangci escape-lint
 
 # gofmt diff is instant — anything malformed fails here first.
 fmt-check:
@@ -69,14 +69,24 @@ register-via-door:
 native-key-confined:
 	@bash ../infra/scripts/check-native-key-confined.sh
 
-# Anything on a timer runs through the one scheduler (internal/infra/periodic).
-# A hand-written loop carries its own bookkeeping, and the bookkeeping is what
-# drifts: the schedule shown on the panel was written next to the interval instead
-# of derived from it, and the Register call was optional — so a loop could run
-# forever and never appear on the panel at all.
+# Anything on a timer is a periodic job run by the job runtime (internal/infra/jobs).
+# A hand-written loop runs on every replica, forgets its history on restart, and
+# never appears on the Tasks panel.
 periodic-via-scheduler:
 	@bash ../infra/scripts/check-periodic-via-scheduler.sh
 	@bash ../infra/scripts/check-periodic-via-scheduler-test.sh
+
+# The event bus's structure, held by gates (docs/design/event-bus-outbox-webhooks.md,
+# "Enforcement"): side effects only in subscribers; no bare goroutine; retry only in
+# the job layer; River only behind the jobs port; every table declares its event
+# policy; a transaction opens only through pgstore.InTx.
+event-bus-gates:
+	@bash ../infra/scripts/check-side-effects-behind-bus.sh
+	@bash ../infra/scripts/check-no-bare-goroutine.sh
+	@bash ../infra/scripts/check-retry-only-in-jobs.sh
+	@bash ../infra/scripts/check-queue-behind-port.sh
+	@bash ../infra/scripts/check-table-event-policy.sh
+	@bash ../infra/scripts/check-tx-only-via-pgstore.sh
 
 # Blocks and suppliers declare their built-ins as DATA in their own top-level dir
 # (backend/blocks/, backend/suppliers/), and a declaration never names a
@@ -158,7 +168,7 @@ domain-facade-boundary:
 	@bash ../infra/scripts/check-domain-facade-boundary.sh
 
 # domain-layering: inside a faceted domain the DDD layers only import downward
-# (entity/db/infra < repo < service < usecase < facade); guts never back-reference the facade.
+# (entity/db/infra < repo < service < usecase < subscriber < facade); guts never back-reference the facade.
 domain-layering:
 	@bash ../infra/scripts/check-domain-layering.sh
 

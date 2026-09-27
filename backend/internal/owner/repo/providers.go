@@ -227,7 +227,7 @@ func (r *Repo) UpdateProvider(
 	if perr != nil {
 		return ProviderRow{}, perr
 	}
-	row, qerr := db.New(r.pool).UpdateOwnerProvider(ctx, params)
+	row, qerr := db.New(r.conn()).UpdateOwnerProvider(ctx, params)
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
 			return ProviderRow{}, entity.ErrProviderNotFound

@@ -21,6 +21,7 @@ import (
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
+	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 	"github.com/atmaxmoj/standmeet/internal/owner/usecase"
 )
 
@@ -41,7 +42,7 @@ func AccessRequests(d *AccessRequestsDeps) []fp.Op {
 			InputSchema: accessRequestListSchema,
 			Kind:        fp.Read,
 			Reach:       fp.OwnerRead(),
-			Invoke:      listAccessRequests(d.Requests),
+			Invoke:      listAccessRequests(d.Requests, d.Approve.Jobs),
 		},
 		{
 			ID:          "access_requests.update",
@@ -49,13 +50,15 @@ func AccessRequests(d *AccessRequestsDeps) []fp.Op {
 			InputSchema: accessRequestUpdateSchema,
 			Kind:        fp.Action,
 			Reach:       fp.OwnerAction(),
-			Invoke:      updateAccessRequest(d.Requests),
+			Invoke:      updateAccessRequest(d.Requests, d.Approve.Jobs),
 		},
 		{
 			ID: "access_requests.approve",
-			Description: "Approve a gate access request: issue an access code, send " +
-				"it (code + link) to the requester, and mark the request replied. " +
-				"A supplier able to deliver it must be set up first.",
+			Description: "Approve a gate access request: issue an access code (returned at " +
+				"once with its link) and mail it to the requester. The request turns replied " +
+				"only after the mail went out; mail.state says sending, sent or failed, and " +
+				"access_requests.list shows it later. A supplier able to deliver it must be " +
+				"set up first.",
 			InputSchema: accessRequestIDSchema,
 			Kind:        fp.Action,
 			Reach:       fp.OwnerAction(),
@@ -90,22 +93,27 @@ var (
 	}`)
 )
 
-// accessRequestOut —— outbound payload shape (same for every face).
+// accessRequestOut —— outbound payload shape (same for every face). Mail —— the approval
+// mail's receipt (sending / sent / failed); absent before approval.
 type accessRequestOut struct {
-	CreatedAt string `json:"created_at"`
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	Org       string `json:"org"`
-	Email     string `json:"email"`
-	Message   string `json:"message"`
-	Status    string `json:"status"`
+	Mail      *entity.NoticeReceipt `json:"mail,omitempty"`
+	CreatedAt string                `json:"created_at"`
+	ID        string                `json:"id"`
+	Name      string                `json:"name"`
+	Org       string                `json:"org"`
+	Email     string                `json:"email"`
+	Message   string                `json:"message"`
+	Status    string                `json:"status"`
 }
 
-func toAccessRequestOut(a *access.Request) accessRequestOut {
+func toAccessRequestOut(
+	ctx context.Context, j usecase.MailJobs, a *access.Request,
+) accessRequestOut {
 	return accessRequestOut{
 		ID: a.ID, Name: a.Name, Org: a.Org, Email: a.Email,
 		Message: a.Message, Status: a.Status,
 		CreatedAt: a.CreatedAt.Format(time.RFC3339),
+		Mail:      usecase.MailReceiptOf(ctx, j, a.NoticeJobID),
 	}
 }
 
@@ -125,7 +133,7 @@ func decodeStatusFilter(raw json.RawMessage) (string, error) {
 	return in.Status, nil
 }
 
-func listAccessRequests(deps access.RequestsDeps) fp.Invoke {
+func listAccessRequests(deps access.RequestsDeps, j usecase.MailJobs) fp.Invoke {
 	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
 		status, perr := decodeStatusFilter(raw)
 		if perr != nil {
@@ -137,7 +145,7 @@ func listAccessRequests(deps access.RequestsDeps) fp.Invoke {
 		}
 		out := make([]accessRequestOut, 0, len(rows))
 		for i := range rows {
-			out = append(out, toAccessRequestOut(&rows[i]))
+			out = append(out, toAccessRequestOut(ctx, j, &rows[i]))
 		}
 		return json.Marshal(out)
 	}
@@ -148,7 +156,7 @@ type accessRequestUpdateArgs struct {
 	Status string `json:"status"`
 }
 
-func updateAccessRequest(deps access.RequestsDeps) fp.Invoke {
+func updateAccessRequest(deps access.RequestsDeps, j usecase.MailJobs) fp.Invoke {
 	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
 		var in accessRequestUpdateArgs
 		if err := json.Unmarshal(raw, &in); err != nil {
@@ -163,7 +171,7 @@ func updateAccessRequest(deps access.RequestsDeps) fp.Invoke {
 		if err != nil {
 			return nil, accessRequestErr(err)
 		}
-		return json.Marshal(toAccessRequestOut(&row))
+		return json.Marshal(toAccessRequestOut(ctx, j, &row))
 	}
 }
 
@@ -171,11 +179,12 @@ type accessRequestIDArgs struct {
 	ID string `json:"id"`
 }
 
-// approvedOut —— the product of approval: the issued code, and the link the visitor can
-// click.
+// approvedOut —— the product of approval: the issued code, the link the visitor can click,
+// and the mail's receipt (it may still be sending).
 type approvedOut struct {
-	Code string `json:"code"`
-	Link string `json:"link"`
+	Code string               `json:"code"`
+	Link string               `json:"link"`
+	Mail entity.NoticeReceipt `json:"mail"`
 }
 
 func approveAccessRequest(deps usecase.ApproveRequestDeps) fp.Invoke {
@@ -194,7 +203,7 @@ func approveAccessRequest(deps usecase.ApproveRequestDeps) fp.Invoke {
 			// it's mail or something else.
 			return nil, approveErr(err, deps.Proxy.ChannelName())
 		}
-		return json.Marshal(approvedOut{Code: out.Code, Link: out.Link})
+		return json.Marshal(approvedOut{Code: out.Code, Link: out.Link, Mail: out.Mail})
 	}
 }
 

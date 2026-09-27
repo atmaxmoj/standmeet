@@ -28,6 +28,7 @@ const (
 // MicrositeRepo —— the microsites table.
 type MicrositeRepo struct {
 	pool *pgstore.Pool
+	q    pgstore.DBTX // nil → the pool; set by With
 }
 
 // NewMicrositeRepo constructs one.
@@ -227,7 +228,7 @@ func (r *MicrositeRepo) SetLive(
 	if perr != nil {
 		return entity.Microsite{}, perr
 	}
-	row, err := db.New(r.pool).SetMicrositeLive(ctx, db.SetMicrositeLiveParams{
+	row, err := db.New(r.conn()).SetMicrositeLive(ctx, db.SetMicrositeLiveParams{
 		ID: refs.Page, LiveBuildID: refs.Build,
 	})
 	if err != nil {
@@ -284,7 +285,7 @@ func (r *MicrositeRepo) Rollback(
 	if perr != nil {
 		return entity.Microsite{}, fmt.Errorf(errParsePageID, perr)
 	}
-	row, err := db.New(r.pool).RollbackMicrositeLive(ctx, pgID)
+	row, err := db.New(r.conn()).RollbackMicrositeLive(ctx, pgID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return entity.Microsite{}, entity.ErrMicrositeNotFound

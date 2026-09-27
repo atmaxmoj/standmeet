@@ -22,7 +22,7 @@ type MailProxy interface {
 	// computed then thrown away — the entire receipt for a send was "no error", and that id
 	// is the one handle left afterward: to find this message in the provider's logs, match
 	// it against a later bounce, and tell the owner exactly which message went out.
-	Send(ctx context.Context, ownerID string, msg MailMessage) (MailReceipt, error)
+	Send(ctx context.Context, ownerID string, msg *MailMessage) (MailReceipt, error)
 }
 
 // MailReceipt —— what the provider hands back after one send.
@@ -44,4 +44,7 @@ type MailMessage struct {
 	Subject string `json:"subject"`
 	Body    string `json:"body"`
 	HTML    string `json:"html"` // empty = plain text
+	// MessageID —— the Message-ID header ("<id@host>"); empty = the provider picks one. A retried
+	// job sends the same id, so most mailboxes fold a duplicate into one.
+	MessageID string `json:"message_id,omitempty"`
 }

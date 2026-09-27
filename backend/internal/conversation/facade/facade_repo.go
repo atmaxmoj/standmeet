@@ -19,6 +19,4 @@ var (
 	NewChatRepo       = repo.NewChatRepo
 	NewChatReportRepo = repo.NewChatReportRepo
 	NewGhostRepo      = repo.NewGhostRepo
-	// PrunePeriodicJobs — the scheduled cleanup of idle codeless conversations.
-	PrunePeriodicJobs = repo.PrunePeriodicJobs
 )

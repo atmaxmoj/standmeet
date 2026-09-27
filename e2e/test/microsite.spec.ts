@@ -209,6 +209,10 @@ async function multiFileBuildSpansBoth(page: Page): Promise<void> {
   await page.getByTestId('microsite-publish').click();
   await expect(page.getByTestId('microsite-build-status'))
     .toHaveText(/built/i, { timeout: 180_000 });
+  // "built" shows as soon as the build settles; the page goes live one step later (promote). The
+  // success toast is the end of the whole publish, so the page is served once it appears.
+  await expect(page.getByTestId('toast-success').filter({ hasText: 'Page published' }))
+    .toBeVisible({ timeout: 30_000 });
   // The marker lives ONLY in the imported second file — seeing it proves the build spanned both.
   await openReader(page, '/p/multi-file');
   await expect(page.getByRole('heading', { name: 'MULTI_FILE_MARKER' }))

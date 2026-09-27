@@ -1,11 +1,12 @@
 // agent-widget-public-inline.spec.ts —— when the owner has wired a public LLM provider WITH usable
 // quota, a codeless visitor asking in the AgentWidget gets an answer INLINE, not a /gate handoff.
-// When there is no usable quota (provider exhausted / none wired), the widget must fall back to the
-// gate redirect — offering inline chat with no quota would just error every anonymous visitor.
+// When the provider's quota is spent, the widget must not offer inline chat on it — that would just
+// error every anonymous visitor. It offers the visitor's own key instead (owner decision 2026-09-25:
+// out of quota → BYOK, not a dead-end redirect; agent-widget-byok.spec.ts drives that flow).
 //
 // Blackbox: a microsite whose content is <AgentWidget/>, the public role pointed at the mock gateway.
 //   • quota available  → codeless visit renders data-mode="inline" and the answer streams in place.
-//   • quota exhausted   → codeless visit renders data-mode="gate" (the redirect handoff).
+//   • quota exhausted   → codeless visit renders data-mode="byok", not inline.
 //
 // RED before the change: the widget has no public-inline path — codeless is always data-mode="gate".
 
@@ -89,7 +90,7 @@ test.describe('AgentWidget · codeless answers inline only when a public provide
       await request.dispose();
     });
 
-  test('no usable quota → codeless falls back to the gate handoff',
+  test('no usable quota → codeless is offered its own key, not inline chat',
     async ({ browser }) => {
       test.setTimeout(60_000);
       // Exhaust the public provider's tank: a metered tank filled now with 0 budget → 0 remaining.
@@ -99,8 +100,8 @@ test.describe('AgentWidget · codeless answers inline only when a public provide
       await openReader(reader, `/p/${SLUG}`);
       const widget = reader.getByTestId('agent-widget');
       await expect(widget).toBeVisible({ timeout: 20_000 });
-      await expect(widget, 'no quota → the widget keeps the gate handoff, not inline')
-        .toHaveAttribute('data-mode', 'gate');
+      await expect(widget, 'quota spent → the visitor brings a key, not inline chat on a dry tank')
+        .toHaveAttribute('data-mode', 'byok');
 
       await reader.context().close();
     });

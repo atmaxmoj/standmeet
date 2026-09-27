@@ -49,7 +49,22 @@ const TABLES = [
   'corpus_notes', 'assets', 'page_content',
   'resume_drafts', 'job_fingerprints', 'job_sources',
   'owner_keypairs', 'owners',
+  // The outbox: its events belong to the owners truncated above.
+  'events',
 ];
+
+// clearOwnerJobs —— the queue keeps the previous spec's jobs otherwise: its discarded ones show in
+// the next spec's Tasks panel counts, for an owner who no longer exists. Periodic runs stay: they
+// are the instance's own, and the panel reads their last run from these rows.
+//
+// Finalized jobs only. A job River is still working on must stay: its batch completer holds a
+// finished job for up to 250 ms before writing the result, and a row deleted in that window makes
+// River panic ("completion subscriber received a job that wasn't finalized") — the backend died
+// mid-suite on 2026-09-26. An in-flight job finishes and is cleared by the next reset.
+function clearOwnerJobs(): void {
+  runPsql(`DELETE FROM river_job WHERE kind NOT LIKE 'periodic:%'
+           AND state IN ('completed', 'discarded', 'cancelled')`);
+}
 
 // resetInstance —— called from a spec's beforeAll; pull the instance back to a
 // clean state. Completes within a second.
@@ -60,6 +75,7 @@ export function resetInstance(): void {
   ensureStackUp();
   t('truncate start');
   truncateTables();
+  clearOwnerJobs();
   t('unclaim start');
   unclaim();
   t('flushRedis start');

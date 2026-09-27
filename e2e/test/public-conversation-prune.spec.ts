@@ -68,7 +68,11 @@ test.describe('conversations · scheduled cleanup of codeless conversations', ()
                WHERE owner_id = '${ownerID}'`);
       restartBackend();
 
-      expect(convCount('old-public'), 'old public conversation pruned').toBe(0);
+      // The prune is a periodic job that runs on start: it is enqueued at boot and runs just after
+      // the backend reports healthy, so the first assertion waits for it.
+      await expect.poll(() => convCount('old-public'), {
+        message: 'old public conversation pruned', timeout: 30_000,
+      }).toBe(0);
       expect(convCount('old-byoai'), 'old byoai conversation pruned').toBe(0);
       expect(convCount('recent-public'), 'inside the retention window → kept').toBe(1);
       expect(convCount('old-code'), 'a coded conversation is never pruned').toBe(1);

@@ -63,7 +63,7 @@ func createDocConversation(
 	ctx context.Context, deps *VisitorSessionDeps, in *OpenConvForDocInput,
 ) (entity.Chat, error) {
 	memberID := in.MemberID
-	chat, err := deps.Chats.CreateChat(ctx, &repo.CreateChatInput{
+	chat, err := createChatTx(ctx, deps, &repo.CreateChatInput{
 		OwnerID:     in.OwnerID,
 		Mode:        in.Mode,
 		CodeID:      nullableProvider(in.CodeID),

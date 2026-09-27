@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/atmaxmoj/standmeet/internal/infra/detach"
 	"github.com/atmaxmoj/standmeet/internal/infra/mcpclient"
 	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
 )
@@ -104,11 +105,12 @@ const warmConversationID = "__block_warm__"
 // warmDialTimeout —— budget for the warm dial. Same order as the live dial's 20s.
 const warmDialTimeout = 20 * time.Second
 
-// warmInBackground —— warmOnce on a detached goroutine, for the SELF-HEAL case only (a block first
-// reached cold — registered after boot, or its boot warm timed out). A finished/cancelled request
-// must not kill it, hence context.Background.
+// warmInBackground —— warmOnce detached, for the SELF-HEAL case only (a block first reached cold —
+// registered after boot, or its boot warm timed out). A finished/cancelled request must not kill
+// it, hence context.Background. Not a job: the cache it fills lives in this process's memory.
 func (c *mcpAppFiber) warmInBackground(_ *registry.AssembleInput) {
-	go c.warmOnce(context.Background(), &registry.AssembleInput{ConversationID: warmConversationID})
+	in := &registry.AssembleInput{ConversationID: warmConversationID}
+	detach.Go("block warm "+c.m.ID, func() { c.warmOnce(context.Background(), in) })
 }
 
 // skipWarm —— this fiber should not be warmed at all: a workspace-per-session block
@@ -190,6 +192,7 @@ func (c *mcpAppFiber) cachedToolSpecs(dialed []mcpclient.Tool) []mcpclient.Tool 
 	c.toolsOnce.Do(func() {
 		*c.tools = dialed
 		reportToolDrift(&c.m, dialed)
+		atomic.StoreInt32(c.toolsReady, 1) // publish after the fill
 	})
 	return *c.tools
 }
@@ -197,7 +200,7 @@ func (c *mcpAppFiber) cachedToolSpecs(dialed []mcpclient.Tool) []mcpclient.Tool 
 // knownToolSpecs —— returns (specs, true) if cached. Read-only, does not trigger Once — that would
 // let the first call cache an empty slice as "known", leaving no tools forever after.
 func (c *mcpAppFiber) knownToolSpecs() ([]mcpclient.Tool, bool) {
-	if len(*c.tools) == 0 {
+	if atomic.LoadInt32(c.toolsReady) == 0 || len(*c.tools) == 0 {
 		return []mcpclient.Tool{}, false
 	}
 	return *c.tools, true

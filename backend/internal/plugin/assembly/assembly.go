@@ -31,10 +31,19 @@ var ErrNotFound = errors.New("assembly: not found")
 var ErrNameTaken = errors.New("assembly: bundle name already used")
 
 // Repo — the owner's assembly, on Postgres.
-type Repo struct{ pool *pgstore.Pool }
+type Repo struct {
+	pool *pgstore.Pool
+	q    pgstore.DBTX // nil → the pool; set by With
+}
 
 // NewRepo — constructor.
 func NewRepo(pool *pgstore.Pool) *Repo { return &Repo{pool: pool} }
+
+// With —— a copy whose Install runs on q (the caller's transaction).
+func (r *Repo) With(q pgstore.DBTX) *Repo { return &Repo{pool: r.pool, q: q} }
+
+// Pool —— the pool a caller opens its transaction on.
+func (r *Repo) Pool() *pgstore.Pool { return r.pool }
 
 // InstalledBlock — one block the owner pasted in.
 //
@@ -61,7 +70,7 @@ func (r *Repo) Install(ctx context.Context, ownerID string, b *InstalledBlock) e
 		VALUES ($1, $2, $3, $4)
 		ON CONFLICT (owner_id, block_id)
 		DO UPDATE SET title = EXCLUDED.title, manifest = EXCLUDED.manifest, updated_at = now()`
-	if _, eerr := r.pool.Exec(ctx, q, ownerUUID, b.BlockID, b.Title, b.Manifest); eerr != nil {
+	if _, eerr := r.conn().Exec(ctx, q, ownerUUID, b.BlockID, b.Title, b.Manifest); eerr != nil {
 		return fmt.Errorf("install block: %w", eerr)
 	}
 	return nil
@@ -133,4 +142,14 @@ func scanInstalled(rows pgx.Rows) ([]InstalledBlock, error) {
 		return nil, fmt.Errorf("iterate installed blocks: %w", rerr)
 	}
 	return out, nil
+}
+
+// conn —— the transaction when bound by With, else the pool.
+//
+//nolint:ireturn // DBTX is the port both a pool and a transaction satisfy
+func (r *Repo) conn() pgstore.DBTX {
+	if r.q != nil {
+		return r.q
+	}
+	return r.pool
 }

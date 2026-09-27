@@ -66,7 +66,7 @@ func (r *Repo) UpdateEmail(
 	if perr != nil {
 		return entity.Owner{}, fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
-	q := db.New(r.pool)
+	q := db.New(r.conn())
 	// Normalization happens at this layer, not the caller's — see the
 	// header comment in email.go.
 	row, qerr := q.UpdateOwnerEmail(ctx, db.UpdateOwnerEmailParams{
@@ -112,7 +112,7 @@ func (r *Repo) SetRecoveryHash(ctx context.Context, ownerID, hash string) error 
 	if perr != nil {
 		return fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
-	if qerr := db.New(r.pool).SetOwnerRecoveryHash(ctx, db.SetOwnerRecoveryHashParams{
+	if qerr := db.New(r.conn()).SetOwnerRecoveryHash(ctx, db.SetOwnerRecoveryHashParams{
 		ID: pgID, RecoveryHash: hash,
 	}); qerr != nil {
 		return fmt.Errorf("set recovery_hash: %w", qerr)

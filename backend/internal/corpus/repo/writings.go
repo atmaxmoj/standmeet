@@ -21,6 +21,7 @@ import (
 // WritingRepo — a CRUD view over corpus_notes(genre='writing').
 type WritingRepo struct {
 	pool *pgstore.Pool
+	q    pgstore.DBTX // nil → the pool; set by With
 }
 
 // NewWritingRepo constructs one.
@@ -195,7 +196,7 @@ func (r *WritingRepo) Publish(
 	if perr != nil {
 		return entity.Writing{}, perr
 	}
-	row, err := db.New(r.pool).PublishWriting(ctx, db.PublishWritingParams{
+	row, err := db.New(r.conn()).PublishWriting(ctx, db.PublishWritingParams{
 		ID: args.writingUUID, OwnerID: args.ownerUUID,
 	})
 	return toDomainWritingOrErr(&row, err)
@@ -209,7 +210,7 @@ func (r *WritingRepo) Unpublish(
 	if perr != nil {
 		return entity.Writing{}, perr
 	}
-	row, err := db.New(r.pool).UnpublishWriting(ctx, db.UnpublishWritingParams{
+	row, err := db.New(r.conn()).UnpublishWriting(ctx, db.UnpublishWritingParams{
 		ID: args.writingUUID, OwnerID: args.ownerUUID,
 	})
 	return toDomainWritingOrErr(&row, err)

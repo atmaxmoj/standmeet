@@ -11,14 +11,11 @@
       config:
         transport: stdio
         serverName: koishi-base64
-        # Run the installed package's main (koishi-mcp.js) by name, so no absolute profile path is
-        # baked in: node resolves standmeet-koishi-mcp from the profile's node_modules.
-        # The child spawns with cwd = the installed package dir (dsh installs the subject +
-        # its deps under the profile), so `node koishi-mcp.js` runs the server and resolves its
-        # deps from the profile's node_modules up the tree. dshHomePath() (a dsh-provided binding
-        # in !!js scope) points at the run's home; the profile is the scenario's `profile` name.
+        # The child spawns with cwd = this package's installed directory, resolved by Node from the
+        # running profile's manifest, so the bundle works in a profile of any name. `node
+        # koishi-mcp.js` then runs the server and resolves its deps up the profile's node_modules.
         command: node
         args:
           - koishi-mcp.js
-        cwd: !!js dshHomePath('profiles/dsh-testkit/node_modules/standmeet-koishi-mcp')
+        cwd: !!js "process.getBuiltinModule('node:path').dirname(process.getBuiltinModule('node:module').createRequire(ctx.get('profileContext').dir + '/package.json').resolve('standmeet-koishi-mcp/package.json'))"
         failOnStartupError: true

@@ -20,7 +20,8 @@ import { EmbedCreateModal } from '@/components/admin/modals/EmbedCreateModal';
 import { ModalShell } from '@/components/admin/modals/ModalShell';
 import { useCodes, type CodeView } from '@/lib/admin/use-codes';
 import {
-  useEmbeds, widgetSnippet, type CreatedEmbed, type EmbedsHook, type EmbedView,
+  useEmbeds, widgetSnippet,
+  type CreatedEmbed, type EmbedFormValues, type EmbedsHook, type EmbedView,
 } from '@/lib/admin/use-embeds';
 import { useAction } from '@/lib/ui/use-action';
 import { useReportError } from '@/lib/ui/use-report-error';
@@ -56,6 +57,8 @@ export function EmbedsSection() {
   // revealed —— an embed just created (carrying its one-time private key). Setting
   // it pops up the full snippet for the owner to copy.
   const [revealed, setRevealed] = useState<CreatedEmbed | null>(null);
+  // hookSecret —— an edit just attached an update hook: its signing secret, shown once.
+  const [hookSecret, setHookSecret] = useState('');
   useEffectErrorToast(hook.error);
   const openEdit = useCallback((e: EmbedView) => { setCreating(false); setEditing(e); }, []);
   const closeModal = useCallback(() => { setCreating(false); setEditing(null); }, []);
@@ -77,14 +80,48 @@ export function EmbedsSection() {
         hook={hook}
         onClose={closeModal}
         onRevealed={setRevealed}
+        onHookSecret={setHookSecret}
       />
       <RevealSlot embed={revealed} onClose={() => setRevealed(null)} />
+      <HookSecretReveal secret={hookSecret} onClose={() => setHookSecret('')} />
     </>
   );
 }
 
 function RevealSlot({ embed, onClose }: { embed: CreatedEmbed | null; onClose: () => void }) {
   return embed ? <SnippetReveal embed={embed} onClose={onClose} /> : null;
+}
+
+// HookSecretReveal —— pops up once after an edit attached an update hook: the secret the
+// receiving site verifies signatures with. Nothing to show ('') → nothing rendered.
+function HookSecretReveal({ secret, onClose }: { secret: string; onClose: () => void }) {
+  const t = useTranslations('adminAccess.embeds');
+  return secret === '' ? null : (
+    <ModalShell onClose={onClose} kicker={t('hookRevealKicker')} title={t('hookRevealTitle')} maxWidth={640}>
+      <div className="px-7 py-6"><HookSecretBlock secret={secret} /></div>
+    </ModalShell>
+  );
+}
+
+// HookSecretBlock —— the update hook's signing secret with a copy button; the secret is given
+// once, so the copy says so.
+function HookSecretBlock({ secret }: { secret: string }) {
+  const t = useTranslations('adminAccess.embeds');
+  return secret === '' ? null : (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-4">
+        <span className="mono text-[9px] tracking-[0.18em] uppercase text-(--color-faint)">
+          {t('hookSecretLabel')}
+        </span>
+        <CopyButton testid="embed-update-hook-secret-copy" text={secret} />
+      </div>
+      <pre
+        data-testid="embed-update-hook-secret"
+        className="mono text-[11.5px] text-(--color-ink) bg-(--color-surface)/40 border border-(--color-rule) rounded-[3px] p-3 whitespace-pre-wrap break-all"
+      >{secret}</pre>
+      <p className="reading-tight italic text-(--color-muted) text-[13px]">{t('hookSecretOnce')}</p>
+    </div>
+  );
 }
 
 function NewEmbedBtn({ open }: { open: () => void }) {
@@ -321,13 +358,14 @@ function SnippetReveal({ embed, onClose }: { embed: CreatedEmbed; onClose: () =>
           data-testid="embed-reveal-snippet"
           className="mono text-[11.5px] text-(--color-ink) bg-(--color-surface)/40 border border-(--color-rule) rounded-[3px] p-3 overflow-x-auto whitespace-pre-wrap break-all"
         >{text}</pre>
+        <HookSecretBlock secret={embed.secret} />
       </div>
     </ModalShell>
   );
 }
 
 function ModalSlot({
-  open, existing, codes, available, hook, onClose, onRevealed,
+  open, existing, codes, available, hook, onClose, onRevealed, onHookSecret,
 }: {
   open: boolean;
   existing: EmbedView | null;
@@ -336,26 +374,28 @@ function ModalSlot({
   hook: EmbedsHook;
   onClose: () => void;
   onRevealed: (e: CreatedEmbed) => void;
+  onHookSecret: (secret: string) => void;
 }) {
   const toast = useToast();
   const report = useReportError();
   const t = useTranslations('adminAccess.embeds');
-  const onCreate = useCallback(async (codeID: string, label: string, origins: string[]) => {
+  const onCreate = useCallback(async (codeID: string, values: EmbedFormValues) => {
     try {
-      // The response carries the one-time private key → hand it straight to the
-      // reveal popup (closing the list loses it for good).
-      const created = await hook.createEmbed({ code_id: codeID, label, allowed_origins: origins });
+      // The response carries the one-time private key (and the update hook's secret, when
+      // a hook URL was given) → hand it straight to the reveal popup (closing loses it).
+      const created = await hook.createEmbed({ code_id: codeID, ...values });
       onClose();
       onRevealed(created);
     } catch (e) { report(e); }
   }, [hook, report, onClose, onRevealed]);
-  const onUpdate = useCallback(async (id: string, label: string, origins: string[]) => {
+  const onUpdate = useCallback(async (id: string, values: EmbedFormValues) => {
     try {
-      await hook.updateEmbed(id, { label, allowed_origins: origins });
+      const secret = await hook.updateEmbed(id, values);
       toast.success(t('updated'));
       onClose();
+      onHookSecret(secret);
     } catch (e) { report(e); }
-  }, [hook, toast, report, t, onClose]);
+  }, [hook, toast, report, t, onClose, onHookSecret]);
   // Edit: the code is locked in, so the picker must include its own code (use the
   // full codes list). Create: only list unattached ones (available).
   return open ? (

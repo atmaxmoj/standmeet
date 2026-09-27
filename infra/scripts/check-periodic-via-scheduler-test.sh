@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # check-periodic-via-scheduler self-test: a gate that cannot go red is not a gate.
 #
-# Plants both escapes — a hand-written ticker outside the scheduler, and a hand-written job
-# registration — and asserts each one is caught.
+# Plants a hand-written ticker outside the job runtime and asserts it is caught.
 
 set -euo pipefail
 
@@ -13,7 +12,7 @@ PLANT="$ROOT/cmd/server/zz_planted_periodic_selftest.go"
 cleanup() { rm -f "$PLANT"; }
 trap cleanup EXIT
 
-# escape 1: its own loop — the shape that grew three copies with three sets of bookkeeping.
+# its own loop — the shape that ran on every replica and never showed on the panel.
 cat > "$PLANT" <<'GO'
 package main
 
@@ -30,21 +29,6 @@ if bash "$HERE/check-periodic-via-scheduler.sh" >/dev/null 2>&1; then
   exit 1
 fi
 
-# escape 2: a hand-written schedule string on the panel, free to drift from the real interval.
-cat > "$PLANT" <<'GO'
-package main
-
-// plantedSelfTestRegister —— planted by check-periodic-via-scheduler-test.sh; removed again.
-func plantedSelfTestRegister(d *runtimeDeps) {
-	d.jobRegistry.Register("planted selftest", "every 5m")
-}
-GO
-
-if bash "$HERE/check-periodic-via-scheduler.sh" >/dev/null 2>&1; then
-  echo "check-periodic-via-scheduler: SELF-TEST FAILED — a hand-written job registration passed."
-  exit 1
-fi
-
 cleanup
 trap - EXIT
 
@@ -53,4 +37,4 @@ if ! bash "$HERE/check-periodic-via-scheduler.sh" >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "check-periodic-via-scheduler: self-test passed (both escapes go red)."
+echo "check-periodic-via-scheduler: self-test passed (a hand-written ticker goes red)."

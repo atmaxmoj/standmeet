@@ -15,7 +15,7 @@ import (
 func corpusDepsOf(d *deps.Runtime) corpus.Deps {
 	return corpus.Deps{
 		Raw: d.RawRepo, Wiki: d.WikiRepo, Output: d.OutputRepo, NoteRefs: d.NoteRefRepo,
-		Subjectivity: d.SubjectivityRepo, Index: d.CorpusIndexer,
+		Subjectivity: d.SubjectivityRepo, IndexReceipt: d.IndexReceipt,
 		// Media: an entry of any genre can carry images / attachments / a hero image.
 		Media: &corpus.NoteAssetsDeps{
 			Assets: corpus.AssetsDeps{Repo: d.AssetRepo, Storage: d.StorageClient},

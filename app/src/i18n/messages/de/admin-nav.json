@@ -38,6 +38,8 @@
     "api-mcp": "api · mcp",
     "obsidian": "obsidian",
     "monitor": "Zugriffe",
+    "tasks": "Aufgaben",
+    "webhooks": "Webhooks",
     "ip-bans": "IP-Sperren",
     "account": "Konto",
     "system": "System"

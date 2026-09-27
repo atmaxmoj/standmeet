@@ -51,6 +51,10 @@ type (
 
 // Constructors/functions (impl: usecase).
 var (
+	// EventTypes — conversation.*, ghost.accepted.
+	EventTypes = usecase.EventTypes
+	// PrunePeriodicJobs — the scheduled cleanup of idle codeless conversations.
+	PrunePeriodicJobs         = usecase.PrunePeriodicJobs
 	AcceptGhost               = usecase.AcceptGhost
 	BuildAPIKeyRoleSnapshot   = usecase.BuildAPIKeyRoleSnapshot
 	BuildCrossConvDigest      = usecase.BuildCrossConvDigest

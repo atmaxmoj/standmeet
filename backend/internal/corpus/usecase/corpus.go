@@ -23,9 +23,10 @@ type Deps struct {
 	Subjectivity *repo.NoteRepo
 	// VaultSync — Obsidian vault sync: cross-genre reconcile (admin-side wiring only).
 	VaultSync *repo.VaultSyncRepo
-	// Index — Meili index propagation; nil = Meili not configured, write path
-	// skips indexing (best-effort).
-	Index Indexer
+	// IndexReceipt — how a write learns whether the search index already has it. Indexing
+	// itself is not called from here: the corpus_notes trigger records every change and the
+	// corpus.index subscriber carries it to Meili. nil = Meili not configured (no receipt).
+	IndexReceipt IndexReceipt
 	// Media — the assets (images / attachments / hero) attached to a piece of corpus content.
 	// **Any genre can have them** — the underlying assets table keys off holder_id, has no
 	// genre column, and has always been generic; the only thing missing is the wiring.
@@ -133,11 +134,7 @@ func finishPromote(ctx context.Context, deps Deps, f promoteFinish) error {
 	if perr := deps.Raw.MarkPromoted(ctx, f.OwnerID, f.RawID, f.WikiID); perr != nil {
 		return fmt.Errorf("mark promoted: %w", perr)
 	}
-	if rerr := RebuildNoteRefs(ctx, deps, f.OwnerID, f.WikiID, f.Body); rerr != nil {
-		return rerr
-	}
-	indexNoteHook(ctx, deps, f.OwnerID, f.WikiID)
-	return nil
+	return RebuildNoteRefs(ctx, deps, f.OwnerID, f.WikiID, f.Body)
 }
 
 // preflightPromote — the three gates before a promote: required fields present,

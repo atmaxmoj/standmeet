@@ -68,7 +68,8 @@ test.describe('supplier · assemble a supplier from the admin UI', () => {
     await card.getByRole('button', { name: /connect|连接/i }).click();
     await page.waitForURL('**/admin/suppliers**');
 
-    // Assembly succeeded: the card now reads Connected.
-    await expect(card.getByText(/connected|已连接/i)).toBeVisible();
+    // Assembly succeeded: the card now reads Connected. Whole-text match: the card's tool
+    // descriptions ("Ask the connected calendar…") also contain the word.
+    await expect(card.getByText(/^(connected|已连接)$/i)).toBeVisible();
   });
 });

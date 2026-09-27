@@ -138,19 +138,14 @@ func (r *InstanceRepo) ClaimAndCreateOwner(
 	tokenHash string,
 	input *entity.CreateOwnerInput,
 ) (entity.Owner, error) {
-	tx, err := r.pool.Begin(ctx)
-	if err != nil {
-		return entity.Owner{}, fmt.Errorf("begin tx: %w", err)
-	}
-	ownerRow, txErr := claimTx(ctx, tx, tokenHash, input)
-	if txErr != nil {
-		if rerr := tx.Rollback(ctx); rerr != nil {
-			return entity.Owner{}, errors.Join(txErr, fmt.Errorf("rollback: %w", rerr))
-		}
-		return entity.Owner{}, txErr
-	}
-	if cerr := tx.Commit(ctx); cerr != nil {
-		return entity.Owner{}, fmt.Errorf("commit claim: %w", cerr)
+	var ownerRow entity.Owner
+	if err := pgstore.InTx(ctx, r.pool, func(tx pgstore.Tx) error {
+		var txErr error
+		ownerRow, txErr = claimTx(ctx, tx, tokenHash, input)
+		return txErr
+	}); err != nil {
+		//nolint:wrapcheck // InTx names begin/commit; claimTx names its steps
+		return entity.Owner{}, err
 	}
 	return ownerRow, nil
 }

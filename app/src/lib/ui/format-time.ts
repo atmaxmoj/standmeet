@@ -52,6 +52,16 @@ export function stampMinute(iso: string): string {
 }
 
 /**
+ * stampUTCMinute —— `2026-09-26T10:15 UTC`. The one UTC stamp, and the one exception to "local
+ * timezone": an audit trail (the Tasks panel's periodic-run history) is copied into logs and bug
+ * reports, where the server's clock is UTC. The zone is spelled out so it can't be misread as local.
+ */
+export function stampUTCMinute(iso: string): string {
+  const d = parse(iso);
+  return d ? `${d.toISOString().slice(0, 16)} UTC` : iso;
+}
+
+/**
  * ago —— `just now` / `12m ago` / `3h ago` / `2d ago`, falling back to `stampDay` past a week.
  * `now` exists only for testability; call sites don't pass it.
  */

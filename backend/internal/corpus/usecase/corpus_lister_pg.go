@@ -13,6 +13,7 @@ package usecase
 import (
 	"context"
 	"errors"
+	"log/slog"
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	"github.com/atmaxmoj/standmeet/internal/corpus/entity"
@@ -79,6 +80,9 @@ func (l *pgCorpusLister) meiliSearch(
 ) ([]Meta, bool) {
 	docs, err := l.searcher.Search(ctx, ownerID, query)
 	if err != nil {
+		// Logged: a silent fallback reads as "Meili found nothing" (CJK and typo-tolerant queries
+		// then miss on Postgres), and nothing says why.
+		slog.Default().Warn("corpus search: meili failed, falling back to postgres", "err", err)
 		return []Meta{}, false
 	}
 	out := make([]Meta, 0, len(docs))

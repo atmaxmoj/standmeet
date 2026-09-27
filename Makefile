@@ -6,7 +6,7 @@
 # lefthook doesn't get blocked by a subproject that isn't wired up yet during early
 # incremental development.
 
-.PHONY: lint secrets secrets-image release-build release-assert-stripped release-assert-multiarch release-assert-version release-push release-gc release-repro release-repro-logs release-repro-down backend-lint backend-test backend-no-mock app-lint sdk-lint e2e-lint env-lint updater-e2e im-bridge-lint im-bridge-test im-bridge-up im-bridge-logs
+.PHONY: lint secrets secrets-image release-build release-assert-stripped release-assert-multiarch release-assert-version release-push release-gc release-repro release-repro-logs release-repro-down backend-lint backend-test ut-db ut-db-down backend-no-mock app-lint sdk-lint e2e-lint env-lint updater-e2e im-bridge-lint im-bridge-test im-bridge-up im-bridge-logs
 .PHONY: deps stack stack-init stack-ready stack-test stack-retire dev dev-up dev-rebuild dev-down prod-up prod-down prod-logs build clean test test-fresh test-only test-asis dsh-plugin-test test-red test-captcha test-boundary test-dsh-live mobile-shots mobile-shots-asis archive-failures sdk-build builder-vendor dev-rebuild-builder dev-restart-gotenberg app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-blocks eval-owner-mcp verify-round schema-drift i18n-keys
 
 # ── per-checkout dev stack ──────────────────────────────────────
@@ -155,11 +155,36 @@ env-lint:
 backend-lint:
 	@$(MAKE) -C backend lint
 
-# backend-test —— Go unit/integration tests (testify, no DB/docker). e2e runs via `make test`.
+# backend-test —— Go unit/integration tests. e2e runs via `make test`.
 # The blocks are node MCP servers now (infra/plugins/*), not Go modules — they carry no `go test`;
 # they're exercised by `make dsh-plugin-test` (real DSH lifecycle) and the e2e suite.
-backend-test:
-	@$(MAKE) -C backend test
+#
+# The event bus / job queue UTs run against a REAL Postgres (docs/design/event-bus-outbox-webhooks.md
+# *Test plan*: no mocked database). ut-db brings up one throwaway Postgres whose `standmeet` database
+# is built from schema.sql; each test clones it (`CREATE DATABASE … TEMPLATE standmeet`), so tests
+# never share rows. A test that needs the DB and finds STANDMEET_TEST_PG unset FAILS — it never skips,
+# because a skipped suite reads as green.
+UT_DB_PORT ?= 55439
+UT_DB_CONTAINER ?= $(COMPOSE_PROJECT_NAME)-ut-db
+STANDMEET_TEST_PG ?= postgres://standmeet:standmeet@127.0.0.1:$(UT_DB_PORT)/postgres?sslmode=disable
+backend-test: ut-db
+	@STANDMEET_TEST_PG='$(STANDMEET_TEST_PG)' $(MAKE) -C backend test
+
+# ut-db —— (re)create the UT Postgres from the current schema.sql. Recreated every run: a template
+# built from yesterday's schema.sql would test today's code against yesterday's tables.
+ut-db:
+	@docker rm -f $(UT_DB_CONTAINER) >/dev/null 2>&1 || true
+	@docker run -d --name $(UT_DB_CONTAINER) -p 127.0.0.1:$(UT_DB_PORT):5432 \
+	  -e POSTGRES_DB=standmeet -e POSTGRES_USER=standmeet -e POSTGRES_PASSWORD=standmeet \
+	  -v $(CURDIR)/backend/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro \
+	  pgvector/pgvector:pg16 -c max_connections=400 >/dev/null
+	@for i in $$(seq 1 60); do \
+	  docker exec $(UT_DB_CONTAINER) pg_isready -U standmeet -d standmeet -h 127.0.0.1 >/dev/null 2>&1 \
+	    && docker logs $(UT_DB_CONTAINER) 2>&1 | grep -q 'PostgreSQL init process complete' && exit 0; \
+	  sleep 1; done; echo "ut-db did not become ready"; docker logs $(UT_DB_CONTAINER) | tail -20; exit 1
+
+ut-db-down:
+	@docker rm -f $(UT_DB_CONTAINER) >/dev/null 2>&1 || true
 
 # backend-no-mock —— the G-Y gate: no mock-only / test-only code allowed anywhere in backend/
 # (MockProvider / INFERENCE_MOCK_ env / /__mock URL / routes/sys/test_*).
@@ -1205,28 +1230,16 @@ test-asis:
 	@cd e2e && pnpm exec playwright test $(SPEC) $(if $(GREP),-g "$(GREP)") $(if $(REPEAT),--repeat-each=$(REPEAT)); \
 		st=$$?; cd .. && $(MAKE) archive-failures; exit $$st
 
-# dsh-plugin-test —— the SEPARATE dsh-integration suite. Run each of our dsh-declared plugins through
-# a REAL DSH lifecycle (install → boot → register → exercise → uninstall) via dsh-testkit, with the
-# LOCAL runner (--runner local: no docker — the docker runner-build blows dsh-testkit's 10-min
-# watchdog on this host). A plugin is dsh-declared when it carries `dsh.bundle.patch` →
-# `cordis.patch.yml` (its mountable cordis declaration) and a `dsh-testkit.yaml` (from
-# `pnpm dsh-test init`). A pass proves that declaration registers on a real DSH and its capability
-# works — the SAME loading mechanism as dsh; we just run it sandboxed at runtime (declaration ⊥
-# runtime). dsh-testkit's lifecycle ends in uninstall, so the plugin is torn down, not left in the
-# stack. Kept out of `make test`/`lint` (really boots DSH; heavy). One plugin per run today (caldav);
-# it loops over every set-up plugin. TODO(resident): keep ONE DSH host up + check-alive-reuse instead
-# of boot-per-run (owner: the dsh stack should be resident, ask-if-alive before bringing it up).
+# dsh-plugin-test —— the SEPARATE dsh-integration suite. infra/dsh-acceptance/run.mjs drives each
+# plugin named by an infra/dsh-acceptance/<name>.acceptance.yaml through the lifecycle DSH itself
+# ships, in a throwaway DSH_HOME: npm pack → `dsh plugin --profile acceptance add <tarball>` (DSH
+# checks the plugin's @deepseek-ai/dsh peer range) → `--dump-config` (expected rows) → boot with a
+# `--patch` probe (expected services and tools, then the exercises) → `dsh plugin remove`. The DSH
+# version is the @deepseek-ai/dsh devDependency in infra/dsh-acceptance/package.json; that is the
+# only pin. It runs every plugin and exits 1 if any failed; evidence goes to infra/dsh-acceptance/out/.
+# PLUGIN=<name> [<name>...] runs only those. Kept out of `make test`/`lint` (it boots DSH; heavy).
 dsh-plugin-test:
-	@acc="$$(pwd)/infra/dsh-acceptance"; \
-	[ -x "$$acc/node_modules/.bin/dsh-test" ] || { echo "[dsh-plugin-test] installing dsh-testkit in infra/dsh-acceptance"; ( cd "$$acc" && npm install --no-audit --no-fund ) || exit 1; }; \
-	found=0; for cfg in "$$acc"/*.dsh-testkit.yaml; do \
-		[ -f "$$cfg" ] || continue; \
-		name=$$(basename "$$cfg" .dsh-testkit.yaml); found=1; \
-		out="$$acc/out/$$name"; rm -rf "$$out"; mkdir -p "$$out"; \
-		echo "[dsh-plugin-test] $$name — local runner, real DSH → evidence $$out"; \
-		( cd "$$acc" && pnpm dsh-test --runner local --unsafe-local --config "$$name.dsh-testkit.yaml" --output "$$out" ) || exit 1; \
-	done; \
-	[ "$$found" = 1 ] || { echo "no dsh acceptance configs in infra/dsh-acceptance/*.dsh-testkit.yaml"; exit 2; }
+	@cd infra/dsh-acceptance && npm install --no-audit --no-fund && node run.mjs $(PLUGIN)
 
 # test-captcha —— bring the dev stack up WITH captcha on, using Cloudflare's published test keys,
 # and run the captcha specs against it.
@@ -1454,6 +1467,16 @@ prod-psql-file:
 	@test -f "$(FILE)" || (echo 'usage: make prod-psql-file FILE=<path.sql>'; exit 2)
 	@docker compose -p $(PROD_PROJECT) -f docker-compose.prod.yml exec -T db \
 		psql -U standmeet -d standmeet -v ON_ERROR_STOP=1 < "$(FILE)"
+
+# dev-meili —— one request to the dev stack's Meilisearch (no host port), for diagnosis. The key is
+# the container's own MEILI_MASTER_KEY, read inside it, so no key is written here.
+# Usage: make dev-meili REQ=/indexes/corpus_notes/documents?limit=5
+#        make dev-meili REQ=/indexes/corpus_notes/search BODY='{"q":"zebra"}'
+dev-meili:
+	@test -n "$(REQ)" || (echo "usage: make dev-meili REQ=<path> [BODY='<json>']"; exit 2)
+	@docker compose -p $(DEV_PROJECT) -f docker-compose.dev.yml exec -T -e REQ='$(REQ)' -e BODY='$(BODY)' \
+		meilisearch sh -c 'curl -sS -H "Authorization: Bearer $$MEILI_MASTER_KEY" \
+		-H "Content-Type: application/json" $${BODY:+-X POST -d "$$BODY"} "http://localhost:7700$$REQ"'
 
 # dev-psql —— run SQL against the DEV DB.  usage: make dev-psql SQL="select 1"
 # For validating hand-written queries (stats_activity / stats_growth bypass sqlc) against real schema.

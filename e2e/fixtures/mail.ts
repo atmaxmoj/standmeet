@@ -228,6 +228,27 @@ export async function waitForMailEnvelopeTo(
   throw new Error(`no Mailpit message to ${to} within ${timeoutMs}ms`);
 }
 
+/**
+ * waitForMailToContaining —— the first message to `to` whose subject or text contains `needle`.
+ * Once mail is sent by jobs, a retried older notification can land at any time; "the first mail to
+ * the owner" is then not necessarily the one a case is waiting for.
+ */
+export async function waitForMailToContaining(
+  request: APIRequestContext, to: string, needle: string, timeoutMs = 10_000,
+): Promise<MailEnvelope> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const res = await request.get(`${MAILPIT}/api/v1/messages`);
+    const body = res.status() === 200 ? await res.json() as { messages?: MailpitMessage[] } : {};
+    for (const m of (body.messages ?? []).filter((x) => x.To.some((t) => t.Address === to))) {
+      const env = await fetchMessageEnvelope(request, m.ID);
+      if (`${env.subject}\n${env.text}`.includes(needle)) return env;
+    }
+    await new Promise((r) => { setTimeout(r, 300); });
+  }
+  throw new Error(`no Mailpit message to ${to} containing "${needle}" within ${timeoutMs}ms`);
+}
+
 async function fetchMessageEnvelope(
   request: APIRequestContext, id: string,
 ): Promise<MailEnvelope> {

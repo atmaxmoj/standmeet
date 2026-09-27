@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/atmaxmoj/standmeet/internal/infra/events"
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 )
 
@@ -58,6 +59,7 @@ type UpgradeDeps struct {
 	UpgradeSources
 
 	System SystemInfoSource
+	Events events.Recorder
 }
 
 // Upgrade —— two ports: check, and act.
@@ -82,7 +84,7 @@ func Upgrade(deps UpgradeDeps) []fp.Op {
 			InputSchema: noArgs,
 			Kind:        fp.Action,
 			Reach:       fp.OwnerAction(),
-			Invoke:      upgradeApply(deps.Deploy),
+			Invoke:      upgradeApply(deps),
 		},
 	}
 }
@@ -126,11 +128,35 @@ type upgradeApplyOut struct {
 	Requested bool `json:"requested"`
 }
 
-func upgradeApply(deploy Redeploy) fp.Invoke {
-	return func(ctx context.Context, _ string, _ json.RawMessage) (json.RawMessage, error) {
-		if err := deploy.Trigger(ctx); err != nil {
+// upgradeApply —— records instance.upgrade_requested, then pulses. The pulse writes no row, so the
+// event is its own transaction; it goes first because this process may not outlive the pulse.
+// With no updater the pulse cannot go out, so nothing is recorded.
+func upgradeApply(deps UpgradeDeps) fp.Invoke {
+	return func(ctx context.Context, ownerID string, _ json.RawMessage) (json.RawMessage, error) {
+		if deps.Deploy.Configured() {
+			data := map[string]string{"from_version": deps.System.SystemInfo(ctx).Version}
+			if err := deps.Events.Record(ctx, ownerID, InstanceUpgradeRequested,
+				"instance/"+ownerID, data); err != nil {
+				return nil, fp.OpErr("record upgrade request", err)
+			}
+		}
+		if err := deps.Deploy.Trigger(ctx); err != nil {
 			return nil, err
 		}
 		return json.Marshal(upgradeApplyOut{Requested: true})
 	}
+}
+
+// InstanceUpgradeRequested —— the owner pressed upgrade. Thin: subject instance/<owner id>, data
+// {from_version}.
+const InstanceUpgradeRequested = "instance.upgrade_requested"
+
+// EventTypes —— the event types this domain owns.
+func EventTypes() []events.Type {
+	return []events.Type{{
+		Type: InstanceUpgradeRequested,
+		Description: "The owner asked the updater to move this instance to the newest release " +
+			"(data.from_version).",
+		Subject: "instance/<owner id>", Exposure: events.Webhook,
+	}}
 }

@@ -100,7 +100,28 @@ export async function jobsFetchNew(
   const args: Record<string, unknown> = {};
   if (sourceID) args['source_id'] = sourceID;
   if (sinceHours !== undefined) args['since_hours'] = sinceHours;
-  return callTool<JobsFetchResp>(request, bearer, sid, 'jobs.fetch_new', args);
+  let resp = await callTool<JobsFetchResp | FetchReceipt>(request, bearer, sid, 'jobs.fetch_new', args);
+  // Timing only: a fetch that outlasts the server's 20 s wait answers with a receipt; the same
+  // result then comes from jobs.fetch_result once every source's job is done.
+  const deadline = Date.now() + FETCH_RESULT_BUDGET_MS;
+  while (isReceipt(resp) && Date.now() < deadline) {
+    await new Promise((r) => { setTimeout(r, FETCH_RESULT_POLL_MS); });
+    const more: Record<string, unknown> = { job_ids: resp.job_ids };
+    if (sinceHours !== undefined) more['since_hours'] = sinceHours;
+    resp = await callTool<JobsFetchResp | FetchReceipt>(request, bearer, sid, 'jobs.fetch_result', more);
+  }
+  if (isReceipt(resp)) throw new Error(`jobs.fetch_new still pending after ${FETCH_RESULT_BUDGET_MS} ms`);
+  return resp;
+}
+
+// FetchReceipt —— jobs.fetch_new's answer while its source jobs are still running.
+interface FetchReceipt { job_ids: number[]; pending: true }
+
+const FETCH_RESULT_POLL_MS = 1_000;
+const FETCH_RESULT_BUDGET_MS = 120_000;
+
+function isReceipt(r: JobsFetchResp | FetchReceipt): r is FetchReceipt {
+  return 'pending' in r && r.pending;
 }
 
 export async function jobsShow(
@@ -133,6 +154,15 @@ export async function mockSetDay(
 ): Promise<void> {
   const res = await request.post(`${MOCK_BASE}/__mock/set_day?kind=${kind}&day=${day}`);
   if (!res.ok()) throw new Error(`mock set_day ${kind}=${day} failed: ${res.status()}`);
+}
+
+/** A slow upstream: every mock request whose path starts with `prefix` is answered `ms` later
+ *  (0 clears it; the mock's reset clears all). */
+export async function mockSetDelay(
+  request: APIRequestContext, prefix: string, ms: number,
+): Promise<void> {
+  const res = await request.post(`${MOCK_BASE}/__mock/set_delay?prefix=${prefix}&ms=${ms}`);
+  if (!res.ok()) throw new Error(`mock set_delay ${prefix}=${ms} failed: ${res.status()}`);
 }
 
 // Synthetic day-2 external_id sentinels per source kind. Greenhouse uses

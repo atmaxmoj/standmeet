@@ -25,26 +25,37 @@ const EmbedSchema = z.object({
   // key_id —— this embed's JWT kid (the identifier for its anti-theft credential). The widget's snippet signs with this + the private key.
   key_id: z.string().nullish().transform((v) => v ?? ''),
   created_at: z.string(),
+  // update_hook —— the webhook endpoint attached to this embed (absent = none). It hears every
+  // corpus change inside the embed's code scope.
+  update_hook: z.object({ endpoint_id: z.string(), url: z.string() }).nullish(),
 });
 export type EmbedView = z.infer<typeof EmbedSchema>;
+
+// secret —— the update hook's signing secret: present only on the one response that created the
+// hook's endpoint, like the private key below.
+const HookSecret = { secret: z.string().nullish().transform((v) => v ?? '') };
 
 // CreatedEmbedSchema —— the receipt for creating an embed: one field beyond
 // a list row, a **shown-once** private key PEM.
 // It goes into the widget's snippet (not the code); refreshing the list can
 // never retrieve it again, so create hands it over right there and then.
-const CreatedEmbedSchema = EmbedSchema.extend({ private_key: z.string() });
+const CreatedEmbedSchema = EmbedSchema.extend({ private_key: z.string(), ...HookSecret });
 export type CreatedEmbed = z.infer<typeof CreatedEmbedSchema>;
 
-export interface CreateEmbedInput {
-  code_id: string;
+const UpdatedEmbedSchema = EmbedSchema.extend(HookSecret);
+
+// EmbedFormValues —— what the form edits. update_hook_url '' = no hook (clearing it removes one).
+export interface EmbedFormValues {
   label: string;
   allowed_origins: string[];
+  update_hook_url: string;
 }
 
-export interface UpdateEmbedInput {
-  label: string;
-  allowed_origins: string[];
+export interface CreateEmbedInput extends EmbedFormValues {
+  code_id: string;
 }
+
+export type UpdateEmbedInput = EmbedFormValues;
 
 export interface EmbedsHook {
   status: ResourceStatus;
@@ -53,7 +64,8 @@ export interface EmbedsHook {
   refresh: () => Promise<void>;
   // createEmbed returns **the receipt**: it carries the shown-once private key, and the section uses it to reveal the snippet right there.
   createEmbed: (input: CreateEmbedInput) => Promise<CreatedEmbed>;
-  updateEmbed: (id: string, input: UpdateEmbedInput) => Promise<void>;
+  // updateEmbed returns the update hook's secret when this save created the hook, else ''.
+  updateEmbed: (id: string, input: UpdateEmbedInput) => Promise<string>;
   removeEmbed: (id: string) => Promise<void>;
 }
 
@@ -87,10 +99,11 @@ async function createEmbed(input: CreateEmbedInput): Promise<CreatedEmbed> {
   return created;
 }
 
-async function updateEmbed(id: string, input: UpdateEmbedInput): Promise<void> {
-  const updated = await adminAPI.patch(`/embeds/${id}`, input, EmbedSchema);
+async function updateEmbed(id: string, input: UpdateEmbedInput): Promise<string> {
+  const { secret, ...updated } = await adminAPI.patch(`/embeds/${id}`, input, UpdatedEmbedSchema);
   embedsStore.getState().mutate((prev) =>
     (prev ?? []).map((e) => e.id === updated.id ? updated : e));
+  return secret;
 }
 
 async function removeEmbed(id: string): Promise<void> {
@@ -107,19 +120,22 @@ export interface EmbedFormHook {
   codeID: string;
   label: string;
   origins: string;
+  hookURL: string;
   setCodeID: (v: string) => void;
   setLabel: (v: string) => void;
   setOrigins: (v: string) => void;
+  setHookURL: (v: string) => void;
 }
 
 export function useEmbedForm(existing: EmbedView | null): EmbedFormHook {
   const [codeID, setCodeID] = useState(existing?.code_id ?? '');
   const [label, setLabel] = useState(existing?.label ?? '');
   const [origins, setOrigins] = useState((existing?.allowed_origins ?? []).join('\n'));
+  const [hookURL, setHookURL] = useState(existing?.update_hook?.url ?? '');
   return {
     editing: existing !== null,
-    codeID, label, origins,
-    setCodeID, setLabel, setOrigins,
+    codeID, label, origins, hookURL,
+    setCodeID, setLabel, setOrigins, setHookURL,
   };
 }
 
@@ -135,15 +151,19 @@ export function parseOrigins(text: string): string[] {
 export async function dispatchEmbedSave(
   existing: EmbedView | null,
   form: EmbedFormHook,
-  onCreate: (codeID: string, label: string, origins: string[]) => Promise<void>,
-  onUpdate: (id: string, label: string, origins: string[]) => Promise<void>,
+  onCreate: (codeID: string, values: EmbedFormValues) => Promise<void>,
+  onUpdate: (id: string, values: EmbedFormValues) => Promise<void>,
 ): Promise<void> {
-  const origins = parseOrigins(form.origins);
+  const values: EmbedFormValues = {
+    label: form.label,
+    allowed_origins: parseOrigins(form.origins),
+    update_hook_url: form.hookURL.trim(),
+  };
   if (existing === null) {
-    await onCreate(form.codeID, form.label, origins);
+    await onCreate(form.codeID, values);
     return;
   }
-  await onUpdate(existing.id, form.label, origins);
+  await onUpdate(existing.id, values);
 }
 
 // embedModalText —— the modal's header/button copy, computed once by

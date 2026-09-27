@@ -32,7 +32,7 @@ type codeBundleOut struct {
 
 // setBundleOp — codes.set_bundle. A standalone function (like rotateOp) to keep codeCoreOps
 // under its line budget.
-func setBundleOp(d CodesDeps) fp.Op {
+func setBundleOp(d *CodesDeps) fp.Op {
 	return fp.Op{
 		ID: "codes.set_bundle",
 		Description: "Bind an already-issued code to a group of blocks (a bundle), switch it, " +

@@ -21,6 +21,8 @@
 //	POST /__mock/set_day?kind=greenhouse&day=2
 //	  → switch a kind's served day; tests use day=2 to simulate "next day"
 //	    where day1 ids drop off + new ids appear (per day2 derivation rule)
+//	POST /__mock/set_delay?prefix=/jsonld/&ms=8000
+//	  → answer every request under prefix ms later (ms=0 clears); a slow upstream
 //	GET  /__mock/state
 //	  → JSON dump of current day per kind (debug)
 //	POST /__mock/reset
@@ -79,10 +81,33 @@ func main() {
 	}
 }
 
-// state holds per-kind current day (mutable, guarded by mu).
+// state holds per-kind current day and per-path-prefix delays (mutable, guarded by mu).
 type state struct {
-	day map[string]int
-	mu  sync.RWMutex
+	day   map[string]int
+	delay map[string]time.Duration
+	mu    sync.RWMutex
+}
+
+func (s *state) setDelay(prefix string, d time.Duration) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if d <= 0 {
+		delete(s.delay, prefix)
+		return
+	}
+	s.delay[prefix] = d
+}
+
+// delayFor —— the delay armed for the first prefix that path starts with (0 = none).
+func (s *state) delayFor(path string) time.Duration {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for p, d := range s.delay {
+		if strings.HasPrefix(path, p) {
+			return d
+		}
+	}
+	return 0
 }
 
 func (s *state) get(kind string) int {
@@ -104,6 +129,7 @@ func (s *state) reset() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.day = map[string]int{}
+	s.delay = map[string]time.Duration{}
 }
 
 func (s *state) snapshot() map[string]int {
@@ -126,7 +152,7 @@ type server struct {
 
 func newServer(root string, log *slog.Logger) *server {
 	return &server{
-		st:   &state{day: map[string]int{}},
+		st:   &state{day: map[string]int{}, delay: map[string]time.Duration{}},
 		log:  log,
 		root: root,
 	}
@@ -136,6 +162,14 @@ func newServer(root string, log *slog.Logger) *server {
 func (s *server) logRequests(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s.log.Info("mock request", "method", r.Method, "path", r.URL.Path)
+		// A slow upstream (set_delay): hold the answer, or give up when the caller does.
+		if d := s.st.delayFor(r.URL.Path); d > 0 {
+			select {
+			case <-time.After(d):
+			case <-r.Context().Done():
+				return
+			}
+		}
 		next.ServeHTTP(w, r)
 	})
 }
@@ -171,6 +205,7 @@ func (s *server) run(port string) error {
 }
 
 func (s *server) routes(mux *http.ServeMux) {
+	webhookSinkRoutes(mux)
 	mux.HandleFunc("GET /greenhouse/v1/boards/{company}/jobs", s.serveGreenhouse)
 	mux.HandleFunc("GET /lever/v0/postings/{company}", s.serveLever)
 	mux.HandleFunc("GET /ashby/posting-api/job-board/{slug}", s.serveAshby)
@@ -220,6 +255,7 @@ func (s *server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /vendor-openapi/too-big.json", s.serveVendorSpecTooBig)
 
 	mux.HandleFunc("POST /__mock/set_day", s.adminSetDay)
+	mux.HandleFunc("POST /__mock/set_delay", s.adminSetDelay)
 	mux.HandleFunc("GET /__mock/state", s.adminState)
 	mux.HandleFunc("POST /__mock/reset", s.adminReset)
 
@@ -694,6 +730,19 @@ func (s *server) adminSetDay(w http.ResponseWriter, r *http.Request) {
 		d = dayTwo
 	}
 	s.st.setDay(kind, d)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// adminSetDelay POST /__mock/set_delay?prefix=/jsonld/&ms=8000 —— every request whose path starts
+// with prefix is answered ms later (ms=0 clears it; /__mock/reset clears all).
+func (s *server) adminSetDelay(w http.ResponseWriter, r *http.Request) {
+	prefix := r.URL.Query().Get("prefix")
+	ms, err := strconv.Atoi(r.URL.Query().Get("ms"))
+	if prefix == "" || strings.HasPrefix(prefix, "/__mock") || err != nil {
+		http.Error(w, "prefix (not /__mock) and ms required", http.StatusBadRequest)
+		return
+	}
+	s.st.setDelay(prefix, time.Duration(ms)*time.Millisecond)
 	w.WriteHeader(http.StatusNoContent)
 }
 

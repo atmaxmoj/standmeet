@@ -5,10 +5,11 @@
 // is the `home` page and isn't live yet, promote it — so a fresh instance serves its homepage at
 // `/` with nothing for the owner to click.
 //
-// It is **event-driven, not a timer**: the build-completion path (routes/sys/builds MarkBuilt)
-// hands us the finished build directly, so the whole context — which build, which page, and that
-// it's built — is already known. No owner lookup, no "is it built yet" poll, no re-derivation. It
-// acts only when the page isn't already live, so it can never fight a later owner edit.
+// It is **event-driven, not a timer**: the microsite.homepage_publish subscription (a durable job
+// on microsite.build.settled, owner/subscriber/microsite.go) hands us the finished build, so the
+// whole context — which build, which page, and that it's built — is already known. No owner
+// lookup, no "is it built yet" poll, no re-derivation. It acts only when the page isn't already
+// live, so it can never fight a later owner edit.
 
 package usecase
 

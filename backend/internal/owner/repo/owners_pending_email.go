@@ -23,31 +23,77 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 )
 
-// SetPendingEmail —— records the new pending email + token hash + expiry.
+// StartPendingEmail —— records the new pending email + token hash + expiry, and in the same
+// transaction the job that mails its confirmation: enqueue gets the transaction and returns the
+// job id, stored on the row so the panel can show the send state. The pending change exists if
+// and only if its confirmation is on its way.
+//
 // A second call simply overwrites the first: if both links stayed valid,
 // the owner would think the change went to the second one, while an old
 // tab clicked later would send the identity to the first one.
-func (r *Repo) SetPendingEmail(
-	ctx context.Context, ownerID, newEmail, tokenHash string, expiresAt time.Time,
+func (r *Repo) StartPendingEmail(
+	ctx context.Context, p *PendingEmailStart, enqueue func(tx pgstore.Tx) (int64, error),
 ) (entity.Owner, error) {
-	pgID, perr := pgstore.ParseUUID(ownerID)
+	pgID, perr := pgstore.ParseUUID(p.OwnerID)
 	if perr != nil {
 		return entity.Owner{}, fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
 	// Normalization happens in repo — see email.go. The pending address is
 	// destined to become the email column, so both must use the same
 	// yardstick.
-	normalized := NormalizeEmail(newEmail)
-	row, qerr := db.New(r.pool).SetOwnerPendingEmail(ctx, db.SetOwnerPendingEmailParams{
-		ID:                    pgID,
-		PendingEmail:          &normalized,
-		PendingEmailTokenHash: tokenHash,
-		PendingEmailExpiresAt: pgtype.Timestamptz{Time: expiresAt, Valid: true},
+	normalized := NormalizeEmail(p.NewEmail)
+	var out entity.Owner
+	err := pgstore.InTx(ctx, r.pool, func(tx pgstore.Tx) error {
+		q := db.New(tx)
+		row, qerr := q.SetOwnerPendingEmail(ctx, db.SetOwnerPendingEmailParams{
+			ID:                    pgID,
+			PendingEmail:          &normalized,
+			PendingEmailTokenHash: p.TokenHash,
+			PendingEmailExpiresAt: pgtype.Timestamptz{Time: p.ExpiresAt, Valid: true},
+		})
+		if qerr != nil {
+			return fmt.Errorf("set pending email: %w", qerr)
+		}
+		job, jerr := enqueue(tx)
+		if jerr != nil {
+			return jerr
+		}
+		row.PendingEmailJobID = &job
+		out = toDomainOwner(&row)
+		_, qerr = q.SetOwnerPendingEmailJob(ctx, db.SetOwnerPendingEmailJobParams{
+			ID: pgID, PendingEmail: &normalized, PendingEmailJobID: &job,
+		})
+		return qerr //nolint:wrapcheck // the only statement left; the tx error names it
 	})
-	if qerr != nil {
-		return entity.Owner{}, fmt.Errorf("set pending email: %w", qerr)
+	return out, err //nolint:wrapcheck // InTx names begin/commit; the steps name themselves
+}
+
+// PendingEmailStart —— one pending email change to record.
+type PendingEmailStart struct {
+	ExpiresAt time.Time
+	OwnerID   string
+	NewEmail  string
+	TokenHash string
+}
+
+// RotatePendingEmailToken —— the confirmation job's fresh token hash, only while this exact
+// change is still pending and unexpired. false = cancelled, replaced or expired: send nothing.
+func (r *Repo) RotatePendingEmailToken(
+	ctx context.Context, ownerID, email, tokenHash string,
+) (bool, error) {
+	pgID, perr := pgstore.ParseUUID(ownerID)
+	if perr != nil {
+		return false, fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
-	return toDomainOwner(&row), nil
+	normalized := NormalizeEmail(email)
+	params := db.RotateOwnerPendingEmailTokenParams{
+		ID: pgID, PendingEmail: &normalized, PendingEmailTokenHash: tokenHash,
+	}
+	n, err := db.New(r.pool).RotateOwnerPendingEmailToken(ctx, params)
+	if err != nil {
+		return false, fmt.Errorf("rotate pending email token: %w", err)
+	}
+	return n > 0, nil
 }
 
 // ConfirmPendingEmail —— swaps identity only if the token matches and
@@ -57,7 +103,7 @@ func (r *Repo) SetPendingEmail(
 func (r *Repo) ConfirmPendingEmail(
 	ctx context.Context, tokenHash string,
 ) (entity.Owner, error) {
-	row, err := db.New(r.pool).ConfirmOwnerPendingEmail(ctx, tokenHash)
+	row, err := db.New(r.conn()).ConfirmOwnerPendingEmail(ctx, tokenHash)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return entity.Owner{}, entity.ErrPendingEmailNotFound

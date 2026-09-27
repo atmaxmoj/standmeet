@@ -10,7 +10,6 @@ package repo
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
@@ -32,30 +31,16 @@ func (r *Repo) UpdateHandle(
 	if perr != nil {
 		return entity.Owner{}, fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
-	tx, terr := r.pool.Begin(ctx)
-	if terr != nil {
-		return entity.Owner{}, fmt.Errorf("begin tx: %w", terr)
+	var ownerRow entity.Owner
+	if err := pgstore.InTx(ctx, r.pool, func(tx pgstore.Tx) error {
+		var txErr error
+		ownerRow, txErr = updateHandleTx(ctx, tx, pgID, newHandle)
+		return txErr
+	}); err != nil {
+		//nolint:wrapcheck // InTx names begin/commit; updateHandleTx names its steps
+		return entity.Owner{}, err
 	}
-	ownerRow, txErr := updateHandleTx(ctx, tx, pgID, newHandle)
-	return commitOrRollback(ctx, tx, &ownerRow, txErr, "commit update handle")
-}
-
-// commitOrRollback —— a generic tx-finishing helper: rollback if txErr is
-// non-nil, commit otherwise. Keeps UpdateHandle itself cyclo-friendly.
-// ownerRow is a pointer to avoid hugeParam.
-func commitOrRollback(
-	ctx context.Context, tx pgx.Tx, ownerRow *entity.Owner, txErr error, commitTag string,
-) (entity.Owner, error) {
-	if txErr != nil {
-		if rerr := tx.Rollback(ctx); rerr != nil {
-			return entity.Owner{}, errors.Join(txErr, fmt.Errorf("rollback: %w", rerr))
-		}
-		return entity.Owner{}, txErr
-	}
-	if cerr := tx.Commit(ctx); cerr != nil {
-		return entity.Owner{}, fmt.Errorf("%s: %w", commitTag, cerr)
-	}
-	return *ownerRow, nil
+	return ownerRow, nil
 }
 
 func updateHandleTx(

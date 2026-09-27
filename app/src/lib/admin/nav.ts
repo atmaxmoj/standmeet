@@ -13,7 +13,7 @@ export type AdminSlug =
   | 'skills' | 'writings' | 'drafts' | 'applications'
   | 'dashboard' | 'sources' | 'listings' | 'system'
   | 'preview' | 'obsidian' | 'embeds' | 'assets' | 'data'
-  | 'roles' | 'prompts' | 'ip-bans' | 'monitor' | 'blocks' | 'blockMap';
+  | 'roles' | 'prompts' | 'ip-bans' | 'monitor' | 'tasks' | 'webhooks' | 'blocks' | 'blockMap';
 
 export type NavGroupID =
   | 'overview' | 'corpus' | 'access' | 'resources' | 'jobs' | 'plugins' | 'integrations' | 'settings';
@@ -81,13 +81,17 @@ export const NAV_GROUPS: readonly NavGroup[] = [
   },
   {
     id: 'integrations',
-    items: [{ slug: 'providers' }, { slug: 'suppliers' }, { slug: 'api-mcp' }, { slug: 'obsidian' }],
+    // webhooks —— the outbound twin of api·mcp: other sites hear about changes without asking.
+    items: [
+      { slug: 'providers' }, { slug: 'suppliers' }, { slug: 'api-mcp' }, { slug: 'webhooks' }, { slug: 'obsidian' },
+    ],
   },
   {
     id: 'settings',
     // monitor sits first: it is the only section here an owner opens out of curiosity rather
     // than to change something, and it answers the question the others cannot — did anyone come.
-    items: [{ slug: 'monitor' }, { slug: 'ip-bans' }, { slug: 'account' }, { slug: 'system' }],
+    // tasks follows it: the same "what happened" reading, about the instance's own background work.
+    items: [{ slug: 'monitor' }, { slug: 'tasks' }, { slug: 'ip-bans' }, { slug: 'account' }, { slug: 'system' }],
   },
 ];
 

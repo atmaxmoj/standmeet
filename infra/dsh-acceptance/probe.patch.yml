@@ -1,0 +1,6 @@
+# The per-launch overlay run.mjs passes with `dsh --profile <p> --patch probe.patch.yml`. DSH
+# resolves a relative plugin name in an inserted row beside this patch file, so this mounts
+# ./probe.mjs with no generated file and no absolute path.
+- insert:
+    - id: standmeet-acceptance-probe
+      name: ./probe.mjs

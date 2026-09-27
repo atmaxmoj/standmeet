@@ -31,9 +31,11 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
+	"github.com/atmaxmoj/standmeet/internal/infra/events"
+	"github.com/atmaxmoj/standmeet/internal/infra/jobs"
+	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 	"github.com/atmaxmoj/standmeet/internal/owner/repo"
 )
@@ -55,11 +57,13 @@ const (
 // expired -> click save again; invalid -> this email isn't for you.
 var ErrPendingEmailExpired = errors.New("email confirmation link expired")
 
-// EmailChangeDeps — dependencies for changing email. Proxy is used to ask "can mail be
-// sent at all" and to actually send the confirmation email.
+// EmailChangeDeps — dependencies for changing email. Proxy answers "can mail be sent at all";
+// Jobs carries the confirmation mail (a durable job this package enqueues, never sends).
 type EmailChangeDeps struct {
 	Owners *repo.Repo
-	Proxy  OutboundSender
+	Proxy  OutboundStatus
+	Jobs   MailJobs
+	Events events.Recorder // owner.email_changed commits with the switch
 }
 
 // EmailChangeInput — a request to change email.
@@ -70,9 +74,10 @@ type EmailChangeInput struct {
 }
 
 // EmailChangeOutput — the receipt must spell out **what happened**, not just "success".
-// Pending non-empty = a confirmation email was sent, identity unchanged; empty = switched
-// instantly. The UI shows two different messages depending on which.
+// Pending non-empty = a confirmation email is on its way (Mail says whether it already went),
+// identity unchanged; empty = switched instantly. The UI shows different messages for each.
 type EmailChangeOutput struct {
+	Mail    *entity.NoticeReceipt
 	Email   string
 	Pending string
 }
@@ -112,37 +117,45 @@ func canConfirmByMail(ctx context.Context, deps EmailChangeDeps, ownerID string)
 func switchEmailNow(
 	ctx context.Context, deps EmailChangeDeps, ownerID, normalized string,
 ) (EmailChangeOutput, error) {
-	updated, err := deps.Owners.UpdateEmail(ctx, ownerID, normalized)
+	var updated entity.Owner
+	err := ownerFacts{deps.Owners, deps.Events}.record(ctx, OwnerEmailChanged, ownerID,
+		func(o *repo.Repo) error {
+			var uerr error
+			updated, uerr = o.UpdateEmail(ctx, ownerID, normalized)
+			return uerr //nolint:wrapcheck // wrapped below
+		})
 	if err != nil {
 		return EmailChangeOutput{}, fmt.Errorf("update email: %w", err)
 	}
 	return EmailChangeOutput{Email: updated.Email}, nil
 }
 
-// startPendingEmailChange — records the pending confirmation + sends the confirmation
-// link to the **new** address. Sending it to the new address is the entire point:
-// receiving it is what proves the address is real.
+// startPendingEmailChange — records the pending confirmation and, in the same transaction, the
+// job that mails the confirmation link to the **new** address. Sending it to the new address is
+// the entire point: receiving it is what proves the address is real.
+//
+// The token stored here is a placeholder nobody ever receives: the job mints the link's token
+// when it sends (EmailConfirmArgs), so the plaintext never sits in a job row.
 func startPendingEmailChange(
 	ctx context.Context, deps EmailChangeDeps, ownerID, newEmail string,
 ) (EmailChangeOutput, error) {
-	token, terr := newEmailToken()
+	placeholder, terr := NewEmailToken()
 	if terr != nil {
 		return EmailChangeOutput{}, terr
 	}
-	owner, oerr := deps.Owners.SetPendingEmail(
-		ctx, ownerID, newEmail, hashEmailToken(token), time.Now().Add(emailConfirmWindow),
-	)
+	owner, oerr := deps.Owners.StartPendingEmail(ctx, &repo.PendingEmailStart{
+		OwnerID: ownerID, NewEmail: newEmail, TokenHash: HashEmailToken(placeholder),
+		ExpiresAt: time.Now().Add(emailConfirmWindow),
+	}, func(tx pgstore.Tx) (int64, error) {
+		job, err := deps.Jobs.With(tx).Enqueue(ctx, entity.EmailConfirmKind,
+			entity.EmailConfirmArgs{OwnerID: ownerID, Email: newEmail}, jobs.EnqueueOpts{})
+		return int64(job), err
+	})
 	if oerr != nil {
 		return EmailChangeOutput{}, fmt.Errorf("record pending email: %w", oerr)
 	}
-	if serr := deps.Proxy.Send(ctx, ownerID, OutboundNotice{
-		To:    newEmail,
-		Title: "Confirm your new StandMeet email",
-		Body:  confirmNoticeBody(owner.PublicURL, token),
-	}); serr != nil {
-		return EmailChangeOutput{}, fmt.Errorf("send email confirmation: %w", serr)
-	}
-	return EmailChangeOutput{Email: owner.Email, Pending: newEmail}, nil
+	mail := awaitMail(ctx, deps.Jobs, jobs.JobID(owner.PendingEmailJobID))
+	return EmailChangeOutput{Email: owner.Email, Pending: owner.PendingEmail, Mail: &mail}, nil
 }
 
 // ConfirmEmailChange — the link is clicked. On a match, switch identity and invalidate
@@ -156,8 +169,15 @@ func ConfirmEmailChange(
 	if token == "" {
 		return entity.Owner{}, entity.ErrPendingEmailNotFound
 	}
-	hash := hashEmailToken(token)
-	owner, err := deps.Owners.ConfirmPendingEmail(ctx, hash)
+	hash := HashEmailToken(token)
+	var owner entity.Owner
+	err := pgstore.InTx(ctx, deps.Owners.Pool(), func(tx pgstore.Tx) error {
+		var cerr error
+		if owner, cerr = deps.Owners.With(tx).ConfirmPendingEmail(ctx, hash); cerr != nil {
+			return cerr //nolint:wrapcheck // classified below
+		}
+		return deps.Events.With(tx).Record(ctx, owner.ID, OwnerEmailChanged, "owner/"+owner.ID, nil)
+	})
 	if err == nil {
 		return owner, nil
 	}
@@ -193,7 +213,8 @@ func CancelEmailChange(
 	return owner, nil
 }
 
-func newEmailToken() (string, error) {
+// NewEmailToken — a fresh confirmation-link token (128-bit random, hex).
+func NewEmailToken() (string, error) {
 	b := make([]byte, emailTokenBytes)
 	if _, err := rand.Read(b); err != nil {
 		return "", fmt.Errorf("generate email token: %w", err)
@@ -201,25 +222,10 @@ func newEmailToken() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-// hashEmailToken — sha256, not bcrypt. This token is a **unique lookup key** (an exact
+// HashEmailToken — sha256, not bcrypt. This token is a **unique lookup key** (an exact
 // WHERE match), so it must be deterministic; and it's already 128-bit random, so it
 // doesn't need a slow hash to defend against dictionary attacks.
-func hashEmailToken(token string) string {
+func HashEmailToken(token string) string {
 	sum := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(sum[:])
-}
-
-func confirmNoticeBody(publicURL, token string) string {
-	link := strings.TrimSuffix(publicURL, "/") + confirmPath + token
-	return strings.Join([]string{
-		"Someone (probably you) asked to change the email on your StandMeet instance.",
-		"",
-		"Open this link to confirm — until you do, your sign-in and your recovery",
-		"phrase both stay on the old address:",
-		"",
-		link,
-		"",
-		"The link works once and expires in 24 hours. If this wasn't you, ignore",
-		"this message and nothing changes.",
-	}, "\n")
 }

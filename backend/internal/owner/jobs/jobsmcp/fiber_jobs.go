@@ -1,6 +1,6 @@
 // fiber_jobs.go —— Phase E-10: the owner-side jobs.* fiber.
-// 6 tools: register_source / list_sources / unregister_source / fetch_new /
-// show / discard. owner-only. See docs/design/job-loop.md for details.
+// 7 tools: register_source / list_sources / unregister_source / fetch_new /
+// fetch_result / show / discard. owner-only. See docs/design/job-loop.md for details.
 
 // Package jobsmcp —— J.3: the jobs plugin's MCP blocks + result wire.
 // owner-only, 6+5+1 = 12 tools (jobs.* + resume.* + applications.commit).
@@ -56,7 +56,7 @@ func (*jobsFiber) SystemPromptFragmentID(
 func (c *jobsFiber) OwnerMCPBindings() []*registry.MCPBinding {
 	return []*registry.MCPBinding{
 		c.registerSourceBinding(), c.listSourcesBinding(),
-		c.unregisterSourceBinding(), c.fetchNewBinding(),
+		c.unregisterSourceBinding(), c.fetchNewBinding(), c.fetchResultBinding(),
 		c.showBinding(), c.discardBinding(),
 	}
 }
@@ -267,6 +267,9 @@ func (c *jobsFiber) handleDiscard(
 func jobsCapErrToResult(log *slog.Logger, err error, op string) registry.MCPResult {
 	if msg, ok := jobsCapClientErr(err); ok {
 		return registry.MCPError(msg)
+	}
+	if errors.Is(err, jobsuc.ErrFetchNotFound) {
+		return registry.MCPError("no such fetch: pass the job_ids jobs.fetch_new returned")
 	}
 	log.Error("cap jobs."+op, "err", err)
 	return registry.MCPError("jobs." + op + " failed")

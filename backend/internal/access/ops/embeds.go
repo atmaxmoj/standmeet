@@ -16,6 +16,7 @@ import (
 // EmbedsDeps — the data source for embed ops.
 type EmbedsDeps struct {
 	Embeds *repo.EmbedRepo
+	Hooks  EmbedHooks
 }
 
 // Embeds — the owner's four operations on embeds.
@@ -40,8 +41,9 @@ func Embeds(d EmbedsDeps) []fp.Op {
 			Invoke:      createEmbed(d),
 		},
 		{
-			ID:          "embeds.update",
-			Description: "Update an embed's label and allowed origins.",
+			ID: "embeds.update",
+			Description: "Update an embed's label, allowed origins and update hook URL. " +
+				"Fields left out stay as they are.",
 			InputSchema: embedUpdateSchema,
 			Kind:        fp.Action,
 			Reach:       fp.OwnerAction(),
@@ -65,7 +67,8 @@ var (
 			"code_id":{"type":"string","description":"The access code this embed exposes."},
 			"label":{"type":"string"},
 			"allowed_origins":{"type":"array","items":{"type":"string"},
-				"description":"Origins the widget may run on. Empty = any."}
+				"description":"Origins the widget may run on. Empty = any."},
+			"update_hook_url":{"type":"string","description":` + updateHookDoc + `}
 		},
 		"required":["code_id"]
 	}`)
@@ -74,7 +77,8 @@ var (
 		"properties":{
 			"embed_id":{"type":"string"},
 			"label":{"type":"string"},
-			"allowed_origins":{"type":"array","items":{"type":"string"}}
+			"allowed_origins":{"type":"array","items":{"type":"string"}},
+			"update_hook_url":{"type":"string","description":` + updateHookDoc + `}
 		},
 		"required":["embed_id"]
 	}`)
@@ -85,26 +89,31 @@ var (
 	}`)
 )
 
-// embedArgs — the shared input bag for this group.
+// embedArgs — the shared input bag for this group. On update a field left out (nil) stays as
+// it is.
 type embedArgs struct {
-	ID             string   `json:"embed_id"`
-	CodeID         string   `json:"code_id"`
-	Label          string   `json:"label"`
-	AllowedOrigins []string `json:"allowed_origins"`
+	Label          *string   `json:"label"`
+	AllowedOrigins *[]string `json:"allowed_origins"`
+	UpdateHookURL  *string   `json:"update_hook_url"`
+	ID             string    `json:"embed_id"`
+	CodeID         string    `json:"code_id"`
 }
 
 // embedOut — outbound shape. key_id is the JWT's kid; the widget in the snippet signs with
 // it + the private key. PrivateKey only has a value in the **create** receipt (omitempty) —
 // it goes into the widget's JS (not the code); the server keeps only the public key, and
-// list/update never carry it.
+// list/update never carry it. Secret, the same way, only when the update hook's endpoint was
+// just created.
 type embedOut struct {
-	ID             string   `json:"id"`
-	CodeID         string   `json:"code_id"`
-	Label          string   `json:"label"`
-	KeyID          string   `json:"key_id"`
-	CreatedAt      string   `json:"created_at"`
-	PrivateKey     string   `json:"private_key,omitempty"`
-	AllowedOrigins []string `json:"allowed_origins"`
+	UpdateHook     *EmbedHook `json:"update_hook,omitempty"`
+	ID             string     `json:"id"`
+	CodeID         string     `json:"code_id"`
+	Label          string     `json:"label"`
+	KeyID          string     `json:"key_id"`
+	CreatedAt      string     `json:"created_at"`
+	PrivateKey     string     `json:"private_key,omitempty"`
+	Secret         string     `json:"secret,omitempty"`
+	AllowedOrigins []string   `json:"allowed_origins"`
 }
 
 func toEmbedOut(e *entity.Embed) embedOut {
@@ -133,14 +142,21 @@ func listEmbeds(d EmbedsDeps) fp.Invoke {
 		if err != nil {
 			return nil, fp.OpErr("list embeds", err)
 		}
+		hooks, err := d.Hooks.List(ctx, ownerID)
+		if err != nil {
+			return nil, fp.OpErr("list embed update hooks", err)
+		}
 		out := make([]embedOut, 0, len(rows))
 		for i := range rows {
-			out = append(out, toEmbedOut(&rows[i]))
+			o := toEmbedOut(&rows[i])
+			withHook(&o, hooks)
+			out = append(out, o)
 		}
 		return json.Marshal(out)
 	}
 }
 
+// createEmbed —— the embed, then its update hook if one is given.
 func createEmbed(d EmbedsDeps) fp.Invoke {
 	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
 		in, perr := decodeEmbedArgs(raw)
@@ -150,16 +166,34 @@ func createEmbed(d EmbedsDeps) fp.Invoke {
 		if err := fp.RequireArgs([2]string{"code_id", in.CodeID}); err != nil {
 			return nil, err
 		}
-		created, err := d.Embeds.Create(ctx, ownerID, in.CodeID, in.Label, in.AllowedOrigins)
+		created, err := d.Embeds.Create(ctx, ownerID, in.CodeID,
+			strOr(in.Label, ""), listOr(in.AllowedOrigins, []string{}))
 		if err != nil {
 			return nil, embedErr(err)
 		}
-		out := toEmbedOut(&created.Embed)
-		out.PrivateKey = created.PrivateKey
-		return json.Marshal(out)
+		return createdOut(ctx, d, ownerID, &created, strOr(in.UpdateHookURL, ""))
 	}
 }
 
+// createdOut —— the create receipt, with the new embed's hook attached (none for ""). A hook
+// that cannot be set takes the new embed back out, so a failed create leaves nothing behind.
+func createdOut(
+	ctx context.Context, d EmbedsDeps, ownerID string, created *entity.EmbedCreated, url string,
+) (json.RawMessage, error) {
+	out := toEmbedOut(&created.Embed)
+	out.PrivateKey = created.PrivateKey
+	if url == "" {
+		return json.Marshal(out)
+	}
+	if err := setHook(ctx, d, ownerID, &out, url); err != nil {
+		//nolint:errcheck // the hook's error is the answer
+		_ = d.Embeds.Delete(ctx, ownerID, out.ID)
+		return nil, fp.OpErr("set embed update hook", err)
+	}
+	return json.Marshal(out)
+}
+
+// updateEmbed —— applies the fields given; the rest stay as they are.
 func updateEmbed(d EmbedsDeps) fp.Invoke {
 	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
 		in, perr := decodeEmbedArgs(raw)
@@ -169,12 +203,58 @@ func updateEmbed(d EmbedsDeps) fp.Invoke {
 		if err := fp.RequireArgs([2]string{"embed_id", in.ID}); err != nil {
 			return nil, err
 		}
-		e, err := d.Embeds.Update(ctx, ownerID, in.ID, in.Label, in.AllowedOrigins)
+		e, err := patchEmbed(ctx, d, ownerID, &in)
 		if err != nil {
 			return nil, embedErr(err)
 		}
-		return json.Marshal(toEmbedOut(&e))
+		return updatedEmbedOut(ctx, d, ownerID, &e, in.UpdateHookURL)
 	}
+}
+
+// patchEmbed —— the embed with the given label / origins applied; untouched when neither is given.
+func patchEmbed(
+	ctx context.Context, d EmbedsDeps, ownerID string, in *embedArgs,
+) (entity.Embed, error) {
+	e, err := d.Embeds.Get(ctx, ownerID, in.ID)
+	if err != nil || (in.Label == nil && in.AllowedOrigins == nil) {
+		return e, err
+	}
+	return d.Embeds.Update(ctx, ownerID, in.ID,
+		strOr(in.Label, e.Label), listOr(in.AllowedOrigins, e.AllowedOrigins))
+}
+
+// updatedEmbedOut —— e's view: its hook set to url when url is given, else its current hook.
+func updatedEmbedOut(
+	ctx context.Context, d EmbedsDeps, ownerID string, e *entity.Embed, url *string,
+) (json.RawMessage, error) {
+	out := toEmbedOut(e)
+	if url != nil {
+		if err := setHook(ctx, d, ownerID, &out, *url); err != nil {
+			return nil, fp.OpErr("set embed update hook", err)
+		}
+		return json.Marshal(out)
+	}
+	hooks, err := d.Hooks.List(ctx, ownerID)
+	if err != nil {
+		return nil, fp.OpErr("list embed update hooks", err)
+	}
+	withHook(&out, hooks)
+	return json.Marshal(out)
+}
+
+// strOr / listOr —— *p, or def when the field was left out.
+func strOr(p *string, def string) string {
+	if p == nil {
+		return def
+	}
+	return *p
+}
+
+func listOr(p *[]string, def []string) []string {
+	if p == nil {
+		return def
+	}
+	return *p
 }
 
 func deleteEmbed(d EmbedsDeps) fp.Invoke {

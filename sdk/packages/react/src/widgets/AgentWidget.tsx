@@ -16,8 +16,8 @@
 
 import React, { useEffect, useState } from 'react';
 import {
-  adoptedDockButtons, byoaiOffered, hasVisitorGrant, keyStorageAvailable, publicChatEnabled,
-  type AdoptedDockButton,
+  adoptedDockButtons, byoaiOffered, hasVisitorGrant, keyStorageAvailable, pageAllowsBYOAI,
+  publicChatEnabled, publicChatSpent, type AdoptedDockButton,
 } from '@standmeet/sdk-core';
 
 import { StandMeetProvider } from '../provider.js';
@@ -39,8 +39,10 @@ export function AgentWidget(props: AgentWidgetProps): React.ReactElement {
   //   • a stored grant (arrived with a code) → the code's agent, inline; OR
   //   • the owner wired a public inference provider (publicChatEnabled) → answer a codeless visitor
   //     inline over the public tier.
-  // Neither, but this browser can hold a key → the visitor brings their own (owner decision
-  // 2026-09-25: out of quota → offer BYOK, not a dead-end redirect). Otherwise the gate handoff.
+  // Neither, but the owner's public tier ran out of quota or the page offers BYOAI, and this
+  // browser can hold a key → the visitor brings their own (owner decision 2026-09-25: out of quota
+  // → offer BYOK, not a dead-end redirect). No public tier at all → the gate handoff, where a
+  // visitor enters a code or asks for one.
   // 'gate' until resolved, so a client-rendered microsite never flashes the wrong state.
   const [mode, setMode] = useState<WidgetMode>('gate');
   useEffect(() => { setMode(widgetMode()); }, []);
@@ -52,11 +54,13 @@ export function AgentWidget(props: AgentWidgetProps): React.ReactElement {
 
 type WidgetMode = 'inline' | 'byok' | 'gate';
 
-// widgetMode —— a grant or the owner's usable public tier → inline; else the visitor's own key
-// when this page can store one (a secure context); else the gate.
+// widgetMode —— a grant or the owner's usable public tier → inline; a spent tier or a page that
+// offers BYOAI → the visitor's own key, when this page can store one (a secure context); else the
+// gate.
 function widgetMode(): WidgetMode {
   if (hasVisitorGrant() || publicChatEnabled()) return 'inline';
-  return keyStorageAvailable() ? 'byok' : 'gate';
+  const keyWelcome = publicChatSpent() || pageAllowsBYOAI();
+  return keyWelcome && keyStorageAvailable() ? 'byok' : 'gate';
 }
 
 // GateHandoff —— codeless: the ask box carries the question to /gate.

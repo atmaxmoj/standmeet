@@ -71,10 +71,12 @@ test.describe('F-C-45 · an op that finds the grant revoked updates the card it 
       await revokeMockGCalToken(page.request);
       expireAccessToken();
 
-      await card.getByTestId('supplier-op-field-days').fill('3');
-      await card.getByTestId('supplier-op-run').click();
+      // The probe op, by name: the card carries more than one op (calendar_list too).
+      const probe = card.getByTestId('supplier-op-calendar_check');
+      await probe.getByTestId('supplier-op-field-days').fill('3');
+      await probe.getByTestId('supplier-op-run').click();
 
-      await expect(card.getByTestId('supplier-op-result'),
+      await expect(probe.getByTestId('supplier-op-result'),
         'the probe still says what happened, in words the owner can act on')
         .toContainText(/revoked/i, { timeout: 30_000 });
 

@@ -28,13 +28,11 @@ const (
 
 // SEODeps —— the per-entry publish op lives in corpus; unpinning on unpublish lives in this domain.
 //
-// Corpus exists here for one reason: publishing/unpublishing **changes that note**, so the
-// write has to refresh its search index afterward. The index's `published` field is the
-// admission test for the public identity (F-D-7); a stale index leaves a just-published note
-// missing from search, and a just-unpublished note still findable.
+// The search index follows the publish switch on its own: the corpus_notes trigger records the
+// change and the corpus.index subscriber carries it to Meili (the index's `published` field is
+// the admission test for the public identity, F-D-7).
 type SEODeps struct {
-	SEO    *corpus.SEORepo
-	Corpus corpus.Deps
+	SEO *corpus.SEORepo
 }
 
 // SEO —— set_entry_seo (the only remaining seo op after the global settings were removed).
@@ -121,9 +119,6 @@ func setWikiSEO(
 	if err != nil {
 		return nil, seoErr(err)
 	}
-	// Publish state changed → this note's search document has to change with it
-	// (see SEODeps.Corpus).
-	corpus.ReindexCorpusNote(ctx, d.Corpus, ownerID, in.ID)
 	return json.Marshal(seoEntryOut{
 		ID: updated.ID(), Genre: in.Genre, Excerpt: updated.Excerpt(),
 		Published: updated.Published(), UnpinnedSections: []string{},
@@ -137,7 +132,6 @@ func setOutputSEO(
 	if err != nil {
 		return nil, seoErr(err)
 	}
-	corpus.ReindexCorpusNote(ctx, d.Corpus, ownerID, in.ID)
 	return json.Marshal(seoEntryOut{
 		ID: updated.ID(), Genre: in.Genre, Excerpt: updated.Excerpt(),
 		Published: updated.Published(), UnpinnedSections: []string{},

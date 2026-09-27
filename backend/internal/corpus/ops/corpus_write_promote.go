@@ -33,6 +33,8 @@ func promoteCorpus(deps usecase.Deps) fp.Invoke {
 		if err != nil {
 			return nil, corpusErr(err)
 		}
+		// A promotion writes a new wiki / output entry: the same index receipt as a create.
+		withIndexReceipt(ctx, deps, &item)
 		return json.Marshal(item)
 	}
 }

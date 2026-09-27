@@ -104,7 +104,7 @@ func mailSend(
 	if err := json.Unmarshal(args, &msg); err != nil {
 		return nil, fmt.Errorf("supplier invoke: decode send args: %w", err)
 	}
-	rcpt, err := m.Send(ctx, ownerID, msg)
+	rcpt, err := m.Send(ctx, ownerID, &msg)
 	if err != nil {
 		return nil, fmt.Errorf("mail send: %w", err)
 	}

@@ -33,7 +33,7 @@ export function ListingsSection() {
         count={hook.loading ? '' : t('listings.titleInPool', { count: hook.rows.length })}
       />
       <Intro />
-      <FetchBar fetching={hook.fetching} onFetch={hook.fetchNow} />
+      <FetchBar fetching={hook.fetching} pending={hook.pendingSources} onFetch={hook.fetchNow} />
       <Body rows={hook.rows} loading={hook.loading} error={hook.error} />
     </>
   );
@@ -41,11 +41,14 @@ export function ListingsSection() {
 
 // FetchBar —— the manual "fetch now" control. Auto-fetch already runs on the first open
 // this session; this is for pulling again on demand, and it's what replaces the old
-// "ask Claude to run jobs.fetch_new" instruction.
-function FetchBar({ fetching, onFetch }: { fetching: boolean; onFetch: () => Promise<void> }) {
+// "ask Claude to run jobs.fetch_new" instruction. `pending` —— sources the server's receipt says
+// are still fetching in the background (the list refreshes itself once they are done).
+function FetchBar({ fetching, pending, onFetch }: {
+  fetching: boolean; pending: number; onFetch: () => Promise<void>;
+}) {
   const t = useTranslations('adminJobs');
   return (
-    <div className="mb-4">
+    <div className="mb-4 flex items-baseline gap-3">
       <button
         type="button" onClick={() => void onFetch()} disabled={fetching}
         data-testid="listings-fetch"
@@ -53,6 +56,11 @@ function FetchBar({ fetching, onFetch }: { fetching: boolean; onFetch: () => Pro
       >
         {fetching ? t('listings.fetching') : t('listings.fetchNow')}
       </button>
+      {pending > 0 && (
+        <span className="mono text-[11px] text-(--color-muted)" data-testid="listings-fetch-pending">
+          {t('listings.pendingSources', { count: pending })}
+        </span>
+      )}
     </div>
   );
 }

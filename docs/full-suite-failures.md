@@ -1,3 +1,154 @@
+# Full-suite failures — round 2026-09-26 (branch `embed-update-hook`, event bus / outbox / webhooks, uncommitted)
+
+Two full runs. Logs: run 1 `scratchpad/accept-logs/.accept-test-fresh.log`, run 2
+`scratchpad/accept2/test-fresh.log`. Artifacts: `e2e/test-results-archive/<ts>/`.
+
+| run | passed | failed | did not run | skipped |
+|---|---|---|---|---|
+| 1 | 1976 | 14 | 0 | 8 |
+| 2 | 1974 | 9 | 7 | 8 |
+
+The 8 skipped are the conditional skips (captcha / boundary); run 2's 7 "did not run" are the
+serial siblings of B1's failed `beforeAll` hooks.
+
+**Process, recorded because the SOP was not followed in this round** (owner: "复习一下 sop"):
+this doc was not written after run 1; specs and a fixture were edited while run 2 was running;
+single specs were re-run to diagnose instead of reading the archive; fixes landed one by one with
+several image builds, and no batch was closed with `REPEAT=5`. From here on the batches below close
+by the rules at the bottom. Run 1's fixes are therefore not closed — they re-open under run 2's
+batches and must reach `REPEAT=5` there.
+
+## Run 3 — the final full run (after every run-2 batch closed REPEAT=5)
+
+`dsh-plugin-test` 14/0 · `make lint` rc=0 · e2e **1987 passed / 3 failed** (log `scratchpad/final/test-fresh.log`).
+Three reds, all confined to `e2e/`, so closed by the owner's rule for a few test-side reds: fix,
+re-run those specs `REPEAT=5`, no new full run ([[test-side-await-fix-rerun-is-enough]]).
+
+### C1 — `microsite:181` opened the page before it was live
+- `page not found` on `/p/multi-file`, right after the status read `built`.
+- `shipFilesLive` (`use-microsites.ts:259`) stages the build — whose ticks already set the status to
+  `built` — and only then promotes it. The spec opened the page between the two, once, no reload.
+- Fix: wait for the publish's success toast ("Page published"), the end of the whole sequence.
+
+### C2 — `output-retrieval-scale:57` seeding hook over 30 s
+- 52 fillers × two receipt-waiting writes (promote to wiki, then output). With the awaited-queue fix
+  a receipt is ~0.3 s (100 ms poll + River's 250 ms completer), so ~31 s: passed REPEAT=5 at the
+  edge, lost in the full run.
+- Fix: the hook's budget is the write count times the 2 s receipt ceiling (`FILLER_COUNT * 2 * 2_000`),
+  here and in `output-landing-scale`, which seeds the same way.
+
+### C3 — the e2e reset crashed the backend
+- `sync-f-frontmatter:30`: `curl … /api/v1/instance: Connection reset by peer` in `resetInstance`.
+- Backend log: `panic: completion subscriber received a job that wasn't finalized, river bug`
+  (`jobcompleter/job_completer.go:82`), then a restart. Cause: run 1's reset addition deleted every
+  non-periodic `river_job` row, including jobs River's batch completer still held (it writes results
+  every 250 ms); River panics when the row it completes is gone. Nothing in the product deletes live
+  job rows — River's own cleaner removes only old finalized ones.
+- Fix: the reset deletes finalized jobs only (`completed` / `discarded` / `cancelled`).
+
+Status: C1 `REPEAT=5` 5/5. C2 + C3 (+ the specs that read job counts: `tasks-panel`,
+`tasks-panel-more`, `events-index-via-bus`, `admin-system-jobs`) `REPEAT=5` → **172 passed / 1
+failed / 2 did not run**; no backend crash in the whole run.
+
+### C4 — `tasks-panel:185` "Run now" once sent nothing (1 of 5, open)
+- `expect.poll … not.toBe("…03:39:39.909Z")` timed out: the first periodic row's last run never moved.
+- Evidence: the backend logged every other Run-now POST (5, all 200, each creating and finishing a
+  `periodic:resume-draft sweep` job at once); for the failing attempt there is **no POST and no job**,
+  while the page loaded normally (screenshot: data present) and the backend neither restarted nor
+  crashed around it. `useAction` has no guard, so an effective click always posts.
+- Ruled out: not hydration (`gotoAdminSection` is a client transition inside a loaded app); not the
+  proxy (the backend's address is unchanged across restarts; the `ECONNREFUSED` in the app log is the
+  restart window itself).
+- No trace was kept, so the cause is not established. Instrument, not a guess: the spec now asserts
+  the Run-now receipt (the "Queued" toast) right after the click, so a lost click fails on its own
+  line. `tasks-panel REPEAT=5` with it: **55 passed / 0 failed** — not reproduced; the receipt line
+  stays, so a recurrence names itself.
+- Seen on the way (harness): `dev-restart-svc` restarts the backend twice per call — `restart`, then
+  `up -d --wait` without `--no-deps --no-build` (unlike `dev-restart-backend`), which recreates it
+  ~29 s later. Not this red's cause (`restartBackend()` waits for both), but it doubles every
+  restart-spec's cost.
+
+## Run 2 — batches (closed)
+
+### B1 — a write's index receipt waits on River's poll tick (7)
+
+- Specs (all `"beforeAll" hook timeout of 30000ms exceeded`, 0 ms):
+  `corpus-grid-virtual:51`, `output-landing-scale:53`, `output-retrieval-scale:57`,
+  `wiki-landing-scale:56`, `wiki-list-navigation:72`, `wiki-retrieval-scale:59`, `wiki-tree-scale:73`.
+  Each seeds 33–60 notes by `corpus.create` (raw) + `corpus.promote` in `beforeAll`.
+- Why now: run 1's B-fix made `corpus.promote` return an index receipt like create/update (it waits
+  up to 2 s for the index job). MCP call latency: p50 2 ms, p90 557 ms, max 2023 ms.
+- Root cause (measured from `river_job` / `events` timestamps of one seeding run — note: obtained by
+  re-running `corpus-grid-virtual`, not from the archive):
+
+  | stage | avg |
+  |---|---|
+  | event → fanned to a job | 1 ms |
+  | job created → picked up | 329 ms (max 976) |
+  | job run | 16 ms |
+
+  Split by genre: every `raw` job picked up < 100 ms (33/33); `wiki` jobs 7 fast, 26 at 600–1000 ms.
+  The wiki job is inserted ~5 ms after its raw job. River rate-limits insert notifications to one per
+  queue per `FetchCooldown` (100 ms, `client.go:2188 maybeNotifyInsertForQueues`); the wiki insert
+  sends none, the worker already fetched the raw job, so the wiki job waits for the next
+  `FetchPollInterval` tick (default 1 s; we set none in production).
+- Fix: product, not the specs — a real write pays this ~0.5 s. Give the queues a request waits on
+  (`index`, `notify`) a short per-queue `FetchPollInterval` (`river.QueueConfig`), others keep 1 s.
+  Drill-down UT first: `jobs/river/conformance_pickup_test.go` builds the runtime with production
+  `Options{}` (the shared `start()` sets a 20 ms poll, which is what hid this in UTs) and inserts two
+  jobs 5 ms apart. First version (wait-for-completion between inserts) did not reproduce; second
+  version (the measured 5 ms gap) reproduced it.
+- Done: `jobs.QueueAwaited` (index, notify) → `FetchPollInterval` 100 ms in `queueConfigs`. UT: RED
+  without the fix (744–995 ms), GREEN with it (`-count=5`). Its bound is insert → completed < 600 ms,
+  not 300 ms: River's batch completer records completions every 250 ms (`jobcompleter`, not
+  configurable), and our final notify rides River's completion event, so a receipt includes it.
+- Status: **CLOSED** — batch boundary `make test-only REPEAT=5` over B1–B3 plus every spec reopened
+  from run 1 (26 specs): **345 passed / 0 failed**, then `make lint` rc=0. RED side = run 2's
+  archive (same images).
+
+### B2 — the prune runs after the backend reports healthy (1)
+
+- Spec: `public-conversation-prune:39` — `old public conversation pruned` expected 0, received 1,
+  asserted right after `restartBackend()`.
+- Root cause: the prune is a River periodic job with `RunOnStart`; it is enqueued at boot and runs
+  just after the health check passes, not before it. Run 1 passed on timing.
+- Fix (spec, timing only): poll the count until 0 (30 s).
+- Status: **CLOSED** (in the 345/0 batch run).
+
+### B3 — a fixture change of this round (1)
+
+- Spec: `retrieval-degrade:68` (D1/D2/D3, Meili down) — `expect.poll … toBe(0)` timed out inside
+  `fixtures/corpus.ts`.
+- Root cause: run 1's fix added `awaitIndexCaughtUp` to `seedWiki` (wait for an empty index queue
+  when a write says `indexed: false`). With Meili down on purpose the queue never empties.
+- Fix: the wait was a stand-in for `corpus.promote` lacking its receipt; the product fix (promote
+  returns the receipt) is in, so the fixture is back to HEAD (`git diff` empty). Reverted during run 2
+  — a rule break.
+- Status: **CLOSED** (in the 345/0 batch run).
+
+## Acceptance targets outside the e2e suite
+
+| target | red | root cause | fix | status |
+|---|---|---|---|---|
+| `dsh-plugin-test` | DSH boot crash, `hmr.registerConfig is not a function` | `@deepseek-ai/cordis-plugin-hmr` 1.0.18 (2026-09-22) removed config watching in a patch release; every DSH that dsh-testkit 0.4.4 accepts (≤ 0.1.5) calls it. DSH 0.1.7 moved hot reload into the opt-in `dsh-hmr` plugin and admits plugins by their `peerDependencies` on `@deepseek-ai/dsh`. | Follow upstream: new driver `infra/dsh-acceptance/run.mjs` on DSH 0.1.7-rc.2 through `dsh plugin add` / `--dump-config` / a probe patch / `remove`; each plugin declares its DSH peer range; blocks find their install dir through `ctx.get('profileContext')` instead of a hardcoded `profiles/dsh-testkit/…` | 13/14 green; the 14th below |
+| `dsh-plugin-test` · `real-blocks-group` | subject `./real-blocks-group` missing | a test-first scenario whose subject was never built (eiab, `fdfa5da28`) | built the way DSH composes bundles: the group's patch names its members; the members are `peerDependencies`, installed by the driver as dev deps (`subject.peers`) so DSH does not select them as bundles; smtp's row config is restated in the group patch, as upstream requires (`2026-08-05-profile-plugin-bundles.md:26`) | green; red when `peers` is removed; group-compose/caldav/smtp still green |
+| `eval-blocks`, `eval-booking-fabrication` | the agent is never given `calendar_book` ("my calendar is read-only") | the eval's canned supplier world had no `calendar.can_perform`, so the booker's `ownerCanBook` read false; it also answered `mail.connected` as a bare `true` where prod answers `{"connected": …}` | `eval-harness/canned_host.go` answers both in prod's shape | green |
+| `eval-owner-mcp` | `login HTTP 401` | precondition: the stack must be claimed by `marcus` (`eval-harness/reseed-marcus.sh`) | run the seed first | green |
+| `eval-ask` | `decode ask request: EOF` | an interactive tool (reads a question on stdin), not a pass/fail eval | not an acceptance target | — |
+
+## Run 1 — what was found and fixed (re-verified only by targeted runs; closes under the rules above)
+
+- **Codeless AgentWidget offered bring-your-own-key with no public provider** (5: `agent-widget-inherits-from-code:164`, `coded-ask-continues:50`, `default-home-ask:21`, `public-ask-gates:33`, plus `monitor-microsite-tracker` which had been edited to work around it). The `standmeet-public-chat` meta now carries `true` / `spent` / `false`; spent or page-BYOAI → BYOK, no provider → the `/gate` handoff. `agent-widget-public-inline:92` asserted the pre-2026-09-25 "spent → gate"; updated to the owner's decision (spent → BYOK).
+- **Tasks kind filter listed only kinds with jobs** (`events-bulk-import-bound:37`): lists every declared kind; UT `TestOverviewListsEveryDeclaredKindBeforeItRuns`.
+- **Owner tool golden** (`norm-outward-toolset:321`): `events.requeue` added.
+- **`corpus.promote` returned no index receipt** (`retrieval-search-consistency` A1/A4/A9/A11): promote waits for its receipt like create/update. A5 (vault import, receipt = count committed) polls the search.
+- **CalDAV mock behind the plugin** (`supplier-happy-matrix:521`, red on main since 09-22): the plugin asks a `calendar-query`; the mock now answers it as a 207 multistatus of VEVENTs (inline and CDATA forms).
+- **Reconcile loop deleted by design** (`admin-system-jobs:40`): asserts the events relay sweep instead.
+- **Locators made ambiguous by the 09-22 calendar ops** (`supplier-assemble-from-ui:48`, `supplier-op-refreshes-status:63`): whole-text match / scoped to `supplier-op-calendar_check`.
+- **Owner-notify mail now retried by a job** (`supplier-retry-async-owner-notify-nonblocking:54`): the spec's budget sized to the mail backoff (20 s, ×3).
+
+---
+
 # Full-suite failures — round 2026-09-20 (quiet-machine run, branch `eiab-blocks-to-js` + uncommitted session work)
 
 **1860 passed · 6 failed · 8 skipped.** Command: `make test` on a quiet machine (load < 6). Log: `scratchpad/make-test3.log`.

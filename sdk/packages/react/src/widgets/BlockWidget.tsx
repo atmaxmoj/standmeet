@@ -46,15 +46,21 @@ export function useBlockTool(toolName: string): UseBlockTool {
   const [state, setState] = useState<BlockToolState>('idle');
   const [result, setResult] = useState<unknown>(undefined);
   const [error, setError] = useState<string | null>(null);
-  // Adopt once: the session the gate stored is what authorizes the call; re-reading it on every
-  // render would race a background sign-in against an in-flight call.
-  const [session] = useState(() => adoptStoredSession());
+  // Adopt once, AFTER mount: the session the gate stored is what authorizes the call; re-reading it
+  // on every render would race a background sign-in against an in-flight call. Not in the first
+  // render: the page is prerendered with no browser storage, so a first render that read it would
+  // differ from the prerendered HTML and break hydration (React #418) for every visitor who holds a
+  // code.
+  const [session, setSession] = useState<RunSession | null>(null);
   // publicEligible —— no code arrived, but the owner opened public_search AND this is a read-only
   // corpus tool. Then the widget may open a codeless public session of its own (published-only
-  // scope) instead of refusing. Decided once, off the render path, same as `session`.
-  const [publicEligible] = useState(
-    () => session === null && publicSearchEnabled() && PUBLIC_SAFE_TOOLS.has(toolName),
-  );
+  // scope) instead of refusing. Decided once after mount, same as `session` (it reads page meta).
+  const [publicEligible, setPublicEligible] = useState(false);
+  useEffect(() => {
+    const adopted = adoptStoredSession();
+    setSession(adopted);
+    setPublicEligible(adopted === null && publicSearchEnabled() && PUBLIC_SAFE_TOOLS.has(toolName));
+  }, [toolName]);
   // The codeless public session, opened lazily on first run and reused: opening it per click would
   // start a fresh conversation each time and hit the /sessions per-IP cap for nothing.
   const publicSession = useRef<RunSession | null>(null);

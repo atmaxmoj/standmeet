@@ -27,6 +27,7 @@
     "emptyHint": "打开这个板块时会自动拉取职位——或点「立即拉取」。结果会在这里保留一天，直到你起草或丢弃它们。",
     "fetchNow": "立即拉取",
     "fetching": "拉取中…",
+    "pendingSources": "{count, plural, other {还有 # 个来源在后台拉取 —— 完成后列表会自动更新}}",
     "kicker": "工作 · 职位列表",
     "titleInPool": "{count} 个在池中"
   },

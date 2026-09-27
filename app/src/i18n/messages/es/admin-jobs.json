@@ -27,6 +27,7 @@
     "emptyHint": "Las ofertas se obtienen automáticamente al abrir esta sección — o pulsa Obtener ahora. Los resultados permanecen aquí un día hasta que los redactas o descartas.",
     "fetchNow": "obtener ahora",
     "fetching": "obteniendo…",
+    "pendingSources": "{count, plural, one {# fuente sigue obteniéndose en segundo plano — la lista se actualiza al terminar} other {# fuentes siguen obteniéndose en segundo plano — la lista se actualiza al terminar}}",
     "kicker": "empleos · listados",
     "titleInPool": "{count, plural, one {# en el grupo} other {# en el grupo}}"
   },

@@ -11,5 +11,7 @@
         args:
           - dist/index.js
           - stdio
-        cwd: !!js dshHomePath('profiles/dsh-testkit/node_modules/@modelcontextprotocol/server-everything')
+        # The server's installed directory: Node resolves this package from the running profile's
+        # manifest, then the server from this package, so any profile name and pnpm layout works.
+        cwd: !!js "process.getBuiltinModule('node:path').dirname(process.getBuiltinModule('node:module').createRequire(process.getBuiltinModule('node:module').createRequire(ctx.get('profileContext').dir + '/package.json').resolve('standmeet-everything-mcp/package.json')).resolve('@modelcontextprotocol/server-everything/package.json'))"
         failOnStartupError: true

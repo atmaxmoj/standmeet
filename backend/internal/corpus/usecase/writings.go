@@ -19,12 +19,15 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/corpus/entity"
 	"github.com/atmaxmoj/standmeet/internal/corpus/repo"
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
+	"github.com/atmaxmoj/standmeet/internal/infra/events"
+	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
 // WritingsDeps —— for read-only / simple-write (publish / unpublish) use. Used by
 // the retriever, the public list, and MCP.
 type WritingsDeps struct {
 	Writings *repo.WritingRepo
+	Events   events.Recorder // publish / unpublish: writing.* commits with the switch
 }
 
 // WritingsTxDeps —— for transactional writing CRUD (create + update + delete).
@@ -44,11 +47,31 @@ func PublishWriting(
 	if ownerID == "" || writingID == "" {
 		return entity.Writing{}, apierr.ErrEmptyField
 	}
-	p, err := deps.Writings.Publish(ctx, ownerID, writingID)
+	p, err := switchPublished(ctx, deps, ownerID, WritingPublished,
+		func(w *repo.WritingRepo) (entity.Writing, error) {
+			return w.Publish(ctx, ownerID, writingID)
+		})
 	if err != nil {
 		return entity.Writing{}, fmt.Errorf("publish writing: %w", err)
 	}
 	return p, nil
+}
+
+// switchPublished —— the publish switch (write) and its writing.* event typ, in one transaction.
+func switchPublished(
+	ctx context.Context, deps WritingsDeps, ownerID, typ string,
+	write func(w *repo.WritingRepo) (entity.Writing, error),
+) (entity.Writing, error) {
+	var p entity.Writing
+	err := pgstore.InTx(ctx, deps.Writings.Pool(), func(tx pgstore.Tx) error {
+		var werr error
+		if p, werr = write(deps.Writings.With(tx)); werr != nil {
+			return werr
+		}
+		data := map[string]string{"writing_id": p.ID(), "slug": p.Slug()}
+		return deps.Events.With(tx).Record(ctx, ownerID, typ, "writing/"+p.ID(), data)
+	})
+	return p, err //nolint:wrapcheck // the callers name the step
 }
 
 // UnpublishWriting —— reverts a writing back to draft.
@@ -58,7 +81,10 @@ func UnpublishWriting(
 	if ownerID == "" || writingID == "" {
 		return entity.Writing{}, apierr.ErrEmptyField
 	}
-	p, err := deps.Writings.Unpublish(ctx, ownerID, writingID)
+	p, err := switchPublished(ctx, deps, ownerID, WritingUnpublished,
+		func(w *repo.WritingRepo) (entity.Writing, error) {
+			return w.Unpublish(ctx, ownerID, writingID)
+		})
 	if err != nil {
 		return entity.Writing{}, fmt.Errorf("unpublish writing: %w", err)
 	}

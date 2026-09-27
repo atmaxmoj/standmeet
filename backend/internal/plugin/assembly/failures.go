@@ -40,11 +40,23 @@ const maxStderrBytes = 4096
 // Best-effort by design — the caller is already handling a failure, and a failure to
 // record one must not become a second failure on the visitor's path.
 func (r *Repo) RecordFailure(ctx context.Context, ownerID string, f *Failure) error {
+	return r.RecordFailureThen(ctx, ownerID, f, func(pgx.Tx) error { return nil })
+}
+
+// FailureHook —— runs on the failure write's transaction when the block STARTED failing (no
+// current failure row), so what it writes commits with the row.
+type FailureHook func(tx pgx.Tx) error
+
+// RecordFailureThen —— RecordFailure, plus started on the same transaction when this is a new
+// failure (a repeat only refreshes the row).
+func (r *Repo) RecordFailureThen(
+	ctx context.Context, ownerID string, f *Failure, started FailureHook,
+) error {
 	id, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
 		return fmt.Errorf("parse owner id: %w", err)
 	}
-	return r.recordFailureLocked(ctx, id, f)
+	return r.recordFailureLocked(ctx, id, f, started)
 }
 
 // recordFailureLocked — the write, under a short lock_timeout so this best-effort record loses fast
@@ -52,26 +64,40 @@ func (r *Repo) RecordFailure(ctx context.Context, ownerID string, f *Failure) er
 // reaches block_failures via the owners FK, and unbounded the two deadlock (~1s deadlock_timeout
 // kills one, dropping a connection — what left the backend at 503 mid-suite). 500ms is below
 // deadlock_timeout, so this fails with a plain lock_timeout and the caller drops it. Prod never
-// TRUNCATEs owners; this is a test-reset window. pgx.BeginFunc scopes the SET LOCAL and does its
+// TRUNCATEs owners; this is a test-reset window. pgstore.InTx scopes the SET LOCAL and does its
 // own commit/rollback, so there is no manual Rollback left unchecked.
-func (r *Repo) recordFailureLocked(ctx context.Context, id pgtype.UUID, f *Failure) error {
-	const q = `
-		INSERT INTO block_failures (owner_id, block_id, title, stderr)
-		VALUES ($1, $2, $3, $4)
-		ON CONFLICT (owner_id, block_id)
-		DO UPDATE SET title = EXCLUDED.title, stderr = EXCLUDED.stderr, failed_at = now()`
-	if err := pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {
+func (r *Repo) recordFailureLocked(
+	ctx context.Context, id pgtype.UUID, f *Failure, started FailureHook,
+) error {
+	if err := pgstore.InTx(ctx, r.pool, func(tx pgstore.Tx) error {
 		if _, serr := tx.Exec(ctx, "SET LOCAL lock_timeout = '500ms'"); serr != nil {
 			return fmt.Errorf("set lock_timeout: %w", serr)
 		}
-		if _, eerr := tx.Exec(ctx, q, id, f.BlockID, f.Title, truncate(f.Stderr)); eerr != nil {
-			return fmt.Errorf("insert: %w", eerr)
+		inserted, ierr := upsertFailure(ctx, tx, id, f)
+		if ierr != nil || !inserted {
+			return ierr
 		}
-		return nil
+		return started(tx)
 	}); err != nil {
 		return fmt.Errorf("record block failure: %w", err)
 	}
 	return nil
+}
+
+// upsertFailure —— the failure row; true when it is new (the block just started failing).
+func upsertFailure(ctx context.Context, tx pgx.Tx, id pgtype.UUID, f *Failure) (bool, error) {
+	const q = `
+		INSERT INTO block_failures (owner_id, block_id, title, stderr)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (owner_id, block_id)
+		DO UPDATE SET title = EXCLUDED.title, stderr = EXCLUDED.stderr, failed_at = now()
+		RETURNING (xmax = 0)`
+	var inserted bool
+	if err := tx.QueryRow(ctx, q, id, f.BlockID, f.Title, truncate(f.Stderr)).
+		Scan(&inserted); err != nil {
+		return false, fmt.Errorf("insert: %w", err)
+	}
+	return inserted, nil
 }
 
 // ClearFailure — this block mounted, so whatever it said last time is history.

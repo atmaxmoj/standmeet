@@ -94,6 +94,10 @@ var (
 type corpusItemOut struct {
 	ParentID *string `json:"parent_id"`
 	Path     *string `json:"path"`
+	// Indexed / IndexJobID —— the write receipt for the search index (create / update / promote).
+	// indexed=true: search already finds this write. false: not yet — IndexJobID is the job
+	// carrying it (tasks.get reads its state). Absent: this genre is not indexed, or no Meili.
+	Indexed *bool `json:"indexed,omitempty"`
 	// The hero block — image + the headline overlaid on it + a hue. All three live on the
 	// shared table, so **any genre can have them**.
 	CoverImageAssetID *string           `json:"cover_image_asset_id,omitempty"`
@@ -123,6 +127,7 @@ type corpusItemOut struct {
 	// Assets — images / attachments hung on this entry. They belong to the article;
 	// visibility is inherited from it.
 	Assets       []usecase.AssetView `json:"assets,omitempty"`
+	IndexJobID   int64               `json:"index_job_id,omitempty"` // see Indexed
 	ShowAsSource bool                `json:"show_as_source"`
 	Published    bool                `json:"published"`
 	HasChildren  bool                `json:"has_children,omitempty"`

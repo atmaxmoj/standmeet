@@ -27,6 +27,7 @@
     "emptyHint": "Anzeigen werden automatisch abgerufen, wenn Sie diesen Bereich öffnen — oder klicken Sie auf Jetzt abrufen. Ergebnisse bleiben einen Tag hier, bis Sie sie entwerfen oder verwerfen.",
     "fetchNow": "jetzt abrufen",
     "fetching": "wird abgerufen…",
+    "pendingSources": "{count, plural, one {# Quelle wird noch im Hintergrund abgerufen — die Liste aktualisiert sich danach} other {# Quellen werden noch im Hintergrund abgerufen — die Liste aktualisiert sich danach}}",
     "kicker": "jobs · anzeigen",
     "titleInPool": "{count, plural, one {# im Pool} other {# im Pool}}"
   },

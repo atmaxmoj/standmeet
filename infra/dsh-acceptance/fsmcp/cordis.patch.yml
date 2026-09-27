@@ -12,5 +12,7 @@
         args:
           - dist/index.js
           - .
-        cwd: !!js dshHomePath('profiles/dsh-testkit/node_modules/@modelcontextprotocol/server-filesystem')
+        # The server's installed directory: Node resolves this package from the running profile's
+        # manifest, then the server from this package, so any profile name and pnpm layout works.
+        cwd: !!js "process.getBuiltinModule('node:path').dirname(process.getBuiltinModule('node:module').createRequire(process.getBuiltinModule('node:module').createRequire(ctx.get('profileContext').dir + '/package.json').resolve('standmeet-fsmcp-mcp/package.json')).resolve('@modelcontextprotocol/server-filesystem/package.json'))"
         failOnStartupError: true

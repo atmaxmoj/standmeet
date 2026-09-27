@@ -17,37 +17,34 @@ import (
 
 // Invoker -- invokes a supplier by seam (seam+verb+args -> json). The business domain's
 // Suppliers struct satisfies it.
-//
-// InvokeBackground -- returns immediately; the call runs in the background and retries per
-// policy. Use it for calls where "the result must not block the caller" (e.g. an owner
-// notification after a booking is confirmed). **Must be host-held**: a sandboxed block's
-// process lives only for that one call, so a retry goroutine started inside it is reclaimed
-// along with the process.
 type Invoker interface {
 	Invoke(
 		ctx context.Context, ownerID, seam, verb string, args json.RawMessage,
 	) (json.RawMessage, error)
-	InvokeBackground(
-		ctx context.Context, ownerID, seam, verb string, args json.RawMessage,
-	)
 }
+
+// Background -- enqueues the same call as a durable job and returns once the job is committed.
+// Use it for calls whose result must not block the caller (e.g. deleting a calendar event a
+// failed booking left behind). **Must be host-held**: a sandboxed block's process lives only for
+// that one call, and the job layer owns the retries, across restarts.
+type Background func(ctx context.Context, ownerID, seam, verb string, args json.RawMessage) error
 
 // Ops -- supplier.invoke. The block says "do this for me with the calendar"; the host finds
 // the owner's currently active supplier for that seam and does it -- the block doesn't
 // know which specific supplier, and credentials never leave the host.
 //
-// background=true -> returns {ok:true} immediately without waiting for the result; the call runs
-// in the host background (with retries).
-func Ops(inv Invoker) []hostop.Op {
+// background=true -> returns {ok:true} once the call is a durable job, without waiting for its
+// result; the job layer runs it (with retries).
+func Ops(inv Invoker, bg Background) []hostop.Op {
 	return []hostop.Op{{
 		Name: "supplier.invoke",
 		Description: "Ask the owner's active supplier for a seam to do one verb. " +
 			"The block names a seam, never a supplier; credentials stay host-side.",
-		Invoke: invokeHandler(inv),
+		Invoke: invokeHandler(inv, bg),
 	}}
 }
 
-func invokeHandler(inv Invoker) hostop.Invoke {
+func invokeHandler(inv Invoker, bg Background) hostop.Invoke {
 	return func(
 		ctx context.Context, raw json.RawMessage,
 	) (json.RawMessage, error) {
@@ -62,8 +59,7 @@ func invokeHandler(inv Invoker) hostop.Invoke {
 			return nil, fmt.Errorf("supplier.invoke: decode: %w", err)
 		}
 		if req.Background {
-			inv.InvokeBackground(ctx, req.OwnerID, req.Seam, req.Verb, req.Args)
-			return json.RawMessage(`{"ok":true,"background":true}`), nil
+			return background(ctx, bg, req.OwnerID, req.Seam, req.Verb, req.Args)
 		}
 		out, err := inv.Invoke(ctx, req.OwnerID, req.Seam, req.Verb, req.Args)
 		if err != nil {
@@ -81,4 +77,14 @@ func invokeHandler(inv Invoker) hostop.Invoke {
 		}
 		return out, nil
 	}
+}
+
+// background —— {ok:true} once the call is a committed job.
+func background(
+	ctx context.Context, bg Background, ownerID, seam, verb string, args json.RawMessage,
+) (json.RawMessage, error) {
+	if err := bg(ctx, ownerID, seam, verb, args); err != nil {
+		return nil, fmt.Errorf("supplier.invoke %s/%s background: %w", seam, verb, err)
+	}
+	return json.RawMessage(`{"ok":true,"background":true}`), nil
 }

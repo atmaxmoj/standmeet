@@ -10,10 +10,8 @@ package repo
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/conversation/db"
@@ -111,17 +109,14 @@ func (r *ChatRepo) runAppendDialogTx(
 func (r *ChatRepo) runInTx(
 	ctx context.Context, fn func(q *db.Queries) (string, error),
 ) (string, error) {
-	tx, txErr := r.pool.Begin(ctx)
-	if txErr != nil {
-		return "", fmt.Errorf("begin tx: %w", txErr)
-	}
-	defer rollbackQuiet(ctx, tx)
-	out, err := fn(db.New(tx))
-	if err != nil {
-		return "", err
-	}
-	if cerr := tx.Commit(ctx); cerr != nil {
-		return "", fmt.Errorf("commit tx: %w", cerr)
+	// A transaction of its own, or a savepoint inside the caller's (With(tx)).
+	var out string
+	if err := pgstore.InTx(ctx, pgstore.Nested(r.q, r.pool), func(tx pgstore.Tx) error {
+		var ferr error
+		out, ferr = fn(db.New(tx))
+		return ferr
+	}); err != nil {
+		return "", err //nolint:wrapcheck // InTx names begin/commit; fn names its steps
 	}
 	return out, nil
 }
@@ -223,16 +218,6 @@ func runAppendDialogQueries(
 		return "", fmt.Errorf("bump chat: %w", berr)
 	}
 	return pgstore.FormatUUID(dialogID), nil
-}
-
-// rollbackQuiet — for defer use. Rollback after a Commit returns ErrTxClosed, which is
-// swallowed as normal.
-func rollbackQuiet(ctx context.Context, tx pgx.Tx) {
-	if err := tx.Rollback(ctx); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
-		// No logger available (the repo layer doesn't hold one); a rollback failure can only
-		// be silent.
-		_ = err
-	}
 }
 
 // splitCitedIDs — splits Dialog.Citations by kind into wiki/writing/output/subjectivity

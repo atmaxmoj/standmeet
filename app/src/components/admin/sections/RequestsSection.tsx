@@ -10,7 +10,7 @@ import { SectionHeader } from '@/components/admin/SectionHeader';
 import { Btn } from '@/components/admin/atoms/Btn';
 import { Chip } from '@/components/admin/atoms/Chip';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
-import type { AccessRequestView } from '@/lib/api/admin';
+import type { AccessRequestView, MailReceipt } from '@/lib/api/admin';
 import {
   pickBodyState,
   useRequests,
@@ -198,8 +198,32 @@ function RequestHead({ req }: { req: AccessRequestView }) {
       </div>
       <div className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-faint)">
         {req.status} · {stampDay(req.created_at)}
+        <MailState mail={req.mail} />
       </div>
     </div>
+  );
+}
+
+// MailState —— the approval mail's state: sending until its job is done, then sent or failed.
+// "sent" appears only once the provider accepted it; absent before approval.
+function MailState({ mail }: { mail: MailReceipt | undefined }) {
+  return mail === undefined ? null : <MailStateChip state={mail.state} />;
+}
+
+function MailStateChip({ state }: { state: MailReceipt['state'] }) {
+  const t = useTranslations('adminAccess');
+  const label = {
+    sending: t('requests.mail.sending'),
+    sent: t('requests.mail.sent'),
+    failed: t('requests.mail.failed'),
+  }[state];
+  return (
+    <span
+      data-testid="request-mail-state" data-state={state}
+      className={state === 'failed' ? 'text-(--color-accent)' : undefined}
+    >
+      {' · '}{label}
+    </span>
   );
 }
 

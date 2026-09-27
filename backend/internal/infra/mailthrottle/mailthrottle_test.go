@@ -13,6 +13,7 @@ import (
 const (
 	testBudget    = 3
 	testWindow    = time.Hour
+	testLeft      = 17 * time.Minute
 	overBy        = 1
 	twoRecipients = 2
 )
@@ -22,6 +23,7 @@ type fakeCounter struct {
 	counts map[string]int64
 	ttl    map[string]time.Duration
 	err    error
+	left   time.Duration // what TTL reports
 }
 
 func newFake() *fakeCounter {
@@ -41,35 +43,50 @@ func (f *fakeCounter) SetTTL(_ context.Context, key string, ttl time.Duration) e
 	return nil
 }
 
-// TestAllow_capsPerRecipient — sends up to budget pass; the next is denied; the window TTL is set.
-func TestAllow_capsPerRecipient(t *testing.T) {
+func (f *fakeCounter) TTL(context.Context, string) (time.Duration, error) { return f.left, nil }
+
+// TestWait_capsPerRecipient — sends up to budget pass; the next must wait out the window's
+// remaining time; the window TTL is set.
+func TestWait_capsPerRecipient(t *testing.T) {
 	t.Parallel()
 	f := newFake()
+	f.left = testLeft
 	th := mailthrottle.NewWithBudget(f, testBudget, testWindow)
 	ctx := context.Background()
 	for i := range testBudget {
-		if !th.Allow(ctx, "victim@example.com") {
-			t.Fatalf("send %d within budget must be allowed", i+1)
+		if w := th.Wait(ctx, "victim@example.com"); w != 0 {
+			t.Fatalf("send %d within budget must go now, got wait %s", i+1, w)
 		}
 	}
-	if th.Allow(ctx, "victim@example.com") {
-		t.Error("the send past the budget must be denied")
+	if w := th.Wait(ctx, "victim@example.com"); w != testLeft {
+		t.Errorf("past the budget: wait until the window ends (%s), got %s", testLeft, w)
 	}
 	if len(f.ttl) != twoRecipients-overBy { // exactly one key got a TTL (set on the first send)
 		t.Errorf("window TTL must be set once on the first send, got %d", len(f.ttl))
 	}
 }
 
-// TestAllow_perRecipientIndependent — one victim's budget does not affect another recipient.
-func TestAllow_perRecipientIndependent(t *testing.T) {
+// TestWait_unknownTTLWaitsTheWindow — the counter cannot say how long is left: wait a whole window.
+func TestWait_unknownTTLWaitsTheWindow(t *testing.T) {
+	t.Parallel()
+	th := mailthrottle.NewWithBudget(newFake(), 1, testWindow)
+	ctx := context.Background()
+	th.Wait(ctx, "v@example.com")
+	if w := th.Wait(ctx, "v@example.com"); w != testWindow {
+		t.Errorf("no TTL → wait the whole window, got %s", w)
+	}
+}
+
+// TestWait_perRecipientIndependent — one victim's budget does not affect another recipient.
+func TestWait_perRecipientIndependent(t *testing.T) {
 	t.Parallel()
 	f := newFake()
 	th := mailthrottle.NewWithBudget(f, testBudget, testWindow)
 	ctx := context.Background()
 	for range testBudget + 1 { // exhaust victim A past budget
-		th.Allow(ctx, "a@example.com")
+		th.Wait(ctx, "a@example.com")
 	}
-	if !th.Allow(ctx, "b@example.com") {
+	if th.Wait(ctx, "b@example.com") != 0 {
 		t.Error("a different recipient must have its own budget")
 	}
 	if len(f.counts) != twoRecipients {
@@ -77,15 +94,15 @@ func TestAllow_perRecipientIndependent(t *testing.T) {
 	}
 }
 
-// TestAllow_keyIsHashedAndNormalized — the key never contains the raw address, and case/space
+// TestWait_keyIsHashedAndNormalized — the key never contains the raw address, and case/space
 // variants of the same address share one bucket (PII discipline + correct bucketing).
-func TestAllow_keyIsHashedAndNormalized(t *testing.T) {
+func TestWait_keyIsHashedAndNormalized(t *testing.T) {
 	t.Parallel()
 	f := newFake()
 	th := mailthrottle.NewWithBudget(f, testBudget, testWindow)
 	ctx := context.Background()
-	th.Allow(ctx, "Alice@Example.com")
-	th.Allow(ctx, "  alice@example.com ")
+	th.Wait(ctx, "Alice@Example.com")
+	th.Wait(ctx, "  alice@example.com ")
 	if len(f.counts) != twoRecipients-overBy { // normalized to the SAME key → one bucket
 		t.Fatalf("case/space variants must share one bucket, got %d keys", len(f.counts))
 	}
@@ -96,22 +113,22 @@ func TestAllow_keyIsHashedAndNormalized(t *testing.T) {
 	}
 }
 
-// TestAllow_failOpenOnError — a Redis error must NOT block a real send (fail-open).
-func TestAllow_failOpenOnError(t *testing.T) {
+// TestWait_failOpenOnError — a Redis error must NOT hold back a real send (fail-open).
+func TestWait_failOpenOnError(t *testing.T) {
 	t.Parallel()
 	f := newFake()
 	f.err = errors.New("redis down")
 	th := mailthrottle.NewWithBudget(f, testBudget, testWindow)
-	if !th.Allow(context.Background(), "x@example.com") {
-		t.Error("a counter error must fail open (allow), never break a legitimate send")
+	if th.Wait(context.Background(), "x@example.com") != 0 {
+		t.Error("a counter error must fail open (go now), never break a legitimate send")
 	}
 }
 
-// TestAllow_nilThrottleAllows — a disabled throttle (nil) allows everything.
-func TestAllow_nilThrottleAllows(t *testing.T) {
+// TestWait_nilThrottleGoes — a disabled throttle (nil) lets everything go.
+func TestWait_nilThrottleGoes(t *testing.T) {
 	t.Parallel()
 	var th *mailthrottle.Throttle
-	if !th.Allow(context.Background(), "x@example.com") {
-		t.Error("a nil throttle must allow (disabled)")
+	if th.Wait(context.Background(), "x@example.com") != 0 {
+		t.Error("a nil throttle must let the send go (disabled)")
 	}
 }

@@ -21,8 +21,10 @@ import (
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
+	"github.com/atmaxmoj/standmeet/internal/infra/events"
+	"github.com/atmaxmoj/standmeet/internal/infra/jobs"
+	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 	jobcache "github.com/atmaxmoj/standmeet/internal/owner/jobs/cache"
-	"github.com/atmaxmoj/standmeet/internal/owner/jobs/dedup"
 	jobfetch "github.com/atmaxmoj/standmeet/internal/owner/jobs/fetch"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmodel"
 )
@@ -32,6 +34,14 @@ type JobsDeps struct {
 	Sources  *JobSourceRepo
 	Cache    *jobcache.Pool
 	Registry *jobfetch.Registry
+	// Pool —— a fetch's source jobs are enqueued in one transaction on it.
+	Pool *pgstore.Pool
+	// Queue / Events —— the job runtime and the outbox; read at call time (both are built after
+	// this module).
+	Queue  func() jobs.Runtime
+	Events func() events.Recorder
+	// Wait —— how long jobs.fetch_new waits for its source jobs (FetchWait).
+	Wait time.Duration
 }
 
 // RegisterJobSource — validates kind/config, then writes to postgres.
@@ -85,84 +95,11 @@ func UnregisterJobSource(
 	return nil
 }
 
-// FetchNewJobs — the core call. sourceID==nil -> runs every source the owner has;
-// sourceID set -> runs that one source. Returns the new jobs (already deduped and
-// already in the pool, with a cache_id attached) **plus every source that failed to fetch**.
-//
-// This used to be `if ferr != nil { return nil, ferr }`, while the comment above it said
-// "a single source's failure **does not block** the others" — the invariant the comment
-// claimed was the exact opposite of the code below it. This surfaced during a manual drive:
-// only the workable source's token was wrong out of seven sources, and as a result
-// **none of the other six real sources made it into the pool** — the owner got back
-// nothing but `jobs.fetch_new failed`.
-//
-// A comment is trusted more easily than code: whoever reads that line stops digging
-// further ([[names-that-lie]]). Now the invariant holds because the code itself enforces
-// it — each source succeeds or fails on its own, and failures are recorded into
-// failures and returned alongside the rest.
-func FetchNewJobs(
-	ctx context.Context, deps JobsDeps, ownerID string, sourceID *string, since time.Duration,
-) (FetchResult, error) {
-	if ownerID == "" {
-		return FetchResult{}, apierr.ErrEmptyField
-	}
-	sources, err := selectSourcesToFetch(ctx, deps, ownerID, sourceID)
-	if err != nil {
-		return FetchResult{}, err
-	}
-	all := fetchEverySource(ctx, deps, sources)
-	// J.6c: cross-source dedup (canonical URL + composite key). This adds one more layer
-	// on top of fetchOneSourceAndDedup's per-source seen-by-external-id — that layer only
-	// guards against a duplicate post within the same source; a cross-source duplicate
-	// slips through when the ATS namespaces give it different external_ids.
-	// This does not touch the per-source seen record (that one still marks seen by the
-	// ID the fetcher returned) — it only dedups the surface visible to Claude.
-	visible := dedup.Apply(all.jobs)
-	failures, tallies := all.failures, all.tallies
-	// What gets handed back is **this window of the pool**, not just the few caught this
-	// round — the latter is only the New-flagged subset of the former.
-	// A failure reading the window must not throw away what was already fetched: at least
-	// hand back this round's new entries.
-	rows, perr := poolWindow(ctx, deps, ownerID, since, visible)
-	if perr != nil {
-		slog.WarnContext(ctx, "job pool window not read", "err", perr)
-		rows = newRowsOnly(visible)
-	}
-	return FetchResult{
-		Jobs: rows, Failures: failures, Tallies: tallies,
-		CrossSourceDropped: len(all.jobs) - len(visible),
-	}, nil
-}
-
-// everySourceRun — combined output of every source in one round. Three values collected
-// into one struct instead of three return values: they're three facets of the same
-// traversal, and splitting them invites someone to catch only one facet.
-type everySourceRun struct {
-	jobs     []jobsmodel.FetchedJob
-	failures []SourceFailure
-	tallies  []SourceTally
-}
-
-// fetchEverySource — fetches source by source; **one source's failure does not affect the rest**.
-func fetchEverySource(
-	ctx context.Context, deps JobsDeps, sources []jobsmodel.JobSource,
-) everySourceRun {
-	var out everySourceRun
-	for i := range sources {
-		run, ferr := fetchOneSourceAndDedup(ctx, deps, &sources[i])
-		// Every attempt gets recorded, **success or failure**. The failure detail used to
-		// live only in this call's response, gone once the window closed, while
-		// /admin/sources would just say `never fetched` (F-E-18).
-		markAttempt(ctx, deps, sources[i].ID, ferr)
-		if ferr != nil {
-			out.failures = append(out.failures, failureOf(&sources[i], ferr))
-			continue
-		}
-		out.jobs = append(out.jobs, run.jobs...)
-		out.tallies = append(out.tallies, run.tally)
-	}
-	return out
-}
+// FetchNewJobs lives in fetch_jobs.go: one job per source. **One source's failure does not
+// affect the rest** — each source succeeds or fails in its own job, and a failure is that
+// source's line in failed_sources, returned alongside what the others fetched. (It once was
+// `if ferr != nil { return nil, ferr }` under a comment claiming the opposite: one bad token out
+// of seven sources and the owner got nothing but `jobs.fetch_new failed` — [[names-that-lie]].)
 
 // poolWindow / newRowsOnly live in pool_window.go — "what gets shown to the owner side"
 // and "how the fetch happens" are two different concerns, and the former was only
@@ -293,11 +230,11 @@ func pickByIDSet(raw []jobsmodel.FetchedJob, allowed []string) []jobsmodel.Fetch
 }
 
 func recordSeenAndTouch(
-	ctx context.Context, deps JobsDeps, sourceID string, jobs []jobsmodel.FetchedJob,
+	ctx context.Context, deps JobsDeps, sourceID string, pooled []jobsmodel.FetchedJob,
 ) error {
-	newIDs := make([]string, 0, len(jobs))
-	for i := range jobs {
-		newIDs = append(newIDs, jobs[i].ExternalID)
+	newIDs := make([]string, 0, len(pooled))
+	for i := range pooled {
+		newIDs = append(newIDs, pooled[i].ExternalID)
 	}
 	if err := deps.Sources.RecordSeenExternalIDs(ctx, sourceID, newIDs); err != nil {
 		return fmt.Errorf("record fingerprints: %w", err)

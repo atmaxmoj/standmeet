@@ -27,7 +27,9 @@ import (
 
 func buildPublicMicrositeDeps(d *deps.Runtime) publicroutes.MicrositeHandlers {
 	return publicroutes.MicrositeHandlers{
-		Deps:   owner.MicrositeDeps{Pages: d.MicrositeRepo, Builds: d.MicrositeBuildRepo},
+		Deps: owner.MicrositeDeps{
+			Pages: d.MicrositeRepo, Builds: d.MicrositeBuildRepo, Events: d.Recorder,
+		},
 		Owners: d.OwnerRepo,
 		Log:    d.Log,
 		ServeAsset: func(
@@ -60,36 +62,45 @@ func buildPublicMicrositeDeps(d *deps.Runtime) publicroutes.MicrositeHandlers {
 	}
 }
 
-// publicChatEnabled —— the closure serving the `standmeet-public-chat` meta. On only when the
-// `public` role points at a provider AND that provider still has usable quota. No provider, or an
-// exhausted gas tank → off → the codeless AgentWidget keeps the /gate handoff (offering inline chat
-// with no quota would just error every anonymous visitor).
-func publicChatEnabled(d *deps.Runtime) func(context.Context) (bool, error) {
-	return func(ctx context.Context) (bool, error) {
+// publicChatEnabled —— the closure serving the `standmeet-public-chat` meta. On when the `public`
+// role points at a provider that still has quota; spent when it points at one whose quota is gone
+// (the widget offers the visitor's own key — owner decision 2026-09-25); off with no provider (the
+// codeless AgentWidget keeps the /gate handoff).
+func publicChatEnabled(d *deps.Runtime) func(context.Context) (string, error) {
+	return func(ctx context.Context) (string, error) {
 		sole, err := owner.LoadSoleOwner(ctx, owner.PageDeps{Owners: d.OwnerRepo})
 		if err != nil {
-			return false, err
+			return publicroutes.PublicChatOff, err
 		}
-		return publicProviderUsable(ctx, d, sole.ID)
+		return publicChatState(ctx, d, sole.ID)
 	}
 }
 
-// publicProviderUsable —— the `public` role has a provider wired and it still has quota.
-func publicProviderUsable(ctx context.Context, d *deps.Runtime, ownerID string) (bool, error) {
+// publicChatState —— on / spent / off for the `public` role's provider.
+func publicChatState(ctx context.Context, d *deps.Runtime, ownerID string) (string, error) {
 	role, err := d.RoleRepo.GetByName(ctx, ownerID, access.PublicRoleName)
 	if err != nil {
-		return false, err
+		return publicroutes.PublicChatOff, err
 	}
 	if role.ProviderID() == "" {
-		return false, nil
+		return publicroutes.PublicChatOff, nil
 	}
-	gas := owner.ProvidersUseDeps{Owners: d.OwnerRepo, Spend: d.InferenceUsageRepo}
+	gas := owner.ProvidersUseDeps{
+		Owners: d.OwnerRepo, Spend: d.InferenceUsageRepo, Events: d.Recorder(),
+	}
 	remaining, err := owner.GasRemaining(ctx, gas, ownerID, role.ProviderID())
 	if err != nil {
-		return false, err
+		return publicroutes.PublicChatOff, err
 	}
-	// nil = unmetered (unlimited) → on; metered → on only while some quota remains.
-	return remaining == nil || *remaining > 0, nil
+	return quotaState(remaining), nil
+}
+
+// quotaState —— nil = unmetered (unlimited) → on; metered → on while quota remains, else spent.
+func quotaState(remaining *int64) string {
+	if remaining == nil || *remaining > 0 {
+		return publicroutes.PublicChatOn
+	}
+	return publicroutes.PublicChatSpent
 }
 
 // serveAssetBlob —— authorize, then read an asset's bytes from the internal minio for GET
@@ -131,14 +142,16 @@ func micrositeReferencesAsset(ctx context.Context, d *deps.Runtime, id string) b
 	return false
 }
 
-// micrositeAssetRefRebuilder —— the corpus-side closure the build lifecycle calls to recompute a
-// microsite's pool-asset references from its built source. Lives here so the sys layer never
-// imports the corpus package: it hands sys a plain func and closes over the asset repo.
-func micrositeAssetRefRebuilder(
+// awaitBuildSettled —— the admin preview long-poll's wait: the owner domain's answer, over the
+// build-settle listener StartBackground runs.
+func awaitBuildSettled(
 	d *deps.Runtime,
-) func(context.Context, string, string, map[string]string) error {
-	return func(ctx context.Context, ownerID, micrositeID string, sources map[string]string) error {
-		return corpus.RebuildMicrositeAssetRefs(ctx, d.AssetRepo, ownerID, micrositeID, sources)
+) func(context.Context, string, int64, time.Duration) (int64, error) {
+	return func(ctx context.Context, ownerID string, since int64, maxWait time.Duration) (
+		int64, error,
+	) {
+		wd := owner.BuildWaitDeps{Builds: d.MicrositeBuildRepo, Settled: d.BuildSettled}
+		return owner.AwaitBuildSettled(ctx, wd, ownerID, since, maxWait)
 	}
 }
 
@@ -148,6 +161,7 @@ func micrositeAssetRefRebuilder(
 func buildPublicMicrositeStoreDeps(d *deps.Runtime) publicroutes.MicrositeStoreHandlers {
 	pageDeps := owner.MicrositeDeps{
 		Pages: d.MicrositeRepo, Builds: d.MicrositeBuildRepo, Docs: d.MicrositeDocs,
+		Events: d.Recorder,
 	}
 	return publicroutes.MicrositeStoreHandlers{
 		Log: d.Log,
@@ -201,7 +215,9 @@ func mapMicrositeStoreErr(err error) error {
 }
 
 func buildPublicMicrositePreviewDeps(d *deps.Runtime) publicroutes.MicrositePreviewHandlers {
-	pageDeps := owner.MicrositeDeps{Pages: d.MicrositeRepo, Builds: d.MicrositeBuildRepo}
+	pageDeps := owner.MicrositeDeps{
+		Pages: d.MicrositeRepo, Builds: d.MicrositeBuildRepo, Events: d.Recorder,
+	}
 	return publicroutes.MicrositePreviewHandlers{
 		Log:        d.Log,
 		BuildsRoot: d.BuildsRoot,

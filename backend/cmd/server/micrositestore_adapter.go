@@ -13,6 +13,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	"github.com/atmaxmoj/standmeet/internal/plugin/blockstore"
 )
@@ -35,9 +36,9 @@ func (p *micrositeDocStore) Drop(ctx context.Context, pageID string) error {
 }
 
 func (p *micrositeDocStore) Insert(
-	ctx context.Context, pageID, collection string, doc json.RawMessage,
+	ctx context.Context, tx pgstore.Tx, pageID, collection string, doc json.RawMessage,
 ) (string, error) {
-	return p.store.Insert(ctx, blockstore.KindMicrosite, pageID, collection, doc)
+	return p.store.WithTx(tx).Insert(ctx, blockstore.KindMicrosite, pageID, collection, doc)
 }
 
 func (p *micrositeDocStore) Query(

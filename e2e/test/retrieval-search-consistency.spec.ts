@@ -54,8 +54,8 @@ async function publishToggleDoesNotGate(): Promise<void> {
   expect(await searchTitles(O.request, await fullSess(), 'ECHOKW'), 'still visible published').toContain('A4 note');
 }
 
-// A5 —— bulk vault sync → every synced note enters the index (after sync, ReindexOwner rebuilds the
-// whole batch). Note: vault sync is **additive (title-claim upsert)**, not destructive; deleting a note
+// A5 —— bulk vault sync → every synced note enters the index (each imported note's own change event
+// indexes it through the bus). Note: vault sync is **additive (title-claim upsert)**, not destructive; deleting a note
 // from the vault is not auto-deleted by a re-sync, deletion goes through explicit delete_wiki (see A3).
 // So this only checks "bulk sync all-in", not "partial re-sync deletes what's missing".
 async function bulkSyncAllIndexed(): Promise<void> {
@@ -64,8 +64,12 @@ async function bulkSyncAllIndexed(): Promise<void> {
     { rel: 'wiki/foxnote.md', body: makeVaultMD({ publish: true }, 'FOXTROTKW one') },
     { rel: 'wiki/golfnote.md', body: makeVaultMD({ publish: true }, 'GOLFKW two') },
   ]);
-  expect(await searchTitles(O.request, await fullSess(), 'FOXTROTKW')).toContain('foxnote');
-  expect(await searchTitles(O.request, await fullSess(), 'GOLFKW')).toContain('golfnote');
+  // An import answers with what it committed; each note then reaches the index through its own
+  // event (docs/design/event-bus-outbox-webhooks.md, *Response contract*), so the search is polled.
+  const s = await fullSess();
+  const indexed = { timeout: 60_000, intervals: [500, 1_000] };
+  await expect.poll(() => searchTitles(O.request, s, 'FOXTROTKW'), indexed).toContain('foxnote');
+  await expect.poll(() => searchTitles(O.request, s, 'GOLFKW'), indexed).toContain('golfnote');
 }
 
 async function renameStillSearchable(): Promise<void> {

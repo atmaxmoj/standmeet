@@ -17,7 +17,6 @@ package adapters
 
 import (
 	"context"
-	"log/slog"
 )
 
 // LookupSupplier — the active supplier for one owner's seam.
@@ -41,7 +40,6 @@ type SupplierByID func(id string) (Supplier, bool)
 type Dispatcher struct {
 	lookup LookupSupplier
 	byID   SupplierByID
-	log    *slog.Logger // where a background call failure goes; injected by SetLogger
 }
 
 // NewDispatcher — composition root injects the seam lookup.

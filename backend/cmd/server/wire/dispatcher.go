@@ -36,6 +36,7 @@ import (
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	adminroutes "github.com/atmaxmoj/standmeet/internal/routes/admin"
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
+	security "github.com/atmaxmoj/standmeet/internal/security/facade"
 	stats "github.com/atmaxmoj/standmeet/internal/stats/facade"
 )
 
@@ -50,7 +51,7 @@ import (
 func BuildDispatcher(d *deps.Runtime) *dispatcher.Dispatcher {
 	resources := dispatcher.Collect(&dispatcher.Deps{
 		Corpus:         corpusDepsOf(d),
-		BannedIPs:      d.BannedIPRepo,
+		BannedIPs:      security.IPBanDeps{Bans: d.BannedIPRepo, Events: d.Recorder()},
 		Monitor:        d.MonitorRepo,
 		AllowedDomains: owner.AllowedDomainsDeps{Instance: d.InstanceRepo},
 		OwnerCSS:       d.OwnerRepo,
@@ -62,7 +63,7 @@ func BuildDispatcher(d *deps.Runtime) *dispatcher.Dispatcher {
 		Providers: owner.OpsProviders{
 			Providers: owner.ProvidersUseDeps{
 				Owners: d.OwnerRepo, Providers: port.InferenceProviders{},
-				Spend: d.InferenceUsageRepo,
+				Spend: d.InferenceUsageRepo, Events: d.Recorder(),
 			},
 			// ModelLister — the probe for "which models does this provider have"; unsealed on
 			// the root side (same rule as MCP probe), so it comes in via deps (F-R-11).
@@ -82,6 +83,7 @@ func BuildDispatcher(d *deps.Runtime) *dispatcher.Dispatcher {
 			// The list must sign the preview URL — the token is signed with this
 			// server-side key; the frontend never assembles it itself.
 			PreviewSigningKey: d.SessionKey,
+			Events:            d.Recorder,
 		},
 		Writings: writingsDepsOf(d),
 		MCPServers: marketplace.MCPServersDeps{
@@ -100,16 +102,18 @@ func BuildDispatcher(d *deps.Runtime) *dispatcher.Dispatcher {
 		ObsidianIngest: obsidianIngestOf(d),
 		AccessRequests: accessRequestDepsOf(d),
 		Codes:          codeDepsOf(d),
-		Embeds:         access.OpsEmbeds{Embeds: d.EmbedRepo},
+		Embeds:         embedDepsOf(d),
 		Roles:          roleDepsOf(d),
 		Conversations:  conversationDepsOf(d),
 		APIKeys:        apiKeyDepsOf(d),
 		Instance: stats.InstanceDeps{
 			System: port.NewSysInfoProvider(d), Usage: d.InferenceUsageRepo,
-			Growth: d.GrowthRepo, Activity: d.ActivityRepo, Jobs: d.JobRegistry,
+			Growth: d.GrowthRepo, Activity: d.ActivityRepo, Jobs: d.Jobs,
 		},
+		Tasks:    stats.TasksDeps{Jobs: d.Jobs, Events: d.Events},
+		Webhooks: *webhooksDepsOf(d),
 		Upgrade: stats.UpgradeDeps{
-			System: port.NewSysInfoProvider(d), UpgradeSources: d.Upgrade,
+			System: port.NewSysInfoProvider(d), UpgradeSources: d.Upgrade, Events: d.Recorder(),
 		},
 	})
 	return dispatcher.New(append(resources, blockModelResources(d)...)...)
@@ -149,13 +153,14 @@ func obsidianIngestOf(d *deps.Runtime) corpus.VaultIngest {
 		Storage:  d.StorageClient,
 		Corpus: corpus.Deps{
 			Raw: d.RawRepo, Wiki: d.WikiRepo, Output: d.OutputRepo, NoteRefs: d.NoteRefRepo,
-			Subjectivity: d.SubjectivityRepo, VaultSync: d.VaultSyncRepo, Index: d.CorpusIndexer,
+			Subjectivity: d.SubjectivityRepo, VaultSync: d.VaultSyncRepo,
+			IndexReceipt: d.IndexReceipt,
 		},
 		CSS: d.OwnerRepo,
 		WritingsTx: corpus.WritingsTxDeps{
 			Writings: d.WritingRepo, WritingRefs: d.WritingRefRepo, Assets: assets,
 		},
-		ImportReceipt: d.OwnerRepo,
+		ImportReceipt: owner.VaultImports{Owners: d.OwnerRepo, Events: d.Recorder()},
 		Log:           d.Log,
 	}
 	return func(
@@ -178,12 +183,25 @@ func obsidianIngestOf(d *deps.Runtime) corpus.VaultIngest {
 
 func writingsDepsOf(d *deps.Runtime) corpus.OpsWritingsDeps {
 	return corpus.OpsWritingsDeps{
-		Writings: corpus.WritingsDeps{Writings: d.WritingRepo},
+		Writings: corpus.WritingsDeps{Writings: d.WritingRepo, Events: d.Recorder()},
 		Tx: corpus.WritingsTxDeps{
 			Writings: d.WritingRepo, WritingRefs: d.WritingRefRepo,
 			Assets: corpus.AssetsDeps{Repo: d.AssetRepo, Storage: d.StorageClient},
 		},
 		Log: d.Log,
+	}
+}
+
+// webhooksDepsOf — one value for the webhook ops and the embed update hook: both manage the
+// same endpoints.
+func webhooksDepsOf(d *deps.Runtime) *owner.WebhooksDeps {
+	return &owner.WebhooksDeps{Repo: d.OwnerRepo, Bus: d.Events, Jobs: d.Jobs}
+}
+
+// embedDepsOf — an embed's update hook is a webhook endpoint the owner domain stores.
+func embedDepsOf(d *deps.Runtime) access.OpsEmbeds {
+	return access.OpsEmbeds{
+		Embeds: d.EmbedRepo, Hooks: port.EmbedHooks{Webhooks: webhooksDepsOf(d)},
 	}
 }
 
@@ -195,13 +213,8 @@ func pageDepsOf(d *deps.Runtime) owner.OpsPage {
 }
 
 func seoDepsOf(d *deps.Runtime) owner.OpsSEO {
-	return owner.OpsSEO{
-		SEO: d.SEORepo,
-		// Publishing changes that note -> after the write, refresh its search document
-		// (the `published` field in the index is the admission criterion for public
-		// identity).
-		Corpus: corpusDepsOf(d),
-	}
+	// The search index follows the publish switch through the corpus_notes trigger.
+	return owner.OpsSEO{SEO: d.SEORepo}
 }
 
 // accessRequestDepsOf — the request data lives in access; the approval loop (issue code +
@@ -210,10 +223,11 @@ func accessRequestDepsOf(d *deps.Runtime) owner.OpsAccessRequests {
 	return owner.OpsAccessRequests{
 		Requests: access.RequestsDeps{
 			Repo: d.AccessRequestRepo, Owners: port.NewSoleOwnerLookup(d),
+			Pool: d.DB, Events: d.Recorder(),
 		},
 		Approve: owner.ApproveRequestDeps{
-			Reqs: d.AccessRequestRepo, Codes: d.CodeRepo, Roles: d.RoleRepo,
-			Owners: d.OwnerRepo, Proxy: port.OutboundSender(d),
+			Reqs: d.AccessRequestRepo, Roles: d.RoleRepo, Owners: d.OwnerRepo,
+			Proxy: port.OutboundSender(d), Jobs: d.Jobs, Events: d.Recorder(),
 		},
 	}
 }
@@ -228,6 +242,7 @@ func apiKeyDepsOf(d *deps.Runtime) access.OpsAPIKeys {
 		// without it, a quota attached to a key would have nowhere to be set (F-B-11).
 		Extras:        blockwire.KeyFieldSurface(d),
 		APICandidates: blockwire.APICandidateBlocks,
+		Events:        d.Recorder(),
 	}
 }
 
@@ -240,7 +255,7 @@ func conversationDepsOf(d *deps.Runtime) conversation.OpsConversations {
 			Output:       d.OutputRepo,
 			Subjectivity: corpus.NewSubjectivityCiteResolver(d.SubjectivityRepo),
 		},
-		Ghosts: conversation.GhostDeps{Repo: d.GhostRepo},
+		Ghosts: conversation.GhostDeps{Repo: d.GhostRepo, Events: d.Recorder()},
 		Corpus: corpusDepsOf(d),
 		Log:    d.Log,
 	}
@@ -306,6 +321,7 @@ func codeDepsOf(d *deps.Runtime) access.OpsCodes {
 	return access.OpsCodes{
 		Codes: access.CodesDeps{
 			Codes: d.CodeRepo, Roles: d.RoleRepo, Sessions: d.VisitorStore, Log: d.Log,
+			Events: d.Recorder(),
 		},
 		ACL: access.CodeACLDeps{
 			Codes: d.CodeRepo, Denials: d.CodeDenialRepo, Roles: d.RoleRepo,

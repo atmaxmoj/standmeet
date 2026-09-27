@@ -208,14 +208,20 @@ func (s *Service) exchangeAndStore(ctx context.Context, d *pendingDance, code st
 	if xerr != nil {
 		return fmt.Errorf("exchange oauth code: %w", xerr)
 	}
-	if serr := s.d.Repo.SaveTokens(ctx, &credentials.SaveTokensInput{
-		OwnerID: ownerID, BlockID: id,
-		AccessToken: tok.AccessToken, RefreshToken: tok.RefreshToken,
-		ExpiresAt: tok.ExpiresAt, Scopes: tok.Scopes,
-	}); serr != nil {
-		return fmt.Errorf("save supplier tokens: %w", serr)
-	}
-	return nil
+	// The token, supplier.connected and the seam slot commit together (never across the exchange).
+	return s.inTx(ctx, func(t *Service) error {
+		if serr := t.d.Repo.SaveTokens(ctx, &credentials.SaveTokensInput{
+			OwnerID: ownerID, BlockID: id,
+			AccessToken: tok.AccessToken, RefreshToken: tok.RefreshToken,
+			ExpiresAt: tok.ExpiresAt, Scopes: tok.Scopes,
+		}); serr != nil {
+			return fmt.Errorf("save supplier tokens: %w", serr)
+		}
+		if rerr := t.record(ctx, SupplierConnected, ownerID, id); rerr != nil {
+			return rerr
+		}
+		return t.ensureActive(ctx, ownerID, id)
+	})
 }
 
 // danceContext — fetches the dance's three-piece bundle (endpoints + credentials +

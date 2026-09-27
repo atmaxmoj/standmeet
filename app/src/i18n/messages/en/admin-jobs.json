@@ -27,6 +27,7 @@
     "emptyHint": "Listings are fetched automatically when you open this section — or press Fetch now. Results stay here for a day until you draft or discard them.",
     "fetchNow": "fetch now",
     "fetching": "fetching…",
+    "pendingSources": "{count, plural, one {# source still fetching in the background — the list updates when it is done} other {# sources still fetching in the background — the list updates when they are done}}",
     "kicker": "jobs · listings",
     "titleInPool": "{count, plural, one {# in pool} other {# in pool}}"
   },

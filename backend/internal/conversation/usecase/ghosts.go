@@ -15,11 +15,14 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/conversation/entity"
 	"github.com/atmaxmoj/standmeet/internal/conversation/repo"
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
+	"github.com/atmaxmoj/standmeet/internal/infra/events"
+	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
 // GhostDeps —— injected by routes.
 type GhostDeps struct {
-	Repo *repo.GhostRepo
+	Repo   *repo.GhostRepo
+	Events events.Recorder // ghost.accepted commits with accepted_at
 }
 
 // RecordGhostShownInput —— input for POST sessions/{id}/ghosts/shown.
@@ -62,7 +65,16 @@ func AcceptGhost(
 	ctx context.Context, deps *GhostDeps,
 	ownerID, conversationID, ghostID string,
 ) (entity.Ghost, error) {
-	row, err := deps.Repo.MarkAccepted(ctx, ownerID, conversationID, ghostID)
+	var row entity.Ghost
+	err := pgstore.InTx(ctx, deps.Repo.Pool(), func(tx pgstore.Tx) error {
+		var merr error
+		row, merr = deps.Repo.With(tx).MarkAccepted(ctx, ownerID, conversationID, ghostID)
+		if merr != nil {
+			return merr //nolint:wrapcheck // wrapped below
+		}
+		data := map[string]string{"ghost_id": row.ID, "conversation_id": conversationID}
+		return deps.Events.With(tx).Record(ctx, ownerID, GhostAccepted, "ghost/"+row.ID, data)
+	})
 	if err != nil {
 		return entity.Ghost{}, fmt.Errorf("mark accepted: %w", err)
 	}

@@ -54,12 +54,21 @@ type MicrositeHandlers struct {
 	// Wired at the composition root (which may read the block-config store); nil = never on. Read
 	// fresh per request, so flipping the setting takes effect on the next page load.
 	PublicSearch func(ctx context.Context) (bool, error)
-	// PublicChat — a usable public provider is wired (the `public` role points at one with quota).
-	// Injected into <head> so the codeless AgentWidget answers inline vs /gate. Wired at the
-	// composition root; nil = never on. Read fresh per request.
-	PublicChat func(ctx context.Context) (bool, error)
+	// PublicChat — the public tier's state: PublicChatOn (a provider with quota), PublicChatSpent
+	// (a provider whose quota is gone) or PublicChatOff (none wired). Injected into <head> so the
+	// codeless AgentWidget picks inline / the visitor's own key / the /gate handoff. Wired at the
+	// composition root; nil = off. Read fresh per request.
+	PublicChat func(ctx context.Context) (string, error)
 	BuildsRoot string
 }
+
+// The values of the standmeet-public-chat meta. "true" stays the usable state, so a page built
+// before "spent" existed still reads it right.
+const (
+	PublicChatOn    = "true"
+	PublicChatSpent = "spent"
+	PublicChatOff   = "false"
+)
 
 // AssetBlob —— an asset's bytes + content type, read from storage for the thin serve route.
 type AssetBlob struct {
@@ -194,19 +203,19 @@ func (h *MicrositeHandlers) resolvePublicSearch(ctx context.Context) bool {
 	return on
 }
 
-// resolvePublicChat —— whether a public inference provider is wired, or false. Same fail-closed
-// reasoning as resolvePublicSearch: a read hiccup should leave the codeless widget on the gate
-// handoff (the pre-feature behavior), not silently open inline chat.
-func (h *MicrositeHandlers) resolvePublicChat(ctx context.Context) bool {
+// resolvePublicChat —— the public tier's state, or off. Same fail-closed reasoning as
+// resolvePublicSearch: a read hiccup should leave the codeless widget on the gate handoff (the
+// pre-feature behavior), not silently open inline chat.
+func (h *MicrositeHandlers) resolvePublicChat(ctx context.Context) string {
 	if h.PublicChat == nil {
-		return false
+		return PublicChatOff
 	}
-	on, err := h.PublicChat(ctx)
+	state, err := h.PublicChat(ctx)
 	if err != nil {
 		h.Log.Warn("resolve public_chat", logErr, err)
-		return false
+		return PublicChatOff
 	}
-	return on
+	return state
 }
 
 // resolveAsset / headFor / baseHrefFor / resolvedAsset used to live here — what they

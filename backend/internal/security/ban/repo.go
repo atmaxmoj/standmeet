@@ -18,10 +18,19 @@ import (
 // BannedIPRepo — repo for the banned_ips table.
 type BannedIPRepo struct {
 	pool *pgstore.Pool
+	q    pgstore.DBTX // nil → the pool; set by With
 }
 
 // NewBannedIPRepo constructs a BannedIPRepo.
 func NewBannedIPRepo(pool *pgstore.Pool) *BannedIPRepo { return &BannedIPRepo{pool: pool} }
+
+// With —— a copy whose Ban runs on q (the caller's transaction).
+func (r *BannedIPRepo) With(q pgstore.DBTX) *BannedIPRepo {
+	return &BannedIPRepo{pool: r.pool, q: q}
+}
+
+// Pool —— the pool a caller opens its transaction on.
+func (r *BannedIPRepo) Pool() *pgstore.Pool { return r.pool }
 
 // IPInput — input for the owner banning one IP. ExpiresAt nil = permanent.
 type IPInput struct {
@@ -38,7 +47,7 @@ func (r *BannedIPRepo) Ban(ctx context.Context, in *IPInput) (BannedIP, error) {
 	if err != nil {
 		return BannedIP{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	row, qerr := db.New(r.pool).BanIP(ctx, db.BanIPParams{
+	row, qerr := db.New(r.conn()).BanIP(ctx, db.BanIPParams{
 		OwnerID:   ownerUUID,
 		Ip:        in.IP,
 		Reason:    in.Reason,
@@ -119,4 +128,14 @@ func decodeBannedIP(row *db.BannedIp) BannedIP {
 		ExpiresAt: pgstore.OptTime(row.ExpiresAt),
 		CreatedAt: row.CreatedAt.Time,
 	}
+}
+
+// conn —— the transaction when bound by With, else the pool.
+//
+//nolint:ireturn // DBTX is the port both a pool and a transaction satisfy
+func (r *BannedIPRepo) conn() pgstore.DBTX {
+	if r.q != nil {
+		return r.q
+	}
+	return r.pool
 }

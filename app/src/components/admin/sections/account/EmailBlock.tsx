@@ -18,7 +18,7 @@ import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 
 import { AcctBlock, PasswordField, SaveBtn } from '@/components/admin/sections/account/atoms';
-import { emailHintMessage, emailSaveDisabled } from '@/lib/admin/account-form';
+import { emailHintMessage, emailSaveDisabled, emailSaveOutcome } from '@/lib/admin/account-form';
 import type { AccountHook, EmailChangeResult } from '@/lib/admin/use-account';
 import { useToast } from '@/lib/ui/toast';
 
@@ -39,9 +39,12 @@ interface EmailBlockProps {
   // display it. The moment you keep a second copy there are two truths, and they diverge
   // at the worst possible time.
   pending: string;
+  // pendingMail —— the confirmation mail's state (sending / sent / failed; '' = unknown), from the
+  // session for the same reason as pending.
+  pendingMail: string;
 }
 
-export function EmailBlock({ hook, initialValue, pending }: EmailBlockProps) {
+export function EmailBlock({ hook, initialValue, pending, pendingMail }: EmailBlockProps) {
   const t = useTranslations('adminShell.account');
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState(initialValue);
@@ -51,9 +54,7 @@ export function EmailBlock({ hook, initialValue, pending }: EmailBlockProps) {
   const hintKey = emailHintMessage(next, confirm);
   const save = (): void => {
     void runSaveEmail(hook, { current, next }, { setCurrent, setConfirm }, toast,
-      (saved) => saved.pending === ''
-        ? t('emailUpdated', { email: saved.email })
-        : t('emailConfirmSent', { pending: saved.pending }));
+      (saved) => emailSavedMessage(saved, t));
   };
   return (
     // The blurb states the consequences in full: the email column is both the login
@@ -62,7 +63,7 @@ export function EmailBlock({ hook, initialValue, pending }: EmailBlockProps) {
     <AcctBlock title={t('email')} testid="account-email-block" blurb={t('emailBlurb')}>
       <div>
         <PendingEmailRow
-          pending={pending}
+          pending={pending} mail={pendingMail}
           onCancel={() => void runCancelEmail(hook, toast, t('emailCancelled'))}
         />
         <PasswordField
@@ -112,7 +113,7 @@ function FieldHint({ message }: { message: string }) {
 // owner doesn't know whether the click they just made took effect**, so they'll think it
 // finished and retire the old address.
 function PendingEmailRow(
-  { pending, onCancel }: { pending: string; onCancel: () => void },
+  { pending, mail, onCancel }: { pending: string; mail: string; onCancel: () => void },
 ) {
   const t = useTranslations('adminShell.account');
   return pending === '' ? null : (
@@ -122,6 +123,7 @@ function PendingEmailRow(
     >
       <span className="reading text-[12.5px] text-(--color-muted)">
         {t('pendingEmailNote', { pending })}
+        <PendingMailState mail={mail} />
       </span>
       <SaveBtn
         testid="account-email-pending-cancel" disabled={false} label={t('cancel')}
@@ -129,6 +131,19 @@ function PendingEmailRow(
       />
     </div>
   );
+}
+
+// emailSavedMessage —— three outcomes, three sentences: switched now; confirmation sent; or
+// confirmation queued ("sent" is said only once the mail went out).
+function emailSavedMessage(
+  saved: EmailChangeResult, t: ReturnType<typeof useTranslations<'adminShell.account'>>,
+): string {
+  const messages = {
+    updated: () => t('emailUpdated', { email: saved.email }),
+    sent: () => t('emailConfirmSent', { pending: saved.pending }),
+    queued: () => t('emailConfirmQueued', { pending: saved.pending }),
+  };
+  return messages[emailSaveOutcome(saved)]();
 }
 
 interface EmailSaveSetters {
@@ -166,4 +181,20 @@ async function runCancelEmail(
 ): Promise<void> {
   const email = await hook.cancelEmailChange();
   email && toast.success(message);
+}
+
+// PendingEmailRow's mail chip: whether the confirmation actually went out. The same three words
+// as an access request's approval mail. (Last in the file: it reads another namespace.)
+function PendingMailState({ mail }: { mail: string }) {
+  const t = useTranslations('adminAccess');
+  const label: Record<string, string> = {
+    sending: t('requests.mail.sending'),
+    sent: t('requests.mail.sent'),
+    failed: t('requests.mail.failed'),
+  };
+  return label[mail] === undefined ? null : (
+    <span className="mono text-[10.5px] ml-2" data-testid="account-email-pending-mail" data-state={mail}>
+      {label[mail]}
+    </span>
+  );
 }

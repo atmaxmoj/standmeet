@@ -361,7 +361,7 @@ async function busyWindowBlocksEitherShape(request: APIRequestContext): Promise<
   await bookOnce(request, csrf, busy);
   expect(
     await getCalDAVEvents(request),
-    'a busy hour reported as a FREEBUSY property must not be booked over',
+    'a busy hour reported as an entity-escaped calendar-data VEVENT must not be booked over',
   ).toHaveLength(0);
 
   await bookOnce(request, csrf, futureSlot(10, 14));
@@ -374,7 +374,7 @@ async function busyWindowBlocksEitherShape(request: APIRequestContext): Promise<
   await bookOnce(request, csrf, busy);
   expect(
     await getCalDAVEvents(request),
-    'the same busy hour, reported as VFREEBUSY components, must still block',
+    'the same busy hour, reported inside CDATA (iCloud), must still block',
   ).toHaveLength(1);
 }
 
@@ -514,6 +514,10 @@ test.describe('supplier · happy combination matrix (kind × seam × auth full l
   //
   // The mock is taught the rule first: `set_busy` now accepts a `style`, and the `component`
   // variant is exactly how Radicale answers ([[stand-in-is-politer-than-reality]]).
+  //
+  // 2026-09-26: the plugin now asks a calendar-query (iCloud refuses free-busy-query) and reads
+  // busy time off the VEVENTs, so the mock answers that query as a real server does — a 207
+  // multistatus — in its two real forms: entity-escaped inline, and CDATA (the `component` style).
   //
   // **Carries its own positive control**: book successfully into a free slot first, then try
   // to book into the busy one. Without that first step, "couldn't book" for any reason at

@@ -1,0 +1,31 @@
+# real-blocks-group — the real-block group acceptance test's mountable declaration. It inserts one
+# cordis:group whose two members are SHIPPED blocks: caldav (infra/plugins/caldav) and smtp
+# (infra/plugins/smtp). The members load and unload as one unit.
+#
+# This follows how DSH composes other packages' rows (dsh 0.1.7-rc.2):
+# - A bundle's patch rows name packages; the group's rows resolve from this package's own peers.
+#   voice-input-bundle does the same: its patch inserts rows that name its dependency packages.
+# - DSH never applies a dependency's bundle patch transitively. A meta-bundle that re-exports another
+#   bundle's rows states them in its own patch file (profile-plugin-bundles note, "Transitive bundle
+#   auto-application"). So the members' own cordis.patch.yml layers do not apply here.
+#
+# caldav is referenced by package name only. smtp's row IS its configuration of dsh's MCP bridge,
+# so it is restated from infra/plugins/smtp/cordis.patch.yml. Keep the two rows identical.
+- insert:
+    - id: real-blocks-group
+      name: cordis:group
+      group: true
+      config:
+        - id: caldav
+          name: standmeet-caldav-mcp
+          config: {}
+        - id: smtp
+          name: '@deepseek-ai/dsh-mcp-client'
+          config:
+            transport: stdio
+            serverName: smtp
+            command: node
+            args:
+              - smtp-mcp.js
+            cwd: !!js "process.getBuiltinModule('node:path').dirname(process.getBuiltinModule('node:module').createRequire(ctx.get('profileContext').dir + '/package.json').resolve('standmeet-smtp-mcp/package.json'))"
+            failOnStartupError: true

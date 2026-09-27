@@ -15,6 +15,9 @@ import (
 	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/access/entity"
+	"github.com/atmaxmoj/standmeet/internal/access/repo"
+	"github.com/atmaxmoj/standmeet/internal/infra/events"
+	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
 const (
@@ -29,22 +32,33 @@ var (
 	ErrAPIKeyRoleRequired  = errors.New("assumed_role_id is required")
 )
 
-// APIKeyStore —— the mint side (APIKeyRepo implements it).
-type APIKeyStore interface {
-	Create(
-		ctx context.Context, in *entity.CreateAPIKeyInput,
-	) (entity.APIKey, error)
-}
-
 // APIKeyRoleGetter —— validate the assumed role exists + belongs to the owner at mint time.
 type APIKeyRoleGetter interface {
 	GetByID(ctx context.Context, ownerID, roleID string) (entity.Role, error)
 }
 
-// IssueAPIKeyDeps —— dependencies for minting a key.
+// IssueAPIKeyDeps —— dependencies for minting and revoking a key. The key row and its api_key.*
+// event commit in one transaction.
 type IssueAPIKeyDeps struct {
-	Keys  APIKeyStore
-	Roles APIKeyRoleGetter
+	Keys   *repo.APIKeyRepo
+	Roles  APIKeyRoleGetter
+	Events events.Recorder
+}
+
+// RevokeAPIKey —— revokes the owner's key; an unknown key is entity.ErrAPIKeyNotFound.
+func RevokeAPIKey(ctx context.Context, deps IssueAPIKeyDeps, ownerID, keyID string) error {
+	//nolint:wrapcheck // the repo and Record name their steps
+	return pgstore.InTx(ctx, deps.Keys.Pool(), func(tx pgstore.Tx) error {
+		if err := deps.Keys.With(tx).Revoke(ctx, keyID, ownerID); err != nil {
+			return err
+		}
+		return recordKeyEvent(ctx, deps.Events.With(tx), APIKeyRevoked, ownerID, keyID)
+	})
+}
+
+func recordKeyEvent(ctx context.Context, rec events.Recorder, typ, ownerID, keyID string) error {
+	//nolint:wrapcheck // Record names the type
+	return rec.Record(ctx, ownerID, typ, "api_key/"+keyID, map[string]string{"key_id": keyID})
 }
 
 // IssueAPIKeyInput —— mint request (owner comes from the authenticated session/token).
@@ -82,10 +96,18 @@ func IssueAPIKey(
 	if serr != nil {
 		return IssuedAPIKey{}, serr
 	}
-	key, cerr := deps.Keys.Create(ctx, &entity.CreateAPIKeyInput{
-		OwnerID: in.OwnerID, AssumedRoleID: in.AssumedRoleID, Label: in.Label,
-		Prefix: secret.Prefix, SecretHash: secret.Hash,
-		RateLimitRPM: in.RateLimitRPM, ExpiresAt: in.ExpiresAt,
+	var key entity.APIKey
+	cerr := pgstore.InTx(ctx, deps.Keys.Pool(), func(tx pgstore.Tx) error {
+		var err error
+		key, err = deps.Keys.With(tx).Create(ctx, &entity.CreateAPIKeyInput{
+			OwnerID: in.OwnerID, AssumedRoleID: in.AssumedRoleID, Label: in.Label,
+			Prefix: secret.Prefix, SecretHash: secret.Hash,
+			RateLimitRPM: in.RateLimitRPM, ExpiresAt: in.ExpiresAt,
+		})
+		if err != nil {
+			return err //nolint:wrapcheck // wrapped below
+		}
+		return recordKeyEvent(ctx, deps.Events.With(tx), APIKeyIssued, in.OwnerID, key.ID)
 	})
 	if cerr != nil {
 		return IssuedAPIKey{}, fmt.Errorf("create api key: %w", cerr)

@@ -1,68 +1,44 @@
-// Package periodic — in-process periodic tasks: one scheduler, nobody hand-rolls their own loop.
+// Package periodic — how a domain declares a periodic task: data, not a loop.
 //
-// Before this, every periodic task carried its own full kit: a ticker goroutine, a run-once-at-boot
-// step, a pair of Register/Report bookkeeping calls, and two constants (the interval + a
-// panel-facing string like "every 5m"). That got copied three times over, hence:
-//
-//   - The schedule string was **hand-written**, stored separately from the real interval — it
-//     could say "every 5m" while actually running hourly, and the panel would show it with a
-//     straight face. Here it's **derived** from the interval, removing one place that could lie.
-//   - Skip one Register call and the task vanishes from the Monitor panel while still running
-//     fine. That's exactly what happened to corpus's Meili reconcile loop: it kept running, but
-//     never once showed up on the panel.
-//
-// The division of labor is fixed: **what to do** comes from whoever declares the task (a domain /
-// plugin / axis's own logic); **how often, plus bookkeeping** belongs to the host. The declaration
-// is data, the same pattern as OwnerTools / Config / HostOps.
+// What to do comes from whoever declares the task; how often, on which process, and the durable
+// record of each run belong to the job runtime (internal/infra/jobs: River periodic jobs,
+// leader-elected, one row per run). The composition root collects these declarations
+// (cmd/server/wire/periodic.go). Nothing here schedules anything: the hand-written in-process
+// ticker that used to live here ran on every replica and forgot its history on restart.
 package periodic
 
 import (
 	"context"
-	"log/slog"
 	"strconv"
 	"time"
 )
 
-// Run — what the task actually does. Returning error → this round is logged "error",
-// but the loop keeps going (one failure doesn't stop the clock).
+// Run — what the task actually does. A returned error marks this run failed; the next period is
+// the retry.
 type Run func(ctx context.Context) error
 
 // Job — the declaration of one periodic task.
 type Job struct {
 	Run   Run
-	Name  string // identity on the Monitor panel, e.g. "resume-draft sweep"
+	Name  string // identity on the Tasks panel, e.g. "resume-draft sweep"
 	Every time.Duration
 }
 
-// Board — the bookkeeping surface (stats's JobRegistry satisfies it). The declaring side
-// doesn't know about stats.
-type Board interface {
-	Register(name, schedule string, every time.Duration)
-	Report(name, status string)
+// Named — shorthand for declaring a task.
+func Named(name string, every time.Duration, run Run) Job {
+	return Job{Name: name, Every: every, Run: run}
 }
 
-// Start — registers each job, runs it once at boot (so last_run has a definite value right
-// away), then starts its periodic loop. Stops when ctx is canceled (process exit). A job with
-// Every <= 0 is skipped and logged: that's a declaration bug, not "runs very fast".
-func Start(ctx context.Context, board Board, log *slog.Logger, jobs []Job) {
-	for i := range jobs {
-		job := jobs[i]
-		if job.Every <= 0 {
-			log.Error("periodic job has no interval — not scheduled", "job", job.Name)
-			continue
-		}
-		board.Register(job.Name, scheduleOf(job.Every), job.Every)
-		runOnce(ctx, board, log, &job)
-		go loop(ctx, board, log, job)
+// Wrap — wraps an action that returns no error into a Run.
+func Wrap(fn func(ctx context.Context)) Run {
+	return func(ctx context.Context) error {
+		fn(ctx)
+		return nil
 	}
 }
 
-// scheduleOf — the panel string is derived from the interval, not written separately.
-//
-// Duration.String() gives things like "1h0m0s", which reads badly on the panel; strip the
-// trailing zero parts → "1h" / "5m". This only affects display — the interval still has exactly
-// one source, Every.
-func scheduleOf(every time.Duration) string {
+// ScheduleOf — the panel string, derived from the interval so it cannot drift from what fires.
+func ScheduleOf(every time.Duration) string {
 	return "every " + tidyDuration(every)
 }
 
@@ -75,40 +51,5 @@ func tidyDuration(d time.Duration) string {
 		return strconv.Itoa(int(d/time.Minute)) + "m"
 	default:
 		return d.String()
-	}
-}
-
-func loop(ctx context.Context, board Board, log *slog.Logger, job Job) {
-	ticker := time.NewTicker(job.Every)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			runOnce(ctx, board, log, &job)
-		}
-	}
-}
-
-func runOnce(ctx context.Context, board Board, log *slog.Logger, job *Job) {
-	if err := job.Run(ctx); err != nil {
-		board.Report(job.Name, "error")
-		log.Warn("periodic job", "job", job.Name, "err", err)
-		return
-	}
-	board.Report(job.Name, "ok")
-}
-
-// Named — shorthand for declaring a task, so each call site skips repeating three field names.
-func Named(name string, every time.Duration, run Run) Job {
-	return Job{Name: name, Every: every, Run: run}
-}
-
-// Wrap — wraps an action that returns no error into a Run (e.g. a log-only best-effort rebuild).
-func Wrap(fn func(ctx context.Context)) Run {
-	return func(ctx context.Context) error {
-		fn(ctx)
-		return nil
 	}
 }

@@ -37,7 +37,7 @@ func (r *Repo) RecordVaultImport(
 	if perr != nil {
 		return fmt.Errorf(parseOwnerIDErrFmt, perr)
 	}
-	rows, err := db.New(r.pool).RecordVaultImport(ctx, db.RecordVaultImportParams{
+	rows, err := db.New(r.conn()).RecordVaultImport(ctx, db.RecordVaultImportParams{
 		ID:                     pgID,
 		LastVaultImportNew:     int32(rec.New),
 		LastVaultImportUpdated: int32(rec.Updated),

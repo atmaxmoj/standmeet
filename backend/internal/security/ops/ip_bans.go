@@ -11,16 +11,36 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/atmaxmoj/standmeet/internal/infra/events"
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
+	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/security/ban"
 )
+
+// IPBanDeps —— the ban rows, and the outbox a new ban records ip_ban.added into.
+type IPBanDeps struct {
+	Bans   *ban.BannedIPRepo
+	Events events.Recorder
+}
+
+// IPBanAdded —— a ban was set. Thin: subject ip_ban/<ban id>, data {ban_id, ip}.
+const IPBanAdded = "ip_ban.added"
+
+// EventTypes —— the event types this domain owns.
+func EventTypes() []events.Type {
+	return []events.Type{{
+		Type: IPBanAdded, Description: "The owner banned a source IP (data.ban_id, data.ip).",
+		Subject: "ip_ban/<ban id>", Exposure: events.Webhook,
+	}}
+}
 
 // IPBans -- the source-IP ban group: list / ban / unban.
 //
 // The payload shape is the contract, and both facades get the same one:
 // expires_at is null for a permanent ban (the field never disappears),
 // and unban returns {"ok":true}.
-func IPBans(repo *ban.BannedIPRepo) []fp.Op {
+func IPBans(d IPBanDeps) []fp.Op {
+	repo, rec := d.Bans, d.Events
 	return []fp.Op{
 		{
 			ID:          "ip_bans.list",
@@ -36,7 +56,7 @@ func IPBans(repo *ban.BannedIPRepo) []fp.Op {
 			InputSchema: ipBanAddSchema,
 			Kind:        fp.Action,
 			Reach:       fp.OwnerAction(),
-			Invoke:      addIPBan(repo),
+			Invoke:      addIPBan(repo, rec),
 		},
 		{
 			ID:          "ip_bans.remove",
@@ -106,18 +126,32 @@ type ipBanAddArgs struct {
 	ExpiresAt string `json:"expires_at"`
 }
 
-func addIPBan(repo *ban.BannedIPRepo) fp.Invoke {
+func addIPBan(repo *ban.BannedIPRepo, rec events.Recorder) fp.Invoke {
 	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
 		in, perr := decodeIPBanAdd(ownerID, raw)
 		if perr != nil {
 			return nil, perr
 		}
-		banned, err := repo.Ban(ctx, in)
+		banned, err := banRecorded(ctx, IPBanDeps{Bans: repo, Events: rec}, in)
 		if err != nil {
 			return nil, fp.OpErr("ban ip", err)
 		}
 		return json.Marshal(toIPBanOut(&banned))
 	}
+}
+
+// banRecorded —— the ban and its ip_ban.added, in one transaction.
+func banRecorded(ctx context.Context, d IPBanDeps, in *ban.IPInput) (ban.BannedIP, error) {
+	var banned ban.BannedIP
+	err := pgstore.InTx(ctx, d.Bans.Pool(), func(tx pgstore.Tx) error {
+		var berr error
+		if banned, berr = d.Bans.With(tx).Ban(ctx, in); berr != nil {
+			return berr
+		}
+		data := map[string]string{"ban_id": banned.ID, "ip": banned.IP}
+		return d.Events.With(tx).Record(ctx, in.OwnerID, IPBanAdded, "ip_ban/"+banned.ID, data)
+	})
+	return banned, err
 }
 
 func decodeIPBanAdd(ownerID string, raw json.RawMessage) (*ban.IPInput, error) {

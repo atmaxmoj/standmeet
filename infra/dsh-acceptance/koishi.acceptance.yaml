@@ -1,0 +1,13 @@
+subject:
+  source: ./koishi
+expect:
+  rows:
+    - koishi-base64
+  services: []
+  tools:
+    - mcp__koishi-base64__base64_encode
+    - mcp__koishi-base64__base64_decode
+exercise:
+  - tool: mcp__koishi-base64__base64_encode
+    arguments:
+      text: hi

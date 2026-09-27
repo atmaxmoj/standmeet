@@ -23,6 +23,7 @@ import (
 // Store —— per-plugin document storage sitting on the shared Postgres.
 type Store struct {
 	pool *pgxpool.Pool
+	tx   pgx.Tx // set by WithTx: Insert joins the caller's transaction
 	// provisioned —— schema ids (kind+id) already ensured this process. Per-fiber schemas are
 	// created lazily on first use (the fiber set isn't known at install), and running the
 	// CREATE-IF-NOT-EXISTS DDL on every op would be a needless round-trip; this makes it once.
@@ -31,6 +32,10 @@ type Store struct {
 
 // New —— the composition root injects the shared connection pool.
 func New(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
+
+// WithTx —— a store whose Insert runs on tx, so the document commits with whatever else the
+// caller writes there.
+func (s *Store) WithTx(tx pgx.Tx) *Store { return &Store{pool: s.pool, tx: tx} }
 
 // EnsureProvisioned —— provision (kind,id)'s schema if this process hasn't already. Idempotent
 // and cheap after the first call per id (a process-local cache over the idempotent DDL). Used by
@@ -124,7 +129,11 @@ func (s *Store) Insert(
 	sql := fmt.Sprintf(
 		"INSERT INTO %s.records (collection, doc) VALUES ($1, $2) RETURNING id", schema,
 	)
-	if qerr := s.pool.QueryRow(ctx, sql, collection, doc).Scan(&recID); qerr != nil {
+	queryRow := s.pool.QueryRow
+	if s.tx != nil {
+		queryRow = s.tx.QueryRow
+	}
+	if qerr := queryRow(ctx, sql, collection, doc).Scan(&recID); qerr != nil {
 		return "", fmt.Errorf("blockstore insert %q/%s: %w", schema, collection, qerr)
 	}
 	return recID, nil

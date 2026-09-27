@@ -17,6 +17,19 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
+// With —— a copy whose Publish / Unpublish run on q (the caller's transaction).
+func (r *WritingRepo) With(q pgstore.DBTX) *WritingRepo { return &WritingRepo{pool: r.pool, q: q} }
+
+// conn —— the transaction when bound by With, else the pool.
+//
+//nolint:ireturn // DBTX is the port both a pool and a transaction satisfy
+func (r *WritingRepo) conn() pgstore.DBTX {
+	if r.q != nil {
+		return r.q
+	}
+	return r.pool
+}
+
 // writingPathPrefix — the retriever/ACL path prefix for writings. path has no column;
 // it's derived from slug as "writings/<slug>" (byte-for-byte identical to the value
 // stored before the fold into corpus_notes, so ACL / eval fixtures don't change).

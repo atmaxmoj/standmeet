@@ -23,6 +23,7 @@ type (
 	VisitorSessionStore      = usecase.VisitorSessionStore
 	EmbedTokenDeps           = usecase.EmbedTokenDeps
 	EmbedNonceStore          = usecase.NonceStore
+	EmbedScopeDeps           = usecase.EmbedScopeDeps
 )
 
 // Constructors/functions (impl: usecase).
@@ -30,10 +31,13 @@ var (
 	CountActiveCodesForRole   = usecase.CountActiveCodesForRole
 	CreateRole                = usecase.CreateRole
 	DeleteRole                = usecase.DeleteRole
+	EmbedAdmits               = usecase.EmbedAdmits
 	GetRole                   = usecase.GetRole
 	IssueAPIKey               = usecase.IssueAPIKey
 	IssueCode                 = usecase.IssueCode
 	ListForOwner              = usecase.ListForOwner
+	EventTypes                = usecase.EventTypes
+	RecordCodeEvent           = usecase.RecordCodeEvent
 	ListRoles                 = usecase.ListRoles
 	NewVisitorSessionStore    = usecase.NewVisitorSessionStore
 	ResolveAPIKey             = usecase.ResolveAPIKey
@@ -51,6 +55,14 @@ const (
 	RefMCPServer = usecase.RefMCPServer
 	RefPrompt    = usecase.RefPrompt
 	RefSkill     = usecase.RefSkill
+
+	AccessRequestApproved      = usecase.AccessRequestApproved
+	AccessRequestStatusChanged = usecase.AccessRequestStatusChanged
+	CodeIssued                 = usecase.CodeIssued
+	CodeRevoked                = usecase.CodeRevoked
+	CodeRedeemed               = usecase.CodeRedeemed
+	APIKeyIssued               = usecase.APIKeyIssued
+	APIKeyRevoked              = usecase.APIKeyRevoked
 )
 
 // Errors/vars (impl: usecase).

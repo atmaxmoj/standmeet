@@ -1,0 +1,12 @@
+subject:
+  source: ../plugins/caldav
+expect:
+  rows:
+    - caldav
+  # caldav provides the `caldav` cordis service (ctx.provide) — assert it really registers.
+  services:
+    - caldav
+  tools: []
+# No exercise: caldav's tools (verify/free-busy/insert/delete) do live WebDAV against a real CalDAV
+# server. Registering the service on real dsh is what this gate proves; exercising the calls needs a
+# live CalDAV endpoint (a separate integration), so we do NOT fake one here.

@@ -39,7 +39,6 @@ func StartRetrievalSocket(ctx context.Context, d Driver, sockPath string) (func(
 	if err != nil {
 		return nil, fmt.Errorf("retrieval socket listen: %w", err)
 	}
-	go srv.Serve(ctx)
 	return srv.Close, nil
 }
 

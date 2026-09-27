@@ -27,6 +27,7 @@
     "emptyHint": "Les offres sont récupérées automatiquement à l'ouverture de cette section — ou appuyez sur Récupérer maintenant. Les résultats restent ici une journée jusqu'à ce que vous les rédigiez ou les rejetiez.",
     "fetchNow": "récupérer maintenant",
     "fetching": "récupération…",
+    "pendingSources": "{count, plural, one {# source encore en cours de récupération en arrière-plan — la liste se met à jour une fois terminé} other {# sources encore en cours de récupération en arrière-plan — la liste se met à jour une fois terminé}}",
     "kicker": "emplois · annonces",
     "titleInPool": "{count, plural, one {# dans le pool} other {# dans le pool}}"
   },

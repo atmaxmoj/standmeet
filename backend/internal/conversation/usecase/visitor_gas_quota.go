@@ -20,6 +20,7 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
@@ -53,7 +54,8 @@ func EnforceGasQuota(
 	if left == nil || *left > 0 {
 		return nil
 	}
-	return access.ErrGasExhausted
+	// The refusal stands either way; a failed gas.exhausted rides along for the logs.
+	return errors.Join(access.ErrGasExhausted, deps.Gas.Exhausted(ctx, in.OwnerID, in.ProviderID))
 }
 
 // gaugeIsOn —— whether this session needs to check gas level. All three must hold,

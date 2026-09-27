@@ -198,7 +198,7 @@ func UUIDOrNull(s string) pgtype.UUID {
 // — pgx pool connection management (migrated in from the retired internal/postgres/conn.go) —
 
 const (
-	poolMaxConns       = 20
+	poolMaxConns       = 40 // half is reserved for requests; job workers + the relay take the rest
 	poolMinConns       = 2
 	poolMaxConnLife    = 30 * time.Minute
 	poolMaxConnIdle    = 5 * time.Minute

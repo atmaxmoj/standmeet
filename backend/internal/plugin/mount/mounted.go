@@ -32,6 +32,10 @@ type mcpAppFiber struct {
 	// from the cache, eliminating the per-dial `_meta` read race.
 	toolsOnce *sync.Once
 	tools     *[]mcpclient.Tool
+	// toolsReady —— 1 once `tools` is filled. knownToolSpecs is called from other goroutines
+	// than the one inside toolsOnce, so it reads this flag (atomic) before touching `tools`; the
+	// store after the fill carries the happens-before, the same way uiReady guards `ui`.
+	toolsReady *int32
 	// uiReady/ui —— cache the ui:// card HTML (per tool _meta.ui_resource) so the LISTING path
 	// (VisitorListBinding) can build the whole tool list from cache with NO live session. Only the
 	// warm dial fills this (VisitorBinding fills `tools` but NOT `ui`), so readiness gets its OWN
@@ -77,7 +81,7 @@ type BlockHooks struct {
 func newMCPAppFiber(m *plugin.Manifest) *mcpAppFiber {
 	return &mcpAppFiber{
 		m: *m, instrOnce: &sync.Once{}, instr: new(string),
-		toolsOnce: &sync.Once{}, tools: new([]mcpclient.Tool),
+		toolsOnce: &sync.Once{}, tools: new([]mcpclient.Tool), toolsReady: new(int32),
 		ui: &map[string]string{}, uiReady: new(int32), warming: new(int32),
 	}
 }

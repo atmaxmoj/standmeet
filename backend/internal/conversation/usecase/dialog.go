@@ -24,6 +24,8 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/conversation/entity"
 	"github.com/atmaxmoj/standmeet/internal/conversation/repo"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
+	"github.com/atmaxmoj/standmeet/internal/infra/events"
+	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
 // DialogCorpusLookup —— narrow interface for resolving a dialog's cited entries.
@@ -45,6 +47,7 @@ type DialogDeps struct {
 	Corpus       DialogCorpusLookup
 	Subjectivity corpus.SubjectivityCiteLookup
 	Log          *slog.Logger
+	Events       events.Recorder // conversation.message commits with the turn
 }
 
 // RecordDialogInput —— input for recording a completed dialog into the transcript.
@@ -76,12 +79,37 @@ func RecordDialog(
 	if saves, err := turnSaved(ctx, deps, in.ConversationID); err != nil || !saves {
 		return err
 	}
-	return appendTurn(ctx, deps, in)
+	// The turn's rows and one conversation.message per role commit together.
+	//nolint:wrapcheck // InTx names begin/commit; the steps name themselves
+	return pgstore.InTx(ctx, deps.Chats.Pool(), func(tx pgstore.Tx) error {
+		t := *deps
+		t.Chats = deps.Chats.With(tx)
+		roles, err := appendTurn(ctx, &t, in)
+		if err != nil {
+			return err
+		}
+		return recordMessages(ctx, deps.Events.With(tx), in, roles)
+	})
 }
 
-func appendTurn(ctx context.Context, deps *DialogDeps, in *RecordDialogInput) error {
+// recordMessages —— one conversation.message per turn written, carrying its role (never text).
+func recordMessages(
+	ctx context.Context, rec events.Recorder, in *RecordDialogInput, roles []string,
+) error {
+	for _, role := range roles {
+		data := map[string]string{"conversation_id": in.ConversationID, "role": role}
+		if err := rec.Record(ctx, in.OwnerID, ConversationMessage,
+			"conversation/"+in.ConversationID, data); err != nil {
+			return err //nolint:wrapcheck // Record names the type
+		}
+	}
+	return nil
+}
+
+// appendTurn —— writes the turn; returns the roles it wrote, in order.
+func appendTurn(ctx context.Context, deps *DialogDeps, in *RecordDialogInput) ([]string, error) {
 	if in.Answer == "" && !toolCallsNonEmpty(in.ToolCalls) {
-		return appendVisitorOnly(ctx, deps, in)
+		return []string{roleVisitor}, appendVisitorOnly(ctx, deps, in)
 	}
 	resolved := resolveCitations(ctx, deps, in)
 	dlg := entity.NewDialog(&entity.DialogInit{
@@ -90,10 +118,16 @@ func appendTurn(ctx context.Context, deps *DialogDeps, in *RecordDialogInput) er
 		ToolCalls: in.ToolCalls, CreatedAt: time.Now(),
 	})
 	if _, err := deps.Chats.AppendDialog(ctx, in.ConversationID, &dlg); err != nil {
-		return fmt.Errorf("append dialog: %w", err)
+		return nil, fmt.Errorf("append dialog: %w", err)
 	}
-	return nil
+	return []string{roleVisitor, roleAssistant}, nil
 }
+
+// The roles a conversation.message carries.
+const (
+	roleVisitor   = "visitor"
+	roleAssistant = "assistant"
+)
 
 // RecordCardEvent —— records "what the visitor did on a card" (F-B-9).
 //

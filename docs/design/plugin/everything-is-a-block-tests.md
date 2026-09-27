@@ -188,8 +188,8 @@ inward golden — as koishi did); editing one to pass without an intended block-
 
 | behavior | status |
 |---|---|
-| each of our blocks passes a **real DSH lifecycle** (install → boot → register → exercise → uninstall) via dsh-testkit, cross-platform, no skips | ✅ `make dsh-plugin-test` — the real blocks + demos, in `infra/dsh-acceptance/*.dsh-testkit.yaml`. **+ `smtp` (mail block) and `google-calendar` (the openapi supplier AS a block — was in-host Go, now a block with its own dsh test)** |
-| the shipped blocks **compose into a dsh group** (not just the synthetic group-compose demo) | ✏️ `real-blocks-group.dsh-testkit.yaml` — caldav + smtp in one `cordis:group`, both register; RED until the group entry exists |
+| each of our blocks passes a **real DSH lifecycle** (install → boot → register → exercise → uninstall) via DSH's own `dsh plugin` + `--patch` probe (infra/dsh-acceptance/run.mjs), cross-platform, no skips | ✅ `make dsh-plugin-test` — the real blocks + demos, in `infra/dsh-acceptance/*.acceptance.yaml`. **+ `smtp` (mail block) and `google-calendar` (the openapi supplier AS a block — was in-host Go, now a block with its own dsh test)** |
+| the shipped blocks **compose into a dsh group** (not just the synthetic group-compose demo) | ✅ `real-blocks-group.acceptance.yaml` — caldav + smtp in one `cordis:group` (`infra/dsh-acceptance/real-blocks-group/`), both register (service `caldav`, tools `mcp__smtp__verify`/`send`); the block packages are the group's peers (`subject.peers`), so only the group is a bundle layer |
 | **reciprocity**: our substrate's loader loads a *dsh* block unchanged | ✅ `dsh-reciprocity` (e2e) — a foreign dsh block mounts through our loader unchanged (origin marked foreign, no elevated access), its capability is usable in a session, and a dsh GROUP composes through the loader too (4/4) |
 | grab dsh's popular blocks/groups and mount them here; **ride the dsh marketplace** | ✅ `dsh-marketplace-install` (e2e) — search (id + tools + seam filter) → install by id (origin=marketplace, sandboxed like any block, idempotent) → use in a session → uninstall; unknown id is a clean 4xx (9/9) |
 

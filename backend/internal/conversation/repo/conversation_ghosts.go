@@ -22,12 +22,19 @@ import (
 // GhostRepo — access entry point for the conversation_ghosts table.
 type GhostRepo struct {
 	pool *pgstore.Pool
+	q    pgstore.DBTX // nil → the pool; set by With
 }
 
 // NewGhostRepo — DI constructor.
 func NewGhostRepo(pool *pgstore.Pool) *GhostRepo {
 	return &GhostRepo{pool: pool}
 }
+
+// With —— a copy whose MarkAccepted runs on q (the caller's transaction).
+func (r *GhostRepo) With(q pgstore.DBTX) *GhostRepo { return &GhostRepo{pool: r.pool, q: q} }
+
+// Pool —— the pool a use case opens its transaction on.
+func (r *GhostRepo) Pool() *pgstore.Pool { return r.pool }
 
 // RecordShownInput — input for POST sessions/{id}/ghosts/shown.
 type RecordShownInput struct {
@@ -109,7 +116,7 @@ func (r *GhostRepo) MarkAccepted(
 	if perr != nil {
 		return entity.Ghost{}, perr
 	}
-	row, qerr := db.New(r.pool).MarkGhostAccepted(ctx, *params)
+	row, qerr := db.New(r.conn()).MarkGhostAccepted(ctx, *params)
 	if qerr != nil {
 		if errors.Is(qerr, pgx.ErrNoRows) {
 			return entity.Ghost{}, entity.ErrGhostNotFound
@@ -209,4 +216,14 @@ func toDomainGhost(row *db.ConversationGhost) entity.Ghost {
 		out.AcceptedAt = &t
 	}
 	return out
+}
+
+// conn —— the transaction when bound by With, else the pool.
+//
+//nolint:ireturn // DBTX is the port both a pool and a transaction satisfy
+func (r *GhostRepo) conn() pgstore.DBTX {
+	if r.q != nil {
+		return r.q
+	}
+	return r.pool
 }

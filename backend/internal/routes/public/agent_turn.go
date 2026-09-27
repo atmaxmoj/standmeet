@@ -216,7 +216,7 @@ func buildAgentTurnPersist(
 	return func(ctx context.Context, res *inference.TurnResult) error {
 		return conversation.RecordDialog(ctx, &conversation.DialogDeps{
 			Chats: h.Visitor.Chats, Corpus: h.Corpus,
-			Subjectivity: h.Subjectivity, Log: h.Log,
+			Subjectivity: h.Subjectivity, Log: h.Log, Events: h.Visitor.Events,
 		}, &conversation.RecordDialogInput{
 			OwnerID: ownerID, ConversationID: convID,
 			Question: res.Question, Answer: res.Answer,

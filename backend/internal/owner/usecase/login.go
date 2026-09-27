@@ -9,6 +9,7 @@ import (
 	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
+	"github.com/atmaxmoj/standmeet/internal/infra/events"
 	"github.com/atmaxmoj/standmeet/internal/infra/session"
 	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 	"github.com/atmaxmoj/standmeet/internal/owner/repo"
@@ -18,6 +19,7 @@ import (
 type LoginDeps struct {
 	Owners   *repo.Repo
 	Sessions *session.OwnerSessionStore
+	Events   events.Recorder
 }
 
 // LoginInput is the input to Login. ClientIP + UserAgent are captured from the
@@ -54,6 +56,7 @@ func Login(ctx context.Context, deps LoginDeps, in *LoginInput) (LoginOutput, er
 	if err != nil {
 		return LoginOutput{}, fmt.Errorf("issue session: %w", err)
 	}
+	recordLogin(ctx, deps, creds.OwnerID)
 	// Pair with claim's "owner_id" log so the test-time timeline reads:
 	// claim → owner_id X → login → same owner_id X → create token → ...
 	slog.Default().Info("login succeeded",
@@ -64,6 +67,15 @@ func Login(ctx context.Context, deps LoginDeps, in *LoginInput) (LoginOutput, er
 		OwnerID:      creds.OwnerID,
 		OwnerHandle:  creds.Handle,
 	}, nil
+}
+
+// recordLogin —— owner.login. A login writes no row (the session lives in Redis), so the event is
+// its own transaction. It is not the session's receipt: a failure is logged, never turned into a
+// failed login.
+func recordLogin(ctx context.Context, deps LoginDeps, ownerID string) {
+	if err := deps.Events.Record(ctx, ownerID, OwnerLogin, "owner/"+ownerID, nil); err != nil {
+		slog.Default().Warn("record owner.login", "owner_id", ownerID, "err", err)
+	}
 }
 
 // authenticate pulls the password-checking part out of Login, keeping Login itself at

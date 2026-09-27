@@ -27,9 +27,9 @@ func (f *fakeMailSupplier) Connected(_ context.Context, _ string) (bool, error) 
 }
 
 func (f *fakeMailSupplier) Send(
-	_ context.Context, _ string, msg MailMessage,
+	_ context.Context, _ string, msg *MailMessage,
 ) (MailReceipt, error) {
-	f.sent = &msg
+	f.sent = msg
 	return MailReceipt{}, nil
 }
 

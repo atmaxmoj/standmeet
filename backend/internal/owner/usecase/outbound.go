@@ -31,14 +31,24 @@ import (
 // the channel-side equivalent into this one (see cmd/server/port/outbound_sender.go).
 var ErrOutboundNotConfigured = errors.New("no outbound channel configured")
 
-// OutboundSender — the neutral port for sending one deterministic notice. Not
+// OutboundSender — the neutral port for sending one deterministic notice **synchronously**. Not
 // configured/not connected -> ErrOutboundNotConfigured.
+//
+// Only the recovery phrase sends through it (by decision, #3: the owner waits on the login page
+// and must learn on the spot whether the phrase went out). Every other mail is a durable job whose
+// send port only subscribers hold; use cases get OutboundStatus to ask whether mail can go at all.
 type OutboundSender interface {
+	OutboundStatus
+	// Send — delivers one notice to a recipient.
+	Send(ctx context.Context, ownerID string, n OutboundNotice) error
+}
+
+// OutboundStatus — the read half: can a notice go out at all, and what the owner connects so it
+// can. A question, not a side effect.
+type OutboundStatus interface {
 	// Connected — whether the outbound channel is available (owner configured it and it
 	// verified).
 	Connected(ctx context.Context, ownerID string) (bool, error)
-	// Send — delivers one notice to a recipient.
-	Send(ctx context.Context, ownerID string, n OutboundNotice) error
 	// ChannelName — when delivery fails, tells the owner **which kind** of supplier to
 	// go connect.
 	//

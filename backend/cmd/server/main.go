@@ -31,6 +31,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/cmd/server/config"
 	"github.com/atmaxmoj/standmeet/internal/conversation/inference"
+	jobsriver "github.com/atmaxmoj/standmeet/internal/infra/jobs/river"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/infra/session"
 	"github.com/atmaxmoj/standmeet/internal/infra/storage"
@@ -42,7 +43,7 @@ const (
 	httpReadTimeout       = 30 * time.Second
 	httpWriteTimeout      = 30 * time.Second
 	httpIdleTimeout       = 120 * time.Second
-	shutdownTimeout       = 10 * time.Second
+	shutdownTimeout       = 25 * time.Second // jobs get 20 s of grace; Docker kills at 30 s
 )
 
 func main() {
@@ -89,6 +90,10 @@ func runWithCfg(
 	// schema blow up later on some unrelated query.
 	if merr := pgstore.Migrate(ctx, db, log); merr != nil {
 		return fmt.Errorf("migrate schema: %w", merr)
+	}
+	// River's own tables, by River's own migrator: it owns that DDL, schema.sql does not copy it.
+	if merr := jobsriver.Migrate(ctx, db); merr != nil {
+		return fmt.Errorf("migrate job queue: %w", merr)
 	}
 	rdb, err := connectRedis(ctx, cfg.RedisURL, log)
 	if err != nil {
@@ -142,10 +147,20 @@ func wireAndServe(
 	// usage gate all draw from this same storage.
 	blockwire.BlockStorageInit(ctx, &rt)
 	rt.JobsModule = buildJobsModule(&rt)
+	// Sandbox workspaces declare a periodic sweep, so they exist before the job runtime is built.
+	blockwire.SandboxWorkspaces(&rt)
+	// The bus and the job runtime are built before the dispatcher: the Tasks ops and the corpus
+	// write receipts read them. They start last, below, once every block has registered.
+	if berr := wire.BuildBackground(&rt); berr != nil {
+		return berr //nolint:wrapcheck // wire already names the failing part (bus / job runtime)
+	}
 	// One outbound convergence point: MCP face and admin face must project from
 	// **the same** declaration, or there's no basis for parity between them.
 	rt.Dispatch = wire.BuildDispatcher(&rt)
 	registerAgentSkills(ctx, &rt)
+	if sberr := wire.StartBackground(ctx, &rt); sberr != nil {
+		return sberr //nolint:wrapcheck // wire already names the failing part (start jobs)
+	}
 	return serve(ctx, &rt, net.JoinHostPort(cfg.Host, cfg.Port), stop)
 }
 
@@ -200,65 +215,6 @@ func captchaSiteKeyFor(cfg *config.Config) string {
 		return ""
 	}
 	return cfg.TurnstileSiteKey
-}
-
-// setupTokenIssuerAdapter —— wraps *owner.InstanceRepo + *session.SetupTokenHolder
-// into an owner.SetupTokenIssuer, letting the /api/v1/instance handler self-heal an
-// unclaimed setup token through the usecase without importing session directly.
-type setupTokenIssuerAdapter struct {
-	log    *slog.Logger
-	repo   *owner.InstanceRepo
-	holder *session.SetupTokenHolder
-	// issuing —— issuance must be singleflight: writing the DB hash and the in-memory
-	// holder are two steps, and letting two requests interleave once leaves an
-	// unusable "holder=TA, DB=hash(TB)" combo (F-L-56, hit for real: homepage SSR
-	// calls /api/v1/instance on every render, so concurrency here is the norm).
-	// Locking the whole check-then-issue section removes the interleaving window.
-	issuing sync.Mutex
-}
-
-// UsableToken —— does the DB hash match this in-memory plaintext? Returns the
-// plaintext if so, else empty (caller re-issues). Checking "both non-empty" isn't
-// enough — that's exactly what the broken state looks like too.
-func (a *setupTokenIssuerAdapter) UsableToken(ctx context.Context) (string, error) {
-	a.issuing.Lock()
-	defer a.issuing.Unlock()
-	return a.usableLocked(ctx)
-}
-
-// IssueAndStore —— singleflight. Rechecks on entry: of the requests that were
-// waiting on the lock, the first already issued a token, so the rest reuse it
-// instead of each issuing their own (wasted work, and the last would overwrite it).
-func (a *setupTokenIssuerAdapter) IssueAndStore(ctx context.Context) (string, error) {
-	a.issuing.Lock()
-	defer a.issuing.Unlock()
-	if usable, err := a.usableLocked(ctx); err == nil && usable != "" {
-		return usable, nil
-	}
-	if err := session.IssueSetupToken(ctx, a.log, a.repo, a.holder); err != nil {
-		return "", fmt.Errorf("issue setup token: %w", err)
-	}
-	return a.holder.Plaintext(), nil
-}
-
-// usableLocked —— shared by the two methods above: does the DB hash match this
-// in-memory plaintext? Caller already holds the lock.
-func (a *setupTokenIssuerAdapter) usableLocked(ctx context.Context) (string, error) {
-	inst, err := a.repo.Get(ctx)
-	if err != nil {
-		return "", fmt.Errorf("get instance settings: %w", err)
-	}
-	plaintext := a.holder.Plaintext()
-	if inst.SetupTokenHash == "" || plaintext == "" {
-		return "", nil
-	}
-	if session.HashSetupToken(plaintext) != inst.SetupTokenHash {
-		// The only explanation for "why did the link that went out suddenly change".
-		a.log.Warn("setup token halves diverged; re-issuing",
-			"reason", "in-memory plaintext does not hash to the stored hash")
-		return "", nil
-	}
-	return plaintext, nil
 }
 
 // ownerLookupAdapter —— wraps owner.Repo into an inference.OwnerLookup. The resolver
@@ -339,9 +295,14 @@ func serve(ctx context.Context, rt *deps.Runtime, addr string, stop context.Canc
 	// contextcheck from flagging a "new context", and shutdown isn't killed by ctx.
 	shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), shutdownTimeout)
 	defer cancel()
+	// The relay and the workers stop alongside HTTP: they stop claiming at once, then running
+	// jobs get their grace. Unfinished ones are rescued after restart (at least once).
+	var background sync.WaitGroup
+	background.Go(func() { wire.StopBackground(shutdownCtx, rt) })
 	if serr := srv.Shutdown(shutdownCtx); serr != nil {
 		rt.Log.Warn("shutdown", "err", serr)
 	}
+	background.Wait()
 
 	return nil
 }

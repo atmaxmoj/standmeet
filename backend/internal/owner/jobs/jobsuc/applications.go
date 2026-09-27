@@ -30,6 +30,7 @@ import (
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
+	"github.com/atmaxmoj/standmeet/internal/infra/events"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmodel"
 )
@@ -80,6 +81,8 @@ type ApplicationsDeps struct {
 	// Codes — reused when the owner picks an existing code in the composer (nil = only "issue new"
 	// is available). Narrow read-only lookup; the issue path stays on deps.Apps.Commit.
 	Codes CodeLookup
+	// Events —— application.committed (and code.issued for a fresh code) commit with the rows.
+	Events events.Recorder
 }
 
 // PromptLookup — fetches one prompt's id by name. Narrow, only as much as the job loop needs.
@@ -220,6 +223,7 @@ func runCommitTx(
 		AssumedRoleID:      hiring.ID(),
 		// reuse != nil → link to that existing code instead of issuing a fresh one.
 		ReuseCode: rp.reuse,
+		OnCommit:  commitEvents(deps.Events, ownerID, rp.reuse),
 	}
 	out, err := deps.Apps.Commit(ctx, in)
 	if err != nil {

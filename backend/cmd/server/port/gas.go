@@ -36,6 +36,14 @@ func (g OwnerGas) Remaining(
 	return left, nil
 }
 
+// Exhausted — the gate found this tank dry: gas.exhausted, once per fill.
+func (g OwnerGas) Exhausted(ctx context.Context, ownerID, providerID string) error {
+	if err := owner.NoteGasExhausted(ctx, g.Providers, ownerID, providerID); err != nil {
+		return fmt.Errorf("note gas exhausted: %w", err)
+	}
+	return nil
+}
+
 // DefaultProviderID — the id of the owner's default provider (empty string when no
 // provider is configured). Used when issuing a visitor session to freeze "unspecified
 // provider" into one concrete tank, otherwise anonymous spend is invisible to gas

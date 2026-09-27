@@ -23,11 +23,35 @@ import (
 // MicrositeBuildRepo —— the microsite_builds table.
 type MicrositeBuildRepo struct {
 	pool *pgstore.Pool
+	q    pgstore.DBTX // nil → the pool; set by With
 }
 
 // NewMicrositeBuildRepo constructs one.
 func NewMicrositeBuildRepo(pool *pgstore.Pool) *MicrositeBuildRepo {
 	return &MicrositeBuildRepo{pool: pool}
+}
+
+// With —— a copy whose every call runs on q (the caller's transaction). The original is unchanged.
+func (r *MicrositeBuildRepo) With(q pgstore.DBTX) *MicrositeBuildRepo {
+	return &MicrositeBuildRepo{pool: r.pool, q: q}
+}
+
+// Pool —— the pool a transaction over this table is opened on (pgstore.InTx).
+func (r *MicrositeBuildRepo) Pool() *pgstore.Pool { return r.pool }
+
+// SettleVersion —— the owner's preview cursor: when their latest build settled, in unix
+// milliseconds (0 = none yet). Durable, so it survives a restart and means the same in every
+// process; it only moves forward while builds settle.
+func (r *MicrositeBuildRepo) SettleVersion(ctx context.Context, ownerID string) (int64, error) {
+	var v int64
+	err := r.conn().QueryRow(ctx, `SELECT
+		coalesce(max((extract(epoch FROM b.built_at) * 1000)::bigint), 0)
+		FROM microsite_builds b JOIN microsites m ON m.id = b.page_id
+		WHERE m.owner_id::text = $1 AND b.status IN ('built', 'failed')`, ownerID).Scan(&v)
+	if err != nil {
+		return 0, fmt.Errorf("build settle version: %w", err)
+	}
+	return v, nil
 }
 
 // Create writes a pending build row; returns build_id so the caller can
@@ -43,7 +67,7 @@ func (r *MicrositeBuildRepo) Create(
 	if merr != nil {
 		return entity.MicrositeBuild{}, fmt.Errorf("marshal source files: %w", merr)
 	}
-	row, err := db.New(r.pool).CreateMicrositeBuild(ctx, db.CreateMicrositeBuildParams{
+	row, err := db.New(r.conn()).CreateMicrositeBuild(ctx, db.CreateMicrositeBuildParams{
 		PageID: pgID, SourceFiles: files,
 	})
 	if err != nil {
@@ -61,7 +85,7 @@ func (r *MicrositeBuildRepo) GetLatestForPage(
 	if perr != nil {
 		return entity.MicrositeBuild{}, fmt.Errorf(errParsePageID, perr)
 	}
-	row, err := db.New(r.pool).GetLatestMicrositeBuild(ctx, pgID)
+	row, err := db.New(r.conn()).GetLatestMicrositeBuild(ctx, pgID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return entity.MicrositeBuild{}, entity.ErrMicrositeBuildNotFound
@@ -84,7 +108,7 @@ func (r *MicrositeBuildRepo) GetLatestBuiltForPage(
 	if perr != nil {
 		return entity.MicrositeBuild{}, fmt.Errorf(errParsePageID, perr)
 	}
-	row, err := db.New(r.pool).GetLatestBuiltMicrositeBuild(ctx, pgID)
+	row, err := db.New(r.conn()).GetLatestBuiltMicrositeBuild(ctx, pgID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return entity.MicrositeBuild{}, entity.ErrMicrositeBuildNotFound
@@ -102,7 +126,7 @@ func (r *MicrositeBuildRepo) GetByID(
 	if perr != nil {
 		return entity.MicrositeBuild{}, fmt.Errorf("parse build id: %w", perr)
 	}
-	row, err := db.New(r.pool).GetMicrositeBuild(ctx, pgID)
+	row, err := db.New(r.conn()).GetMicrositeBuild(ctx, pgID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return entity.MicrositeBuild{}, entity.ErrMicrositeBuildNotFound
@@ -119,7 +143,7 @@ func (r *MicrositeBuildRepo) GetByID(
 func (r *MicrositeBuildRepo) ClaimPending(
 	ctx context.Context, lease time.Duration,
 ) (entity.MicrositeBuild, error) {
-	row, err := db.New(r.pool).ClaimBuild(ctx, lease.Seconds())
+	row, err := db.New(r.conn()).ClaimBuild(ctx, lease.Seconds())
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return entity.MicrositeBuild{}, entity.ErrMicrositeBuildNotFound
@@ -136,7 +160,7 @@ func (r *MicrositeBuildRepo) RenewLease(ctx context.Context, id string) error {
 	if perr != nil {
 		return fmt.Errorf("parse build id: %w", perr)
 	}
-	n, err := db.New(r.pool).RenewBuildLease(ctx, pgID)
+	n, err := db.New(r.conn()).RenewBuildLease(ctx, pgID)
 	if err != nil {
 		return fmt.Errorf("renew build lease: %w", err)
 	}
@@ -155,7 +179,7 @@ func (r *MicrositeBuildRepo) MarkBuilt(
 	if perr != nil {
 		return entity.MicrositeBuild{}, fmt.Errorf("parse build id: %w", perr)
 	}
-	row, err := db.New(r.pool).SetMicrositeBuildBuilt(ctx, db.SetMicrositeBuildBuiltParams{
+	row, err := db.New(r.conn()).SetMicrositeBuildBuilt(ctx, db.SetMicrositeBuildBuiltParams{
 		ID: pgID, OutputPath: outputPath,
 	})
 	if err != nil {
@@ -179,7 +203,7 @@ func (r *MicrositeBuildRepo) MarkFailed(
 	if perr != nil {
 		return entity.MicrositeBuild{}, fmt.Errorf("parse build id: %w", perr)
 	}
-	row, err := db.New(r.pool).SetMicrositeBuildFailed(ctx, db.SetMicrositeBuildFailedParams{
+	row, err := db.New(r.conn()).SetMicrositeBuildFailed(ctx, db.SetMicrositeBuildFailedParams{
 		ID: pgID, ErrorMessage: errMsg,
 	})
 	if err != nil {
@@ -190,6 +214,14 @@ func (r *MicrositeBuildRepo) MarkFailed(
 		return entity.MicrositeBuild{}, fmt.Errorf("mark failed: %w", err)
 	}
 	return toDomainBuild(&row)
+}
+
+//nolint:ireturn // DBTX is the port both a pool and a transaction satisfy
+func (r *MicrositeBuildRepo) conn() pgstore.DBTX {
+	if r.q != nil {
+		return r.q
+	}
+	return r.pool
 }
 
 func toDomainBuild(row *db.MicrositeBuild) (entity.MicrositeBuild, error) {

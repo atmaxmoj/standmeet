@@ -42,6 +42,7 @@ func (s SoleOwnerLookup) SoleOwnerID(ctx context.Context) (string, error) {
 func RecoveryDeps(d *deps.Runtime) owner.RecoveryDeps {
 	return owner.RecoveryDeps{
 		Owners: d.OwnerRepo, Sessions: d.SessionStore, Proxy: OutboundSender(d),
+		Events: d.Recorder(),
 	}
 }
 
@@ -50,7 +51,9 @@ func RecoveryDeps(d *deps.Runtime) owner.RecoveryDeps {
 // if a mail supplier exists, changes immediately otherwise), then uses it to send
 // the confirmation email to the **new** address.
 func EmailChangeDeps(d *deps.Runtime) owner.EmailChangeDeps {
-	return owner.EmailChangeDeps{Owners: d.OwnerRepo, Proxy: OutboundSender(d)}
+	return owner.EmailChangeDeps{
+		Owners: d.OwnerRepo, Proxy: OutboundSender(d), Jobs: d.Jobs, Events: d.Recorder(),
+	}
 }
 
 // PromptsByName — narrow port that looks up a prompt id by name. The job loop uses it

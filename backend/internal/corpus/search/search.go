@@ -51,7 +51,10 @@ func New(host, apiKey string) *Client {
 	if host == "" {
 		return nil
 	}
-	mgr := meilisearch.New(host, meilisearch.WithAPIKey(apiKey))
+	// No client-side retries: index writes run as jobs, and the job layer is their one retry
+	// owner; a search a visitor waits on is sent once (docs/design/event-bus-outbox-webhooks.md,
+	// *Retry*). The library's default retried 502/503/504 underneath both.
+	mgr := meilisearch.New(host, meilisearch.WithAPIKey(apiKey), meilisearch.DisableRetries())
 	return &Client{mgr: mgr, index: mgr.Index(corpusIndex)}
 }
 
@@ -83,7 +86,9 @@ func (c *Client) Index(ctx context.Context, docs []Doc) error {
 	}
 	pk := "id"
 	opts := &meilisearch.DocumentOptions{PrimaryKey: &pk}
-	task, err := c.index.AddDocumentsWithContext(ctx, docs, opts)
+	// A fresh index handle per call: the client stores the primary key option on the handle it
+	// is given, so the index workers sharing c.index raced on it.
+	task, err := c.mgr.Index(corpusIndex).AddDocumentsWithContext(ctx, docs, opts)
 	if err != nil {
 		return fmt.Errorf("meili add docs: %w", err)
 	}

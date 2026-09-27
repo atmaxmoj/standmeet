@@ -38,6 +38,8 @@
     "api-mcp": "api · mcp",
     "obsidian": "obsidian",
     "monitor": "流量",
+    "tasks": "后台任务",
+    "webhooks": "Webhook",
     "ip-bans": "IP 封禁",
     "account": "账户",
     "system": "系统"

@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"time"
 
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
@@ -153,9 +154,10 @@ func (h *SEOHandlers) getCorpusCards() http.HandlerFunc {
 }
 
 type corpusCardView struct {
-	Title   string `json:"title"`
-	Excerpt string `json:"excerpt"`
-	Path    string `json:"path"`
+	Title     string `json:"title"`
+	Excerpt   string `json:"excerpt"`
+	Path      string `json:"path"`
+	UpdatedAt string `json:"updated_at"` // RFC 3339
 }
 
 type corpusCardsResponse struct {
@@ -167,6 +169,7 @@ func toCorpusCardsResponse(cards []owner.CorpusCard) corpusCardsResponse {
 	for i := range cards {
 		views = append(views, corpusCardView{
 			Title: cards[i].Title, Excerpt: cards[i].Excerpt, Path: cards[i].Path,
+			UpdatedAt: cards[i].UpdatedAt.Format(time.RFC3339),
 		})
 	}
 	return corpusCardsResponse{Cards: views}

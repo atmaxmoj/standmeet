@@ -45,6 +45,8 @@ type sendArgs struct {
 	Subject string `json:"subject"`
 	Body    string `json:"body"`
 	HTML    string `json:"html,omitempty"`
+	// MessageID —— the Message-ID header; a retried send repeats it.
+	MessageID string `json:"message_id,omitempty"`
 }
 
 // sendReply — the block's `send` tool result shape: { id }.
@@ -71,11 +73,9 @@ func (p *blockMailProxy) Verify(ctx context.Context, ownerID string) error {
 // Send — call the block's `send` tool; map its { id } back to the receipt's ProviderID (empty is a
 // valid answer — SMTP has no promised id, [[empty-is-not-json-null]]).
 func (p *blockMailProxy) Send(
-	ctx context.Context, ownerID string, msg adapters.MailMessage,
+	ctx context.Context, ownerID string, msg *adapters.MailMessage,
 ) (adapters.MailReceipt, error) {
-	opArgs, merr := json.Marshal(sendArgs{
-		To: msg.To, Subject: msg.Subject, Body: msg.Body, HTML: msg.HTML,
-	})
+	opArgs, merr := json.Marshal(sendArgs(*msg))
 	if merr != nil {
 		return adapters.MailReceipt{}, merr
 	}

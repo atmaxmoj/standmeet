@@ -24,6 +24,10 @@ import (
 // Deps -- the dependency bundle each domain needs to declare its outward operations,
 // filled by the composition root.
 type Deps struct {
+	// Tasks —— the job runtime and the event bus (the Tasks panel).
+	Tasks stats.TasksDeps
+	// Webhooks —— the endpoint store, the bus and the job rows (webhooks.*).
+	Webhooks       owner.WebhooksDeps
 	AccessRequests owner.OpsAccessRequests
 	Codes          access.OpsCodes
 	Embeds         access.OpsEmbeds
@@ -45,7 +49,7 @@ type Deps struct {
 	MCPServers     marketplace.MCPServersDeps
 	OwnerCSS       owner.CSSStore
 	OwnerFavicon   owner.FaviconStore
-	BannedIPs      *security.BannedIPRepo
+	BannedIPs      security.IPBanDeps
 	Monitor        *monitor.Repo
 	AllowedDomains owner.AllowedDomainsDeps
 	APIKeys        access.OpsAPIKeys
@@ -68,12 +72,15 @@ func Collect(d *Deps) []Resource {
 		{Name: "assets", Ops: corpus.AssetOps(d.Corpus)},
 		{Name: "ip_bans", Ops: security.IPBanOps(d.BannedIPs)},
 		{Name: "monitor", Ops: MonitorOps(d.Monitor)},
+		{Name: "tasks", Ops: stats.TasksOps(d.Tasks)},
+		{Name: "events", Ops: stats.EventOps(d.Tasks)},
+		{Name: "webhooks", Ops: owner.WebhookOps(d.Webhooks)},
 		{Name: "domains", Ops: owner.DomainOps(d.AllowedDomains)},
 		{Name: "appearance", Ops: owner.AppearanceOps(d.OwnerCSS, d.OwnerFavicon)},
 		{Name: "prompts", Ops: owner.PromptOps(d.Prompts)},
 		{Name: "settings", Ops: owner.SettingsOps(d.Settings)},
 		{Name: "providers", Ops: owner.ProviderOps(d.Providers)},
-		{Name: "account", Ops: owner.AccountOps(d.Account)},
+		{Name: "account", Ops: owner.AccountOps(&d.Account)},
 		{Name: "microsites", Ops: owner.MicrositeOps(d.Microsites)},
 		{Name: "writings", Ops: corpus.WritingOps(d.Writings)},
 		{Name: "obsidian", Ops: corpus.ObsidianSyncOps(d.ObsidianIngest)},
@@ -85,7 +92,7 @@ func Collect(d *Deps) []Resource {
 		{Name: "mcp_servers", Ops: marketplace.MCPServerOps(d.MCPServers)},
 		{Name: "skills", Ops: marketplace.SkillOps(d.Skills)},
 		{Name: "marketplace", Ops: marketplace.MarketplaceOps(d.Marketplace)},
-		{Name: "codes", Ops: access.CodeOps(d.Codes)},
+		{Name: "codes", Ops: access.CodeOps(&d.Codes)},
 		{Name: "embeds", Ops: access.EmbedOps(d.Embeds)},
 		{Name: "access_requests", Ops: owner.AccessRequestOps(&d.AccessRequests)},
 		{Name: "seo", Ops: owner.SEOOps(&d.SEO)},

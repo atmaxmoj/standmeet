@@ -1,32 +1,25 @@
-// outbound_sender.go — behind the kernel-neutral `owner.OutboundSender` sits the
-// **registry's generic Invoke**.
+// outbound_sender.go — the composition root's two faces of the mail side-effect port
+// (internal/infra/sideeffect/mail): the port itself, for the subscribers that send mail as durable
+// jobs, and the kernel-neutral `owner.OutboundSender` over it.
 //
-// The kernel needs to send mail itself (OTP / recovery / booking confirmation), a
-// scenario §1.6 acknowledges. But how it sends must be **ask the registry by name for
-// a supplier, then `Invoke(op, argsJSON)` on it** — not hold a typed `contract.MailProxy`.
-// The difference isn't elegance:
-//
-//   - A typed proxy is **compile-time** coupling. As soon as the kernel can write
-//     `proxy.Send(...)`, it knows "sending mail" is a thing, and knows a message is
-//     made of To/Subject/Body/HTML. Delete the name and the shape is still there.
-//   - `Invoke("send", json)` is **run-time** access by string. All the kernel can write
-//     is one string and one opaque JSON blob; it doesn't know whether the other side is
-//     SMTP, some SaaS, or not even connected.
-//
-// The category name and verb name each appear exactly once here — this is the
-// **composition root**, and the composition root's job is to wire in the concrete
-// thing. They don't appear anywhere in `internal/`; that's the line to guard.
+// The kernel-neutral face exists for two things only:
+//   - Connected / ChannelName — "can a notice go out at all?", asked by approve, email change and
+//     the gate. A question, not a side effect.
+//   - Send — the recovery phrase, which stays synchronous by decision (#3): the owner waits on the
+//     login page and must learn on the spot whether the phrase went out, so it cannot be a job
+//     that finishes later. It is one attempt; a throttled or failed send is an error the owner
+//     sees.
 
 package port
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 
+	"github.com/atmaxmoj/standmeet/internal/infra/jobs"
 	"github.com/atmaxmoj/standmeet/internal/infra/mailthrottle"
+	"github.com/atmaxmoj/standmeet/internal/infra/sideeffect/mail"
 	"github.com/atmaxmoj/standmeet/internal/plugin/adapters"
 
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
@@ -34,96 +27,51 @@ import (
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
-// The composition root binds "kernel needs to send mail" to one verb of one category
-// here. The kernel side sees not a single string of it.
-const (
-	outboundCategory = "mail"
-	opSend           = "send"
-	opConnected      = "connected"
-)
+// errThrottled — the recipient's hourly cap is spent; the synchronous path cannot wait it out.
+var errThrottled = errors.New("too many messages to this address this hour — try again later")
 
-// categoryInvoker — the registry's port: runs once by category + verb, both sides
-// opaque JSON.
-type categoryInvoker interface {
-	Invoke(
-		ctx context.Context, ownerID, category, verb string, args json.RawMessage,
-	) (json.RawMessage, error)
+// MailSender — the mail side-effect port, over whichever supplier the registry resolves, with the
+// per-recipient cap (email-bomb defense in depth). Only subscribers and this root hold it.
+func MailSender(d *deps.Runtime) mail.Sender {
+	return mail.New(d.BlockDispatch, mailthrottle.New(mailthrottle.RedisCounter{RDB: d.RDB}))
 }
 
-// OutboundSenderAdapter — wraps the registry's generic Invoke into the kernel-neutral
-// OutboundSender. The throttle caps sends per recipient (email-bomb defense-in-depth, Q4).
+// OutboundSenderAdapter — the kernel-neutral owner.OutboundSender over the mail port.
 type OutboundSenderAdapter struct {
-	inv      categoryInvoker
-	throttle *mailthrottle.Throttle
-	log      *slog.Logger
+	mail mail.Sender
 }
 
-// ChannelName — which kind of supplier the owner should go connect when sending
-// fails. **Only this layer knows which category this instance bound outbound to**;
-// the kernel relays this name rather than inventing its own (the phrase "outbound
-// channel" doesn't exist in the UI — the owner couldn't find anything with it).
-func (OutboundSenderAdapter) ChannelName() string { return outboundCategory }
+// ChannelName — which kind of supplier the owner should go connect when sending fails. Only this
+// layer knows which category outbound is bound to; the kernel relays the name.
+func (a OutboundSenderAdapter) ChannelName() string { return a.mail.Channel() }
 
 // Connected — whether the owner has a usable outbound channel configured.
 func (a OutboundSenderAdapter) Connected(ctx context.Context, ownerID string) (bool, error) {
-	raw, err := a.inv.Invoke(ctx, ownerID, outboundCategory, opConnected, json.RawMessage(`{}`))
+	ok, err := a.mail.Connected(ctx, ownerID)
 	if err != nil {
 		return false, outboundErr("connected", err)
 	}
-	// The reply shape is defined by **this side's verb** (`{"connected":bool}`); the
-	// composition root decodes it accordingly.
-	var out struct {
-		Connected bool `json:"connected"`
-	}
-	if uerr := json.Unmarshal(raw, &out); uerr != nil {
-		return false, fmt.Errorf("outbound connected: decode: %w", uerr)
-	}
-	return out.Connected, nil
+	return ok, nil
 }
 
-// Send — sends one message. The kernel doesn't know whether the other side is SMTP
-// or some SaaS, and doesn't know it's called mail.
+// Send — one synchronous attempt (recovery only). "Title" is a notice concept; the port calls it
+// the subject — the translation happens here, where both vocabularies are known.
 func (a OutboundSenderAdapter) Send(
 	ctx context.Context, ownerID string, n owner.OutboundNotice,
 ) error {
-	// The on-the-wire field names are fixed here. The kernel's OutboundMessage is the
-	// **kernel's own** vocabulary, with no json tag; the composition root is responsible
-	// for translating it into the shape the other side understands — that's exactly
-	// what "translation belongs to the composition root" means.
-	// Per-recipient email-bomb cap: over budget → skip the send + log, but DON'T error the caller's
-	// flow (a booking still succeeds; only the email is rate-limited). Fail-open lives in Allow.
-	if !a.throttle.Allow(ctx, n.To) {
-		a.log.Warn("outbound mail throttled (per-recipient cap)", "owner_id", ownerID)
-		return nil
+	err := a.mail.Send(ctx, ownerID, mail.Message{To: n.To, Subject: n.Title, Body: n.Body})
+	if _, snoozed := jobs.SnoozeOf(err); snoozed {
+		return fmt.Errorf("outbound send: %w", errThrottled)
 	}
-	args, merr := json.Marshal(outboundWire{To: n.To, Subject: n.Title, Body: n.Body})
-	if merr != nil {
-		return fmt.Errorf("outbound send: encode: %w", merr)
-	}
-	if _, err := a.inv.Invoke(ctx, ownerID, outboundCategory, opSend, args); err != nil {
+	if err != nil {
 		return outboundErr("send", err)
 	}
 	return nil
 }
 
-// outboundWire — what one notice looks like **on the wire**. It's a contract between
-// the composition root and the channel, not the kernel's type: the kernel only has
-// `owner.OutboundNotice{To,Title,Body}`, that's its own vocabulary. **The Title →
-// subject translation happens right here** — "title" is a notice concept, "subject
-// line" is an email concept, and the kernel can only say the former.
-type outboundWire struct {
-	To      string `json:"to"`
-	Subject string `json:"subject"`
-	Body    string `json:"body"`
-}
-
-// outboundErr — translates the channel side's "not configured" into the **kernel's
-// own** sentinel.
-//
-// What the kernel does errors.Is against must be its own error: borrowing a sentinel
-// with "mail" in the name would be admitting it knows the other side is email. The
-// translation happens here because this is the composition root — it's supposed to
-// know both sides at once.
+// outboundErr — translates the channel side's "not configured" into the **kernel's own**
+// sentinel. What the kernel does errors.Is against must be its own error: borrowing a sentinel
+// with "mail" in the name would be admitting it knows the other side is email.
 func outboundErr(what string, err error) error {
 	if errors.Is(err, adapters.ErrMailNotConfigured) {
 		return fmt.Errorf("outbound %s: %w", what, owner.ErrOutboundNotConfigured)
@@ -131,12 +79,7 @@ func outboundErr(what string, err error) error {
 	return fmt.Errorf("outbound %s: %w", what, err)
 }
 
-// OutboundSender — the kernel-neutral send port, backed by whichever supplier the
-// registry resolves by name.
+// OutboundSender — the kernel-neutral port, backed by the mail side-effect port.
 func OutboundSender(d *deps.Runtime) OutboundSenderAdapter {
-	return OutboundSenderAdapter{
-		inv:      d.BlockDispatch,
-		throttle: mailthrottle.New(mailthrottle.RedisCounter{RDB: d.RDB}),
-		log:      d.Log,
-	}
+	return OutboundSenderAdapter{mail: MailSender(d)}
 }

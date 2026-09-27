@@ -15,6 +15,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/corpus/repo"
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
+	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -32,20 +33,10 @@ func DeleteWritingWithAssets(
 func deleteWritingInTx(
 	ctx context.Context, deps WritingsTxDeps, ownerID, writingID string,
 ) error {
-	tx, err := deps.Writings.Pool().Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("begin tx: %w", err)
-	}
-	if derr := runDeleteRows(ctx, deps, tx, ownerID, writingID); derr != nil {
-		if rerr := tx.Rollback(ctx); rerr != nil {
-			_ = rerr
-		}
-		return derr
-	}
-	if cerr := tx.Commit(ctx); cerr != nil {
-		return fmt.Errorf("commit delete writing: %w", cerr)
-	}
-	return nil
+	//nolint:wrapcheck // InTx names begin/commit; runDeleteRows names its steps
+	return pgstore.InTx(ctx, deps.Writings.Pool(), func(tx pgstore.Tx) error {
+		return runDeleteRows(ctx, deps, tx, ownerID, writingID)
+	})
 }
 
 func runDeleteRows(

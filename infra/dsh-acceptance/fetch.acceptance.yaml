@@ -1,0 +1,11 @@
+subject:
+  source: ../plugins/fetch
+expect:
+  rows:
+    - fetch
+  services: []
+  tools:
+    - mcp__fetch__fetch
+# No exercise: the fetch tool makes a live outbound HTTP request. Registering the tool on real dsh is
+# what this gate proves; fetching a URL needs network egress (a separate integration), so we do NOT do
+# it here. Now JS (no Linux-musl wheels), so this runs on the local runner like every other block.

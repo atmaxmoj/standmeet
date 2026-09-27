@@ -117,10 +117,13 @@ func StartBlockSocket(
 // Corpus is left empty: retrieval goes through its own socket
 // (StartRetrievalSocket), not dispatched from here.
 func (h *BlockHost) deps() *hostdesk.Deps {
+	sup := supplierBridge{call: h.Supplier}
 	return &hostdesk.Deps{
-		Corpus:    &corpus.IndexDeps{},
-		Owners:    ownerMetaBridge{tz: h.Timezone},
-		Suppliers: supplierBridge{call: h.Supplier},
+		Corpus:       &corpus.IndexDeps{},
+		Owners:       ownerMetaBridge{tz: h.Timezone},
+		Bookings:     bookingBridge{},
+		Suppliers:    sup,
+		SupplierJobs: sup.background,
 		Conversation: conversation.OpsHost{
 			Chats:    transcriptBridge{src: h.Transcript},
 			Resolver: credBridge{cred: h.Cred},

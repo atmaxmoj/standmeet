@@ -16,7 +16,12 @@ type (
 	OpsAPIKeys = ops.APIKeysDeps
 	OpsCodes   = ops.CodesDeps
 	OpsEmbeds  = ops.EmbedsDeps
-	OpsRoles   = ops.RolesDeps
+	// EmbedHook / EmbedHookSet / EmbedHooks —— an embed's update hook, stored by the owner
+	// domain; the composition root implements the port.
+	EmbedHook    = ops.EmbedHook
+	EmbedHookSet = ops.EmbedHookSet
+	EmbedHooks   = ops.EmbedHooks
+	OpsRoles     = ops.RolesDeps
 )
 
 // Operation groups (impl: ops).

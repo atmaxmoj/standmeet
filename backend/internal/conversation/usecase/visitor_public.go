@@ -72,7 +72,7 @@ func finalizePublicSession(
 	// provider is a visitor/session-level property (frontend session-store +
 	// per-request cred), not persisted on the conv row.
 	mode := publicModeForBYOAI(in.BYOAIProvider)
-	chat, err := deps.Chats.CreateChat(ctx, &repo.CreateChatInput{
+	chat, err := createChatTx(ctx, deps, &repo.CreateChatInput{
 		OwnerID:     o.ID,
 		Mode:        mode,
 		VisitorName: in.VisitorName,

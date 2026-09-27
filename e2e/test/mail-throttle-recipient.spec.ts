@@ -17,9 +17,12 @@
 // fixed sensible default). So the flow must genuinely cross 30 to be exercised.
 //
 // Assertions (falsifiable): the victim's inbox holds EXACTLY the budget (30), not the 31 that were
-// attempted — the 31st send was dropped. AND every approve still returned success: the throttle
-// skips the mail, it never fails the owner's action (a code is still issued; only the email is
-// rate-limited). A broken/unwired throttle delivers all 31 → the count assertion goes red.
+// attempted — the 31st mail waits for the next window. AND every approve still returned success:
+// the throttle holds the mail back, it never fails the owner's action (a code is still issued;
+// only the email is rate-limited). A broken/unwired throttle delivers all 31 → the count assertion
+// goes red.
+
+import type { APIRequestContext } from '@playwright/test';
 
 import { test, expect } from '@/fixtures/test';
 
@@ -55,8 +58,8 @@ test.describe('the per-recipient mail cap holds against a multi-IP bomb of one v
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
       await configureMailSupplier(request, OWNER.email, OWNER.password);
-      await clearMailpit(request);
       const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+      const notifyAnchor = await lastJob(request, 'owner.notify');
 
       // OVER_BUDGET access-requests for the SAME victim, each from a different source IP so the
       // per-IP public rate limit (30/window) never fires — only the per-recipient cap can bound this.
@@ -69,11 +72,17 @@ test.describe('the per-recipient mail cap holds against a multi-IP bomb of one v
         expect(res.status(), `submit ${i} (distinct IP → not rate-limited)`).toBe(201);
         ids.push(((await res.json()) as { id: string }).id);
       }
+      // The owner's own notifications for these submissions are durable jobs that run after 201:
+      // clear the inbox once they have all run, so only the victim's mail is counted below.
+      await waitForJobs(request, 'owner.notify', notifyAnchor, (jobs) =>
+        jobs.length === OVER_BUDGET && jobs.every((j) => j.state === 'completed'));
+      await clearMailpit(request);
+      const approvalAnchor = await lastJob(request, 'access_request.approval_mail');
 
       // The owner approves every one — each approve issues a code and mails the victim. Even the one
-      // past the cap must return success: the throttle drops the mail, it does not fail the action.
+      // past the cap must return success: the throttle holds the mail back, it does not fail the action.
       for (let i = 0; i < ids.length; i++) {
-        // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: approve must return 200 even when its mail is throttle-dropped
+        // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: approve must return 200 even when its mail is throttled
         const res = await request.post(
           `${BACKEND}/api/admin/access-requests/${ids[i]}/approve`,
           { headers: { 'X-Csrftoken': csrf } },
@@ -81,14 +90,16 @@ test.describe('the per-recipient mail cap holds against a multi-IP bomb of one v
         expect(res.status(), `approve ${i} succeeds even when its mail is throttled`).toBe(200);
       }
 
-      // The victim's inbox: exactly the budget landed, the over-budget one was dropped. Only the
+      // The victim's inbox: exactly the budget landed, the over-budget one did not. Only the
       // victim receives mail here (clearMailpit above), so the total IS the count to the victim.
       //
-      // Every approve was awaited above and the throttle decision is made synchronously inside each
-      // approve (drop before returning 200), so no further send will ever be dispatched — the inbox
-      // is already at its final value; poll only lets mailpit's own store settle. A broken throttle
-      // dispatched all 31 (also before their approves returned), so it would settle at 31 and this
-      // times out red — there is no timing window that flips the result either way.
+      // Each approval mail is a durable job; the throttle sits in front of the send and a job over
+      // the cap snoozes until the window ends (an hour) instead of sending. So the count is read
+      // once every approval job has either completed or been snoozed past the next minute: no
+      // further send will happen within the test. A broken throttle completed all 31 by then, so
+      // this settles at 31 and times out red — there is no timing window that flips the result.
+      await waitForJobs(request, 'access_request.approval_mail', approvalAnchor, (jobs) =>
+        jobs.length === OVER_BUDGET && jobs.every(doneOrSnoozed));
       await expect
         .poll(() => countMailpitMessages(request), {
           message: 'the victim inbox settles at exactly the per-recipient budget, not the 31 attempted',
@@ -99,3 +110,34 @@ test.describe('the per-recipient mail cap holds against a multi-IP bomb of one v
       await request.dispose();
     });
 });
+
+interface Job { id: number; state: string; scheduled_at: string }
+
+// jobsOf —— the jobs of one kind, newest first (the admin Tasks list).
+async function jobsOf(request: APIRequestContext, kind: string): Promise<Job[]> {
+  const res = await request.get(`${BACKEND}/api/admin/tasks?kind=${kind}&limit=100`);
+  expect(res.status(), `tasks list for ${kind}`).toBe(200);
+  return ((await res.json()) as { jobs: Job[] }).jobs;
+}
+
+// lastJob —— the newest job id of a kind before the test acts (0 = none).
+async function lastJob(request: APIRequestContext, kind: string): Promise<number> {
+  return (await jobsOf(request, kind))[0]?.id ?? 0;
+}
+
+// waitForJobs —— waits until the jobs of `kind` after `anchor` satisfy `done`.
+async function waitForJobs(
+  request: APIRequestContext, kind: string, anchor: number, done: (jobs: Job[]) => boolean,
+): Promise<void> {
+  await expect
+    .poll(async () => done((await jobsOf(request, kind)).filter((j) => j.id > anchor)), {
+      message: `${kind} jobs after ${anchor} finish`, timeout: 90_000,
+    })
+    .toBe(true);
+}
+
+// doneOrSnoozed —— completed, or waiting to run more than a minute from now (a throttle snooze).
+function doneOrSnoozed(j: Job): boolean {
+  return j.state === 'completed'
+    || (j.state === 'pending' && Date.parse(j.scheduled_at) > Date.now() + 60_000);
+}

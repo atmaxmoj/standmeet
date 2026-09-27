@@ -12,6 +12,7 @@ type (
 	OpsAccountDeps    = ops.AccountDeps
 	OpsAccessRequests = ops.AccessRequestsDeps
 	OpsHostLookup     = ops.MetaLookup
+	OpsBookings       = ops.BookingRecorder
 	OpsPage           = ops.PageOpsDeps
 	OpsSEO            = ops.SEODeps
 	SettingsDeps      = ops.SettingsDeps
@@ -23,6 +24,8 @@ var (
 	AccessRequestOps = ops.AccessRequests
 	// HostOps —— exposed to sandboxed blocks: reads owner's whitelisted fields.
 	HostOps = ops.HostOps
+	// BookingHostOps —— exposed to sandboxed blocks: booking.record (an outbox event).
+	BookingHostOps = ops.BookingHostOps
 	// FullNameOf —— the name persona's opening "who are you" line needs (UX-66).
 	FullNameOf    = ops.FullNameOf
 	AccountOps    = ops.Account

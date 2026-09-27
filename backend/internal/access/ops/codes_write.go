@@ -163,7 +163,7 @@ func revokeCode(deps usecase.CodesDeps) fp.Invoke {
 }
 
 // rotateOp — codes.rotate. Lives here (not codeCoreOps) to keep codes.go under its line budget.
-func rotateOp(d CodesDeps) fp.Op {
+func rotateOp(d *CodesDeps) fp.Op {
 	return fp.Op{
 		ID: "codes.rotate",
 		Description: "Rotate a code's STRING (leak recovery). The new string replaces the old; " +

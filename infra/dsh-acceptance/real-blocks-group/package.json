@@ -1,0 +1,26 @@
+{
+  "name": "standmeet-real-blocks-group",
+  "version": "1.0.0",
+  "private": true,
+  "description": "The real-block group acceptance test: two SHIPPED blocks (caldav, a cordis plugin; smtp, a dsh-mcp-client row) composed into one cordis:group. The member packages are peers the profile provides, so the group names them by package and never copies their code.",
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "cordis.patch.yml"
+  ],
+  "peerDependencies": {
+    "@deepseek-ai/dsh": ">=0.1.7-rc.2 <0.2.0-0",
+    "standmeet-caldav-mcp": "^1.0.0",
+    "standmeet-smtp-mcp": "^1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/dsh": {
+      "optional": true
+    }
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

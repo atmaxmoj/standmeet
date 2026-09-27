@@ -60,7 +60,6 @@ func DeleteRaw(ctx context.Context, deps Deps, ownerID, rawID string) error {
 	if err := deps.Raw.Delete(ctx, ownerID, rawID); err != nil {
 		return fmt.Errorf("delete raw: %w", err)
 	}
-	deleteNoteHook(ctx, deps, rawID)
 	return nil
 }
 
@@ -141,7 +140,6 @@ func UpdateWiki(
 	if rerr := RebuildNoteRefs(ctx, deps, in.OwnerID, wiki.ID(), in.Body); rerr != nil {
 		return entity.Wiki{}, rerr
 	}
-	indexNoteHook(ctx, deps, in.OwnerID, wiki.ID())
 	return wiki, nil
 }
 
@@ -175,7 +173,6 @@ func DeleteWiki(ctx context.Context, deps Deps, ownerID, wikiID string) error {
 	if err := deps.Wiki.Delete(ctx, ownerID, wikiID); err != nil {
 		return fmt.Errorf("delete wiki: %w", err)
 	}
-	deleteNoteHook(ctx, deps, wikiID)
 	return nil
 }
 
@@ -244,7 +241,6 @@ func UpdateOutput(
 	if rerr := RebuildNoteRefs(ctx, deps, in.OwnerID, out.ID(), in.Body); rerr != nil {
 		return entity.Output{}, fmt.Errorf("rebuild output refs: %w", rerr)
 	}
-	indexNoteHook(ctx, deps, in.OwnerID, out.ID())
 	return out, nil
 }
 
@@ -256,6 +252,5 @@ func DeleteOutput(ctx context.Context, deps Deps, ownerID, outputID string) erro
 	if err := deps.Output.Delete(ctx, ownerID, outputID); err != nil {
 		return fmt.Errorf("delete output: %w", err)
 	}
-	deleteNoteHook(ctx, deps, outputID)
 	return nil
 }

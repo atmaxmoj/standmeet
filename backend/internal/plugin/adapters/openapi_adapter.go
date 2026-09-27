@@ -21,7 +21,6 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/infra/egress"
 	"github.com/atmaxmoj/standmeet/internal/infra/openapi"
-	"github.com/atmaxmoj/standmeet/internal/infra/retry"
 )
 
 // openapiCore — shared pieces of an assembled supplier: id, runtime, connection-state source,
@@ -186,9 +185,7 @@ func (a calendarAdapter) FreeBusy(
 	// same fields by design, so a conversion keeps them that way — adding a field to one and
 	// forgetting the other stops compiling instead of silently dropping it.
 	in := listBusyInput(req)
-	if cerr := retry.Do(ctx, calendarReadPolicy(), func() error {
-		return a.runtime.Call(ctx, "list_busy", in, &out, inj)
-	}); cerr != nil {
+	if cerr := a.runtime.Call(ctx, "list_busy", in, &out, inj); cerr != nil {
 		return nil, mapCalendarErr(cerr)
 	}
 	intervals := make([]BusyInterval, 0, len(out.Busy))
@@ -206,7 +203,7 @@ func (a calendarAdapter) InsertEvent(
 	if err != nil {
 		return InsertedEvent{}, mapCalendarErr(err)
 	}
-	key, kerr := newIdempotencyKey() // one per call, reused on retries, no dup create (D-7)
+	key, kerr := newIdempotencyKey() // one per call: the far side dedupes a resent create (D-7)
 	if kerr != nil {
 		return InsertedEvent{}, kerr
 	}
@@ -218,9 +215,7 @@ func (a calendarAdapter) InsertEvent(
 		IdempotencyKey: key,
 	}
 	var out insertedResult
-	if cerr := retry.Do(ctx, calendarWritePolicy(), func() error {
-		return a.runtime.Call(ctx, "create_event", in, &out, inj)
-	}); cerr != nil {
+	if cerr := a.runtime.Call(ctx, "create_event", in, &out, inj); cerr != nil {
 		return InsertedEvent{}, mapCalendarErr(cerr)
 	}
 	return InsertedEvent(out), nil
@@ -235,9 +230,7 @@ func (a calendarAdapter) DeleteEvent(
 		return mapCalendarErr(err)
 	}
 	in := cancelInput{EventID: eventID, AttendeeEmail: attendeeEmail}
-	if cerr := retry.Do(ctx, calendarWritePolicy(), func() error {
-		return a.runtime.Call(ctx, "cancel_event", in, nil, inj)
-	}); cerr != nil {
+	if cerr := a.runtime.Call(ctx, "cancel_event", in, nil, inj); cerr != nil {
 		return mapCalendarErr(cerr)
 	}
 	return nil
@@ -307,7 +300,7 @@ type sendInput struct {
 // Send — the send contract method. Deliberately asymmetric with calendarAdapter: no retry,
 // because sending isn't idempotent (no idempotency key, providers generally don't dedupe) —
 // retrying a transient error risks duplicates, so failing beats resending (scenarios that do
-// need a retry, e.g. owner notifications, wrap with notifyPolicy at the usecase layer instead);
+// need a retry, e.g. owner notifications, run as durable jobs whose job layer retries);
 // and no mapping into a domain error, since mail consumers (booking_confirmation / owner_notify
 // / otp) only care whether it sent, unlike booker gating on revoked/unavailable — calendar's
 // error vocabulary isn't needed here (ISP: don't build an interface nobody uses).
@@ -315,13 +308,14 @@ type sendInput struct {
 // previously evaluated then discarded — the only post-send handle (log lookup, bounce match,
 // telling the owner what sent). Unreadable → empty ("provider didn't give one"), not failure.
 func (a mailAdapter) Send(
-	ctx context.Context, ownerID string, msg MailMessage,
+	ctx context.Context, ownerID string, msg *MailMessage,
 ) (MailReceipt, error) {
 	inj, err := a.injector(ctx, ownerID)
 	if err != nil {
 		return MailReceipt{}, err
 	}
-	in := sendInput(msg)
+	// An HTTP mail API has no Message-ID header to set; the provider picks the id.
+	in := sendInput{To: msg.To, Subject: msg.Subject, Body: msg.Body, HTML: msg.HTML}
 	var out sendOutput
 	if cerr := a.runtime.Call(ctx, "send", in, &out, inj); cerr != nil {
 		return MailReceipt{}, classifyMailSendErr(cerr)

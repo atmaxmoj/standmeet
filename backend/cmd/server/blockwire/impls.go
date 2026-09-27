@@ -276,7 +276,7 @@ func runMailTestSend(
 		}
 	}
 	rcpt, serr := mailer.Send(ctx, ownerID,
-		adapters.MailMessage{To: in.To, Subject: in.Subject, Body: in.Text})
+		&adapters.MailMessage{To: in.To, Subject: in.Subject, Body: in.Text})
 	if serr != nil {
 		// the raw error goes to the log (not what the owner needs, but what
 		// whoever debugs it needs); the surface gets the classified sentence.

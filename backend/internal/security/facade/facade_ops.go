@@ -6,7 +6,11 @@ package security
 
 import "github.com/atmaxmoj/standmeet/internal/security/ops"
 
+// IPBanDeps —— what the ip_bans group needs (impl: ops).
+type IPBanDeps = ops.IPBanDeps
+
 // Operation groups (impl: ops).
 var (
-	IPBanOps = ops.IPBans
+	IPBanOps   = ops.IPBans
+	EventTypes = ops.EventTypes
 )

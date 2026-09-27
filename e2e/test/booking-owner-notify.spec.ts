@@ -18,7 +18,9 @@ import {
   seedCodeVisitorOnConnectedOwner, teardownSeed, OWNER, type CodedSeed,
 } from '@/fixtures/gcal-setup';
 import { issueCodeWithSkills } from '@/fixtures/agent-skills-grant';
-import { login } from '@/fixtures/admin';
+import { createAPIToken, login } from '@/fixtures/admin';
+import { initMCP } from '@/fixtures/mcp';
+import { lastNotifyJob, waitForNotifyJobs } from '@/fixtures/owner-notify-jobs';
 import { scriptMockToolCall } from '@/fixtures/mock-llm-script';
 import { openReader } from '@/fixtures/navigate';
 
@@ -32,6 +34,7 @@ function bookedFrame(page: Page): FrameLocator {
 
 test.describe('booking · per-role owner notification (#130)', () => {
   let seed: CodedSeed;
+  let mcp: OwnerMCP;
   test.beforeAll(async ({ playwright }) => {
     seed = await seedCodeVisitorOnConnectedOwner(playwright, {
       granted_skills: ['calendar.book'],
@@ -40,6 +43,7 @@ test.describe('booking · per-role owner notification (#130)', () => {
     // configureMailSupplier logs in again internally, which rotates the CSRF token --
     // refresh seed.csrf, otherwise issueCodeWithSkills below would 403 on the stale token.
     seed.csrf = (await login(seed.request, OWNER.email, OWNER.password)).csrf;
+    mcp = await ownerMCP(seed);
   });
   test.afterAll(async () => { await teardownSeed(seed); });
 
@@ -64,15 +68,15 @@ test.describe('booking · per-role owner notification (#130)', () => {
       const code = await issueCodeWithSkills(seed.request, seed.csrf, {
         granted_skills: ['calendar.book'], // notify_owner defaults to false
       });
+      const anchor = await lastNotifyJob(seed.request, mcp.token, mcp.sid);
       const page = await enterAndBook(browser, code.code, 'Eli', 15);
 
       // The booked card still appears as usual (the booking succeeded), but the owner
       // should not receive a notification.
-      // The book-card appearing means the booker tool already returned. owner-notify now
-      // runs async in the background, but with OFF/no supplier it **sends no mail at
-      // all** (there's nothing to send), so the count is always 0 and there's no need to
-      // wait for the background job.
+      // The book-card appearing means the booker tool already returned. owner-notify runs
+      // afterwards as a durable job, so count only once that job has ended.
       await expect(bookedFrame(page).getByTestId('book-card-time')).toBeVisible();
+      await waitForNotifyJobs(seed.request, mcp.token, mcp.sid, anchor, ['completed']);
       expect(await countMailpitMessages(seed.request)).toBe(0);
       await page.context().close();
     });
@@ -83,12 +87,14 @@ test.describe('booking · per-role owner notification (#130)', () => {
 // This is #130's guarantee that "a notification failure never affects the booking".
 test.describe('booking · owner notify on but no mail supplier (#130 best-effort)', () => {
   let seed: CodedSeed;
+  let mcp: OwnerMCP;
   test.beforeAll(async ({ playwright }) => {
     // Note: this deliberately **does not** call configureMailSupplier -- the owner has
     // no ability to send mail.
     seed = await seedCodeVisitorOnConnectedOwner(playwright, {
       granted_skills: ['calendar.book'],
     });
+    mcp = await ownerMCP(seed);
   });
   test.afterAll(async () => { await teardownSeed(seed); });
 
@@ -98,17 +104,25 @@ test.describe('booking · owner notify on but no mail supplier (#130 best-effort
       const code = await issueCodeWithSkills(seed.request, seed.csrf, {
         granted_skills: ['calendar.book'], notify_owner: true,
       });
+      const anchor = await lastNotifyJob(seed.request, mcp.token, mcp.sid);
       const page = await enterAndBook(browser, code.code, 'Dana', 14);
 
-      // The book-card appearing means the booker tool already returned. owner-notify now
-      // runs async in the background, but with OFF/no supplier it **sends no mail at
-      // all** (there's nothing to send), so the count is always 0 and there's no need to
-      // wait for the background job.
+      // The book-card appearing means the booker tool already returned. owner-notify runs
+      // afterwards as a durable job, so count only once that job has ended.
       await expect(bookedFrame(page).getByTestId('book-card-time')).toBeVisible();
+      await waitForNotifyJobs(seed.request, mcp.token, mcp.sid, anchor, ['completed']);
       expect(await countMailpitMessages(seed.request)).toBe(0);
       await page.context().close();
     });
 });
+
+interface OwnerMCP { token: string; sid: string }
+
+// ownerMCP —— an owner-MCP session, to read the owner.notify jobs (tasks.list).
+async function ownerMCP(seed: CodedSeed): Promise<OwnerMCP> {
+  const token = await createAPIToken(seed.request, seed.csrf, 'booking-notify');
+  return { token, sid: await initMCP(seed.request, token) };
+}
 
 // enterAndBook -- ?code entry -> fills in a name -> scripts calendar_book -> triggers it
 // -> waits for BookCard.

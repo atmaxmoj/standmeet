@@ -24,6 +24,7 @@ const errParseCodeIDPrefix = "parse code id: %w"
 // CodeRepo —— access_codes CRUD.
 type CodeRepo struct {
 	pool *pgstore.Pool
+	q    pgstore.DBTX // nil → the pool; set by With
 }
 
 // NewCodeRepo constructs a CodeRepo.
@@ -62,7 +63,7 @@ func optStr(s string) *string {
 func (r *CodeRepo) Create(
 	ctx context.Context, in *CreateCodeInput) (entity.Code, error,
 ) {
-	return createCodeOn(ctx, db.New(r.pool), in)
+	return createCodeOn(ctx, db.New(r.conn()), in)
 }
 
 // CreateAccessCodeTx —— issues a code **inside the caller's transaction**, for
@@ -254,7 +255,7 @@ func (r *CodeRepo) Revoke(ctx context.Context, ownerID, codeID string) error {
 	if err != nil {
 		return fmt.Errorf(errParseCodeIDPrefix, err)
 	}
-	tag, rerr := r.pool.Exec(
+	tag, rerr := r.conn().Exec(
 		ctx,
 		`UPDATE access_codes SET status='revoked' WHERE id=$1 AND owner_id=$2`,
 		codeUUID, ownerUUID,

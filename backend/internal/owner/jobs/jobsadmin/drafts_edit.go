@@ -1,11 +1,13 @@
 // drafts_edit.go — the composer's write + preview surface (split from drafts.go for the 350-line
 // cap):
-//   - PATCH /drafts/{id}         — persist edited resume_content + the chosen Typst template, so
-//     the composer stops discarding what the owner types (before this only create + commit existed,
+//   - PATCH /drafts/{id}         — persist edited resume_content + the Puck layout data, so the
+//     composer stops discarding what the owner types (before this only create + commit existed,
 //     and everything typed in the composer was thrown away at send).
-//   - GET   /drafts/templates    — the Typst layouts the owner may pick (classic / compact / …).
-//   - GET   /drafts/{id}/preview.pdf — the REAL Typst render (placeholder QR) the preview shows,
-//     so what the owner sees is what commit will send.
+//   - GET   /drafts/templates    — the named layouts, if any are configured (none today: the one
+//     Puck config is the layout; see cmd/server/boot_pdf.go).
+//   - GET   /drafts/{id}/preview.pdf — the REAL render the preview shows: gotenberg prints the same
+//     Puck print route commit uses (the picked code's QR, or a placeholder), so what the owner sees
+//     is what commit will send. There is no Typst renderer any more.
 
 package jobsadmin
 

@@ -13,11 +13,15 @@ package jobsadmin
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
+	"github.com/atmaxmoj/standmeet/internal/infra/jobs"
 	authmw "github.com/atmaxmoj/standmeet/internal/infra/middleware"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmodel"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc"
@@ -122,7 +126,9 @@ func unregisterSource(deps Deps) http.HandlerFunc {
 // same FetchNewJobs the MCP fetch_new tool runs, sourceID=nil = all), then hands back
 // the current pool window — so the listings panel can auto-fetch on open and render the
 // result without a second round trip. A per-source failure does not fail the call
-// (FetchNewJobs records it on the source row and fetches the rest).
+// (each source's job records it on the source row; the others fetch on). Sources still
+// fetching after the wait → 202 with the receipt {job_ids, pending}; the panel then polls
+// GET /listings/fetch-result.
 func fetchNow(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if deps.Jobs == nil {
@@ -130,14 +136,69 @@ func fetchNow(deps Deps) http.HandlerFunc {
 			return
 		}
 		ownerID := authmw.OwnerIDFrom(r.Context())
-		res, err := jobsuc.FetchNewJobs(r.Context(), *deps.Jobs, ownerID, nil, 0)
-		if err != nil {
-			deps.Log.Error("fetch new jobs", logErrKey, err)
-			writeServerErr(deps.Log, w)
+		out, err := jobsuc.FetchNewJobs(r.Context(), *deps.Jobs, ownerID, nil, 0)
+		writeFetchAnswer(deps, w, &out, err)
+	}
+}
+
+// fetchResult — GET /listings/fetch-result?job_ids=1,2,3: the receipt's fetch, answered like
+// fetchNow — the pool window once every source job is done, the receipt again while any runs.
+func fetchResult(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ids, ok := parseJobIDs(r.URL.Query().Get("job_ids"))
+		if deps.Jobs == nil || !ok {
+			writeBadRequest(deps, w, "job_ids must list the fetch's job ids")
 			return
 		}
-		writeListingsList(deps.Log, w, res.Jobs)
+		ownerID := authmw.OwnerIDFrom(r.Context())
+		out, err := jobsuc.FetchResultOf(r.Context(), *deps.Jobs, ownerID, ids, 0)
+		writeFetchAnswer(deps, w, &out, err)
 	}
+}
+
+// writeFetchAnswer — 202 + the receipt while the fetch runs; the pool window once it is done.
+func writeFetchAnswer(deps Deps, w http.ResponseWriter, out *jobsuc.FetchOutcome, err error) {
+	switch {
+	case err != nil:
+		writeFetchErr(deps, w, err)
+	case out.Receipt != nil:
+		w.Header().Set(ctHeader, ctJSON)
+		w.WriteHeader(http.StatusAccepted)
+		if eerr := json.NewEncoder(w).Encode(out.Receipt); eerr != nil {
+			deps.Log.Error("encode fetch receipt", logErrKey, eerr)
+		}
+	default:
+		writeListingsList(deps.Log, w, out.Result.Jobs)
+	}
+}
+
+func writeFetchErr(deps Deps, w http.ResponseWriter, err error) {
+	if errors.Is(err, jobsuc.ErrFetchNotFound) {
+		writeBadRequest(deps, w, "no such fetch")
+		return
+	}
+	deps.Log.Error("fetch new jobs", logErrKey, err)
+	writeServerErr(deps.Log, w)
+}
+
+// Job ids travel as decimal int64s.
+const (
+	jobIDBase = 10
+	jobIDBits = 64
+)
+
+// parseJobIDs — "1,2,3" → ids; false on an empty list or a non-number.
+func parseJobIDs(s string) ([]jobs.JobID, bool) {
+	parts := strings.Split(s, ",")
+	ids := make([]jobs.JobID, 0, len(parts))
+	for _, p := range parts {
+		n, err := strconv.ParseInt(strings.TrimSpace(p), jobIDBase, jobIDBits)
+		if err != nil {
+			return []jobs.JobID{}, false
+		}
+		ids = append(ids, jobs.JobID(n))
+	}
+	return ids, true
 }
 
 func writeBadRequest(deps Deps, w http.ResponseWriter, msg string) {

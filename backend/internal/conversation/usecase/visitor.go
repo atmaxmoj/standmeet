@@ -121,11 +121,17 @@ func issueCodeSessionArtifacts(
 	ctx context.Context, deps *VisitorSessionDeps,
 	in *IssueCodeSessionInput, code *access.Code,
 ) (codeSessionArtifacts, error) {
-	member, qerr := resolveMemberWithQuota(ctx, deps, code, in)
-	if qerr != nil {
-		return codeSessionArtifacts{}, qerr
-	}
-	conv, err := createCodeConversation(ctx, deps, code, &member, in)
+	// The member, its code.redeemed, the conversation and its conversation.started: one commit.
+	var member access.CodeMember
+	var conv entity.Chat
+	err := deps.inTx(ctx, func(t *VisitorSessionDeps) error {
+		var terr error
+		if member, terr = resolveMemberWithQuota(ctx, t, code, in); terr != nil {
+			return terr
+		}
+		conv, terr = createCodeConversation(ctx, t, code, &member, in)
+		return terr
+	})
 	if err != nil {
 		return codeSessionArtifacts{}, err
 	}
@@ -202,7 +208,10 @@ func resolveNamedMember(
 	if err != nil {
 		return access.CodeMember{}, fmt.Errorf("get/create member: %w", err)
 	}
-	return m, nil
+	if !m.LastSeenAt.IsZero() { // the upsert touched an existing name: a resume
+		return m, nil
+	}
+	return m, recordRedeemed(ctx, deps, code.ID, code.OwnerID, m.ID)
 }
 
 func resolveAnonMember(
@@ -216,7 +225,7 @@ func resolveAnonMember(
 	if err != nil {
 		return access.CodeMember{}, fmt.Errorf("create anon member: %w", err)
 	}
-	return m, nil
+	return m, recordRedeemed(ctx, deps, code.ID, code.OwnerID, m.ID)
 }
 
 // checkMemberQuota —— the named version of the max_members gate: an existing name
@@ -271,7 +280,7 @@ func createCodeConversation(
 		return entity.Chat{}, fmt.Errorf("look up member's open chat: %w", gerr)
 	}
 	memberID := member.ID
-	chat, err := deps.Chats.CreateChat(ctx, &repo.CreateChatInput{
+	chat, err := createChat(ctx, deps, &repo.CreateChatInput{
 		OwnerID:     code.OwnerID,
 		Mode:        "code",
 		CodeID:      &code.ID,

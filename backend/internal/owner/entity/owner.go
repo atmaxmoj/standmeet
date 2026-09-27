@@ -34,6 +34,9 @@ type Owner struct {
 	// panel must show it — an invisible pending state means the owner
 	// doesn't know whether the button they clicked actually took effect.
 	PendingEmail string
+	// PendingEmailJobID —— the confirmation mail's job (0 = none); its state is the pending
+	// row's send state.
+	PendingEmailJobID int64
 }
 
 // Settings —— the owner aggregate's "config facet", separate from

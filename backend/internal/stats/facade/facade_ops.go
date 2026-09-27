@@ -9,6 +9,7 @@ import "github.com/atmaxmoj/standmeet/internal/stats/ops"
 // Types needed to declare operations (implemented by: ops).
 type (
 	InstanceDeps     = ops.InstanceDeps
+	TasksDeps        = ops.TasksDeps
 	SystemInfoSource = ops.SystemInfoSource
 	UpgradeDeps      = ops.UpgradeDeps
 	UpgradeSources   = ops.UpgradeSources
@@ -19,5 +20,8 @@ type (
 // Operation groups (implemented by: ops).
 var (
 	InstanceOps = ops.Instance
+	TasksOps    = ops.Tasks
+	EventOps    = ops.Events
 	UpgradeOps  = ops.Upgrade
+	EventTypes  = ops.EventTypes
 )

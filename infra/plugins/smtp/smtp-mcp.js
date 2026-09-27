@@ -118,6 +118,9 @@ async function main() {
         subject: z.string(),
         body: z.string(),
         html: z.string().optional(),
+        // message_id — the Message-ID header ("<id@host>"). A retried send repeats it, so most
+        // mailboxes fold the duplicate into one.
+        message_id: z.string().optional(),
       },
     },
     async (c) => {
@@ -125,7 +128,7 @@ async function main() {
       try {
         info = await transportFor(c).sendMail({
           from: fromHeader(c), to: c.to, subject: c.subject,
-          text: c.body, html: c.html || undefined,
+          text: c.body, html: c.html || undefined, messageId: c.message_id || undefined,
         })
       } catch (e) {
         throw sendFault(e)

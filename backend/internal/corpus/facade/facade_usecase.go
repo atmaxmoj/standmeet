@@ -2,6 +2,7 @@ package corpus
 
 import (
 	"github.com/atmaxmoj/standmeet/internal/corpus/i18n"
+	"github.com/atmaxmoj/standmeet/internal/corpus/subscriber"
 	"github.com/atmaxmoj/standmeet/internal/corpus/usecase"
 )
 
@@ -25,6 +26,7 @@ type (
 	Indexer                         = usecase.Indexer
 	Links                           = usecase.Links
 	SoleOwnerID                     = usecase.SoleOwnerID
+	IndexReceipt                    = usecase.IndexReceipt
 	ListPublishedWritingsPageInput  = usecase.ListPublishedWritingsPageInput
 	ListPublishedWritingsPageResult = usecase.ListPublishedWritingsPageResult
 	MapEntry                        = usecase.MapEntry
@@ -87,9 +89,12 @@ var (
 	CorpusHostOps               = usecase.CorpusHostOps
 	CorpusHostOpsFor            = usecase.CorpusHostOpsFor
 	NewRefResolver              = usecase.NewRefResolver
-	IndexPeriodicJobs           = usecase.IndexPeriodicJobs
-	ReindexCorpusNote           = usecase.ReindexCorpusNote
-	ReindexCorpusOwner          = usecase.ReindexCorpusOwner
+	EventTypes                  = subscriber.EventTypes
+	WritingEventTypes           = usecase.WritingEventTypes
+	EventSubscriptions          = subscriber.Subscriptions
+	JobKinds                    = subscriber.Kinds
+	EnqueueReindex              = subscriber.EnqueueReindex
+	NewIndexReceipt             = subscriber.NewReceipt
 	ResolveAssetURLs            = usecase.ResolveAssetURLs
 	VerifyAssetURL              = usecase.VerifyAssetURL
 	CompileGrep                 = usecase.CompileGrep

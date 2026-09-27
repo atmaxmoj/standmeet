@@ -181,3 +181,14 @@ RETURNING *;
 -- we tell the owner differs, and what they should do next depends on that distinction.
 SELECT * FROM owners
 WHERE pending_email_token_hash = $1 AND pending_email_token_hash <> '';
+
+-- name: SetOwnerPendingEmailJob :execrows
+-- The confirmation mail's job id, written in the same transaction as the pending row.
+UPDATE owners SET pending_email_job_id = $3
+WHERE id = $1 AND pending_email = $2;
+
+-- name: RotateOwnerPendingEmailToken :execrows
+-- The confirmation job mints the link's token when it sends, so the plaintext never sits in the
+-- job's args. 0 rows = the change was cancelled, replaced or expired: nothing to send.
+UPDATE owners SET pending_email_token_hash = $3
+WHERE id = $1 AND pending_email = $2 AND pending_email_expires_at > now();

@@ -32,14 +32,17 @@ type AccessCode struct {
 }
 
 type AccessRequest struct {
-	ID        pgtype.UUID
-	OwnerID   pgtype.UUID
-	Name      string
-	Org       string
-	Email     string
-	Message   string
-	Status    string
-	CreatedAt pgtype.Timestamptz
+	ID              pgtype.UUID
+	OwnerID         pgtype.UUID
+	Name            string
+	Org             string
+	Email           string
+	Message         string
+	Status          string
+	CreatedAt       pgtype.Timestamptz
+	MailJobID       *int64
+	NotifyClaimedAt pgtype.Timestamptz
+	NotifiedAt      pgtype.Timestamptz
 }
 
 type ApiKey struct {
@@ -290,6 +293,21 @@ type Embed struct {
 	UpdatedAt      pgtype.Timestamptz
 }
 
+type Event struct {
+	ID            pgtype.UUID
+	Seq           *int64
+	OwnerID       pgtype.UUID
+	Type          string
+	Subject       string
+	Data          []byte
+	OccurredAt    pgtype.Timestamptz
+	FannedOutAt   pgtype.Timestamptz
+	Fanout        []byte
+	RelayFailures int32
+	PoisonedAt    pgtype.Timestamptz
+	LastError     string
+}
+
 type HandleAlias struct {
 	Handle    string
 	OwnerID   pgtype.UUID
@@ -425,6 +443,7 @@ type Owner struct {
 	PendingEmail           *string
 	PendingEmailTokenHash  string
 	PendingEmailExpiresAt  pgtype.Timestamptz
+	PendingEmailJobID      *int64
 	Handle                 string
 	FullName               string
 	Location               string
@@ -574,6 +593,69 @@ type Skill struct {
 	Source       string
 	CreatedAt    pgtype.Timestamptz
 	UpdatedAt    pgtype.Timestamptz
+}
+
+type VisitEvent struct {
+	EventID        pgtype.UUID
+	OwnerID        pgtype.UUID
+	ViewerID       *string
+	VisitID        string
+	CreatedAt      pgtype.Timestamptz
+	Surface        string
+	EventName      string
+	IsBot          bool
+	UrlPath        string
+	UrlQuery       string
+	PageTitle      string
+	Hostname       string
+	ReferrerDomain string
+	ReferrerPath   string
+	UtmSource      string
+	UtmMedium      string
+	UtmCampaign    string
+	UtmContent     string
+	UtmTerm        string
+	Src            string
+	EntityKind     string
+	EntityID       string
+	EntityTitle    string
+	CodeID         pgtype.UUID
+	CodeLabel      string
+	RoleID         pgtype.UUID
+	ChatSessionID  pgtype.UUID
+	EmbedID        pgtype.UUID
+	MicrositeSlug  string
+	Browser        string
+	Os             string
+	Device         string
+	Screen         string
+	Language       string
+	Country        string
+	Region         string
+	City           string
+	Props          []byte
+}
+
+type VisitViewer struct {
+	ViewerID    string
+	OwnerID     pgtype.UUID
+	FirstSeenAt pgtype.Timestamptz
+}
+
+type WebhookEndpoint struct {
+	ID             pgtype.UUID
+	OwnerID        pgtype.UUID
+	Url            string
+	Description    string
+	EventTypes     []string
+	SecretEnc      []byte
+	EmbedID        pgtype.UUID
+	Enabled        bool
+	DisabledReason string
+	FailingSince   pgtype.Timestamptz
+	BusyUntil      pgtype.Timestamptz
+	CreatedAt      pgtype.Timestamptz
+	UpdatedAt      pgtype.Timestamptz
 }
 
 type WritingRef struct {

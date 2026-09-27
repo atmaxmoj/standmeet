@@ -139,6 +139,11 @@ function pickPendingEmail(s: ReturnType<typeof useAdminSession>): string {
   return s.kind === 'ready' ? (s.session.pendingEmail ?? '') : '';
 }
 
+// pickPendingMail —— the pending change's confirmation-mail state, from the same session.
+function pickPendingMail(s: ReturnType<typeof useAdminSession>): string {
+  return s.kind === 'ready' ? s.session.pendingMailState : '';
+}
+
 
 function ProfileCard({ hook, session }: { hook: AccountHook; session: ReturnType<typeof useAdminSession> }) {
   const t = useTranslations('adminShell.account');
@@ -149,6 +154,7 @@ function ProfileCard({ hook, session }: { hook: AccountHook; session: ReturnType
       <EmailBlock
         hook={hook} initialValue={pickEmail(session)}
         pending={pickPendingEmail(session)}
+        pendingMail={pickPendingMail(session)}
       />
     </div>
   );

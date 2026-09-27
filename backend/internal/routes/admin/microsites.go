@@ -21,15 +21,18 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/infra/buildnotify"
+	"github.com/atmaxmoj/standmeet/internal/infra/middleware"
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
 // MicrositesDeps — op source for the admin microsites handlers.
 type MicrositesDeps struct {
 	Face *dispatcher.Face
-	// Notifier backs the preview long-poll (/wait): it wakes the moment a build settles.
-	Notifier *buildnotify.Notifier
+	// AwaitBuild backs the preview long-poll (/wait): the owner's settle version once it moved
+	// past since, or after maxWait unchanged. It wakes the moment one of the owner's builds
+	// settles, in any process.
+	AwaitBuild func(ctx context.Context, ownerID string, since int64, maxWait time.Duration) (
+		int64, error)
 }
 
 // previewWaitTimeout — how long a preview long-poll is held before it returns the current
@@ -60,33 +63,16 @@ func (h *Handlers) MountMicrosites(r chi.Router) {
 // moved, then re-hangs — one held connection instead of a fixed poll interval.
 func (h *Handlers) micrositesWait() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		version := h.awaitBuildChange(r, parseSince(r.URL.Query().Get("since")))
+		ownerID := middleware.OwnerIDFrom(r.Context())
+		since := parseSince(r.URL.Query().Get("since"))
+		await := h.MicrositesAdmin.AwaitBuild
+		version, err := await(r.Context(), ownerID, since, previewWaitTimeout)
+		if err != nil {
+			h.Log.Error("microsites wait", logErrKey, err)
+			writeJSONStatus(h.Log, w, http.StatusInternalServerError, serverErr())
+			return
+		}
 		writeJSON(h.Log, w, map[string]int64{"version": version})
-	}
-}
-
-// awaitBuildChange — returns immediately with the current version when it already moved
-// past `since`; otherwise blocks for the next build (or the timeout).
-func (h *Handlers) awaitBuildChange(r *http.Request, since int64) int64 {
-	cur, ch := h.MicrositesAdmin.Notifier.Current()
-	if cur > since {
-		return cur
-	}
-	return h.blockUntilSignal(r, ch, cur)
-}
-
-// blockUntilSignal — waits on the notifier channel, the request context, and the timeout.
-// On a signal it re-reads the (now higher) version; on timeout/disconnect it returns the
-// version it came in with (a disconnected write is harmless).
-func (h *Handlers) blockUntilSignal(r *http.Request, ch <-chan struct{}, cur int64) int64 {
-	ctx, cancel := context.WithTimeout(r.Context(), previewWaitTimeout)
-	defer cancel()
-	select {
-	case <-ch:
-		next, _ := h.MicrositesAdmin.Notifier.Current()
-		return next
-	case <-ctx.Done():
-		return cur
 	}
 }
 

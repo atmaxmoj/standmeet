@@ -10,12 +10,12 @@ import (
 
 	"github.com/atmaxmoj/standmeet/cmd/server/config"
 	"github.com/atmaxmoj/standmeet/cmd/server/port"
+	"github.com/atmaxmoj/standmeet/cmd/server/wire"
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	"github.com/atmaxmoj/standmeet/internal/conversation/inference"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	"github.com/atmaxmoj/standmeet/internal/corpus/search"
-	"github.com/atmaxmoj/standmeet/internal/infra/buildnotify"
 	"github.com/atmaxmoj/standmeet/internal/infra/gotenberg"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/infra/sandbox"
@@ -137,6 +137,10 @@ type deferredWiring struct {
 	storageClient    *storage.Client
 }
 
+// maxPreviewWaiters —— preview long-polls held at once; past it a poll holds without a wake-up and
+// answers at its timeout.
+const maxPreviewWaiters = 64
+
 func assembleRuntimeDeps(
 	log *slog.Logger, cfg *config.Config, c *conns, repos *repoSet, dw *deferredWiring,
 ) deps.Runtime {
@@ -145,12 +149,12 @@ func assembleRuntimeDeps(
 	)
 	printStore := printsess.New(c.rdb, 0)
 	searchClient := search.New(cfg.MeiliURL, cfg.MeiliKey)
-	corpusIndexer := corpus.NewCorpusIndexer(searchClient, repos.vaultSync, log)
+	corpusIndexer := corpus.NewCorpusIndexer(searchClient, repos.vaultSync)
 	rt := deps.Runtime{
 		Log: log, DB: c.db, RDB: c.rdb,
-		JobRegistry:        stats.NewJobRegistry(),
-		Corpus:             corpus.NewCorpus(repos.raw, repos.wiki, repos.output, repos.writing),
-		BuildNotifier:      buildnotify.New(),
+		Corpus: corpus.NewCorpus(repos.raw, repos.wiki, repos.output, repos.writing),
+		BuildSettled: pgstore.NewListener(
+			c.db, owner.BuildSettledChannel, maxPreviewWaiters, log),
 		SelfStatPeers:      cfg.SelfStatPeers,
 		StorageSecretKey:   cfg.StorageSecretKey,
 		BlockMarket:        marketplace.NewBlockMarket(cfg.BlockMarketNpmBaseURL),
@@ -203,6 +207,7 @@ func assembleRuntimeDeps(
 // under the function-length gate, each with one job.
 func setRuntimeRepos(rt *deps.Runtime, repos *repoSet) {
 	rt.InstanceRepo, rt.OwnerRepo, rt.KeypairRepo = repos.instance, repos.owner, repos.keypair
+	rt.WebhookSecrets = webhookSecrets(repos.owner)
 	rt.RawRepo, rt.WikiRepo, rt.SubjectivityRepo = repos.raw, repos.wiki, repos.subjectivity
 	rt.VaultSyncRepo, rt.NoteRefRepo, rt.OutputRepo = repos.vaultSync, repos.noteRef, repos.output
 	rt.GrowthRepo, rt.ActivityRepo = repos.growth, repos.activity
@@ -234,6 +239,9 @@ func setRuntimeRepos(rt *deps.Runtime, repos *repoSet) {
 func buildJobsModule(d *deps.Runtime) *pluginjobs.Plugin {
 	jobsDeps := jobsuc.JobsDeps{
 		Sources: d.JobSourceRepo, Cache: d.JobCachePool, Registry: d.JobFetchRegistry,
+		Pool: d.DB, Wait: jobsuc.FetchWait,
+		// Read at call time: the job runtime and the bus are built after this module.
+		Queue: wire.JobsQueue(d), Events: wire.EventsRecorder(d),
 	}
 	resumeDeps := jobsuc.ResumeDeps{Drafts: d.ResumeDraftRepo, Cache: d.JobCachePool}
 	appsDeps := jobsuc.ApplicationsDeps{
@@ -242,7 +250,8 @@ func buildJobsModule(d *deps.Runtime) *pluginjobs.Plugin {
 		CVCheck: port.SubjectivityPresence(d), Renderer: d.PdfRenderer,
 		// Codes — lets the composer's code picker reuse an existing active code (the access
 		// CodeRepo satisfies the narrow jobsuc.CodeLookup read).
-		Codes: d.CodeRepo,
+		Codes:  d.CodeRepo,
+		Events: d.Recorder(),
 	}
 	return pluginjobs.New(&pluginjobs.Deps{
 		Jobs:         &jobsDeps,

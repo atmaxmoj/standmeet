@@ -14,7 +14,7 @@ import (
 const createAccessRequest = `-- name: CreateAccessRequest :one
 INSERT INTO access_requests (owner_id, name, org, email, message)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, owner_id, name, org, email, message, status, created_at
+RETURNING id, owner_id, name, org, email, message, status, created_at, mail_job_id
 `
 
 type CreateAccessRequestParams struct {
@@ -25,7 +25,19 @@ type CreateAccessRequestParams struct {
 	Message string
 }
 
-func (q *Queries) CreateAccessRequest(ctx context.Context, arg CreateAccessRequestParams) (AccessRequest, error) {
+type CreateAccessRequestRow struct {
+	ID        pgtype.UUID
+	OwnerID   pgtype.UUID
+	Name      string
+	Org       string
+	Email     string
+	Message   string
+	Status    string
+	CreatedAt pgtype.Timestamptz
+	MailJobID *int64
+}
+
+func (q *Queries) CreateAccessRequest(ctx context.Context, arg CreateAccessRequestParams) (CreateAccessRequestRow, error) {
 	row := q.db.QueryRow(ctx, createAccessRequest,
 		arg.OwnerID,
 		arg.Name,
@@ -33,7 +45,7 @@ func (q *Queries) CreateAccessRequest(ctx context.Context, arg CreateAccessReque
 		arg.Email,
 		arg.Message,
 	)
-	var i AccessRequest
+	var i CreateAccessRequestRow
 	err := row.Scan(
 		&i.ID,
 		&i.OwnerID,
@@ -43,12 +55,13 @@ func (q *Queries) CreateAccessRequest(ctx context.Context, arg CreateAccessReque
 		&i.Message,
 		&i.Status,
 		&i.CreatedAt,
+		&i.MailJobID,
 	)
 	return i, err
 }
 
 const getAccessRequestByID = `-- name: GetAccessRequestByID :one
-SELECT id, owner_id, name, org, email, message, status, created_at FROM access_requests
+SELECT id, owner_id, name, org, email, message, status, created_at, mail_job_id FROM access_requests
 WHERE id = $1 AND owner_id = $2
 `
 
@@ -57,9 +70,21 @@ type GetAccessRequestByIDParams struct {
 	OwnerID pgtype.UUID
 }
 
-func (q *Queries) GetAccessRequestByID(ctx context.Context, arg GetAccessRequestByIDParams) (AccessRequest, error) {
+type GetAccessRequestByIDRow struct {
+	ID        pgtype.UUID
+	OwnerID   pgtype.UUID
+	Name      string
+	Org       string
+	Email     string
+	Message   string
+	Status    string
+	CreatedAt pgtype.Timestamptz
+	MailJobID *int64
+}
+
+func (q *Queries) GetAccessRequestByID(ctx context.Context, arg GetAccessRequestByIDParams) (GetAccessRequestByIDRow, error) {
 	row := q.db.QueryRow(ctx, getAccessRequestByID, arg.ID, arg.OwnerID)
-	var i AccessRequest
+	var i GetAccessRequestByIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.OwnerID,
@@ -69,12 +94,13 @@ func (q *Queries) GetAccessRequestByID(ctx context.Context, arg GetAccessRequest
 		&i.Message,
 		&i.Status,
 		&i.CreatedAt,
+		&i.MailJobID,
 	)
 	return i, err
 }
 
 const listAccessRequestsByOwner = `-- name: ListAccessRequestsByOwner :many
-SELECT id, owner_id, name, org, email, message, status, created_at FROM access_requests
+SELECT id, owner_id, name, org, email, message, status, created_at, mail_job_id FROM access_requests
 WHERE owner_id = $1
   AND ($2::text IS NULL OR status = $2)
 ORDER BY created_at DESC
@@ -86,15 +112,27 @@ type ListAccessRequestsByOwnerParams struct {
 	StatusFilter *string
 }
 
-func (q *Queries) ListAccessRequestsByOwner(ctx context.Context, arg ListAccessRequestsByOwnerParams) ([]AccessRequest, error) {
+type ListAccessRequestsByOwnerRow struct {
+	ID        pgtype.UUID
+	OwnerID   pgtype.UUID
+	Name      string
+	Org       string
+	Email     string
+	Message   string
+	Status    string
+	CreatedAt pgtype.Timestamptz
+	MailJobID *int64
+}
+
+func (q *Queries) ListAccessRequestsByOwner(ctx context.Context, arg ListAccessRequestsByOwnerParams) ([]ListAccessRequestsByOwnerRow, error) {
 	rows, err := q.db.Query(ctx, listAccessRequestsByOwner, arg.OwnerID, arg.StatusFilter)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []AccessRequest
+	var items []ListAccessRequestsByOwnerRow
 	for rows.Next() {
-		var i AccessRequest
+		var i ListAccessRequestsByOwnerRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.OwnerID,
@@ -104,6 +142,7 @@ func (q *Queries) ListAccessRequestsByOwner(ctx context.Context, arg ListAccessR
 			&i.Message,
 			&i.Status,
 			&i.CreatedAt,
+			&i.MailJobID,
 		); err != nil {
 			return nil, err
 		}
@@ -115,11 +154,31 @@ func (q *Queries) ListAccessRequestsByOwner(ctx context.Context, arg ListAccessR
 	return items, nil
 }
 
+const setAccessRequestMailJob = `-- name: SetAccessRequestMailJob :execrows
+UPDATE access_requests
+SET mail_job_id = $3
+WHERE id = $1 AND owner_id = $2
+`
+
+type SetAccessRequestMailJobParams struct {
+	ID        pgtype.UUID
+	OwnerID   pgtype.UUID
+	MailJobID *int64
+}
+
+func (q *Queries) SetAccessRequestMailJob(ctx context.Context, arg SetAccessRequestMailJobParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setAccessRequestMailJob, arg.ID, arg.OwnerID, arg.MailJobID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const updateAccessRequestStatus = `-- name: UpdateAccessRequestStatus :one
 UPDATE access_requests
 SET status = $3
 WHERE id = $1 AND owner_id = $2
-RETURNING id, owner_id, name, org, email, message, status, created_at
+RETURNING id, owner_id, name, org, email, message, status, created_at, mail_job_id
 `
 
 type UpdateAccessRequestStatusParams struct {
@@ -128,9 +187,21 @@ type UpdateAccessRequestStatusParams struct {
 	Status  string
 }
 
-func (q *Queries) UpdateAccessRequestStatus(ctx context.Context, arg UpdateAccessRequestStatusParams) (AccessRequest, error) {
+type UpdateAccessRequestStatusRow struct {
+	ID        pgtype.UUID
+	OwnerID   pgtype.UUID
+	Name      string
+	Org       string
+	Email     string
+	Message   string
+	Status    string
+	CreatedAt pgtype.Timestamptz
+	MailJobID *int64
+}
+
+func (q *Queries) UpdateAccessRequestStatus(ctx context.Context, arg UpdateAccessRequestStatusParams) (UpdateAccessRequestStatusRow, error) {
 	row := q.db.QueryRow(ctx, updateAccessRequestStatus, arg.ID, arg.OwnerID, arg.Status)
-	var i AccessRequest
+	var i UpdateAccessRequestStatusRow
 	err := row.Scan(
 		&i.ID,
 		&i.OwnerID,
@@ -140,6 +211,7 @@ func (q *Queries) UpdateAccessRequestStatus(ctx context.Context, arg UpdateAcces
 		&i.Message,
 		&i.Status,
 		&i.CreatedAt,
+		&i.MailJobID,
 	)
 	return i, err
 }

@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 )
@@ -21,9 +22,12 @@ import (
 // where it links (the reader path under /wiki/). Its own type, not the pin card, so it outlives
 // the pin system's removal.
 type CorpusCard struct {
-	Title   string
-	Excerpt string
-	Path    string
+	// UpdatedAt —— the note's last change (second precision): a site that caches cards re-reads
+	// only the ones whose clock moved (the embed update hook, event-bus-outbox-webhooks.md P3).
+	UpdatedAt time.Time
+	Title     string
+	Excerpt   string
+	Path      string
 }
 
 // ListPublishedCards — published wiki entries as cards, in tree-path order, for the sole owner.
@@ -43,13 +47,18 @@ func ListPublishedCards(ctx context.Context, deps SEODeps) ([]CorpusCard, error)
 	if err != nil {
 		return nil, fmt.Errorf("list wiki cards: %w", err)
 	}
-	return assembleCards(ids, cards, paths), nil
+	updated := make(map[string]time.Time, len(metas))
+	for i := range metas {
+		updated[metas[i].ID] = time.Unix(metas[i].UpdatedAt, 0).UTC()
+	}
+	return assembleCards(ids, cards, paths, updated), nil
 }
 
 // assembleCards — join ids (already published + path-ordered) to their card content, skipping
 // any that fell out of the card fetch or lost their published flag between the two reads.
 func assembleCards(
 	ids []string, cards map[string]corpus.WikiCard, paths map[string]string,
+	updated map[string]time.Time,
 ) []CorpusCard {
 	out := make([]CorpusCard, 0, len(ids))
 	for _, id := range ids {
@@ -57,7 +66,9 @@ func assembleCards(
 		if !present || !c.Published {
 			continue
 		}
-		out = append(out, CorpusCard{Title: c.Title, Excerpt: cardLine(&c), Path: paths[id]})
+		out = append(out, CorpusCard{
+			Title: c.Title, Excerpt: cardLine(&c), Path: paths[id], UpdatedAt: updated[id],
+		})
 	}
 	return out
 }

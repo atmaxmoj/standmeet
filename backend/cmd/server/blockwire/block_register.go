@@ -8,6 +8,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
 	"github.com/atmaxmoj/standmeet/cmd/server/port"
 
@@ -106,7 +108,10 @@ func recordBlockFailure(d *deps.Runtime, id string, err error) {
 	f := assembly.Failure{
 		BlockID: id, Title: blockTitle(ctx, d, ownerID, id), Stderr: err.Error(),
 	}
-	if werr := d.Assembly.RecordFailure(ctx, ownerID, &f); werr != nil {
+	started := func(tx pgx.Tx) error {
+		return d.Recorder().With(tx).Record(ctx, ownerID, BlockFailed, "block/"+id, blockData(id))
+	}
+	if werr := d.Assembly.RecordFailureThen(ctx, ownerID, &f, started); werr != nil {
 		d.Log.Warn("record block failure", "block", id, "err", werr)
 	}
 }

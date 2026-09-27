@@ -1,0 +1,11 @@
+subject:
+  source: ../plugins/summarize
+expect:
+  rows:
+    - summarize
+  services: []
+  tools:
+    - mcp__summarize__summarize_conversation
+# No exercise: summarize_conversation has the StandMeet host run the LLM generation over
+# STANDMEET_HOST_SOCKET. Registering the tool on real dsh is what this gate proves; generating a
+# summary needs a live host (a separate integration), so we do NOT fake one here.

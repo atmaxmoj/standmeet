@@ -1,0 +1,13 @@
+subject:
+  source: ../plugins/ask-visitor
+expect:
+  rows:
+    - ask-visitor
+  services: []
+  tools:
+    - mcp__ask-visitor__ask_visitor
+exercise:
+  - tool: mcp__ask-visitor__ask_visitor
+    arguments:
+      question: "Proceed?"
+      kind: yes_no

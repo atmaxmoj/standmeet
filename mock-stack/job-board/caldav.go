@@ -9,6 +9,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"html"
 	"io"
 	"net/http"
 	"strings"
@@ -78,25 +79,71 @@ func (c *caldavColl) takeFail(op string) int {
 	return status
 }
 
-// serveCalDAVReport —— free-busy-query REPORT: reply with VFREEBUSY (from coll.busy).
+// serveCalDAVReport —— REPORT, answered in the shape of the query asked. A calendar-query (what the
+// plugin sends since it moved off free-busy-query for iCloud) gets a 207 multistatus of VEVENTs —
+// the busy windows plus every booked event, the way a real server lists what is on the calendar. A
+// free-busy-query gets VFREEBUSY (from coll.busy).
 func (s *server) serveCalDAVReport(w http.ResponseWriter, r *http.Request) {
 	coll := r.PathValue("coll")
+	query, _ := io.ReadAll(r.Body)
 	var fail int
 	var busy []busyWindow
 	var style string
 	s.withCalDAV(coll, func(c *caldavColl) {
 		fail = c.takeFail("list_busy")
 		busy = append(busy, c.busy...)
+		for i := range c.events {
+			busy = append(busy, busyWindow{Start: c.events[i].Start, End: c.events[i].End})
+		}
 		style = c.busyStyle
 	})
 	if fail != 0 {
 		http.Error(w, "injected", fail)
 		return
 	}
-	w.Header().Set("Content-Type", "text/calendar")
-	if _, err := io.WriteString(w, freeBusyBody(busy, style)); err != nil {
+	body := freeBusyBody(busy, style)
+	if strings.Contains(string(query), "calendar-query") {
+		w.Header().Set("Content-Type", "application/xml; charset=utf-8")
+		w.WriteHeader(http.StatusMultiStatus)
+		body = calendarQueryBody(coll, busy, style)
+	} else {
+		w.Header().Set("Content-Type", "text/calendar")
+	}
+	if _, err := io.WriteString(w, body); err != nil {
 		s.log.Warn("write caldav report", logErrKey, err)
 	}
+}
+
+// calendarQueryBody —— a calendar-query multistatus: one response per window, its VEVENT in
+// <calendar-data>. Two real forms: entity-escaped inline (Radicale / Fastmail / Google), or raw
+// inside CDATA (iCloud) for the `component` style — the plugin must read both.
+func calendarQueryBody(coll string, busy []busyWindow, style string) string {
+	var b strings.Builder
+	b.WriteString(`<?xml version="1.0" encoding="utf-8"?><D:multistatus xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">`)
+	for i := range busy {
+		ics := fmt.Sprintf("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nUID:busy-%d\r\n"+
+			"DTSTART:%s\r\nDTEND:%s\r\nSUMMARY:Busy & booked\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n",
+			i, icalStamp(busy[i].Start), icalStamp(busy[i].End))
+		data := html.EscapeString(ics)
+		if style == busyStyleComponent {
+			data = "<![CDATA[" + ics + "]]>"
+		}
+		fmt.Fprintf(&b, `<D:response><D:href>/caldav/%s/busy-%d.ics</D:href><D:propstat><D:prop>`+
+			`<C:calendar-data>%s</C:calendar-data></D:prop><D:status>HTTP/1.1 200 OK</D:status>`+
+			`</D:propstat></D:response>`, coll, i, data)
+	}
+	b.WriteString(`</D:multistatus>`)
+	return b.String()
+}
+
+// icalStamp —— an RFC 3339 time (how busy windows and recorded events are kept) as iCalendar UTC;
+// a value already in iCalendar form passes through.
+func icalStamp(v string) string {
+	t, err := time.Parse(time.RFC3339, v)
+	if err != nil {
+		return v
+	}
+	return t.UTC().Format(caldavICalLayout)
 }
 
 // freeBusyBody —— two real reply forms. The `component` form is one VFREEBUSY per

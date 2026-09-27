@@ -29,12 +29,19 @@ const parseOwnerIDErrFmt = "parse owner id: %w"
 // to come).
 type Repo struct {
 	pool *pgstore.Pool
+	q    pgstore.DBTX // nil → the pool; set by With (only the writes a use case records join it)
 }
 
 // NewRepo constructs a Repo.
 func NewRepo(pool *pgstore.Pool) *Repo {
 	return &Repo{pool: pool}
 }
+
+// With —— a copy whose transactional writes run on q (the caller's transaction).
+func (r *Repo) With(q pgstore.DBTX) *Repo { return &Repo{pool: r.pool, q: q} }
+
+// Pool —— the pool a use case opens its transaction on.
+func (r *Repo) Pool() *pgstore.Pool { return r.pool }
 
 // Count returns the row count of the owners table (used to determine
 // "is there an owner yet").
@@ -70,16 +77,21 @@ func (r *Repo) FirstHandle(ctx context.Context) (string, error) {
 // The settings fields are decoded separately via toOwnerSettings (the same
 // owners table row split into two facets).
 func toDomainOwner(o *db.Owner) entity.Owner {
+	var job int64
+	if o.PendingEmailJobID != nil {
+		job = *o.PendingEmailJobID
+	}
 	return entity.Owner{
-		ID:              pgstore.FormatUUID(o.ID),
-		Email:           o.Email,
-		Handle:          o.Handle,
-		FullName:        o.FullName,
-		Location:        o.Location,
-		PublicURL:       o.PublicUrl,
-		ProfileTimezone: o.ProfileTimezone,
-		PendingEmail:    derefString(o.PendingEmail),
-		CreatedAt:       o.CreatedAt.Time,
+		PendingEmailJobID: job,
+		ID:                pgstore.FormatUUID(o.ID),
+		Email:             o.Email,
+		Handle:            o.Handle,
+		FullName:          o.FullName,
+		Location:          o.Location,
+		PublicURL:         o.PublicUrl,
+		ProfileTimezone:   o.ProfileTimezone,
+		PendingEmail:      derefString(o.PendingEmail),
+		CreatedAt:         o.CreatedAt.Time,
 	}
 }
 
@@ -274,3 +286,13 @@ func (r *Repo) settingsFor(ctx context.Context, o *db.Owner) entity.Settings {
 // The provider group (view / resolution chain / writing the default entry /
 // sealing keys) all lives in providers.go and provider_view.go — this file
 // only handles the owner itself: identity, byoai, the settings facet.
+
+// conn —— the transaction when bound by With, else the pool.
+//
+//nolint:ireturn // DBTX is the port both a pool and a transaction satisfy
+func (r *Repo) conn() pgstore.DBTX {
+	if r.q != nil {
+		return r.q
+	}
+	return r.pool
+}

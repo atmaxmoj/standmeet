@@ -71,7 +71,7 @@ func (rt *retryTransport) stop(
 		return true
 	}
 	rt.fireOnRetry(ctx, resp, err, attempt, waitPlan{
-		d: wait, fromHint: retryAfterDelay(resp) >= wait,
+		d: wait, fromHint: RetryAfter(resp) >= wait,
 	})
 	return !sleepCtx(ctx, wait) // ctx canceled mid-wait → stop
 }
@@ -85,16 +85,17 @@ func (rt *retryTransport) stop(
 // line of code, that header had never once been read.
 func retryWait(resp *http.Response, base time.Duration, attempt int) time.Duration {
 	backoff := base * time.Duration(1<<attempt)
-	if hinted := retryAfterDelay(resp); hinted > backoff {
+	if hinted := RetryAfter(resp); hinted > backoff {
 		return hinted
 	}
 	return backoff
 }
 
-// retryAfterDelay —— accepts both RFC 9110 forms: a whole number of seconds, or an HTTP-date.
+// RetryAfter —— the wait a response asks for (its Retry-After header). Accepts both RFC 9110
+// forms: a whole number of seconds, or an HTTP-date.
 // Real providers send both. Unparseable → 0 (falls back to our own backoff), because a header
 // we can't understand shouldn't stall the request.
-func retryAfterDelay(resp *http.Response) time.Duration {
+func RetryAfter(resp *http.Response) time.Duration {
 	if resp == nil {
 		return 0
 	}

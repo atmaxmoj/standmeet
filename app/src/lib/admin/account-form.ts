@@ -34,6 +34,16 @@ export function emailHintMessage(next: string, confirm: string): string {
   return confirm === '' || next === confirm ? '' : 'emailMismatch';
 }
 
+// emailSaveOutcome —— which of three things a saved email change did: switched now; pending with
+// its confirmation already sent; or pending with the confirmation still on its way. "Sent" is said
+// only once the mail went out.
+export function emailSaveOutcome(
+  saved: { pending: string; mailSent: boolean },
+): 'updated' | 'sent' | 'queued' {
+  if (saved.pending === '') return 'updated';
+  return saved.mailSent ? 'sent' : 'queued';
+}
+
 export function passwordSaveDisabled(
   pending: boolean, current: string, next: string, confirm: string,
 ): boolean {

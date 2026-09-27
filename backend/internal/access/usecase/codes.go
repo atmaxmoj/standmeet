@@ -27,6 +27,8 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/access/entity"
 	"github.com/atmaxmoj/standmeet/internal/access/repo"
+	"github.com/atmaxmoj/standmeet/internal/infra/events"
+	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
 // CodesDeps — repos needed by this group of code-issuing use cases. Roles is used to
@@ -38,6 +40,13 @@ type CodesDeps struct {
 	Roles    *repo.RoleRepo
 	Sessions *VisitorSessionStore
 	Log      *slog.Logger
+	Events   events.Recorder // code.issued / code.revoked commit with the row
+}
+
+// RecordCodeEvent —— one code.* event on rec (join the write's transaction with With(tx)).
+func RecordCodeEvent(ctx context.Context, rec events.Recorder, typ, ownerID, codeID string) error {
+	//nolint:wrapcheck // Record names the type
+	return rec.Record(ctx, ownerID, typ, "code/"+codeID, map[string]string{"code_id": codeID})
 }
 
 // IssueCode — issues a code. AssumedRoleID left blank = use the owner's public role
@@ -50,7 +59,14 @@ func IssueCode(
 		return entity.Code{}, err
 	}
 	in.AssumedRoleID = roleID
-	code, cerr := d.Codes.Create(ctx, in)
+	var code entity.Code
+	cerr := pgstore.InTx(ctx, d.Codes.Pool(), func(tx pgstore.Tx) error {
+		var werr error
+		if code, werr = d.Codes.With(tx).Create(ctx, in); werr != nil {
+			return werr //nolint:wrapcheck // wrapped below
+		}
+		return RecordCodeEvent(ctx, d.Events.With(tx), CodeIssued, in.OwnerID, code.ID)
+	})
 	if cerr != nil {
 		return entity.Code{}, fmt.Errorf("issue code: %w", cerr)
 	}
@@ -97,11 +113,17 @@ func assumedRoleOrInvited(
 // clearing fails we still report only the error's back half — the code itself is
 // already revoked, and that layer still blocks it.
 func RevokeCode(ctx context.Context, d CodesDeps, ownerID, codeID string) error {
-	if err := d.Codes.Revoke(ctx, ownerID, codeID); err != nil {
+	err := pgstore.InTx(ctx, d.Codes.Pool(), func(tx pgstore.Tx) error {
+		if werr := d.Codes.With(tx).Revoke(ctx, ownerID, codeID); werr != nil {
+			return werr //nolint:wrapcheck // wrapped below
+		}
+		return RecordCodeEvent(ctx, d.Events.With(tx), CodeRevoked, ownerID, codeID)
+	})
+	if err != nil {
 		return fmt.Errorf("revoke code: %w", err)
 	}
-	if err := d.Sessions.DeleteByCode(ctx, codeID); err != nil {
-		return fmt.Errorf("revoke code: purge visitor sessions: %w", err)
+	if serr := d.Sessions.DeleteByCode(ctx, codeID); serr != nil {
+		return fmt.Errorf("revoke code: purge visitor sessions: %w", serr)
 	}
 	return nil
 }

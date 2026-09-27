@@ -49,7 +49,7 @@ type InstanceDeps struct {
 	Usage    *repo.InferenceUsageRepo
 	Growth   *repo.GrowthRepo
 	Activity *repo.ActivityRepo
-	Jobs     *entity.JobRegistry
+	Jobs     PeriodicReader
 }
 
 // Instance —— six read-only observation ports.

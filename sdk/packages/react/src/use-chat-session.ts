@@ -85,17 +85,19 @@ export interface ChatOptions {
 
 export function useChatSession(input: IssueSessionInput, opts: ChatOptions = {}): ChatState {
   const client = useStandMeet();
-  // Restore this page's transcript from localStorage (page-granular key), so a reload keeps the chat.
-  const [messages, setMessages] = useState<ChatMessage[]>(() => loadPersisted());
+  // Browser state (the stored transcript, the code grant, the saved key) is read AFTER mount, never
+  // in the first render: the page is prerendered with no browser storage, and a first render that
+  // read it would differ from the prerendered HTML and break hydration (React #418) for every
+  // returning visitor. The restore below runs once, before any turn can start.
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [streaming, setStreaming] = useState(false);
   const [tool, setTool] = useState<ChatTool | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
   // granted —— this visitor holds a code (read once, at mount: /gate stores it before the page).
-  const [granted] = useState(() => hasVisitorGrant());
-  const [byokActive, setByokActive] = useState(
-    () => !granted && opts.autoUseSavedKey === true && savedKeyInUse(),
-  );
+  const [granted, setGranted] = useState(false);
+  const [byokActive, setByokActive] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const sessionRef = useRef<{ id: string; token: string; system: string; byoai: boolean } | null>(null);
   // messagesRef —— the live transcript, so switching to the visitor's key can carry it as history.
   const messagesRef = useRef(messages);
@@ -104,8 +106,21 @@ export function useChatSession(input: IssueSessionInput, opts: ChatOptions = {})
   const cardHTML = useRef<Record<string, string>>({});
   // The transcript as restored at mount — seeded back as history on the first turn so the model
   // remembers across the reload. Seeded once (the client accumulates the rest itself thereafter).
-  const restoredRef = useRef<readonly ChatMessage[]>(messages);
+  const restoredRef = useRef<readonly ChatMessage[]>([]);
   const seededRef = useRef(false);
+  const autoUseSavedKey = opts.autoUseSavedKey === true;
+  useEffect(() => {
+    const g = hasVisitorGrant();
+    setGranted(g);
+    setByokActive(!g && autoUseSavedKey && savedKeyInUse());
+    // Restore this page's transcript from localStorage (page-granular key), so a reload keeps it.
+    const restored = loadPersisted();
+    if (restored.length > 0) {
+      restoredRef.current = restored;
+      setMessages(restored);
+    }
+    setMounted(true);
+  }, [autoUseSavedKey]);
   const counter = useRef(0);
   // Per-mount prefix: restored messages keep the ids they were saved with ("m1", "m2", …), and a
   // counter restarting at 1 after a reload handed new messages the same ids — duplicate React keys.
@@ -117,7 +132,9 @@ export function useChatSession(input: IssueSessionInput, opts: ChatOptions = {})
 
   // Persist the transcript once a turn settles (not on every streamed token). Wrapped in try/catch
   // inside savePersisted, so blocked/full storage degrades to "no persistence", never a throw.
-  useEffect(() => { if (!streaming) savePersisted(messages); }, [messages, streaming]);
+  // Not before the restore has landed: the first commit's empty transcript would overwrite the
+  // stored one.
+  useEffect(() => { if (mounted && !streaming) savePersisted(messages); }, [mounted, messages, streaming]);
 
   const clear = useCallback((): void => {
     setMessages([]);
@@ -144,7 +161,7 @@ export function useChatSession(input: IssueSessionInput, opts: ChatOptions = {})
   const byok: ChatBYOK = {
     available: !granted,
     active: byokActive,
-    saved: !granted && !byokActive && savedKeyInUse(),
+    saved: mounted && !granted && !byokActive && savedKeyInUse(),
     useSaved: () => {
       if (granted) return;
       setByokActive(true);

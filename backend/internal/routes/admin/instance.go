@@ -38,4 +38,8 @@ func (h *Handlers) MountInstance(r chi.Router) {
 	r.Get("/stats/jobs", h.dispatchOp(face, "instance.jobs", emptyArgs, jsonOK))
 	r.Get("/upgrade", h.dispatchOp(face, "instance.upgrade_check", emptyArgs, jsonOK))
 	r.Post("/upgrade", h.dispatchOp(face, "instance.upgrade", emptyArgs, jsonOK))
+	// The job queue, periodic jobs and event stream: the rest of the instance's own machinery.
+	h.mountTasks(r, face)
+	// Webhook endpoints: the same machinery, carrying changes to other sites.
+	h.mountWebhooks(r, face)
 }

@@ -1,6 +1,6 @@
 // admin-system-jobs.spec.ts -- Monitor/observability. SystemSection's background-jobs table wires
 // to the real GET /api/admin/stats/jobs: the in-process job-registry, real crons (sandbox
-// workspace sweep #148, resume-draft SweepExpired, corpus index reconcile) report last-run/status.
+// workspace sweep #148, resume-draft SweepExpired, the events relay sweep) report last-run/status.
 // Green = lists real jobs, **removes** the hardcoded sitemap/corpus-reindex/daily-backup (they
 // don't actually exist, listing them would be fabrication).
 //
@@ -61,11 +61,12 @@ test.describe('admin · SystemSection real scheduled jobs', () => {
       expect(draftSweep?.last_run, 'resume-draft sweep ran at boot').toBeTruthy();
 
       // The corpus index reconcile loop ran for its whole life WITHOUT being registered — it was a
-      // hand-written ticker, and the Register call is the part a hand-written loop forgets. Every
-      // periodic job now goes through one scheduler that registers it, so it cannot run unseen.
-      const reconcile = jobs.find((j) => /reconcile/i.test(j.name));
-      expect(reconcile, 'corpus index reconcile is on the panel').toBeTruthy();
-      expect(reconcile?.last_run, 'reconcile ran at boot').toBeTruthy();
+      // hand-written ticker, and the Register call is the part a hand-written loop forgets. That
+      // loop is gone (docs/design/event-bus-outbox-webhooks.md, *Decided*: no reconcile loops); its
+      // successor, the events relay sweep, goes through the one scheduler, so it cannot run unseen.
+      const sweepRelay = jobs.find((j) => /relay sweep/i.test(j.name));
+      expect(sweepRelay, 'the events relay sweep is on the panel').toBeTruthy();
+      expect(sweepRelay?.last_run, 'the relay sweep ran at boot').toBeTruthy();
 
       // The schedule is DERIVED from the interval that actually fires, so it cannot drift into a
       // claim nothing checks. Every real job carries one.

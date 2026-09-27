@@ -54,13 +54,11 @@ const ACCEPTED = 15;
 // this defence would not exist. The submission-notify cap must be its own small burst cap.
 const BURST_CAP = 5;
 
-// SYNC-SEND REQUIREMENT (goes with the poll assertion in checkBomb): the owner-notify send +
-// its burst-cap decision must happen synchronously within the submit request (best-effort:
-// attempt-then-return, first BURST_CAP delivered, the rest dropped before 201 returns). Then,
-// once every submit has been awaited, every notification that will ever be sent is already
-// dispatched, so the inbox is already at its final value and the poll only lets Mailpit settle
-// (same reasoning as mail-throttle-recipient.spec). Best-effort keeps this safe: a dead SMTP
-// fails fast (see the graceful test) and never blocks the visitor.
+// WAIT FOR TERMINAL STATES (goes with the count assertions): the owner notification is a durable
+// job (owner.notify) that runs after 201 returns, so a count is read only once every notification
+// job this test caused has reached its end state (tasks.list). Then every notification that will
+// ever be sent has been sent, and the inbox is at its final value — a broken/uncapped notify
+// would have sent all of them by then, so there is no timing window that flips the result.
 
 let token = '';
 let sid = '';
@@ -131,7 +129,7 @@ async function checkHappyPath(request: APIRequestContext): Promise<void> {
   expect(res.status(), 'a valid submission is accepted').toBe(201);
 
   // The owner is notified, and the notification carries the request itself.
-  const mail = await waitForMailEnvelopeTo(request, OWNER.email);
+  const mail = await waitForMailEnvelopeTo(request, OWNER.email, 30_000);
   expect(mail.from, 'notification comes from the owner supplier from_address').toBe(MAIL_FROM);
   const body = `${mail.subject}\n${mail.text}\n${mail.html}`;
   expect(
@@ -152,6 +150,7 @@ async function checkGraceful(request: APIRequestContext): Promise<void> {
   try {
     // Simulate "SMTP service down" for every send until reset (persistent, times omitted).
     await armSMTPFault(request, { mode: 'connection_refused' });
+    const anchor = await lastNotifyJob(request, token, sid);
 
     const email = 'graceful-visitor@example.com';
     const res = await submit(request, '198.51.100.2', {
@@ -171,7 +170,9 @@ async function checkGraceful(request: APIRequestContext): Promise<void> {
       'the request is stored even though no owner email could be delivered',
     ).toContain(email);
 
-    // No owner mail was delivered (the send failed at the SMTP fault layer).
+    // No owner mail was delivered (the send failed at the SMTP fault layer) — read once the
+    // notification's first attempt has run and failed.
+    await waitForNotifyJobs(request, token, sid, anchor, ['retryable']);
     expect(
       await mailpitHasNothingTo(request, OWNER.email),
       'a failed notification delivers no owner mail — it must not surface as a phantom email',
@@ -185,6 +186,7 @@ async function checkGraceful(request: APIRequestContext): Promise<void> {
 async function checkBomb(request: APIRequestContext): Promise<void> {
   await resetSMTPFault(request);
   await clearMailpit(request);
+  const anchor = await lastNotifyJob(request, token, sid);
 
   // ACCEPTED valid submissions, each from a DISTINCT source IP so the submit endpoint's own
   // per-IP anti-flood guard never fires — every one is accepted, so the ONLY thing that can
@@ -200,12 +202,12 @@ async function checkBomb(request: APIRequestContext): Promise<void> {
     expect(res.status(), `submission ${i} (distinct IP → not rate-limited) is accepted`).toBe(201);
   }
 
-  // (a) Owner notifications are capped. Every submit was awaited and the notify+cap decision is
-  // synchronous (see SYNC-SEND REQUIREMENT), so all sends that will ever happen are already
-  // dispatched: the inbox settles at EXACTLY the cap. Only the owner receives mail here (no
-  // approve, no visitor confirmation), so the Mailpit total IS the owner-notification count.
-  // A broken/uncapped notify dispatched all ACCEPTED (15) sends → settles at 15 → this times
-  // out red. There is no timing window that flips the result either way.
+  // (a) Owner notifications are capped. Once all ACCEPTED notification jobs are done (see WAIT
+  // FOR TERMINAL STATES), all sends that will ever happen have happened: the inbox settles at
+  // EXACTLY the cap. Only the owner receives mail here (no approve, no visitor confirmation), so
+  // the Mailpit total IS the owner-notification count. A broken/uncapped notify sent all
+  // ACCEPTED (15) → settles at 15 → this times out red.
+  await waitForNotifyJobs(request, token, sid, anchor, Array<string>(ACCEPTED).fill('completed'));
   await expect
     .poll(() => countMailpitMessages(request), {
       message: `owner notifications settle at the burst cap (${BURST_CAP}), not one per submission `
@@ -239,6 +241,7 @@ async function checkNoMailConfigured(request: APIRequestContext): Promise<void> 
   const noMailToken = await createAPIToken(request, csrf, 'req-notify-nomail');
   const noMailSid = await initMCP(request, noMailToken);
   await clearMailpit(request);
+  const anchor = await lastNotifyJob(request, noMailToken, noMailSid);
 
   const email = 'nomail-visitor@example.com';
   const res = await submit(request, '198.51.100.3', {
@@ -255,11 +258,45 @@ async function checkNoMailConfigured(request: APIRequestContext): Promise<void> 
     'the request is stored even though no owner notification could be sent',
   ).toContain(email);
 
-  // Nothing was delivered — with no supplier there is simply nothing to send.
+  // Nothing was delivered — with no supplier there is simply nothing to send. Read once the
+  // notification job has ended.
+  await waitForNotifyJobs(request, noMailToken, noMailSid, anchor, ['completed']);
   expect(
     await mailpitHasNothingTo(request, OWNER.email),
     'with no mail supplier connected, no owner notification mail is delivered',
   ).toBe(true);
+}
+
+interface NotifyJob { id: number; state: string }
+
+// notifyJobs —— the owner.notify jobs, newest first (tasks.list).
+async function notifyJobs(
+  request: APIRequestContext, tok: string, s: string, limit: number,
+): Promise<NotifyJob[]> {
+  const out = await callTool<{ jobs: NotifyJob[] }>(
+    request, tok, s, 'tasks.list', { kind: 'owner.notify', limit },
+  );
+  return out.jobs;
+}
+
+// lastNotifyJob —— the newest owner.notify job id before this test acts (0 = none): the jobs this
+// test causes are the ones after it.
+async function lastNotifyJob(request: APIRequestContext, tok: string, s: string): Promise<number> {
+  return (await notifyJobs(request, tok, s, 1))[0]?.id ?? 0;
+}
+
+// waitForNotifyJobs —— waits until the owner.notify jobs after `anchor` are exactly `states`
+// (sorted), i.e. this test's notifications have reached those states.
+async function waitForNotifyJobs(
+  request: APIRequestContext, tok: string, s: string, anchor: number, states: string[],
+): Promise<void> {
+  await expect
+    .poll(async () => (await notifyJobs(request, tok, s, 100))
+      .filter((j) => j.id > anchor).map((j) => j.state).sort().join(','), {
+      message: `owner.notify jobs after ${anchor} reach ${states.join(',')}`,
+      timeout: 60_000,
+    })
+    .toBe([...states].sort().join(','));
 }
 
 interface RequestBody { name: string; org: string; email: string; message: string }

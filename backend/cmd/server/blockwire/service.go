@@ -24,5 +24,6 @@ func NewService(d *deps.Runtime) *blockadmin.Service {
 			sups: d.BlockSuppliers, deps: newAssembleDeps(d.Credentials),
 		},
 		Manifests: loadBuiltinSupplierManifests(d),
+		Events:    d.Recorder(),
 	})
 }

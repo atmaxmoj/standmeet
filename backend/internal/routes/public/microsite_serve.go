@@ -29,13 +29,13 @@ type BuiltAsset struct {
 	SeoImage       *string
 	PageID         string
 	BuildID        string
-	AllowBYOAI     bool
+	// PublicChat — the public tier's state (PublicChatOn / Spent / Off); injected into <head> so
+	// the codeless AgentWidget picks inline, the visitor's own key, or the /gate handoff.
+	PublicChat string
+	AllowBYOAI bool
 	// PublicSearch —— corpus.retrieval's public_search flag for the sole owner, injected into
 	// <head> so the codeless corpus_search BlockWidget knows it may open a public session.
 	PublicSearch bool
-	// PublicChat — a usable public provider is wired; injected into <head> so the codeless
-	// AgentWidget answers inline instead of handing off to /gate.
-	PublicChat bool
 }
 
 // BuildAssetReq —— everything needed to serve one build's asset.

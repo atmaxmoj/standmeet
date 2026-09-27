@@ -56,18 +56,16 @@ func (r *Repo) ReplaceBlocks(ctx context.Context, ownerID, bundleID string, bloc
 	if err != nil {
 		return err
 	}
-	tx, terr := r.pool.Begin(ctx)
-	if terr != nil {
-		return fmt.Errorf("begin replace blocks: %w", terr)
+	if terr := pgstore.InTx(ctx, r.pool, func(tx pgstore.Tx) error {
+		const del = `DELETE FROM bundle_blocks WHERE bundle_id = $1`
+		if _, derr := tx.Exec(ctx, del, id); derr != nil {
+			return fmt.Errorf("clear bundle blocks: %w", derr)
+		}
+		return insertBlocks(ctx, tx, id, blocks)
+	}); terr != nil {
+		return fmt.Errorf("replace blocks: %w", terr)
 	}
-	defer func() { _ = tx.Rollback(ctx) }() //nolint:errcheck // commit path returns ErrTxClosed
-	if _, derr := tx.Exec(ctx, `DELETE FROM bundle_blocks WHERE bundle_id = $1`, id); derr != nil {
-		return fmt.Errorf("clear bundle blocks: %w", derr)
-	}
-	if ierr := insertBlocks(ctx, tx, id, blocks); ierr != nil {
-		return ierr
-	}
-	return commitTx(ctx, tx, "replace blocks")
+	return nil
 }
 
 // insertBlocks — the member inserts of one ReplaceBlocks transaction.
@@ -120,19 +118,16 @@ func (r *Repo) verifyIncludable(ctx context.Context, ownerID, bundleID, includeI
 
 // writeIncludes — replace the bundle's include edges in one transaction.
 func (r *Repo) writeIncludes(ctx context.Context, id pgtype.UUID, includeIDs []string) error {
-	tx, terr := r.pool.Begin(ctx)
-	if terr != nil {
-		return fmt.Errorf("begin set includes: %w", terr)
-	}
-	defer func() { _ = tx.Rollback(ctx) }() //nolint:errcheck // commit path returns ErrTxClosed
 	const del = `DELETE FROM bundle_includes WHERE bundle_id = $1`
-	if _, derr := tx.Exec(ctx, del, id); derr != nil {
-		return fmt.Errorf("clear bundle includes: %w", derr)
+	if terr := pgstore.InTx(ctx, r.pool, func(tx pgstore.Tx) error {
+		if _, derr := tx.Exec(ctx, del, id); derr != nil {
+			return fmt.Errorf("clear bundle includes: %w", derr)
+		}
+		return insertIncludes(ctx, tx, id, includeIDs)
+	}); terr != nil {
+		return fmt.Errorf("set includes: %w", terr)
 	}
-	if ierr := insertIncludes(ctx, tx, id, includeIDs); ierr != nil {
-		return ierr
-	}
-	return commitTx(ctx, tx, "set includes")
+	return nil
 }
 
 // insertIncludes — the edge inserts of one SetIncludes transaction, in listed order.
@@ -279,12 +274,4 @@ func scanBundleIDs(rows pgx.Rows) ([]string, error) {
 		return nil, fmt.Errorf("iterate bundle includes: %w", rerr)
 	}
 	return out, nil
-}
-
-// commitTx — commit and name what failed if it does.
-func commitTx(ctx context.Context, tx pgx.Tx, what string) error {
-	if cerr := tx.Commit(ctx); cerr != nil {
-		return fmt.Errorf("commit %s: %w", what, cerr)
-	}
-	return nil
 }

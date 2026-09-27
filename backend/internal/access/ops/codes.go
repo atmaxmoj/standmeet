@@ -31,11 +31,11 @@ type CodesDeps struct {
 }
 
 // Codes — the code itself + its ACL facet.
-func Codes(d CodesDeps) []fp.Op {
+func Codes(d *CodesDeps) []fp.Op {
 	return append(codeCoreOps(d), codeACLOps(d.ACL)...)
 }
 
-func codeCoreOps(d CodesDeps) []fp.Op {
+func codeCoreOps(d *CodesDeps) []fp.Op {
 	extras := extrasOr(d.Extras)
 	return []fp.Op{
 		{

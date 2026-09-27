@@ -13,16 +13,19 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/access/entity"
 	"github.com/atmaxmoj/standmeet/internal/access/repo"
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
+	"github.com/atmaxmoj/standmeet/internal/infra/events"
+	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
 // RequestsDeps — shared dependencies for SubmitForOwner / ListForOwner / UpdateStatus.
+// Pool and Events are needed by the writes: a request row and its access_request.* event commit
+// together. Whoever reacts (the owner notification) is a
+// subscriber; this domain sends nothing itself.
 type RequestsDeps struct {
 	Repo   *repo.RequestRepo
 	Owners SoleOwnerLookup
-	// Notify — best-effort owner notification on submit. nil = no notification (never an error);
-	// the submission always succeeds and stores regardless. Owned by the owner domain (it holds
-	// the outbound-mail channel); access only fires the hook after the row is safely stored.
-	Notify func(ctx context.Context, ownerID string, req entity.Request)
+	Pool   *pgstore.Pool
+	Events events.Recorder
 }
 
 // SubmitAccessRequestInput — public POST /api/v1/access-requests input.
@@ -46,17 +49,22 @@ func SubmitForOwner(
 	if err != nil {
 		return entity.Request{}, fmt.Errorf("resolve sole owner: %w", err)
 	}
-	out, err := deps.Repo.Create(ctx, &entity.CreateAccessRequestInput{
-		OwnerID: ownerID, Name: in.Name, Org: in.Org,
-		Email: in.Email, Message: in.Message,
+	var out entity.Request
+	err = pgstore.InTx(ctx, deps.Pool, func(tx pgstore.Tx) error {
+		var cerr error
+		out, cerr = deps.Repo.With(tx).Create(ctx, &entity.CreateAccessRequestInput{
+			OwnerID: ownerID, Name: in.Name, Org: in.Org,
+			Email: in.Email, Message: in.Message,
+		})
+		if cerr != nil {
+			return cerr //nolint:wrapcheck // the repo names its step
+		}
+		data := map[string]string{"request_id": out.ID}
+		return deps.Events.With(tx).Record(ctx, ownerID, entity.AccessRequestCreated,
+			"access_request/"+out.ID, data)
 	})
 	if err != nil {
 		return entity.Request{}, fmt.Errorf("create access request: %w", err)
-	}
-	// Notify the owner — best-effort, after the request is safely stored. A missing/broken mail
-	// channel never fails the submission, and a flood is email-bomb-capped inside the hook.
-	if deps.Notify != nil {
-		deps.Notify(ctx, ownerID, out)
 	}
 	return out, nil
 }
@@ -92,11 +100,28 @@ func UpdateAccessRequestStatus(
 	if !validStatus(status) {
 		return entity.Request{}, entity.ErrAccessRequestStatusInvalid
 	}
-	out, err := deps.Repo.UpdateStatus(ctx, ownerID, id, status)
+	out, err := setStatus(ctx, deps, ownerID, id, status)
 	if err != nil {
 		return entity.Request{}, fmt.Errorf("update access request: %w", err)
 	}
 	return out, nil
+}
+
+// setStatus —— the status and its access_request.status_changed, in one transaction.
+func setStatus(
+	ctx context.Context, deps RequestsDeps, ownerID, id, status string,
+) (entity.Request, error) {
+	var out entity.Request
+	err := pgstore.InTx(ctx, deps.Pool, func(tx pgstore.Tx) error {
+		var uerr error
+		if out, uerr = deps.Repo.With(tx).UpdateStatus(ctx, ownerID, id, status); uerr != nil {
+			return uerr //nolint:wrapcheck // the caller names the step
+		}
+		data := map[string]string{"request_id": out.ID, "status": out.Status}
+		return deps.Events.With(tx).Record(ctx, ownerID, AccessRequestStatusChanged,
+			"access_request/"+out.ID, data)
+	})
+	return out, err //nolint:wrapcheck // the caller names the step
 }
 
 // validStatus — for writes: must be one of the three enum values.

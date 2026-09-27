@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
+	"github.com/atmaxmoj/standmeet/internal/infra/events"
 	"github.com/atmaxmoj/standmeet/internal/infra/periodic"
 	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 	"github.com/atmaxmoj/standmeet/internal/owner/repo"
@@ -35,6 +36,8 @@ type ProvidersDeps struct {
 	// root). nil = this instance doesn't record usage, so every tank reads as
 	// "unmetered" — not as "full".
 	Spend SpendReader
+	// Events —— gas.refilled (a fill) and gas.exhausted (the gate found the tank dry).
+	Events events.Recorder
 }
 
 // CreateProviderInput — creates a new entry. Key is **plaintext**; repo's layer seals
@@ -210,7 +213,7 @@ func UpdateProvider(
 			return repo.ProviderRow{}, fmt.Errorf("%w: %w", entity.ErrInvalidRefillCron, verr)
 		}
 	}
-	row, err := d.Owners.UpdateProvider(ctx, in)
+	row, err := updateProviderRow(ctx, d, in)
 	if err != nil {
 		return repo.ProviderRow{}, fmt.Errorf("update provider: %w", err)
 	}

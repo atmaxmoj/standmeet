@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
+	"github.com/atmaxmoj/standmeet/internal/infra/events"
 	"github.com/atmaxmoj/standmeet/internal/infra/session"
 	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 	"github.com/atmaxmoj/standmeet/internal/owner/repo"
@@ -37,6 +38,7 @@ type RecoveryDeps struct {
 	Owners   *repo.Repo
 	Sessions *session.OwnerSessionStore
 	Proxy    OutboundSender
+	Events   events.Recorder // owner.recovery_requested commits with the new hash
 }
 
 // RecoverInput — input to the public /recover endpoint.
@@ -86,7 +88,9 @@ func storeNewRecovery(ctx context.Context, deps *RecoveryDeps, ownerID string) (
 	if herr != nil {
 		return "", fmt.Errorf("hash recovery phrase: %w", herr)
 	}
-	if serr := deps.Owners.SetRecoveryHash(ctx, ownerID, hash); serr != nil {
+	serr := ownerFacts{deps.Owners, deps.Events}.record(ctx, OwnerRecoveryRequested, ownerID,
+		func(o *repo.Repo) error { return o.SetRecoveryHash(ctx, ownerID, hash) })
+	if serr != nil {
 		return "", fmt.Errorf("store recovery hash: %w", serr)
 	}
 	return phrase, nil
@@ -129,7 +133,10 @@ func verifyRecovery(
 func issueRecovered(
 	ctx context.Context, deps *RecoveryDeps, creds *repo.Credentials,
 ) (RecoverOutput, error) {
-	if cerr := deps.Owners.ClearRecoveryHash(ctx, creds.OwnerID); cerr != nil {
+	// A recovery sign-in is a sign-in: owner.login commits with the spent phrase.
+	cerr := ownerFacts{deps.Owners, deps.Events}.record(ctx, OwnerLogin, creds.OwnerID,
+		func(o *repo.Repo) error { return o.ClearRecoveryHash(ctx, creds.OwnerID) })
+	if cerr != nil {
 		return RecoverOutput{}, fmt.Errorf("clear recovery: %w", cerr)
 	}
 	// Recovery is a rare emergency path; the IP/UA aren't threaded here, so this

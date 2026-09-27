@@ -14,20 +14,15 @@
 package blockload
 
 import (
-	"log/slog"
-
 	"github.com/atmaxmoj/standmeet/internal/plugin/adapters"
 )
 
 // NewSupplierDispatch —— allocate the outbound-supplier table + the dispatcher over it, wired.
 // The caller populates the table (Put) with the suppliers it assembled and registers their seams
 // through RegisterSeamProviders.
-func NewSupplierDispatch(
-	store adapters.SeamStore, log *slog.Logger,
-) (*adapters.Suppliers, *adapters.Dispatcher) {
+func NewSupplierDispatch(store adapters.SeamStore) (*adapters.Suppliers, *adapters.Dispatcher) {
 	sups := adapters.NewSuppliers(store)
 	disp := adapters.NewDispatcher(sups.Lookup)
 	disp.SetSupplierByID(sups.ByID)
-	disp.SetLogger(log)
 	return sups, disp
 }

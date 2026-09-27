@@ -1,86 +1,81 @@
 // corpus_index.go —— corpus → Meili index propagation (the 1b crawl face).
 //
-// Postgres is the source of truth; Meili is a derived projection. The write path
-// syncs changes into Meili: promote/update/publish → IndexNote (single-row upsert),
-// delete → DeleteNote, sync/backfill/reconcile → ReindexOwner (full rebuild).
-// **Best-effort**: an index failure only logs a warning and never fails the corpus
-// write (once Postgres has landed the row, the fact is established; Meili catches up
-// later via reconcile once it's healthy again). Path is computed via PathSegment
-// walking the parent chain, exactly matching the retrieval ACL (allowsCorpusURI).
+// Postgres is the source of truth; Meili is a derived projection. No write path calls this:
+// the corpus_notes trigger records every change as a corpus.note.changed event, and the
+// corpus.index subscriber (internal/corpus/subscriber) calls the Indexer from a durable job.
+// A failure is therefore returned, not swallowed — the job layer retries it on its backoff until
+// Meili answers, across restarts. Path is computed via PathSegment walking the parent chain,
+// exactly matching the retrieval ACL (allowsCorpusURI).
 
 package usecase
 
 import (
 	"context"
-	"log/slog"
+	"errors"
+	"fmt"
 	"strings"
-	"sync/atomic"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus/entity"
 	"github.com/atmaxmoj/standmeet/internal/corpus/repo"
 	"github.com/atmaxmoj/standmeet/internal/corpus/search"
 )
 
-// Indexer —— the index-propagation port called from the write path (best-effort,
-// never returns an error). nil = Meili not configured, hooks skip directly.
+// Indexer —— the index writes the corpus.index subscriber makes. Every method returns its error:
+// the caller is a job, and a returned error is a retry.
 type Indexer interface {
-	IndexNote(ctx context.Context, ownerID, noteID string)
-	DeleteNote(ctx context.Context, noteID string)
-	ReindexOwner(ctx context.Context, ownerID string)
-	// Reconcile —— once Meili recovers, backfills writes missed while it was down
-	// (dirty flag + full rebuild once healthy). Called periodically by a background loop.
-	Reconcile(ctx context.Context, ownerID string)
+	IndexNote(ctx context.Context, ownerID, noteID string) error
+	// IndexSubtree re-indexes a note and every descendant: their paths change with its title or
+	// parent.
+	IndexSubtree(ctx context.Context, ownerID, noteID string) error
+	DeleteNote(ctx context.Context, noteID string) error
+	ReindexOwner(ctx context.Context, ownerID string) error
 }
 
+// IndexReceipt —— what a write can tell its caller about the index: indexed=true once the
+// search index holds the write (waited for briefly), otherwise the job carrying it.
+type IndexReceipt interface {
+	Await(ctx context.Context, noteID string) (indexed bool, jobID int64)
+}
+
+// SoleOwnerID —— gets this instance's owner id (a narrow port: this domain doesn't know the
+// owner domain). An unclaimed instance returns "", not an error: nothing to index yet.
+type SoleOwnerID func(ctx context.Context) (string, error)
+
 // meiliCorpusIndexer —— the Meili-backed Indexer. Only indexes corpus_notes
-// (wiki/output/subjectivity = vault); writings stay on Postgres full-text and never
-// enter Meili. dirty: a Meili write failed (while it was down) → reconcile once
-// recovered.
+// (wiki/output/subjectivity = vault); raw and writings never enter Meili.
 type meiliCorpusIndexer struct {
 	client *search.Client
 	notes  *repo.VaultSyncRepo
-	log    *slog.Logger
-	dirty  atomic.Bool
 }
 
-// NewCorpusIndexer —— constructor. client nil (Meili not configured) → returns nil,
-// so Deps.Index ends up nil and hooks skip.
+// NewCorpusIndexer —— constructor. client nil (Meili not configured) → returns nil.
 //
-//nolint:ireturn // nil-safe factory: client nil returns a nil interface, all write hooks skip
-func NewCorpusIndexer(
-	client *search.Client, notes *repo.VaultSyncRepo, log *slog.Logger,
-) Indexer {
+//nolint:ireturn // nil-safe factory: client nil returns a nil interface
+func NewCorpusIndexer(client *search.Client, notes *repo.VaultSyncRepo) Indexer {
 	if client == nil {
 		return nil
 	}
-	return &meiliCorpusIndexer{client: client, notes: notes, log: log}
+	return &meiliCorpusIndexer{client: client, notes: notes}
 }
 
-// genreRaw —— raw is the owner's private inbox, privacy-critical: never enters the
-// search index.
-
-// genreWriting —— once writing folded into corpus_notes (#151) it shares this table,
-// but retrieval still stays on Postgres full-text (lister.Search appends
-// searchWritings after the Meili results). Entering Meili too would double-hit, so
-// it's skipped.
-
-// skipFromMeili —— whether this genre is excluded from the Meili index: raw (private
-// inbox) + writing (stays on PG full-text, to avoid duplicate hits).
+// skipFromMeili —— raw is the owner's private inbox and never enters the search index;
+// writing stays on Postgres full-text (lister.Search appends it), so indexing it would double-hit.
 func skipFromMeili(genre string) bool {
 	return genre == string(entity.GenreRaw) || genre == string(entity.GenreWriting)
 }
 
-// IndexNote —— upserts a single corpus note (wiki/output/subjectivity) into Meili.
-// genre='raw'/'writing' is skipped outright (raw is a private inbox; writing stays on
-// Postgres full-text, and entering Meili would double-hit).
-func (x *meiliCorpusIndexer) IndexNote(ctx context.Context, ownerID, noteID string) {
+// IndexNote —— upserts a single corpus note (wiki/output/subjectivity) into Meili. A note that
+// no longer exists is removed instead (the event outran a delete).
+func (x *meiliCorpusIndexer) IndexNote(ctx context.Context, ownerID, noteID string) error {
 	note, err := x.notes.GetSyncNote(ctx, ownerID, noteID)
 	if err != nil {
-		x.warn("index note read", err)
-		return
+		if errors.Is(err, repo.ErrSyncNoteNotFound) {
+			return x.DeleteNote(ctx, noteID)
+		}
+		return fmt.Errorf("index note read: %w", err)
 	}
 	if skipFromMeili(note.Genre) {
-		return // raw=private inbox; writing=stays on PG full-text (see skipFromMeili)
+		return nil
 	}
 	doc := search.Doc{
 		ID: note.ID, OwnerID: ownerID, Genre: note.Genre,
@@ -88,53 +83,84 @@ func (x *meiliCorpusIndexer) IndexNote(ctx context.Context, ownerID, noteID stri
 		Title: note.Title, Body: note.Body,
 		Tags: note.Tags, Published: note.Published, ParentID: note.ParentID,
 	}
-	if ierr := x.client.Index(ctx, []search.Doc{doc}); ierr != nil {
-		x.failed("index note push", ierr)
+	if err = x.client.Index(ctx, []search.Doc{doc}); err != nil {
+		return fmt.Errorf("index note push: %w", err)
 	}
+	return nil
+}
+
+// IndexSubtree —— the note plus every descendant, from one in-memory read of the owner's notes.
+func (x *meiliCorpusIndexer) IndexSubtree(ctx context.Context, ownerID, noteID string) error {
+	docs, err := x.ownerDocs(ctx, ownerID)
+	if err != nil {
+		return err
+	}
+	sub := subtreeDocs(docs, noteID)
+	if len(sub) == 0 {
+		return x.IndexNote(ctx, ownerID, noteID) // raw/writing, or gone: the single path decides
+	}
+	if err = x.client.Index(ctx, sub); err != nil {
+		return fmt.Errorf("index subtree push: %w", err)
+	}
+	return nil
+}
+
+// subtreeDocs —— the docs whose parent chain reaches rootID (rootID's own doc included).
+func subtreeDocs(docs []search.Doc, rootID string) []search.Doc {
+	parent := make(map[string]string, len(docs))
+	for i := range docs {
+		parent[docs[i].ID] = docs[i].ParentID
+	}
+	sub := make([]search.Doc, 0, len(docs))
+	for i := range docs {
+		if withinSubtree(parent, docs[i].ID, rootID) {
+			sub = append(sub, docs[i])
+		}
+	}
+	return sub
+}
+
+// withinSubtree —— whether walking id's parent chain (at most TreeMaxDepth steps) reaches rootID.
+func withinSubtree(parent map[string]string, id, rootID string) bool {
+	for cur, depth := id, 0; cur != "" && depth <= TreeMaxDepth; depth++ {
+		if cur == rootID {
+			return true
+		}
+		cur = parent[cur]
+	}
+	return false
 }
 
 // DeleteNote —— removes one entry from Meili (note deleted/archived).
-func (x *meiliCorpusIndexer) DeleteNote(ctx context.Context, noteID string) {
+func (x *meiliCorpusIndexer) DeleteNote(ctx context.Context, noteID string) error {
 	if err := x.client.Delete(ctx, []string{noteID}); err != nil {
-		x.failed("delete note", err)
+		return fmt.Errorf("delete note: %w", err)
 	}
+	return nil
 }
 
-// ReindexOwner —— full rebuild of an owner's index (clear, then build). Used by
-// sync / boot backfill / health-recovery reconcile.
-func (x *meiliCorpusIndexer) ReindexOwner(ctx context.Context, ownerID string) {
-	docs := x.ownerDocs(ctx, ownerID)
-	if err := x.client.DeleteOwner(ctx, ownerID); err != nil {
-		x.failed("reindex clear", err)
-		return
+// ReindexOwner —— full rebuild of an owner's index (clear, then build). Run as a job at boot, so
+// an index that lost its volume or missed changes before the bus existed is brought up to date.
+func (x *meiliCorpusIndexer) ReindexOwner(ctx context.Context, ownerID string) error {
+	docs, err := x.ownerDocs(ctx, ownerID)
+	if err != nil {
+		return err
 	}
-	if err := x.client.Index(ctx, docs); err != nil {
-		x.failed("reindex push", err)
+	if err = x.client.DeleteOwner(ctx, ownerID); err != nil {
+		return fmt.Errorf("reindex clear: %w", err)
 	}
+	if err = x.client.Index(ctx, docs); err != nil {
+		return fmt.Errorf("reindex push: %w", err)
+	}
+	return nil
 }
 
-// Reconcile —— once Meili recovers, backfills writes missed while it was down: dirty
-// flag set and healthy → full rebuild from the DB. Clears the dirty flag
-// optimistically; if the rebuild fails it gets marked dirty again (retried next
-// round). Called periodically by the background wireSearchReconcile.
-func (x *meiliCorpusIndexer) Reconcile(ctx context.Context, ownerID string) {
-	if !x.dirty.Load() {
-		return
-	}
-	if err := x.client.Healthy(ctx); err != nil {
-		return // not recovered yet, leave the dirty flag set and retry next round
-	}
-	x.dirty.Store(false)
-	x.ReindexOwner(ctx, ownerID)
-}
-
-// ownerDocs —— all of an owner's corpus_notes (path computed via an in-memory parent
-// chain). writings don't enter Meili (stay on PG full-text), so they're excluded.
-func (x *meiliCorpusIndexer) ownerDocs(ctx context.Context, ownerID string) []search.Doc {
+// ownerDocs —— all of an owner's indexable corpus_notes (path computed via an in-memory parent
+// chain).
+func (x *meiliCorpusIndexer) ownerDocs(ctx context.Context, ownerID string) ([]search.Doc, error) {
 	notes, err := x.notes.ListAllForExport(ctx, ownerID)
 	if err != nil {
-		x.warn("reindex list notes", err)
-		notes = nil
+		return nil, fmt.Errorf("reindex list notes: %w", err)
 	}
 	byID := make(map[string]*repo.SyncNote, len(notes))
 	for i := range notes {
@@ -143,7 +169,7 @@ func (x *meiliCorpusIndexer) ownerDocs(ctx context.Context, ownerID string) []se
 	docs := make([]search.Doc, 0, len(notes))
 	for i := range notes {
 		if skipFromMeili(notes[i].Genre) {
-			continue // raw=private inbox; writing=stays on PG full-text (see skipFromMeili)
+			continue
 		}
 		path := SyncNotePath(notes[i].Title, notes[i].ParentID, mapParentOf(byID))
 		docs = append(docs, search.Doc{
@@ -152,17 +178,15 @@ func (x *meiliCorpusIndexer) ownerDocs(ctx context.Context, ownerID string) []se
 			Tags: notes[i].Tags, Published: notes[i].Published, ParentID: notes[i].ParentID,
 		})
 	}
-	return docs
+	return docs, nil
 }
 
 // SyncNotePath —— a corpus note's path: PathSegment-ed parent chain joined by '/',
-// **best-effort** (if the parent chain breaks, it stops there and doesn't error —
-// indexing/links are best-effort). parentOf supplies "id → (title, parentID)"; the
-// DB-backed version passes a GetSyncNote closure, the batch version passes an
-// in-memory map closure — one walk implementation, two backings. Shared by index
-// propagation and corpus_links, keeping path consistent with the retrieval ACL
-// (allowsCorpusURI) — WikiPathByID and friends on the read path are a strict
-// variant with different semantics, so they're not merged with this one.
+// **best-effort** (if the parent chain breaks, it stops there and doesn't error).
+// parentOf supplies "id → (title, parentID)"; the DB-backed version passes a GetSyncNote
+// closure, the batch version passes an in-memory map closure — one walk implementation, two
+// backings. The SQL twin (corpus_note_uri, used by the event trigger) must agree; see
+// TestSQLPathSegmentMatchesGo.
 func SyncNotePath(title, parentID string, parentOf func(id string) (string, string, bool)) string {
 	segs := []string{PathSegment(title)}
 	for cur, depth := parentID, 0; cur != "" && depth < TreeMaxDepth; depth++ {
@@ -186,8 +210,7 @@ func DBParentOf(
 	}
 }
 
-// mapParentOf —— SyncNotePath's in-memory implementation: for ReindexOwner's batch
-// path, avoids N separate DB queries.
+// mapParentOf —— SyncNotePath's in-memory implementation.
 func mapParentOf(byID map[string]*repo.SyncNote) func(string) (string, string, bool) {
 	return func(id string) (string, string, bool) {
 		n, ok := byID[id]
@@ -196,62 +219,4 @@ func mapParentOf(byID map[string]*repo.SyncNote) func(string) (string, string, b
 		}
 		return n.Title, n.ParentID, true
 	}
-}
-
-func (x *meiliCorpusIndexer) warn(msg string, err error) {
-	if x.log != nil {
-		x.log.Warn("corpus index: "+msg, "err", err)
-	}
-}
-
-// failed —— a Meili write call failed: logs a warning + marks dirty, so Reconcile
-// backfills it once recovered (D4 self-heal).
-func (x *meiliCorpusIndexer) failed(msg string, err error) {
-	x.dirty.Store(true)
-	x.warn(msg, err)
-}
-
-// indexNoteHook / deleteNoteHook / reindexOwnerHook —— nil-safe hooks for the write
-// path. When Meili isn't configured, deps.Index == nil and they skip directly. Kept
-// at this layer so each write/delete usecase calls them explicitly, instead of
-// hiding the call inside RebuildNoteRefs.
-func indexNoteHook(ctx context.Context, deps Deps, ownerID, noteID string) {
-	if deps.Index != nil {
-		deps.Index.IndexNote(ctx, ownerID, noteID)
-	}
-}
-
-func deleteNoteHook(ctx context.Context, deps Deps, noteID string) {
-	if deps.Index != nil {
-		deps.Index.DeleteNote(ctx, noteID)
-	}
-}
-
-func reindexOwnerHook(ctx context.Context, deps Deps, ownerID string) {
-	if deps.Index != nil {
-		deps.Index.ReindexOwner(ctx, ownerID)
-	}
-}
-
-// ReindexCorpusOwner —— for an outer layer (the sync handler) to fully rebuild the
-// index after a batch write. Batching once is cheaper than upserting row-by-row, and
-// it reflects vault deletions (full rebuild = delete + build, no drift left behind).
-// nil-safe.
-func ReindexCorpusOwner(ctx context.Context, deps Deps, ownerID string) {
-	reindexOwnerHook(ctx, deps, ownerID)
-}
-
-// ReindexCorpusNote —— for an outer layer to propagate after a **single-row** write.
-// nil-safe.
-//
-// Exists because of publish: `seo.set_entry_seo` changes corpus_notes.published, but
-// it goes through the owner-side SEO port, not through any write usecase in this
-// package — so that note's index document is left stuck at the `published` value
-// from whenever it was written. Nobody read that field from the index before, so this
-// went unnoticed; after F-D-7, public-identity admission reads exactly that field, so
-// a note that just got published would **vanish from retrieval**.
-//
-// Every field in the index must have its own write path; this one didn't.
-func ReindexCorpusNote(ctx context.Context, deps Deps, ownerID, noteID string) {
-	indexNoteHook(ctx, deps, ownerID, noteID)
 }

@@ -29,6 +29,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/corpus/entity"
 	"github.com/atmaxmoj/standmeet/internal/corpus/repo"
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
+	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
 // FileInput — one uploaded image. PendingID is the client-side UUID the frontend editor
@@ -111,19 +112,14 @@ func validateSaveInput(in *SaveWritingInput) error {
 func saveInTxAndCommit(
 	ctx context.Context, deps WritingsTxDeps, in *SaveWritingInput,
 ) (saveCommitted, error) {
-	tx, err := deps.Writings.Pool().Begin(ctx)
-	if err != nil {
-		return saveCommitted{}, fmt.Errorf("begin tx: %w", err)
-	}
-	res, serr := runSaveInTx(ctx, deps, tx, in)
-	if serr != nil {
-		if rerr := tx.Rollback(ctx); rerr != nil {
-			_ = rerr
-		}
-		return saveCommitted{}, serr
-	}
-	if cerr := tx.Commit(ctx); cerr != nil {
-		return saveCommitted{}, fmt.Errorf("commit save writing: %w", cerr)
+	var res saveCommitted
+	if err := pgstore.InTx(ctx, deps.Writings.Pool(), func(tx pgstore.Tx) error {
+		var serr error
+		res, serr = runSaveInTx(ctx, deps, tx, in)
+		return serr
+	}); err != nil {
+		//nolint:wrapcheck // InTx names begin/commit; runSaveInTx names its steps
+		return saveCommitted{}, err
 	}
 	return res, nil
 }

@@ -6,8 +6,6 @@
 package main
 
 import (
-	"context"
-
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
 	"github.com/atmaxmoj/standmeet/cmd/server/port"
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
@@ -32,7 +30,7 @@ func buildPublicDeps(d *deps.Runtime) publicroutes.Handlers {
 		Corpus:       d.Corpus,
 		Subjectivity: corpus.NewSubjectivityCiteResolver(d.SubjectivityRepo),
 		Ledger:       conversation.NewWaypointLedger(d.VaultSyncRepo, d.VisitorStore, d.Log),
-		Ghosts:       conversation.GhostDeps{Repo: d.GhostRepo},
+		Ghosts:       conversation.GhostDeps{Repo: d.GhostRepo, Events: d.Recorder()},
 		PDFRenderer:  d.ReportPDFRenderer,
 		AppState:     d.AppStateRepo,
 		Usage:        d.InferenceUsageRepo,
@@ -72,24 +70,15 @@ func buildPublicSEODeps(d *deps.Runtime) publicroutes.SEOHandlers {
 	}
 }
 
-// buildAccessRequestNotify — the best-effort owner-notification hook fired after a request is
-// stored. The owner domain owns the content; the outbound channel (with its email-bomb burst cap)
-// is wired in by the composition root — access only calls back.
-func buildAccessRequestNotify(d *deps.Runtime) func(context.Context, string, access.Request) {
-	notify := owner.NotifyNewRequestDeps{
-		Owners: d.OwnerRepo, Proxy: port.AccessRequestNotifySender(d), Log: d.Log,
-	}
-	return func(ctx context.Context, ownerID string, req access.Request) {
-		owner.NotifyOwnerOfNewRequest(ctx, notify, ownerID, &req)
-	}
-}
-
+// buildPublicAccessRequestsDeps — a submission records access_request.created with its row; the
+// owner notification is the owner.notify subscriber's job (wire/periodic.go).
 func buildPublicAccessRequestsDeps(d *deps.Runtime) publicroutes.AccessRequestsHandlers {
 	return publicroutes.AccessRequestsHandlers{
 		Reqs: access.RequestsDeps{
 			Repo:   d.AccessRequestRepo,
 			Owners: port.NewSoleOwnerLookup(d),
-			Notify: buildAccessRequestNotify(d),
+			Pool:   d.DB,
+			Events: d.Events.Recorder(),
 		},
 		Log: d.Log,
 	}

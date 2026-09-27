@@ -2,8 +2,10 @@
   "name": "standmeet-dsh-acceptance",
   "version": "1.0.0",
   "private": true,
-  "description": "Real-DSH acceptance tests for the blocks in ../plugins. dsh-testkit lives here (one install); each <block>.dsh-testkit.yaml points its subject.source back at ../plugins/<block> (no copying). A green run proves the unmodified block + its cordis.patch.yml declaration mounts on a real DSH, registers its tools, and works — i.e. it is a valid dsh plugin with zero adaptation.",
+  "description": "Real-DSH acceptance tests for the blocks in ../plugins. run.mjs installs each <name>.acceptance.yaml subject into a throwaway DSH profile with `dsh plugin add`, boots it, checks rows, services and tools, calls the exercises, and removes it. The @deepseek-ai/dsh devDependency below is the one DSH version pin.",
   "devDependencies": {
-    "dsh-testkit": "0.4.4"
+    "@deepseek-ai/dsh": "0.1.7-rc.2",
+    "pnpm": "11.7.0",
+    "yaml": "^2.9.0"
   }
 }

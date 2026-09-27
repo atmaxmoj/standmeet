@@ -13,6 +13,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/conversation/inference"
 	"github.com/atmaxmoj/standmeet/internal/conversation/repo"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
+	"github.com/atmaxmoj/standmeet/internal/infra/events"
 	"github.com/atmaxmoj/standmeet/internal/infra/sandbox"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
@@ -56,6 +57,8 @@ type VisitorSessionDeps struct {
 	// CorpusRefs —— asks "does this evidence_ref resolve to a real note" when freezing
 	// waypoints (F-A-26). Nil = no feasibility filtering (see feasibleWaypoints).
 	CorpusRefs CorpusRefResolver
+	// Events —— conversation.started and code.redeemed commit with their rows (inTx).
+	Events events.Recorder
 }
 
 // GasGauge —— how many tokens are left in a tank. nil = this tank has no metering
@@ -67,6 +70,9 @@ type VisitorSessionDeps struct {
 // blocks is "can this session send another one".
 type GasGauge interface {
 	Remaining(ctx context.Context, ownerID, providerID string) (*int64, error)
+	// Exhausted —— the gate found the tank dry (the owner domain records gas.exhausted once per
+	// fill).
+	Exhausted(ctx context.Context, ownerID, providerID string) error
 }
 
 // providerDefaulter —— the owner's default provider id (returns empty string if

@@ -25,10 +25,17 @@ import (
 // ChatRepo — access entry point for the conversations + messages tables.
 type ChatRepo struct {
 	pool *pgstore.Pool
+	q    pgstore.DBTX // nil → the pool; set by With
 }
 
 // NewChatRepo constructs a ChatRepo.
 func NewChatRepo(pool *pgstore.Pool) *ChatRepo { return &ChatRepo{pool: pool} }
+
+// With —— a copy whose writes run on q (the caller's transaction). The original is unchanged.
+func (r *ChatRepo) With(q pgstore.DBTX) *ChatRepo { return &ChatRepo{pool: r.pool, q: q} }
+
+// Pool —— the pool a use case opens its transaction on.
+func (r *ChatRepo) Pool() *pgstore.Pool { return r.pool }
 
 // CreateChatInput — input for creating a chat.
 type CreateChatInput struct {
@@ -57,7 +64,7 @@ func (r *ChatRepo) CreateChat(
 	if err != nil {
 		return entity.Chat{}, fmt.Errorf("parse member id: %w", err)
 	}
-	q := db.New(r.pool)
+	q := db.New(r.conn())
 	row, err := q.CreateConversation(ctx, db.CreateConversationParams{
 		OwnerID:     ownerUUID,
 		Mode:        in.Mode,
@@ -195,3 +202,13 @@ func toDomainMessage(m *db.Message) entity.Message {
 
 // ChatSummary / ChatWithMessages / ListByOwner / GetWithMessages / loadMessages are split
 // out to chats_admin.go to hold the 350-line cap.
+
+// conn —— the transaction when bound by With, else the pool.
+//
+//nolint:ireturn // DBTX is the port both a pool and a transaction satisfy
+func (r *ChatRepo) conn() pgstore.DBTX {
+	if r.q != nil {
+		return r.q
+	}
+	return r.pool
+}

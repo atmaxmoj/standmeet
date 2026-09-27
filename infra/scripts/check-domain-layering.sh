@@ -4,12 +4,13 @@
 # Rule (owner): the intra-domain dependency chain must be lint-locked. Guts must not
 # back-reference the facade; a lower layer must not reach up. Layer order (low -> high):
 #
-#     entity / db / infra   (0, leaves)  <  repo (1)  <  service (2)  <  usecase (3)  <  facade (4)
+#     entity / db / infra (0, leaves) < repo (1) < service (2) < usecase (3) < subscriber (4) < facade (5)
 #
 # A file in layer L may import a sibling subpackage of the SAME domain only from a strictly
 # LOWER layer. Same-level or higher = violation. So: entity imports no sibling; repo -> entity
-# only; service -> entity/repo; usecase -> entity/repo/service; facade -> anything; nobody
-# imports facade. "infra is infra": infra sits at level 0 and pulls nothing up.
+# only; service -> entity/repo; usecase -> entity/repo/service; subscriber -> usecase and below
+# (no use case imports its subscribers); facade -> anything; nobody imports facade. "infra is
+# infra": infra sits at level 0 and pulls nothing up.
 #
 # go-arch-lint's per-component mayDependOn already enforces this; this lint states the invariant
 # as one legible rule, self-tests that it bites, and covers every faceted domain uniformly.

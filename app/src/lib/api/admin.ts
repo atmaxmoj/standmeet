@@ -147,9 +147,18 @@ export const adminAPI = {
 
 // ── schemas ─────────────────────────────────────────────────
 
+// MailReceiptSchema —— a mail job's state as the backend reports it: sending until the job is done,
+// then sent or failed. The backend maps job states to these three words (one place).
+export const MailReceiptSchema = z.object({
+  state: z.enum(['sending', 'sent', 'failed']), job_id: z.number(),
+});
+export type MailReceipt = z.infer<typeof MailReceiptSchema>;
+
 export const AccessRequestViewSchema = z.object({
   id: z.string(), name: z.string(), org: z.string(), email: z.string(),
   message: z.string(), status: z.enum(['open', 'replied', 'closed']), created_at: z.string(),
+  // mail —— the approval mail's receipt; absent before approval.
+  mail: MailReceiptSchema.optional(),
 });
 export type AccessRequestView = z.infer<typeof AccessRequestViewSchema>;
 
@@ -217,6 +226,8 @@ export const OwnerProfileViewSchema = z.object({
   // pending_email —— backend omitempty; the field is absent when there's nothing
   // pending confirmation → optional.
   pending_email: z.string().optional(),
+  // pending_email_mail —— the confirmation mail's receipt while a change is pending.
+  pending_email_mail: MailReceiptSchema.optional(),
 });
 
 export const MeViewSchema = z.object({ owner: OwnerProfileViewSchema, settings: SettingsViewSchema });

@@ -29,6 +29,14 @@ components:
     in: tools/archcheck                   # build-time lint tool: internal/'s import-graph gates
   pgstore:
     in: internal/infra/pgstore                   # #135 shared DB store primitives (Pool/DBTX/uuid/crypto); domain-less infra
+  jobs:
+    in: internal/infra/jobs                      # durable background work behind our own interfaces (Jobs / Inspector / Runtime); strings + JSON only
+  jobsriver:
+    in: internal/infra/jobs/river                # the River implementation of jobs; the only package importing riverqueue
+  events:
+    in: internal/infra/events                    # the event bus: outbox recorder, relay, declared subscriptions; knows no domain
+  corpussubscriber:
+    in: internal/corpus/subscriber               # corpus guts: what corpus does in response to events (subscriptions as data)
   dbfiles:
     in: db                                       # go:embed carrier for schema.sql + migrations/; only pgstore can reach it
   depcheck:
@@ -39,6 +47,10 @@ components:
     in: internal/infra/snowflake                 # snowflake id → short base62 slug (single implementation); domain-less leaf
   mailthrottle:
     in: internal/infra/mailthrottle              # per-recipient outbound-mail cap (email-bomb defense); domain-less leaf
+  sideeffectmail:
+    in: internal/infra/sideeffect/mail           # the mail side-effect port: only subscribers and the composition root may hold it
+  sideeffectsupplier:
+    in: internal/infra/sideeffect/supplier       # the supplier.invoke job: a supplier call that outlives its caller; only the composition root holds it
   plaintext:
     in: internal/infra/plaintext                 # inbound HTML → readable text (single implementation); domain-less leaf
   providermodels:
@@ -168,6 +180,8 @@ components:
     in: internal/owner/usecase       # owner guts: usecases/orchestration
   ownerops:
     in: internal/owner/ops           # owner guts: declaration of what this domain offers outward
+  ownersubscriber:
+    in: internal/owner/subscriber    # owner guts: what owner does in response to events (webhook fan-out + delivery)
   sandbox:
     in: internal/infra/sandbox                  # owner-curated skill scripts run inside a docker container
   plugin:
@@ -222,8 +236,6 @@ components:
     in: internal/plugin/credmgr                    # the credential-manager block: stores a non-native secret (telegram/smtp/api token) AES-GCM-sealed in the db block's storage, keyed by (owner, name); in-process host infra (holds the instance secret)
   blockwarn:
     in: internal/plugin/blockwarn                  # persistent owner warnings raised by block lifecycle events (first: data loss on uninstall of a block that held data); ordinary data in the db block's storage, keyed by owner
-  retry:
-    in: internal/infra/retry                    # #132 generic configurable-retry infra (backoff/cap/retryable/ctx cancel); leaf, supplier call-relaying builds on it
   httpx:
     in: internal/infra/httpx                    # #132 the single outbound HTTP client (retry+timeout+composable base); leaf, every outbound caller depends on it
   search:
@@ -250,10 +262,10 @@ components:
     in: internal/infra/hostop             # the inbound vocabulary (Op/Invoke/socket path rules); leaf, knows no domain
   periodic:
     in: internal/infra/periodic           # single scheduling point for periodic tasks: the declarer says "what to do", this handles "how often + bookkeeping"
-  buildnotify:
-    in: internal/infra/buildnotify        # in-memory broadcast waking microsite preview long-pollers on build completion; domain-less leaf (stdlib sync only)
+  detach:
+    in: internal/infra/detach             # process-local background work (an in-process cache warm) on a panic-safe goroutine; leaf
   selfstat:
-    in: internal/infra/selfstat           # reads THIS container's own cgroup (CPU/mem) for the System panel; leaf (stdlib only, no docker socket)
+    in: internal/infra/selfstat          # reads THIS container's own cgroup (CPU/mem) for the System panel; leaf (stdlib only, no docker socket)
   # cmd — the composition root, now split into five packages + the startup sequence on the root. For
   # **layering** purposes they're one thing: the one place allowed to cross all layers. Direction between
   # them is one-way: deps ← port ← blockwire ← wire ← cmd.
@@ -325,7 +337,6 @@ deps:
     mayDependOn:
       - credentialsdb
       - credentials
-      - retry
       - httpx
       - openapi
       - egress
@@ -370,6 +381,8 @@ deps:
       - openapi
       - egress
       - httpx
+      - events      # a connection-state change records supplier.* …
+      - pgstore     # … in the same transaction as its row (InTx)
     anyVendorDeps: true
 
   # credform — derives the fields the owner must fill in from a supplier's own declaration. Reads the
@@ -461,14 +474,32 @@ deps:
     mayDependOn: []
     anyVendorDeps: true
 
-  # buildnotify — in-memory broadcast for the preview long-poll. Leaf: stdlib sync only, knows no domain.
-  buildnotify:
-    mayDependOn: []
+  # jobs / jobsriver / events — the event bus and the job queue (docs/design/event-bus-outbox-webhooks.md).
+  # Domain-less: they carry type strings and JSON. River stays behind jobsriver (check-queue-behind-port.sh).
+  jobs:
+    mayDependOn:
+      - pgstore
+    anyVendorDeps: true
+  jobsriver:
+    mayDependOn:
+      - jobs
+      - pgstore
+    anyVendorDeps: true
+  events:
+    mayDependOn:
+      - jobs
+      - pgstore
+      - httpx              # webhook delivery posts through the one SSRF-guarded client
     anyVendorDeps: true
 
   # selfstat — THIS container's own cgroup usage for the System panel. Pure stdlib file reads
   # (/sys/fs/cgroup), no docker socket, no internal deps.
   selfstat:
+    mayDependOn: []
+    anyVendorDeps: true
+
+  # detach — process-local background work on its own goroutine, panic-safe; stdlib only.
+  detach:
     mayDependOn: []
     anyVendorDeps: true
 
@@ -514,10 +545,6 @@ deps:
     mayDependOn:
       - plugin
       - hostop
-    anyVendorDeps: true
-
-  retry:
-    mayDependOn: []
     anyVendorDeps: true
 
   # httpx — #132 the single outbound HTTP client leaf: pure stdlib (net/http/context/time), no internal
@@ -571,6 +598,7 @@ deps:
       # hostop — mount derives this block's socket path by the same rule (the manifest only says
       # which ops it needs, never a path).
       - hostop
+      - detach  # the cold self-heal warm runs detached (it fills this process's cache)
     anyVendorDeps: true
 
   blockload:
@@ -767,6 +795,7 @@ deps:
       - blockdesk
       - supplierroutes
       - ownerentity
+      - owner # the booking.record port's input type (the facade's BookingRecord)
       - builtinblocks
       # conversation's two guts packages: the host port's shape carries their types (ChatWithMessages /
       # UpsertReportInput / ChatReport), so implementing those bridges outside the domain has to import
@@ -794,6 +823,8 @@ deps:
       - jobsadmin
       # periodic — the resume-draft 1d-TTL sweep is declared by this plugin (used to be written in the composition root).
       - periodic
+      - jobs             # declares the jobs.fetch_source kind (data)
+      - events           # declares the jobs.fetched event type (data)
     anyVendorDeps: true
 
   # pluginownercore is gone. It used to be the **clearinghouse** for owner-MCP ops, one package
@@ -816,6 +847,8 @@ deps:
       - access
       - pgstore
       - apierr
+      - jobs             # a fetch runs as one jobs.fetch_source job per source
+      - events           # … and records jobs.fetched (Recorder only)
     anyVendorDeps: true
 
   # jobdedup — J.6c: cross-source dedup (canonical URL + composite key).
@@ -834,6 +867,7 @@ deps:
       - registry
       - mcputil
       - jobsuc
+      - jobs             # jobs.fetch_result takes the source jobs' ids (jobs.JobID)
     anyVendorDeps: true
 
   # mcputil — shared owner-MCP result marshaller. Leaf: only registry (for MCPResult).
@@ -850,6 +884,7 @@ deps:
       - middleware
       - apierr
       - jobsuc
+      - jobs             # the fetch receipt's job ids (jobs.JobID)
     anyVendorDeps: true
 
   # Depends on domain because it needs to marshal the real domain structure (not fudged into []byte).
@@ -902,6 +937,10 @@ deps:
       - statsentity
       - statsrepo
       - facadeparity
+      # jobs / events / periodic — the Tasks panel ops and instance.jobs report on the job runtime and the bus.
+      - jobs
+      - events
+      - periodic
     anyVendorDeps: true
   statsentity:
     mayDependOn: []
@@ -967,6 +1006,8 @@ deps:
     mayDependOn:
       - securityban
       - facadeparity
+      - events      # a ban records ip_ban.added …
+      - pgstore     # … in the same transaction as its row (InTx)
     anyVendorDeps: true
   security:
     mayDependOn:
@@ -1029,6 +1070,9 @@ deps:
       - sandbox
       - adapters
       - apierr
+      - events      # conversation.* / ghost.accepted / code.redeemed commit with their rows …
+      - pgstore     # … (InTx)
+      - periodic    # the prune job is wrapped here so its deletes record conversation.pruned
     anyVendorDeps: true
 
   # corpus — #135 corpus domain (facade + DDD guts). The facade depends only on its own guts; the guts are layered with no cycles.
@@ -1039,6 +1083,7 @@ deps:
       - corpususecase
       - corpusops
       - corpusi18n
+      - corpussubscriber
     anyVendorDeps: true
   # corpusops — this domain's outward operation declarations. It lives inside the domain (not at the
   # convergence point), so the domain can say what it can do itself; it knows only this domain's usecases
@@ -1063,6 +1108,14 @@ deps:
   # All four consumers (MCP writes / check tools / vault sync / reader page) call only this, so it can depend on none of them.
   corpusi18n:
     mayDependOn: []
+    anyVendorDeps: true
+  # corpussubscriber — what corpus does when an event arrives (the corpus.index subscription). It may use
+  # the usecases; nothing below may import it.
+  corpussubscriber:
+    mayDependOn:
+      - corpususecase
+      - events
+      - jobs
     anyVendorDeps: true
   corpusrepo:
     mayDependOn:
@@ -1092,6 +1145,7 @@ deps:
       - httpx
       # textcut — truncation of the path segment and the lead line; same reasoning as corpusrepo.
       - textcut
+      - events      # writing.published / writing.unpublished commit with the switch
     anyVendorDeps: true
 
   # access — #135 access domain (facade + DDD guts). The facade depends only on its own guts; the guts are layered with no cycles.
@@ -1110,6 +1164,7 @@ deps:
       - accessusecase
       - facadeparity
       - apierr
+      - events      # hands the outbox writer to the key use cases (api_key.*)
     anyVendorDeps: true
   accessentity:
     mayDependOn: []
@@ -1128,6 +1183,8 @@ deps:
       - accessrepo
       - apierr
       - cryptobox        # unwraps the public key when verifying an embed JWT (ParseEd25519Public)
+      - events           # a submitted request records access_request.created (Recorder only)
+      - pgstore          # … in the same transaction as its row (InTx)
     anyVendorDeps: true
 
   # owner — #135 owner module: entity + repo (the supplier’s OwnerLookup consumes owner.Owner).
@@ -1137,7 +1194,39 @@ deps:
       - ownerrepo
       - ownerusecase
       - ownerops
+      - ownersubscriber
       - corpusi18n
+    anyVendorDeps: true
+  # ownersubscriber — what owner does when an event arrives: webhook fan-out (one transaction of
+  # enqueues) and delivery (lease, post through events' signer, settle). It may use the repo; nothing
+  # below may import it.
+  ownersubscriber:
+    mayDependOn:
+      - ownerentity
+      - ownerrepo
+      - events
+      - jobs
+      - pgstore
+      # the mail jobs: the access-request rows they read (access), the notice content (ownerusecase)
+      # and the mail side-effect port they send through — the only non-root holder of it.
+      - access
+      - ownerusecase
+      - sideeffectmail
+    anyVendorDeps: true
+  # sideeffectmail — the mail side-effect port. It binds the registry's Invoke (adapters' error
+  # table classifies a failure) and answers the job layer's failure classes (jobs).
+  sideeffectmail:
+    mayDependOn:
+      - jobs
+      - mailthrottle
+      - adapters
+    anyVendorDeps: true
+  # sideeffectsupplier — the supplier.invoke job kind. It binds the registry's Invoke (adapters' error
+  # table classifies a failure) and answers the job layer's failure classes (jobs).
+  sideeffectsupplier:
+    mayDependOn:
+      - jobs
+      - adapters
     anyVendorDeps: true
   # ownerops — this domain's outward operation declarations. Knows only this domain's usecases + neutral
   # vocabulary, no face. Vocabulary for both directions lives here: facadeparity is outbound, hostop is
@@ -1184,6 +1273,14 @@ deps:
       - apierr
       - session
       - periodic # providers.update validates the gas-refill cron with the shared periodic.ValidCron
+      # webhooks: the declared webhook types and webhook.test (events), the delivery log (jobs'
+      # Inspector), and the one public-URL check (httpx's SSRF guard).
+      - events
+      - jobs
+      - httpx
+      # pgstore — approval issues a code and enqueues its mail job in one transaction (InTx); the
+      # email change hands its enqueue the repo's transaction.
+      - pgstore
     anyVendorDeps: true
 
 
@@ -1253,7 +1350,6 @@ deps:
       - middleware  # #155 supplier diag: owner id from context (middleware.OwnerIDFrom)
       - access
       - pgstore
-      - buildnotify  # preview long-poll: signal the panel when a build settles (builder callback)
     anyVendorDeps: true
 
   # sandboxws — per-session sandbox workspace lifecycle leaf: pure stdlib (os/filepath/sync/time).
@@ -1290,7 +1386,6 @@ deps:
       - stats       # #135 /stats/*: Monitor activity/growth/graph/jobs value objects
       - security    # #135 /ip-bans: BannedIP value object
       - depcheck    # checks at startup whether buildAdminHandlers' hand-copied dependency table has a missing row
-      - buildnotify # preview long-poll (/microsites/wait) reads the build-settle broadcast
     anyVendorDeps: true
 
   # obsidian — Obsidian vault two-way sync sub-usecase: frontmatter codec / image
@@ -1338,6 +1433,7 @@ deps:
   # cmd/ is the composition root — the one place allowed to cross all layers.
   cmd:
     mayDependOn:
+      - jobsriver          # River's own migrator runs at boot, after pgstore.Migrate
       # providermodels — the owner's "load models" button: the root side unlocks the vault's own key and asks the endpoint.
       # The visitor face uses the same code (the key travels with the request), so it lives in infra rather than any one domain (F-R-11).
       - providermodels
@@ -1417,7 +1513,6 @@ deps:
       - owner
       - corpus
       - pgstore
-      - buildnotify     # the composition root constructs the preview-long-poll broadcast (one per process)
       - selfstat        # …and the own-cgroup stats reader for the System panel
       # monitor + monitormw — the composition root builds the traffic recorder and mounts its
       # ONE middleware on the public router. Recording converges nowhere else: monitor observes
@@ -1432,6 +1527,8 @@ deps:
   # leaf **inside the composition root**: none of the four packages below import it, so the direction holds.
   cmddeps:
     mayDependOn:
+      - jobs               # deps.Runtime holds the job runtime
+      - events             # and the event bus
       - nativekey         # deps.Runtime holds the native-key issuer the root mints
       - blockconfig       # the composition root binds "the config a block declares" to its own isolated storage
       - blockdesk # and mounts blockconfig.get on that block's reach-back socket
@@ -1498,8 +1595,7 @@ deps:
       - conversation
       - owner
       - corpus
-      - pgstore
-      - buildnotify     # Runtime holds the preview-long-poll broadcast, shared by the builder callback + admin face
+      - pgstore         # Runtime holds the preview long-poll's build-settle listener (pgstore.Listener)
       - selfstat        # Runtime carries the peer /selfstat URLs; SysInfoProvider builds the reader (System panel)
       - monitor         # Runtime holds the traffic repo, the way it holds every other domain's
     anyVendorDeps: true
@@ -1513,7 +1609,9 @@ deps:
       # needs to see it; without it the only way out would be to route around that gate and build a raw
       # client itself.
       - httpx
-      - mailthrottle    # composition root caps outbound mail per-recipient at the OutboundSender bridge (email-bomb defense)
+      - mailthrottle    # composition root caps outbound mail per-recipient at the mail port (email-bomb defense)
+      - sideeffectmail  # the mail side-effect port: built here for the subscribers, and the recovery phrase's synchronous send
+      - jobs            # a throttled synchronous send (a snooze) is an error the owner sees
       - selfstat        # SysInfoProvider reads own-cgroup stats + fetches peer /selfstat (System panel)
       - blockconfig       # the composition root binds "the config a block declares" to its own isolated storage
       - blockdesk # and mounts blockconfig.get on that block's reach-back socket
@@ -1591,6 +1689,7 @@ deps:
       # conversation domain declares. The two interfaces have the same methods and different owners
       # on purpose; the composition root is where they meet (see supplier_register.go).
       - conversationusecase
+      - events            # block.installed / block.failed are declared and recorded here
       - blockconfig       # the composition root binds "the config a block declares" to its own isolated storage
       - blockdesk # and mounts blockconfig.get on that block's reach-back socket
       - blockquota        # and, per the manifest's Quota declaration, hangs the gate + remaining-balance on it (one counter, two exits)
@@ -1663,6 +1762,10 @@ deps:
 
   cmdwire:
     mayDependOn:
+      - jobs               # builds and starts the job runtime (wire/periodic.go)
+      - jobsriver
+      - events             # and the event bus
+      - sideeffectsupplier # declares the supplier.invoke job and enqueues it for a block's background call
       - cmddeps
       - cmdport
       - cmdblockwire

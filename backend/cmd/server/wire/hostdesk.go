@@ -14,6 +14,7 @@ package wire
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -23,6 +24,8 @@ import (
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	"github.com/atmaxmoj/standmeet/internal/infra/hostsocket"
+	supplierjob "github.com/atmaxmoj/standmeet/internal/infra/sideeffect/supplier"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	"github.com/atmaxmoj/standmeet/internal/plugin"
 	"github.com/atmaxmoj/standmeet/internal/plugin/nativekey"
 	"github.com/atmaxmoj/standmeet/internal/routes/hostdesk"
@@ -99,9 +102,22 @@ func sharedHostDeps(
 		Conversation: conversation.OpsHost{
 			Chats: d.ChatRepo, Resolver: skills.Resolver, Reports: skills.Reports,
 		},
-		Corpus:    CorpusIndexDeps(d),
-		Owners:    d.OwnerRepo,
-		Suppliers: d.BlockDispatch,
+		Corpus:       CorpusIndexDeps(d),
+		Owners:       d.OwnerRepo,
+		Bookings:     owner.BookingRecorder{Owners: d.OwnerRepo, Events: d.Events.Recorder()},
+		Suppliers:    d.BlockDispatch,
+		SupplierJobs: supplierJobs(d),
+	}
+}
+
+// supplierJobs —— a block's background supplier call, as a durable supplier.invoke job.
+func supplierJobs(d *deps.Runtime) func(
+	ctx context.Context, ownerID, seam, verb string, args json.RawMessage,
+) error {
+	return func(ctx context.Context, ownerID, seam, verb string, args json.RawMessage) error {
+		return supplierjob.Enqueue(ctx, d.Jobs, &supplierjob.Args{
+			OwnerID: ownerID, Seam: seam, Verb: verb, Args: args,
+		})
 	}
 }
 

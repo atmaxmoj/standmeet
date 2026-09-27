@@ -58,7 +58,7 @@ type Server struct {
 }
 
 // ListenWith —— create+bind the socket at path (replacing a stale file), 0600, serving
-// exactly the given ops. The caller runs Serve in a goroutine and Close on shutdown.
+// exactly the given ops, and starts serving at once. The caller calls Close on shutdown.
 //
 // The handler set is fixed at construction ON PURPOSE. There used to be an incremental
 // Handle(op, h), which meant a block could stand up its own socket and mint its own
@@ -83,7 +83,9 @@ func ListenWith(
 	// the set already serving.
 	handlers := make(map[string]Handler, len(ops))
 	maps.Copy(handlers, ops)
-	return &Server{ln: ln, log: log, handlers: handlers, verify: verify, path: path}, nil
+	s := &Server{ln: ln, log: log, handlers: handlers, verify: verify, path: path}
+	go s.serve(ctx) // the accept loop is this package's plumbing (gate: check-no-bare-goroutine.sh)
+	return s, nil
 }
 
 func clearStale(path string) error {
@@ -103,19 +105,6 @@ func chmodOrClose(ln net.Listener, path string, log *slog.Logger) error {
 	return nil
 }
 
-// Serve —— accept loop; one goroutine per connection. Blocks until Close. ctx is
-// the server-lifetime context (the same one passed to Listen), threaded down to
-// each request's handler.
-func (s *Server) Serve(ctx context.Context) {
-	for {
-		conn, err := s.ln.Accept()
-		if err != nil {
-			return // listener closed
-		}
-		go s.handleConn(ctx, conn)
-	}
-}
-
 // Close —— stop accepting + remove the socket file.
 func (s *Server) Close() error {
 	if rmErr := os.Remove(s.path); rmErr != nil && !os.IsNotExist(rmErr) {
@@ -125,6 +114,19 @@ func (s *Server) Close() error {
 		return fmt.Errorf("hostsocket: close listener: %w", err)
 	}
 	return nil
+}
+
+// serve —— accept loop; one goroutine per connection. Blocks until Close. ctx is
+// the server-lifetime context (the same one passed to Listen), threaded down to
+// each request's handler.
+func (s *Server) serve(ctx context.Context) {
+	for {
+		conn, err := s.ln.Accept()
+		if err != nil {
+			return // listener closed
+		}
+		go s.handleConn(ctx, conn)
+	}
 }
 
 func (s *Server) handleConn(ctx context.Context, conn net.Conn) {

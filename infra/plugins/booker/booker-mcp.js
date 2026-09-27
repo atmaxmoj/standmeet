@@ -46,8 +46,15 @@ const weekday3 = { 1: 'mon', 2: 'tue', 3: 'wed', 4: 'thu', 5: 'fri', 6: 'sat', 7
 async function gwSupplierInvoke(ownerID, seam, verb, args) {
   return gwCall('supplier.invoke', { owner_id: ownerID, seam, verb, args })
 }
+// gwSupplierInvokeBackground — the host commits the call as a durable job and answers; the job
+// layer runs and retries it after this turn is gone.
 async function gwSupplierInvokeBackground(ownerID, seam, verb, args) {
   await gwCall('supplier.invoke', { owner_id: ownerID, seam, verb, args, background: true })
+}
+// gwBookingRecord — booking.<event> is committed to the host's outbox before this returns. A new
+// booking may carry the owner's notice ({summary, visitor_name, start_at}); the host mails it.
+async function gwBookingRecord(ownerID, event, bookingID, notice) {
+  await gwCall('booking.record', { owner_id: ownerID, event, booking_id: bookingID, notice })
 }
 async function gwBlockstoreInsert(collection, doc) {
   const r = JSON.parse(await gwCall('blockstore.insert', { collection, doc }))
@@ -303,17 +310,18 @@ async function commitBooking(s, topic, tz, slot, durationMin) {
   try {
     inserted = await insertEvent(s, topic, tz, slot, end, summary)
   } catch (e) { await gwBlockstoreRelease(bookingsColl, holdKey); return friendlyCalErr(e) }
+  let bookingID = ''
   try {
-    await persistBooking(s, inserted, summary, slot, end)
+    bookingID = await persistBooking(s, inserted, summary, slot, end)
+    // A booking without its booking.created would never notify the owner: both, or neither.
+    const notice = s.notifyOwner ? { summary, visitor_name: s.visitorName, start_at: rfc(slot) } : undefined
+    await gwBookingRecord(s.ownerID, 'created', bookingID, notice)
   } catch (e) {
+    if (bookingID) { try { await gwBlockstoreDeleteByID(bookingsColl, bookingID) } catch { /* orphan row */ } }
     await compensateDelete(s, inserted.event_id)
     await gwBlockstoreRelease(bookingsColl, holdKey)
     return friendlyCalErr(e)
   }
-  await notifyOwnerOfBooking(s, {
-    owner_id: s.ownerID, subject_id: s.subjectID, subject_kind: s.subjectKind,
-    google_event_id: inserted.event_id, summary, visitor_email: s.visitorEmail, start_at: slot, end_at: end,
-  })
   return mustJSON({
     ok: true, event_id: inserted.event_id, html_link: inserted.html_link,
     start: rfc(slot), end: rfc(end), invited_email: s.visitorEmail, can_email: await ownerCanEmail(s.ownerID),
@@ -327,14 +335,18 @@ async function insertEvent(s, topic, tz, slot, end, summary) {
   return { event_id: ev.event_id || '', html_link: ev.html_link || '' }
 }
 async function persistBooking(s, ev, summary, startDT, endDT) {
-  await gwBlockstoreInsert(bookingsColl, {
+  return gwBlockstoreInsert(bookingsColl, {
     owner_id: s.ownerID, subject_id: s.subjectID, subject_kind: s.subjectKind, conversation_id: s.conversationID,
     google_event_id: ev.event_id, google_html_link: ev.html_link, summary,
     visitor_email: s.visitorEmail, start_at: rfc(startDT), end_at: rfc(endDT),
   })
 }
+// compensateDelete — the calendar event of a booking that failed to persist, deleted by a durable
+// host job (retried across restarts), not one attempt from this short-lived process.
 async function compensateDelete(s, eventID) {
-  try { await gwSupplierInvoke(s.ownerID, 'calendar', 'delete_event', { event_id: eventID, attendee_email: s.visitorEmail }) } catch { /* best-effort */ }
+  try {
+    await gwSupplierInvokeBackground(s.ownerID, 'calendar', 'delete_event', { event_id: eventID, attendee_email: s.visitorEmail })
+  } catch { /* the host could not even queue it: nothing more this turn can do */ }
 }
 
 // ── confirm (confirm.go) ──
@@ -443,53 +455,50 @@ async function doSendConfirmation(s, args) {
   return '{"ok":true}'
 }
 
-// ── owner notify (owner_notify.go) ──
+// ── owner notify ──
+// The owner's "new booking" mail is the host's (owner.notify on booking.created): commitBooking
+// hands the notice over with the event.
 
-async function notifyOwnerOfBooking(s, b) {
-  if (!s.notifyOwner) return
-  try {
-    const to = await gwOwnerMeta(s.ownerID, 'email')
-    if (!to) return
-    const ownerTZ = await gwOwnerMeta(s.ownerID, 'timezone')
-    const zone = confirmationZone('', ownerTZ)
-    const when = fmtWhen(typeof b.start_at === 'string' ? b.start_at : rfc(b.start_at), zone)
-    const who = s.visitorName || 'A visitor'
-    const body = `New booking on your calendar:\n\n  ${b.summary}\n  with ${who}\n  ${when}\n`
-    await gwSupplierInvokeBackground(s.ownerID, 'mail', 'send', { subject: 'New booking: ' + b.summary, body, to })
-  } catch { /* best-effort: booking already succeeded */ }
+// recordQuietly — a cancel or reschedule already happened on the calendar and in the store; a
+// failed record loses only its webhook event, and must not turn a done cancel into an error.
+async function recordQuietly(s, event, bookingID) {
+  try { await gwBookingRecord(s.ownerID, event, bookingID) } catch { /* the change itself stands */ }
 }
 
 // ── cancel / reschedule (cancel.go) ──
 
 async function resolveConvBooking(s, eventID) {
   let recs
-  try { recs = await gwBlockstoreQuery(bookingsColl, { conversation_id: s.conversationID }) } catch { return { err: bookErr('cancel_failed', "couldn't reach the booking right now — please try again later") } }
+  try { recs = await gwBlockstoreQueryRecords(bookingsColl, { conversation_id: s.conversationID }) } catch { return { err: bookErr('cancel_failed', "couldn't reach the booking right now — please try again later") } }
   if (recs.length === 0) return { err: bookErr('booking_not_found', 'no booking found to cancel') }
   const latest = latestBooking(recs)
   if (eventID && eventID !== latest.google_event_id) return { err: bookErr('booking_not_found', 'no matching booking to cancel') }
-  return { booking: latest }
+  const rec = recs.find((r) => r.doc === latest)
+  return { booking: latest, bookingID: rec ? rec.id : '' }
 }
 async function deleteBooking(ownerID, b) {
   await gwSupplierInvoke(ownerID, 'calendar', 'delete_event', { event_id: b.google_event_id, attendee_email: b.visitor_email })
   await gwBlockstoreDelete(bookingsColl, { conversation_id: b.conversation_id, google_event_id: b.google_event_id })
 }
 async function doCancel(s, args) {
-  const { booking, err } = await resolveConvBooking(s, args.event_id || '')
+  const { booking, bookingID, err } = await resolveConvBooking(s, args.event_id || '')
   if (err) return err
   try { await deleteBooking(s.ownerID, booking) } catch { return bookErr('cancel_failed', "couldn't cancel the meeting right now — please try again later") }
+  await recordQuietly(s, 'cancelled', bookingID)
   return '{"ok":true,"cancelled":true}'
 }
 async function doReschedule(s, args) {
   if (!Array.isArray(args.preferred_times) || args.preferred_times.length === 0) return bookErr('invalid_args', 'preferred_times required')
   if (!(args.duration_min >= minDurationMin && args.duration_min <= maxDurationMin)) return bookErr('invalid_args', `duration_min must be ${minDurationMin}–${maxDurationMin}`)
-  const { booking: old, err } = await resolveConvBooking(s, args.event_id || '')
+  const { booking: old, bookingID: oldID, err } = await resolveConvBooking(s, args.event_id || '')
   if (err) return err
   const times = args.preferred_times.map((t) => DateTime.fromISO(t)).filter((d) => d.isValid)
   const s2 = { ...s, visitorName: '' } // topic carries the old summary; clear name to avoid a repeated prefix
   const wire = await runBook(s2, old.summary, times, args.duration_min)
   let ok = false; try { ok = JSON.parse(wire).ok === true } catch { ok = false }
   if (!ok) return wire // original untouched
-  try { await deleteBooking(s.ownerID, old) } catch { /* best-effort: new one already succeeded */ }
+  try { await deleteBooking(s.ownerID, old) } catch { return wire /* best-effort: new one already succeeded */ }
+  await recordQuietly(s, 'rescheduled', oldID)
   return wire
 }
 
@@ -508,6 +517,7 @@ async function doCancelByID(s, args) {
     await gwSupplierInvoke(s.ownerID, 'calendar', 'delete_event', { event_id: doc.google_event_id, attendee_email: doc.visitor_email })
     await gwBlockstoreDeleteByID(bookingsColl, rec.id)
   } catch (e) { return bookErr('cancel_failed', e.message) }
+  await recordQuietly(s, 'cancelled', rec.id)
   return mustJSON({
     booking_id: args.booking_id, google_event_id: doc.google_event_id, summary: doc.summary,
     cancelled: true, sent_updates_to: doc.visitor_email,

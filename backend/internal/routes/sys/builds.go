@@ -15,23 +15,24 @@
 //   - Lease: a `building` build whose builder stopped renewing is claimable again. Without it a
 //     builder killed mid-build left the build `building` forever.
 //
+// A report settles the build through owner.SettleBuild: the row, the microsite.build.settled event
+// and the owner's preview wake-up commit together. What follows (auto-publishing the home page,
+// recomputing asset references) is that event's subscribers' work, not this request's.
+//
 // Placed in the sys layer because sys is already allowed to depend on postgres + usecases;
 // not in the admin / public layer because it must not go through owner-session auth.
 
 package sys
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/infra/buildnotify"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
@@ -40,24 +41,12 @@ import (
 type BuilderDeps struct {
 	Log    *slog.Logger
 	Builds *owner.MicrositeBuildRepo
-	// Pages —— needed only so a finished build can auto-go-live the reserved home page
-	// (owner.AutopublishHomepageOnBuilt). Every other build ignores it.
-	Pages *owner.MicrositeRepo
-	// Notifier —— wakes the owner panel's preview long-poll the moment a build settles.
-	Notifier *buildnotify.Notifier
-	// RebuildAssetRefs —— recompute this microsite's pool-asset references from its built source,
-	// so the delete guard protects a pooled asset a live page embeds (via the SDK AssetWidget).
-	// Injected from the corpus side (it owns the asset repo); nil-safe, best-effort.
-	RebuildAssetRefs AssetRefRebuilder
+	// Settle —— what a report writes: the build row, its event, the owner's wake-up.
+	Settle owner.BuildSettleDeps
 	// Version —— this backend's release version; a builder of any other version gets no work.
 	// Last: its length word is the only non-pointer data here (govet fieldalignment).
 	Version string
 }
-
-// AssetRefRebuilder —— recomputes a microsite's pool-asset references from its built source.
-type AssetRefRebuilder func(
-	ctx context.Context, ownerID, micrositeID string, sources map[string]string,
-) error
 
 // MountBuilds mounts /internal/builds/* —— the caller has already added the /internal
 // prefix.
@@ -185,12 +174,13 @@ func patchBuild(deps BuilderDeps) http.HandlerFunc {
 			http.Error(w, "invalid JSON", http.StatusBadRequest)
 			return
 		}
-		if perr := applyPatch(r, deps, id, &req); perr != nil {
+		rep := owner.BuildReport{
+			ID: id, Status: req.Status, OutputPath: req.OutputPath, ErrorMessage: req.ErrorMessage,
+		}
+		if perr := owner.SettleBuild(r.Context(), deps.Settle, &rep); perr != nil {
 			respondPatchErr(deps, w, id, req.Status, perr)
 			return
 		}
-		// A build settled (built or failed) → wake the owner panel's preview long-poll.
-		deps.Notifier.Signal()
 		w.WriteHeader(http.StatusNoContent)
 	}
 }
@@ -210,65 +200,4 @@ func respondPatchErr(deps BuilderDeps, w http.ResponseWriter, id, status string,
 	}
 	deps.Log.Error("patch build", logKeyErr, err, "build_id", id, "reported_status", status)
 	http.Error(w, "patch build failed", http.StatusInternalServerError)
-}
-
-func applyPatch(
-	r *http.Request, deps BuilderDeps, id string, req *patchBuildRequest,
-) error {
-	switch req.Status {
-	case "built":
-		return markBuilt(r, deps, id, req)
-	case "failed":
-		return markFailed(r, deps, id, req)
-	}
-	return errors.New("status must be built|failed")
-}
-
-func markBuilt(r *http.Request, deps BuilderDeps, id string, req *patchBuildRequest) error {
-	built, err := deps.Builds.MarkBuilt(r.Context(), id, req.OutputPath)
-	if err != nil {
-		return fmt.Errorf("mark built: %w", err)
-	}
-	runPostBuiltHooks(r, deps, &built)
-	return nil
-}
-
-// runPostBuiltHooks —— the side effects of a settled build. Both are best-effort: the build IS
-// built, so a hook failure must not fail the builder's report (it's logged, not returned).
-//   - auto-go-live the reserved home page the moment its build finishes (any other build is a
-//     no-op inside);
-//   - recompute the microsite's pool-asset references from the just-built source.
-func runPostBuiltHooks(r *http.Request, deps BuilderDeps, built *owner.MicrositeBuild) {
-	if aerr := owner.AutopublishHomepageOnBuilt(
-		r.Context(), owner.MicrositeDeps{Pages: deps.Pages, Builds: deps.Builds}, built, deps.Log,
-	); aerr != nil {
-		deps.Log.Error("homepage auto-publish on built", logKeyErr, aerr)
-	}
-	if rerr := rebuildMicrositeAssetRefs(
-		r.Context(), deps, built.PageID, built.SourceFiles,
-	); rerr != nil {
-		deps.Log.Error("microsite asset refs on built", logKeyErr, rerr)
-	}
-}
-
-// rebuildMicrositeAssetRefs —— resolve the build's page → owner, then recompute its asset
-// references from the built source (via the injected corpus-side rebuilder). No-op if none wired.
-func rebuildMicrositeAssetRefs(
-	ctx context.Context, deps BuilderDeps, pageID string, sources map[string]string,
-) error {
-	if deps.RebuildAssetRefs == nil {
-		return nil
-	}
-	page, err := deps.Pages.GetByID(ctx, pageID)
-	if err != nil {
-		return fmt.Errorf("load page for asset refs: %w", err)
-	}
-	return deps.RebuildAssetRefs(ctx, page.OwnerID, pageID, sources)
-}
-
-func markFailed(r *http.Request, deps BuilderDeps, id string, req *patchBuildRequest) error {
-	if _, err := deps.Builds.MarkFailed(r.Context(), id, req.ErrorMessage); err != nil {
-		return fmt.Errorf("mark failed: %w", err)
-	}
-	return nil
 }

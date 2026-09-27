@@ -13,7 +13,9 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/conversation/inference"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	"github.com/atmaxmoj/standmeet/internal/corpus/search"
-	"github.com/atmaxmoj/standmeet/internal/infra/buildnotify"
+	"github.com/atmaxmoj/standmeet/internal/infra/events"
+	"github.com/atmaxmoj/standmeet/internal/infra/jobs"
+	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/infra/sandbox"
 	"github.com/atmaxmoj/standmeet/internal/infra/sandboxws"
 	"github.com/atmaxmoj/standmeet/internal/infra/session"
@@ -41,9 +43,12 @@ import (
 // Runtime —— all of serve's dependencies. Fields are exported because the composition
 // root's groups each live in their own package.
 type Runtime struct {
-	Upgrade           stats.UpgradeSources
-	SandboxRunner     sandbox.Runner
-	CorpusIndexer     corpus.Indexer
+	Upgrade       stats.UpgradeSources
+	SandboxRunner sandbox.Runner
+	CorpusIndexer corpus.Indexer
+	// IndexReceipt —— tells a corpus write whether the search index already has it
+	// (nil = no Meili).
+	IndexReceipt      corpus.IndexReceipt
 	ProviderModels    owner.ProviderModelLister
 	MCPProber         marketplace.MCPServerProber
 	SeamNeeds         marketplace.SeamNeeds
@@ -55,11 +60,15 @@ type Runtime struct {
 	Credentials       *credentials.Repo
 	// Assembly —— what the owner installed, grouped into bundles, plus the blocks that
 	// failed to start. The grant source for any code that carries a bundle.
-	Assembly           *assembly.Repo
-	OutputRepo         *corpus.OutputRepo
-	GrowthRepo         *stats.GrowthRepo
-	ActivityRepo       *stats.ActivityRepo
-	JobRegistry        *stats.JobRegistry
+	Assembly     *assembly.Repo
+	OutputRepo   *corpus.OutputRepo
+	GrowthRepo   *stats.GrowthRepo
+	ActivityRepo *stats.ActivityRepo
+	// Jobs —— the durable job runtime (River behind internal/infra/jobs); Events —— the bus.
+	Jobs   jobs.Runtime
+	Events *events.Bus
+	// WebhookSecrets —— opens a webhook signing secret for delivery (cmd/server/unseal.go).
+	WebhookSecrets     owner.WebhookSecretOpener
 	Corpus             *corpus.Corpus
 	CodeRepo           *access.CodeRepo
 	EmbedRepo          *access.EmbedRepo
@@ -68,7 +77,9 @@ type Runtime struct {
 	SEORepo            *corpus.SEORepo
 	MicrositeRepo      *owner.MicrositeRepo
 	MicrositeBuildRepo *owner.MicrositeBuildRepo
-	BuildNotifier      *buildnotify.Notifier
+	// BuildSettled —— the preview long-poll's waiters, woken by a build settle's NOTIFY (keyed by
+	// owner). Run by StartBackground.
+	BuildSettled       *pgstore.Listener
 	SandboxWorkspaces  *sandboxws.Manager
 	AccessRequestRepo  *access.RequestRepo
 	JobSourceRepo      *jobsuc.JobSourceRepo

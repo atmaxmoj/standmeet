@@ -1,5 +1,6 @@
 // supplier-retry-async-owner-notify-nonblocking.spec.ts —— §5 retry matrix R6.
-// Per D-6, the owner-notify email is declared **async** (10x ~30–60s background budget) and
+// Per D-6, the owner-notify email is declared **async** (a durable mail job, retried on its own
+// backoff) and
 // must **not block booking**:
 //   ① even while notify is retrying, booking returns immediately (the book-card appears
 //      right away, not held up by notify retries),
@@ -53,6 +54,9 @@ test.describe('supplier retry · owner-notify async, non-blocking, retried in ba
 
   test('notify-on role + transient send faults → booking returns immediately, notify retried in background, booking never fails',
     async ({ browser }) => {
+      // Two transient faults = two retries of the owner.notify mail job, whose backoff is 20 s then
+      // ×3 (docs/design/event-bus-outbox-webhooks.md, *Retry*): delivery lands ~80 s in.
+      test.setTimeout(180_000);
       await clearMailpit(seed.request);
       const code = await issueCodeWithSkills(seed.request, seed.csrf, {
         granted_skills: ['calendar.book'], notify_owner: true,
@@ -74,7 +78,7 @@ test.describe('supplier retry · owner-notify async, non-blocking, retried in ba
 
       // ② background retry eventually delivers the owner notification (long async
       // budget recovers the transient faults) — and the booking was never failed.
-      const mail = await waitForMailEnvelopeTo(seed.request, OWNER.email, 60_000);
+      const mail = await waitForMailEnvelopeTo(seed.request, OWNER.email, 150_000);
       expect(mail.from).toBe(MAIL_FROM);
       expect(mail.text).toContain(TOPIC);
 

@@ -48,12 +48,17 @@ func (c *cannedCalendar) call(verb string, args []byte) ([]byte, error) {
 		return c.insert()
 	case "calendar.delete_event":
 		return c.forget(args)
+	case "calendar.can_perform":
+		// the booker asks this before offering to book (`can_book`): without an answer it reads
+		// the calendar as read-only and the agent is never given calendar_book.
+		return []byte(`{"can":true}`), nil
 	case "mail.connected":
 		// the booker asks this to decide whether to offer the confirmation-email widget
 		// (`can_email` on the book result). Answering it keeps the eval's world the same shape as
 		// prod's, where a connected owner has mail; without it every eval booking reported that no
-		// invite could be sent, which is a different conversation from the one under test.
-		return []byte(`true`), nil
+		// invite could be sent, which is a different conversation from the one under test. The
+		// answer is prod's shape, {"connected": …}: a bare `true` reads as not connected.
+		return []byte(`{"connected":true}`), nil
 	case "mail.send":
 		// the confirmation mail is a soft dependency: it must not decide whether a booking works.
 		return []byte(`{"ok":true}`), nil

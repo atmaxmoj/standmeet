@@ -25,6 +25,8 @@ export interface AdminSession {
   // owner closes the tab and comes back, and that state is still there,
   // while a component's useState would have been gone long ago.
   pendingEmail: string;
+  // pendingMailState —— the confirmation mail's state ('' = none): sending / sent / failed.
+  pendingMailState: string;
 }
 
 // AdminSessionState —— `unreachable` and `unauthed` must be two separate states (F-N-2).
@@ -77,6 +79,7 @@ function adminSessionFromResource(
         handle: data.owner.handle, full_name: data.owner.full_name,
         public_url: data.owner.public_url,
         pendingEmail: data.owner.pending_email ?? '',
+        pendingMailState: data.owner.pending_email_mail?.state ?? '',
       },
     };
   }

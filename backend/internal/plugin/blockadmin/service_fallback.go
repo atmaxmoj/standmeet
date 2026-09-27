@@ -25,7 +25,7 @@ func (s *Service) promoteFallback(ctx context.Context, ownerID, seam string) err
 	if cand == "" {
 		return nil // no connected candidate → the slot goes empty, re-gated
 	}
-	if serr := s.d.Repo.SetActive(ctx, ownerID, cand, seam); serr != nil {
+	if serr := s.setActive(ctx, ownerID, cand, seam); serr != nil {
 		return fmt.Errorf("promote fallback supplier: %w", serr)
 	}
 	return nil
