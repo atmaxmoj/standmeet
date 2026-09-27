@@ -1165,6 +1165,14 @@ mobile-shots: dev-up
 	@cd e2e && pnpm exec playwright test --project=mobile $(if $(GREP),-g "$(GREP)")
 	@echo "[mobile] $$(ls e2e/manual-runs/mobile-sweep/*.png 2>/dev/null | wc -l | tr -d ' ') images → e2e/manual-runs/mobile-sweep/"
 
+# landing-mobile —— the standmeet.com landing (separate repo) measured at phone width: overflow,
+# small tap targets, tiny text, visible nav; plus shots. Read-only against BASE (default prod).
+# usage: make landing-mobile OUT=e2e/manual-runs/<dir> [BASE=http://localhost:4321]
+landing-mobile:
+	@test -n "$(OUT)" || (echo "usage: make landing-mobile OUT=<dir> [BASE=<origin>]"; exit 2)
+	@cd e2e && LANDING_OUT="$(abspath $(OUT))" LANDING_BASE="$(or $(BASE),https://standmeet.com)" \
+		node manual/landing-mobile.mjs
+
 # mobile-shots-asis —— same as above, but no rebuild, no up — hits whatever stack is already
 # running. Use this in a CSS-tweak loop.
 mobile-shots-asis:

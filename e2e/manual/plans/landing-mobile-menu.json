@@ -1,0 +1,11 @@
+{
+  "out": "manual-runs/2026-09-27-landing-mobile/after",
+  "viewport": [390, 844],
+  "login": false,
+  "shots": [
+    { "name": "en-top-closed", "url": "http://localhost:4321/en/", "wait": 1500 },
+    { "name": "en-menu-open", "steps": [{ "click": "summary:has-text('Menu')" }], "wait": 600 },
+    { "name": "zh-selfhost-teaser", "url": "http://localhost:4321/zh/", "steps": [{ "click": "text=自己部署" }], "wait": 1500 },
+    { "name": "use-cases-table", "url": "http://localhost:4321/en/use-cases/", "wait": 1500, "fullPage": true }
+  ]
+}
