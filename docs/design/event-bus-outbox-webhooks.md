@@ -14,8 +14,9 @@ calendar reports whether it invited, and when it did not the booker mails an iTI
 (`docs/full-suite-failures.md`, round 2026-09-27; full run 1991/1, the one red test-side and closed
 `REPEAT=5`). The v0.1.77 smoke on sijie.xyz verified all four: the zh picker is Chinese
 throughout, the visitor's inbox got the `METHOD:REQUEST` invite and then the `METHOD:CANCEL` for the
-same UID, and the card offers no Google link. **Pending:** the standmeet.com deploy and its 60 s
-real-environment check (S5, S6), which need the owner's KV namespace and hook secret. This document is the design and the progress
+same UID, and the card offers no Google link. **v0.1.78:** each embed chooses copy (RSS + hook) or
+live; standmeet.com follows its embed (live) and passed the 60 s check (S6, under 1 s); the copy
+mode's hook (S5) is covered by tests. Nothing is pending. This document is the design and the progress
 ledger: a phase is ticked only when its acceptance specs have run green. Where the build refined
 the plan, the sections below state what was built and why.
 
@@ -433,8 +434,10 @@ build.
   vault note `events/storage-bounds` and synced through `obsidian.import` was on
   `standmeet.com/en/blog/…/storage-bounds/` (plain URL) under 1 s after the sync returned; the
   revert disappeared the same way. Every blog route answers 200 on the free plan, the heaviest note
-  (`backend-domain-modules`) included. The copy mode's real-environment check (S5, the signed
-  hook) waits for an embed that uses copy, which needs Workers Paid.
+  (`backend-domain-modules`) included. The copy mode (S5, the signed hook) is covered by tests,
+  by the owner's decision (2026-09-27): the landing's `worker/hook.test.ts` (signature, 503 until
+  caught up, a failed refresh is not a 200) and `src/lib/notes.test.ts` (the budget), and the
+  instance's e2e `webhooks`, `embed-update-hook` and `embed-sync-mode`. No real-environment run.
 
 ### Phase 4: consolidate the rest
 - [x] `access_request.created` → `owner.notify` sends the email with retries. The synchronous call
