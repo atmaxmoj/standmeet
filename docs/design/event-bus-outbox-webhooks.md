@@ -413,23 +413,28 @@ build.
     subrequests and about 780 ms CPU. One render averages 3 ms; the slowest take 13–24 ms, above
     the free plan's 10 ms even alone. So the copy mode needs Workers Paid; the free plan fits only
     the live mode, and even there the heaviest notes are at risk.
-- [ ] **Embed sync mode** (see the model): `sync_mode` on the embed, the form choice, the public
-      read, the migration.
+- [x] **Embed sync mode** (see the model): `sync_mode` on the embed, the form choice, the public
+      read, the migration. Released in v0.1.78; the standmeet.com embed reads `live`.
   - **Acceptance (e2e, `embed-sync-mode`):** create a `copy` embed with a hook URL → the public
     read says `copy` and an edit reaches the sink; switch it to `live` → the public read says
     `live` and the next edit reaches no endpoint because the endpoint is gone (asserted as the
     endpoint list, not an absence of deliveries); `live` with a hook URL → `400` with the sentence.
     Upgrade: an embed with an endpoint before the migration reads `copy` after it.
-- [ ] **standmeet.com follows the embed's mode.** The Worker reads `sync_mode` by kid (cached
-      60 s).
+- [x] **standmeet.com follows the embed's mode.** The Worker reads `sync_mode` by kid (cached
+      60 s). Deployed (landing `e1c217f`); if the mode cannot be read it keeps the last answer,
+      else serves the copy.
   - `live`: blog, RSS, sitemap and latest notes read the instance per request. No KV, no hook.
   - `copy`: the KV copy. The hook refreshes **synchronously within a budget** (at most 4 cards per
     invocation) and answers `200` only when KV has caught up, else `503`. The instance's durable
     retry is then the continuation, and a refresh that fails is visible on the instance. The first
     fill also advances one budget per page request. No reconcile cron.
-- [ ] **Acceptance:** the owner edits a note on sijie.xyz → within 60 s the standmeet.com page shows
-  the change without a deploy. Checked in the real environment, recorded under
-  `docs/real-env-verification/`. Open until the release and the standmeet.com deploy.
+- [x] **Acceptance:** the owner edits a note on sijie.xyz → within 60 s the standmeet.com page shows
+  the change without a deploy. **Passed 2026-09-27 on v0.1.78, live mode:** a line added to the
+  vault note `events/storage-bounds` and synced through `obsidian.import` was on
+  `standmeet.com/en/blog/…/storage-bounds/` (plain URL) under 1 s after the sync returned; the
+  revert disappeared the same way. Every blog route answers 200 on the free plan, the heaviest note
+  (`backend-domain-modules`) included. The copy mode's real-environment check (S5, the signed
+  hook) waits for an embed that uses copy, which needs Workers Paid.
 
 ### Phase 4: consolidate the rest
 - [x] `access_request.created` → `owner.notify` sends the email with retries. The synchronous call
