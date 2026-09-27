@@ -24,6 +24,8 @@ export { MicrositeStoreError } from '@standmeet/sdk-core';
 export type { MicrositeDoc } from '@standmeet/sdk-core';
 export { AnswerText } from './AnswerText.js';
 export type { AnswerTextProps } from './AnswerText.js';
+export { usePageLang, usePageTheme } from './page-prefs.js';
+export type { PageTheme } from './page-prefs.js';
 
 // Site widgets —— the central, managed drop-in blocks a microsite composes (corpus browser,
 // agent entry, gate CTA, nav to the owner's other pages). See src/widgets/.

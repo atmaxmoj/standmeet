@@ -23,9 +23,10 @@ export interface ImportableModule {
 export const IMPORTABLE_MODULES: readonly ImportableModule[] = [
   {
     module: '@standmeet/sdk',
-    exports: ['StandMeetProvider', 'useStandMeet', 'useChatSession', 'AnswerText'],
+    exports: ['StandMeetProvider', 'useStandMeet', 'useChatSession', 'AnswerText', 'usePageLang', 'usePageTheme'],
     note: 'React context + hooks. useChatSession runs a turn against your agent; '
-      + 'AnswerText renders the inline marks in an answer.',
+      + 'AnswerText renders the inline marks in an answer; usePageLang / usePageTheme give the '
+      + 'visitor\'s language and theme without breaking the prerendered first paint.',
   },
   {
     module: '@standmeet/sdk-core',

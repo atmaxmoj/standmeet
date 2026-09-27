@@ -117,6 +117,24 @@ gated). For that visitor, an ask box hands off to the gate, carrying the questio
 they unlock. Only build an inline `useChatSession` chat when the page actually has a session
 (a coded page, or a BYOAI-enabled page). Don't fake an inline chat that can't answer.
 
+## Language and theme — never read the browser in the first render
+
+Every page is prerendered at build time, so its first client render must produce the same HTML.
+Reading `localStorage`, `navigator.language` or `matchMedia` inside `useState(() => …)` breaks that
+for a visitor whose language or theme differs: React reports a hydration error (#418) for text,
+and for an attribute (a `data-theme`) it keeps the server's value — a dark-mode visitor stays
+light. Use the SDK's hooks, which render the default first and apply the visitor's choice right
+after mount:
+
+```tsx
+import { usePageLang, usePageTheme } from '@standmeet/sdk';
+const [lang, setLang] = usePageLang(['en', 'zh'] as const, 'en'); // setLang stores the choice
+const theme = usePageTheme(); // 'light' | 'dark', follows the system until the visitor picks
+```
+
+Anything else that depends on the browser (a stored preference, the viewport, the time) goes in a
+`useEffect`, never in the initial state.
+
 ## Make it not look AI-generated
 
 Commit to one clear aesthetic and execute it precisely. Avoid the tells:

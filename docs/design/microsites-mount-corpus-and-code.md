@@ -257,6 +257,17 @@ own source.
 - **Verified by** `e2e microsite-agent-reads-page`: a sentence only in the page's source reaches the
   model (red on the old code).
 
+### 2026-09-27 — a page's first render matches its prerender
+
+Owner pages read `localStorage` / `navigator` / `matchMedia` in their first render, so a Chinese or
+dark-mode visitor's first render differed from the (English, light) prerender: React #418, and a
+dark-mode visitor kept the light theme (React keeps the server's attribute). The SDK now exports
+`usePageLang` and `usePageTheme`, which render the default first and apply the visitor's choice
+after mount; `microsite.guide` says to use them, and the editor's imports list names them. The owner
+pages were rewritten onto them. `e2e microsite-zh-visitor-chat` drives a zh + dark visitor: no
+hydration error, the stored language and theme apply, a question is answered, a failed turn shows
+its error.
+
 ## 5b. Authoring belongs on the panel too
 
 The owner-plane rule is **completeness**: every owner op renders on every owner facade
