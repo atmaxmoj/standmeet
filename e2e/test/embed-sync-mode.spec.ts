@@ -18,7 +18,6 @@ import { createRole } from '@/fixtures/roles';
 import { gotoAdminSection } from '@/fixtures/navigate';
 import { seedWiki } from '@/fixtures/corpus';
 import { setupRetrievalOwner, type RetrievalOwner } from '@/fixtures/retrieval';
-import { BACKEND } from '@/fixtures/stack';
 import {
   accepted, createEmbedFor, endpointIDs, publicSyncMode, received, resetSink, setEmbedHook,
   setEmbedLive, sinkURL, tryUpdateEmbed, type HookedEmbed,
@@ -30,9 +29,7 @@ let roleID = '';
 
 async function embedOnFreshCode(name: string): Promise<HookedEmbed> {
   const code = `SYNCMODE-${name.toUpperCase()}`;
-  await createCode(O.request, csrf, { code, label: name, assumed_role_id: roleID });
-  const res = await O.request.get(`${BACKEND}/api/admin/codes`, { headers: { 'X-Csrftoken': csrf } });
-  const id = (await res.json() as { id: string; code: string }[]).find((c) => c.code === code)?.id ?? '';
+  const { id } = await createCode(O.request, csrf, { code, label: name, assumed_role_id: roleID });
   return createEmbedFor(O, id, `embed-${name}`);
 }
 
@@ -97,7 +94,7 @@ test.describe('P3 · embed sync mode', () => {
     await adminPage.getByTestId('embed-save').click();
     await expect(adminPage.getByTestId('embed-update-hook-secret')).toContainText('whsec_');
     expect(await publicSyncMode(O.request, embed.key_id)).toEqual({ status: 200, mode: 'copy' });
-    const view = await callTool<HookedEmbed[]>(O.request, O.apiToken, O.sid, 'embeds.list', {});
-    expect(view.find((e) => e.id === embed.id)?.update_hook?.url).toBe(sinkURL('sync-form'));
+    const view = await callTool<{ items: HookedEmbed[] }>(O.request, O.apiToken, O.sid, 'embeds.list', {});
+    expect(view.items.find((e) => e.id === embed.id)?.update_hook?.url).toBe(sinkURL('sync-form'));
   });
 });

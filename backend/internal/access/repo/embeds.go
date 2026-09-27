@@ -17,6 +17,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/access/db"
 	"github.com/atmaxmoj/standmeet/internal/access/entity"
 	"github.com/atmaxmoj/standmeet/internal/infra/cryptobox"
+	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
@@ -148,21 +149,33 @@ func (r *EmbedRepo) Get(ctx context.Context, ownerID, id string) (entity.Embed, 
 	return embedFromRow(&row), nil
 }
 
-// ListByOwner —— all of an owner's embeds.
-func (r *EmbedRepo) ListByOwner(ctx context.Context, ownerID string) ([]entity.Embed, error) {
+// ListPage —— one page of an owner's embeds, newest first, each with its code string.
+func (r *EmbedRepo) ListPage(
+	ctx context.Context, ownerID string, req paging.Request,
+) (paging.Page[entity.Embed], error) {
 	oid, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
-		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
+		return paging.Page[entity.Embed]{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	rows, qerr := db.New(r.pool).ListEmbedsByOwner(ctx, oid)
+	after, err := pgstore.CursorArgs(req.After)
+	if err != nil {
+		return paging.Page[entity.Embed]{}, fmt.Errorf("list embeds: %w", err)
+	}
+	rows, qerr := db.New(r.pool).ListEmbedsPage(ctx, db.ListEmbedsPageParams{
+		OwnerID: oid, AfterAt: after.At, AfterID: after.ID, Lim: req.Fetch(),
+	})
 	if qerr != nil {
-		return nil, fmt.Errorf("list embeds: %w", qerr)
+		return paging.Page[entity.Embed]{}, fmt.Errorf("list embeds: %w", qerr)
 	}
 	out := make([]entity.Embed, 0, len(rows))
 	for i := range rows {
-		out = append(out, embedFromRow(&rows[i]))
+		e := embedFromRow(&rows[i].Embed)
+		e.Code = rows[i].CodeValue
+		out = append(out, e)
 	}
-	return out, nil
+	return paging.Cut(out, req, func(e *entity.Embed) paging.Cursor {
+		return paging.Cursor{At: e.CreatedAt, ID: e.ID}
+	}), nil
 }
 
 // Update —— changes label + allowed_origins.

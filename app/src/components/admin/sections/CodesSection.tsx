@@ -15,11 +15,10 @@ import { CodeQRModal } from '@/components/admin/modals/CodeQRModal';
 import { VisitorPreviewModal } from '@/components/admin/modals/VisitorPreviewModal';
 import { ListPane } from '@/components/admin/ListPane';
 import { Chip } from '@/components/admin/atoms/Chip';
+import { LoadMore } from '@/components/admin/LoadMore';
 import { useCodeModalState } from '@/lib/admin/use-code-modals';
 import { useCodes, type CodeView, type CodesHook } from '@/lib/admin/use-codes';
-import {
-  CODE_FILTERS, filterCounts, useCodeFilter, visibleCodes, type CodeFilterHook,
-} from '@/lib/admin/code-filter';
+import { CODE_FILTERS, asCodeFilter } from '@/lib/admin/code-filter';
 import { useAction } from '@/lib/ui/use-action';
 import { useReportError } from '@/lib/ui/use-report-error';
 import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
@@ -28,7 +27,6 @@ export function CodesSection() {
   const t = useTranslations('adminAccess');
   const hook = useCodes();
   const modals = useCodeModalState();
-  const filter = useCodeFilter();
   const run = useAction();
   useEffectErrorToast(hook.error);
   // revoke is a one-click destructive action → toast on both success and failure
@@ -46,10 +44,9 @@ export function CodesSection() {
         action={<NewCodeBtn open={modals.openCreate} />}
       />
       <Intro />
-      <CodeFilterRow codes={hook.codes} filter={filter} />
+      <CodeFilterRow hook={hook} />
       <CodeListBody
         hook={hook}
-        filter={filter}
         openCreate={modals.openCreate}
         openQR={modals.openQR}
         openPreview={modals.openPreview}
@@ -79,28 +76,26 @@ function NewCodeBtn({ open }: { open: () => void }) {
 type Translator = ReturnType<typeof useTranslations>;
 
 function titleCount(hook: CodesHook, t: Translator): string {
-  return hook.status === 'ready'
-    ? t('codes.count', { active: countActive(hook.codes), total: hook.codes.length })
+  return hook.counts
+    ? t('codes.count', { active: hook.counts.active, total: hook.counts.all })
     : '';
 }
 
-function countActive(codes: readonly CodeView[]): number {
-  return filterCounts(codes, Date.now()).active;
-}
-
-// CodeFilterRow —— status chips (each with its count) + a search over code and label.
-function CodeFilterRow({ codes, filter }: { codes: readonly CodeView[]; filter: CodeFilterHook }) {
+// CodeFilterRow —— status chips (each with its server-side count) + a search over code and
+// label. Both are page params: changing one reloads from page 1 on the server.
+function CodeFilterRow({ hook }: { hook: CodesHook }) {
   const t = useTranslations('adminAccess');
-  const counts = filterCounts(codes, Date.now());
+  const { params, setParams } = hook.page;
+  const current = asCodeFilter(params.state);
   return (
     <div className="flex items-center gap-2 mb-6 flex-wrap" data-testid="codes-filters">
       {CODE_FILTERS.map((f) => (
-        <Chip key={f} active={filter.filter === f} onClick={() => filter.setFilter(f)} testid={`codes-filter-${f}`}>
-          {t(`codes.filter.${f}`)} {counts[f]}
+        <Chip key={f} active={current === f} onClick={() => setParams({ state: f })} testid={`codes-filter-${f}`}>
+          {t(`codes.filter.${f}`)} {hook.counts?.[f] ?? ''}
         </Chip>
       ))}
       <input
-        type="search" value={filter.query} onChange={(e) => filter.setQuery(e.target.value)}
+        type="search" value={params.q ?? ''} onChange={(e) => setParams({ q: e.target.value })}
         placeholder={t('codes.searchPlaceholder')} aria-label={t('codes.searchPlaceholder')}
         data-testid="codes-search" className="sm-field-input ml-auto max-w-[16em]"
       />
@@ -118,27 +113,27 @@ function Intro() {
 }
 
 function CodeListBody({
-  hook, filter, openCreate, openQR, openPreview, revokeCode,
+  hook, openCreate, openQR, openPreview, revokeCode,
 }: {
   hook: CodesHook;
-  filter: CodeFilterHook;
   openCreate: (existing?: CodeView) => void;
   openQR: (c: CodeView) => void;
   openPreview: (c: CodeView) => void;
   revokeCode: (id: string) => Promise<void>;
 }) {
-  const shown = visibleCodes(hook.codes, filter.filter, filter.query, Date.now());
-  // Outer pane: no codes at all. Inner pane: codes exist, none in this filter / search.
+  // Outer pane: no codes at all (the server's count). Inner pane: codes exist, none in this
+  // filter / search.
   return (
-    <ListPane status={hook.status} count={hook.codes.length} empty={<EmptyState />}>
-      <ListPane status={hook.status} count={shown.length} empty={<FilteredEmpty />}>
+    <ListPane status={hook.status} count={hook.counts?.all ?? hook.codes.length} empty={<EmptyState />}>
+      <ListPane status={hook.status} count={hook.codes.length} empty={<FilteredEmpty />}>
         <CodeGrid
-          codes={shown}
+          codes={hook.codes}
           openEdit={openCreate}
           openQR={openQR}
           openPreview={openPreview}
           revokeCode={revokeCode}
         />
+        <LoadMore page={hook.page} testid="codes-load-more" />
       </ListPane>
     </ListPane>
   );

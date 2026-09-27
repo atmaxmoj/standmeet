@@ -12,6 +12,7 @@ import { useTranslations } from 'next-intl';
 import type { Config, Metadata } from '@measured/puck';
 
 import { QRCode } from '@/components/admin/atoms/QRCode';
+import { CodeSearchField } from '@/components/admin/CodeSearchField';
 import { SelectField } from '@/components/atoms/SelectField';
 import { useComposerCodeControl } from '@/lib/admin/composer-code-context';
 import { cssVars } from '@/lib/ui/css-vars';
@@ -112,13 +113,16 @@ function SecHead({ title }: { title: string }): ReactElement {
 // Empty codes → a placeholder option (SEND still auto-issues a fresh code when none is picked).
 function HeaderCodeField(): ReactElement {
   const t = useTranslations('adminShell.composer');
-  const { activeCodes, codeId, setCodeId } = useComposerCodeControl();
+  const { activeCodes, codeId, setCodeId, codeQuery, setCodeQuery } = useComposerCodeControl();
   return (
-    <SelectField testid="composer-code-select" aria-label="access code" value={codeId} onChange={(e) => setCodeId(e.target.value)} mono>
-      {activeCodes.length === 0
-        ? <option value="" data-testid="composer-code-empty">{t('codeNone')}</option>
-        : activeCodes.map((c) => <option key={c.id} value={c.id}>{c.label} · {c.code}</option>)}
-    </SelectField>
+    <>
+      <CodeSearchField value={codeQuery} onChange={setCodeQuery} testid="composer-code-search" />
+      <SelectField testid="composer-code-select" aria-label="access code" value={codeId} onChange={(e) => setCodeId(e.target.value)} mono>
+        {activeCodes.length === 0
+          ? <option value="" data-testid="composer-code-empty">{t('codeNone')}</option>
+          : activeCodes.map((c) => <option key={c.id} value={c.id}>{c.label} · {c.code}</option>)}
+      </SelectField>
+    </>
   );
 }
 

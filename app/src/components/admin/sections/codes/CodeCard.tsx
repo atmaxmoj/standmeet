@@ -20,7 +20,7 @@ import { usePrompts, type PromptView } from '@/lib/admin/use-prompts';
 import { useRoles } from '@/lib/admin/use-roles';
 import { useAction } from '@/lib/ui/use-action';
 
-import { useCodes, type CodeView } from '@/lib/admin/use-codes';
+import { CODE_MUTATIONS, type CodeView } from '@/lib/admin/use-codes';
 import { useMicrosites } from '@/lib/admin/use-microsites';
 
 type Props = {
@@ -281,7 +281,7 @@ function QRCol({ code, onShowQR }: { code: CodeView; onShowQR: (c: CodeView) => 
 // binding yet" would look identical on screen.
 function OpensCol({ code }: { code: CodeView }) {
   const t = useTranslations('adminAccess');
-  const { setMicrosite } = useCodes();
+  const { setMicrosite } = CODE_MUTATIONS;
   const { rows } = useMicrosites();
   const run = useAction();
   const onPick = (slug: string) => run(

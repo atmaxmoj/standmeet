@@ -99,6 +99,31 @@ export async function createCode(
   return await res.json() as CodeView;
 }
 
+// findCode —— the code whose string is `code`, read from the admin list (any status). The list
+// pages on the server (docs/design/paging.md), so it searches (?q=) instead of scanning page 1.
+export async function findCode(
+  request: APIRequestContext, csrf: string, code: string,
+): Promise<CodeView> {
+  const res = await request.get(`${BACKEND}/api/admin/codes/?q=${encodeURIComponent(code)}`, {
+    headers: { 'X-Csrftoken': csrf },
+  });
+  if (!res.ok()) throw new Error(`list codes: ${res.status()}`);
+  const { items } = await res.json() as { items: CodeView[] };
+  const hit = items.find((c) => c.code === code);
+  if (!hit) throw new Error(`code ${code} not found`);
+  return hit;
+}
+
+// embedCode —— seed an embed that exposes codeID (setup for specs about the embeds list).
+export async function embedCode(
+  request: APIRequestContext, csrf: string, codeID: string, label: string,
+): Promise<void> {
+  const res = await request.post(`${BACKEND}/api/admin/embeds/`, {
+    headers: { 'X-Csrftoken': csrf }, data: { code_id: codeID, label },
+  });
+  if (res.status() !== 201) throw new Error(`create embed failed: ${res.status()}`);
+}
+
 // revokeCode —— revoke a code. Revoked and non-existent are **two different**
 // rejections (F-D-6 split the merged "invalid or revoked": someone who mistyped
 // re-pastes, someone whose code was revoked goes and asks for a new one), so a

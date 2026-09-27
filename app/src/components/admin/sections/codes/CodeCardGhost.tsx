@@ -7,12 +7,12 @@ import { useTranslations } from 'next-intl';
 import { MetaPair } from '@/components/admin/atoms/MetaPair';
 import { SelectField } from '@/components/atoms/SelectField';
 import { ghostFromSelect, ghostToSelect } from '@/lib/admin/code-ghost';
-import { useCodes, type CodeView } from '@/lib/admin/use-codes';
+import { CODE_MUTATIONS, type CodeView } from '@/lib/admin/use-codes';
 import { useAction } from '@/lib/ui/use-action';
 
 export function GhostEvidenceCol({ code }: { code: CodeView }) {
   const t = useTranslations('adminAccess');
-  const { setGhostEvidence } = useCodes();
+  const { setGhostEvidence } = CODE_MUTATIONS;
   const run = useAction();
   const onPick = (v: string) => run(
     () => setGhostEvidence(code.id, ghostFromSelect(v)),

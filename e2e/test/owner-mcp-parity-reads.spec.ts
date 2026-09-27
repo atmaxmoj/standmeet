@@ -142,8 +142,9 @@ async function checkBlocks(r: APIRequestContext): Promise<void> {
 }
 
 async function checkEmptyRegistries(r: APIRequestContext): Promise<void> {
-  const convs = await callTool<unknown[]>(r, token, sid, 'conversations.list', {});
-  expect(Array.isArray(convs), 'conversations.list array').toBe(true);
+  const convs = await callTool<{ items: unknown[]; total: number }>(r, token, sid, 'conversations.list', {});
+  expect(Array.isArray(convs.items), 'conversations.list page').toBe(true);
+  expect(convs.total, 'conversations.list reports its total').toBe(convs.items.length);
 
   // Telemetry returns {waypoints, totals} — the panel has always used this envelope;
   // the MCP version used to be a bare array with no totals.
@@ -152,8 +153,8 @@ async function checkEmptyRegistries(r: APIRequestContext): Promise<void> {
   expect(Array.isArray(ghosts.waypoints), 'ghost_telemetry waypoints').toBe(true);
   expect(typeof ghosts.totals.shown, 'and it carries the totals').toBe('number');
 
-  const reqs = await callTool<unknown[]>(r, token, sid, 'access_requests.list', {});
-  expect(Array.isArray(reqs), 'access_requests.list array').toBe(true);
+  const reqs = await callTool<{ items: unknown[] }>(r, token, sid, 'access_requests.list', {});
+  expect(Array.isArray(reqs.items), 'access_requests.list page').toBe(true);
 
   const bans = await callTool<unknown[]>(r, token, sid, 'ip_bans.list', {});
   expect(Array.isArray(bans), 'ip_bans.list array').toBe(true);
@@ -184,13 +185,13 @@ async function checkBookingConfig(r: APIRequestContext): Promise<void> {
 }
 
 async function checkCodes(r: APIRequestContext): Promise<void> {
-  const codes = await callTool<Array<{ id: string; label: string }>>(
+  const codes = await callTool<{ items: Array<{ id: string; label: string }> }>(
     r, token, sid, 'codes.list', {});
-  expect(codes.some((c) => c.id === codeID), 'codes.list contains seeded code').toBe(true);
+  expect(codes.items.some((c) => c.id === codeID), 'codes.list contains seeded code').toBe(true);
 
-  const members = await callTool<unknown[]>(
+  const members = await callTool<{ items: unknown[] }>(
     r, token, sid, 'codes.list_members', { code_id: codeID });
-  expect(Array.isArray(members), 'codes.list_members array').toBe(true);
+  expect(Array.isArray(members.items), 'codes.list_members page').toBe(true);
 }
 
 test.describe('facade-parity · 新增 owner-MCP 只读工具功能守护', () => {

@@ -10,12 +10,14 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/access/db"
 	"github.com/atmaxmoj/standmeet/internal/access/entity"
+	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
@@ -241,6 +243,48 @@ func (r *CodeRepo) ListMembers(
 		out = append(out, toDomainMember(&rows[i]))
 	}
 	return out, nil
+}
+
+// ListMembersPage —— one page of a code's members for the admin card, most recently seen first;
+// the page reports how many members the code has.
+func (r *CodeRepo) ListMembersPage(
+	ctx context.Context, codeID string, req paging.Request,
+) (paging.Page[entity.CodeMember], error) {
+	codeUUID, err := pgstore.ParseUUID(codeID)
+	if err != nil {
+		return paging.Page[entity.CodeMember]{}, fmt.Errorf(errParseCodeIDPrefix, err)
+	}
+	after, err := pgstore.CursorArgs(req.After)
+	if err != nil {
+		return paging.Page[entity.CodeMember]{}, fmt.Errorf("list code members: %w", err)
+	}
+	rows, qerr := db.New(r.pool).ListCodeMembersPage(ctx, db.ListCodeMembersPageParams{
+		CodeID: codeUUID, AfterAt: after.At, AfterID: after.ID, Lim: req.Fetch(),
+	})
+	if qerr != nil {
+		return paging.Page[entity.CodeMember]{}, fmt.Errorf("list code members: %w", qerr)
+	}
+	out := make([]entity.CodeMember, 0, len(rows))
+	total := int32(0)
+	for i := range rows {
+		row := &rows[i]
+		out = append(out, toDomainMember(&db.CodeMember{
+			ID: row.ID, CodeID: row.CodeID, DisplayName: row.DisplayName, Email: row.Email,
+			IsAnonymous: row.IsAnonymous, LastSeenAt: row.LastSeenAt,
+		}))
+		total = row.Total
+	}
+	return paging.Cut(out, req, memberCursor).WithTotal(total), nil
+}
+
+// memberCursor —— the member's sort key: when it was last seen, the epoch if never (the query
+// sorts a never-seen member last the same way).
+func memberCursor(m *entity.CodeMember) paging.Cursor {
+	at := m.LastSeenAt
+	if at.IsZero() {
+		at = time.Unix(0, 0).UTC()
+	}
+	return paging.Cursor{At: at, ID: m.ID}
 }
 
 func toDomainMember(m *db.CodeMember) entity.CodeMember {

@@ -17,9 +17,11 @@ import (
 	"errors"
 
 	"github.com/atmaxmoj/standmeet/internal/access/entity"
+	"github.com/atmaxmoj/standmeet/internal/access/repo"
 	"github.com/atmaxmoj/standmeet/internal/access/usecase"
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
+	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 )
 
 // CodesDeps — what the codes resource needs: the code's own use cases, the ACL-facet use
@@ -40,13 +42,15 @@ func codeCoreOps(d *CodesDeps) []fp.Op {
 	return []fp.Op{
 		{
 			ID: "codes.list",
-			Description: "List the owner's access codes with their role, quotas, per-code " +
-				"switches and attached ghosts.",
-			InputSchema: noArgs,
+			Description: "List the owner's access codes, newest first, one page at a time " +
+				"({items, next_cursor}), with their role, quotas, per-code switches and ghosts. " +
+				"Filter by state and search code or label.",
+			InputSchema: paging.Schema(codeListFilters),
 			Kind:        fp.Read,
 			Reach:       fp.OwnerRead(),
 			Invoke:      listCodes(d.Codes, extras),
 		},
+		countsOp(d),
 		{
 			ID: "codes.create",
 			Description: "Issue an access code against a role. The role decides persona, " +
@@ -95,9 +99,10 @@ func codeCoreOps(d *CodesDeps) []fp.Op {
 			Invoke:      setCodeGhostEvidence(d.Codes, extras),
 		},
 		{
-			ID:          "codes.list_members",
-			Description: "List the visitors who have claimed this code.",
-			InputSchema: codeIDSchema,
+			ID: "codes.list_members",
+			Description: "List the visitors who have claimed this code, most recently seen " +
+				"first, one page at a time ({items, next_cursor, total}).",
+			InputSchema: paging.Schema(codeIDSchema),
 			Kind:        fp.Read,
 			Reach:       fp.OwnerRead(),
 			Invoke:      listCodeMembers(d.Codes),
@@ -188,23 +193,58 @@ var (
 	}`)
 )
 
+var codeListFilters = json.RawMessage(`{
+	"type":"object",
+	"properties":{
+		"state":{"type":"string","enum":["","all","active","revoked","expired"],
+			"description":"Which codes; omit for all. Expired = past expires_at, not revoked."},
+		"q":{"type":"string","description":"Case-insensitive substring of the code or its label."},
+		"embed":{"type":"string","enum":["","none"],
+			"description":"none = only codes that no embed exposes yet."}
+	}
+}`)
+
 func listCodes(deps usecase.CodesDeps, extras CodeExtras) fp.Invoke {
-	return func(ctx context.Context, ownerID string, _ json.RawMessage) (json.RawMessage, error) {
-		rows, err := deps.Codes.ListByOwner(ctx, ownerID)
+	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
+		in, perr := paging.ParseArgs[repo.CodeFilter](raw)
+		if perr != nil {
+			return nil, fp.BadInput("invalid arguments: " + perr.Error())
+		}
+		page, err := deps.Codes.ListPage(ctx, ownerID, in.Filter, in.Req)
 		if err != nil {
 			return nil, codeErr(err)
 		}
 		bundles := bundleNamesOrNone(ctx, deps, ownerID)
-		out := make([]json.RawMessage, 0, len(rows))
-		for i := range rows {
-			rows[i].Bundle = bundles[rows[i].ID]
-			one, merr := marshalCode(ctx, extras, &rows[i], countMembers(ctx, deps, rows[i].ID))
-			if merr != nil {
-				return nil, merr
-			}
-			out = append(out, one)
+		out, merr := paging.Map(page, func(c *entity.Code) (json.RawMessage, error) {
+			c.Bundle = bundles[c.ID]
+			return marshalCode(ctx, extras, c, countMembers(ctx, deps, c.ID))
+		})
+		if merr != nil {
+			return nil, merr
 		}
 		return json.Marshal(out)
+	}
+}
+
+// countsOp —— the counts behind the codes list's filter chips.
+func countsOp(d *CodesDeps) fp.Op {
+	return fp.Op{
+		ID:          "codes.counts",
+		Description: "How many access codes are active, revoked, expired, and in all.",
+		InputSchema: noArgs,
+		Kind:        fp.Read,
+		Reach:       fp.OwnerRead(),
+		Invoke:      countCodes(d.Codes),
+	}
+}
+
+func countCodes(deps usecase.CodesDeps) fp.Invoke {
+	return func(ctx context.Context, ownerID string, _ json.RawMessage) (json.RawMessage, error) {
+		counts, err := deps.Codes.CountByState(ctx, ownerID)
+		if err != nil {
+			return nil, codeErr(err)
+		}
+		return json.Marshal(counts)
 	}
 }
 
@@ -228,23 +268,23 @@ func bundleNamesOrNone(
 
 func listCodeMembers(deps usecase.CodesDeps) fp.Invoke {
 	return func(ctx context.Context, _ string, raw json.RawMessage) (json.RawMessage, error) {
-		id, perr := parseCodeID(raw)
+		in, perr := paging.ParseArgs[codeIDArgs](raw)
 		if perr != nil {
-			return nil, perr
+			return nil, fp.BadInput("invalid arguments: " + perr.Error())
 		}
-		rows, err := deps.Codes.ListMembers(ctx, id)
+		if err := fp.RequireArgs([2]string{"code_id", in.Filter.CodeID}); err != nil {
+			return nil, err
+		}
+		page, err := deps.Codes.ListMembersPage(ctx, in.Filter.CodeID, in.Req)
 		if err != nil {
 			return nil, codeErr(err)
 		}
-		out := make([]codeMemberOut, 0, len(rows))
-		for i := range rows {
-			out = append(out, codeMemberOut{
-				ID: rows[i].ID, DisplayName: rows[i].DisplayName, Email: rows[i].Email,
-				IsAnonymous: rows[i].IsAnonymous,
-				LastSeenAt:  formatOptionalTime(&rows[i].LastSeenAt),
-			})
-		}
-		return json.Marshal(out)
+		return json.Marshal(paging.Each(page, func(m *entity.CodeMember) codeMemberOut {
+			return codeMemberOut{
+				ID: m.ID, DisplayName: m.DisplayName, Email: m.Email,
+				IsAnonymous: m.IsAnonymous, LastSeenAt: formatOptionalTime(&m.LastSeenAt),
+			}
+		}))
 	}
 }
 
@@ -287,4 +327,5 @@ var codeErrClasses = []struct {
 	{entity.ErrDenialKindUnknown, func() error {
 		return fp.BadInput("kind must be block, skill or corpus")
 	}},
+	{paging.ErrBadCursor, func() error { return fp.BadInput("bad cursor") }},
 }

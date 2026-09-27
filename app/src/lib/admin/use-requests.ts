@@ -1,26 +1,23 @@
-// use-requests —— /admin/requests state. GET list + PATCH status.
-// Defaults to filtering by status=open; clicking a chip switches between
-// "open / replied / closed / all".
-//
-// zustand refactor: fetch everything at once, filter runs client-side;
-// switching a chip no longer hits the network.
+// use-requests —— /admin/requests state. One page at a time + PATCH status.
+// Defaults to status=open; clicking a chip switches between "open / replied / closed / all",
+// which re-queries the server (docs/design/paging.md).
 //
 // Approving issues a code at once and queues its mail; the row's `mail` says sending → sent /
-// failed, and its status turns replied only after the mail went. The list re-reads while any mail
-// is sending, so the owner watches it land without reloading.
+// failed, and its status turns replied only after the mail went. The rows whose mail is sending
+// are re-read by id until none is, so the owner watches it land without reloading.
 
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import { z } from 'zod';
 import {
   adminAPI, AccessRequestViewSchema, MailReceiptSchema, type AccessRequestView,
 } from '@/lib/api/admin';
 import {
-  mailInFlight, sameIds, visibleRows, type RequestStatusFilter,
+  filterOf, mailInFlight, statusParam, type RequestStatusFilter,
 } from '@/lib/admin/request-rows';
-import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
+import { createPagedStore, usePaged, type PagedState } from '@/lib/state/create-paged-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
 export type { RequestStatusFilter } from '@/lib/admin/request-rows';
@@ -43,6 +40,7 @@ export interface RequestsHook {
   status: ResourceStatus;
   rows: readonly AccessRequestView[];
   error: string | null;
+  page: PagedState<AccessRequestView>;
   filter: RequestStatusFilter;
   setFilter: (f: RequestStatusFilter) => void;
   mark: (id: string, status: 'replied' | 'closed') => Promise<void>;
@@ -57,51 +55,46 @@ export interface ApproveOutcome {
 
 const ApproveResultSchema = z.object({ code: z.string(), link: z.string(), mail: MailReceiptSchema });
 
-export const requestsStore = createResourceStore<AccessRequestView[]>({
-  name: 'access-requests',
-  fetcher: () => adminAPI.get('/access-requests', z.array(AccessRequestViewSchema)),
+// requestsPage —— one page at a time, newest first, opening on the open requests.
+export const requestsPage = createPagedStore({
+  name: 'access-requests', path: '/access-requests', item: AccessRequestViewSchema,
+  params: { status: 'open' },
 });
 
-// useMailPolling —— while any mail is sending, re-read the list so its state lands on screen.
-function useMailPolling(sending: boolean): void {
-  useEffect(() => {
-    if (!sending) return undefined;
-    const timer = setInterval(() => { void requestsStore.getState().refreshSilent(); }, MAIL_POLL_MS);
-    return () => clearInterval(timer);
-  }, [sending]);
+const OnePageSchema = z.object({ items: z.array(AccessRequestViewSchema) });
+
+// rereadRow —— one request as the server has it now, put in place (it stays on screen even if
+// its status has left the current filter).
+async function rereadRow(id: string): Promise<void> {
+  const { items } = await adminAPI.get(`/access-requests?id=${encodeURIComponent(id)}`, OnePageSchema);
+  const fresh = items[0];
+  if (fresh) requestsPage.getState().patch(id, () => fresh);
 }
 
-// useHeldRows —— the filtered rows, keeping the ones already on screen (see request-rows.ts).
-// The held ids are adjusted during render when they change (React's derived-state pattern), not in
-// an effect, so a row never flickers out for one frame.
-function useHeldRows(
-  all: readonly AccessRequestView[], filter: RequestStatusFilter,
-): readonly AccessRequestView[] {
-  const [held, setHeld] = useState<{ filter: RequestStatusFilter; ids: readonly string[] }>(
-    { filter, ids: [] },
-  );
-  const rows = visibleRows(all, filter, held.filter === filter ? held.ids : []);
-  const ids = rows.map((r) => r.id);
-  if (held.filter !== filter || !sameIds(ids, held.ids)) setHeld({ filter, ids });
-  return rows;
+// useMailPolling —— while any mail is sending, re-read those rows so their state lands on screen.
+function useMailPolling(sendingIDs: string): void {
+  useEffect(() => {
+    if (sendingIDs === '') return undefined;
+    const reread = () => { for (const id of sendingIDs.split(',')) void rereadRow(id).catch(() => undefined); };
+    const timer = setInterval(reread, MAIL_POLL_MS);
+    return () => clearInterval(timer);
+  }, [sendingIDs]);
 }
 
 export function useRequests(): RequestsHook {
-  const r = useResource(requestsStore);
-  const ensureLoaded = r.ensureLoaded;
-  useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
-  const [filter, setFilter] = useState<RequestStatusFilter>('open');
-  const all = r.data ?? [];
-  useMailPolling(mailInFlight(all));
-  const rows = useHeldRows(all, filter);
+  const page = usePaged(requestsPage);
+  useMailPolling(mailInFlight(page.items).map((r) => r.id).join(','));
+  const { setParams } = page;
+  const setFilter = useCallback(
+    (f: RequestStatusFilter) => setParams({ status: statusParam(f) }), [setParams],
+  );
 
   // mark throws (no longer swallowed): the caller finishes up with useAction (success toast / failure report).
   const mark = useCallback(async (id: string, status: 'replied' | 'closed'): Promise<void> => {
     const updated = await adminAPI.patch(
       `/access-requests/${id}`, { status }, AccessRequestViewSchema,
     );
-    requestsStore.getState().mutate((prev) =>
-      (prev ?? []).map((row) => row.id === id ? updated : row));
+    requestsPage.getState().patch(id, () => updated);
   }, []);
 
   // approve —— the code is issued now; the row is re-read, not assumed replied: it turns replied
@@ -109,7 +102,7 @@ export function useRequests(): RequestsHook {
   const approve = useCallback(async (id: string): Promise<ApproveOutcome> => {
     try {
       const res = await adminAPI.post(`/access-requests/${id}/approve`, {}, ApproveResultSchema);
-      await requestsStore.getState().refreshSilent();
+      await rereadRow(id);
       return { ok: true, code: res.code };
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : 'Approve failed' };
@@ -117,10 +110,11 @@ export function useRequests(): RequestsHook {
   }, []);
 
   return {
-    status: r.status,
-    rows,
-    error: r.error,
-    filter,
+    status: page.status,
+    rows: page.items,
+    error: page.error,
+    page,
+    filter: filterOf(page.params.status),
     setFilter,
     mark,
     approve,

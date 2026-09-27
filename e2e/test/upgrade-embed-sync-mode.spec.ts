@@ -12,7 +12,6 @@ import { createCode } from '@/fixtures/codes';
 import { execSQL, querySQL, restartBackend } from '@/fixtures/instance';
 import { createRole } from '@/fixtures/roles';
 import { setupRetrievalOwner, type RetrievalOwner } from '@/fixtures/retrieval';
-import { BACKEND } from '@/fixtures/stack';
 import { createEmbedFor, publicSyncMode, setEmbedHook, type HookedEmbed } from '@/fixtures/webhooks';
 
 const MIGRATION = '2026-09-27-embed-sync-mode.sql';
@@ -20,9 +19,7 @@ const MIGRATION = '2026-09-27-embed-sync-mode.sql';
 let O: RetrievalOwner;
 
 async function embedOn(csrf: string, roleID: string, code: string): Promise<HookedEmbed> {
-  await createCode(O.request, csrf, { code, label: code, assumed_role_id: roleID });
-  const res = await O.request.get(`${BACKEND}/api/admin/codes`, { headers: { 'X-Csrftoken': csrf } });
-  const id = (await res.json() as { id: string; code: string }[]).find((c) => c.code === code)?.id ?? '';
+  const { id } = await createCode(O.request, csrf, { code, label: code, assumed_role_id: roleID });
   return createEmbedFor(O, id, code);
 }
 

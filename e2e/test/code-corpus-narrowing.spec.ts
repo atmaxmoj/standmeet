@@ -72,8 +72,8 @@ async function codeIDOf(request: APIRequestContext): Promise<string> {
   const res = await request.get(`${BACKEND}/api/admin/codes/`, {
     headers: { 'X-Csrftoken': csrf },
   });
-  const codes = await res.json() as Array<{ id: string; code: string }>;
-  return codes[0]?.id ?? '';
+  const { items } = await res.json() as { items: Array<{ id: string; code: string }> };
+  return items[0]?.id ?? '';
 }
 
 // inheritsByDefault -- the backward-compatibility floor: an existing code with zero deny

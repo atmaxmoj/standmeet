@@ -33,7 +33,9 @@
     "empty": "aucun lien pour l'instant"
   },
   "listPane": {
-    "loadFailed": "Impossible de charger cette liste — ce n'est donc pas « aucune », c'est « inconnue ». Rechargez pour réessayer."
+    "loadFailed": "Impossible de charger cette liste — ce n'est donc pas « aucune », c'est « inconnue ». Rechargez pour réessayer.",
+    "loadMore": "charger plus",
+    "loadingMore": "chargement…"
   },
   "modal": {
     "close": "fermer ✕"
@@ -365,8 +367,6 @@
     "bots": "robots",
     "botsHint": "comptés à part, jamais dans les quatre ci-dessus",
     "window": "période",
-    "prevPage": "Page précédente",
-    "nextPage": "Page suivante",
     "windows": {
       "7d": "7 jours",
       "28d": "28 jours",

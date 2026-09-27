@@ -81,7 +81,7 @@ const GOLDEN_TOOLSET: readonly string[] = [
   // application rows keyed on the id keep working; every distributed copy of the
   // old string (a résumé QR, a shared ?code= link) stops.
   'codes.rotate',
-  'codes.list', 'codes.list_members',
+  'codes.list', 'codes.counts', 'codes.list_members',
   'codes.list_denials', 'codes.add_denial', 'codes.remove_denial',
   // These four used to exist only on the admin panel (waypoints read/write /
   // ghost-evidence / revoking corpus entirely), with neither an MCP twin nor

@@ -34,11 +34,10 @@ type (
 	EventQuery = repo.EventQuery
 	EventRow   = repo.EventRow
 	EventsArgs = repo.EventsArgs
-	EventsOut  = repo.EventsOut
 	Summary    = repo.Summary
 	// The per-viewer breakdown: which people made the summary's numbers, and what each did.
-	SessionRow  = repo.SessionRow
-	SessionsOut = repo.SessionsOut
+	SessionRow    = repo.SessionRow
+	SessionsQuery = repo.SessionsQuery
 	// Location + LocationResolver —— the geoip seam. The composition root supplies a resolver (a
 	// geoip database) as Deps.Geo; monitor resolves a client IP through it when no CDN header
 	// carried a location. Re-exported so the wiring never names the internal entity package.
@@ -48,9 +47,11 @@ type (
 
 // The input schemas for those reads. Declared in the domain, next to the shapes they describe.
 var (
-	EventsInputSchema = repo.EventsInputSchema
-	StatsInputSchema  = repo.StatsInputSchema
-	StatsSince        = repo.StatsSince
+	EventsInputSchema   = repo.EventsInputSchema
+	StatsInputSchema    = repo.StatsInputSchema
+	SessionsInputSchema = repo.SessionsInputSchema
+	StatsSince          = repo.StatsSince
+	SessionsQueryFrom   = repo.SessionsQueryFrom
 	// EventsQueryFrom —— decoding and bounding, kept in the domain so the face stays a
 	// declaration and a call.
 	EventsQueryFrom = repo.EventsQueryFrom

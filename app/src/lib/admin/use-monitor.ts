@@ -12,6 +12,7 @@ import { z } from 'zod';
 import { create } from 'zustand';
 
 import { adminAPI } from '@/lib/api/admin';
+import { createPagedStore, type PagedState } from '@/lib/state/create-paged-store';
 import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
@@ -53,44 +54,13 @@ export const MonitorEventSchema = z.object({
 });
 export type MonitorEvent = z.infer<typeof MonitorEventSchema>;
 
-const EventsResponseSchema = z.object({ events: z.array(MonitorEventSchema) });
-
 const EMPTY_SUMMARY: MonitorSummary = {
   viewers: 0, visits: 0, views: 0, events: 0, bots: 0,
 };
 
-// MONITOR_PAGE_SIZE —— rows per page in the feed and the sessions table. The panel was one long
-// scroll (feed + sessions stacked); each view now pages so neither runs off the screen. Client-side
-// over the fetched window (the feed fetches 50, sessions its own limit): the point is on-screen
-// length, and true offset paging past the fetch window is a later ceiling, not this.
-export const MONITOR_PAGE_SIZE = 20;
-
-// Paged —— one page of a list plus what the pager needs to render (0-based page, total pages, and
-// whether prev/next exist). Kept in the data layer so the presentation layer stays branch-free.
-export interface Paged<T> {
-  items: readonly T[];
-  page: number;
-  pages: number;
-  hasPrev: boolean;
-  hasNext: boolean;
-}
-
-// paginate —— slice `all` into the `page`-th window of `size`, clamping an out-of-range page to the
-// last one (so deleting the tail of a list can't strand the viewer on an empty page).
-export function paginate<T>(
-  all: readonly T[], page: number, size: number = MONITOR_PAGE_SIZE,
-): Paged<T> {
-  const pages = Math.max(1, Math.ceil(all.length / size));
-  const clamped = Math.min(Math.max(0, page), pages - 1);
-  const start = clamped * size;
-  return {
-    items: all.slice(start, start + size),
-    page: clamped,
-    pages,
-    hasPrev: clamped > 0,
-    hasNext: clamped < pages - 1,
-  };
-}
+// MONITOR_PAGE_SIZE —— rows per page in the feed and the sessions table, so neither view runs off
+// the screen. The server pages (docs/design/paging.md); "load more" brings the next 20.
+const MONITOR_PAGE_SIZE = '20';
 
 // MONITOR_WINDOWS —— the three spans, mirroring the backend's (monitor/repo/window.go). Three
 // and not a date picker: a traffic panel answers "is this going anywhere", and last week / last
@@ -116,8 +86,8 @@ export const monitorWindowStore = create<WindowState>((set) => ({
     // All three, together. Refreshing only the one the owner "changed" is what produces a
     // mismatched set, and a mismatch looks like data rather than a bug.
     void monitorSummaryStore.getState().refresh();
-    void monitorEventsStore.getState().refresh();
-    void monitorSessionsStore.getState().refresh();
+    monitorEventsPage.getState().setParams({ window: w });
+    monitorSessionsPage.getState().setParams({ window: w });
   },
 }));
 
@@ -136,14 +106,10 @@ export const monitorSummaryStore = createResourceStore<MonitorSummary>({
 // nothing they can act on; "Googlebot read your corpus" and "your link was unfurled in Slack"
 // are two different pieces of news, and the feed is the only place they can be told apart. The
 // four human numbers stay bot-free, so the feed showing them costs nothing.
-export const monitorEventsStore = createResourceStore<MonitorEvent[]>({
-  name: 'monitor-events',
-  fetcher: () => adminAPI
-    .get(
-      `/monitor/events?limit=50&include_bots=true&window=${currentWindow()}`,
-      EventsResponseSchema,
-    )
-    .then((r) => r.events),
+export const monitorEventsPage = createPagedStore({
+  name: 'monitor-events', path: '/monitor/events',
+  item: MonitorEventSchema.transform(toRow),
+  params: { window: '28d', include_bots: 'true', limit: MONITOR_PAGE_SIZE },
 });
 
 // MonitorSession —— one viewer, aggregated: the summary's numbers made legible as PEOPLE. Declared
@@ -165,15 +131,13 @@ export const MonitorSessionSchema = z.object({
 });
 export type MonitorSession = z.infer<typeof MonitorSessionSchema>;
 
-const SessionsResponseSchema = z.object({ sessions: z.array(MonitorSessionSchema) });
-
 // The sessions panel is counted over the same window as the summary + feed (monitorWindowStore
-// refreshes all three together), so a viewer's visit/view counts never disagree with the totals.
-export const monitorSessionsStore = createResourceStore<MonitorSession[]>({
-  name: 'monitor-sessions',
-  fetcher: () => adminAPI
-    .get(`/monitor/sessions?window=${currentWindow()}`, SessionsResponseSchema)
-    .then((r) => r.sessions),
+// sets all three together), so a viewer's visit/view counts never disagree with the totals. The
+// paged store keys rows by id; a session's id is its viewer.
+export const monitorSessionsPage = createPagedStore({
+  name: 'monitor-sessions', path: '/monitor/sessions',
+  item: MonitorSessionSchema.transform((s) => ({ ...s, id: s.viewer_id })),
+  params: { window: '28d', limit: MONITOR_PAGE_SIZE },
 });
 
 // MonitorRow —— one feed line, already reduced to the five strings the panel prints.
@@ -202,6 +166,8 @@ export interface MonitorHook {
   summary: MonitorSummary;
   rows: readonly MonitorRow[];
   sessions: readonly MonitorSession[];
+  feedPage: PagedState<MonitorRow>;
+  sessionsPage: PagedState<MonitorSession & { id: string }>;
   view: FeedView;
   error: string | null;
   window: MonitorWindow;
@@ -210,30 +176,31 @@ export interface MonitorHook {
 
 export function useMonitor(): MonitorHook {
   const summary = useResource(monitorSummaryStore);
-  const events = useResource(monitorEventsStore);
-  const sessions = useResource(monitorSessionsStore);
+  const events = monitorEventsPage();
+  const sessions = monitorSessionsPage();
   const window = monitorWindowStore((s) => s.window);
   const setWindow = monitorWindowStore((s) => s.setWindow);
-  // refresh, not ensureLoaded. Traffic is live: `ensureLoaded` fetches once and then serves the
+  // reload, not ensureLoaded. Traffic is live: `ensureLoaded` fetches once and then serves the
   // same snapshot for the rest of the session, so an owner who opens the panel, goes away, and
   // comes back reads yesterday's numbers with nothing on screen saying so. Every other section
   // here describes state the owner themselves changed; this one describes other people.
   const loadSummary = monitorSummaryStore.getState().refresh;
-  const loadEvents = monitorEventsStore.getState().refresh;
-  const loadSessions = monitorSessionsStore.getState().refresh;
+  const loadEvents = events.reload;
+  const loadSessions = sessions.reload;
   useEffect(() => {
     void loadSummary(); void loadEvents(); void loadSessions();
   }, [loadSummary, loadEvents, loadSessions]);
   // The panel is ready once ALL have answered: showing the feed under a still-loading zero
   // would read as "50 events, 0 viewers", which is a number the data never said.
   const status = worstStatus(worstStatus(summary.status, events.status), sessions.status);
-  const rows = (events.data ?? []).map(toRow);
   return {
     status,
     summary: summary.data ?? EMPTY_SUMMARY,
-    rows,
-    sessions: sessions.data ?? [],
-    view: feedView(status, rows.length),
+    rows: events.items,
+    sessions: sessions.items,
+    feedPage: events,
+    sessionsPage: sessions,
+    view: feedView(status, events.items.length),
     error: summary.error ?? events.error ?? sessions.error,
     window, setWindow,
   };

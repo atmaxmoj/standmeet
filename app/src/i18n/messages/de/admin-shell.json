@@ -33,7 +33,9 @@
     "empty": "noch keine links"
   },
   "listPane": {
-    "loadFailed": "Konnte diese Liste nicht laden — das ist also kein 'keine', es ist 'unbekannt'. Neu laden zum Erneut versuchen."
+    "loadFailed": "Konnte diese Liste nicht laden — das ist also kein 'keine', es ist 'unbekannt'. Neu laden zum Erneut versuchen.",
+    "loadMore": "mehr laden",
+    "loadingMore": "lädt…"
   },
   "modal": {
     "close": "schließen ✕"
@@ -365,8 +367,6 @@
     "bots": "crawler",
     "botsHint": "getrennt gezählt, nie in den vier darüber",
     "window": "Zeitraum",
-    "prevPage": "Vorherige Seite",
-    "nextPage": "Nächste Seite",
     "windows": {
       "7d": "7 Tage",
       "28d": "28 Tage",

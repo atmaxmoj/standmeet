@@ -11,7 +11,7 @@ import { test, expect } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
-import { createCode } from '@/fixtures/codes';
+import { createCode, findCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { createPrompt } from '@/fixtures/prompts';
 import { createRole } from '@/fixtures/roles';
@@ -81,16 +81,10 @@ test.describe('per-code prompt · #104 code-owned persona fragment', () => {
     async ({ playwright }) => {
       const request = await playwright.request.newContext();
       const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-      const listRes = await request.get(
-        `${process.env['BACKEND_URL'] ?? 'http://localhost:8000'}/api/admin/codes`,
-        { headers: { 'X-Csrftoken': csrf } },
-      );
-      expect(listRes.status()).toBe(200);
-      const codes = await listRes.json() as Array<{ code: string; prompt_id?: string | null }>;
-      const withCode = codes.find((c) => c.code === CODE_WITH);
-      const withoutCode = codes.find((c) => c.code === CODE_WITHOUT);
-      expect(withCode?.prompt_id, 'code-with echoes a prompt_id').toBeTruthy();
-      expect(withoutCode?.prompt_id ?? null, 'code-without has null prompt_id').toBeNull();
+      const withCode = await findCode(request, csrf, CODE_WITH);
+      const withoutCode = await findCode(request, csrf, CODE_WITHOUT);
+      expect(withCode.prompt_id, 'code-with echoes a prompt_id').toBeTruthy();
+      expect(withoutCode.prompt_id ?? null, 'code-without has null prompt_id').toBeNull();
       await request.dispose();
     });
 });

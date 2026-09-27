@@ -11,9 +11,11 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/access/db"
 	"github.com/atmaxmoj/standmeet/internal/access/entity"
+	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
@@ -57,26 +59,34 @@ func (r *RequestRepo) Create(
 	return toDomainAccessRequest((*db.GetAccessRequestByIDRow)(&row)), nil
 }
 
-// ListByOwner —— admin list; an empty status string means "all".
-func (r *RequestRepo) ListByOwner(
-	ctx context.Context, ownerID, status string,
-) ([]entity.Request, error) {
-	ownerUUID, err := pgstore.ParseUUID(ownerID)
+// ListPage —— one page of the admin list, newest first, narrowed by f. The page reports the
+// matching total.
+func (r *RequestRepo) ListPage(
+	ctx context.Context, ownerID string, f entity.RequestFilter, req paging.Request,
+) (paging.Page[entity.Request], error) {
+	params, err := requestPageParams(ownerID, f, req)
 	if err != nil {
-		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
+		return paging.Page[entity.Request]{}, err
 	}
-	rows, err := db.New(r.conn()).ListAccessRequestsByOwner(ctx, db.ListAccessRequestsByOwnerParams{
-		OwnerID:      ownerUUID,
-		StatusFilter: statusFilter(status),
-	})
+	rows, err := db.New(r.conn()).ListAccessRequestsPage(ctx, params)
 	if err != nil {
-		return nil, fmt.Errorf("list access requests: %w", err)
+		return paging.Page[entity.Request]{}, fmt.Errorf("list access requests: %w", err)
 	}
 	out := make([]entity.Request, 0, len(rows))
+	total := int32(0)
 	for i := range rows {
-		out = append(out, toDomainAccessRequest((*db.GetAccessRequestByIDRow)(&rows[i])))
+		row := &rows[i]
+		out = append(out, toDomainAccessRequest(&db.GetAccessRequestByIDRow{
+			ID: row.ID, OwnerID: row.OwnerID, Name: row.Name, Org: row.Org, Email: row.Email,
+			Message: row.Message, Status: row.Status, CreatedAt: row.CreatedAt,
+			MailJobID: row.MailJobID,
+		}))
+		total = row.Total
 	}
-	return out, nil
+	page := paging.Cut(out, req, func(a *entity.Request) paging.Cursor {
+		return paging.Cursor{At: a.CreatedAt, ID: a.ID}
+	})
+	return page.WithTotal(total), nil
 }
 
 // GetByID —— fetches one request by (owner, id); a miss returns
@@ -153,6 +163,41 @@ func (r *RequestRepo) conn() pgstore.DBTX {
 
 // statusFilter —— "" means no filter; anything else passes through as-is to
 // db.Status (*string).
+// requestPageParams —— the query's params. An id that is not a uuid names no request: not found,
+// never "no id filter" (which would answer with every request).
+func requestPageParams(
+	ownerID string, f entity.RequestFilter, req paging.Request,
+) (db.ListAccessRequestsPageParams, error) {
+	ownerUUID, err := pgstore.ParseUUID(ownerID)
+	if err != nil {
+		return db.ListAccessRequestsPageParams{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
+	}
+	after, err := pgstore.CursorArgs(req.After)
+	if err != nil {
+		return db.ListAccessRequestsPageParams{}, fmt.Errorf("list access requests: %w", err)
+	}
+	only, err := optionalUUID(f.ID)
+	if err != nil {
+		return db.ListAccessRequestsPageParams{}, entity.ErrAccessRequestNotFound
+	}
+	return db.ListAccessRequestsPageParams{
+		OwnerID: ownerUUID, StatusFilter: statusFilter(f.Status), OnlyID: only,
+		AfterAt: after.At, AfterID: after.ID, Lim: req.Fetch(),
+	}, nil
+}
+
+// optionalUUID —— "" is NULL (no filter); anything else must parse.
+func optionalUUID(s string) (pgtype.UUID, error) {
+	if s == "" {
+		return pgtype.UUID{}, nil
+	}
+	u, err := pgstore.ParseUUID(s)
+	if err != nil {
+		return pgtype.UUID{}, fmt.Errorf("parse id: %w", err)
+	}
+	return u, nil
+}
+
 func statusFilter(status string) *string {
 	if status == "" {
 		return nil

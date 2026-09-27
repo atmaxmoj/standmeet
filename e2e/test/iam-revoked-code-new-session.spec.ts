@@ -10,11 +10,10 @@ import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
-import { createCode, revokeCode } from '@/fixtures/codes';
+import { createCode, findCode, revokeCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { issueSessionStatus } from '@/fixtures/visitor';
 
-const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
 const OWNER = {
   email: 'revoke-new@example.com', password: 'correct-horse-battery-staple',
@@ -52,12 +51,5 @@ test.describe('A.3-IAM revoked code blocks new session issue', () => {
 async function revokeCodeByName(
   request: APIRequestContext, csrf: string, codeStr: string,
 ): Promise<void> {
-  const listRes = await request.get(`${BACKEND}/api/admin/codes/`, {
-    headers: { 'X-Csrftoken': csrf },
-  });
-  if (!listRes.ok()) throw new Error(`list codes: ${listRes.status()}`);
-  const codes = await listRes.json() as Array<{ id: string; code: string }>;
-  const target = codes.find((c) => c.code === codeStr);
-  if (!target) throw new Error(`code ${codeStr} not found`);
-  await revokeCode(request, csrf, target.id);
+  await revokeCode(request, csrf, (await findCode(request, csrf, codeStr)).id);
 }

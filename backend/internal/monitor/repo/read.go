@@ -16,6 +16,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
@@ -27,7 +28,7 @@ import (
 // Monitor is the domain that watches the others, so it stays free of everything it can;
 // `encoding/json` says what a read takes and returns, and the convergence point supplies the
 // rest.
-var EventsInputSchema = json.RawMessage(`{
+var EventsInputSchema = paging.Schema(json.RawMessage(`{
 	"type":"object",
 	"properties":{
 		"surface":{"type":"string",
@@ -39,10 +40,9 @@ var EventsInputSchema = json.RawMessage(`{
 		"entity_id":{"type":"string",
 			"description":"Only events about this corpus entry, by its immutable id."},
 		"include_bots":{"type":"boolean",
-			"description":"Include crawler and link-preview traffic. Default false."},
-		"limit":{"type":"integer","description":"Row cap. Default 100, max 1000."}
+			"description":"Include crawler and link-preview traffic. Default false."}
 	}
-}`)
+}`))
 
 // EventsArgs —— what a caller may narrow the feed by.
 type EventsArgs struct {
@@ -51,53 +51,27 @@ type EventsArgs struct {
 	// Window —— 7d / 28d / 90d. Anything else, empty included, means the default.
 	Window      string `json:"window"`
 	EntityID    string `json:"entity_id"`
-	Limit       int    `json:"limit"`
 	IncludeBots bool   `json:"include_bots"`
 }
 
-// EventsOut —— the feed's response. Events is never null: an empty array means "nothing
-// recorded yet", while a null reads as "this is broken", and on a fresh instance a panel cannot
-// tell those apart.
-type EventsOut struct {
-	Events []EventRow `json:"events"`
-}
-
-const (
-	defaultEventLimit = 100
-	maxEventLimit     = 1000
-)
-
-// EventsQueryFrom —— raw arguments become a bounded query.
+// EventsQueryFrom —— raw arguments become a bounded query: the filters, and one page
+// (docs/design/paging.md; the page size bounds live in paging).
 //
-// Decoding and bounding live here rather than at the convergence point: a face is meant to hold
-// a declaration and a call, and every branch it grows is a piece of this domain's business that
-// has moved out of reach of this domain's tests. Empty arguments are valid — no filter, default
-// cap — so a caller asking for "everything recent" writes nothing at all.
+// Decoding lives here rather than at the convergence point: a face is meant to hold a declaration
+// and a call, and every branch it grows is a piece of this domain's business that has moved out of
+// reach of this domain's tests. Empty arguments are valid — no filter, the first page — so a
+// caller asking for "everything recent" writes nothing at all.
 func EventsQueryFrom(raw json.RawMessage, ownerID string) (EventQuery, error) {
-	var in EventsArgs
-	if len(raw) > 0 {
-		if err := json.Unmarshal(raw, &in); err != nil {
-			return EventQuery{}, fmt.Errorf("invalid arguments: %w", err)
-		}
-	}
-	return in.query(ownerID, time.Now().UTC()), nil
-}
-
-// query —— the args as a query, with the row cap bounded. One place decides the default and the
-// ceiling, so a caller cannot ask for the whole table by passing a large number.
-func (a *EventsArgs) query(ownerID string, now time.Time) EventQuery {
-	limit := a.Limit
-	if limit <= 0 {
-		limit = defaultEventLimit
-	}
-	if limit > maxEventLimit {
-		limit = maxEventLimit
+	in, err := paging.ParseArgs[EventsArgs](raw)
+	if err != nil {
+		return EventQuery{}, fmt.Errorf("invalid arguments: %w", err)
 	}
 	return EventQuery{
-		Since:   WindowSince(a.Window, now),
-		OwnerID: ownerID, Limit: limit, Surface: a.Surface,
-		EventName: a.Event, EntityID: a.EntityID, IncludeBots: a.IncludeBots,
-	}
+		Since:   WindowSince(in.Filter.Window, time.Now().UTC()),
+		OwnerID: ownerID, Page: in.Req, Surface: in.Filter.Surface,
+		EventName: in.Filter.Event, EntityID: in.Filter.EntityID,
+		IncludeBots: in.Filter.IncludeBots,
+	}, nil
 }
 
 // EventQuery —— which events the owner asked for.
@@ -105,11 +79,11 @@ type EventQuery struct {
 	// Since —— the window's lower bound. Never zero: a query with no bound would read the whole
 	// table, and the number it produced would silently disagree with every number beside it.
 	Since       time.Time
+	Page        paging.Request
 	OwnerID     string
 	Surface     string
 	EventName   string
 	EntityID    string
-	Limit       int
 	IncludeBots bool
 }
 
@@ -147,21 +121,39 @@ SELECT event_id, coalesce(viewer_id,''), visit_id, created_at, surface, event_na
        browser, os, device, country, props
 FROM visit_event`
 
-// Events —— the raw feed, newest first.
-func (r *Repo) Events(ctx context.Context, q *EventQuery) ([]EventRow, error) {
+// Events —— one page of the raw feed, newest first.
+func (r *Repo) Events(ctx context.Context, q *EventQuery) (paging.Page[EventRow], error) {
 	owner, perr := pgstore.ParseUUID(q.OwnerID)
 	if perr != nil {
-		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, perr)
+		return paging.Page[EventRow]{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, perr)
 	}
 	where, args := eventFilters(q, owner)
+	where, args = afterCursor(where, args, q.Page.After)
 	sql := eventSelect + " WHERE " + strings.Join(where, " AND ") +
-		" ORDER BY created_at DESC LIMIT " + strconv.Itoa(q.Limit)
+		" ORDER BY created_at DESC, event_id DESC LIMIT " + strconv.Itoa(int(q.Page.Fetch()))
 	rows, err := r.pool.Query(ctx, sql, args...)
 	if err != nil {
-		return nil, fmt.Errorf("query visit events: %w", err)
+		return paging.Page[EventRow]{}, fmt.Errorf("query visit events: %w", err)
 	}
 	defer rows.Close()
-	return collectEvents(rows)
+	out, err := collectEvents(rows)
+	if err != nil {
+		return paging.Page[EventRow]{}, err
+	}
+	return paging.Cut(out, q.Page, func(e *EventRow) paging.Cursor {
+		return paging.Cursor{At: e.CreatedAt, ID: e.EventID}
+	}), nil
+}
+
+// afterCursor —— the keyset clause for a page after the first, as bind parameters.
+func afterCursor(where []string, args []any, after *paging.Cursor) ([]string, []any) {
+	if after == nil {
+		return where, args
+	}
+	args = append(args, after.At, after.ID)
+	n := len(args)
+	return append(where, "(created_at, event_id) < ($"+strconv.Itoa(n-1)+", $"+
+		strconv.Itoa(n)+"::uuid)"), args
 }
 
 // collectEvents —— drains the cursor. Split out so Events stays within the branch budget; the

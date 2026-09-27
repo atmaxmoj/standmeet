@@ -117,6 +117,7 @@ function ComposerCanvas({ code, initial, onData }: {
     <ComposerCodeContext.Provider
       value={{
         activeCodes: code.activeCodes, codeId: code.codeId, setCodeId: code.setCodeId,
+        codeQuery: code.picker.query, setCodeQuery: code.picker.setQuery,
         qrURL: code.qrURL,
       }}
     >

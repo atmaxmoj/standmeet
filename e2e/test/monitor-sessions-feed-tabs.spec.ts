@@ -6,7 +6,8 @@
 //   1. The window selector carries a SECOND row of tabs (feed / sessions). Only the active view
 //      renders — the feed and the sessions table are never on screen together.
 //   2. Each view PAGINATES: a window with more than one page of rows shows the first page plus a
-//      "next" control; paging forward shows the rest and a "prev" control back.
+//      "load more" control that appends the next page from the server (docs/design/paging.md; the
+//      prev/next pager over one fetched window became the shared server-side paginator).
 //
 // Real seeding only: visits come from real visitor browsers (a distinct browser context = a
 // distinct session; each read = a feed event), never injected through the events/sessions API — a
@@ -25,8 +26,8 @@ import { initMCP } from '@/fixtures/mcp';
 import { gotoAdminSection } from '@/fixtures/navigate';
 import { openVisitorBrowser } from '@/fixtures/visitor-browser';
 
-// PAGE_SIZE — the panel's rows-per-page. Kept in step with the product constant (MONITOR_PAGE_SIZE
-// in use-monitor). The pagination case seeds one more than this so a second page must exist.
+// PAGE_SIZE — the panel's rows-per-page (MONITOR_PAGE_SIZE in use-monitor). The pagination case
+// seeds one more than this so a second page must exist.
 const PAGE_SIZE = 20;
 
 const OWNER = {
@@ -77,12 +78,12 @@ test.describe('monitor · sessions and the feed are separate tabs, each paginate
     await expect(page.getByTestId('monitor-sessions'), 'sessions is hidden again').toBeHidden();
   });
 
-  test('the feed paginates: page one holds PAGE_SIZE rows, next shows the rest', async ({
+  test('the feed pages on the server: PAGE_SIZE rows, then load more brings new ones', async ({
     adminPage: page, playwright,
   }) => {
     test.setTimeout(180_000);
     // One visitor reading the page PAGE_SIZE+1 times makes PAGE_SIZE+1 feed events (one viewer, so
-    // the sessions view stays short — this case is about the feed's own pager).
+    // the sessions view stays short — this case is about the feed's own paging).
     const ctx = await openVisitorBrowser(playwright, {});
     for (let i = 0; i < PAGE_SIZE + 1; i += 1) {
       await ctx.read(`/wiki/${ENTRY.path}`);
@@ -92,29 +93,23 @@ test.describe('monitor · sessions and the feed are separate tabs, each paginate
     await gotoAdminSection(page, 'monitor');
     await expect(page.getByTestId('monitor-feed'), 'feed view').toBeVisible({ timeout: 20_000 });
 
-    // Page one: exactly PAGE_SIZE rows, and a next control because more exist.
+    // Page one: exactly PAGE_SIZE rows, and a load-more control because more exist.
     await expect(page.getByTestId('monitor-row'), 'first page is full at PAGE_SIZE rows')
       .toHaveCount(PAGE_SIZE);
-    const next = page.getByTestId('monitor-feed-next');
-    await expect(next, 'a next-page control appears when a second page exists').toBeVisible();
-
-    // Capture a first-page row's id so we can prove page two is DIFFERENT rows, not the same page.
+    const more = page.getByTestId('monitor-feed-load-more');
+    await expect(more, 'load more appears when a second page exists').toBeVisible();
     const firstPageIds = await page.getByTestId('monitor-row').evaluateAll(
       (els) => els.map((e) => e.getAttribute('data-row-id')),
     );
 
-    await next.click();
-    // Page two: the remaining rows (PAGE_SIZE+1 total → 1 here), a prev control, and none of them
-    // are rows we already saw on page one.
-    await expect(page.getByTestId('monitor-feed-prev'), 'a prev control on page two').toBeVisible();
-    const secondPageIds = await page.getByTestId('monitor-row').evaluateAll(
+    await more.click();
+    // The next page is appended: more rows than before, every id distinct (no row shown twice).
+    await expect.poll(() => page.getByTestId('monitor-row').count()).toBeGreaterThan(PAGE_SIZE);
+    const allIds = await page.getByTestId('monitor-row').evaluateAll(
       (els) => els.map((e) => e.getAttribute('data-row-id')),
     );
-    expect(secondPageIds.length, 'page two has the leftover rows').toBeGreaterThan(0);
-    expect(
-      secondPageIds.some((id) => firstPageIds.includes(id)),
-      'page two shows different rows than page one',
-    ).toBe(false);
+    expect(new Set(allIds).size, 'no row appears twice').toBe(allIds.length);
+    expect(allIds.slice(0, PAGE_SIZE), 'page one stays in place').toEqual(firstPageIds);
   });
 });
 

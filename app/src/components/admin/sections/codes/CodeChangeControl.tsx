@@ -12,7 +12,7 @@ import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 
 import { useAction } from '@/lib/ui/use-action';
-import { useCodes, type CodeView } from '@/lib/admin/use-codes';
+import { CODE_MUTATIONS, type CodeView } from '@/lib/admin/use-codes';
 
 // ChangeCodeBtn — only for a live code; opens the warning modal.
 export function ChangeCodeBtn({ code }: { code: CodeView }) {
@@ -35,7 +35,7 @@ export function ChangeCodeBtn({ code }: { code: CodeView }) {
 // live sessions) before confirming. The new string defaults to the current one; confirming rotates.
 function ChangeCodeModal({ code, onClose }: { code: CodeView; onClose: () => void }) {
   const t = useTranslations('adminAccess');
-  const { rotateCode } = useCodes();
+  const { rotateCode } = CODE_MUTATIONS;
   const run = useAction();
   const [next, setNext] = useState(code.code);
   const confirm = (): void => {

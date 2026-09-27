@@ -99,20 +99,31 @@ func (q *Queries) GetAccessRequestByID(ctx context.Context, arg GetAccessRequest
 	return i, err
 }
 
-const listAccessRequestsByOwner = `-- name: ListAccessRequestsByOwner :many
-SELECT id, owner_id, name, org, email, message, status, created_at, mail_job_id FROM access_requests
+const listAccessRequestsPage = `-- name: ListAccessRequestsPage :many
+SELECT id, owner_id, name, org, email, message, status, created_at, mail_job_id,
+  (SELECT COUNT(*) FROM access_requests a2 WHERE a2.owner_id = $1
+    AND ($2::text IS NULL OR a2.status = $2))::int AS total
+FROM access_requests
 WHERE owner_id = $1
   AND ($2::text IS NULL OR status = $2)
-ORDER BY created_at DESC
-LIMIT 100
+  -- id: one request (the panel re-reads a row whose approval mail is still sending).
+  AND ($3::uuid IS NULL OR id = $3)
+  AND ($4::timestamptz IS NULL
+    OR (created_at, id) < ($4, $5::uuid))
+ORDER BY created_at DESC, id DESC
+LIMIT $6
 `
 
-type ListAccessRequestsByOwnerParams struct {
+type ListAccessRequestsPageParams struct {
 	OwnerID      pgtype.UUID
 	StatusFilter *string
+	OnlyID       pgtype.UUID
+	AfterAt      pgtype.Timestamptz
+	AfterID      pgtype.UUID
+	Lim          int32
 }
 
-type ListAccessRequestsByOwnerRow struct {
+type ListAccessRequestsPageRow struct {
 	ID        pgtype.UUID
 	OwnerID   pgtype.UUID
 	Name      string
@@ -122,17 +133,27 @@ type ListAccessRequestsByOwnerRow struct {
 	Status    string
 	CreatedAt pgtype.Timestamptz
 	MailJobID *int64
+	Total     int32
 }
 
-func (q *Queries) ListAccessRequestsByOwner(ctx context.Context, arg ListAccessRequestsByOwnerParams) ([]ListAccessRequestsByOwnerRow, error) {
-	rows, err := q.db.Query(ctx, listAccessRequestsByOwner, arg.OwnerID, arg.StatusFilter)
+// One page, newest first (docs/design/paging.md). It used to be a flat LIMIT 100: the 101st
+// request was unreachable. total: how many match the filter on every page (evaluated once).
+func (q *Queries) ListAccessRequestsPage(ctx context.Context, arg ListAccessRequestsPageParams) ([]ListAccessRequestsPageRow, error) {
+	rows, err := q.db.Query(ctx, listAccessRequestsPage,
+		arg.OwnerID,
+		arg.StatusFilter,
+		arg.OnlyID,
+		arg.AfterAt,
+		arg.AfterID,
+		arg.Lim,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListAccessRequestsByOwnerRow
+	var items []ListAccessRequestsPageRow
 	for rows.Next() {
-		var i ListAccessRequestsByOwnerRow
+		var i ListAccessRequestsPageRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.OwnerID,
@@ -143,6 +164,7 @@ func (q *Queries) ListAccessRequestsByOwner(ctx context.Context, arg ListAccessR
 			&i.Status,
 			&i.CreatedAt,
 			&i.MailJobID,
+			&i.Total,
 		); err != nil {
 			return nil, err
 		}

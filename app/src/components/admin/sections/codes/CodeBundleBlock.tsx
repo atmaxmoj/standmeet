@@ -23,13 +23,13 @@ import { HelpTip } from '@/components/admin/HelpTip';
 import { CodeBlockList } from '@/components/admin/sections/codes/CodeBlockList';
 import { SelectField } from '@/components/atoms/SelectField';
 import { useBundles } from '@/lib/admin/use-bundles';
-import { useCodes } from '@/lib/admin/use-codes';
+import { CODE_MUTATIONS } from '@/lib/admin/use-codes';
 import type { CodeView } from '@/lib/admin/use-codes';
 
 export function CodeBundleBlock({ code }: { code: CodeView }) {
   const t = useTranslations('adminIntegrations.blocks');
   const { bundles, ensureLoaded } = useBundles();
-  const { setBundle } = useCodes();
+  const { setBundle } = CODE_MUTATIONS;
   useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
   return (
     <div className="mt-4 border-t border-(--color-rule)/40 pt-3">

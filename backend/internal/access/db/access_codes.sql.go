@@ -73,6 +73,37 @@ func (q *Queries) ClearCodeWaypoints(ctx context.Context, codeID pgtype.UUID) er
 	return err
 }
 
+const countAccessCodesByState = `-- name: CountAccessCodesByState :one
+SELECT
+  COUNT(*) FILTER (WHERE status <> 'revoked'
+    AND (expires_at IS NULL OR expires_at > now()))::int AS active,
+  COUNT(*) FILTER (WHERE status = 'revoked')::int AS revoked,
+  COUNT(*) FILTER (WHERE status <> 'revoked' AND expires_at <= now())::int AS expired,
+  COUNT(*)::int AS total
+FROM access_codes WHERE owner_id = $1
+`
+
+type CountAccessCodesByStateRow struct {
+	Active  int32
+	Revoked int32
+	Expired int32
+	Total   int32
+}
+
+// The count behind each filter chip. "Expired" is not stored: a code that is not revoked and
+// whose expires_at has passed. Counted here, never from a loaded page.
+func (q *Queries) CountAccessCodesByState(ctx context.Context, ownerID pgtype.UUID) (CountAccessCodesByStateRow, error) {
+	row := q.db.QueryRow(ctx, countAccessCodesByState, ownerID)
+	var i CountAccessCodesByStateRow
+	err := row.Scan(
+		&i.Active,
+		&i.Revoked,
+		&i.Expired,
+		&i.Total,
+	)
+	return i, err
+}
+
 const countCodeMembers = `-- name: CountCodeMembers :one
 SELECT count(*) FROM code_members WHERE code_id = $1
 `
@@ -533,15 +564,38 @@ func (q *Queries) ListAccessCodesByOwner(ctx context.Context, ownerID pgtype.UUI
 	return items, nil
 }
 
-const listAccessCodesWithPageByOwner = `-- name: ListAccessCodesWithPageByOwner :many
+const listAccessCodesPage = `-- name: ListAccessCodesPage :many
 SELECT ac.id, ac.owner_id, ac.code, ac.label, ac.purpose, ac.ghosts, ac.expires_at, ac.status, ac.max_turns_per_session, ac.max_members, ac.require_ghost_evidence, ac.provider_id, ac.microsite_id, ac.bundle_id, ac.limit_per_period, ac.slug, ac.created_at, ac.assumed_role_id, ac.prompt_id, ac.inline_prompt, COALESCE(cp.slug, '')::text AS microsite_slug
 FROM access_codes ac
 LEFT JOIN microsites cp ON cp.id = ac.microsite_id AND cp.status != 'deleted'
 WHERE ac.owner_id = $1
-ORDER BY ac.created_at DESC
+  AND ($2::text IN ('', 'all')
+    OR ($2 = 'revoked' AND ac.status = 'revoked')
+    OR ($2 = 'expired' AND ac.status <> 'revoked' AND ac.expires_at <= now())
+    OR ($2 = 'active' AND ac.status <> 'revoked'
+        AND (ac.expires_at IS NULL OR ac.expires_at > now())))
+  AND ($3::text = ''
+    OR ac.code ILIKE '%' || $3 || '%' OR ac.label ILIKE '%' || $3 || '%')
+  -- embed: 'none' = only codes no embed exposes yet (the embed picker; code_id is unique there).
+  AND ($4::text <> 'none'
+    OR NOT EXISTS (SELECT 1 FROM embeds em WHERE em.code_id = ac.id))
+  AND ($5::timestamptz IS NULL
+    OR (ac.created_at, ac.id) < ($5, $6::uuid))
+ORDER BY ac.created_at DESC, ac.id DESC
+LIMIT $7
 `
 
-type ListAccessCodesWithPageByOwnerRow struct {
+type ListAccessCodesPageParams struct {
+	OwnerID pgtype.UUID
+	State   string
+	Q       string
+	Embed   string
+	AfterAt pgtype.Timestamptz
+	AfterID pgtype.UUID
+	Lim     int32
+}
+
+type ListAccessCodesPageRow struct {
 	ID                   pgtype.UUID
 	OwnerID              pgtype.UUID
 	Code                 string
@@ -565,20 +619,31 @@ type ListAccessCodesWithPageByOwnerRow struct {
 	MicrositeSlug        string
 }
 
-// Same as above, plus **which page this code opens**. The binding is one fact, and both panels
-// read the same place: the code side sees the page, the page side sees the code
-// (ListMicrositesByOwner carries bound_codes).
-// LEFT JOIN: an unbound code has an empty slug, which is "opens the default visitor conversation",
-// not missing data.
-func (q *Queries) ListAccessCodesWithPageByOwner(ctx context.Context, ownerID pgtype.UUID) ([]ListAccessCodesWithPageByOwnerRow, error) {
-	rows, err := q.db.Query(ctx, listAccessCodesWithPageByOwner, ownerID)
+// One page of the owner's codes, newest first, plus **which page this code opens**. The
+// binding is one fact, and both panels read the same place: the code side sees the page, the
+// page side sees the code (ListMicrositesByOwner carries bound_codes).
+// LEFT JOIN: an unbound code has an empty slug, which is "opens the default visitor
+// conversation", not missing data.
+// state: ” / 'all' = every code; 'active' / 'revoked' / 'expired' as CountAccessCodesByState
+// defines them. q: case-insensitive substring of code or label. Both apply before the LIMIT
+// (docs/design/paging.md).
+func (q *Queries) ListAccessCodesPage(ctx context.Context, arg ListAccessCodesPageParams) ([]ListAccessCodesPageRow, error) {
+	rows, err := q.db.Query(ctx, listAccessCodesPage,
+		arg.OwnerID,
+		arg.State,
+		arg.Q,
+		arg.Embed,
+		arg.AfterAt,
+		arg.AfterID,
+		arg.Lim,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListAccessCodesWithPageByOwnerRow
+	var items []ListAccessCodesPageRow
 	for rows.Next() {
-		var i ListAccessCodesWithPageByOwnerRow
+		var i ListAccessCodesPageRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.OwnerID,
@@ -658,6 +723,74 @@ func (q *Queries) ListCodeMembers(ctx context.Context, codeID pgtype.UUID) ([]Co
 			&i.Email,
 			&i.IsAnonymous,
 			&i.LastSeenAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCodeMembersPage = `-- name: ListCodeMembersPage :many
+SELECT id, code_id, display_name, email, is_anonymous, last_seen_at,
+  COALESCE(last_seen_at, 'epoch'::timestamptz)::timestamptz AS seen_key,
+  (SELECT COUNT(*) FROM code_members c2 WHERE c2.code_id = $1)::int AS total
+FROM code_members
+WHERE code_id = $1
+  AND ($2::timestamptz IS NULL
+    OR (COALESCE(last_seen_at, 'epoch'::timestamptz), id)
+       < ($2, $3::uuid))
+ORDER BY COALESCE(last_seen_at, 'epoch'::timestamptz) DESC, id DESC
+LIMIT $4
+`
+
+type ListCodeMembersPageParams struct {
+	CodeID  pgtype.UUID
+	AfterAt pgtype.Timestamptz
+	AfterID pgtype.UUID
+	Lim     int32
+}
+
+type ListCodeMembersPageRow struct {
+	ID          pgtype.UUID
+	CodeID      pgtype.UUID
+	DisplayName string
+	Email       *string
+	IsAnonymous bool
+	LastSeenAt  pgtype.Timestamptz
+	SeenKey     pgtype.Timestamptz
+	Total       int32
+}
+
+// One page of a code's members for the admin card, most recently seen first
+// (docs/design/paging.md). A member never seen sorts last: its key is the epoch. total: how many
+// members the code has, on every page.
+func (q *Queries) ListCodeMembersPage(ctx context.Context, arg ListCodeMembersPageParams) ([]ListCodeMembersPageRow, error) {
+	rows, err := q.db.Query(ctx, listCodeMembersPage,
+		arg.CodeID,
+		arg.AfterAt,
+		arg.AfterID,
+		arg.Lim,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCodeMembersPageRow
+	for rows.Next() {
+		var i ListCodeMembersPageRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.CodeID,
+			&i.DisplayName,
+			&i.Email,
+			&i.IsAnonymous,
+			&i.LastSeenAt,
+			&i.SeenKey,
+			&i.Total,
 		); err != nil {
 			return nil, err
 		}

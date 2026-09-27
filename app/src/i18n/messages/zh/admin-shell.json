@@ -33,7 +33,9 @@
     "empty": "还没有链接"
   },
   "listPane": {
-    "loadFailed": "无法加载此列表——所以这不是「没有」，而是「未知」。请刷新重试。"
+    "loadFailed": "无法加载此列表——所以这不是「没有」，而是「未知」。请刷新重试。",
+    "loadMore": "加载更多",
+    "loadingMore": "加载中…"
   },
   "modal": {
     "close": "关闭 ✕"
@@ -365,8 +367,6 @@
     "bots": "爬虫",
     "botsHint": "单独计数，不进上面四个",
     "window": "时间窗口",
-    "prevPage": "上一页",
-    "nextPage": "下一页",
     "windows": {
       "7d": "7 天",
       "28d": "28 天",

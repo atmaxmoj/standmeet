@@ -67,17 +67,44 @@ SELECT * FROM access_codes WHERE id = $1;
 -- name: ListAccessCodesByOwner :many
 SELECT * FROM access_codes WHERE owner_id = $1 ORDER BY created_at DESC;
 
--- name: ListAccessCodesWithPageByOwner :many
--- Same as above, plus **which page this code opens**. The binding is one fact, and both panels
--- read the same place: the code side sees the page, the page side sees the code
--- (ListMicrositesByOwner carries bound_codes).
--- LEFT JOIN: an unbound code has an empty slug, which is "opens the default visitor conversation",
--- not missing data.
+-- name: ListAccessCodesPage :many
+-- One page of the owner's codes, newest first, plus **which page this code opens**. The
+-- binding is one fact, and both panels read the same place: the code side sees the page, the
+-- page side sees the code (ListMicrositesByOwner carries bound_codes).
+-- LEFT JOIN: an unbound code has an empty slug, which is "opens the default visitor
+-- conversation", not missing data.
+-- state: '' / 'all' = every code; 'active' / 'revoked' / 'expired' as CountAccessCodesByState
+-- defines them. q: case-insensitive substring of code or label. Both apply before the LIMIT
+-- (docs/design/paging.md).
 SELECT ac.*, COALESCE(cp.slug, '')::text AS microsite_slug
 FROM access_codes ac
 LEFT JOIN microsites cp ON cp.id = ac.microsite_id AND cp.status != 'deleted'
-WHERE ac.owner_id = $1
-ORDER BY ac.created_at DESC;
+WHERE ac.owner_id = sqlc.arg('owner_id')
+  AND (sqlc.arg('state')::text IN ('', 'all')
+    OR (sqlc.arg('state') = 'revoked' AND ac.status = 'revoked')
+    OR (sqlc.arg('state') = 'expired' AND ac.status <> 'revoked' AND ac.expires_at <= now())
+    OR (sqlc.arg('state') = 'active' AND ac.status <> 'revoked'
+        AND (ac.expires_at IS NULL OR ac.expires_at > now())))
+  AND (sqlc.arg('q')::text = ''
+    OR ac.code ILIKE '%' || sqlc.arg('q') || '%' OR ac.label ILIKE '%' || sqlc.arg('q') || '%')
+  -- embed: 'none' = only codes no embed exposes yet (the embed picker; code_id is unique there).
+  AND (sqlc.arg('embed')::text <> 'none'
+    OR NOT EXISTS (SELECT 1 FROM embeds em WHERE em.code_id = ac.id))
+  AND (sqlc.narg('after_at')::timestamptz IS NULL
+    OR (ac.created_at, ac.id) < (sqlc.narg('after_at'), sqlc.narg('after_id')::uuid))
+ORDER BY ac.created_at DESC, ac.id DESC
+LIMIT sqlc.arg('lim');
+
+-- name: CountAccessCodesByState :one
+-- The count behind each filter chip. "Expired" is not stored: a code that is not revoked and
+-- whose expires_at has passed. Counted here, never from a loaded page.
+SELECT
+  COUNT(*) FILTER (WHERE status <> 'revoked'
+    AND (expires_at IS NULL OR expires_at > now()))::int AS active,
+  COUNT(*) FILTER (WHERE status = 'revoked')::int AS revoked,
+  COUNT(*) FILTER (WHERE status <> 'revoked' AND expires_at <= now())::int AS expired,
+  COUNT(*)::int AS total
+FROM access_codes WHERE owner_id = $1;
 
 -- name: SetAccessCodeMicrosite :one
 -- Bind/unbind. $3 NULL = unbind, the code falls back to the default landing.
@@ -183,6 +210,21 @@ SELECT * FROM code_members WHERE code_id = $1 AND display_name = $2;
 
 -- name: ListCodeMembers :many
 SELECT * FROM code_members WHERE code_id = $1 ORDER BY last_seen_at DESC NULLS LAST;
+
+-- name: ListCodeMembersPage :many
+-- One page of a code's members for the admin card, most recently seen first
+-- (docs/design/paging.md). A member never seen sorts last: its key is the epoch. total: how many
+-- members the code has, on every page.
+SELECT id, code_id, display_name, email, is_anonymous, last_seen_at,
+  COALESCE(last_seen_at, 'epoch'::timestamptz)::timestamptz AS seen_key,
+  (SELECT COUNT(*) FROM code_members c2 WHERE c2.code_id = sqlc.arg('code_id'))::int AS total
+FROM code_members
+WHERE code_id = sqlc.arg('code_id')
+  AND (sqlc.narg('after_at')::timestamptz IS NULL
+    OR (COALESCE(last_seen_at, 'epoch'::timestamptz), id)
+       < (sqlc.narg('after_at'), sqlc.narg('after_id')::uuid))
+ORDER BY COALESCE(last_seen_at, 'epoch'::timestamptz) DESC, id DESC
+LIMIT sqlc.arg('lim');
 
 -- name: TouchCodeMember :exec
 UPDATE code_members SET last_seen_at = now() WHERE id = $1;

@@ -5,9 +5,13 @@ import { z } from 'zod';
 //
 // This is the zustand refactor's template: other hooks follow this same pattern.
 
-import { useEffect } from 'react';
+import { useState } from 'react';
 
 import { adminAPI } from '@/lib/api/admin';
+import type { CodeFilter } from '@/lib/admin/code-filter';
+import {
+  createPagedStore, usePaged, type PageParams, type PagedState, type PagedStore,
+} from '@/lib/state/create-paged-store';
 import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
@@ -70,11 +74,14 @@ export interface QuotasInput {
   max_turns_per_session: number | null;
 }
 
+export type CodeCounts = Record<CodeFilter, number>;
+
 export interface CodesHook {
   status: ResourceStatus;
   codes: readonly CodeView[];
+  counts: CodeCounts | undefined;
   error: string | null;
-  refresh: () => Promise<void>;
+  page: PagedState<CodeView>;
   createCode: (input: CreateCodeInput) => Promise<void>;
   revokeCode: (id: string) => Promise<void>;
   rotateCode: (id: string, newCode: string) => Promise<void>;
@@ -84,66 +91,94 @@ export interface CodesHook {
   setBundle: (id: string, bundle: string) => Promise<void>;
 }
 
-// codesStore —— a module singleton; fetched once, shared by every component.
-export const codesStore = createResourceStore<CodeView[]>({
-  name: 'codes',
-  fetcher: () => adminAPI.get('/codes/', z.array(CodeViewSchema)),
+// codesPage —— the codes section's list: one page at a time, filtered and searched on the
+// server (docs/design/paging.md). Opens on active codes.
+export const codesPage = createPagedStore({
+  name: 'codes', path: '/codes/', item: CodeViewSchema, params: { state: 'active', q: '' },
 });
 
-// useCodes —— the component-facing hook. Reads the store + calls ensureLoaded on mount.
+// codeCountsStore —— the count behind each filter chip, counted in SQL, never from a loaded page.
+export const codeCountsStore = createResourceStore<CodeCounts>({
+  name: 'code-counts',
+  fetcher: () => adminAPI.get('/codes/counts', z.object({
+    active: z.number(), revoked: z.number(), expired: z.number(), all: z.number(),
+  })),
+});
+
+// useCodes —— the codes section's hook: the paged list, the counts, the mutations.
 export function useCodes(): CodesHook {
-  const r = useResource(codesStore);
-  const ensureLoaded = r.ensureLoaded;
-  useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
+  const page = usePaged(codesPage);
+  const counts = useResource(codeCountsStore);
   return {
-    status: r.status,
-    codes: r.data ?? [],
-    error: r.error,
-    refresh: codesStore.getState().refresh,
-    createCode,
-    revokeCode,
-    rotateCode,
-    updateQuotas,
-    setGhostEvidence,
-    setMicrosite,
-    setBundle,
+    status: page.status,
+    codes: page.items,
+    counts: counts.data,
+    error: page.error,
+    page,
+    ...CODE_MUTATIONS,
   };
+}
+
+export interface CodePicker {
+  page: PagedState<CodeView>;
+  query: string;
+  setQuery: (q: string) => void;
+}
+
+// useCodePicker —— a picker's own view of active codes: the newest page, narrowed on the server
+// as the owner types. Its own store, so typing in a picker never filters the codes section.
+// extra —— more server-side filters, fixed for this picker (the embed picker's {embed: 'none'}).
+export function useCodePicker(extra: PageParams = {}): CodePicker {
+  const [store] = useState<PagedStore<CodeView>>(() => createPagedStore({
+    name: 'code-picker', path: '/codes/', item: CodeViewSchema,
+    params: { state: 'active', q: '', ...extra },
+  }));
+  const page = usePaged(store);
+  return { page, query: page.params.q ?? '', setQuery: (q) => page.setParams({ q }) };
+}
+
+// CODE_MUTATIONS —— for a component that edits a code but does not show the list.
+export const CODE_MUTATIONS = {
+  createCode, revokeCode, rotateCode, updateQuotas, setGhostEvidence, setMicrosite, setBundle,
+};
+
+// afterMembershipChange —— a create or revoke moves a code between filters: reload the page
+// and the counts rather than guess where it now belongs.
+async function afterMembershipChange(): Promise<void> {
+  await Promise.all([codesPage.getState().reload(), codeCountsStore.getState().refresh()]);
+}
+
+function replaceCode(updated: CodeView): void {
+  codesPage.getState().patch(updated.id, () => updated);
 }
 
 // The mutation throws (no longer swallowed into false): the caller finishes
 // up with useAction (success toast / failure report), or inlines it in place.
 async function createCode(input: CreateCodeInput): Promise<void> {
-  const created = await adminAPI.post('/codes/', toCreateBody(input), CodeViewSchema);
-  codesStore.getState().mutate((prev) => [created, ...(prev ?? [])]);
+  await adminAPI.post('/codes/', toCreateBody(input), CodeViewSchema);
+  await afterMembershipChange();
 }
 
 async function revokeCode(id: string): Promise<void> {
   await adminAPI.postVoid(`/codes/${id}/revoke`, {});
-  codesStore.getState().mutate((prev) =>
-    (prev ?? []).map((c) => c.id === id ? { ...c, status: 'revoked' } : c));
+  await afterMembershipChange();
 }
 
 // rotateCode —— change a code's STRING (leak recovery). The id is unchanged, so id-keyed links (embeds,
 // applications) survive; only the old literal string dies. The warning modal in the UI states this.
 async function rotateCode(id: string, newCode: string): Promise<void> {
-  const updated = await adminAPI.patch(`/codes/${id}/code`, { code: newCode }, CodeViewSchema);
-  codesStore.getState().mutate((prev) =>
-    (prev ?? []).map((c) => c.id === updated.id ? updated : c));
+  replaceCode(await adminAPI.patch(`/codes/${id}/code`, { code: newCode }, CodeViewSchema));
 }
 
 async function updateQuotas(id: string, input: QuotasInput): Promise<void> {
-  const updated = await adminAPI.patch(`/codes/${id}/quotas`, input, CodeViewSchema);
-  codesStore.getState().mutate((prev) =>
-    (prev ?? []).map((c) => c.id === updated.id ? updated : c));
+  replaceCode(await adminAPI.patch(`/codes/${id}/quotas`, input, CodeViewSchema));
 }
 
 // setGhostEvidence —— F-A-10 per-code override: null = inherits the role; true/false = explicit override (code takes priority over role).
 async function setGhostEvidence(id: string, value: boolean | null): Promise<void> {
-  const updated = await adminAPI.patch(
+  replaceCode(await adminAPI.patch(
     `/codes/${id}/ghost-evidence`, { require_ghost_evidence: value }, CodeViewSchema,
-  );
-  codesStore.getState().mutate((prev) =>
-    (prev ?? []).map((c) => c.id === updated.id ? updated : c));
+  ));
 }
 
 // setMicrosite —— which page this code opens. Empty string = unbind, back to the default visitor chat.
@@ -156,8 +191,7 @@ async function setMicrosite(id: string, slug: string): Promise<void> {
     `/codes/${id}/microsite`, { slug },
     z.object({ code_id: z.string(), microsite_slug: z.string() }),
   );
-  codesStore.getState().mutate((prev) => (prev ?? []).map(
-    (c) => c.id === done.code_id ? { ...c, microsite_slug: done.microsite_slug } : c));
+  codesPage.getState().patch(done.code_id, (c) => ({ ...c, microsite_slug: done.microsite_slug }));
 }
 
 // setBundle —— bind an EXISTING code to a group of blocks, switch it, or clear it. Empty = unbind,
@@ -169,8 +203,7 @@ async function setBundle(id: string, bundle: string): Promise<void> {
     `/codes/${id}/bundle`, { bundle },
     z.object({ code_id: z.string(), bundle: z.string() }),
   );
-  codesStore.getState().mutate((prev) => (prev ?? []).map(
-    (c) => c.id === done.code_id ? { ...c, bundle: done.bundle } : c));
+  codesPage.getState().patch(done.code_id, (c) => ({ ...c, bundle: done.bundle }));
 }
 
 function toCreateBody(input: CreateCodeInput): Record<string, unknown> {
@@ -224,14 +257,10 @@ export async function dispatchSave(
   });
 }
 
-// MemberView / listCodeMembers —— a member is a read-only child entity of
-// the AccessCode aggregate. revoke happens at the code level (revokeCode) — a member should never be managed individually.
-const MemberViewSchema = z.object({
+// MemberView —— a member is a read-only child entity of the AccessCode aggregate. revoke happens
+// at the code level (revokeCode) — a member should never be managed individually.
+export const MemberViewSchema = z.object({
   id: z.string(), display_name: z.string(), email: z.string().optional(),
   is_anonymous: z.boolean(), last_seen_at: z.string().optional(),
 });
 export type MemberView = z.infer<typeof MemberViewSchema>;
-
-export async function listCodeMembers(codeID: string): Promise<MemberView[]> {
-  return await adminAPI.get(`/codes/${codeID}/members`, z.array(MemberViewSchema));
-}

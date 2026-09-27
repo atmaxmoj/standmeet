@@ -1,16 +1,14 @@
-// use-admin-dashboard —— fans out fetches across 4 existing admin list
-// endpoints, returning KPI counts. A lightweight approach (vs. a single
-// aggregator endpoint): each list has < a few hundred rows, so the browser
-// firing 4 parallel fetches + counting is good enough for a single refresh.
-//
-// Once list sizes grow, consider adding `/api/admin/dashboard/stats` as a separate SUM query.
+// use-admin-dashboard —— fans out fetches across existing admin endpoints, returning KPI counts.
+// Paged lists (codes, requests, conversations) answer with a server-side count; the short config
+// lists (drafts, providers) are still fetched and counted here.
 
 import { useEffect, useState } from 'react';
 
 import { z } from 'zod';
 
-import { pendingRequests } from '@/lib/admin/access-request-status';
+import { ACCESS_REQUEST_OPEN } from '@/lib/admin/access-request-status';
 import { growthStore } from '@/lib/admin/use-corpus-growth';
+import { fetchListTotal } from '@/lib/api/list-total';
 
 export interface DashboardStats {
   rawCount: number;
@@ -68,9 +66,9 @@ const GrowthSchema = z.object({
   // and the dashboard fell back to rendering MOCK_14D (rot-A1). It's now parsed and fed into corpus-pulse.
   series: z.array(z.object({ day: z.string(), count: z.number() })).optional().default([]),
 });
-const CodeRowSchema = z.object({ id: z.string(), status: z.string() });
-const RequestRowSchema = z.object({ id: z.string(), status: z.string() });
-const ConvRowSchema = z.object({ id: z.string() });
+// Codes, requests and conversations are paged lists: their counts come from the server (the
+// codes counts op, a list's `total`), never from the length of a fetched page.
+const CodeCountsSchema = z.object({ active: z.number() });
 const DraftRowSchema = z.object({ id: z.string(), status: z.string().optional() });
 // key_configured is the only credential for "can this entry actually be called" — a provider row with no key can't answer a visitor.
 const ProviderRowSchema = z.object({ id: z.string(), key_configured: z.boolean() });
@@ -118,11 +116,11 @@ export function allActionItems(stats: DashboardStats): ActionItem[] {
 
 async function load(setState: (s: State) => void): Promise<void> {
   try {
-    const [growth, codes, requests, conversations, drafts, providers] = await Promise.all([
+    const [growth, codes, requestsNew, conversationsCount, drafts, providers] = await Promise.all([
       fetchGrowth(),
-      fetchList('/api/admin/codes/', z.array(CodeRowSchema)),
-      fetchList('/api/admin/access-requests', z.array(RequestRowSchema)),
-      fetchList('/api/admin/conversations', z.array(ConvRowSchema)),
+      fetchList('/api/admin/codes/counts', CodeCountsSchema),
+      fetchListTotal(`/api/admin/access-requests?status=${ACCESS_REQUEST_OPEN}`),
+      fetchListTotal('/api/admin/conversations'),
       fetchList('/api/admin/drafts/', z.array(DraftRowSchema)),
       fetchList('/api/admin/providers/', z.array(ProviderRowSchema)),
     ]);
@@ -130,9 +128,9 @@ async function load(setState: (s: State) => void): Promise<void> {
       stats: {
         rawCount: growth.by_tier.raw + growth.by_tier.wiki + growth.by_tier.output,
         rawUnprocessed: growth.by_tier.raw_unprocessed,
-        codesLive: codes.filter((c) => c.status === 'active').length,
-        requestsNew: pendingRequests(requests).length,
-        conversationsCount: conversations.length,
+        codesLive: codes.active,
+        requestsNew,
+        conversationsCount,
         draftsReviewing: drafts.filter((d) => d.status !== 'sent').length,
         pulse: growth.series.map((d) => d.count),
         pulseDays: growth.series.map((d) => d.day),
@@ -148,8 +146,6 @@ async function load(setState: (s: State) => void): Promise<void> {
     setState({ stats: null, loading: false, error: msg });
   }
 }
-
-const WrappedListSchema = z.object({ items: z.array(z.unknown()).optional() });
 
 // fetchGrowth —— goes through the **shared** growth store, no longer fetches its own copy (F-C-31).
 //
@@ -167,10 +163,8 @@ async function fetchGrowth(): Promise<z.infer<typeof GrowthSchema>> {
   return GrowthSchema.parse(data);
 }
 
-async function fetchList<T>(url: string, schema: z.ZodType<T[]>): Promise<T[]> {
+async function fetchList<T>(url: string, schema: z.ZodType<T>): Promise<T> {
   const res = await fetch(url, { credentials: 'include' });
   if (!res.ok) throw new Error(`${url}: ${res.status}`);
-  const raw: unknown = await res.json();
-  const items = Array.isArray(raw) ? raw : (WrappedListSchema.safeParse(raw).success ? WrappedListSchema.parse(raw).items ?? [] : []);
-  return schema.parse(items);
+  return schema.parse(await res.json());
 }

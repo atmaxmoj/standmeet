@@ -18,7 +18,7 @@ import { SectionHeader } from '@/components/admin/SectionHeader';
 import { ListPane } from '@/components/admin/ListPane';
 import { EmbedCreateModal } from '@/components/admin/modals/EmbedCreateModal';
 import { ModalShell } from '@/components/admin/modals/ModalShell';
-import { useCodes, type CodeView } from '@/lib/admin/use-codes';
+import { LoadMore } from '@/components/admin/LoadMore';
 import {
   useEmbeds, widgetSnippet,
   type CreatedEmbed, type EmbedFormValues, type EmbedsHook, type EmbedView,
@@ -28,30 +28,9 @@ import { useReportError } from '@/lib/ui/use-report-error';
 import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 import { stampDay } from '@/lib/ui/format-time';
 
-// codeStringFor —— an embed stores code_id (a uuid), but the tag pasted into a
-// website needs the human-readable code string (LABEL-XXX). The code list is
-// already loaded on this page for "pick a code when creating", so reuse it for the
-// reverse lookup. Not found (the code was deleted) → '', and the caller shows
-// "code removed".
-function codeStringFor(codeID: string, codes: readonly CodeView[]): string {
-  return codes.find((c) => c.id === codeID)?.code ?? '';
-}
-
-// unembeddedCodes —— codes not yet attached to any embed. One code can only be
-// attached to one embed (code_id is unique) — so the code picker at creation time
-// only lists unattached ones, and the owner can't pick a code that's already
-// attached (the backend's uniqueness constraint is the race-condition backstop).
-function unembeddedCodes(
-  codes: readonly CodeView[], embeds: readonly EmbedView[],
-): readonly CodeView[] {
-  const taken = new Set(embeds.map((e) => e.code_id));
-  return codes.filter((c) => !taken.has(c.id));
-}
-
 export function EmbedsSection() {
   const t = useTranslations('adminAccess.embeds');
   const hook = useEmbeds();
-  const codesHook = useCodes();
   const [editing, setEditing] = useState<EmbedView | null>(null);
   const [creating, setCreating] = useState(false);
   // revealed —— an embed just created (carrying its one-time private key). Setting
@@ -67,16 +46,13 @@ export function EmbedsSection() {
       <SectionHeader
         kicker={t('kicker')}
         slug="embeds"
-        count={hook.embeds.length > 0 ? String(hook.embeds.length) : ''}
         action={<NewEmbedBtn open={() => setCreating(true)} />}
       />
       <Intro />
-      <EmbedsBody hook={hook} codes={codesHook.codes} onEdit={openEdit} />
+      <EmbedsBody hook={hook} onEdit={openEdit} />
       <ModalSlot
         open={creating || editing !== null}
         existing={editing}
-        codes={codesHook.codes}
-        available={unembeddedCodes(codesHook.codes, hook.embeds)}
         hook={hook}
         onClose={closeModal}
         onRevealed={setRevealed}
@@ -138,12 +114,11 @@ function Intro() {
   );
 }
 
-function EmbedsBody({
-  hook, codes, onEdit,
-}: { hook: EmbedsHook; codes: readonly CodeView[]; onEdit: (e: EmbedView) => void }) {
+function EmbedsBody({ hook, onEdit }: { hook: EmbedsHook; onEdit: (e: EmbedView) => void }) {
   return (
     <ListPane status={hook.status} count={hook.embeds.length} empty={<EmptyState />}>
-      <EmbedTable rows={hook.embeds} codes={codes} onEdit={onEdit} />
+      <EmbedTable rows={hook.embeds} onEdit={onEdit} />
+      <LoadMore page={hook.page} testid="embeds-load-more" />
     </ListPane>
   );
 }
@@ -156,8 +131,8 @@ function EmptyState() {
 }
 
 function EmbedTable({
-  rows, codes, onEdit,
-}: { rows: readonly EmbedView[]; codes: readonly CodeView[]; onEdit: (e: EmbedView) => void }) {
+  rows, onEdit,
+}: { rows: readonly EmbedView[]; onEdit: (e: EmbedView) => void }) {
   return (
     <div
       data-testid="embed-list"
@@ -166,7 +141,7 @@ function EmbedTable({
       <table className="w-full border-collapse">
         <TableHead />
         <tbody>
-          {rows.map((e) => <EmbedRows key={e.id} embed={e} codes={codes} onEdit={onEdit} />)}
+          {rows.map((e) => <EmbedRows key={e.id} embed={e} onEdit={onEdit} />)}
         </tbody>
       </table>
     </div>
@@ -198,13 +173,10 @@ function Th({ text, align }: { text: string; align: 'left' | 'right' }) {
 // EmbedRows —— two rows per embed: one metadata + actions row, one for **the code
 // snippet pasted into the website**. The snippet belongs to the same embed, so it
 // doesn't get its own drawer: the owner can copy it right away once it's created.
-function EmbedRows({
-  embed, codes, onEdit,
-}: { embed: EmbedView; codes: readonly CodeView[]; onEdit: (e: EmbedView) => void }) {
-  const code = codeStringFor(embed.code_id, codes);
+function EmbedRows({ embed, onEdit }: { embed: EmbedView; onEdit: (e: EmbedView) => void }) {
   return (
     <>
-      <MetaRow embed={embed} code={code} onEdit={onEdit} />
+      <MetaRow embed={embed} code={embed.code} onEdit={onEdit} />
       <SnippetRow embed={embed} />
     </>
   );
@@ -365,12 +337,10 @@ function SnippetReveal({ embed, onClose }: { embed: CreatedEmbed; onClose: () =>
 }
 
 function ModalSlot({
-  open, existing, codes, available, hook, onClose, onRevealed, onHookSecret,
+  open, existing, hook, onClose, onRevealed, onHookSecret,
 }: {
   open: boolean;
   existing: EmbedView | null;
-  codes: readonly CodeView[];
-  available: readonly CodeView[];
   hook: EmbedsHook;
   onClose: () => void;
   onRevealed: (e: CreatedEmbed) => void;
@@ -396,12 +366,7 @@ function ModalSlot({
       onHookSecret(secret);
     } catch (e) { report(e); }
   }, [hook, toast, report, t, onClose, onHookSecret]);
-  // Edit: the code is locked in, so the picker must include its own code (use the
-  // full codes list). Create: only list unattached ones (available).
   return open ? (
-    <EmbedCreateModal
-      existing={existing} codes={existing ? codes : available} onClose={onClose}
-      onCreate={onCreate} onUpdate={onUpdate}
-    />
+    <EmbedCreateModal existing={existing} onClose={onClose} onCreate={onCreate} onUpdate={onUpdate} />
   ) : null;
 }

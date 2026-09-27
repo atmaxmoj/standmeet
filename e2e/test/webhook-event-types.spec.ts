@@ -127,7 +127,7 @@ const ROWS: Row[] = [
   { type: 'owner.login', subject: ownerSubject, act: relogin },
   { type: 'access_request.created', subject: () => 'access_request/', act: async () => {
     await submitAccessRequest(visitor, 'eve@example.com', '198.51.100.23');
-    S.requestID = (await mcp<{ id: string }[]>('access_requests.list', {}))[0]?.id ?? '';
+    S.requestID = (await mcp<{ items: { id: string }[] }>('access_requests.list', {})).items[0]?.id ?? '';
   } },
   { type: 'access_request.status_changed', subject: () => `access_request/${S.requestID}`,
     act: async () => { await mcp('access_requests.update', { id: S.requestID, status: 'closed' }); } },

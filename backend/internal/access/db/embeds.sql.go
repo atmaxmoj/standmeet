@@ -129,30 +129,57 @@ func (q *Queries) GetEmbedSyncModeByKeyID(ctx context.Context, keyID pgtype.UUID
 	return sync_mode, err
 }
 
-const listEmbedsByOwner = `-- name: ListEmbedsByOwner :many
-SELECT id, owner_id, code_id, label, allowed_origins, key_id, public_key, sync_mode, created_at, updated_at FROM embeds WHERE owner_id = $1 ORDER BY created_at DESC
+const listEmbedsPage = `-- name: ListEmbedsPage :many
+SELECT e.id, e.owner_id, e.code_id, e.label, e.allowed_origins, e.key_id, e.public_key, e.sync_mode, e.created_at, e.updated_at, ac.code AS code_value
+FROM embeds e
+JOIN access_codes ac ON ac.id = e.code_id
+WHERE e.owner_id = $1
+  AND ($2::timestamptz IS NULL
+    OR (e.created_at, e.id) < ($2, $3::uuid))
+ORDER BY e.created_at DESC, e.id DESC
+LIMIT $4
 `
 
-func (q *Queries) ListEmbedsByOwner(ctx context.Context, ownerID pgtype.UUID) ([]Embed, error) {
-	rows, err := q.db.Query(ctx, listEmbedsByOwner, ownerID)
+type ListEmbedsPageParams struct {
+	OwnerID pgtype.UUID
+	AfterAt pgtype.Timestamptz
+	AfterID pgtype.UUID
+	Lim     int32
+}
+
+type ListEmbedsPageRow struct {
+	Embed     Embed
+	CodeValue string
+}
+
+// One page of the owner's embeds, newest first (docs/design/paging.md), each with the code
+// string it exposes: the paged codes list can no longer answer "which string is code_id X".
+func (q *Queries) ListEmbedsPage(ctx context.Context, arg ListEmbedsPageParams) ([]ListEmbedsPageRow, error) {
+	rows, err := q.db.Query(ctx, listEmbedsPage,
+		arg.OwnerID,
+		arg.AfterAt,
+		arg.AfterID,
+		arg.Lim,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Embed
+	var items []ListEmbedsPageRow
 	for rows.Next() {
-		var i Embed
+		var i ListEmbedsPageRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.OwnerID,
-			&i.CodeID,
-			&i.Label,
-			&i.AllowedOrigins,
-			&i.KeyID,
-			&i.PublicKey,
-			&i.SyncMode,
-			&i.CreatedAt,
-			&i.UpdatedAt,
+			&i.Embed.ID,
+			&i.Embed.OwnerID,
+			&i.Embed.CodeID,
+			&i.Embed.Label,
+			&i.Embed.AllowedOrigins,
+			&i.Embed.KeyID,
+			&i.Embed.PublicKey,
+			&i.Embed.SyncMode,
+			&i.Embed.CreatedAt,
+			&i.Embed.UpdatedAt,
+			&i.CodeValue,
 		); err != nil {
 			return nil, err
 		}

@@ -10,6 +10,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/conversation/db"
 	"github.com/atmaxmoj/standmeet/internal/conversation/entity"
+	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
@@ -36,26 +37,35 @@ type ChatWithMessages struct {
 	Messages []entity.Message
 }
 
-// ListByOwner — admin lists all of an owner's chat summaries (by last_at DESC).
-func (r *ChatRepo) ListByOwner(
-	ctx context.Context, ownerID string, limit int32,
-) ([]ChatSummary, error) {
+// ListPage — one page of an owner's chat summaries, most recent activity first, optionally
+// only those on one code string. The page reports the matching total.
+func (r *ChatRepo) ListPage(
+	ctx context.Context, ownerID, code string, req paging.Request,
+) (paging.Page[ChatSummary], error) {
 	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
-		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
+		return paging.Page[ChatSummary]{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	q := db.New(r.pool)
-	rows, qerr := q.ListConversationsByOwner(ctx, db.ListConversationsByOwnerParams{
-		OwnerID: ownerUUID, Limit: limit,
+	after, err := pgstore.CursorArgs(req.After)
+	if err != nil {
+		return paging.Page[ChatSummary]{}, fmt.Errorf("list chats: %w", err)
+	}
+	rows, qerr := db.New(r.pool).ListConversationsPage(ctx, db.ListConversationsPageParams{
+		OwnerID: ownerUUID, Code: code, AfterAt: after.At, AfterID: after.ID, Lim: req.Fetch(),
 	})
 	if qerr != nil {
-		return nil, fmt.Errorf("list chats: %w", qerr)
+		return paging.Page[ChatSummary]{}, fmt.Errorf("list chats: %w", qerr)
 	}
 	out := make([]ChatSummary, 0, len(rows))
+	total := int32(0)
 	for i := range rows {
 		out = append(out, toChatSummary(&rows[i]))
+		total = rows[i].Total
 	}
-	return out, nil
+	page := paging.Cut(out, req, func(c *ChatSummary) paging.Cursor {
+		return paging.Cursor{At: c.LastAt, ID: c.ID}
+	})
+	return page.WithTotal(total), nil
 }
 
 // GetWithMessages — fetches a chat + all its messages (admin transcript view).
@@ -94,7 +104,7 @@ func (r *ChatRepo) loadMessages(
 	return out, nil
 }
 
-func toChatSummary(row *db.ListConversationsByOwnerRow) ChatSummary {
+func toChatSummary(row *db.ListConversationsPageRow) ChatSummary {
 	out := ChatSummary{
 		ID:          pgstore.FormatUUID(row.ID),
 		Mode:        row.Mode,

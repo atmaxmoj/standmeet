@@ -110,8 +110,8 @@ async function pickFirstConv(request: APIRequestContext): Promise<string> {
     headers: { 'X-Csrftoken': csrf },
   });
   if (!res.ok()) throw new Error(`list conversations: ${res.status()}`);
-  const rows = (await res.json()) as ConvSummary[];
-  const head = rows[0];
+  const { items } = (await res.json()) as { items: ConvSummary[] };
+  const head = items[0];
   if (!head) throw new Error('no conversations rows');
   return head.id;
 }

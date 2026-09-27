@@ -9,6 +9,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+
+	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 )
 
 // The windows the panel offers, and the only ones a caller may name.
@@ -59,6 +61,24 @@ var StatsInputSchema = json.RawMessage(`{
 			"description":"How far back to count. Default 28d."}
 	}
 }`)
+
+// SessionsInputSchema —— the per-viewer read: the same window, one page at a time.
+var SessionsInputSchema = paging.Schema(StatsInputSchema)
+
+// SessionsQuery —— the per-viewer read's cutoff and page.
+type SessionsQuery struct {
+	Since time.Time
+	Page  paging.Request
+}
+
+// SessionsQueryFrom —— the window (decoded the same way as the summary's) and the page.
+func SessionsQueryFrom(raw json.RawMessage) (SessionsQuery, error) {
+	in, err := paging.ParseArgs[StatsArgs](raw)
+	if err != nil {
+		return SessionsQuery{}, fmt.Errorf("invalid arguments: %w", err)
+	}
+	return SessionsQuery{Since: WindowSince(in.Filter.Window, time.Now().UTC()), Page: in.Req}, nil
+}
 
 // StatsArgs —— what the summary read accepts.
 type StatsArgs struct {

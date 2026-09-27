@@ -71,8 +71,8 @@ async function recordedIP(visitor: string): Promise<string> {
     headers: { 'X-Csrftoken': csrf },
   });
   expect(res.status(), 'owner lists conversations').toBe(200);
-  const rows = await res.json() as Array<{ visitor_name: string; client_ip: string }>;
-  const row = rows.find((r) => r.visitor_name === visitor);
+  const { items } = await res.json() as { items: Array<{ visitor_name: string; client_ip: string }> };
+  const row = items.find((r) => r.visitor_name === visitor);
   expect(row, `a row for ${visitor}`).toBeDefined();
   return row?.client_ip ?? '<no row>';
 }

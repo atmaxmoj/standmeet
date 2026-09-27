@@ -15,6 +15,7 @@ type (
 	DockButtonConfig         = entity.DockButtonConfig
 	NotifySlot               = entity.NotifySlot
 	Request                  = entity.Request
+	RequestFilter            = entity.RequestFilter
 	Role                     = entity.Role
 	RoleSnapshot             = entity.RoleSnapshot
 	RoleSnapshotInit         = entity.RoleSnapshotInit

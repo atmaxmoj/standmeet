@@ -13,6 +13,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/conversation/repo"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
+	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 )
 
 // ConversationsDeps —— repos needed by ListConversations / GetTranscript.
@@ -61,24 +62,19 @@ type TranscriptBundle struct {
 	GroundingRefs []TitledRef
 }
 
-const (
-	defaultConvListLimit = 50
-	maxConvListLimit     = 200
-)
-
-// ListConversations —— admin lists all of the owner's conversations. limit ≤ 0 uses the
-// default; over max gets clamped.
+// ListConversations —— one page of the owner's conversations (docs/design/paging.md); code
+// narrows to one code string (” = all). The page size bounds live in paging, not here.
 func ListConversations(
-	ctx context.Context, deps ConversationsDeps, ownerID string, limit int32,
-) ([]repo.ChatSummary, error) {
+	ctx context.Context, deps ConversationsDeps, ownerID, code string, req paging.Request,
+) (paging.Page[repo.ChatSummary], error) {
 	if ownerID == "" {
-		return nil, apierr.ErrEmptyField
+		return paging.Page[repo.ChatSummary]{}, apierr.ErrEmptyField
 	}
-	rows, err := deps.Chats.ListByOwner(ctx, ownerID, clampConvLimit(limit))
+	page, err := deps.Chats.ListPage(ctx, ownerID, code, req)
 	if err != nil {
-		return nil, fmt.Errorf("list conversations: %w", err)
+		return paging.Page[repo.ChatSummary]{}, fmt.Errorf("list conversations: %w", err)
 	}
-	return rows, nil
+	return page, nil
 }
 
 // GetConversationTranscript —— fetches the full conversation + messages and hydrates the
@@ -288,14 +284,4 @@ func keysOf(set map[string]struct{}) []string {
 		out = append(out, k)
 	}
 	return out
-}
-
-func clampConvLimit(n int32) int32 {
-	if n <= 0 {
-		return defaultConvListLimit
-	}
-	if n > maxConvListLimit {
-		return maxConvListLimit
-	}
-	return n
 }

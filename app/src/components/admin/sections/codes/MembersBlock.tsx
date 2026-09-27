@@ -10,6 +10,7 @@
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 
+import { LoadMore } from '@/components/admin/LoadMore';
 import { useMembers, type MembersHook } from '@/lib/admin/use-members';
 import type { MemberView } from '@/lib/admin/use-codes';
 
@@ -53,7 +54,7 @@ function MembersBody({
   return open ? (
     <div
       data-testid={`members-panel-${code}`}
-      className="absolute left-0 top-full mt-1 min-w-[200px] max-w-[280px] sm-z-float-1 bg-(--color-paper) border border-(--color-rule) rounded-[3px] shadow-lg p-2.5"
+      className="absolute left-0 top-full mt-1 min-w-[200px] max-w-[280px] max-h-[320px] overflow-y-auto sm-z-float-1 bg-(--color-paper) border border-(--color-rule) rounded-[3px] shadow-lg p-2.5"
     >
       <MembersList hook={hook} code={code} />
     </div>
@@ -63,7 +64,7 @@ function MembersBody({
 function MembersList({ hook, code }: { hook: MembersHook; code: string }) {
   const s = hook.state;
   return s.kind === 'ready'
-    ? <Rows members={s.members} code={code} />
+    ? <><Rows members={s.members} code={code} /><LoadMore page={hook.page} testid={`members-load-more-${code}`} /></>
     : <NonReadyState state={s} />;
 }
 

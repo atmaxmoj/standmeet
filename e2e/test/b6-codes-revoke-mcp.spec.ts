@@ -13,10 +13,8 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
 import { createRole } from '@/fixtures/roles';
-import { createCode } from '@/fixtures/codes';
+import { createCode, findCode } from '@/fixtures/codes';
 import { issueSession, sendMessage } from '@/fixtures/visitor';
-
-const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
 const OWNER = {
   email: 'b6@example.com', password: 'correct-horse-battery-staple',
@@ -26,7 +24,6 @@ const OWNER = {
 const CODE = 'B6-001';
 
 interface CodeView { id: string; code: string; status: string }
-type ListCodesResp = CodeView[];
 
 test.describe('Phase B-6 codes.revoke via MCP parity', () => {
   let codeRecord: CodeView;
@@ -75,13 +72,8 @@ test.describe('Phase B-6 codes.revoke via MCP parity', () => {
       expect(blockedRes.status()).toBeGreaterThanOrEqual(400);
 
       // 4) verify status='revoked' via admin /codes/ list
-      const listRes = await request.get(`${BACKEND}/api/admin/codes/`, {
-        headers: { 'X-Csrftoken': csrf },
-      });
-      if (listRes.status() !== 200) throw new Error(`list codes: ${listRes.status()}`);
-      const codes = await listRes.json() as ListCodesResp;
-      const revoked = codes.find((c) => c.id === codeRecord.id);
-      expect(revoked?.status).toBe('revoked');
+      const revoked = await findCode(request, csrf, codeRecord.code);
+      expect(revoked.status).toBe('revoked');
 
       await request.dispose();
     });

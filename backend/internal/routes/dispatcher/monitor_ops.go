@@ -6,7 +6,7 @@
 // is entangled with, the less it can disturb.
 //
 // So the split is: the SHAPES belong to the domain (monitor.EventsInputSchema, EventsArgs,
-// EventsOut -- plain encoding/json, no vocabulary needed), and this file only aggregates them
+// the paged rows -- plain encoding/json, no vocabulary needed), and this file only aggregates them
 // into operations, which is the convergence point's actual job.
 //
 // This is the READ half. Recording is declared nowhere and converges nowhere: it is a
@@ -33,8 +33,8 @@ func MonitorOps(repo *monitor.Repo) []Op {
 	return []Op{
 		{
 			ID: "monitor.events",
-			Description: "List recorded visitor events, newest first. " +
-				"Bots are excluded unless include_bots is true.",
+			Description: "List recorded visitor events, newest first, one page at a time " +
+				"({items, next_cursor}). Bots are excluded unless include_bots is true.",
 			InputSchema: monitor.EventsInputSchema,
 			Kind:        fp.Read,
 			Reach:       fp.OwnerRead(),
@@ -51,9 +51,10 @@ func MonitorOps(repo *monitor.Repo) []Op {
 		},
 		{
 			ID: "monitor.sessions",
-			Description: "List visitor sessions, one per viewer: visits, views, country, city, " +
+			Description: "List visitor sessions, one per viewer, most recently seen first, " +
+				"one page at a time ({items, next_cursor}): visits, views, country, city, " +
 				"browser, os, device, last seen. Bots are included and flagged.",
-			InputSchema: monitor.StatsInputSchema,
+			InputSchema: monitor.SessionsInputSchema,
 			Kind:        fp.Read,
 			Reach:       fp.OwnerRead(),
 			Invoke:      readMonitorSessions(repo),
@@ -67,11 +68,11 @@ func listMonitorEvents(repo *monitor.Repo) Invoke {
 		if derr != nil {
 			return nil, BadInput(derr.Error())
 		}
-		rows, err := repo.Events(ctx, &query)
+		page, err := repo.Events(ctx, &query)
 		if err != nil {
 			return nil, fp.OpErr("list monitor events", err)
 		}
-		return json.Marshal(monitor.EventsOut{Events: rows})
+		return json.Marshal(page)
 	}
 }
 
@@ -91,14 +92,14 @@ func readMonitorStats(repo *monitor.Repo) Invoke {
 
 func readMonitorSessions(repo *monitor.Repo) Invoke {
 	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
-		since, derr := monitor.StatsSince(raw)
+		q, derr := monitor.SessionsQueryFrom(raw)
 		if derr != nil {
 			return nil, BadInput(derr.Error())
 		}
-		rows, err := repo.Sessions(ctx, ownerID, since, 0)
+		page, err := repo.Sessions(ctx, ownerID, q.Since, q.Page)
 		if err != nil {
 			return nil, fp.OpErr("list monitor sessions", err)
 		}
-		return json.Marshal(monitor.SessionsOut{Sessions: rows})
+		return json.Marshal(page)
 	}
 }

@@ -23,7 +23,7 @@ type AccessRequestsDeps struct {
 func (h *Handlers) MountAccessRequests(r chi.Router) {
 	face := h.AccessRequests.Face
 	r.Get("/access-requests",
-		h.dispatchOp(face, "access_requests.list", queryArgs("status"), jsonOK))
+		h.dispatchOp(face, "access_requests.list", pagedQueryArgs("status", "id"), jsonOK))
 	r.Patch("/access-requests/{id}",
 		h.dispatchOp(face, "access_requests.update", bodyWithURLParam("id"), jsonOK))
 	r.Post("/access-requests/{id}/approve",

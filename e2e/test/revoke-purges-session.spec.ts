@@ -80,12 +80,12 @@ function setCookieHeader(res: APIResponse): string {
 async function revokeCodeByName(
   request: APIRequestContext, csrf: string, codeStr: string,
 ): Promise<void> {
-  const listRes = await request.get(`${BACKEND}/api/admin/codes/`, {
+  const listRes = await request.get(`${BACKEND}/api/admin/codes/?q=${codeStr}`, {
     headers: { 'X-Csrftoken': csrf },
   });
   if (!listRes.ok()) throw new Error(`list codes: ${listRes.status()}`);
-  const codes = await listRes.json() as Array<{ id: string; code: string }>;
-  const target = codes.find((c) => c.code === codeStr);
+  const codes = await listRes.json() as { items: Array<{ id: string; code: string }> };
+  const target = codes.items.find((c) => c.code === codeStr);
   if (!target) throw new Error(`code ${codeStr} not found`);
   await revokeCode(request, csrf, target.id);
 }

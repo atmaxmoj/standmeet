@@ -11,6 +11,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/access/entity"
 	"github.com/atmaxmoj/standmeet/internal/access/repo"
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
+	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 )
 
 // EmbedsDeps — the data source for embed ops.
@@ -24,9 +25,9 @@ func Embeds(d EmbedsDeps) []fp.Op {
 	return []fp.Op{
 		{
 			ID: "embeds.list",
-			Description: "List the owner's embed widgets: which code each exposes " +
-				"and on which origins.",
-			InputSchema: noArgs,
+			Description: "List the owner's embed widgets, newest first, one page at a time " +
+				"({items, next_cursor}): which code each exposes and on which origins.",
+			InputSchema: paging.Schema(nil),
 			Kind:        fp.Read,
 			Reach:       fp.OwnerRead(),
 			Invoke:      listEmbeds(d),
@@ -111,6 +112,7 @@ type embedOut struct {
 	UpdateHook     *EmbedHook `json:"update_hook,omitempty"`
 	ID             string     `json:"id"`
 	CodeID         string     `json:"code_id"`
+	Code           string     `json:"code,omitempty"`
 	Label          string     `json:"label"`
 	KeyID          string     `json:"key_id"`
 	SyncMode       string     `json:"sync_mode"`
@@ -126,7 +128,8 @@ func toEmbedOut(e *entity.Embed) embedOut {
 		origins = []string{}
 	}
 	return embedOut{
-		ID: e.ID, CodeID: e.CodeID, Label: e.Label, KeyID: e.KeyID, SyncMode: e.SyncMode,
+		ID: e.ID, CodeID: e.CodeID, Code: e.Code, Label: e.Label, KeyID: e.KeyID,
+		SyncMode:       e.SyncMode,
 		AllowedOrigins: origins,
 		CreatedAt:      e.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
@@ -141,22 +144,24 @@ func decodeEmbedArgs(raw json.RawMessage) (embedArgs, error) {
 }
 
 func listEmbeds(d EmbedsDeps) fp.Invoke {
-	return func(ctx context.Context, ownerID string, _ json.RawMessage) (json.RawMessage, error) {
-		rows, err := d.Embeds.ListByOwner(ctx, ownerID)
+	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
+		in, perr := paging.ParseArgs[struct{}](raw)
+		if perr != nil {
+			return nil, fp.BadInput("invalid arguments: " + perr.Error())
+		}
+		rows, err := d.Embeds.ListPage(ctx, ownerID, in.Req)
 		if err != nil {
-			return nil, fp.OpErr("list embeds", err)
+			return nil, embedErr(err)
 		}
 		hooks, err := d.Hooks.List(ctx, ownerID)
 		if err != nil {
 			return nil, fp.OpErr("list embed update hooks", err)
 		}
-		out := make([]embedOut, 0, len(rows))
-		for i := range rows {
-			o := toEmbedOut(&rows[i])
+		return json.Marshal(paging.Each(rows, func(e *entity.Embed) embedOut {
+			o := toEmbedOut(e)
 			withHook(&o, hooks)
-			out = append(out, o)
-		}
-		return json.Marshal(out)
+			return o
+		}))
 	}
 }
 

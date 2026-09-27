@@ -10,6 +10,13 @@ import (
 	"time"
 )
 
+// RequestFilter — which requests a list page holds: an empty Status is every status; an empty
+// ID is every request, else only that one (the panel re-reads a row whose mail is in flight).
+type RequestFilter struct {
+	Status string `json:"status"`
+	ID     string `json:"id"`
+}
+
 // Request — one visitor message. Field order follows govet fieldalignment:
 // time.Time first (internal ptr at offset 16), strings right after.
 type Request struct {

@@ -80,6 +80,6 @@ test.describe('embeds panel · one-time snippet reveal', () => {
 
 async function embedCount(request: APIRequestContext, csrf: string): Promise<number> {
   const res = await request.get(`${BACKEND}/api/admin/embeds`, { headers: { 'X-Csrftoken': csrf } });
-  const rows = await res.json().catch(() => []) as unknown[];
-  return Array.isArray(rows) ? rows.length : 0;
+  const page = await res.json() as { items: unknown[] };
+  return page.items.length;
 }

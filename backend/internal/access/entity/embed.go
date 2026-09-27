@@ -16,6 +16,7 @@ type Embed struct {
 	ID             string
 	OwnerID        string
 	CodeID         string
+	Code           string // the code string CodeID names; filled by list reads
 	Label          string
 	KeyID          string
 	PublicKey      string

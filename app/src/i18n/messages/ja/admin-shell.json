@@ -33,7 +33,9 @@
     "empty": "no links yet"
   },
   "listPane": {
-    "loadFailed": "Couldn't load this list — so this is not “none”, it's “unknown”. Reload to try again."
+    "loadFailed": "Couldn't load this list — so this is not “none”, it's “unknown”. Reload to try again.",
+    "loadMore": "さらに読み込む",
+    "loadingMore": "読み込み中…"
   },
   "modal": {
     "close": "close ✕"
@@ -365,8 +367,6 @@
     "bots": "クローラー",
     "botsHint": "別勘定。上の 4 つには入りません",
     "window": "期間",
-    "prevPage": "前のページ",
-    "nextPage": "次のページ",
     "windows": {
       "7d": "7日間",
       "28d": "28日間",

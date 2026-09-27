@@ -30,6 +30,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/conversation/usecase"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
+	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 )
 
 // ConversationsDeps — conversations themselves + the ghost log + the corpus repo used to
@@ -46,9 +47,10 @@ func Conversations(d *ConversationsDeps) []fp.Op {
 	return append([]fp.Op{
 		{
 			ID: "conversations.list",
-			Description: "List the owner's visitor conversations, newest first: who, which " +
-				"access code, how many turns, and the derived sentiment.",
-			InputSchema: convListSchema,
+			Description: "List the owner's visitor conversations, most recent activity first, " +
+				"one page at a time ({items, next_cursor, total}): who, which access code, how " +
+				"many turns, and the derived sentiment. Filter by code string.",
+			InputSchema: paging.Schema(convListFilters),
 			Kind:        fp.Read,
 			Reach:       fp.OwnerRead(),
 			Invoke:      listConversations(d.Chats),
@@ -77,10 +79,10 @@ func Conversations(d *ConversationsDeps) []fp.Op {
 var (
 	noArgs = json.RawMessage(`{"type":"object","properties":{}}`)
 
-	convListSchema = json.RawMessage(`{
+	convListFilters = json.RawMessage(`{
 		"type":"object",
 		"properties":{
-			"limit":{"type":"number","description":"Max rows (default 50, max 200)."}
+			"code":{"type":"string","description":"Only conversations on this code string."}
 		}
 	}`)
 
@@ -91,33 +93,21 @@ var (
 	}`)
 )
 
-type convLimitArgs struct {
-	Limit int32 `json:"limit"`
-}
-
-// convLimit — only decodes the number. Default and upper bound are **not** set here:
-// that rule lives in the domain (clampConvLimit). 0 means "unspecified" and the domain
-// covers it — if each face wrote its own clamp, that'd be three copies of one rule.
-func convLimit(raw json.RawMessage) int32 {
-	var in convLimitArgs
-	// Undecodable means unspecified — the domain fills in the default.
-	if err := json.Unmarshal(raw, &in); err != nil {
-		return 0
-	}
-	return in.Limit
+type convListArgs struct {
+	Code string `json:"code"`
 }
 
 func listConversations(deps usecase.ConversationsDeps) fp.Invoke {
 	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
-		rows, err := usecase.ListConversations(ctx, deps, ownerID, convLimit(raw))
+		in, perr := paging.ParseArgs[convListArgs](raw)
+		if perr != nil {
+			return nil, fp.BadInput("invalid arguments: " + perr.Error())
+		}
+		page, err := usecase.ListConversations(ctx, deps, ownerID, in.Filter.Code, in.Req)
 		if err != nil {
 			return nil, convErr(err)
 		}
-		out := make([]conversationOut, 0, len(rows))
-		for i := range rows {
-			out = append(out, toConversationOut(&rows[i]))
-		}
-		return json.Marshal(out)
+		return json.Marshal(paging.Each(page, toConversationOut))
 	}
 }
 
@@ -159,6 +149,9 @@ func ghostTelemetry(deps usecase.GhostDeps) fp.Invoke {
 func convErr(err error) error {
 	if errors.Is(err, entity.ErrChatNotFound) {
 		return fp.Coded(fp.NotFound("conversation not found"), "not_found")
+	}
+	if errors.Is(err, paging.ErrBadCursor) {
+		return fp.BadInput("bad cursor")
 	}
 	return fp.OpErr("conversation op", err)
 }

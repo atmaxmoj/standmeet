@@ -332,6 +332,11 @@ linters:
       # the seam's contract. Same justification as effect above, not a lazy `any`.
       - path: internal/plugin/seamctx/
         linters: [forbidigo]
+      # internal/infra/paging: Page[T any] / Cut[T any] / Map[T, U any] — `any` is the type
+      # parameter's constraint on a generic page container (every list's row type), not an `any`
+      # value. No value of type any exists in the package.
+      - path: internal/infra/paging/
+        linters: [forbidigo]
       # A domain's guts (entity/repo/usecase) have package names that happen to be the
       # common local-variable names from before the split (repo/entity). Domain-internal
       # code naming "this repo" as repo is clear; the shadow here is a pre-existing product

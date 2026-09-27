@@ -21,6 +21,7 @@ import (
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
+	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 	"github.com/atmaxmoj/standmeet/internal/owner/usecase"
 )
@@ -37,9 +38,10 @@ func AccessRequests(d *AccessRequestsDeps) []fp.Op {
 	return []fp.Op{
 		{
 			ID: "access_requests.list",
-			Description: "List /gate access requests. Optional status filter " +
+			Description: "List /gate access requests, newest first, one page at a time " +
+				"({items, next_cursor, total}). Optional status filter " +
 				"(open / replied / closed); empty returns all.",
-			InputSchema: accessRequestListSchema,
+			InputSchema: paging.Schema(accessRequestListSchema),
 			Kind:        fp.Read,
 			Reach:       fp.OwnerRead(),
 			Invoke:      listAccessRequests(d.Requests, d.Approve.Jobs),
@@ -72,7 +74,8 @@ var (
 		"type":"object",
 		"properties":{
 			"status":{"type":"string",
-				"description":"Optional filter: open, replied, or closed."}
+				"description":"Optional filter: open, replied, or closed."},
+			"id":{"type":"string","description":"Optional: only this request."}
 		}
 	}`)
 
@@ -117,37 +120,19 @@ func toAccessRequestOut(
 	}
 }
 
-type accessRequestListArgs struct {
-	Status string `json:"status"`
-}
-
-// decodeStatusFilter —— the arg is optional: an empty body = no filter.
-func decodeStatusFilter(raw json.RawMessage) (string, error) {
-	if len(raw) == 0 {
-		return "", nil
-	}
-	var in accessRequestListArgs
-	if err := json.Unmarshal(raw, &in); err != nil {
-		return "", fp.BadInput("invalid arguments: " + err.Error())
-	}
-	return in.Status, nil
-}
-
 func listAccessRequests(deps access.RequestsDeps, j usecase.MailJobs) fp.Invoke {
 	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
-		status, perr := decodeStatusFilter(raw)
+		in, perr := paging.ParseArgs[access.RequestFilter](raw)
 		if perr != nil {
-			return nil, perr
+			return nil, fp.BadInput("invalid arguments: " + perr.Error())
 		}
-		rows, err := access.ListForOwner(ctx, deps, ownerID, status)
+		page, err := access.ListForOwner(ctx, deps, ownerID, in.Filter, in.Req)
 		if err != nil {
 			return nil, accessRequestErr(err)
 		}
-		out := make([]accessRequestOut, 0, len(rows))
-		for i := range rows {
-			out = append(out, toAccessRequestOut(ctx, j, &rows[i]))
-		}
-		return json.Marshal(out)
+		return json.Marshal(paging.Each(page, func(a *access.Request) accessRequestOut {
+			return toAccessRequestOut(ctx, j, a)
+		}))
 	}
 }
 
@@ -232,6 +217,7 @@ var accessRequestErrClasses = []struct {
 	{access.ErrAccessRequestStatusInvalid, func() error {
 		return fp.BadInput("invalid status value (want open, replied, or closed)")
 	}},
+	{paging.ErrBadCursor, func() error { return fp.BadInput("bad cursor") }},
 }
 
 // approveErr —— the class unique to approve: delivery failure. The message must name what

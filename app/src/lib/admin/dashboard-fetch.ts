@@ -50,10 +50,16 @@ export interface DashboardRecentRow {
   private_hits: number;
 }
 
+// fetchRecentConversations —— the newest `limit` conversations: one page of that size (the list
+// is paged, docs/design/paging.md). A body that is not a page throws: a shape change must not
+// read as "no visitors yet".
 export async function fetchRecentConversations(url: string, limit: number): Promise<DashboardRecentRow[]> {
-  const raw: unknown = await okJSON(url);
-  const arr = Array.isArray(raw) ? raw : [];
-  return arr.slice(0, limit).map(toRecentRow).filter((x): x is DashboardRecentRow => x !== null);
+  const raw: unknown = await okJSON(`${url}?limit=${limit}`);
+  const parsed = ItemsWrapper.safeParse(raw);
+  if (!parsed.success || parsed.data.items === undefined) {
+    throw new APIError(200, 'dashboard_bad_shape', 'Couldn’t read the recent conversations. Reload and retry.');
+  }
+  return parsed.data.items.map(toRecentRow).filter((x): x is DashboardRecentRow => x !== null);
 }
 
 function toRecentRow(x: unknown): DashboardRecentRow | null {

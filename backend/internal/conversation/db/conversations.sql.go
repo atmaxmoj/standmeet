@@ -259,25 +259,35 @@ func (q *Queries) GetOpenConversationByMemberAndDoc(ctx context.Context, arg Get
 	return i, err
 }
 
-const listConversationsByOwner = `-- name: ListConversationsByOwner :many
+const listConversationsPage = `-- name: ListConversationsPage :many
 SELECT c.id, c.mode, c.code_id, c.visitor_name, c.started_at,
        c.last_at, c.client_ip,
        (SELECT COUNT(*) FROM messages m
         WHERE m.conversation_id = c.id AND m.role = 'visitor')::int AS turn_count,
-       ac.label AS code_label, ac.code AS code_value
+       ac.label AS code_label, ac.code AS code_value,
+       (SELECT COUNT(*) FROM conversations c2
+        LEFT JOIN access_codes ac2 ON ac2.id = c2.code_id
+        WHERE c2.owner_id = $1
+          AND ($2::text = '' OR lower(ac2.code) = lower($2)))::int AS total
 FROM conversations c
 LEFT JOIN access_codes ac ON ac.id = c.code_id
 WHERE c.owner_id = $1
-ORDER BY c.last_at DESC
-LIMIT $2
+  AND ($2::text = '' OR lower(ac.code) = lower($2))
+  AND ($3::timestamptz IS NULL
+    OR (c.last_at, c.id) < ($3, $4::uuid))
+ORDER BY c.last_at DESC, c.id DESC
+LIMIT $5
 `
 
-type ListConversationsByOwnerParams struct {
+type ListConversationsPageParams struct {
 	OwnerID pgtype.UUID
-	Limit   int32
+	Code    string
+	AfterAt pgtype.Timestamptz
+	AfterID pgtype.UUID
+	Lim     int32
 }
 
-type ListConversationsByOwnerRow struct {
+type ListConversationsPageRow struct {
 	ID          pgtype.UUID
 	Mode        string
 	CodeID      pgtype.UUID
@@ -288,19 +298,30 @@ type ListConversationsByOwnerRow struct {
 	TurnCount   int32
 	CodeLabel   *string
 	CodeValue   *string
+	Total       int32
 }
 
+// One page of the owner's conversations, most recent activity first (docs/design/paging.md).
 // turn_count is derived from dialogs: count visitor-role messages (one visitor message per dialog),
-// no stored count field.
-func (q *Queries) ListConversationsByOwner(ctx context.Context, arg ListConversationsByOwnerParams) ([]ListConversationsByOwnerRow, error) {
-	rows, err := q.db.Query(ctx, listConversationsByOwner, arg.OwnerID, arg.Limit)
+// no stored count field. code: ” = every conversation, else only those on that code string
+// (case-insensitive). total: how many conversations match the filter on every page — an
+// uncorrelated subquery (evaluated once), not COUNT(*) OVER (), which would also apply the
+// cursor and count only what is left.
+func (q *Queries) ListConversationsPage(ctx context.Context, arg ListConversationsPageParams) ([]ListConversationsPageRow, error) {
+	rows, err := q.db.Query(ctx, listConversationsPage,
+		arg.OwnerID,
+		arg.Code,
+		arg.AfterAt,
+		arg.AfterID,
+		arg.Lim,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListConversationsByOwnerRow
+	var items []ListConversationsPageRow
 	for rows.Next() {
-		var i ListConversationsByOwnerRow
+		var i ListConversationsPageRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Mode,
@@ -312,6 +333,7 @@ func (q *Queries) ListConversationsByOwner(ctx context.Context, arg ListConversa
 			&i.TurnCount,
 			&i.CodeLabel,
 			&i.CodeValue,
+			&i.Total,
 		); err != nil {
 			return nil, err
 		}

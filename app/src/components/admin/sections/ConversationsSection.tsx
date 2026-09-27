@@ -10,6 +10,8 @@ import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 
 import { ListPane } from '@/components/admin/ListPane';
+import { LoadMore } from '@/components/admin/LoadMore';
+import { totalLabel } from '@/lib/state/create-paged-store';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { PublicConversationPolicyPanel } from '@/components/admin/sections/conversations/PublicConversationPolicyPanel';
 import { ConvTranscriptModal } from '@/components/admin/sections/conversations/ConvTranscriptModal';
@@ -27,7 +29,7 @@ export function ConversationsSection() {
       <SectionHeader
         kicker={t('conversations.kicker')}
         slug="conversations"
-        count={t('conversations.count', { count: hook.rows.length })}
+        count={totalLabel(hook.total, (count) => t('conversations.count', { count }))}
         action={<PrivateHitsHint hook={hook} />}
       />
       <FilterChip code={filterCode} />
@@ -79,6 +81,7 @@ function ConvTable({ hook }: { hook: ConversationsHook }) {
       skeleton={<ListSkeleton count={6} />}
     >
       <ReadyTable hook={hook} />
+      <LoadMore page={hook.page} testid="conversations-load-more" />
     </ListPane>
   );
 }

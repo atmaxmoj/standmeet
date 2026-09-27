@@ -6,17 +6,19 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import { z } from 'zod';
 
 import { adminAPI } from '@/lib/api/admin';
-import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
+import { createPagedStore, usePaged, type PagedState } from '@/lib/state/create-paged-store';
 import type { ResourceStatus } from '@/lib/state/status';
 
 const EmbedSchema = z.object({
   id: z.string(),
   code_id: z.string(),
+  // code —— the code string code_id names. List rows carry it; create/update receipts do not.
+  code: z.string().nullish().transform((v) => v ?? ''),
   label: z.string(),
   // allowed_origins: the backend has NOT NULL DEFAULT '[]', normally sending
   // an array. nullish guards against an old backend that omits the field and
@@ -68,7 +70,7 @@ export interface EmbedsHook {
   status: ResourceStatus;
   embeds: readonly EmbedView[];
   error: string | null;
-  refresh: () => Promise<void>;
+  page: PagedState<EmbedView>;
   // createEmbed returns **the receipt**: it carries the shown-once private key, and the section uses it to reveal the snippet right there.
   createEmbed: (input: CreateEmbedInput) => Promise<CreatedEmbed>;
   // updateEmbed returns the update hook's secret when this save created the hook, else ''.
@@ -76,20 +78,16 @@ export interface EmbedsHook {
   removeEmbed: (id: string) => Promise<void>;
 }
 
-export const embedsStore = createResourceStore<EmbedView[]>({
-  name: 'embeds',
-  fetcher: () => adminAPI.get('/embeds/', z.array(EmbedSchema)),
-});
+// embedsPage —— one page at a time (docs/design/paging.md). Each row carries its code string.
+export const embedsPage = createPagedStore({ name: 'embeds', path: '/embeds/', item: EmbedSchema });
 
 export function useEmbeds(): EmbedsHook {
-  const r = useResource(embedsStore);
-  const ensureLoaded = r.ensureLoaded;
-  useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
+  const page = usePaged(embedsPage);
   return {
-    status: r.status,
-    embeds: r.data ?? [],
-    error: r.error,
-    refresh: embedsStore.getState().refresh,
+    status: page.status,
+    embeds: page.items,
+    error: page.error,
+    page,
     createEmbed,
     updateEmbed,
     removeEmbed,
@@ -100,22 +98,22 @@ export function useEmbeds(): EmbedsHook {
 // (success toast / failure keeps the form open) — if it were swallowed into
 // false, "wasn't created" and "was created but the allow-list didn't take
 // effect" would be indistinguishable on screen.
+// Each one reloads the page: only a list read carries the row's code string.
 async function createEmbed(input: CreateEmbedInput): Promise<CreatedEmbed> {
   const created = await adminAPI.post('/embeds/', input, CreatedEmbedSchema);
-  embedsStore.getState().mutate((prev) => [created, ...(prev ?? [])]);
+  await embedsPage.getState().reload();
   return created;
 }
 
 async function updateEmbed(id: string, input: UpdateEmbedInput): Promise<string> {
-  const { secret, ...updated } = await adminAPI.patch(`/embeds/${id}`, input, UpdatedEmbedSchema);
-  embedsStore.getState().mutate((prev) =>
-    (prev ?? []).map((e) => e.id === updated.id ? updated : e));
+  const { secret } = await adminAPI.patch(`/embeds/${id}`, input, UpdatedEmbedSchema);
+  await embedsPage.getState().reload();
   return secret;
 }
 
 async function removeEmbed(id: string): Promise<void> {
   await adminAPI.deleteVoid(`/embeds/${id}`);
-  embedsStore.getState().mutate((prev) => (prev ?? []).filter((e) => e.id !== id));
+  await embedsPage.getState().reload();
 }
 
 // EmbedFormHook —— local form state for the create/edit modal. Lives in lib,

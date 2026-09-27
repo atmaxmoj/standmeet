@@ -15,16 +15,16 @@ import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 
+import { LoadMore } from '@/components/admin/LoadMore';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { ListPane } from '@/components/admin/ListPane';
 import { Toggle } from '@/components/atoms/Toggle';
 import {
-  useMonitor, MONITOR_WINDOWS, toSessionCells, paginate,
-  type FeedView, type MonitorRow, type MonitorSession, type SessionCells,
-  type MonitorSummary, type MonitorWindow, type Paged,
+  useMonitor, MONITOR_WINDOWS, toSessionCells,
+  type FeedView, type MonitorHook, type MonitorRow, type MonitorSession, type SessionCells,
+  type MonitorSummary, type MonitorWindow,
 } from '@/lib/admin/use-monitor';
 import { useMonitoringSwitch } from '@/lib/admin/use-monitoring';
-import type { ResourceStatus } from '@/lib/state/status';
 import { useEffectErrorToast } from '@/lib/ui/toast';
 
 // MonitorTab —— which single view is on screen. The sessions table and the event feed used to
@@ -36,10 +36,6 @@ export function MonitorSection() {
   const hook = useMonitor();
   useEffectErrorToast(hook.error);
   const [tab, setTab] = useState<MonitorTab>('feed');
-  // A page index per view, kept as the owner switches tabs. paginate() clamps a stale index, so a
-  // window change that shrinks a list can never strand the viewer on a now-empty page.
-  const [feedPage, setFeedPage] = useState(0);
-  const [sessionsPage, setSessionsPage] = useState(0);
   return (
     <>
       <SectionHeader
@@ -54,14 +50,7 @@ export function MonitorSection() {
       <WindowPicker current={hook.window} onPick={hook.setWindow} />
       <Summary summary={hook.summary} />
       <TabBar tab={tab} onPick={setTab} />
-      {tab === 'feed'
-        ? <FeedPanel rows={hook.rows} view={hook.view} page={feedPage} onPage={setFeedPage} />
-        : (
-          <SessionsPanel
-            status={hook.status} sessions={hook.sessions}
-            page={sessionsPage} onPage={setSessionsPage}
-          />
-        )}
+      {tab === 'feed' ? <FeedPanel hook={hook} /> : <SessionsPanel hook={hook} />}
     </>
   );
 }
@@ -126,16 +115,11 @@ function TabButton({ tab, active, onPick, label }: {
   );
 }
 
-// FeedPanel —— the event feed, one page at a time. loading / empty keep their own renderings (a
-// heading over nothing reads as "no visitors"); the rows case pages the list.
-function FeedPanel(
-  { rows, view, page, onPage }: {
-    rows: readonly MonitorRow[]; view: FeedView; page: number; onPage: (p: number) => void;
-  },
-) {
+// FeedPanel —— the event feed, a page at a time from the server. loading / empty keep their own
+// renderings (a heading over nothing reads as "no visitors"); the rows case can load more.
+function FeedPanel({ hook }: { hook: MonitorHook }) {
   const t = useTranslations('adminShell.monitor');
-  const paged = paginate(rows, page);
-  return {
+  const byView: Record<FeedView, ReactNode> = {
     loading: <p data-testid="monitor-loading" className="text-(--color-muted) text-[15px]">
       {t('loading')}
     </p>,
@@ -143,67 +127,32 @@ function FeedPanel(
       {t('empty')}
     </p>,
     rows: <>
-      <FeedTable rows={paged.items} />
-      <Pager which="feed" paged={paged} onPage={onPage} />
+      <FeedTable rows={hook.rows} />
+      <LoadMore page={hook.feedPage} testid="monitor-feed-load-more" />
     </>,
-  }[view];
+  };
+  return byView[hook.view];
 }
 
-// SessionsPanel —— the per-viewer table, one page at a time. Empty is the fresh-instance normal,
-// rendered as a note rather than a bare heading.
-function SessionsPanel(
-  { status, sessions, page, onPage }: {
-    status: ResourceStatus; sessions: readonly MonitorSession[];
-    page: number; onPage: (p: number) => void;
-  },
-) {
+// SessionsPanel —— the per-viewer table, a page at a time from the server. Empty is the
+// fresh-instance normal, rendered as a note rather than a bare heading.
+function SessionsPanel({ hook }: { hook: MonitorHook }) {
   const t = useTranslations('adminShell.monitor');
-  const paged = paginate(sessions, page);
   // ListPane, not `sessions.length === 0`: a failed load is also an empty array, and it must not
   // wear the empty state's clothes (error/loading are checked before the count).
   return (
     <ListPane
-      status={status}
-      count={sessions.length}
+      status={hook.status}
+      count={hook.sessions.length}
       empty={(
         <p data-testid="monitor-sessions-empty" className="text-(--color-muted) text-[15px] reading-tight">
           {t('empty')}
         </p>
       )}
     >
-      <SessionsTable sessions={paged.items} />
-      <Pager which="sessions" paged={paged} onPage={onPage} />
+      <SessionsTable sessions={hook.sessions} />
+      <LoadMore page={hook.sessionsPage} testid="monitor-sessions-load-more" />
     </ListPane>
-  );
-}
-
-// Pager —— prev / page-of-pages / next. Hidden entirely when there is only one page (nothing to
-// page). Arrow glyphs + aria-label (attributes are i18n-exempt); the indicator is numbers only, so
-// the control needs no translatable text.
-function Pager<T>(
-  { which, paged, onPage }: { which: string; paged: Paged<T>; onPage: (p: number) => void },
-) {
-  const t = useTranslations('adminShell.monitor');
-  return paged.pages <= 1 ? null : (
-    <div data-testid={`monitor-${which}-pager`} className="flex items-center gap-4 mt-4">
-      <button
-        type="button" data-testid={`monitor-${which}-prev`} aria-label={t('prevPage')}
-        disabled={!paged.hasPrev} onClick={() => onPage(paged.page - 1)}
-        className="mono text-[13px] text-(--color-muted) hover:text-(--color-ink) disabled:opacity-30 disabled:cursor-not-allowed"
-      >
-        ‹
-      </button>
-      <span data-testid={`monitor-${which}-page`} className="mono text-[10.5px] tracking-[0.14em] text-(--color-faint)">
-        {paged.page + 1} / {paged.pages}
-      </span>
-      <button
-        type="button" data-testid={`monitor-${which}-next`} aria-label={t('nextPage')}
-        disabled={!paged.hasNext} onClick={() => onPage(paged.page + 1)}
-        className="mono text-[13px] text-(--color-muted) hover:text-(--color-ink) disabled:opacity-30 disabled:cursor-not-allowed"
-      >
-        ›
-      </button>
-    </div>
   );
 }
 

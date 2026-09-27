@@ -13,7 +13,7 @@ import { create } from 'zustand';
 import { z } from 'zod';
 
 import { adminAPI, ConversationSummarySchema, type ConversationSummary } from '@/lib/api/admin';
-import { createResourceStore, useResource } from '@/lib/state/create-resource-store';
+import { createPagedStore, usePaged, type PagedState } from '@/lib/state/create-paged-store';
 import type { ResourceStatus } from '@/lib/state/status';
 import { ago } from '@/lib/ui/format-time';
 
@@ -137,19 +137,21 @@ export function pickTranscriptState(t: ConvTranscript): TranscriptBodyState {
 export interface ConversationsHook {
   status: ResourceStatus;
   rows: readonly ConvView[];
+  // total —— how many conversations match (the server's count, not the loaded rows).
+  total: number | null;
   error: string | null;
+  page: PagedState<ConvView>;
   openId: string | null;
   transcript: ConvTranscript | null;
   openConversation: (id: string) => void;
   closeTranscript: () => void;
 }
 
-export const conversationsStore = createResourceStore<ConvView[]>({
-  name: 'conversations',
-  fetcher: async () => {
-    const data = await adminAPI.get('/conversations', z.array(ConversationSummarySchema));
-    return data.map(toView);
-  },
+// conversationsPage —— one page at a time, most recent activity first (docs/design/paging.md).
+// The ?code= filter is a server param: a filter over loaded pages would miss older ones.
+export const conversationsPage = createPagedStore({
+  name: 'conversations', path: '/conversations',
+  item: ConversationSummarySchema.transform(toView), params: { code: '' },
 });
 
 interface TranscriptState {
@@ -177,31 +179,26 @@ const transcriptStore = create<TranscriptState>((set) => ({
   set: (t) => set({ transcript: t }),
 }));
 
-// useConversations —— the optional filterCode lets ConversationsSection show
-// only that code's conversations via the URL param `?code=INTRO-001`;
-// filtered client-side, while the backend always fetches the whole list (at
-// v1 scale ≤ defaultLimit 200, this doesn't matter much).
+// useConversations —— the optional filterCode (the URL's `?code=INTRO-001`) narrows the list
+// on the server.
 export function useConversations(filterCode?: string): ConversationsHook {
-  const r = useResource(conversationsStore);
+  const page = usePaged(conversationsPage);
   const openId = transcriptStore((s) => s.openId);
   const transcript = transcriptStore((s) => s.transcript);
-  const ensureLoaded = r.ensureLoaded;
-  useEffect(() => { void ensureLoaded(); }, [ensureLoaded]);
-  const all = r.data ?? [];
+  const { setParams, params } = page;
+  const code = filterCode ?? '';
+  useEffect(() => { if (params.code !== code) setParams({ code }); }, [code, params.code, setParams]);
   return {
-    status: r.status,
-    rows: filterByCode(all, filterCode),
-    error: r.error,
+    status: page.status,
+    rows: page.items,
+    total: page.total,
+    error: page.error,
+    page,
     openId,
     transcript,
     openConversation: transcriptStore.getState().open,
     closeTranscript: transcriptStore.getState().close,
   };
-}
-
-function filterByCode(rows: readonly ConvView[], code: string | undefined): readonly ConvView[] {
-  if (!code) return rows;
-  return rows.filter((r) => r.code.toLowerCase() === code.toLowerCase());
 }
 
 async function loadTranscript(id: string, setTranscript: (t: ConvTranscript) => void): Promise<void> {

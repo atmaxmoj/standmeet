@@ -19,7 +19,7 @@ const paramEmbedID = "embed_id"
 // field because that would just be a second reference to the same value.
 func (h *Handlers) MountEmbeds(r chi.Router) {
 	face := h.CodesAdmin.Face
-	r.Get("/", h.dispatchOp(face, "embeds.list", emptyArgs, jsonOK))
+	r.Get("/", h.dispatchOp(face, "embeds.list", pagedQueryArgs(), jsonOK))
 	r.Post("/", h.dispatchOp(face, "embeds.create", bodyArgs, jsonCreated))
 	r.Patch("/{embed_id}",
 		h.dispatchOp(face, "embeds.update", bodyWithURLParam(paramEmbedID), jsonOK))

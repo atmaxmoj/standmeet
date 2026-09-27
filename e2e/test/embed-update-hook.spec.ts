@@ -17,7 +17,7 @@ import type { Page } from '@playwright/test';
 
 import { test, expect } from '@/fixtures/test';
 import { login as loginAPI } from '@/fixtures/admin';
-import { createCode } from '@/fixtures/codes';
+import { createCode, findCode } from '@/fixtures/codes';
 import { callTool } from '@/fixtures/mcp';
 import { createRole } from '@/fixtures/roles';
 import { gotoAdminSection } from '@/fixtures/navigate';
@@ -36,9 +36,7 @@ let fullRoleID = '';
 const NOTE = 'corpus.note.changed';
 
 async function codeID(code: string): Promise<string> {
-  const res = await O.request.get(`${BACKEND}/api/admin/codes`, { headers: { 'X-Csrftoken': csrf } });
-  const codes = await res.json() as { id: string; code: string }[];
-  return codes.find((c) => c.code === code)?.id ?? '';
+  return (await findCode(O.request, csrf, code)).id;
 }
 
 // freshCode —— an embed takes a code of its own (embeds.code_id is unique), so each case issues one.

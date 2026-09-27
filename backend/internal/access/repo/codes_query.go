@@ -13,6 +13,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/access/db"
 	"github.com/atmaxmoj/standmeet/internal/access/entity"
+	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
@@ -89,30 +90,67 @@ func (r *CodeRepo) missingCodeReason(ctx context.Context, code string) error {
 	return entity.ErrCodeInvalid
 }
 
-// ListByOwner lists codes for the admin view.
-func (r *CodeRepo) ListByOwner(
-	ctx context.Context, ownerID string) ([]entity.Code, error,
-) {
+// CodeFilter — which codes a page holds: State is ”/'all', 'active', 'revoked' or
+// 'expired'; Q matches code or label; Embed 'none' keeps only codes no embed exposes.
+type CodeFilter struct {
+	State string `json:"state"`
+	Q     string `json:"q"`
+	Embed string `json:"embed"`
+}
+
+// ListPage — one page of the owner's codes, newest first (docs/design/paging.md). Each row
+// carries the slug of the page it opens: the binding is one fact, read from one place.
+func (r *CodeRepo) ListPage(
+	ctx context.Context, ownerID string, f CodeFilter, req paging.Request,
+) (paging.Page[entity.Code], error) {
 	ownerUUID, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
-		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
+		return paging.Page[entity.Code]{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	q := db.New(r.pool)
-	// The page-aware version: one extra LEFT JOIN to fetch the slug, so the **code
-	// side** can also see which page it opens. The binding is one fact; both panels
-	// read from the same place ([[names-that-lie]]'s inverse: never store a second copy).
-	rows, err := q.ListAccessCodesWithPageByOwner(ctx, ownerUUID)
+	after, err := pgstore.CursorArgs(req.After)
 	if err != nil {
-		return nil, fmt.Errorf("list access codes: %w", err)
+		return paging.Page[entity.Code]{}, fmt.Errorf("list access codes: %w", err)
+	}
+	rows, err := db.New(r.pool).ListAccessCodesPage(ctx, db.ListAccessCodesPageParams{
+		OwnerID: ownerUUID, State: f.State, Q: f.Q, Embed: f.Embed,
+		AfterAt: after.At, AfterID: after.ID, Lim: req.Fetch(),
+	})
+	if err != nil {
+		return paging.Page[entity.Code]{}, fmt.Errorf("list access codes: %w", err)
 	}
 	out := make([]entity.Code, 0, len(rows))
 	for i := range rows {
 		out = append(out, codeFromListRow(&rows[i]))
 	}
-	return out, nil
+	return paging.Cut(out, req, func(c *entity.Code) paging.Cursor {
+		return paging.Cursor{At: c.CreatedAt, ID: c.ID}
+	}), nil
 }
 
-func codeFromListRow(row *db.ListAccessCodesWithPageByOwnerRow) entity.Code {
+// CodeCounts — how many codes each filter holds.
+type CodeCounts struct {
+	Active  int32 `json:"active"`
+	Revoked int32 `json:"revoked"`
+	Expired int32 `json:"expired"`
+	All     int32 `json:"all"`
+}
+
+// CountByState — the counts behind the filter chips, from SQL, never from a loaded page.
+func (r *CodeRepo) CountByState(ctx context.Context, ownerID string) (CodeCounts, error) {
+	ownerUUID, err := pgstore.ParseUUID(ownerID)
+	if err != nil {
+		return CodeCounts{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
+	}
+	row, err := db.New(r.pool).CountAccessCodesByState(ctx, ownerUUID)
+	if err != nil {
+		return CodeCounts{}, fmt.Errorf("count access codes: %w", err)
+	}
+	return CodeCounts{
+		Active: row.Active, Revoked: row.Revoked, Expired: row.Expired, All: row.Total,
+	}, nil
+}
+
+func codeFromListRow(row *db.ListAccessCodesPageRow) entity.Code {
 	c := CodeFromRow(&db.AccessCode{
 		ID: row.ID, OwnerID: row.OwnerID, Code: row.Code, Slug: row.Slug, Label: row.Label,
 		Purpose: row.Purpose, Ghosts: row.Ghosts, ExpiresAt: row.ExpiresAt,

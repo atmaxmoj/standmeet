@@ -9,6 +9,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
+
+	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
@@ -29,11 +32,6 @@ type SessionRow struct {
 	Visits   int64     `json:"visits"`
 	Views    int64     `json:"views"`
 	IsBot    bool      `json:"is_bot"`
-}
-
-// SessionsOut —— the per-viewer response envelope.
-type SessionsOut struct {
-	Sessions []SessionRow `json:"sessions"`
 }
 
 // latestNonEmpty —— the most recent non-empty value of a column across a viewer's events. A viewer
@@ -59,28 +57,44 @@ SELECT coalesce(viewer_id,'')                    AS viewer_id,
 FROM visit_event
 WHERE owner_id = $1 AND created_at >= $2
 GROUP BY viewer_id
-ORDER BY last_seen DESC
+HAVING $4::timestamptz IS NULL
+    OR (max(created_at), coalesce(viewer_id,'')) < ($4::timestamptz, $5::text)
+ORDER BY last_seen DESC, viewer_id DESC
 LIMIT $3`
 
-// Sessions —— the per-viewer breakdown over one window, newest-seen first. Bots are included and
-// flagged, the same as the feed: "Googlebot, 40 views" is real information an owner acts on, and
-// hiding it would make the human rows unverifiable against the summary.
+// Sessions —— one page of the per-viewer breakdown over one window, newest-seen first
+// (docs/design/paging.md). Bots are included and flagged, the same as the feed: "Googlebot, 40
+// views" is real information an owner acts on, and hiding it would make the human rows
+// unverifiable against the summary.
 func (r *Repo) Sessions(
-	ctx context.Context, ownerID string, since time.Time, limit int,
-) ([]SessionRow, error) {
+	ctx context.Context, ownerID string, since time.Time, req paging.Request,
+) (paging.Page[SessionRow], error) {
 	owner, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
-		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
+		return paging.Page[SessionRow]{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	if limit <= 0 || limit > maxEventLimit {
-		limit = defaultEventLimit
-	}
-	rows, qerr := r.pool.Query(ctx, sessionsSQL, owner, since, limit)
+	afterAt, afterID := sessionCursor(req.After)
+	rows, qerr := r.pool.Query(ctx, sessionsSQL, owner, since, req.Fetch(), afterAt, afterID)
 	if qerr != nil {
-		return nil, fmt.Errorf("query monitor sessions: %w", qerr)
+		return paging.Page[SessionRow]{}, fmt.Errorf("query monitor sessions: %w", qerr)
 	}
 	defer rows.Close()
-	return collectSessions(rows)
+	out, err := collectSessions(rows)
+	if err != nil {
+		return paging.Page[SessionRow]{}, err
+	}
+	return paging.Cut(out, req, func(s *SessionRow) paging.Cursor {
+		return paging.Cursor{At: s.LastSeen, ID: s.ViewerID}
+	}), nil
+}
+
+// sessionCursor —— the keyset params: NULL for the first page. viewer_id is a hash, not a uuid,
+// and a viewer-less row (the IM bridge) groups under ”; the cursor carries it as text.
+func sessionCursor(after *paging.Cursor) (pgtype.Timestamptz, *string) {
+	if after == nil {
+		return pgtype.Timestamptz{}, nil
+	}
+	return pgtype.Timestamptz{Time: after.At, Valid: true}, &after.ID
 }
 
 // collectSessions —— drains the cursor. Split out so Sessions stays within the complexity budget;

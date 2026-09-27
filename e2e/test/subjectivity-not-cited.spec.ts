@@ -91,8 +91,8 @@ async function askAndTranscript(question: string, tag = ''): Promise<TranscriptR
   const stream = await sendMessage(request, sess, question + tag);
   await stream.body();
   const res = await request.get(`${BACKEND}/api/admin/conversations`, { headers: { 'X-Csrftoken': csrf } });
-  const rows = await res.json() as Array<{ id: string }>;
-  const head = rows[0];
+  const { items } = await res.json() as { items: Array<{ id: string }> };
+  const head = items[0];
   if (!head) throw new Error('no conversations');
   return await transcript(head.id);
 }

@@ -65,19 +65,30 @@ UPDATE conversations
 SET last_at = now()
 WHERE id = $1;
 
--- name: ListConversationsByOwner :many
+-- name: ListConversationsPage :many
+-- One page of the owner's conversations, most recent activity first (docs/design/paging.md).
 -- turn_count is derived from dialogs: count visitor-role messages (one visitor message per dialog),
--- no stored count field.
+-- no stored count field. code: '' = every conversation, else only those on that code string
+-- (case-insensitive). total: how many conversations match the filter on every page — an
+-- uncorrelated subquery (evaluated once), not COUNT(*) OVER (), which would also apply the
+-- cursor and count only what is left.
 SELECT c.id, c.mode, c.code_id, c.visitor_name, c.started_at,
        c.last_at, c.client_ip,
        (SELECT COUNT(*) FROM messages m
         WHERE m.conversation_id = c.id AND m.role = 'visitor')::int AS turn_count,
-       ac.label AS code_label, ac.code AS code_value
+       ac.label AS code_label, ac.code AS code_value,
+       (SELECT COUNT(*) FROM conversations c2
+        LEFT JOIN access_codes ac2 ON ac2.id = c2.code_id
+        WHERE c2.owner_id = sqlc.arg('owner_id')
+          AND (sqlc.arg('code')::text = '' OR lower(ac2.code) = lower(sqlc.arg('code'))))::int AS total
 FROM conversations c
 LEFT JOIN access_codes ac ON ac.id = c.code_id
-WHERE c.owner_id = $1
-ORDER BY c.last_at DESC
-LIMIT $2;
+WHERE c.owner_id = sqlc.arg('owner_id')
+  AND (sqlc.arg('code')::text = '' OR lower(ac.code) = lower(sqlc.arg('code')))
+  AND (sqlc.narg('after_at')::timestamptz IS NULL
+    OR (c.last_at, c.id) < (sqlc.narg('after_at'), sqlc.narg('after_id')::uuid))
+ORDER BY c.last_at DESC, c.id DESC
+LIMIT sqlc.arg('lim');
 
 
 -- name: CountSessionsForMember :one

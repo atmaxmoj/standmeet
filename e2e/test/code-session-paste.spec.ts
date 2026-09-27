@@ -11,7 +11,7 @@ import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
-import { createCode, revokeCode } from '@/fixtures/codes';
+import { createCode, findCode, revokeCode } from '@/fixtures/codes';
 import { seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
@@ -103,17 +103,9 @@ async function initOwnerWithCode(playwright: Playwright): Promise<void> {
   await request.dispose();
 }
 
-const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
 async function revokeCodeAPI(
   request: APIRequestContext, csrf: string, code: string,
 ): Promise<void> {
-  // List codes to find the ID
-  const listRes = await request.get(`${BACKEND}/api/admin/codes/`, {
-    headers: { 'X-Csrftoken': csrf },
-  });
-  const codes = await listRes.json() as Array<{ id: string; code: string }>;
-  const target = codes.find((c) => c.code === code);
-  if (!target) throw new Error(`code ${code} not found`);
-  await revokeCode(request, csrf, target.id);
+  await revokeCode(request, csrf, (await findCode(request, csrf, code)).id);
 }

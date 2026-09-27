@@ -1,6 +1,10 @@
 // use-composer-code —— the composer's access-code selection. The résumé's QR always carries a REAL
-// existing code (public or invited); this never mints one. Returns the active codes to pick from,
-// the current selection (defaulted to the first existing code), and the QR URL the preview renders.
+// existing code (public or invited); this never mints one. Offers the newest active codes (a
+// server-side search narrows them), the current selection (defaulted to the newest code), and the
+// QR URL the preview renders.
+//
+// The selection is held as the code itself, not an id looked up in the offered page: a search that
+// no longer shows the picked code must not un-pick it.
 //
 // Lives in lib, not the component: the presentation layer caps complexity at 3, and the default +
 // derivations would blow that in the component.
@@ -9,12 +13,13 @@
 
 import { useEffect, useState } from 'react';
 
-import { useCodes, type CodeView } from '@/lib/admin/use-codes';
+import { useCodePicker, type CodePicker, type CodeView } from '@/lib/admin/use-codes';
 import { useAdminSession } from '@/lib/admin/use-admin-session';
 import { resumeQRURL } from '@/lib/admin/save-draft';
 
 export interface ComposerCode {
   activeCodes: readonly CodeView[];
+  picker: CodePicker;
   codeId: string;
   setCodeId: (id: string) => void;
   selectedCode: CodeView | undefined;
@@ -28,22 +33,23 @@ function publicURLOf(session: ReturnType<typeof useAdminSession>): string {
   return session.kind === 'ready' ? session.session.public_url : '';
 }
 
-function activeOf(codes: readonly CodeView[]): readonly CodeView[] {
-  return codes.filter((c) => c.status === 'active');
-}
-
-function defaultCodeId(cur: string, active: readonly CodeView[]): string {
-  return cur === '' && active.length > 0 ? active[0]?.id ?? '' : cur;
-}
-
 export function useComposerCode(): ComposerCode {
   const session = useAdminSession();
-  const { codes } = useCodes();
-  const active = activeOf(codes);
-  const [codeId, setCodeId] = useState('');
-  useEffect(() => { setCodeId((cur) => defaultCodeId(cur, activeOf(codes))); }, [codes]);
-  const selectedCode = active.find((c) => c.id === codeId);
+  const picker = useCodePicker();
+  const offered = picker.page.items;
+  const [selectedCode, setSelected] = useState<CodeView | undefined>(undefined);
+  useEffect(() => { setSelected((cur) => cur ?? offered[0]); }, [offered]);
+  const setCodeId = (id: string) => setSelected(offered.find((c) => c.id === id) ?? selectedCode);
   const selectedCodePlaintext = selectedCode ? selectedCode.code : '';
   const qrURL = resumeQRURL(publicURLOf(session), selectedCodePlaintext);
-  return { activeCodes: active, codeId, setCodeId, selectedCode, selectedCodePlaintext, qrURL };
+  return {
+    activeCodes: withSelected(offered, selectedCode), picker, codeId: selectedCode?.id ?? '',
+    setCodeId, selectedCode, selectedCodePlaintext, qrURL,
+  };
+}
+
+// withSelected —— the offered codes, plus the picked one when the current search hides it, so the
+// select still shows what is picked.
+function withSelected(offered: readonly CodeView[], picked: CodeView | undefined): readonly CodeView[] {
+  return picked && !offered.some((c) => c.id === picked.id) ? [picked, ...offered] : offered;
 }

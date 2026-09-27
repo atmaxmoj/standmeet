@@ -13,14 +13,15 @@ import Link from 'next/link';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { useAdminSession } from '@/lib/admin/use-admin-session';
-import { useCodes, type CodesHook, type CodeView } from '@/lib/admin/use-codes';
+import { CodeSearchField } from '@/components/admin/CodeSearchField';
+import { LoadMore } from '@/components/admin/LoadMore';
+import { useCodePicker, type CodePicker as CodePickerHook, type CodeView } from '@/lib/admin/use-codes';
 import { useRoles, type RoleView } from '@/lib/admin/use-roles';
 
 export function PreviewSection() {
   const t = useTranslations('adminPages.preview');
-  const hook = useCodes();
-  const firstCode = deriveFirstCode(hook);
-  const [selected, setSelected] = useState<string>(firstCode);
+  const picker = useCodePicker();
+  const [selected, setSelected] = useState<CodeView | 'byoai' | null>(null);
   return (
     <>
       <SectionHeader
@@ -32,40 +33,47 @@ export function PreviewSection() {
           </Link>
         }
       />
-      <PreviewBody hook={hook} selected={selected} setSelected={setSelected} />
+      <PreviewBody picker={picker} selected={previewTarget(selected, picker.page.items)} setSelected={setSelected} />
     </>
   );
 }
 
-function deriveFirstCode(hook: CodesHook): string {
-  return hook.status === 'ready' && hook.codes.length > 0 ? hook.codes[0]!.id : 'byoai';
+type Target = CodeView | 'byoai';
+
+// previewTarget —— what the frame shows: the owner's pick, else the newest code, else BYOAI. The
+// pick is held as the code itself, so a search that hides it does not un-pick it.
+function previewTarget(picked: Target | null, offered: readonly CodeView[]): Target {
+  return picked ?? offered[0] ?? 'byoai';
 }
 
-function PreviewBody({ hook, selected, setSelected }: {
-  hook: CodesHook; selected: string; setSelected: (s: string) => void;
+function PreviewBody({ picker, selected, setSelected }: {
+  picker: CodePickerHook; selected: Target; setSelected: (s: Target) => void;
 }) {
   const t = useTranslations('adminPages.preview');
-  return hook.status === 'ready' ? (
+  return picker.page.status === 'ready' ? (
     <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-5">
-      <CodePicker codes={hook.codes} selected={selected} onPick={setSelected} />
-      <PreviewFrame codes={hook.codes} selected={selected} />
+      <CodePicker picker={picker} selected={selected} onPick={setSelected} />
+      <PreviewFrame selected={selected} />
     </div>
   ) : (
     <div className="mono text-[11px] text-(--color-muted)">{t('loading')}</div>
   );
 }
 
-function CodePicker({ codes, selected, onPick }: {
-  codes: readonly CodeView[]; selected: string; onPick: (s: string) => void;
+function CodePicker({ picker, selected, onPick }: {
+  picker: CodePickerHook; selected: Target; onPick: (s: Target) => void;
 }) {
   const t = useTranslations('adminPages.preview');
+  const pickedID = selected === 'byoai' ? 'byoai' : selected.id;
   return (
     <div className="flex flex-col gap-1.5" data-testid="code-picker">
       <div className="sm-smallcaps mb-1">{t('seeAsCode')}</div>
-      {codes.map((c) => (
-        <CodePickerCard key={c.id} code={c} active={selected === c.id} onClick={() => onPick(c.id)} />
+      <CodeSearchField value={picker.query} onChange={picker.setQuery} testid="preview-code-search" />
+      {picker.page.items.map((c) => (
+        <CodePickerCard key={c.id} code={c} active={pickedID === c.id} onClick={() => onPick(c)} />
       ))}
-      <ByoaiPickerCard active={selected === 'byoai'} onClick={() => onPick('byoai')} />
+      <LoadMore page={picker.page} testid="preview-codes-load-more" />
+      <ByoaiPickerCard active={pickedID === 'byoai'} onClick={() => onPick('byoai')} />
     </div>
   );
 }
@@ -123,14 +131,12 @@ function ByoaiPickerCard({ active, onClick }: { active: boolean; onClick: () => 
   );
 }
 
-function PreviewFrame({ codes, selected }: { codes: readonly CodeView[]; selected: string }) {
+function PreviewFrame({ selected }: { selected: Target }) {
   const t = useTranslations('adminPages.preview');
   return (
     <div className="border border-(--color-rule) rounded-[3px] bg-(--color-paper) p-6 min-h-[240px]" data-testid="preview-frame">
       <div className="sm-smallcaps mb-4">{t('frameTitle')}</div>
-      {selected === 'byoai'
-        ? <ByoaiPreview />
-        : <CodedPreview code={codes.find((c) => c.id === selected) ?? null} />}
+      {selected === 'byoai' ? <ByoaiPreview /> : <CodedPreview code={selected} />}
     </div>
   );
 }

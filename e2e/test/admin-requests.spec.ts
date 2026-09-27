@@ -157,9 +157,9 @@ test.describe('admin requests · mail connected un-gates approve (F-C-7)', () =>
 async function firstRequestID(request: APIRequestContext): Promise<string> {
   await login(request, OWNER.email, OWNER.password);
   const res = await request.get(`${BACKEND}/api/admin/access-requests`);
-  const rows = await res.json() as { id: string }[];
-  if (rows.length === 0) throw new Error('no seeded request to approve');
-  return rows[0]!.id;
+  const { items } = await res.json() as { items: { id: string }[] };
+  if (items.length === 0) throw new Error('no seeded request to approve');
+  return items[0]!.id;
 }
 
 async function submitRequestViaAPI(request: APIRequestContext): Promise<void> {

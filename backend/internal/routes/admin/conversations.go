@@ -24,8 +24,8 @@ type ConversationsDeps struct {
 // MountConversations mounts /conversations + the ghost telemetry route.
 func (h *Handlers) MountConversations(r chi.Router) {
 	face := h.Conversations.Face
-	r.Get("/conversations", h.dispatchOp(face, "conversations.list",
-		queryArgsRenamed(map[string]string{}, "limit"), jsonOK))
+	r.Get("/conversations",
+		h.dispatchOp(face, "conversations.list", pagedQueryArgs("code"), jsonOK))
 	r.Get("/conversations/{conversation_id}", h.dispatchOp(face, "conversations.get",
 		urlParamArgs("conversation_id"), jsonOK))
 	r.Get("/ghosts/telemetry", h.dispatchOp(face, "conversations.ghost_telemetry",

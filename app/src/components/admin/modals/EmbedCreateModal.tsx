@@ -17,7 +17,8 @@ import { useTranslations } from 'next-intl';
 import { Btn } from '@/components/admin/atoms/Btn';
 import { SelectField } from '@/components/atoms/SelectField';
 import { ModalShell } from '@/components/admin/modals/ModalShell';
-import type { CodeView } from '@/lib/admin/use-codes';
+import { CodeSearchField } from '@/components/admin/CodeSearchField';
+import { useCodePicker } from '@/lib/admin/use-codes';
 import {
   dispatchEmbedSave, embedModalText, useEmbedForm,
   type EmbedFormHook, type EmbedFormValues, type EmbedView, type SyncMode,
@@ -28,13 +29,12 @@ type OnUpdate = (id: string, values: EmbedFormValues) => Promise<void>;
 
 type Props = {
   existing: EmbedView | null;
-  codes: readonly CodeView[];
   onClose: () => void;
   onCreate: OnCreate;
   onUpdate: OnUpdate;
 };
 
-export function EmbedCreateModal({ existing, codes, onClose, onCreate, onUpdate }: Props) {
+export function EmbedCreateModal({ existing, onClose, onCreate, onUpdate }: Props) {
   const t = useTranslations('adminAccess.embeds.form');
   const form = useEmbedForm(existing);
   const text = embedModalText(t, form.editing);
@@ -42,7 +42,7 @@ export function EmbedCreateModal({ existing, codes, onClose, onCreate, onUpdate 
   return (
     <ModalShell onClose={onClose} kicker={text.kicker} title={text.title} maxWidth={620}>
       <form data-testid="embed-form" onSubmit={submit} className="px-7 py-6 space-y-7">
-        <CodePicker form={form} codes={codes} />
+        {existing ? <LockedCode embed={existing} /> : <CodePicker form={form} />}
         <LabelField form={form} />
         <OriginsField form={form} />
         <SyncModeField form={form} />
@@ -65,21 +65,37 @@ function useSubmit(
   }, [existing, form, onCreate, onUpdate]);
 }
 
-function CodePicker({ form, codes }: { form: EmbedFormHook; codes: readonly CodeView[] }) {
+// CodePicker —— create only: active codes that no embed exposes yet (code_id is unique on
+// embeds), newest first, searched on the server.
+function CodePicker({ form }: { form: EmbedFormHook }) {
+  const t = useTranslations('adminAccess.embeds.form');
+  const picker = useCodePicker({ embed: 'none' });
+  return (
+    <label className="block space-y-2">
+      <FieldKicker text={t('codeField')} />
+      <CodeSearchField value={picker.query} onChange={picker.setQuery} testid="embed-code-search" />
+      <SelectField
+        className="w-full" value={form.codeID} testid="embed-code"
+        onChange={(e) => form.setCodeID(e.target.value)}
+      >
+        <option value="">{t('codePlaceholder')}</option>
+        {picker.page.items.map((c) => (
+          <option key={c.id} value={c.id}>{c.code} — {c.label}</option>
+        ))}
+      </SelectField>
+    </label>
+  );
+}
+
+// LockedCode —— edit: the code is locked. Swapping it = another embed; the tag pasted on the
+// outside site still points at the old code.
+function LockedCode({ embed }: { embed: EmbedView }) {
   const t = useTranslations('adminAccess.embeds.form');
   return (
     <label className="block space-y-2">
       <FieldKicker text={t('codeField')} />
-      {/* Code is locked while editing: swapping it = another embed, the tag pasted
-          on the outside site still points at the old code. */}
-      <SelectField
-        className="w-full" value={form.codeID} testid="embed-code"
-        onChange={(e) => form.setCodeID(e.target.value)} disabled={form.editing}
-      >
-        <option value="">{t('codePlaceholder')}</option>
-        {codes.map((c) => (
-          <option key={c.id} value={c.id}>{c.code} — {c.label}</option>
-        ))}
+      <SelectField className="w-full" value={embed.code_id} testid="embed-code" onChange={() => undefined} disabled>
+        <option value={embed.code_id}>{embed.code}</option>
       </SelectField>
     </label>
   );

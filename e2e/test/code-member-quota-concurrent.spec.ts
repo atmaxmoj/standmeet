@@ -59,20 +59,20 @@ test.describe('access-codes · the name cap holds under concurrency', () => {
 
       const admin = await playwright.request.newContext();
       const { csrf } = await loginAPI(admin, OWNER.email, OWNER.password);
-      const codes = await (await admin.get(`${BACKEND}/api/admin/codes`, {
+      const codes = await (await admin.get(`${BACKEND}/api/admin/codes?q=${CODE}`, {
         headers: { 'X-Csrftoken': csrf },
-      })).json() as { code: string; id: string }[];
-      const row = codes.find((c) => c.code === CODE);
+      })).json() as { items: { code: string; id: string }[] };
+      const row = codes.items.find((c) => c.code === CODE);
       const members = await (await admin.get(
         `${BACKEND}/api/admin/codes/${row?.id ?? ''}/members`,
         { headers: { 'X-Csrftoken': csrf } },
-      )).json() as unknown[];
+      )).json() as { total: number };
 
       // The criterion is **the member count actually persisted**, not how many
       // requests returned 200 — the latter is what the client sees, the former
       // is how much of the owner's quota actually got consumed.
       expect(
-        members.length,
+        members.total,
         `the code may never hold more than its cap; ${opened} sessions opened`,
       ).toBeLessThanOrEqual(CAP);
 

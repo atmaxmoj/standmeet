@@ -93,10 +93,10 @@ async function expectCodeFieldRoundTrip(
       assumed_role_id: roleID, max_bookings: 7,
     },
   );
-  const rows = await callTool<Array<{ id: string; max_bookings: number | null }>>(
+  const { items } = await callTool<{ items: Array<{ id: string; max_bookings: number | null }> }>(
     request, apiToken, sid, 'codes.list', {},
   );
-  const mine = rows.find((r) => r.id === created.id);
+  const mine = items.find((r) => r.id === created.id);
   expect(mine, 'the created code is listed').toBeTruthy();
   expect(mine?.max_bookings, 'the block field came back on the row').toBe(7);
 }
@@ -131,8 +131,8 @@ test.describe('Phase E-13 codes create / update_quotas via MCP', () => {
         headers: { 'X-Csrftoken': csrf },
       });
       expect(list.status()).toBe(200);
-      const rows = await list.json() as Array<{ id: string; code: string }>;
-      expect(rows.find((c) => c.id === created.id)?.code)
+      const { items } = await list.json() as { items: Array<{ id: string; code: string }> };
+      expect(items.find((c) => c.id === created.id)?.code)
         .toBe('MCP-CREATE-001');
       await request.dispose();
     });

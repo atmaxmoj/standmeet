@@ -10,18 +10,11 @@
 
 import { useEffect, useState } from 'react';
 
-import { z } from 'zod';
-
-import { pendingRequests } from '@/lib/admin/access-request-status';
-import { safeJson } from '@/lib/api/typed-json';
+import { ACCESS_REQUEST_OPEN } from '@/lib/admin/access-request-status';
+import { fetchListTotal } from '@/lib/api/list-total';
 import { useListingsCount } from '@/lib/admin/use-admin-listings';
 import { useCorpusGrowth } from '@/lib/admin/use-corpus-growth';
 import type { SidebarBadges } from '@/components/admin/AdminSidebar';
-
-// The list endpoints return a BARE array of rows, not `{items:[…]}`. Parsing a
-// bare array as an object throws a ZodError (invalid_type object) on every admin
-// load — the old `{items}` shape was wrong. Fixed to a bare-array schema.
-const BadgeRowsSchema = z.array(z.object({ status: z.string().optional() }));
 
 export function useSidebarBadges(): SidebarBadges {
   const [badges, setBadges] = useState<SidebarBadges>({});
@@ -50,13 +43,10 @@ export function useSidebarBadges(): SidebarBadges {
   };
 }
 
+// fetchRequestBadge —— the open requests, counted on the server (the list is paged). A failed
+// read shows no badge rather than a 0 that claims "nothing waiting".
 async function fetchRequestBadge(): Promise<SidebarBadges> {
-  const out: SidebarBadges = {};
-  const res = await fetch('/api/admin/access-requests', { credentials: 'include' })
-    .catch(() => null);
-  if (res !== null && res.ok) {
-    const rows = await safeJson(res, BadgeRowsSchema);
-    out.requests = pendingRequests(rows).length;
-  }
-  return out;
+  const requests = await fetchListTotal(`/api/admin/access-requests?status=${ACCESS_REQUEST_OPEN}`)
+    .catch(() => undefined);
+  return { requests };
 }

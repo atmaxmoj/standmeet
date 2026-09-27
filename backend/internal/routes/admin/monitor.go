@@ -37,7 +37,7 @@ func (h *Handlers) MountMonitor(r chi.Router) {
 		r.Get("/events", h.dispatchOp(face, "monitor.events", monitorEventsArgs, jsonOK))
 		r.Get("/stats", h.dispatchOp(face, "monitor.stats", monitorWindowArgs, jsonOK))
 		// The per-viewer breakdown behind the summary numbers: who came, and what each did.
-		r.Get("/sessions", h.dispatchOp(face, "monitor.sessions", monitorWindowArgs, jsonOK))
+		r.Get("/sessions", h.dispatchOp(face, "monitor.sessions", pagedQueryArgs("window"), jsonOK))
 	})
 	// The collection master switch (monitor.md §8): the owner turns their own monitoring off.
 	// It is an owner setting (monitoring.set → the owners row), not a monitor-domain op, but its
@@ -59,6 +59,7 @@ func monitorEventsArgs(r *http.Request) (json.RawMessage, error) {
 		"event":     quotedQuery(q, "event"),
 		"entity_id": quotedQuery(q, "entity_id"),
 		"window":    quotedQuery(q, "window"),
+		"cursor":    quotedQuery(q, "cursor"),
 	}
 	addNumericQuery(fields, q, []string{"limit"})
 	addBoolQuery(fields, q, "include_bots")

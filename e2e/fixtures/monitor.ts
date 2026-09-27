@@ -115,19 +115,28 @@ async function ownerGET(
   return request.get(path, { headers: { 'X-Csrftoken': await csrfFor(request, owner) } });
 }
 
-// readEvents —— the recorded rows, newest first.
+// readEvents —— the recorded rows, newest first. The feed pages on the server (one page is at most
+// 200 rows), so this follows next_cursor until the last page: a spec asking for "the rows" gets all.
 export async function readEvents(
   request: APIRequestContext,
   owner: { email: string; password: string },
   filter: EventFilter = {},
 ): Promise<MonitorEvent[]> {
-  const qs = new URLSearchParams();
-  for (const [k, v] of Object.entries(filter)) {
-    if (v !== undefined) qs.set(k, String(v));
-  }
-  const res = await ownerGET(request, owner, `/api/admin/monitor/events?${qs.toString()}`);
-  if (!res.ok()) throw new Error(`monitor events ${res.status()}: ${await res.text()}`);
-  return (await res.json() as { events: MonitorEvent[] }).events;
+  const out: MonitorEvent[] = [];
+  let cursor = '';
+  do {
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(filter)) {
+      if (v !== undefined) qs.set(k, String(v));
+    }
+    if (cursor) qs.set('cursor', cursor);
+    const res = await ownerGET(request, owner, `/api/admin/monitor/events?${qs.toString()}`);
+    if (!res.ok()) throw new Error(`monitor events ${res.status()}: ${await res.text()}`);
+    const page = await res.json() as { items: MonitorEvent[]; next_cursor?: string };
+    out.push(...page.items);
+    cursor = page.next_cursor ?? '';
+  } while (cursor);
+  return out;
 }
 
 // readSummary —— the numbers at the top of the panel.

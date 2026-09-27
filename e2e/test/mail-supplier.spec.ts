@@ -101,8 +101,8 @@ async function seedRequestID(request: APIRequestContext): Promise<string> {
   });
   await login(request, OWNER.email, OWNER.password);
   const res = await request.get(`${BACKEND}/api/admin/access-requests`);
-  const rows = await res.json() as { id: string; email: string }[];
-  const hit = rows.find((r) => r.email === RECRUITER);
+  const { items } = await res.json() as { items: { id: string; email: string }[] };
+  const hit = items.find((r) => r.email === RECRUITER);
   if (!hit) throw new Error('seeded access request not found in admin list');
   return hit.id;
 }

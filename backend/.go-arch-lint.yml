@@ -43,6 +43,8 @@ components:
     in: internal/infra/depcheck                  # checks at startup whether a hand-copied dependency table has a missing row; domain-less leaf
   textcut:
     in: internal/infra/textcut                   # safe char/byte-bounded text truncation (single implementation); domain-less leaf
+  paging:
+    in: internal/infra/paging                    # the one keyset paginator every owner list uses (docs/design/paging.md); domain-less leaf
   snowflake:
     in: internal/infra/snowflake                 # snowflake id → short base62 slug (single implementation); domain-less leaf
   mailthrottle:
@@ -676,6 +678,8 @@ deps:
   pgstore:
     mayDependOn:
       - cryptobox
+      # paging — a paging cursor as the (after_at, after_id) params every paged query takes.
+      - paging
       # dbfiles — the migration .sql compiled into the binary (upgrades happen at backend startup).
       # Only this can reach it: if anyone could import it, "who owns the schema" would scatter across several places.
       - dbfiles
@@ -978,6 +982,9 @@ deps:
       # periodic — dropping traffic past the retention window is this domain's own periodic
       # task; scheduling and bookkeeping belong to the host. Same edge as statsrepo.
       - periodic
+      # paging — the feed and the sessions read one page at a time (docs/design/paging.md); a
+      # domain-less leaf, so it entangles monitor with nothing it watches.
+      - paging
     anyVendorDeps: true
   monitorentity:
     mayDependOn: []
@@ -1044,6 +1051,7 @@ deps:
       # stored. The domain can say all this itself so the composition root doesn't have to write it a gateway.
       - hostop
       - inference
+      - paging      # list ops take cursor/limit and answer the page envelope
     anyVendorDeps: true
   conversationentity:
     mayDependOn:
@@ -1056,11 +1064,13 @@ deps:
       - corpus
       - pgstore
       - periodic # public-conversation prune declares its own job (same repo-layer pattern as ownerrepo)
+      - paging   # list queries fetch one page and cut it (docs/design/paging.md)
     anyVendorDeps: true
   conversationusecase:
     mayDependOn:
       - conversationentity
       - conversationrepo
+      - paging   # the list use case takes and answers a page
       - corpus
       - access
       - owner
@@ -1165,6 +1175,7 @@ deps:
       - facadeparity
       - apierr
       - events      # hands the outbox writer to the key use cases (api_key.*)
+      - paging      # list ops take cursor/limit and answer the page envelope
     anyVendorDeps: true
   accessentity:
     mayDependOn: []
@@ -1176,6 +1187,7 @@ deps:
       - pgstore
       - cryptobox        # per-embed Ed25519 keypair generation (embed-piracy protection)
       - snowflake        # default code landing-slug generation (short id, cloud-ready)
+      - paging           # list queries fetch one page and cut it (docs/design/paging.md)
     anyVendorDeps: true
   accessusecase:
     mayDependOn:
@@ -1185,6 +1197,7 @@ deps:
       - cryptobox        # unwraps the public key when verifying an embed JWT (ParseEd25519Public)
       - events           # a submitted request records access_request.created (Recorder only)
       - pgstore          # … in the same transaction as its row (InTx)
+      - paging           # the list use cases take and answer a page
     anyVendorDeps: true
 
   # owner — #135 owner module: entity + repo (the supplier’s OwnerLookup consumes owner.Owner).
@@ -1247,6 +1260,7 @@ deps:
       # if the outbound channel isn't configured, it needs to be able to say "go configure it" — that
       # sentinel lives on the supplier consumer side.
       - adapters
+      - paging      # list ops take cursor/limit and answer the page envelope
     anyVendorDeps: true
   ownerentity:
     mayDependOn: []

@@ -6,7 +6,9 @@
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 
+import { LoadMore } from '@/components/admin/LoadMore';
 import { SectionHeader } from '@/components/admin/SectionHeader';
+import { totalLabel } from '@/lib/state/create-paged-store';
 import { Btn } from '@/components/admin/atoms/Btn';
 import { Chip } from '@/components/admin/atoms/Chip';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
@@ -93,18 +95,11 @@ function RequestBody({ hook, canDeliver }: { hook: RequestsHook; canDeliver: boo
 
 type Translator = ReturnType<typeof useTranslations>;
 
+// requestCount —— the server's total for the chosen filter (the list is paged): "N new" on the
+// open filter, "N total" on the others.
 function requestCount(hook: RequestsHook, t: Translator): string {
-  return hook.status === 'ready'
-    ? formatRequestCount(countOpen(hook.rows), hook.rows.length, t)
-    : '';
-}
-
-function countOpen(rows: readonly AccessRequestView[]): number {
-  return rows.filter((r) => r.status === 'open').length;
-}
-
-function formatRequestCount(open: number, total: number, t: Translator): string {
-  return open === 0 ? t('requests.countTotal', { n: total }) : t('requests.countNew', { n: open });
+  const key = hook.filter === 'open' ? 'requests.countNew' : 'requests.countTotal';
+  return totalLabel(hook.page.total, (n) => t(key, { n }));
 }
 
 function ErrorBlock({ message }: { message: string }) {
@@ -126,13 +121,16 @@ function EmptyState({ filter }: { filter: RequestStatusFilter }) {
 
 function RequestList({ hook, canDeliver }: { hook: RequestsHook; canDeliver: boolean }) {
   return (
-    <ul className="space-y-5" data-testid="requests-list">
-      {hook.rows.map((r) => (
-        <li key={r.id} data-testid={`request-row-${r.id}`}>
-          <RequestCard req={r} hook={hook} canDeliver={canDeliver} />
-        </li>
-      ))}
-    </ul>
+    <>
+      <ul className="space-y-5" data-testid="requests-list">
+        {hook.rows.map((r) => (
+          <li key={r.id} data-testid={`request-row-${r.id}`}>
+            <RequestCard req={r} hook={hook} canDeliver={canDeliver} />
+          </li>
+        ))}
+      </ul>
+      <LoadMore page={hook.page} testid="requests-load-more" />
+    </>
   );
 }
 

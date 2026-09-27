@@ -123,10 +123,10 @@ async function checkAccessRequests(r: APIRequestContext): Promise<void> {
       message: 'I would like access to your corpus to discuss projects.',
     },
   });
-  const list = await callTool<Array<{ id: string; status: string }>>(
+  const { items } = await callTool<{ items: Array<{ id: string; status: string }> }>(
     r, token, sid, 'access_requests.list', {});
-  expect(list.length, 'seeded request present').toBeGreaterThan(0);
-  const id = list[0]!.id;
+  expect(items.length, 'seeded request present').toBeGreaterThan(0);
+  const id = items[0]!.id;
 
   const updated = await callTool<{ id: string; status: string }>(
     r, token, sid, 'access_requests.update', { id, status: 'replied' });

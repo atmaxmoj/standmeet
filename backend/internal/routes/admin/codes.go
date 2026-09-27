@@ -41,7 +41,8 @@ type CodesDeps struct {
 // MountCodes mounts the /codes subrouter (the caller is already inside the /codes prefix).
 func (h *Handlers) MountCodes(r chi.Router) {
 	face := h.CodesAdmin.Face
-	r.Get("/", h.dispatchOp(face, "codes.list", emptyArgs, jsonOK))
+	r.Get("/", h.dispatchOp(face, "codes.list", pagedQueryArgs("state", "q", "embed"), jsonOK))
+	r.Get("/counts", h.dispatchOp(face, "codes.counts", emptyArgs, jsonOK))
 	r.Post("/", h.dispatchOp(face, "codes.create", bodyArgs, jsonCreated))
 	r.Post("/{code_id}/revoke",
 		h.dispatchOp(face, "codes.revoke", urlParamArgs(paramCodeID), jsonOK))
@@ -60,7 +61,7 @@ func (h *Handlers) MountCodes(r chi.Router) {
 	r.Patch("/{code_id}/bundle",
 		h.dispatchOp(face, "codes.set_bundle", bodyWithURLParam(paramCodeID), jsonOK))
 	r.Get("/{code_id}/members",
-		h.dispatchOp(face, "codes.list_members", urlParamArgs(paramCodeID), jsonOK))
+		h.dispatchOp(face, "codes.list_members", pagedWithURLParam(paramCodeID), jsonOK))
 	h.mountCodeACL(r, face)
 }
 

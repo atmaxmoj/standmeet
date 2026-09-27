@@ -14,6 +14,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/access/repo"
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	"github.com/atmaxmoj/standmeet/internal/infra/events"
+	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 )
 
@@ -73,21 +74,22 @@ func validSubmitInput(in *SubmitAccessRequestInput) bool {
 	return in.Email != "" && in.Message != ""
 }
 
-// ListForOwner — admin list. status may be empty; empty = all.
+// ListForOwner — one page of the admin list. f.Status may be empty; empty = all.
 func ListForOwner(
-	ctx context.Context, deps RequestsDeps, ownerID, status string,
-) ([]entity.Request, error) {
+	ctx context.Context, deps RequestsDeps, ownerID string, f entity.RequestFilter,
+	req paging.Request,
+) (paging.Page[entity.Request], error) {
 	if ownerID == "" {
-		return nil, apierr.ErrEmptyField
+		return paging.Page[entity.Request]{}, apierr.ErrEmptyField
 	}
-	if !validStatusFilter(status) {
-		return nil, entity.ErrAccessRequestStatusInvalid
+	if !validStatusFilter(f.Status) {
+		return paging.Page[entity.Request]{}, entity.ErrAccessRequestStatusInvalid
 	}
-	rows, err := deps.Repo.ListByOwner(ctx, ownerID, status)
+	page, err := deps.Repo.ListPage(ctx, ownerID, f, req)
 	if err != nil {
-		return nil, fmt.Errorf("list access requests: %w", err)
+		return paging.Page[entity.Request]{}, fmt.Errorf("list access requests: %w", err)
 	}
-	return rows, nil
+	return page, nil
 }
 
 // UpdateAccessRequestStatus — admin changes status. status must be open/replied/closed.
