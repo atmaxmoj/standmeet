@@ -53,6 +53,7 @@ func dispatchTurn(
 		Persist:          buildAgentTurnPersist(h, auth, req.ConversationID),
 		RecordUsage:      buildAgentTurnUsage(h, auth),
 		CrossConvContext: buildCrossConvForTurn(r, h, auth, req.ConversationID),
+		PageText:         pageTextForTurn(r, h, req.DocContext),
 		OwnerTimezone:    ownerTZForTurn(r, h, auth.Data.OwnerID),
 		VisitorTimezone:  req.VisitorTimezone,
 		SessionNotes:     ts.SessionNotes,

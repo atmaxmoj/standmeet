@@ -29,6 +29,10 @@ type BuiltAsset struct {
 	SeoImage       *string
 	PageID         string
 	BuildID        string
+	// Slug —— the live page's slug, injected as the standmeet-microsite meta so the SDK can name
+	// the page a chat turn is asked on (the agent then reads that page's published text). Empty for
+	// the admin preview: a draft is not what the agent reads.
+	Slug string
 	// PublicChat — the public tier's state (PublicChatOn / Spent / Off); injected into <head> so
 	// the codeless AgentWidget picks inline, the visitor's own key, or the /gate handoff.
 	PublicChat string
@@ -68,9 +72,9 @@ func ServeBuildAsset(w http.ResponseWriter, _ *http.Request, req *BuildAssetReq)
 		writeAssetErr(req.Log, w, perr)
 		return
 	}
-	serveFile(req.Log, w, fp, pageHead{
+	serveFile(req.Log, w, fp, &pageHead{
 		base: baseOf(req), allowBYOAI: asset.AllowBYOAI,
-		publicSearch: asset.PublicSearch, publicChat: asset.PublicChat,
+		publicSearch: asset.PublicSearch, publicChat: asset.PublicChat, slug: asset.Slug,
 		seoTitle: asset.SeoTitle, seoDescription: asset.SeoDescription, seoImage: asset.SeoImage,
 	})
 }

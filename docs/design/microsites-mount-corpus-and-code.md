@@ -239,6 +239,24 @@ the protocol; it does not prove Claude Desktop connects.
 endpoints to move in one change; it requires that the microsite mount be built **on** the
 facade rather than beside it, so the count stops growing.
 
+### 2026-09-27 — the chat on a page reads the page
+
+Before, a turn asked on a microsite carried only the page title (`doc_context.title`), so the
+agent could not answer "what does this page mean by X?" from text the owner wrote in the page's
+own source.
+
+- **Serve:** a live page (`/p/<slug>` and the homepage) gets
+  `<meta name="standmeet-microsite" content="<slug>">`. The admin preview gets none: a draft is
+  not what the agent reads.
+- **SDK:** `pageDocContext()` sends `doc_context {genre: "microsite", path: <slug>}` when that
+  meta is present.
+- **Backend:** the turn's route handler asks `owner.LiveMicrositeText` for the page's published
+  text: the live build's prerendered `dist/index.html`, as plain text, capped at 6000 runes. The
+  instruction carries it as page content, not instructions. The text is read from the server's
+  build; the browser sends only the slug, and a slug that is not live yields no text.
+- **Verified by** `e2e microsite-agent-reads-page`: a sentence only in the page's source reaches the
+  model (red on the old code).
+
 ## 5b. Authoring belongs on the panel too
 
 The owner-plane rule is **completeness**: every owner op renders on every owner facade

@@ -171,7 +171,7 @@ func (h *MicrositeHandlers) serveSlugAt(
 				return BuiltAsset{}, lerr
 			}
 			asset := BuiltAsset{
-				PageID: live.Build.PageID, BuildID: live.Build.ID,
+				PageID: live.Build.PageID, BuildID: live.Build.ID, Slug: slug,
 				AllowBYOAI:   live.AllowBYOAI,
 				PublicSearch: h.resolvePublicSearch(ctx),
 				PublicChat:   h.resolvePublicChat(ctx),

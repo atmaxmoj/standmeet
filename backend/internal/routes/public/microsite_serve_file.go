@@ -28,6 +28,8 @@ type pageHead struct {
 	// publicChat —— the public tier's state (PublicChatOn / Spent / Off); the AgentWidget reads it
 	// to decide inline (on), the visitor's own key (spent), or the /gate handoff (off).
 	publicChat string
+	// slug —— the live microsite this is ("" = preview): the standmeet-microsite meta.
+	slug       string
 	allowBYOAI bool
 	// publicSearch —— whether corpus.retrieval's public_search is on for this owner. Read fresh
 	// per request (same reasoning as allowBYOAI): flip it off on the panel and the next page load
@@ -42,12 +44,21 @@ type pageHead struct {
 // snapshot stored in the page, and no need for one more endpoint to ask. This is the
 // other half of the same thing as sending no cache header (something taken down must
 // stop taking effect immediately).
-func (p pageHead) tags() string {
+func (p *pageHead) tags() string {
 	return `<base href="` + html.EscapeString(p.base) + `">` +
 		seoHead(p.seoTitle, p.seoDescription, p.seoImage) +
 		boolMeta("standmeet-page-byoai", p.allowBYOAI) +
 		boolMeta("standmeet-public-search", p.publicSearch) +
-		meta("standmeet-public-chat", p.publicChat)
+		meta("standmeet-public-chat", p.publicChat) +
+		optionalMeta("standmeet-microsite", p.slug)
+}
+
+// optionalMeta —— the meta line, or nothing when content is empty.
+func optionalMeta(name, content string) string {
+	if content == "" {
+		return ""
+	}
+	return meta(name, content)
 }
 
 // boolMeta —— a `<meta name content="true|false">` line, so tags() stays one short expression.
@@ -59,7 +70,7 @@ func meta(name, content string) string {
 	return `<meta name="` + name + `" content="` + html.EscapeString(content) + `">`
 }
 
-func serveFile(log *slog.Logger, w http.ResponseWriter, fp string, head pageHead) {
+func serveFile(log *slog.Logger, w http.ResponseWriter, fp string, head *pageHead) {
 	f, openErr := os.Open(filepath.Clean(fp))
 	if openErr != nil {
 		respondOpenErr(log, w, fp, openErr)
@@ -87,7 +98,7 @@ func streamFile(log *slog.Logger, w io.Writer, f io.Reader) {
 // writeHTMLWithBase —— streams index.html, and once it hits `<head>` inserts
 // `<base href>`, so vite's ./assets/... always resolves against /p/<slug>/ as its base
 // (a single-owner instance, so the URL carries no handle — F-L-44).
-func writeHTMLWithBase(log *slog.Logger, w http.ResponseWriter, f io.Reader, head pageHead) {
+func writeHTMLWithBase(log *slog.Logger, w http.ResponseWriter, f io.Reader, head *pageHead) {
 	body, err := io.ReadAll(f)
 	if err != nil {
 		log.Error("read html", logErr, err)
@@ -103,7 +114,7 @@ func writeHTMLWithBase(log *slog.Logger, w http.ResponseWriter, f io.Reader, hea
 // html.EscapeString escapes any " < > & inside baseHref, preventing an attacker from
 // using a malformed URL (e.g. a handle containing a quote) to inject extra attributes
 // → XSS.
-func injectHead(htmlBody string, head pageHead) string {
+func injectHead(htmlBody string, head *pageHead) string {
 	tag := head.tags()
 	if i := strings.Index(htmlBody, "<head>"); i >= 0 {
 		return htmlBody[:i+len("<head>")] + tag + htmlBody[i+len("<head>"):]

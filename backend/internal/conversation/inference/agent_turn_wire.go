@@ -39,5 +39,9 @@ type AgentTurnRequest struct {
 type AgentDocContext struct {
 	Title string `json:"title"`
 	Path  string `json:"path"`
-	Genre string `json:"genre"` // wiki | output | writing
+	Genre string `json:"genre"` // wiki | output | writing | microsite (Path = the slug)
 }
+
+// DocGenreMicrosite —— doc_context.genre for a live microsite; its Path is the slug, and the
+// route handler reads that page's published text (AgentTurnInput.PageText).
+const DocGenreMicrosite = "microsite"

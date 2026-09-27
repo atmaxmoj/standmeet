@@ -151,10 +151,14 @@ function publicChatMeta(): string | null {
 // pageDocContext —— the page the visitor is on, for the agent ("can I use IT?" → this page). The
 // title comes from the page's og:title (the owner's SEO title, injected when the microsite is
 // served), falling back to <title>. null outside a browser or when the page has no title.
-export function pageDocContext(): { title: string } | null {
+export function pageDocContext(): { title: string; path?: string; genre?: string } | null {
   if (typeof document === 'undefined') return null;
   const og = document.querySelector('meta[property="og:title"]')?.getAttribute('content') ?? '';
   const title = (og !== '' ? og : document.title).trim();
+  // standmeet-microsite —— injected by the server on a live microsite: its slug. With it the
+  // backend reads that page's published text for the agent (the text never travels from here).
+  const slug = document.querySelector('meta[name="standmeet-microsite"]')?.getAttribute('content') ?? '';
+  if (slug !== '') return { title: title !== '' ? title : slug, path: slug, genre: 'microsite' };
   return title === '' ? null : { title };
 }
 

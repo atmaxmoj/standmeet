@@ -33,6 +33,7 @@ func buildPublicDeps(d *deps.Runtime) publicroutes.Handlers {
 		Embeds:        d.EmbedRepo,
 		EmbedNonce:    port.EmbedNonceStore(d),
 		EmbedSyncMode: embedSyncMode(d),
+		MicrositeText: micrositeText(d),
 		QueryQueue:    d.QueryQueue,
 		Corpus:        d.Corpus,
 		Subjectivity:  corpus.NewSubjectivityCiteResolver(d.SubjectivityRepo),
@@ -58,6 +59,20 @@ func embedSyncMode(d *deps.Runtime) func(ctx context.Context, kid string) (strin
 			return "", fmt.Errorf("embed sync mode: %w", err)
 		}
 		return mode, nil
+	}
+}
+
+// micrositeText —— a live microsite's published text by slug (owner.LiveMicrositeText).
+func micrositeText(d *deps.Runtime) func(ctx context.Context, slug string) (string, error) {
+	pages := owner.MicrositeDeps{
+		Pages: d.MicrositeRepo, Builds: d.MicrositeBuildRepo, Events: d.Recorder,
+	}
+	return func(ctx context.Context, slug string) (string, error) {
+		text, err := owner.LiveMicrositeText(ctx, pages, d.OwnerRepo, d.BuildsRoot, slug)
+		if err != nil {
+			return "", fmt.Errorf("live microsite text: %w", err)
+		}
+		return text, nil
 	}
 }
 

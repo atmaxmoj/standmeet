@@ -1281,6 +1281,10 @@ deps:
       # pgstore — approval issues a code and enqueues its mail job in one transaction (InTx); the
       # email change hands its enqueue the repo's transaction.
       - pgstore
+      # plaintext + textcut — a live microsite's prerendered page read as text, capped, for the
+      # agent that chats on it (LiveMicrositeText).
+      - plaintext
+      - textcut
     anyVendorDeps: true
 
 
