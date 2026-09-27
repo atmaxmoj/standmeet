@@ -48,6 +48,23 @@ copy is unchanged, so `code-intro-greeting` still asserts the same text.
 `supplier-happy-matrix`, `booking-confirmation-email`, `code-intro-greeting`,
 `visitor-name-picker`, `supplier-calendar-cancel-tool`, `tool-calendar-cancel-booking`).
 
+**Result.** Both batches closed: one build, the 13 affected specs green (42/42), then `REPEAT=5`
+on the two new specs and three neighbours, 70/70. Lint green.
+
+## Full run on `c42290f1c` — 1991 passed, 1 failed, 8 skipped (1.6 h)
+
+### T1 · `gas-usage-prune` — the assertion reads before the prune runs (test-side)
+- **Red:** `idle-tank` count 1, expected 0 (`gas-usage-prune.spec.ts:68`).
+- **Mechanism (from the code; the run-time backend log was rotated out by a later restart):** the
+  usage prune is no longer a synchronous boot step. It is a River periodic job with
+  `RunOnStart: true` (`infra/jobs/river/river.go`). The job runs on the leader, and the new process
+  becomes leader only after the killed process's lease is gone. The spec asserted as soon as
+  `restartBackend()` returned healthy. It passed in earlier rounds when the lease was free sooner.
+- **Fix (test side):** poll until the row the prune must drop is gone, then assert the rest. The
+  prune is one DELETE, so the other rows settle with it.
+- **Closed:** `REPEAT=5` on this spec, 5/5. It is the only red and it is test-side, so there is no
+  new full run.
+
 # Full-suite failures — round 2026-09-26 (branch `embed-update-hook`, event bus / outbox / webhooks, uncommitted)
 
 Two full runs. Logs: run 1 `scratchpad/accept-logs/.accept-test-fresh.log`, run 2

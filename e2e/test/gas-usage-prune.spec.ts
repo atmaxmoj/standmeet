@@ -11,7 +11,7 @@
 //
 // Old rows cannot be made through any API — there is no "set the clock back" endpoint, and there
 // should not be. They are inserted directly, and the prune is triggered the only way it happens in
-// production: the process starts.
+// production: the process starts (it runs once on start, then daily).
 
 import { test, expect } from '@playwright/test';
 import { claim, login as loginAPI } from '@/fixtures/admin';
@@ -63,10 +63,15 @@ test('the prune keeps what a live tank is accountable for, and drops the rest', 
 
   restartBackend();
 
+  // The prune is a periodic job that runs on start — on the River leader, after the new process
+  // wins the lease, so it lands some seconds after the backend reports healthy. Wait for the row it
+  // must drop, then read the rest: the prune is one DELETE, so the others are settled with it.
+  await expect.poll(() => usageCount(ownerID, 'unmetered'), {
+    message: 'the start-up prune ran', timeout: 60_000,
+  }).toBe(0);
   expect(usageCount(ownerID, 'kept'), 'the live tank still needs it').toBe(1);
   expect(usageCount(ownerID, 'recent'), 'inside the dashboard window').toBe(1);
   expect(usageCount(ownerID, 'idle-tank'), 'no tank is summing it — it is just old').toBe(0);
-  expect(usageCount(ownerID, 'unmetered'), 'never counted against any tank').toBe(0);
 
   // And the tank still reads as spent: the arithmetic that kept the row is the same one the gauge
   // reports, so a prune that got this wrong would show up here as fuel that grew back.
