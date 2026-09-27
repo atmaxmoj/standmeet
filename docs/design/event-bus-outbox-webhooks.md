@@ -388,6 +388,14 @@ build.
   - The first request fills KV (bootstrap). No reconcile cron: delivery is guaranteed or visibly
     failed (see *Decided*).
   - Deploy needs the KV namespace id and `CORPUS_HOOK_SECRET`.
+  - **Deploy attempt 2026-09-27, rolled back.** KV namespace `standmeet-landing-CORPUS`
+    (`559323b2547b4ea888f45b3e885e303f`) exists. The Worker's logs showed two errors on the first
+    request with an empty KV: `Too many subrequests by single Worker invocation` and
+    `Worker exceeded CPU time limit`. The account is on the free Workers plan: 50 subrequests and
+    10 ms CPU per request. The bootstrap fetches every entry in both languages in one request, so
+    it cannot fit. `wrangler dev` does not apply these limits, so it passed locally. The landing
+    repo was reverted to the static blog, and the embed's hook was detached. The design needs
+    either the Workers Paid plan or a fill that fits the free limits.
 - [ ] **Acceptance:** the owner edits a note on sijie.xyz → within 60 s the standmeet.com page shows
   the change without a deploy. Checked in the real environment, recorded under
   `docs/real-env-verification/`. Open until the release and the standmeet.com deploy.
