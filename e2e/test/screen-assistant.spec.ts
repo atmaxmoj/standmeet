@@ -48,6 +48,32 @@ test.describe('admin screen assistant', () => {
       .toContainText('How do you isolate untrusted code?');
   });
 
+  // A card on a question that names a technology carries a choice matrix (a GFM table) for the
+  // deep dive — "why bubblewrap, not Docker". It must render as a table, not as pipe characters.
+  test('a card with a choice matrix shows it as a table', async ({ request, adminPage }) => {
+    const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+    const token = await createAPIToken(request, csrf, 'screen-assistant-matrix');
+    const sid = await initMCP(request, token);
+    await gotoAdminSection(adminPage, 'screen-assistant');
+    await callTool(request, token, sid, 'assistant.push', {
+      id: 'matrix-1', kind: 'cue',
+      text: [
+        '**Key: isolation + no docker.sock**',
+        '**The backend never holds docker.sock, so plugins run in bubblewrap.**',
+        '',
+        '**Why this over the alternatives:**',
+        '| Option | Picked | Good at | Why (not) here |',
+        '|---|---|---|---|',
+        '| bubblewrap | ✓ | namespaces without a daemon | needs no docker.sock |',
+        '| Docker | | full containers | would hand the backend root on the host |',
+      ].join('\n'),
+    });
+    const table = adminPage.getByTestId('assistant-cue').filter({ hasText: 'Why this over' }).locator('table');
+    await expect(table).toBeVisible({ timeout: 10_000 });
+    await expect(table.locator('tbody tr').first()).toContainText('bubblewrap');
+    await expect(table.locator('tbody tr')).toHaveCount(2);
+  });
+
   test('the page offers the desktop app download', async ({ adminPage }) => {
     await gotoAdminSection(adminPage, 'screen-assistant');
     await expect(adminPage.getByTestId('assistant-download'))

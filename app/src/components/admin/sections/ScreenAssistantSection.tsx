@@ -9,6 +9,7 @@ import { Children, Fragment, type ReactNode } from 'react';
 
 import { useTranslations } from 'next-intl';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { bionicPieces } from '@/lib/admin/bionic';
@@ -61,8 +62,12 @@ function Feed({ events }: { events: readonly AssistantEvent[] }) {
           </p>
         )
         : (
-          <article key={`c-${e.id}`} data-testid="assistant-cue" className="reading text-[16px] border-l-2 border-(--color-accent) pl-4">
-            <ReactMarkdown components={{ p: Lead, li: LeadLi }}>{e.text}</ReactMarkdown>
+          <article
+            key={`c-${e.id}`} data-testid="assistant-cue"
+            // the choice matrix (a GFM table) scrolls sideways on a phone instead of squeezing the words
+            className="reading text-[16px] border-l-2 border-(--color-accent) pl-4 overflow-x-auto [&_table]:my-3 [&_table]:border-collapse [&_table]:text-[14px] [&_th]:mono [&_th]:text-[11px] [&_th]:text-left [&_th]:border-b [&_th]:border-(--color-rule) [&_th]:px-2 [&_th]:py-1 [&_td]:border-b [&_td]:border-(--color-rule) [&_td]:px-2 [&_td]:py-1 [&_td]:align-top"
+          >
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ p: Lead, li: LeadLi, td: LeadTd }}>{e.text}</ReactMarkdown>
           </article>
         ))}
     </div>
@@ -82,4 +87,8 @@ function Lead({ children }: { children?: ReactNode }) {
 
 function LeadLi({ children }: { children?: ReactNode }) {
   return <li className="ml-5 list-disc mb-1">{bionic(children)}</li>;
+}
+
+function LeadTd({ children }: { children?: ReactNode }) {
+  return <td>{bionic(children)}</td>;
 }
