@@ -36,9 +36,9 @@ export function ConvTranscriptModal({ transcript, onClose }: Props) {
       kicker={t('transcript.kicker')}
       title={t('transcript.modalTitle', { id: transcript.conversationID.slice(0, 8) })}
       maxWidth={720}
+      actions={<DownloadButton transcript={transcript} />}
     >
       <div className="px-7 py-6" data-testid="transcript-body">
-        <DownloadButton transcript={transcript} />
         <TranscriptBody transcript={transcript} />
         <GroundingBlock titles={transcript.grounding} />
         <GhostsBlock ghosts={transcript.ghosts} />
@@ -47,20 +47,19 @@ export function ConvTranscriptModal({ transcript, onClose }: Props) {
   );
 }
 
-// DownloadButton —— the whole conversation as a Markdown file; shown once there is something to take.
+// DownloadButton —— the whole conversation as a Markdown file; shown once there is something to
+// take. It sits in the modal header, beside close, so it is in reach at any scroll position.
 function DownloadButton({ transcript }: { transcript: ConvTranscript }) {
   const t = useTranslations('adminAccess');
   return pickTranscriptState(transcript) !== 'list' ? null : (
-    <div className="flex justify-end mb-4">
-      <button
-        type="button"
-        data-testid="transcript-download"
-        onClick={() => downloadTranscript(transcript)}
-        className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) hover:text-(--color-accent) transition-colors"
-      >
-        {t('transcript.download')}
-      </button>
-    </div>
+    <button
+      type="button"
+      data-testid="transcript-download"
+      onClick={() => downloadTranscript(transcript)}
+      className="mono text-[11px] tracking-[0.14em] uppercase px-2.5 py-1 border border-(--color-ink) text-(--color-ink) rounded-sm hover:bg-(--color-ink) hover:text-(--color-paper) transition-colors"
+    >
+      {t('transcript.download')}
+    </button>
   );
 }
 

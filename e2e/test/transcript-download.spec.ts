@@ -24,9 +24,14 @@ const OWNER = {
 };
 const CODE = 'TRANSCRIPTDL-001';
 const VISITOR = 'Download Visitor';
+// Long enough that the transcript scrolls: the owner reads an interview to its end, and the
+// download must still be there (2026-09-28: "still not easy to find" — it sat at the top of the
+// scrolling body, in small grey type, and scrolled away).
+const FILLER = 'A long answer that takes up room in the transcript, the way a real interview does. '.repeat(6);
 const TURNS = [
   { q: 'What did you build first?', a: 'A Kafka ETL, from scratch.' },
   { q: 'And after that?', a: 'Delivery-platform integrations.' },
+  ...Array.from({ length: 8 }, (_, i) => ({ q: `Follow-up question ${i + 1}?`, a: `Answer ${i + 1}. ${FILLER}` })),
 ];
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
@@ -66,5 +71,20 @@ test.describe('transcript · download', () => {
     const order = TURNS.flatMap((t) => [t.q, t.a]);
     for (const s of order) expect(at(s), `contains "${s}"`).toBeGreaterThanOrEqual(0);
     expect(order.map(at), 'question → answer, turn after turn').toEqual([...order.map(at)].sort((x, y) => x - y));
+  });
+
+  test('the download stays in reach after reading to the end', async ({ adminPage }) => {
+    await gotoAdminSection(adminPage, 'conversations');
+    await adminPage.getByText(VISITOR, { exact: true }).click();
+    const last = adminPage.getByTestId('transcript-body').getByText(`Answer ${TURNS.length - 2}.`);
+    await last.scrollIntoViewIfNeeded({ timeout: 15_000 });
+    const button = adminPage.getByTestId('transcript-download');
+    await expect(button, 'the button says what it does').toHaveAccessibleName(/download/i);
+    await expect(button, 'still on screen at the end of a long transcript').toBeInViewport();
+    // For a human to judge the header's look: an assertion cannot tell pinned from cramped.
+    await adminPage.screenshot({ path: 'manual-runs/transcript-download-header.png' });
+    await adminPage.setViewportSize({ width: 390, height: 800 });
+    await expect(button, 'in reach on a phone too').toBeInViewport();
+    await adminPage.screenshot({ path: 'manual-runs/transcript-download-header-mobile.png' });
   });
 });

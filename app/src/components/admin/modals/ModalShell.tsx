@@ -25,6 +25,8 @@ type Props = {
   kicker?: string;
   title: string;
   maxWidth?: number;
+  // actions —— controls pinned in the header beside close, so they stay in reach while the body scrolls.
+  actions?: ReactNode;
   children: ReactNode;
 };
 
@@ -37,7 +39,7 @@ export function ModalShell(props: Props) {
   return mounted ? createPortal(<ModalBody {...props} />, document.body) : null;
 }
 
-function ModalBody({ onClose, kicker, title, maxWidth = 540, children }: Props) {
+function ModalBody({ onClose, kicker, title, maxWidth = 540, actions, children }: Props) {
   const stop = useCallback((e: React.MouseEvent) => e.stopPropagation(), []);
   return (
     <div
@@ -61,7 +63,7 @@ function ModalBody({ onClose, kicker, title, maxWidth = 540, children }: Props) 
         className="flex flex-col w-full max-h-[85vh] overflow-hidden bg-(--color-paper) border border-(--color-rule) rounded-sm rise crosshair sm-max-w"
       >
         <span className="ch-tl" /><span className="ch-br" />
-        <ModalHeader kicker={kicker} title={title} onClose={onClose} />
+        <ModalHeader kicker={kicker} title={title} onClose={onClose} actions={actions} />
         {/* Frame is fixed, only this area scrolls — header/close always stay pinned */}
         <div className="flex-1 overflow-y-auto min-h-0">
           {children}
@@ -72,19 +74,22 @@ function ModalBody({ onClose, kicker, title, maxWidth = 540, children }: Props) 
 }
 
 function ModalHeader({
-  kicker, title, onClose,
-}: { kicker?: string; title: string; onClose: () => void }) {
+  kicker, title, onClose, actions,
+}: { kicker?: string; title: string; onClose: () => void; actions?: ReactNode }) {
   const t = useTranslations('adminShell.modal');
   return (
-    <div className="shrink-0 flex items-baseline justify-between px-7 py-5 border-b border-(--color-rule)">
+    <div className="shrink-0 flex items-baseline justify-between gap-4 px-7 py-5 border-b border-(--color-rule)">
       <ModalTitle kicker={kicker} title={title} />
-      <button
-        type="button"
-        onClick={onClose}
-        className="mono text-[11px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-ink)"
-      >
-        {t('close')}
-      </button>
+      <div className="flex items-baseline gap-5 shrink-0">
+        {actions}
+        <button
+          type="button"
+          onClick={onClose}
+          className="mono text-[11px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-ink)"
+        >
+          {t('close')}
+        </button>
+      </div>
     </div>
   );
 }
