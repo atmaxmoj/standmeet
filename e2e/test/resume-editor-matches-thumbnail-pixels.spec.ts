@@ -6,8 +6,9 @@
 //
 // Why this replaces the old inkRatio-only check (owner, twice): inkRatio only answers "is anything
 // drawn at all". It cannot see that the thumbnail renders a DIFFERENT picture than the editor — a
-// missing QR frame, a dark border, a wrong layout. So this screenshots the SAME element (.sm-resume-
-// paper) on both surfaces, normalizes them to one small canvas, and asserts the pixel diff is small.
+// missing QR frame, a dark border, a wrong layout. So this screenshots the SAME element (the paper,
+// [data-resume-paper]) on both surfaces, normalizes them to one small canvas, and asserts the pixel
+// diff is small.
 // And it asserts the QR treatment is identical (a draft has no issued code, so both show the same
 // placeholder frame — never a real QR on one side and nothing on the other).
 //
@@ -58,7 +59,8 @@ test.describe('résumé · the thumbnail renders the same picture + QR treatment
       // QR treatment while we are on the listing.
       const thumb = page.getByTestId('draft-thumb').first();
       await expect(thumb, 'a thumbnail is present').toBeVisible({ timeout: 30_000 });
-      const thumbPaper = thumb.locator('.sm-resume-paper');
+      // [data-resume-paper] —— the whole paper (its A4 sheets + the text over them), not one sheet
+      const thumbPaper = thumb.locator('[data-resume-paper]');
       await expect(thumbPaper).toBeVisible();
       const thumbShot = await thumbPaper.screenshot();
       const thumbQR = await qrTreatment(thumb);
@@ -67,7 +69,7 @@ test.describe('résumé · the thumbnail renders the same picture + QR treatment
       await page.getByTestId(`draft-open-${id}`).click();
       await expect(page.getByTestId('puck-resume-editor')).toBeVisible({ timeout: 30_000 });
       const canvas: FrameLocator = page.frameLocator('iframe').first();
-      const editorPaper = canvas.locator('.sm-resume-paper');
+      const editorPaper = canvas.locator('[data-resume-paper]');
       await expect(editorPaper, 'editor renders the résumé paper').toBeVisible({ timeout: 30_000 });
       await expect(canvas.locator('[data-sec="header"]'), 'editor carries the seeded name')
         .toContainText(new RegExp(MARK, 'i'), { timeout: 30_000 });

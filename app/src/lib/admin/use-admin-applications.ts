@@ -3,7 +3,7 @@
 
 import { z } from 'zod';
 
-import { ResumeContentSchema } from '@/lib/admin/draft-detail';
+import { ResumeContentSchema } from '@/lib/admin/draft-wire';
 import { createPagedStore, usePaged, type PagedState } from '@/lib/state/create-paged-store';
 
 // resume_content —— this is what the detail card's snapshot block renders

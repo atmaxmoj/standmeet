@@ -1541,3 +1541,15 @@
   background: #F3EFE6;
   color: #1B1814;
 }
+
+/* A run of same-kind résumé entries is headed once — on its first entry. Each entry renders its
+ * section's heading (data-sec-lead); this hides it when the entry before is the same kind. Two forms
+ * of "the entry before": bare siblings (the printed <Render>) and per-component wrappers (the editor). */
+.sm-resume-paper [data-sec="experience"] + [data-sec="experience"] [data-sec-lead],
+.sm-resume-paper :has([data-sec="experience"]) + :has([data-sec="experience"]) [data-sec-lead],
+.sm-resume-paper [data-sec="education"] + [data-sec="education"] [data-sec-lead],
+.sm-resume-paper :has([data-sec="education"]) + :has([data-sec="education"]) [data-sec-lead],
+.sm-resume-paper [data-sec="skillset"] + [data-sec="skillset"] [data-sec-lead],
+.sm-resume-paper :has([data-sec="skillset"]) + :has([data-sec="skillset"]) [data-sec-lead] {
+  display: none;
+}

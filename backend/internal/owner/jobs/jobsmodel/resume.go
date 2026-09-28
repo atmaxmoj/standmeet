@@ -20,7 +20,11 @@ type ResumeContent struct {
 	CoverLetter string         `json:"cover_letter,omitempty"`
 	// Accent — owner-chosen accent colour (#RRGGBB); empty → template default. In resume_content
 	// JSONB, so no schema change; it snapshots into the committed application.
-	Accent     string            `json:"accent,omitempty"`
+	Accent string `json:"accent,omitempty"`
+	// PaperSize — "letter" or "a4"; empty → letter. The print page sets its @page size from it
+	// and the editor draws its sheets in the same proportions. In resume_content JSONB, no
+	// schema change.
+	PaperSize  string            `json:"paper_size,omitempty"`
 	Works      []ResumeWork      `json:"works"`
 	Educations []ResumeEducation `json:"educations"`
 	Skills     []ResumeSkillSet  `json:"skills"`

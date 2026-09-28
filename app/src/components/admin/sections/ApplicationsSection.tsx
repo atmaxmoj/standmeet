@@ -14,7 +14,7 @@ import { LoadMore } from '@/components/admin/LoadMore';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { totalLabel } from '@/lib/state/create-paged-store';
 import { ApplicationDetailModal } from '@/components/admin/ApplicationDetailModal';
-import { toDraftModel } from '@/lib/admin/draft-detail';
+import { toDraftModel } from '@/lib/admin/draft-wire';
 import {
   pillToneFor,
   submissionLabel,

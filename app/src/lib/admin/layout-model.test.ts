@@ -14,8 +14,8 @@ function base(): DraftModel {
   return {
     id: 'd1', company: '', role: '', name: '', summary: '',
     contact: { email: '', phone: '', location: '', site: '' },
-    skills: [], experience: [], education: [], social: [], custom: [],
-    coverLetter: '', template: '', accent: '', fontScale: 1,
+    skillSets: [], experience: [], education: [], social: [], custom: [],
+    coverLetter: '', template: '', accent: '', fontScale: 1, paperSize: 'letter',
     leftOrder: [...LEFT_SECTIONS], leftWidth: DEFAULT_LEFT_WIDTH,
   };
 }

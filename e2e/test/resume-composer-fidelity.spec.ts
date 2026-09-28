@@ -45,9 +45,10 @@ test.describe('the composer renders every section type faithfully (Q0)', () => {
       await expect(canvas.locator('[data-sec="summary"]')).toHaveCount(1);
       await expect(canvas.locator('[data-sec="experience"]'), 'both roles').toHaveCount(2);
       await expect(canvas.locator('[data-sec="education"]')).toHaveCount(1);
-      // The composer's DraftModel flattens all skill categories into one anonymous category by design
-      // (draft-model.ts), so one SkillSet block carries every skill — not one per seeded category.
-      await expect(canvas.locator('[data-sec="skillset"]'), 'skills collapse to one category by design').toHaveCount(1);
+      // One SkillSet block per category the owner wrote. The composer used to flatten them into one
+      // anonymous category (and every Save wrote that back — the owner's groups were lost); this
+      // count asserted the flattening as "by design" until 2026-09-28.
+      await expect(canvas.locator('[data-sec="skillset"]'), 'one block per skill category').toHaveCount(2);
       await expect(canvas.locator('[data-sec="social"]')).toHaveCount(1);
       // Custom: one label+value section + one divider (both tagged data-sec="custom").
       await expect(canvas.locator('[data-sec="custom"]')).toHaveCount(2);

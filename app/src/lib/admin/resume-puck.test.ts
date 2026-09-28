@@ -33,6 +33,7 @@ function fullContent(): ResumeContent {
     custom: [{ label: 'Certifications', value: 'AWS SAA', kind: '' }],
     accent: '#2E5AAC',
     fontScale: 1.1,
+    paperSize: 'a4',
     leftWidth: 0.9,
     leftOrder: ['skills', 'education', 'custom'],
   };
@@ -92,7 +93,7 @@ describe('toPuckData gives every component a unique Puck id (U5)', () => {
         { school: 'ca dca d', degree: 'v sad', period: { start: '', end: null } },
       ],
       skills: [{ category: '', items: ['x'] }],
-      social: [], custom: [], accent: '', fontScale: 1, leftWidth: 0.9,
+      social: [], custom: [], accent: '', fontScale: 1, paperSize: 'letter', leftWidth: 0.9,
       leftOrder: ['skills', 'education', 'custom'],
     };
     const content = toPuckData(rc).content;
@@ -140,7 +141,7 @@ describe('an empty résumé still projects cleanly (U8)', () => {
     identity: { name: '', email: '', phone: '', locationLine: '', site: '' },
     summary: '', coverLetter: '',
     works: [], educations: [], skills: [{ category: '', items: [] }],
-    social: [], custom: [], accent: '', fontScale: 1, leftWidth: 0.9,
+    social: [], custom: [], accent: '', fontScale: 1, paperSize: 'letter', leftWidth: 0.9,
     leftOrder: ['skills', 'education', 'custom'],
   };
   it('projects to header + summary + one skillset, all with unique ids', () => {

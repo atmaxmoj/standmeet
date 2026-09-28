@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { z } from 'zod';
 
-import { ResumeContentSchema } from '@/lib/admin/draft-detail';
+import { ResumeContentSchema } from '@/lib/admin/draft-wire';
 import { safeJson } from '@/lib/api/typed-json';
 
 export type DraftStatus = 'reviewing' | 'draft' | 'sent';

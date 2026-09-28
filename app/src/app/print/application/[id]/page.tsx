@@ -12,11 +12,8 @@ import { notFound } from 'next/navigation';
 import { ResumePuckRender } from '@/components/admin/resume-page/ResumePuckRender';
 // Paints the whole A4 sheet cream on every printed page (only loaded on this print route).
 import '@/app/print/application/[id]/print.css';
-import {
-  fetchPrintPayload,
-  toResumeContent,
-  type PrintPayloadWire,
-} from '@/lib/admin/print-payload';
+import { wireToResumeContent } from '@/lib/admin/draft-wire';
+import { fetchPrintPayload, type PrintPayloadWire } from '@/lib/admin/print-payload';
 
 // Force dynamic — never cache; the token in the URL would defeat caching
 // anyway, and the data is one-shot from Redis.
@@ -41,6 +38,6 @@ export default async function PrintPage({
 // this route no longer computes pages or passes a separate job context — the job's role/company are
 // draft metadata, not résumé content, so they are not printed.
 function PrintBody({ payload }: { payload: PrintPayloadWire }) {
-  const content = toResumeContent(payload.resume_content);
+  const content = wireToResumeContent(payload.resume_content);
   return <ResumePuckRender content={content} qrURL={payload.qr_url} />;
 }

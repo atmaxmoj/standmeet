@@ -1,17 +1,17 @@
 // resume-composer-mobile-a4.spec.ts —— A3 item B: the Puck editor's résumé sheet is ASPECT-LOCKED to
-// A4 (210:297), which is what keeps its proportions on any viewport width, mobile included (owner:
-// "puck 的编辑页要保持 A4 纸张的大小，mobile 保持他的比例"). The sheet is `aspect-[210/297] max-w-full`,
-// so `max-w-full` shrinks its width to whatever space it gets and `aspect-ratio` derives the height
-// from that width — the ratio can never drift, at 794px or at a phone width.
+// its paper, which is what keeps its proportions on any viewport width, mobile included (owner:
+// "puck 的编辑页要保持 A4 纸张的大小，mobile 保持他的比例"). Since 2026-09-28 the paper is the owner's
+// setting — US Letter (default) or A4 — so each is checked: the sheet is `max-w-full` with an
+// aspect-ratio, so its width shrinks to whatever space it gets and the height follows — the ratio can
+// never drift, at full width or at a phone width.
 //
 // This asserts the computed `aspect-ratio` on the sheet, not a boundingBox at a fixed phone size: the
 // aspect-ratio IS the mobile guarantee (viewport-independent), whereas boundingBox at 390px would be
 // measuring Puck's desktop-first editor shell squeezing the canvas, not the sheet's proportions.
-// resume-composer-sections already checks the rendered ratio at the desktop viewport; this pins the
-// invariant that carries it to mobile. Dropping the aspect box (e.g. a fixed height) fails this.
+// Dropping the aspect box (e.g. a fixed height) fails this.
 
 import { test, expect } from '@/fixtures/test';
-import type { APIRequestContext } from '@playwright/test';
+import type { APIRequestContext, Page } from '@playwright/test';
 
 import { claimFreshOwner } from '@/fixtures/seed';
 import { login as loginAPI } from '@/fixtures/admin';
@@ -23,43 +23,50 @@ const OWNER = {
 };
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
-test.describe('the Puck résumé sheet is A4 aspect-locked (holds its ratio on mobile) — A3 B', () => {
+test.describe('the Puck résumé sheet is aspect-locked to its paper (holds its ratio on mobile) — A3 B', () => {
   test.beforeAll(async ({ playwright }) => { await claimFreshOwner(playwright, OWNER); });
 
-  test('the résumé sheet has a locked 210/297 aspect-ratio', async ({ adminPage: page, playwright }) => {
+  test('A4 chosen: the sheet is locked to 210/297', async ({ adminPage: page, playwright }) => {
     test.setTimeout(120_000);
-    const api: APIRequestContext = await playwright.request.newContext();
-    const { csrf } = await loginAPI(api, OWNER.email, OWNER.password);
-    const id = await seed(api, csrf);
+    const id = await seedWith(playwright, 'a4');
+    await expectSheetRatio(page, id, 297 / 210);
+  });
 
-    await openReader(page, `/admin/edit-resume/${id}`);
-    await expect(page.getByTestId('puck-resume-editor')).toBeVisible({ timeout: 30_000 });
-
-    const canvas = page.frameLocator('iframe').first();
-    const paper = canvas.locator('.sm-resume-paper').first();
-    await expect(paper, 'the résumé sheet renders').toBeVisible({ timeout: 15_000 });
-
-    // The A4 lock: `aspect-ratio: 210 / 297`. Chromium reports it as "210 / 297". Normalize spaces and
-    // compare the numeric pair, so the ratio (not any width) is what's asserted.
-    const aspect = await paper.evaluate((el) => getComputedStyle(el).aspectRatio);
-    expect(aspect.replace(/\s+/g, ''), `sheet is A4 aspect-locked (got "${aspect}")`).toBe('210/297');
-
-    // And it does render as A4-proportioned at the current width (the lock is actually in effect).
-    const box = await paper.boundingBox();
-    expect(box, 'the sheet has a box').not.toBeNull();
-    const ratio = box!.width / box!.height;
-    expect(Math.abs(ratio - 210 / 297), `renders A4-proportioned (got ${ratio.toFixed(3)})`).toBeLessThan(0.04);
-    await api.dispose();
+  test('by default (US Letter) the sheet is locked to 8.5/11', async ({ adminPage: page, playwright }) => {
+    test.setTimeout(120_000);
+    const id = await seedWith(playwright, undefined);
+    await expectSheetRatio(page, id, 11 / 8.5);
   });
 });
 
-async function seed(api: APIRequestContext, csrf: string): Promise<string> {
+// expectSheetRatio —— the computed aspect-ratio (height/width) is the paper's, and the rendered box
+// follows it at the current width (the lock is actually in effect).
+async function expectSheetRatio(page: Page, id: string, heightOverWidth: number): Promise<void> {
+  await openReader(page, `/admin/edit-resume/${id}`);
+  await expect(page.getByTestId('puck-resume-editor')).toBeVisible({ timeout: 30_000 });
+  const sheet = page.frameLocator('iframe').first().locator('[data-resume-sheet]').first();
+  await expect(sheet, 'the résumé sheet renders').toBeVisible({ timeout: 15_000 });
+
+  // Chromium reports aspect-ratio as "w / h" — compare the numbers, not the spelling.
+  const aspect = await sheet.evaluate((el) => getComputedStyle(el).aspectRatio);
+  const [w, h] = aspect.split('/').map((s) => Number(s.trim()));
+  expect(Math.abs(h! / w! - heightOverWidth), `sheet aspect-ratio (got "${aspect}")`).toBeLessThan(0.001);
+
+  const box = await sheet.boundingBox();
+  expect(box, 'the sheet has a box').not.toBeNull();
+  expect(Math.abs(box!.height / box!.width - heightOverWidth), 'renders in its paper\'s proportions').toBeLessThan(0.04);
+}
+
+async function seedWith(playwright: { request: { newContext(): Promise<APIRequestContext> } }, paper: string | undefined): Promise<string> {
+  const api = await playwright.request.newContext();
+  const { csrf } = await loginAPI(api, OWNER.email, OWNER.password);
   const { id } = await createDraft(api, csrf, { company: 'Acme', role: 'Engineer' });
   const resume_content = {
     identity: { name: 'M', email: 'm@ex.io', phone: '', location_line: 'Remote', site: '', links: [] },
     summary: 'a short summary', works: [], educations: [], skills: [{ category: '', items: ['x'] }],
-    social: [], custom: [], accent: '',
+    social: [], custom: [], accent: '', ...(paper ? { paper_size: paper } : {}),
   };
   await updateDraft(api, csrf, id, { resume_content, template: '' });
+  await api.dispose();
   return id;
 }

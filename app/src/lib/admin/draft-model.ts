@@ -24,8 +24,10 @@ import type {
 import type {
   ResumeContent,
   ResumeCustom,
+  ResumeSkillSet,
   ResumeSocial,
 } from '@/lib/admin/resume-content';
+import type { PaperSize } from '@/lib/admin/resume-pages';
 
 export interface DraftContact {
   email: string;
@@ -74,7 +76,9 @@ export interface DraftModel {
   name: string;
   summary: string;
   contact: DraftContact;
-  skills: readonly string[];
+  /** Skill groups as the owner wrote them (category + items). Kept grouped end to end: flattening
+   *  them here once made every Save collapse the categories into one. */
+  skillSets: readonly ResumeSkillSet[];
   experience: readonly DraftExperience[];
   education: readonly DraftEducation[];
   social: readonly DraftSocial[];
@@ -86,6 +90,8 @@ export interface DraftModel {
   accent: string;
   /** Owner-chosen font-size multiplier for the whole résumé (1 = the template default). */
   fontScale: number;
+  /** Letter (default) or A4 — the PDF's page size and the editor's sheets. */
+  paperSize: PaperSize;
   /** Order of the left-rail sections (drag-to-reorder on the canvas). Keys: skills/education/custom. */
   leftOrder: readonly string[];
   /** Left-column width in `fr` (main column is fixed 2fr); drag the divider to rebalance. */
@@ -173,7 +179,7 @@ export function applyResumeContentToDraft(base: DraftModel, rc: ResumeContent): 
       email: rc.identity.email, phone: rc.identity.phone ?? '',
       location: rc.identity.locationLine, site: rc.identity.site ?? '',
     },
-    skills: rc.skills.flatMap((s) => [...s.items]),
+    skillSets: rc.skills.map((s) => ({ category: s.category, items: [...s.items] })),
     experience: rc.works.map((w, i) => ({
       id: base.experience[i]?.id ?? `e-${i}`, org: w.company, role: w.title,
       start: w.period.start, end: w.period.end ?? '', loc: w.location, bullets: [...w.bullets],
@@ -189,6 +195,7 @@ export function applyResumeContentToDraft(base: DraftModel, rc: ResumeContent): 
     coverLetter: rc.coverLetter ?? '',
     accent: rc.accent ?? '',
     fontScale: rc.fontScale ?? 1,
+    paperSize: rc.paperSize ?? 'letter',
     leftWidth: rc.leftWidth ?? DEFAULT_LEFT_WIDTH,
     leftOrder: rc.leftOrder ? [...rc.leftOrder] : base.leftOrder,
   };
@@ -199,11 +206,8 @@ export function applyResumeContentToDraft(base: DraftModel, rc: ResumeContent): 
 // with it.)
 
 // draftToResumeContent —— adapter from the composer's edit-friendly
-// DraftModel to the print-side ResumeContent shape ResumePage consumes.
-// Splits the flat skill list into one anonymous category (ResumePage's
-// left rail flattens all categories into a bullet list anyway, so a
-// single category preserves order without forcing per-skill grouping in
-// the UI yet).
+// DraftModel to the ResumeContent shape the Puck renderer consumes. Skill
+// groups pass through as the owner wrote them.
 export function draftToResumeContent(m: DraftModel): ResumeContent {
   return {
     identity: {
@@ -227,7 +231,7 @@ export function draftToResumeContent(m: DraftModel): ResumeContent {
       degree: e.degree,
       period: mkPeriod(e.start, e.end),
     })),
-    skills: [{ category: '', items: [...m.skills] }],
+    skills: m.skillSets.map((s) => ({ category: s.category, items: [...s.items] })),
     social: m.social
       .filter((s) => s.handle.trim() !== '')
       .map((s): ResumeSocial => ({ kind: s.kind, label: s.kind, handle: s.handle })),
@@ -236,6 +240,7 @@ export function draftToResumeContent(m: DraftModel): ResumeContent {
       .map((c): ResumeCustom => ({ label: c.label, value: c.value, kind: c.kind })),
     accent: m.accent,
     fontScale: m.fontScale,
+    paperSize: m.paperSize,
     leftOrder: m.leftOrder,
     leftWidth: m.leftWidth,
   };
@@ -261,11 +266,12 @@ export function draftToAPIContent(m: DraftModel): Record<string, unknown> {
     educations: m.education.map((e) => ({
       period: mkPeriod(e.start, e.end), school: e.school, degree: e.degree,
     })),
-    skills: [{ category: '', items: [...m.skills] }],
+    skills: m.skillSets.map((s) => ({ category: s.category, items: [...s.items] })),
     social: m.social.map((s) => ({ kind: s.kind, label: s.kind, handle: s.handle })),
     custom: m.custom.map((c) => ({ label: c.label, value: c.value, kind: c.kind })),
     accent: m.accent,
     font_scale: m.fontScale,
+    paper_size: m.paperSize,
     left_order: [...m.leftOrder],
     left_width: m.leftWidth,
   };

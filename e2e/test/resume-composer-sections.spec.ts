@@ -54,12 +54,15 @@ test.describe('the composer renders draft sections as distinct components (Q0)',
       await expect(canvas.getByText('cwdvae', { exact: false })).toBeVisible();
       await expect(canvas.getByText('ca dca d', { exact: false })).toBeVisible();
 
-      // The canvas is an A4 sheet: for this short résumé the paper holds A4 proportions (210:297).
-      const paper = canvas.locator('.sm-resume-paper').first();
-      const box = await paper.boundingBox();
+      // The canvas draws the résumé on sheets of its paper — US Letter by default (8.5:11); this short
+      // résumé fits one sheet. (Paper became a setting 2026-09-28; A4 is covered in
+      // resume-composer-mobile-a4 and resume-pagination.)
+      const sheets = canvas.locator('[data-resume-sheet]');
+      await expect(sheets, 'a short résumé is one sheet').toHaveCount(1);
+      const box = await sheets.first().boundingBox();
       expect(box, 'the paper sheet has a box').not.toBeNull();
       const ratio = box!.width / box!.height;
-      expect(Math.abs(ratio - 210 / 297), `paper is A4-proportioned (got ${ratio.toFixed(3)})`).toBeLessThan(0.04);
+      expect(Math.abs(ratio - 8.5 / 11), `sheet is Letter-proportioned (got ${ratio.toFixed(3)})`).toBeLessThan(0.04);
 
       // Section headings render in the accent (the typst "红色 title"): #B5391C = rgb(181, 57, 28).
       const headColor = await canvas.locator('[data-sec-head]').first()

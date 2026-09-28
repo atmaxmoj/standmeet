@@ -17,7 +17,7 @@
 'use client';
 
 import { ResumePuckRender } from '@/components/admin/resume-page/ResumePuckRender';
-import { toDraftModel } from '@/lib/admin/draft-detail';
+import { toDraftModel } from '@/lib/admin/draft-wire';
 import { draftToResumeContent, type DraftModel } from '@/lib/admin/draft-model';
 import type { AdminDraftRow } from '@/lib/admin/use-admin-drafts';
 

@@ -10,7 +10,7 @@
 //
 // Phase 1 ships only one entry — `Render(ctx, printURL)` → POST to
 // `/forms/chromium/convert/url` with `url=<printURL>` + a few fixed page
-// options (US Letter, no margins, wait until `networkidle`).
+// options (the page's own @page size, no margins, scale 1, a short wait for fonts).
 //
 // The PDF is always ephemeral —— the bytes flow straight back through MCP to
 // Claude; we do not write them to disk.
@@ -66,16 +66,17 @@ const (
 	gotenbergTimeout = 60 * time.Second
 	paperWidthIn     = "8.5"
 	paperHeightIn    = "11"
-	// printScale —— Chromium's default is 1 CSS px = 0.75 PDF pt (96dpi → 72dpi).
-	// Our ResumePage uses px so values match the design admin.js literal
-	// (612 px page width = the PDF point grid). scale=1.333 makes the
-	// viewport 612 CSS px wide instead of 816, so the 612px element fills
-	// the US Letter paper exactly and font px === PDF pt.
-	printScale = "1.3333333"
+	// The résumé prints at scale 1 on the paper its own page asks for (@page size, from the
+	// owner's letter/A4 setting — preferCssPageSize): a Letter page is 816 CSS px wide and an
+	// A4 page 794, the widths of the editor's sheets, so the PDF wraps every line where the
+	// canvas does and breaks pages where the canvas shows them (app lib/admin/resume-pages.ts).
+	// It used to print on Letter at 1.333× (a 612 px layout from the retired ResumePage), so no
+	// canvas could predict its pages.
+	resumePrintScale = "1"
 )
 
 // RenderURL —— POST a multipart form to /forms/chromium/convert/url with
-// the page URL + US Letter paper + wait-until-networkidle. Returns raw
+// the page URL at the page's own paper size. Returns raw
 // PDF bytes on 200, error otherwise.
 //
 // Named returns let the deferred Body.Close surface its error via the
@@ -175,14 +176,18 @@ func buildURLForm(printURL string) (*encodedForm, error) {
 	body := &bytes.Buffer{}
 	mp := multipart.NewWriter(body)
 	fields := map[string]string{
-		"url":          printURL,
-		"paperWidth":   paperWidthIn,
-		"paperHeight":  paperHeightIn,
+		"url": printURL,
+		// Letter unless the page's @page size says otherwise (the owner's paper setting).
+		"paperWidth":        paperWidthIn,
+		"paperHeight":       paperHeightIn,
+		"preferCssPageSize": "true",
+		// No page margins here: the paper element pads every page itself (print.css), so the cream
+		// ground reaches the sheet's edges.
 		"marginTop":    "0",
 		"marginBottom": "0",
 		"marginLeft":   "0",
 		"marginRight":  "0",
-		"scale":        printScale,
+		"scale":        resumePrintScale,
 		"waitDelay":    "300ms",
 	}
 	if err := writeFields(mp, fields); err != nil {

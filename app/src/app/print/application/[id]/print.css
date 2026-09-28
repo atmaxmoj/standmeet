@@ -1,6 +1,47 @@
-/* Résumé print route only: a position:fixed layer paints the paper cream on every printed page.
-   The root (html/body) background isn't painted across Chromium's page breaks; an element's is, and
-   fixed elements repeat per page. Without it a short page 2 shows white below the text. */
+/* Résumé print route only.
+   Pages: the owner's paper (Letter or A4) — the render emits its @page size, and gotenberg prints at
+   scale 1 on it, so the page is exactly as wide as the editor's sheet. Every page gets the same top
+   and bottom margin — 6.5% of the width (--page-margin, set by the render from lib/admin/
+   resume-pages.ts, the numbers the editor uses). The margin is the paper element's own padding,
+   repeated on every page it spans (box-decoration-break: clone), not an @page margin: an @page margin
+   is outside every element and prints white. A block marked data-atom is never split across a page
+   break, and a heading marked data-keep-next never ends a page — the same rules the editor uses to
+   lay out its sheets, so the editor shows the PDF's pages. */
+@page letter {
+  size: letter;
+  margin: 0;
+}
+
+@page a4 {
+  size: A4;
+  margin: 0;
+}
+
+.sm-resume-paper[data-paper="letter"] {
+  page: letter;
+}
+
+.sm-resume-paper[data-paper="a4"] {
+  page: a4;
+}
+
+.sm-resume-paper {
+  padding-top: var(--page-margin);
+  padding-bottom: var(--page-margin);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+[data-atom] {
+  break-inside: avoid;
+}
+
+[data-keep-next] {
+  break-after: avoid;
+}
+
+/* A position:fixed layer repeats per printed page, so the cream ground covers every page even below
+   the last line. The root (html/body) background isn't painted across Chromium's page breaks. */
 body::before {
   content: "";
   position: fixed;

@@ -12,14 +12,16 @@ import { useTranslations } from 'next-intl';
 import type { Config, Metadata } from '@measured/puck';
 
 import { QRCode } from '@/components/admin/atoms/QRCode';
+import { PagedPaper } from '@/components/admin/resume-page/PagedPaper';
 import { CodeSearchField } from '@/components/admin/CodeSearchField';
 import { SelectField } from '@/components/atoms/SelectField';
 import { useComposerCodeControl } from '@/lib/admin/composer-code-context';
+import { paperOf, paperSpec, type PaperSize } from '@/lib/admin/resume-pages';
 import { cssVars } from '@/lib/ui/css-vars';
 
 // resumeMeta —— the render-time context passed via Puck `metadata` (NOT résumé content, so it's the
 // same config for editor + print). qrURL: the real per-application QR to draw (empty in the editor →
-// a placeholder card). print: true when rendering for the PDF (a flowing page, not the editor's A4
+// a placeholder card). print: true when rendering for the PDF (a flowing page, not the editor's
 // sheet-on-a-desk). Read defensively — metadata is an open Record.
 // metadata is absent in the editor (<Puck> passes none) and present only when printing (<Render
 // metadata={...}>), so read it optionally — an over-eager `puck.metadata['x']` would throw and blank
@@ -39,6 +41,12 @@ function metaPrint(puck: { metadata?: Metadata }): boolean {
 function paperStyle(accent: string, fontScale: number): CSSProperties {
   const base: Record<`--${string}`, string> = { '--resume-scale': String(fontScale) };
   return cssVars(filled(accent) ? { ...base, '--color-accent': accent } : base);
+}
+
+// pageMarginVar —— the printed page's top/bottom margin for the owner's paper (print.css pads every
+// page with it), the physical twin of the 6.5%-of-width margin the editor's sheets use.
+function pageMarginVar(paperSize: string): CSSProperties {
+  return cssVars({ '--page-margin': paperSpec(paperOf(paperSize)).cssMargin });
 }
 
 type TextItem = { text: string };
@@ -70,7 +78,7 @@ interface ResumeComponents {
   Custom: CustomProps;
 }
 
-interface ResumeRootProps { accent: string; fontScale: number; leftWidth: number; coverLetter: string }
+interface ResumeRootProps { accent: string; fontScale: number; paperSize: PaperSize; leftWidth: number; coverLetter: string }
 
 // period —— "start – end" / "start – present" for a display line.
 function period(start: string, end: string): string {
@@ -98,9 +106,12 @@ function bulletsOf(items: TextItem[]): string[] {
 // SecHead —— the résumé's section heading, matching the typst `sechead`: accent-red uppercase mono
 // label over a thin rule. This IS the "红色 title" — one source of truth for how a heading looks, in
 // the renderer the owner sees AND (once Puck drives the PDF) the renderer that prints.
-function SecHead({ title }: { title: string }): ReactElement {
+// `lead` marks the heading an entry carries for its section (Experience / Education / Skills): every
+// entry renders it and CSS shows it only on the first entry of a run (sm-atoms.css, data-sec-lead),
+// so the section is headed once wherever the owner drags its entries.
+function SecHead({ title, lead = false }: { title: string; lead?: boolean }): ReactElement {
   return (
-    <div className="mt-3 mb-1.5">
+    <div className="mt-3 mb-1.5" data-sec-lead={lead ? '' : undefined}>
       <div data-sec-head className="mono text-[calc(10px*var(--resume-scale))] tracking-[0.14em] uppercase text-(--color-accent)">{title}</div>
       <hr className="mt-0.5 border-0 border-t border-(--color-rule)" />
     </div>
@@ -140,26 +151,32 @@ export const resumePuckConfig: Config<ResumeComponents, ResumeRootProps> = {
           { label: 'x-large', value: 1.25 },
         ],
       },
+      paperSize: {
+        type: 'select',
+        label: 'Paper',
+        options: [
+          { label: 'US Letter', value: 'letter' },
+          { label: 'A4', value: 'a4' },
+        ],
+      },
       leftWidth: { type: 'number', label: 'Left column width (fr)' },
       coverLetter: { type: 'textarea', label: 'Cover letter' },
     },
-    defaultProps: { accent: '', fontScale: 1, leftWidth: 0.9, coverLetter: '' },
-    // The canvas is a DOCUMENT preview: wrap it in the résumé's own fixed paper palette so it renders
-    // ink-on-cream (like the PDF) regardless of the editor's day/night — see .sm-resume-paper.
-    // The canvas is an A4 sheet (210×297mm): the résumé IS a page, so the editor shows a page, on a
-    // subtle desk. aspect-[210/297] keeps A4 proportions at any width (mobile scales the sheet, ratio
-    // held); it grows past one page only when content overflows. Own fixed paper palette (ink-on-cream)
-    // regardless of the editor's day/night — see .sm-resume-paper.
-    // Editor: an A4 sheet on a desk (aspect-locked, so mobile keeps the ratio). Print (metadata.print):
-    // the SAME paper scope but a plain full-width flow so gotenberg's @page can paginate it — no desk,
-    // no aspect box, no shadow. One config, both surfaces (the whole point of A3: no second renderer).
-    // Print pages get their full-page cream ground from print.css (imported by the print route),
-    // not this div — its background only covers its content box.
-    render: ({ children, coverLetter, accent, fontScale, puck }) => metaPrint(puck) ? (
+    defaultProps: { accent: '', fontScale: 1, paperSize: 'letter', leftWidth: 0.9, coverLetter: '' },
+    // The canvas is a DOCUMENT preview in the résumé's own fixed paper palette (ink-on-cream, like the
+    // PDF) regardless of the editor's day/night — see .sm-resume-paper.
+    // Editor: PagedPaper draws one sheet per page in the owner's paper (Letter or A4, aspect-locked so
+    // mobile keeps the ratio) and lays the résumé out over them with the PDF's page breaks.
+    // Print (metadata.print): the SAME paper scope as a plain flow; print.css picks the named @page for
+    // data-paper and pads every page top and bottom with --page-margin, so Chromium's pages are the
+    // editor's sheets. One config, both surfaces (the whole point of A3: no second renderer).
+    render: ({ children, coverLetter, accent, fontScale, paperSize, puck }) => metaPrint(puck) ? (
       <div
-        className="sm-resume-paper w-full min-h-full px-[7.5%] py-[6.5%]"
+        // data-paper picks the named @page (size) in print.css; gotenberg prints on it (preferCssPageSize)
+        data-paper={paperOf(paperSize)}
+        className="sm-resume-paper w-full min-h-full px-[7.5%]"
         // eslint-disable-next-line no-restricted-syntax -- accent + font-scale are runtime, props-driven résumé knobs applied as CSS vars
-        style={paperStyle(accent, fontScale)}
+        style={{ ...paperStyle(accent, fontScale), ...pageMarginVar(paperSize) }}
       >
         {children}
         {filled(coverLetter) && (
@@ -169,15 +186,7 @@ export const resumePuckConfig: Config<ResumeComponents, ResumeRootProps> = {
         )}
       </div>
     ) : (
-      <div className="min-h-full flex justify-center items-start bg-black/5 py-8 px-4">
-        <div
-          className="sm-resume-paper w-[794px] max-w-full aspect-[210/297] px-[7.5%] py-[6.5%] shadow-[0_2px_24px_rgba(0,0,0,0.12)]"
-          // eslint-disable-next-line no-restricted-syntax -- accent + font-scale are runtime, props-driven résumé knobs applied as CSS vars
-          style={paperStyle(accent, fontScale)}
-        >
-          {children}
-        </div>
-      </div>
+      <PagedPaper vars={paperStyle(accent, fontScale)} paper={paperOf(paperSize)}>{children}</PagedPaper>
     ),
   },
   components: {
@@ -202,7 +211,7 @@ export const resumePuckConfig: Config<ResumeComponents, ResumeRootProps> = {
         // The QR (the access code) belongs on every résumé, so the header shows whenever there's a QR
         // to draw — even before any name/contact is typed. Name + contacts still suppress individually.
         return (filled(name) || contacts.length > 0 || qrURL !== '') ? (
-          <div data-sec="header">
+          <div data-sec="header" data-atom>
             <div className="flex items-end justify-between gap-4 pt-1">
               <div className="min-w-0">
                 {filled(name) && <div className="font-serif text-[calc(30px*var(--resume-scale))] leading-none text-(--color-ink) lowercase">{name}</div>}
@@ -224,7 +233,7 @@ export const resumePuckConfig: Config<ResumeComponents, ResumeRootProps> = {
       defaultProps: { text: '' },
       // Empty summary → no heading, no rule, nothing.
       render: ({ text }) => filled(text) ? (
-        <div data-sec="summary">
+        <div data-sec="summary" data-atom>
           <SecHead title="summary" />
           <p className="text-(--color-ink) text-[calc(13px*var(--resume-scale))] leading-[1.5]">{text}</p>
         </div>
@@ -248,20 +257,24 @@ export const resumePuckConfig: Config<ResumeComponents, ResumeRootProps> = {
         const empty = !filled(title) && !filled(company) && !filled(location) && dates === '' && bl.length === 0;
         return empty ? <></> : (
           <div data-sec="experience" className="pt-2">
-            <div className="flex items-baseline justify-between gap-3">
-              {filled(title) && <div className="font-serif text-[calc(15px*var(--resume-scale))] font-medium text-(--color-ink)">{title}</div>}
-              {dates !== '' && <div className="mono text-[calc(9px*var(--resume-scale))] text-(--color-faint) shrink-0">{dates}</div>}
-            </div>
-            {(filled(company) || filled(location)) && (
-              <div className="text-[calc(12px*var(--resume-scale))] mt-0.5">
-                {filled(company) && <span className="text-(--color-accent)">{company}</span>}
-                {filled(location) && <span className="text-(--color-faint)">{filled(company) ? ` · ${location}` : location}</span>}
+            {/* the role's heading lines stay together and never end a page (keep-with-next) */}
+            <div data-atom data-keep-next>
+              <SecHead title="experience" lead />
+              <div className="flex items-baseline justify-between gap-3">
+                {filled(title) && <div className="font-serif text-[calc(15px*var(--resume-scale))] font-medium text-(--color-ink)">{title}</div>}
+                {dates !== '' && <div className="mono text-[calc(9px*var(--resume-scale))] text-(--color-faint) shrink-0">{dates}</div>}
               </div>
-            )}
+              {(filled(company) || filled(location)) && (
+                <div className="text-[calc(12px*var(--resume-scale))] mt-0.5">
+                  {filled(company) && <span className="text-(--color-accent)">{company}</span>}
+                  {filled(location) && <span className="text-(--color-faint)">{filled(company) ? ` · ${location}` : location}</span>}
+                </div>
+              )}
+            </div>
             {bl.length > 0 && (
               <ul className="mt-1 flex flex-col gap-0.5">
                 {bl.map((b, i) => (
-                  <li key={i} className="flex gap-2 text-[calc(12px*var(--resume-scale))] text-(--color-ink)">
+                  <li key={i} data-atom className="flex gap-2 text-[calc(12px*var(--resume-scale))] text-(--color-ink)">
                     <span className="text-(--color-faint)">•</span><span>{b}</span>
                   </li>
                 ))}
@@ -282,7 +295,8 @@ export const resumePuckConfig: Config<ResumeComponents, ResumeRootProps> = {
       render: ({ school, degree, start, end }) => {
         const dates = filled(start) || filled(end) ? period(start, end) : '';
         return (!filled(school) && !filled(degree) && dates === '') ? <></> : (
-          <div data-sec="education" className="pt-1.5">
+          <div data-sec="education" data-atom className="pt-1.5">
+            <SecHead title="education" lead />
             {filled(school) && <div className="font-serif text-[calc(13px*var(--resume-scale))] font-medium text-(--color-ink)">{school}</div>}
             {filled(degree) && <div className="text-[calc(11px*var(--resume-scale))] text-(--color-muted)">{degree}</div>}
             {dates !== '' && <div className="mono text-[calc(9px*var(--resume-scale))] text-(--color-faint)">{dates}</div>}
@@ -300,7 +314,8 @@ export const resumePuckConfig: Config<ResumeComponents, ResumeRootProps> = {
       render: ({ category, items }) => {
         const skills = bulletsOf(items);
         return skills.length === 0 ? <></> : (
-          <div data-sec="skillset" className="pt-1">
+          <div data-sec="skillset" data-atom className="pt-1">
+            <SecHead title="skills" lead />
             {filled(category) && <div className="mono text-[calc(9px*var(--resume-scale))] uppercase tracking-[0.08em] text-(--color-ink)">{category}</div>}
             <div className="text-[calc(12px*var(--resume-scale))] text-(--color-ink)">{skills.join('  ·  ')}</div>
           </div>
@@ -315,7 +330,7 @@ export const resumePuckConfig: Config<ResumeComponents, ResumeRootProps> = {
       },
       defaultProps: { kind: '', label: '', handle: '' },
       render: ({ kind, handle }) => filled(handle) ? (
-        <div data-sec="social" className="mono text-[calc(11px*var(--resume-scale))] text-(--color-ink)">
+        <div data-sec="social" data-atom className="mono text-[calc(11px*var(--resume-scale))] text-(--color-ink)">
           {filled(kind) && <span className="text-(--color-muted)">{kind} </span>}{handle}
         </div>
       ) : <></>,
@@ -335,9 +350,9 @@ export const resumePuckConfig: Config<ResumeComponents, ResumeRootProps> = {
       render: ({ label, value, kind }) => {
         const divider = kind === 'divider';
         return divider
-          ? <div data-sec="custom" className="py-1.5"><hr className="border-0 border-t border-(--color-rule)" /></div>
+          ? <div data-sec="custom" data-atom className="py-1.5"><hr className="border-0 border-t border-(--color-rule)" /></div>
           : (!filled(label) && !filled(value)) ? <></> : (
-            <div data-sec="custom">
+            <div data-sec="custom" data-atom>
               {filled(label) && <SecHead title={label} />}
               {filled(value) && <p className="text-[calc(12px*var(--resume-scale))] text-(--color-ink)">{value}</p>}
             </div>
