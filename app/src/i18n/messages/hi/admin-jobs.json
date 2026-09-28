@@ -20,6 +20,14 @@
     "stateFailed": "अंतिम प्रयास · {date} · विफल — {reason}",
     "stateUnknownDate": "अज्ञात"
   },
+  "screenAssistant": {
+    "kicker": "नौकरियाँ · स्क्रीन सहायक",
+    "intro": "एक डेस्कटॉप ऐप जो आपकी इंटरव्यू कॉल में सामने वाले की बात सुनता है और आपके चुने रोल के हिसाब से आपके कॉर्पस से क्यू कार्ड लिखता है। कार्ड यहाँ भी आते हैं — यह पेज फ़ोन पर खोलें और डेस्कटॉप विंडो को छोटा रखें।",
+    "download": "macOS के लिए डाउनलोड करें",
+    "credit": "<upstream>Cheating Daddy</upstream> से संशोधित · GPL-3.0",
+    "emptyKicker": "अभी कोई कार्ड नहीं",
+    "emptyHint": "डेस्कटॉप ऐप में एक सेशन शुरू करें। वह जो सुनता है और जो कार्ड लिखता है, वे यहाँ लाइव दिखेंगे।"
+  },
   "listings": {
     "intro": "Jobs fetched from your registered sources, held in a 1-day pool. Ask Claude to rank them against your corpus and draft a resume for the ones worth applying to. Anything you don't draft or discard within the day drops back out of the pool.",
     "emptyKicker": "no listings in pool",

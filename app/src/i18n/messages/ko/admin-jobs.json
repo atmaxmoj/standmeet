@@ -20,6 +20,14 @@
     "stateFailed": "마지막 시도 · {date} · 실패 — {reason}",
     "stateUnknownDate": "알 수 없음"
   },
+  "screenAssistant": {
+    "kicker": "구직 · 면접 도우미",
+    "intro": "면접 통화에서 상대방의 말을 듣고, 선택한 역할에 맞춰 코퍼스에서 큐 카드를 작성하는 데스크톱 앱입니다. 카드는 여기에도 실시간으로 올라옵니다. 휴대폰에서 이 페이지를 열고 데스크톱 창은 최소화해 두세요.",
+    "download": "macOS용 다운로드",
+    "credit": "<upstream>Cheating Daddy</upstream> 개조 · GPL-3.0",
+    "emptyKicker": "아직 카드 없음",
+    "emptyHint": "데스크톱 앱에서 세션을 시작하세요. 들은 내용과 작성한 카드가 여기에 실시간으로 표시됩니다."
+  },
   "listings": {
     "intro": "Jobs fetched from your registered sources, held in a 1-day pool. Ask Claude to rank them against your corpus and draft a resume for the ones worth applying to. Anything you don't draft or discard within the day drops back out of the pool.",
     "emptyKicker": "no listings in pool",

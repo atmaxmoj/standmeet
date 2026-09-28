@@ -20,6 +20,14 @@
     "stateFailed": "上次尝试 · {date} · 失败 —— {reason}",
     "stateUnknownDate": "未知"
   },
+  "screenAssistant": {
+    "kicker": "求职 · 面试提词",
+    "intro": "一个桌面应用：听面试通话里对方说的话，按你选的角色从你的语料写出提示卡。卡片同时推到这里 —— 手机打开这一页，桌面窗口可以一直最小化。",
+    "download": "下载 macOS 版",
+    "credit": "魔改自 <upstream>Cheating Daddy</upstream> · GPL-3.0",
+    "emptyKicker": "还没有卡片",
+    "emptyHint": "在桌面应用里开始一次会话。它听到的内容和写出的卡片会实时出现在这里。"
+  },
   "listings": {
     "intro": "从你已注册的源拉取的职位，保存在一个 1 天的池子里。让 Claude 拿它们与你的语料库排序，并为值得投递的职位起草简历。任何在一天内你没起草或丢弃的职位都会滑出池子。",
     "emptyKicker": "池中没有职位",

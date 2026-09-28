@@ -25,6 +25,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/events"
 	infrajobs "github.com/atmaxmoj/standmeet/internal/infra/jobs"
 	"github.com/atmaxmoj/standmeet/internal/infra/periodic"
+	"github.com/atmaxmoj/standmeet/internal/owner/jobs/cues"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsadmin"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmcp"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc"
@@ -45,6 +46,8 @@ type Deps struct {
 	AppsRepo     *jobsuc.ApplicationRepo
 	SourcesRepo  *jobsuc.JobSourceRepo
 	Log          *slog.Logger
+	// Cues —— the screen assistant's live feed (assistant.push writes, the admin page reads).
+	Cues *cues.Store
 	// Seed — the repositories needed to seed the builtins (hiring prompt + role, plus the default
 	// job aggregators) this plugin owns. It belongs to the plugin, not the kernel's roles_seed:
 	// `hiring` is a job-loop concept, not a kernel-level access tier (see jobsuc/seed.go).
@@ -115,6 +118,7 @@ func (p *Plugin) OwnerFibers() []registry.Fiber {
 		jobsmcp.NewJobsFiber(p.deps.Jobs, p.deps.Log),
 		jobsmcp.NewResumeFiber(p.deps.Resume, p.deps.Log),
 		jobsmcp.NewApplicationsFiber(p.deps.Applications, p.deps.Log),
+		jobsmcp.NewAssistantFiber(p.deps.Cues, p.deps.Log),
 	}
 }
 
@@ -132,6 +136,7 @@ func (p *Plugin) MountAdminRoutes(r chi.Router) {
 		Commit:    p.deps.Applications,
 		Templates: p.deps.Templates,
 	})
+	jobsadmin.MountScreenAssistant(r, p.deps.Cues, p.deps.Log)
 }
 
 // SeedOwner — the host's SeedPlugins hook implementation. The shell only

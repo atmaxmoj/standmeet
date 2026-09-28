@@ -10,7 +10,7 @@
 export type AdminSlug =
   | 'raw' | 'wiki' | 'subjectivity' | 'output' | 'conversations' | 'codes' | 'requests'
   | 'suppliers' | 'microsites' | 'api-mcp' | 'providers' | 'account'
-  | 'skills' | 'writings' | 'drafts' | 'applications'
+  | 'skills' | 'writings' | 'drafts' | 'applications' | 'screen-assistant'
   | 'dashboard' | 'sources' | 'listings' | 'system'
   | 'preview' | 'obsidian' | 'embeds' | 'assets' | 'data'
   | 'roles' | 'prompts' | 'ip-bans' | 'monitor' | 'tasks' | 'webhooks' | 'blocks' | 'blockMap';
@@ -69,6 +69,8 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       { slug: 'listings', badgeTestId: 'badge-listings' },
       { slug: 'drafts' },
       { slug: 'applications' },
+      // screen-assistant —— the desktop cue app's live cards, readable on a phone during an interview.
+      { slug: 'screen-assistant' },
       { slug: 'skills' },
     ],
   },

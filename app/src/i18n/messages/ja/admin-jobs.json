@@ -20,6 +20,14 @@
     "stateFailed": "前回の試行 · {date} · 失敗 — {reason}",
     "stateUnknownDate": "不明"
   },
+  "screenAssistant": {
+    "kicker": "求職 · 面接アシスタント",
+    "intro": "面接通話の相手の声を聞き、選んだロールに合わせてあなたのコーパスからキューカードを書くデスクトップアプリです。カードはここにも流れます。スマホでこのページを開けば、デスクトップのウィンドウは最小化したままで構いません。",
+    "download": "macOS 版をダウンロード",
+    "credit": "<upstream>Cheating Daddy</upstream> を改造 · GPL-3.0",
+    "emptyKicker": "カードはまだありません",
+    "emptyHint": "デスクトップアプリでセッションを開始してください。聞き取った内容と書いたカードがここにリアルタイムで表示されます。"
+  },
   "listings": {
     "intro": "Jobs fetched from your registered sources, held in a 1-day pool. Ask Claude to rank them against your corpus and draft a resume for the ones worth applying to. Anything you don't draft or discard within the day drops back out of the pool.",
     "emptyKicker": "no listings in pool",

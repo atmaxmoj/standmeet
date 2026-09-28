@@ -20,6 +20,14 @@
     "stateFailed": "last try · {date} · failed — {reason}",
     "stateUnknownDate": "unknown"
   },
+  "screenAssistant": {
+    "kicker": "jobs · screen assistant",
+    "intro": "A desktop app that listens to the other side of your interview call and writes cue cards from your corpus, scoped to the role you pick. The cards stream here too — open this page on your phone and keep the desktop window minimized.",
+    "download": "download for macOS",
+    "credit": "Modified from <upstream>Cheating Daddy</upstream> · GPL-3.0",
+    "emptyKicker": "no cards yet",
+    "emptyHint": "Start a session in the desktop app. What it hears and the cards it writes show up here live."
+  },
   "listings": {
     "intro": "Jobs fetched from your registered sources, held in a 1-day pool. Ask Claude to rank them against your corpus and draft a resume for the ones worth applying to. Anything you don't draft or discard within the day drops back out of the pool.",
     "emptyKicker": "no listings in pool",

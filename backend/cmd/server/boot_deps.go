@@ -26,6 +26,7 @@ import (
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	pluginjobs "github.com/atmaxmoj/standmeet/internal/owner/jobs"
 	jobcache "github.com/atmaxmoj/standmeet/internal/owner/jobs/cache"
+	"github.com/atmaxmoj/standmeet/internal/owner/jobs/cues"
 	jobfetch "github.com/atmaxmoj/standmeet/internal/owner/jobs/fetch"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/printsess"
@@ -263,6 +264,7 @@ func buildJobsModule(d *deps.Runtime) *pluginjobs.Plugin {
 		// Templates — retired with typst: the résumé's layout is now the Puck config itself (one
 		// renderer for editor + PDF), so there is no separate template list to pick from.
 		Templates: nil,
+		Cues:      cues.New(d.RDB),
 		// The two builtins this plugin itself seeds (hiring prompt + role) go
 		// through OwnerSeeder.
 		Seed: jobsuc.SeedDeps{

@@ -20,6 +20,14 @@
     "stateFailed": "letzter Versuch · {date} · fehlgeschlagen — {reason}",
     "stateUnknownDate": "unbekannt"
   },
+  "screenAssistant": {
+    "kicker": "Jobs · Screen-Assistent",
+    "intro": "Eine Desktop-App, die der Gegenseite deines Interview-Calls zuhört und aus deinem Korpus Stichwortkarten schreibt, zugeschnitten auf die gewählte Rolle. Die Karten erscheinen auch hier — öffne diese Seite auf dem Handy und lass das Desktop-Fenster minimiert.",
+    "download": "für macOS herunterladen",
+    "credit": "Abgewandelt von <upstream>Cheating Daddy</upstream> · GPL-3.0",
+    "emptyKicker": "noch keine Karten",
+    "emptyHint": "Starte eine Sitzung in der Desktop-App. Was sie hört und welche Karten sie schreibt, erscheint hier live."
+  },
   "listings": {
     "intro": "Stellen, die von Ihren registrierten Quellen abgerufen werden, in einem 1-Tage-Pool gehalten. Bitten Sie Claude, sie gegen Ihren Corpus zu ordnen und Lebensläufe für die, die sich lohnen, zu entwerfen. Alles, das Sie nicht entwerfen oder verwerfen, fällt nach einem Tag aus dem Pool.",
     "emptyKicker": "keine listings im pool",

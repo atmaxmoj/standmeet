@@ -299,6 +299,8 @@ const GOLDEN_TOOLSET: readonly string[] = [
   'jobs.fetch_new', 'jobs.fetch_result', 'jobs.show', 'jobs.discard',
   'resume.draft', 'resume.update_draft', 'resume.discard_draft',
   'applications.commit',
+  // screen assistant -- the desktop cue app streams cards + heard lines to /admin/screen-assistant
+  'assistant.push',
 ];
 
 let token = '';

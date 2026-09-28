@@ -20,6 +20,14 @@
     "stateFailed": "dernier essai · {date} · échec — {reason}",
     "stateUnknownDate": "inconnu"
   },
+  "screenAssistant": {
+    "kicker": "emplois · assistant d'écran",
+    "intro": "Une application de bureau qui écoute l'autre côté de ton appel d'entretien et rédige des fiches à partir de ton corpus, selon le rôle choisi. Les fiches arrivent aussi ici — ouvre cette page sur ton téléphone et laisse la fenêtre du bureau réduite.",
+    "download": "télécharger pour macOS",
+    "credit": "Modifié à partir de <upstream>Cheating Daddy</upstream> · GPL-3.0",
+    "emptyKicker": "pas encore de fiches",
+    "emptyHint": "Lance une session dans l'application de bureau. Ce qu'elle entend et les fiches qu'elle rédige apparaissent ici en direct."
+  },
   "listings": {
     "intro": "Emplois récupérés de vos sources enregistrées, détenus dans un bassin d'un jour. Demandez à Claude de les classer par rapport à votre corpus et de rédiger un CV pour ceux qui valent la peine de postuler. Tout ce que vous ne rédigez pas ou ne rejetez pas dans la journée retombe hors du bassin.",
     "emptyKicker": "aucune annonce dans le bassin",

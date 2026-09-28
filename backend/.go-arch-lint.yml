@@ -95,6 +95,8 @@ components:
     in: internal/infra/gotenberg                # HTTP client for the Gotenberg PDF render sidecar
   printsess:
     in: internal/owner/jobs/printsess                # Redis 60s stash for gotenberg-bound resume payload
+  jobcues:
+    in: internal/owner/jobs/cues                     # screen assistant: Redis live cue feed
   marketplace:
     in: internal/marketplace/facade       # #135: marketplace domain facade (outward-facing protocol); outside the domain, only import this
   marketplaceentity:
@@ -829,6 +831,7 @@ deps:
       - periodic
       - jobs             # declares the jobs.fetch_source kind (data)
       - events           # declares the jobs.fetched event type (data)
+      - jobcues          # holds the screen assistant's cue feed for its fiber + route
     anyVendorDeps: true
 
   # pluginownercore is gone. It used to be the **clearinghouse** for owner-MCP ops, one package
@@ -873,6 +876,7 @@ deps:
       - mcputil
       - jobsuc
       - jobs             # jobs.fetch_result takes the source jobs' ids (jobs.JobID)
+      - jobcues          # assistant.push writes the cue feed
     anyVendorDeps: true
 
   # mcputil — shared owner-MCP result marshaller. Leaf: only registry (for MCPResult).
@@ -891,6 +895,12 @@ deps:
       - jobsuc
       - jobs             # the fetch receipt's job ids (jobs.JobID)
       - paging           # the applications list takes ?cursor=&limit= and answers a page
+      - jobcues          # /screen-assistant/events reads the cue feed
+    anyVendorDeps: true
+
+  # jobcues — the screen assistant's live cue feed (Redis list per owner). Leaf.
+  jobcues:
+    mayDependOn: []
     anyVendorDeps: true
 
   # Depends on domain because it needs to marshal the real domain structure (not fudged into []byte).
@@ -1460,6 +1470,7 @@ deps:
   # cmd/ is the composition root — the one place allowed to cross all layers.
   cmd:
     mayDependOn:
+      - jobcues            # the screen assistant's cue feed, built on the shared Redis client
       - jobsriver          # River's own migrator runs at boot, after pgstore.Migrate
       - paging             # the microsite store adapter maps the blockstore records page onto a paging.Page
       # providermodels — the owner's "load models" button: the root side unlocks the vault's own key and asks the endpoint.
