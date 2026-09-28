@@ -12,71 +12,42 @@ files on your disk remain the thing you edit.
 
 ---
 
-## Deploying (prebuilt images)
+## Install
 
-Compose file: [`infra/deploy/docker-compose.yml`](infra/deploy/docker-compose.yml) — runs the
-stack from released ghcr images on any Docker host or PaaS (Coolify, Portainer, Dokploy, or
-plain `docker compose up`).
+You need a server with Docker and a domain.
 
-No git source or host mount needed: the schema is baked into the images and everything is
-pulled from ghcr. Download the file, set its variables (see its header), and bring it up.
+1. Point the domain's DNS (an `A` record) at the server, and open ports 80 and 443.
+2. On the server, run:
 
-**On Coolify:** New Resource → Docker Based → Docker Compose Empty, then paste the file in — its
-`SERVICE_*` magic variables generate the secrets and assign the domains for you.
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/atmaxmoj/standmeet/main/infra/scripts/install.sh \
+     | bash -s -- --domain me.example.com
+   ```
 
-The schema is baked into the `standmeet-db` image rather than bind-mounted, because a pasted
-compose has no repository behind it — `./backend/db/schema.sql` would resolve to nothing, and
-**Postgres starts an empty database silently** rather than failing, leaving every later query
-broken with nothing pointing back at the cause. `backend/db/schema.sql` is still the one
-source; the image copies it at build time, alongside the other four.
+3. Open the link it prints. It works once: it makes you the owner of this instance.
+4. In the admin panel, open **providers** and add the AI provider your page answers with.
 
-### It pulls images, it does not build them
+The installer writes everything to `~/standmeet`: the compose files and a `.env` with freshly
+generated secrets. A bundled Caddy gets a Let's Encrypt certificate for the domain and renews it.
+**Back up `.env`**: `INSTANCE_SECRET` in it encrypts the credentials you store, and a new one
+cannot read them.
 
-`app/Dockerfile` copies a `.next/standalone` that was built on the host; it does not run
-`next build` itself. A fresh checkout has no `.next`, so building this stack from git cannot
-work. The compose therefore pulls published images — every service uses
-`${STANDMEET_IMAGE_TAG:-latest}`, so it tracks `latest` unless you pin
-`STANDMEET_IMAGE_TAG=vX.Y.Z`.
+- **No domain yet, or your own proxy?** Run the installer without `--domain`. The app is published
+  on port 3000 (`STANDMEET_HTTP_PORT`). Your proxy must terminate TLS and set `X-Forwarded-For`.
+- **Upgrading.** Press upgrade in the admin panel: the bundled updater pulls the new images and
+  recreates the containers, and the backend applies its own database migrations at boot.
+  Re-running the installer does the same and never touches `.env`.
+- **Logs.** `cd ~/standmeet && docker compose logs -f backend`.
 
-To cut your own release (always from `main`, after merging):
+The install path is tested end to end: `make install-e2e` runs the installer on a clean
+docker-in-docker host and then claims, signs in and loads the page over HTTPS.
 
-```bash
-git tag -a v0.1.18 -m "…"                     # the tag is the version; nothing else holds it
-docker login ghcr.io                           # a PAT, or: gh auth refresh -s write:packages
-make release-build && make release-push        # builds THEN pushes multi-arch to ghcr
-```
+### On Coolify
 
-The image tag comes from `git describe`, so a dirty tree publishes as `v0.0.4-dirty` rather
-than quietly claiming to be the release. `make release-push` will not push until `make
-secrets` (the full history) and `make secrets-image` (the built image filesystems) both come
-back clean.
-
-`release-build` is not `app-build`. It sets `STRIP_TEST_HOOKS=1`, which removes every
-`data-testid` from the shipped markup, and then asserts they are gone rather than trusting
-the flag — the switch lives in a string comparison in `next.config.ts`, and a strip that
-silently stopped working looks exactly like one that works. The dev and prod stacks keep
-their testids: e2e and the real-environment audits both locate by them, and neither is the
-build that goes to visitors.
-
-### One domain
-
-- **the app** — your public page. Coolify assigns it from `SERVICE_FQDN_APP_3000`.
-
-Object storage needs no domain. Images and attachments reach the browser through the
-backend (`GET /api/v1/assets/{id}`, a signed link the backend checks), which reads the bytes
-from storage over the internal network — so leave `STORAGE_PUBLIC_URL` empty.
-
-### Object storage
-
-The bundled store is the `minio` service, running
-[Silo](https://github.com/pgsty/silo) (`pgsty/silo`), the maintained community fork of MinIO:
-the same S3 API, `MINIO_*` settings and on-disk format. MinIO deleted `minio/minio` from
-Docker Hub on 2026-09-11, so a compose that still pins it no longer pulls; an existing
-MinIO data volume is read by Silo as-is.
-
-### Secrets
-
-Coolify generates and persists these; you never type them:
+New Resource → Docker Based → Docker Compose Empty, then paste
+[`infra/deploy/docker-compose.yml`](infra/deploy/docker-compose.yml). Its `SERVICE_*` magic
+variables generate the secrets and assign the domain; you type nothing. Coolify's own proxy
+terminates TLS. (This is how the reference instance, sijie.xyz, runs.)
 
 | Variable | What it protects |
 |---|---|
@@ -85,12 +56,23 @@ Coolify generates and persists these; you never type them:
 | `SERVICE_PASSWORD_64_INSTANCE` | at-rest encryption for supplier credentials |
 | `SERVICE_PASSWORD_64_MINIO` | object storage |
 
-**Never rotate `INSTANCE_SECRET` on a running instance.** It is the key every stored
-supplier credential is encrypted with. Rotating it leaves the backend booting normally
-while `/admin/suppliers` renders every card as "not connected" above a row of empty
-fields — the ciphertext and the `connected_at` timestamps are still in the database, and
-the screen says nothing about it. You would be re-entering credentials on a configuration
-you cannot read.
+The installer writes the same names into `.env`, so both paths run the same compose file.
+
+### Never rotate `INSTANCE_SECRET`
+
+It is the key every stored supplier credential is encrypted with. Rotating it leaves the backend
+booting normally while `/admin/suppliers` renders every card as "not connected" above a row of
+empty fields — the ciphertext and the `connected_at` timestamps are still in the database, and
+the screen says nothing about it. You would be re-entering credentials on a configuration you
+cannot read.
+
+### Object storage
+
+The bundled store is the `minio` service, running [Silo](https://github.com/pgsty/silo)
+(`pgsty/silo`), the maintained community fork of MinIO: the same S3 API, `MINIO_*` settings and
+on-disk format. MinIO deleted `minio/minio` from Docker Hub on 2026-09-11, so a compose that still
+pins it no longer pulls; an existing MinIO data volume is read by Silo as-is. Images reach the
+browser through the backend (`GET /api/v1/assets/{id}`, a signed link), so storage needs no domain.
 
 ### Optional: sandboxed MCP plugins
 
@@ -108,50 +90,23 @@ shared Coolify host broke logging for every container that was not subsequently 
 including another tenant's production. On a shared host the blast radius of anything
 destructive is the whole machine, not your slice of it.
 
-The exact block to add is in the template's closing section.
+The exact block to add is in the compose file's closing section.
 
 ### Prove it actually came up
 
-A green dot in Coolify means the container is running. These four say the instance works:
+A green dot means a container is running. These four say the instance works:
 
-1. **The tables exist.** `psql -U standmeet -d standmeet -c '\dt'` should list
-   `corpus_notes`, `owners`, `access_codes`. If the schema mount missed, this is empty and
-   nothing else told you.
+1. **The tables exist.** `docker compose exec db psql -U standmeet -d standmeet -c '\dt'` lists
+   `corpus_notes`, `owners`, `access_codes`.
 2. **Visitor IPs are visible.** If the backend logs `visitor IP not visible: no forwarding
-   header on the proxy hop` at boot, something in front of it is dropping
-   `X-Forwarded-For`. Coolify's own proxy sets it; a second layer you added may not. Until
-   it is fixed, conversations record no source IP, IP bans have nothing to target, and the
-   per-IP lockout on wrong access codes becomes one shared bucket for everyone.
+   header on the proxy hop` at boot, something in front of it is dropping `X-Forwarded-For`.
+   The bundled Caddy and Coolify's proxy set it; a second layer you added may not. Until it is
+   fixed, conversations record no source IP, IP bans have nothing to target, and the per-IP
+   lockout on wrong access codes becomes one shared bucket for everyone.
 3. **An image renders.** Attach one to a note and open the public page. Look at the picture,
    not at the markup.
 4. **Ask a question through the page.** It should answer from your corpus, not from
    general knowledge.
-
-### Upgrading is not installing
-
-`schema.sql` runs exactly once, when the data volume is first created. Rebuilding an image
-never touches a running database. To move an existing instance to a new version, apply the
-new files in `backend/db/migrations/` and then confirm with `make schema-drift` that the
-live database and `schema.sql` agree.
-
-Write the migration for a database that already holds data and traffic — an `ADD COLUMN`
-with a default on a large table, a `NOT NULL` without one, a rename that the previous
-binary is still writing to. A fresh volume passes every one of those.
-
----
-
-## Deploying anywhere else
-
-`docker-compose.prod.yml` is the same stack without Coolify's domain and secret handling:
-host ports are published and you front them with your own TLS proxy.
-
-```bash
-cp .env.example .env     # fill it in — INSTANCE_SECRET must be ≥32 characters
-make prod-up
-```
-
-The app listens on `38227`. Whatever you put in front of it must set `X-Forwarded-For`;
-see point 2 above for what happens when it does not.
 
 ---
 
@@ -163,6 +118,7 @@ make test                         # the full e2e suite (~1.3h, real services, no
 make test-only SPEC=<name>        # one spec, rebuilding first
 make test-asis SPEC=<name>        # one spec against what is already running — no rebuild
 make lint                         # every gate: secrets, backend, app, sdk, e2e
+make install-e2e                  # a first install on a clean host, over HTTPS
 ```
 
 Tests are end-to-end by design: real Postgres, real Redis, real object storage, a browser
@@ -175,6 +131,13 @@ through it is green the first time you ever run it and has proven nothing.
 
 Suspect a flaky test? `REPEAT=5`. One pass is not evidence.
 
+### Releasing
+
+Merge to `main`, then push a `vX.Y.Z` tag on it. CircleCI (`.circleci/config.yml`) builds every
+image for amd64 and arm64 and pushes `vX.Y.Z` and `latest` to ghcr; instances on the `latest`
+channel then upgrade from their admin panel. `docker-compose.prod.yml` builds the same stack from
+source for development; it is not an install path.
+
 ## Layout
 
 | Directory | What it is |
@@ -185,7 +148,7 @@ Suspect a flaky test? `REPEAT=5`. One pass is not evidence.
 | `builder/` | Sandboxed build of owner-written microsites |
 | `im-bridge/` | Talk to the owner's AI from a chat app, on an access code |
 | `infra/plugins/` | The block plugins — standalone node MCP servers the sandbox spawns; the host never imports them |
-| `infra/` | Deployment: the image-based compose (`infra/deploy/`), updater, plugin manifests, lint tooling |
+| `infra/` | Deployment: the image-based compose and its two overlays (`infra/deploy/`), the installer (`infra/scripts/install.sh`), updater, plugin manifests, lint tooling |
 | `e2e/` | Playwright. The suite the whole product is judged by |
 | `docs/design/` | The canonical visual and product spec |
 | `standmeet-*/` | Legacy reference from the previous architecture. Not built, not run |

@@ -7,24 +7,22 @@
 #
 # How it differs from docker-compose.prod.yml: that one **builds from source** (for developing
 # and cutting releases); this one only **pulls released images** and is the file a self-hoster
-# actually runs. It also publishes no host ports — a reverse proxy in front (the platform's, or
-# your own Caddy/Traefik/nginx) terminates TLS and routes by domain.
+# actually runs. It publishes no host ports itself — the platform's proxy, or one of the two
+# overlays below, puts it on the network.
 #
 # ── Variables ─────────────────────────────────────────────────────────────────────────────
 # Two kinds of `${...}` appear below:
 #   * `${SERVICE_FQDN_*}` / `${SERVICE_PASSWORD_*}` / `${SERVICE_URL_*}` — **Coolify's magic
 #     variables**: it generates the secrets and assigns the domains, so you type nothing. On
 #     Coolify these Just Work; the comments below explain each.
-#   * On any other host, set the same values yourself in a `.env` beside this file (a random
-#     POSTGRES/SESSION/INSTANCE secret, and the two public URLs for the app and for MinIO).
-#     `infra/scripts/install.sh` generates a starter `.env` for the plain-compose path.
+#   * On any other host, `infra/scripts/install.sh` writes a `.env` with the same names (fresh
+#     secrets, the app URL) and layers compose.caddy.yml (bundled TLS for one domain) or
+#     compose.port.yml (the app on a host port, for your own proxy) on top of this file.
 # The comments that say "Coolify does X" describe that platform's behavior — substitute your
 # own reverse proxy / secret store on another one.
 #
-# Warning: this template has not been run end-to-end on a real host. Everything else in this
-# repo has been measured, driven, and has a receipt; this one doesn't. Once it's up, check it
-# against the README's four checks one by one, especially the first (were the tables created)
-# —— it fails silently.
+# The plain-host path is proved by `make install-e2e`: a clean docker-in-docker host runs the
+# installer with --domain, then claim, sign-in and the public page are checked over HTTPS.
 
 name: standmeet
 

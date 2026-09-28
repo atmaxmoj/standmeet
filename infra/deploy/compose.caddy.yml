@@ -1,0 +1,29 @@
+# compose.caddy.yml —— layered on docker-compose.yml when the installer is given --domain.
+#
+# Caddy terminates TLS for the one domain and proxies everything to the app. It gets and renews a
+# Let's Encrypt certificate on its own once the domain's DNS points at this host and ports 80 and
+# 443 are open. `caddy reverse-proxy` needs no Caddyfile, and it sets X-Forwarded-For, which the
+# backend needs to see visitor IPs. Certificates persist in caddy-data across restarts.
+#
+# CADDY_EXTRA_FLAGS stays empty in production. The install test sets --internal-certs (Caddy's own
+# CA) because a test host cannot pass a Let's Encrypt challenge.
+#
+# The updater only recreates StandMeet's own images, so it leaves this container alone.
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    command: caddy reverse-proxy --from ${STANDMEET_DOMAIN:?STANDMEET_DOMAIN is not set} --to app:3000 ${CADDY_EXTRA_FLAGS:-}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - app
+
+volumes:
+  caddy-data:
+  caddy-config:

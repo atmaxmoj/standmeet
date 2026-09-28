@@ -253,6 +253,12 @@ sdk-lint:
 updater-e2e:
 	@infra/updater/updater-e2e.sh
 
+# install-e2e — a new owner's first install on a clean host (docker-in-docker): the installer with
+# --domain (bundled Caddy, local CA), then claim → sign in → public page over HTTPS, then a re-run
+# that must keep .env. Pulls the released images; needs Docker + a network. Not part of lint.
+install-e2e:
+	@infra/scripts/install-e2e.sh
+
 # fresh-install-e2e — a first-ever install must boot: the real backend on a BRAND-NEW pgvector
 # volume (schema.sql + every embedded migration applied at boot) must serve /api/v1/instance.
 # Guards the class of migration bug that only a truly fresh DB exposes (F-B-11). Heavy (builds

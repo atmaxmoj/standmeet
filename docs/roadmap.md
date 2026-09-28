@@ -87,6 +87,7 @@ corpus 数据形态**已经就是 vault**:三级 promotion(raw→wiki→output)�
 
 - server + 域名 + 证书那套是 **owner 在域名/服务器供应商那边自己绑**(不是我们出 Caddy/LE 自动签证书——CLAUDE.md 里"one command + 自动 LE"愿景**作废**)。
 - 我们只需**知道自己的域名**,而填写机制**已有**(owner profile `public_url` + `allowed-domains`,`routes/admin/public_url.go`+`domains.go`)。→ 等于已完成,不再是大块。
+- **2026-09-28 owner 改判(部分恢复)**:"学成熟自托管产品的做法"(PostHog hobby / Plausible CE)。新用户一条命令装:`infra/scripts/install.sh --domain D` 下载 compose、生成全部密钥写 `.env`(只写一次)、叠加 `infra/deploy/compose.caddy.yml`(Caddy `reverse-proxy`,单域名自动 LE),打印认领链接;不带 `--domain` 叠加 `compose.port.yml` 自带代理。**只做单个固定域名**,不是当初砍掉的多域名按需签发。验证:`make install-e2e`(docker-in-docker 干净主机 → HTTPS 认领/登录/主页 → 重跑保留 `.env`)。
 
 ---
 

@@ -1,0 +1,9 @@
+# compose.port.yml —— layered on docker-compose.yml when the installer is run without --domain.
+#
+# Publishes the app on a host port for a reverse proxy you already run. That proxy must terminate
+# TLS and set X-Forwarded-For; without it the backend sees no visitor IPs (see the README).
+
+services:
+  app:
+    ports:
+      - "${STANDMEET_HTTP_PORT:-3000}:3000"
