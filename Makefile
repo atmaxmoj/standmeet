@@ -861,6 +861,13 @@ eval-cross-conversation:
 eval-subjectivity:
 	@eval-harness/subjectivity-test.sh
 
+# eval-interview-integrity —— the job-application prompt under a mock interview's traps
+# (2026-09-28): reconstruction told as fact, improvised detail, a reading note claimed as
+# one's own work, a mechanism moved between projects, non-spoken answers, narration leaking
+# to the visitor. Real model + LLM judge. **Needs a real LLM** (eval-harness/.env key).
+eval-interview-integrity:
+	@cd eval-harness && go test -run TestInterviewIntegrityLive -count=1 -v ./...
+
 # eval-interview —— actually runs a multi-turn interview (recruiter on a code session, booking
 # granted), annotating each turn by dimension as it goes: grounding / context retention /
 # honest gap / not-in-corpus / privacy / tool use. Surfaces which corpus each turn's agent read +

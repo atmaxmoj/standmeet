@@ -793,6 +793,9 @@ deps:
       - plugin
       - hostsocket
       - access
+      # The product's default job-application prompt (HiringPromptBody): the interview-integrity
+      # eval runs that exact text, so it reads the constant rather than a copy that would drift.
+      - jobsuc
       # eval mini-host — hangs the handful of things a **real** plugin needs: the inbound convergence
       # (word list and pick both use its one copy), the block’s own storage-and-config port, the owner
       # entity (the canned return type for owner.meta), the built-in manifest.

@@ -22,6 +22,7 @@ package jobsuc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
@@ -58,7 +59,7 @@ var hiringRoleCorpusURIs = []string{
 	"subjectivity://cv",
 }
 
-// hiringPromptBody — **establishes only a frame; asserts no fact about the
+// HiringPromptBody — **establishes only a frame; asserts no fact about the
 // owner.**
 //
 // The first version's body said "he", "is actively looking", "not a
@@ -72,7 +73,10 @@ var hiringRoleCorpusURIs = []string{
 //
 // Written as concatenation rather than a backtick block: source lines can't
 // exceed 100 characters, and the line breaks in this body are meaningful.
-const hiringPromptBody = "This visitor arrived through a job application, a resume, or a\n" +
+//
+// Exported for agentcore.HiringPrompt: the interview-integrity eval runs THIS text, so a
+// change here is what the eval measures (a copied fixture would silently test an old body).
+const HiringPromptBody = "This visitor arrived through a job application, a resume, or a\n" +
 	"recruiter conversation. Treat that as established context for the whole session —\n" +
 	"they are evaluating the owner as a candidate for a role.\n" +
 	"\n" +
@@ -92,6 +96,10 @@ const hiringPromptBody = "This visitor arrived through a job application, a resu
 	"  directly. Never guess these and never invent an employer.\n" +
 	"- Say how much you looked at when the question is broad, so the visitor can judge\n" +
 	"  the answer's base.\n" +
+	"- Answer at the length a person speaks in an interview: about a minute, under\n" +
+	"  about 200 words. Give the one example that answers the question, then stop —\n" +
+	"  the visitor will ask for more. In this channel that overrides drawing: no\n" +
+	"  headings, and a list, diagram or formula only when the visitor asks for one.\n" +
 	"\n" +
 	"Stay in the owner's voice, stay honest about gaps, and never oversell. A hiring\n" +
 	"manager trusts specifics and distrusts adjectives."
@@ -121,28 +129,53 @@ type SeedDeps struct {
 // SeedOwner — idempotent upsert (once on claim + once per startup).
 func SeedOwner(ctx context.Context, deps SeedDeps, ownerID string) error {
 	prompt, err := deps.Prompts.UpsertBuiltin(
-		ctx, ownerID, hiringPromptName, hiringPromptDescription, hiringPromptBody,
+		ctx, ownerID, hiringPromptName, hiringPromptDescription, HiringPromptBody,
 	)
 	if err != nil {
 		return fmt.Errorf("upsert hiring prompt: %w", err)
 	}
-	promptID := prompt.ID()
-	role, rerr := deps.Roles.UpsertBuiltin(ctx, &access.UpsertBuiltinInput{
-		OwnerID:     ownerID,
-		Name:        hiringRoleName,
-		Description: hiringRoleDescription,
-		PromptID:    &promptID,
-	})
-	if rerr != nil {
-		return fmt.Errorf("upsert hiring role: %w", rerr)
-	}
-	if serr := deps.Roles.SetCorpusURIs(ctx, role.ID(), hiringRoleCorpusURIs); serr != nil {
-		return fmt.Errorf("set hiring role corpus uris: %w", serr)
+	if rerr := seedHiringRole(ctx, deps.Roles, ownerID, prompt.ID()); rerr != nil {
+		return rerr
 	}
 	if !deps.SeedDefaults {
 		return nil
 	}
 	return seedDefaultSources(ctx, deps.Sources, ownerID)
+}
+
+// seedHiringRole —— upsert the hiring role. Its corpus allowlist is seeded once, when the role
+// is created: after that it is the owner's ("Narrow it here…"), and a restart must not widen
+// it back.
+func seedHiringRole(ctx context.Context, roles *access.RoleRepo, ownerID, promptID string) error {
+	isNew, gerr := hiringRoleMissing(ctx, roles, ownerID)
+	if gerr != nil {
+		return gerr
+	}
+	role, rerr := roles.UpsertBuiltin(ctx, &access.UpsertBuiltinInput{
+		OwnerID: ownerID, Name: hiringRoleName, Description: hiringRoleDescription,
+		PromptID: &promptID,
+	})
+	if rerr != nil {
+		return fmt.Errorf("upsert hiring role: %w", rerr)
+	}
+	if !isNew {
+		return nil
+	}
+	if serr := roles.SetCorpusURIs(ctx, role.ID(), hiringRoleCorpusURIs); serr != nil {
+		return fmt.Errorf("set hiring role corpus uris: %w", serr)
+	}
+	return nil
+}
+
+func hiringRoleMissing(ctx context.Context, roles *access.RoleRepo, ownerID string) (bool, error) {
+	_, err := roles.GetByName(ctx, ownerID, hiringRoleName)
+	if errors.Is(err, access.ErrRoleNotFound) {
+		return true, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("get hiring role: %w", err)
+	}
+	return false, nil
 }
 
 // seedDefaultSources — give a fresh instance the built-in aggregators (defaultSources). Runs on

@@ -26,6 +26,7 @@ var (
 	ErrMicrositeBuildNotFound    = entity.ErrMicrositeBuildNotFound
 	ErrBuilderVersionMismatch    = entity.ErrBuilderVersionMismatch
 	ErrMicrositeNotFound         = entity.ErrMicrositeNotFound
+	ErrMicrositeNeedsCode        = entity.ErrMicrositeNeedsCode
 	ErrMicrositeSlugTaken        = entity.ErrMicrositeSlugTaken
 	ErrMicrositeStoreNotWritable = entity.ErrMicrositeStoreNotWritable
 	ErrMicrositeStoreQuota       = entity.ErrMicrositeStoreQuota

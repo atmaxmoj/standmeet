@@ -111,14 +111,16 @@ type ScriptedError struct {
 }
 
 // scriptQueue —— each field a keyword→value registry. Matched by Contains.
-// tools is an ORDERED slice (not a map): when a turn's message carries several
-// tool keywords, the mock emits them in the order the test registered them —
-// deterministic (a test registering corpus_search then corpus_read gets that
-// sequence), still pure registration (no guessing which/what order).
+// tools and replies are ORDERED slices (not maps): when a turn's message carries several
+// keywords, the mock uses them in the order the test registered them — deterministic (a test
+// registering corpus_search then corpus_read gets that sequence), still pure registration (no
+// guessing which/what order). replies was a map until 2026-09-28: a turn carrying a slow reply
+// and then a fast rescue reply got whichever the map iterated first, so "hit the wall, then the
+// rescue answers" could not be driven (the rescue answered at once and the wall was never hit).
 type scriptQueue struct {
 	mu      sync.Mutex
 	tools   []*ScriptedTool
-	replies map[string]scriptedReplyValue
+	replies []keyedReply
 	ghosts  map[string]scriptedGhostValue
 	fails   map[string]bool
 	// rateLimits —— keyword -> `Retry-After` seconds. Once registered, a call whose
@@ -143,7 +145,6 @@ type scriptQueue struct {
 
 func newScriptQueue() *scriptQueue {
 	return &scriptQueue{
-		replies:    map[string]scriptedReplyValue{},
 		ghosts:     map[string]scriptedGhostValue{},
 		fails:      map[string]bool{},
 		rateLimits: map[string]int{},
@@ -235,14 +236,29 @@ func (q *scriptQueue) takeToolFor(text string) *ScriptedTool {
 	return nil
 }
 
+// keyedReply —— one registered reply and the keyword that selects it.
+type keyedReply struct {
+	key string
+	val scriptedReplyValue
+}
+
+// setReply —— register the reply for key (append preserves registration order; re-registering
+// the same key updates in place).
 func (q *scriptQueue) setReply(key, text, stop string, delayMS int) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	if stop == "" {
 		stop = stopEndTurn
 	}
-	q.replies[key] = scriptedReplyValue{text: text, stop: stop, delayMS: delayMS}
+	v := scriptedReplyValue{text: text, stop: stop, delayMS: delayMS}
 	delete(q.fails, key)
+	for i := range q.replies {
+		if q.replies[i].key == key {
+			q.replies[i].val = v
+			return
+		}
+	}
+	q.replies = append(q.replies, keyedReply{key: key, val: v})
 }
 
 // takeReplyFor —— (text, stop reason, found). If registered with a delay, sleeps
@@ -261,9 +277,10 @@ func (q *scriptQueue) takeReplyFor(text string) (string, string, bool) {
 func (q *scriptQueue) popReply(text string) (scriptedReplyValue, bool) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	for key, r := range q.replies {
-		if strings.Contains(text, key) {
-			delete(q.replies, key)
+	for i := range q.replies {
+		if strings.Contains(text, q.replies[i].key) {
+			r := q.replies[i].val
+			q.replies = append(q.replies[:i], q.replies[i+1:]...)
 			return r, true
 		}
 	}
@@ -414,8 +431,8 @@ type stateReplyOut struct {
 func (s *server) serveState(w http.ResponseWriter, _ *http.Request) {
 	s.queue.mu.Lock()
 	out := make(map[string]stateReplyOut, len(s.queue.replies))
-	for k, v := range s.queue.replies {
-		out[k] = stateReplyOut{Text: v.text, Stop: v.stop}
+	for _, r := range s.queue.replies {
+		out[r.key] = stateReplyOut{Text: r.val.text, Stop: r.val.stop}
 	}
 	resp := stateResp{Tools: s.queue.tools, Replies: out}
 	s.queue.mu.Unlock()

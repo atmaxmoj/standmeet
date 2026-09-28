@@ -94,7 +94,7 @@ const StoredVisitorSessionSchema = z.object({
   ghosts: z.array(z.string()).nullish().transform((v) => v ?? undefined), // F-D-1 class: ghosts can be null
   dock_buttons: z.array(DockButtonSchema).optional(),
 });
-type StoredVisitorSession = z.infer<typeof StoredVisitorSessionSchema>;
+export type StoredVisitorSession = z.infer<typeof StoredVisitorSessionSchema>;
 
 export function persistSession(sess: PublicSessionResponse, byoai: boolean): void {
   if (typeof window === 'undefined') return;

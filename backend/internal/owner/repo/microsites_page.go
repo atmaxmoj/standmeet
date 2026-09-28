@@ -61,6 +61,6 @@ func asListedRow(r *db.ListMicrositesPageRow) db.ListMicrositesByOwnerRow {
 		PreviousLiveBuildID: r.PreviousLiveBuildID, AllowByoai: r.AllowByoai,
 		StoreWritable: r.StoreWritable, SeoTitle: r.SeoTitle, SeoDescription: r.SeoDescription,
 		SeoImage: r.SeoImage, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
-		BoundCodes: r.BoundCodes,
+		BoundCodes: r.BoundCodes, OpenWithoutCode: r.OpenWithoutCode,
 	}
 }

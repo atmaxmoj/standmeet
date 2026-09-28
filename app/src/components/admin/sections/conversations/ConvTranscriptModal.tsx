@@ -20,6 +20,7 @@ import {
   type ConvTranscriptMessage,
   type GhostLog,
 } from '@/lib/admin/use-conversations';
+import { downloadTranscript } from '@/lib/admin/transcript-export';
 import { stampMinute } from '@/lib/ui/format-time';
 
 type Props = {
@@ -37,11 +38,29 @@ export function ConvTranscriptModal({ transcript, onClose }: Props) {
       maxWidth={720}
     >
       <div className="px-7 py-6" data-testid="transcript-body">
+        <DownloadButton transcript={transcript} />
         <TranscriptBody transcript={transcript} />
         <GroundingBlock titles={transcript.grounding} />
         <GhostsBlock ghosts={transcript.ghosts} />
       </div>
     </ModalShell>
+  );
+}
+
+// DownloadButton —— the whole conversation as a Markdown file; shown once there is something to take.
+function DownloadButton({ transcript }: { transcript: ConvTranscript }) {
+  const t = useTranslations('adminAccess');
+  return pickTranscriptState(transcript) !== 'list' ? null : (
+    <div className="flex justify-end mb-4">
+      <button
+        type="button"
+        data-testid="transcript-download"
+        onClick={() => downloadTranscript(transcript)}
+        className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) hover:text-(--color-accent) transition-colors"
+      >
+        {t('transcript.download')}
+      </button>
+    </div>
   );
 }
 
@@ -281,6 +300,11 @@ function GhostRow({ log }: { log: GhostLog }) {
       <span className="reading-tight italic text-(--color-ink) flex-1">
         &ldquo;{log.ghost_text}&rdquo;
       </span>
+      {log.count > 1 && (
+        <span className="mono text-[10px] text-(--color-muted) shrink-0" data-testid="transcript-ghost-count">
+          ×{log.count}
+        </span>
+      )}
       <span className="mono text-[10px] text-(--color-faint) shrink-0">
         {v.acceptedMark}
       </span>

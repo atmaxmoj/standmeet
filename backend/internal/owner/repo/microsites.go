@@ -196,6 +196,7 @@ func listedMicrosite(row *db.ListMicrositesByOwnerRow) entity.Microsite {
 		CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
 	})
 	page.BoundCodes = row.BoundCodes
+	page.OpenWithoutCode = row.OpenWithoutCode
 	return page
 }
 

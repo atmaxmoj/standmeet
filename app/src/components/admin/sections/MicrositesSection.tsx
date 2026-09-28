@@ -17,8 +17,8 @@ import Link from 'next/link';
 
 import { LoadMore } from '@/components/admin/LoadMore';
 import { SectionHeader } from '@/components/admin/SectionHeader';
+import { AccessCell } from '@/components/admin/sections/MicrositeAccessCell';
 import { DeleteLink } from '@/components/admin/sections/MicrositesDeleteLink';
-import { Toggle } from '@/components/atoms/Toggle';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 import {
   pickMicrositesBodyState,
@@ -210,6 +210,7 @@ function TableHead() {
         <th className="text-left px-4 py-2.5 border-b border-(--color-rule) font-normal">{t('page')}</th>
         <th className="text-left px-4 py-2.5 border-b border-(--color-rule) font-normal">{t('template')}</th>
         <th className="text-left px-4 py-2.5 border-b border-(--color-rule) font-normal">{t('visibility')}</th>
+        <th className="text-left px-4 py-2.5 border-b border-(--color-rule) font-normal">{t('codes')}</th>
         <th className="text-left px-4 py-2.5 border-b border-(--color-rule) font-normal">
           {t('access')}<InfoTip text={t('accessHelp')} />
         </th>
@@ -229,6 +230,7 @@ function PageRow({ page }: { page: MicrositeSummary }) {
       <TemplateCell />
       <VisibilityCell hasLive={page.has_live} hasStaging={page.has_staging} />
       <BindingCell page={page} />
+      <AccessCell page={page} />
       <DateCell iso={page.updated_at} />
       <ActionsCell page={page} />
     </tr>
@@ -242,7 +244,6 @@ function BindingCell({ page }: { page: MicrositeSummary }) {
   return (
     <td className="px-4 py-3 mono text-[10px]" data-testid={`microsite-codes-${page.slug}`}>
       <BoundCodes codes={page.bound_codes ?? []} />
-      <ByoaiToggle page={page} />
     </td>
   );
 }
@@ -257,50 +258,8 @@ function BoundCodes({ codes }: { codes: readonly string[] }) {
   const t = useTranslations('adminPages.microsites');
   const bound = codes.join(' · ');
   return bound !== ''
-    ? <span className="text-(--color-ink)">{t('boundCodes')} {bound}</span>
+    ? <span className="text-(--color-ink)">{bound}</span>
     : <span className="text-(--color-faint)">{t('boundNone')}</span>;
-}
-
-// ByoaiToggle —— whether this page allows visitors to bring their own key.
-//
-// **Voided the moment a code is attached**: the code decides admission, this page's
-// own toggle no longer has the final say ("pages give a code a rendering"). So when
-// a code is attached, the control isn't hidden — it plainly states it's been
-// overridden; hiding it would let the owner think their last setting still applies.
-function ByoaiToggle({ page }: { page: MicrositeSummary }) {
-  const bound = (page.bound_codes ?? []).length > 0;
-  return bound ? <ByoaiVoid slug={page.slug} /> : <ByoaiButton page={page} />;
-}
-
-function ByoaiVoid({ slug }: { slug: string }) {
-  const t = useTranslations('adminPages.microsites');
-  return (
-    <div className="text-(--color-faint) mt-1" data-testid={`microsite-byoai-void-${slug}`}>
-      {t('byoaiVoid')}
-    </div>
-  );
-}
-
-// An iOS-style toggle switch (track + sliding knob), not a text pill: the owner asked for "那种能点
-// 的 iPhone 的" switch. The switch has no visible text — its meaning comes from the Access column's
-// "?" tooltip; its accessible name (and the on/off state for tests) is the byoaiOn/byoaiOff string.
-function ByoaiButton({ page }: { page: MicrositeSummary }) {
-  const t = useTranslations('adminPages.microsites');
-  const { setByoai } = useMicrosites();
-  const run = useAction();
-  const allow = page.allow_byoai === true;
-  return (
-    <div className="mt-1.5">
-      <Toggle
-        on={allow}
-        testid={`microsite-byoai-${page.slug}`}
-        label={allow ? t('byoaiOn') : t('byoaiOff')}
-        onToggle={() => void run(() => setByoai(page.slug, !allow), {
-          success: t(allow ? 'byoaiToastOff' : 'byoaiToastOn', { slug: page.slug }),
-        })}
-      />
-    </div>
-  );
 }
 
 function TemplateCell() {

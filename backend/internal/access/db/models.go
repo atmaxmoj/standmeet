@@ -426,6 +426,13 @@ type Microsite struct {
 	UpdatedAt           pgtype.Timestamptz
 }
 
+type MicrositeAccess struct {
+	PageID          pgtype.UUID
+	OwnerID         pgtype.UUID
+	OpenWithoutCode bool
+	UpdatedAt       pgtype.Timestamptz
+}
+
 type MicrositeBuild struct {
 	ID           pgtype.UUID
 	PageID       pgtype.UUID

@@ -4,11 +4,10 @@
 // eslint.config.mjs rejects inline copy under src/widgets, and the Catalog type (Record over the
 // English keys) makes a missing or extra key in any locale a compile error.
 //
-// The visitor's language: the page's stored choice (`sm-lang`, the key microsite pages use), else
-// the browser's languages, else English. Resolved after mount — a prerendered page has no visitor
-// yet, so the first render is English and the client switches once it knows (no hydration mismatch).
+// The page's language: the widget's `lang` prop, else the page's stored choice (`sm-lang`, the key
+// microsite pages use), else English — never the reader's browser (see resolveLocale).
 
-import { useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 
 export const LOCALES = ['en', 'zh', 'fr', 'hi', 'de', 'ja', 'ko', 'es'] as const;
 export type Locale = (typeof LOCALES)[number];
@@ -302,22 +301,23 @@ function isLocale(v: string): v is Locale {
   return (LOCALES as readonly string[]).includes(v);
 }
 
-// resolveLocale —— explicit wins; else the page's stored `sm-lang`; else the browser's languages
-// (first whose base matches); else English. Never throws (private mode / no window).
+// resolveLocale —— the PAGE's language, English by default: explicit (the widget's `lang` prop) wins;
+// else the page's own stored `sm-lang` choice (a bilingual page's toggle); else English. Never the
+// reader's browser language: a page is written in one language by its author, and a widget that
+// switched to the reader's language put "想问什么都可以…" on an English cover letter (owner,
+// 2026-09-28: "widget 的 default 都应该是英文"). Never throws (private mode / no window).
 export function resolveLocale(explicit?: string): Locale {
   if (explicit !== undefined && isLocale(explicit)) return explicit;
   try {
     const stored = localStorage.getItem('sm-lang') ?? '';
     if (isLocale(stored)) return stored;
   } catch { /* no storage */ }
-  try {
-    for (const tag of navigator.languages ?? [navigator.language]) {
-      const base = tag.toLowerCase().split('-')[0] ?? '';
-      if (isLocale(base)) return base;
-    }
-  } catch { /* no navigator (SSR) */ }
   return 'en';
 }
+
+// WidgetLang —— the language a widget was given (its `lang` prop), for everything rendered inside
+// it (the BYOK panel, cards) without threading a prop through each layer.
+export const WidgetLang = createContext<string | undefined>(undefined);
 
 export type T = (key: MessageKey, vars?: Record<string, string>) => string;
 
@@ -327,10 +327,13 @@ export function translate(locale: Locale, key: MessageKey, vars?: Record<string,
   return s;
 }
 
-// useT —— t() in the visitor's language. English on the first (prerender-matching) render; the
-// visitor's language right after mount.
+// useT —— t() in the page's language (see resolveLocale). A given `lang` renders from the first
+// render (it is known at build time, so the prerender matches); otherwise English first, then the
+// page's stored choice right after mount.
 export function useT(): T {
-  const [locale, setLocale] = useState<Locale>('en');
-  useEffect(() => { setLocale(resolveLocale()); }, []);
+  const explicit = useContext(WidgetLang);
+  // First render: only what the page's source says (no browser read, so it matches the prerender).
+  const [locale, setLocale] = useState<Locale>(explicit !== undefined && isLocale(explicit) ? explicit : 'en');
+  useEffect(() => { setLocale(resolveLocale(explicit)); }, [explicit]);
   return (key, vars) => translate(locale, key, vars);
 }

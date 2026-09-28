@@ -816,6 +816,30 @@ CREATE TABLE microsites (
     updated_at             timestamptz   NOT NULL DEFAULT now()
 );
 
+-- microsite_access —— "open without an access code", per page (owner decision 2026-09-28). No row =
+-- the default: open iff no active code is bound to the page (a bound page starts closed); a row =
+-- the owner's explicit choice. A closed page is served only to a visitor whose code session is
+-- bound to it, or to the signed-in owner — every file under /p/<slug>, since the built JS carries
+-- the page's text too.
+-- events: none (owner configuration)
+CREATE TABLE microsite_access (
+    page_id           uuid        PRIMARY KEY REFERENCES microsites(id) ON DELETE CASCADE,
+    owner_id          uuid        NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    open_without_code boolean     NOT NULL,
+    updated_at        timestamptz NOT NULL DEFAULT now()
+);
+
+-- microsite_opens_without_code —— the ONE definition of "may this page be opened without a code":
+-- the owner's explicit choice, else open iff no active code is bound. Every reader (the admin list,
+-- the serve check) calls this, so the default rule cannot drift between them.
+CREATE FUNCTION microsite_opens_without_code(page uuid) RETURNS boolean
+LANGUAGE sql STABLE AS $$
+    SELECT COALESCE(
+        (SELECT ma.open_without_code FROM microsite_access ma WHERE ma.page_id = page),
+        NOT EXISTS (SELECT 1 FROM access_codes ac WHERE ac.microsite_id = page AND ac.status = 'active')
+    )
+$$;
+
 -- Partial: uniqueness holds only among LIVE rows, so a soft-deleted slug (DeletePage sets
 -- status='deleted') frees up and can be recreated by a normal microsite.
 CREATE UNIQUE INDEX microsites_owner_slug_idx ON microsites(owner_id, slug) WHERE status <> 'deleted';

@@ -75,10 +75,15 @@ export interface GhostLog {
   shown_at: string;
   accepted: boolean;
   accepted_at: string | null;
+  // count —— how many times this same ghost was shown (see toGhostLogs); 1 for a single showing.
+  count: number;
 }
 
 export interface ConvTranscript {
   conversationID: string;
+  // summary —— who the visitor was / which code, for the downloaded transcript's header. Null
+  // until the conversation has loaded.
+  summary: ConvView | null;
   loading: boolean;
   error: string | null;
   messages: ConvTranscriptMessage[];
@@ -169,7 +174,7 @@ const transcriptStore = create<TranscriptState>((set) => ({
     set({
       openId: id,
       transcript: {
-        conversationID: id, loading: true, error: null,
+        conversationID: id, summary: null, loading: true, error: null,
         messages: [], refs: emptyRefs(), grounding: [], ghosts: [],
       },
     });
@@ -206,6 +211,7 @@ async function loadTranscript(id: string, setTranscript: (t: ConvTranscript) => 
     const data = await adminAPI.get(`/conversations/${id}`, ConvTranscriptRespSchema);
     setTranscript({
       conversationID: id,
+      summary: toView(data.conversation),
       loading: false,
       error: null,
       messages: data.messages.map(toTranscriptMessage),
@@ -221,6 +227,7 @@ async function loadTranscript(id: string, setTranscript: (t: ConvTranscript) => 
   } catch (e) {
     setTranscript({
       conversationID: id,
+      summary: null,
       loading: false,
       error: e instanceof Error ? e.message : 'load failed',
       messages: [],
@@ -259,17 +266,39 @@ export function emptyRefs(): Record<CitedGenre, Record<string, string>> {
   return { wiki: {}, output: {}, subjectivity: {}, writing: {} };
 }
 
+// toGhostLogs —— one row per ghost the visitor was shown, not one per page load: the same text
+// from the same source is folded into its first showing, with `count` = how many times it was
+// shown and `accepted` = accepted on any of them. The owner read six identical lines for one
+// ghost (2026-09-28) — the list is for "what was suggested and did it land", and repetition
+// belongs in a count.
 function toGhostLogs(
   raw: z.infer<typeof GhostLogSchema>[] | undefined,
 ): GhostLog[] {
-  return (raw ?? []).map((s) => ({
-    id: s.id,
-    ghost_text: s.ghost_text,
-    source: s.source,
-    shown_at: s.shown_at,
-    accepted: s.accepted,
-    accepted_at: s.accepted_at ?? null,
-  }));
+  const rows: GhostLog[] = [];
+  const byKey = new Map<string, GhostLog>();
+  for (const s of raw ?? []) {
+    const key = `${s.source}\u0000${s.ghost_text}`;
+    const seen = byKey.get(key);
+    if (seen !== undefined) {
+      foldGhost(seen, s);
+      continue;
+    }
+    const row: GhostLog = {
+      id: s.id, ghost_text: s.ghost_text, source: s.source, shown_at: s.shown_at,
+      accepted: s.accepted, accepted_at: s.accepted_at ?? null, count: 1,
+    };
+    byKey.set(key, row);
+    rows.push(row);
+  }
+  return rows;
+}
+
+function foldGhost(row: GhostLog, s: z.infer<typeof GhostLogSchema>): void {
+  row.count += 1;
+  if (s.accepted && !row.accepted) {
+    row.accepted = true;
+    row.accepted_at = s.accepted_at ?? null;
+  }
 }
 
 function indexRefs(refs: TitledRef[] | undefined): Record<string, string> {

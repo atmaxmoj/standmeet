@@ -59,6 +59,9 @@ type MicrositeHandlers struct {
 	// codeless AgentWidget picks inline / the visitor's own key / the /gate handoff. Wired at the
 	// composition root; nil = off. Read fresh per request.
 	PublicChat func(ctx context.Context) (string, error)
+	// CanOpen —— for a page closed to visitors without a code: does the request's owner session
+	// or its visitor session token open it. Wired at the composition root; nil = nobody.
+	CanOpen    func(r *http.Request, visitorToken, pageID string) bool
 	BuildsRoot string
 }
 
@@ -162,14 +165,16 @@ func (h *MicrositeHandlers) serveSlugAt(
 ) {
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	ctx := r.Context()
+	live, lerr := owner.ResolveOpenBuild(ctx, h.Deps, h.Owners, slug,
+		func(pageID string) bool { return h.grantOpens(r, pageID) })
+	if lerr != nil {
+		h.writeServeErr(w, r, lerr)
+		return
+	}
 	ServeBuildAsset(w, r, &BuildAssetReq{
 		Log:        h.Log,
 		BuildsRoot: h.BuildsRoot,
 		Resolve: func() (BuiltAsset, error) {
-			live, lerr := owner.ResolveLiveBuild(ctx, h.Deps, h.Owners, slug)
-			if lerr != nil {
-				return BuiltAsset{}, lerr
-			}
 			asset := BuiltAsset{
 				PageID: live.Build.PageID, BuildID: live.Build.ID, Slug: slug,
 				AllowBYOAI:   live.AllowBYOAI,
@@ -186,6 +191,27 @@ func (h *MicrositeHandlers) serveSlugAt(
 		AssetPath: chi.URLParam(r, "*"),
 		BaseHref:  baseHref,
 	})
+}
+
+// grantOpens —— does the request carry a grant for a page closed to visitors without a code: the
+// owner's session, or a visitor session whose code is bound to the page. No CanOpen wired = none.
+func (h *MicrositeHandlers) grantOpens(r *http.Request, pageID string) bool {
+	if h.CanOpen == nil {
+		return false
+	}
+	visitor, _ := visitorToken(r)
+	return h.CanOpen(r, visitor, pageID)
+}
+
+// writeServeErr —— a closed page without a grant: the page itself sends the reader to enter a
+// code; its sub-assets are simply not there (404, like every other resolve error).
+func (h *MicrositeHandlers) writeServeErr(w http.ResponseWriter, r *http.Request, err error) {
+	rel, _ := normalizeAssetRel(chi.URLParam(r, "*"))
+	if errors.Is(err, owner.ErrMicrositeNeedsCode) && rel == "index.html" {
+		http.Redirect(w, r, "/gate", http.StatusFound)
+		return
+	}
+	writeAssetErr(h.Log, w, err)
 }
 
 // resolvePublicSearch —— corpus.retrieval's public_search setting for the sole owner, or false.
@@ -282,6 +308,7 @@ func writeAssetErr(log *slog.Logger, w http.ResponseWriter, err error) {
 // notFoundErrs —— a slice instead of a switch, keeping isNotFoundErr's cyclo at 2.
 var notFoundErrs = []error{
 	owner.ErrMicrositeNotFound,
+	owner.ErrMicrositeNeedsCode,
 	owner.ErrOwnerNotFound,
 	owner.ErrMicrositeBuildNotFound,
 }

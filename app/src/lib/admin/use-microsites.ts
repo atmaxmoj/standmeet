@@ -22,6 +22,8 @@ const MicrositeSummarySchema = z.object({
   // ([[zod-unknown-is-not-optional]]: a missing field from the server silently fails the whole schema).
   bound_codes: z.array(z.string()).nullish(),
   allow_byoai: z.boolean().nullish(),
+  // open_without_code —— may a visitor with no code open the page.
+  open_without_code: z.boolean().nullish(),
   // latest_build_id —— the panel uses this to decide "the preview should
   // refresh now": the agent produces a new id on every build, the only value
   // that changes along with what the owner directs. optional: the backend
@@ -105,6 +107,7 @@ export interface MicrositesHook {
   getBuild: (buildID: string) => Promise<BuildView>;
   promote: (slug: string, buildID: string) => Promise<void>;
   setByoai: (slug: string, allow: boolean) => Promise<void>;
+  setOpenWithoutCode: (slug: string, open: boolean) => Promise<void>;
   rollback: (slug: string) => Promise<void>;
   removePage: (slug: string) => Promise<void>;
   unpublish: (slug: string) => Promise<void>;
@@ -153,7 +156,7 @@ export function useMicrosites(): MicrositesHook {
     status: page.status, rows: page.items, error: page.error, page,
     refresh: refreshMicrosites,
     createPage, writeFile, build, getBuild, promote, setByoai, rollback, removePage, unpublish, renamePage,
-    setSEO,
+    setSEO, setOpenWithoutCode,
   };
 }
 
@@ -394,6 +397,12 @@ async function unpublish(slug: string): Promise<void> {
 
 async function setByoai(slug: string, allow: boolean): Promise<void> {
   await adminAPI.put(`/microsites/${slug}/byoai`, { allow_byoai: allow },
+    z.object({}).passthrough());
+  await refreshMicrosites();
+}
+
+async function setOpenWithoutCode(slug: string, open: boolean): Promise<void> {
+  await adminAPI.put(`/microsites/${slug}/open-without-code`, { open_without_code: open },
     z.object({}).passthrough());
   await refreshMicrosites();
 }

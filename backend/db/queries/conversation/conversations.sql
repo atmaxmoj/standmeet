@@ -37,7 +37,7 @@ SELECT c.doc_key, c.started_at, m.role, m.body, m.created_at
 FROM messages m
 JOIN conversations c ON c.id = m.conversation_id
 WHERE c.member_id = $1 AND c.id <> $2
-ORDER BY m.created_at;
+ORDER BY m.created_at, CASE m.role WHEN 'visitor' THEN 0 ELSE 1 END; -- same tie rule as ListMessages
 
 -- name: CreateDialog :one
 -- One Q-A round first creates a dialog row; the two messages hang off its id. Returns the real dialog id.
@@ -57,7 +57,12 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING *;
 
 -- name: ListMessages :many
-SELECT * FROM messages WHERE conversation_id = $1 ORDER BY created_at;
+-- A turn's visitor and assistant rows are written in one transaction, so created_at (now() = the
+-- transaction's start) is the SAME for both: the time alone cannot order them, and the tie came
+-- back answer-first on a live table (owner transcript, 2026-09-28). Within a moment, the question
+-- comes first. ListMemberOtherConversationMessages below orders by the same rule.
+SELECT * FROM messages WHERE conversation_id = $1
+ORDER BY created_at, CASE role WHEN 'visitor' THEN 0 ELSE 1 END;
 
 -- name: BumpConversation :exec
 -- Only update last_at (for list ordering); turn count is no longer stored, derived from messages at read time.

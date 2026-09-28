@@ -31,6 +31,22 @@ func ResolveLiveBuild(
 	return resolveByOwner(ctx, deps, soleOwner.ID, slug)
 }
 
+// ResolveOpenBuild —— ResolveLiveBuild for a visitor: a page closed to visitors without a code
+// resolves only when granted(pageID) says the request carries a grant; else ErrMicrositeNeedsCode.
+func ResolveOpenBuild(
+	ctx context.Context, deps MicrositeDeps, owners SoleOwnerLookup, slug string,
+	granted func(pageID string) bool,
+) (LivePage, error) {
+	live, err := ResolveLiveBuild(ctx, deps, owners, slug)
+	if err != nil {
+		return LivePage{}, err
+	}
+	if !live.OpenWithoutCode && !granted(live.Build.PageID) {
+		return LivePage{}, entity.ErrMicrositeNeedsCode
+	}
+	return live, nil
+}
+
 // resolveSoleOwner — the v1 single-owner instance's owner, resolved through the same
 // handle chain used across public routes. Shared by ResolveLiveBuild and LiveMicrosites.
 func resolveSoleOwner(ctx context.Context, owners SoleOwnerLookup) (entity.Owner, error) {
@@ -73,13 +89,19 @@ func LiveMicrosites(
 	if lerr != nil {
 		return []LivePageLink{}, fmt.Errorf("list microsites: %w", lerr)
 	}
+	return advertised(pages), nil
+}
+
+// advertised —— the live pages a visitor without a code may open; a closed page is not
+// advertised to them either.
+func advertised(pages []entity.Microsite) []LivePageLink {
 	out := make([]LivePageLink, 0, len(pages))
 	for i := range pages {
-		if pages[i].LiveBuildID != nil {
+		if pages[i].LiveBuildID != nil && pages[i].OpenWithoutCode {
 			out = append(out, LivePageLink{Slug: pages[i].Slug, Title: pages[i].Title})
 		}
 	}
-	return out, nil
+	return out
 }
 
 // LivePage — the page currently being served: which build's artifacts, plus that page's
@@ -93,6 +115,9 @@ type LivePage struct {
 	SeoImage       *string
 	Build          entity.MicrositeBuild
 	AllowBYOAI     bool
+	// OpenWithoutCode —— may a visitor with no code read this page (see
+	// microsite_opens_without_code). Filled for the live page; the owner's preview doesn't ask.
+	OpenWithoutCode bool
 }
 
 func resolveByOwner(
@@ -109,10 +134,33 @@ func resolveByOwner(
 	if berr != nil {
 		return LivePage{}, fmt.Errorf("get build: %w", berr)
 	}
+	open, oerr := deps.Pages.OpensWithoutCode(ctx, page.ID)
+	if oerr != nil {
+		return LivePage{}, fmt.Errorf("opens without code: %w", oerr)
+	}
 	return LivePage{
-		Build: build, AllowBYOAI: page.AllowBYOAI,
+		Build: build, AllowBYOAI: page.AllowBYOAI, OpenWithoutCode: open,
 		SeoTitle: page.SeoTitle, SeoDescription: page.SeoDescription, SeoImage: page.SeoImage,
 	}, nil
+}
+
+// SetPageOpenWithoutCode —— the owner's "open without an access code" switch for one page.
+func SetPageOpenWithoutCode(
+	ctx context.Context, deps MicrositeDeps, ownerID, slug string, open bool,
+) error {
+	if err := deps.Pages.SetOpenWithoutCode(ctx, ownerID, slug, open); err != nil {
+		return fmt.Errorf("set open without code: %w", err)
+	}
+	return nil
+}
+
+// CodeOpensPage —— does this code (a visitor session's) open this page: an active code bound to it.
+func CodeOpensPage(ctx context.Context, deps MicrositeDeps, codeID, pageID string) (bool, error) {
+	ok, err := deps.Pages.CodeOpens(ctx, codeID, pageID)
+	if err != nil {
+		return false, fmt.Errorf("code opens page: %w", err)
+	}
+	return ok, nil
 }
 
 // ResolvePreviewBuild — the version used **for owner preview**: this page's most

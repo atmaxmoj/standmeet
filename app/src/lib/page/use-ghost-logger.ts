@@ -28,7 +28,7 @@
 
 import { useCallback, useEffect } from 'react';
 
-import { loadStoredSession } from '@/lib/gate/use-gate';
+import { loadStoredSession, type StoredVisitorSession } from '@/lib/gate/use-gate';
 import {
   useCurrentGhostMeta, useGhostsStore, type GhostSource,
 } from '@/lib/visitor/ghosts-store';
@@ -58,13 +58,34 @@ export function useGhostLogger(): GhostLogger {
   return { acceptCurrent };
 }
 
+// inFlight —— ghost texts whose "shown" POST is on its way. The store's shownIDs only fills when the
+// response comes back, so two logger instances mounting in the same tick (LongScroll + ChatRoom)
+// both passed that check and wrote two rows for one showing (prod, 2026-09-28: every entry logged
+// the same ghost twice in the same second). Module scope = shared by every instance on the page.
+const inFlight = new Set<string>();
+
 async function recordShown(text: string, source: GhostSource): Promise<void> {
-  // store-level dedup: if text already has an id, don't send again; even
-  // when multiple instances mount (LongScroll → ChatRoom switch) and both
-  // run the same code, only one row gets written.
-  if (useGhostsStore.getState().shownIDs[text] !== undefined) return;
+  // store-level dedup: if text already has an id (or is being recorded), don't send again; even
+  // when multiple instances mount (LongScroll → ChatRoom switch) and both run the same code, only
+  // one row gets written.
+  if (useGhostsStore.getState().shownIDs[text] !== undefined || inFlight.has(text)) return;
   const sess = loadStoredSession();
   if (sess === null) return;
+  // A code that opens a page sends its visitor there: this chat is only the stop on the way, and
+  // its ghost was never the visitor's to see (prod: logged as "shown" on every entry through a
+  // cover-letter code). Record nothing for such a session.
+  if (sess.microsite_slug !== '') return;
+  inFlight.add(text);
+  try {
+    await postShown(sess, text, source);
+  } finally {
+    inFlight.delete(text);
+  }
+}
+
+async function postShown(
+  sess: StoredVisitorSession, text: string, source: GhostSource,
+): Promise<void> {
   const res = await fetch(
     `/api/v1/sessions/${sess.conversation_id}/ghosts/shown`,
     {

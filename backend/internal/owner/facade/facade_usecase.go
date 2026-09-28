@@ -120,6 +120,8 @@ var (
 	ErrPendingEmailExpired    = usecase.ErrPendingEmailExpired
 	RemoveAllowedDomain       = usecase.RemoveAllowedDomain
 	ResolveLiveBuild          = usecase.ResolveLiveBuild
+	CodeOpensPage             = usecase.CodeOpensPage
+	ResolveOpenBuild          = usecase.ResolveOpenBuild
 	LiveMicrositeText         = usecase.LiveMicrositeText
 	LiveMicrosites            = usecase.LiveMicrosites
 	ResolvePreviewBuild       = usecase.ResolvePreviewBuild

@@ -41,6 +41,17 @@ func micrositeSettingOps(deps usecase.MicrositeDeps) []fp.Op {
 			Invoke:      setMicrositeStoreWritable(deps),
 		},
 		{
+			ID: "microsite.set_open_without_code",
+			Description: "Whether this page opens for a visitor without an access code. " +
+				"Off: only a visitor whose code is bound to the page (or you, signed in) " +
+				"can open it; anyone else is sent to enter a code. A page with a code " +
+				"bound starts off; one without, on.",
+			InputSchema: micrositeOpenWithoutCodeSchema,
+			Kind:        fp.Action,
+			Reach:       fp.OwnerAction(),
+			Invoke:      setMicrositeOpenWithoutCode(deps),
+		},
+		{
 			ID: "microsite.rename",
 			Description: "Rename a microsite's slug (its /p/<slug> address). The new slug must " +
 				"be free. Bound access codes follow the rename; the reserved home page cannot be " +
@@ -84,6 +95,30 @@ func setMicrositeStoreWritable(deps usecase.MicrositeDeps) fp.Invoke {
 type storeWritableOut struct {
 	Slug          string `json:"slug"`
 	StoreWritable bool   `json:"store_writable"`
+}
+
+// setMicrositeOpenWithoutCode —— the owner's "open without an access code" switch.
+func setMicrositeOpenWithoutCode(deps usecase.MicrositeDeps) fp.Invoke {
+	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
+		in, perr := decodePageSlug(raw)
+		if perr != nil {
+			return nil, perr
+		}
+		if in.OpenWithoutCode == nil {
+			return nil, fp.BadInput("open_without_code is required")
+		}
+		err := usecase.SetPageOpenWithoutCode(ctx, deps, ownerID, in.Slug, *in.OpenWithoutCode)
+		if err != nil {
+			return nil, micrositeErr(err)
+		}
+		return json.Marshal(openWithoutCodeOut{Slug: in.Slug, OpenWithoutCode: *in.OpenWithoutCode})
+	}
+}
+
+// openWithoutCodeOut —— the switch receipt.
+type openWithoutCodeOut struct {
+	Slug            string `json:"slug"`
+	OpenWithoutCode bool   `json:"open_without_code"`
 }
 
 func micrositeBuildOps(deps usecase.MicrositeDeps) []fp.Op {

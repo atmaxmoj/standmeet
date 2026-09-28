@@ -12,25 +12,31 @@ import React, { useEffect, useState } from 'react';
 import { applyCorpusQuery, type CorpusCard, type WikiLandingView } from '@standmeet/sdk-core';
 
 import { paragraphsOf, widgetClient } from './client.js';
-import { resolveLocale, useT } from '../i18n.js';
+import { resolveLocale, useT, WidgetLang } from '../i18n.js';
 
 export interface CorpusWidgetProps {
   readonly heading?: string;
   readonly limit?: number;
   readonly query?: string; // the CorpusWidget QL — subtree / sort / limit; overrides `limit`
-  readonly lang?: string;  // which language pane to reveal (the backend resolves `[!i18n]` notes); default: the visitor's
+  readonly lang?: string;  // the page's language: the note pane to reveal AND the widget's own copy; default English
 }
 
 // resolveLang —— which language to ask the wiki-landing endpoint for. Explicit prop wins; else the
-// visitor's stored choice (same 'sm-lang' key the pages use), else their browser, else English. The
-// backend picks the matching `[!i18n]` pane, so the preview never shows both languages + radio markup.
+// page's stored choice (same 'sm-lang' key the pages use), else English (resolveLocale). The backend
+// picks the matching `[!i18n]` pane, so the preview never shows both languages + radio markup.
 // Notes carry only en/zh panes, so every other UI locale reads the English pane.
 function resolveLang(explicit?: string): string {
   if (explicit) return explicit;
   return resolveLocale() === 'zh' ? 'zh' : 'en';
 }
 
-export function CorpusWidget({ heading, limit, query, lang }: CorpusWidgetProps): React.ReactElement | null {
+// CorpusWidget —— `lang` reaches the widget's own copy (heading, "reading…") through WidgetLang,
+// the same way AgentWidget's does, not only the note pane.
+export function CorpusWidget(props: CorpusWidgetProps): React.ReactElement | null {
+  return <WidgetLang.Provider value={props.lang}><CorpusList {...props} /></WidgetLang.Provider>;
+}
+
+function CorpusList({ heading, limit, query, lang }: CorpusWidgetProps): React.ReactElement | null {
   const t = useT();
   const [cards, setCards] = useState<CorpusCard[]>([]);
   useEffect(() => { widgetClient.fetchCorpusCards().then(setCards).catch(() => undefined); }, []);

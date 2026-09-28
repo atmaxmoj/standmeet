@@ -169,8 +169,14 @@ func RunAgentTurn(
 	// the client disconnected). Persisted before Done → `done` means "already committed".
 	acc := newAccumSink(sink)
 	acc.onDone = func() {
-		persistTurn(ctx, log, in, acc)
-		markWaypointsTurn(ctx, in, acc)
+		// The turn's ctx may already be past its wall here: the rescue after the wall runs on its
+		// own budget and can finish AFTER ctx expired. Writing on that ctx failed with "context
+		// deadline exceeded" and the turn the visitor just read was lost (prod, 2026-09-28: a
+		// ~346s answer missing from the owner's transcript). The write gets its own budget.
+		wctx, wcancel := context.WithTimeout(context.WithoutCancel(ctx), persistBudget)
+		defer wcancel()
+		persistTurn(wctx, log, in, acc)
+		markWaypointsTurn(wctx, in, acc)
 		// Slot released after persistence, before `done` is written: the instant the visitor
 		// gets the receipt, this session stops being busy server-side. The epilogue that runs
 		// after is background bookkeeping — shouldn't make the next question hit a wall (F-A-42).
@@ -183,6 +189,11 @@ func RunAgentTurn(
 	dur := time.Since(start)
 	logAgentTurnEnd(ctx, log, dur, timeout)
 }
+
+// persistBudget —— how long the end-of-turn write (dialog + waypoint ledger) may take, counted
+// from when the turn ends — not from when it started, so a turn that used its whole wall still
+// gets its write.
+const persistBudget = 30 * time.Second
 
 // writeDeadlineGrace —— extra time the write deadline keeps beyond the agent turn ctx timeout,
 // so once the ctx times out the sink still has time to flush the error/done frame.
@@ -241,25 +252,6 @@ type sseSink struct {
 	w       http.ResponseWriter
 	flusher http.Flusher
 	mu      sync.Mutex
-}
-
-// shownResult —— can this tool call's result go out live, unchanged.
-//
-// **Right now it goes out unchanged — the half of F-A-28 still not closed.** The retrieval
-// result contains note body text (including private subjectivity); the persistence path already
-// strips it (history.go goes through VisitorToolCalls), the live path has not.
-//
-// Can't just strip it here: **the visitor's citation footnotes are computed by the frontend
-// from these results.** Stripping result would make the footer disappear entirely
-// (visitor-chat-tool-cards would go red immediately). So the show_as_source gate the design
-// relies on is really a browser-side filter over a payload that already contains private body
-// text — the server sends everything, the client decides what to display.
-//
-// To close this half, the server needs to emit citations as their own frame (already computed,
-// right there in history's return value), so the footer stops depending on raw result. That's a
-// streaming-protocol change, not an `if` added here.
-func shownResult(_, result string) string {
-	return result
 }
 
 var _ AgentSink = (*sseSink)(nil)
@@ -330,21 +322,4 @@ func (s *sseSink) Done(stop string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	emitDone(s.log, s.w, s.flusher, stop)
-}
-
-type toolStartedPayload struct {
-	ID            string          `json:"id"`
-	Name          string          `json:"name"`
-	ProgressLabel string          `json:"progress_label,omitempty"`
-	Args          json.RawMessage `json:"args"`
-}
-
-type toolCompletedPayload struct {
-	Name   string `json:"name"`
-	Result string `json:"result"`
-}
-
-// retryingPayload —— payload of an SSE `retrying` frame. attempt is which retry (from 1).
-type retryingPayload struct {
-	Attempt int `json:"attempt"`
 }

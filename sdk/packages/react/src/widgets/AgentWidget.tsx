@@ -26,11 +26,16 @@ import { AnswerText } from '../AnswerText.js';
 import { gateHref } from './client.js';
 import { McpAppCard } from './McpAppCard.js';
 import { ByokPanel } from './ByokPanel.js';
-import { useT, type T } from '../i18n.js';
+import { useT, WidgetLang, type T } from '../i18n.js';
 
 export interface AgentWidgetProps {
+  // The author's own copy: shown as given in EVERY mode (gate, inline, BYOK). The inline agent used
+  // to drop both, so on an instance with a public tier the page's own copy never appeared.
   readonly placeholder?: string;
   readonly examples?: readonly string[];
+  // The page's language for the widget's own copy (the same prop CorpusWidget takes). Absent →
+  // the page's stored `sm-lang`, else English — never the reader's browser.
+  readonly lang?: string;
 }
 
 export function AgentWidget(props: AgentWidgetProps): React.ReactElement {
@@ -47,9 +52,17 @@ export function AgentWidget(props: AgentWidgetProps): React.ReactElement {
   const [mode, setMode] = useState<WidgetMode>('gate');
   useEffect(() => { setMode(widgetMode()); }, []);
 
-  return mode === 'gate'
-    ? <GateHandoff placeholder={props.placeholder} examples={props.examples} />
-    : <StandMeetProvider baseURL=""><InlineAgent needsKey={mode === 'byok'} /></StandMeetProvider>;
+  return (
+    <WidgetLang.Provider value={props.lang}>
+      {mode === 'gate'
+        ? <GateHandoff placeholder={props.placeholder} examples={props.examples} />
+        : (
+          <StandMeetProvider baseURL="">
+            <InlineAgent needsKey={mode === 'byok'} placeholder={props.placeholder} examples={props.examples} />
+          </StandMeetProvider>
+        )}
+    </WidgetLang.Provider>
+  );
 }
 
 type WidgetMode = 'inline' | 'byok' | 'gate';
@@ -90,21 +103,7 @@ function GateHandoff({ placeholder, examples }: AgentWidgetProps): React.ReactEl
           {t('ask')}
         </button>
       </form>
-      {examples !== undefined && examples.length > 0 && (
-        <ul className="mt-5 flex flex-wrap gap-x-6 gap-y-2">
-          {examples.map((ex) => (
-            <li key={ex}>
-              <button
-                type="button"
-                onClick={() => ask(ex)}
-                className="text-left font-serif italic text-(--color-muted) hover:text-(--color-accent) transition-colors text-[16px] leading-[1.4]"
-              >
-                &ldquo;{ex}&rdquo;
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+      <ExampleList examples={examples} onAsk={ask} />
     </section>
   );
 }
@@ -112,7 +111,11 @@ function GateHandoff({ placeholder, examples }: AgentWidgetProps): React.ReactEl
 // InlineAgent —— granted: the code's agent, inline. Corpus/persona/quota inherit through the
 // adopted session; the dock buttons inherit through the stored blob. needsKey: the owner's public
 // tier can't serve, so the visitor asks on their own key (ByokPanel) until one is in use.
-function InlineAgent({ needsKey }: { readonly needsKey: boolean }): React.ReactElement {
+function InlineAgent({ needsKey, placeholder, examples }: {
+  readonly needsKey: boolean;
+  readonly placeholder?: string;
+  readonly examples?: readonly string[];
+}): React.ReactElement {
   // adopted grant overrides this input; a saved key is used up front only when the owner has no quota
   const chat = useChatSession({ mode: 'public' }, { autoUseSavedKey: needsKey });
   const t = useT();
@@ -222,7 +225,7 @@ function InlineAgent({ needsKey }: { readonly needsKey: boolean }): React.ReactE
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder={askPlaceholder(t, chat.streaming, showPanel && needsKey)}
+          placeholder={askPlaceholder(t, chat.streaming, showPanel && needsKey, placeholder)}
           aria-label={t('askLabel')}
           data-testid="agent-widget-input"
           disabled={chat.streaming || (showPanel && needsKey)}
@@ -237,16 +240,44 @@ function InlineAgent({ needsKey }: { readonly needsKey: boolean }): React.ReactE
           {t('ask')}
         </button>
       </form>
+      {chat.messages.length === 0 && <ExampleList examples={examples} onAsk={send} />}
     </section>
+  );
+}
+
+// ExampleList —— the author's example questions; clicking one asks it. One list for every mode
+// (gate hands the question to /gate, inline sends it) so the author's copy renders the same way.
+function ExampleList({ examples, onAsk }: {
+  readonly examples?: readonly string[];
+  readonly onAsk: (q: string) => void;
+}): React.ReactElement | null {
+  if (examples === undefined || examples.length === 0) return null;
+  return (
+    <ul className="mt-5 flex flex-wrap gap-x-6 gap-y-2">
+      {examples.map((ex) => (
+        <li key={ex}>
+          <button
+            type="button"
+            onClick={() => onAsk(ex)}
+            className="text-left font-serif italic text-(--color-muted) hover:text-(--color-accent) transition-colors text-[16px] leading-[1.4]"
+          >
+            &ldquo;{ex}&rdquo;
+          </button>
+        </li>
+      ))}
+    </ul>
   );
 }
 
 // A glyph, not a word: the button's words are its aria-label and title.
 const CLEAR_GLYPH = '↺';
 
-function askPlaceholder(t: T, streaming: boolean, needsKey: boolean): string {
+// askPlaceholder —— working states say what is happening; otherwise the author's own placeholder,
+// else the catalog default.
+function askPlaceholder(t: T, streaming: boolean, needsKey: boolean, own?: string): string {
   if (streaming) return `${t('thinking')}…`;
-  return t(needsKey ? 'needKeyPlaceholder' : 'askPlaceholder');
+  if (needsKey) return t('needKeyPlaceholder');
+  return own ?? t('askPlaceholder');
 }
 
 // errorText —— a known error code speaks the visitor's language; otherwise the server's own

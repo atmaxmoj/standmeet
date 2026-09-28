@@ -152,6 +152,17 @@ var (
 		},
 		"required":["slug","store_writable"]
 	}`)
+
+	micrositeOpenWithoutCodeSchema = json.RawMessage(`{
+		"type":"object",
+		"properties":{
+			"slug":{"type":"string"},
+			"open_without_code":{"type":"boolean",
+				"description":
+				"true: anyone can open the page. false: only a visitor whose code is bound to it."}
+		},
+		"required":["slug","open_without_code"]
+	}`)
 )
 
 // micrositeOut / buildOut —— outbound shape (same for both faces).
@@ -173,6 +184,8 @@ type micrositeOut struct {
 	HasLive           bool     `json:"has_live"`
 	HasStaging        bool     `json:"has_staging"`
 	AllowBYOAI        bool     `json:"allow_byoai"`
+	// OpenWithoutCode —— may a visitor with no code open the page (filled on list rows).
+	OpenWithoutCode bool `json:"open_without_code"`
 }
 
 type buildOut struct {
@@ -191,7 +204,7 @@ func toMicrositeOut(p *entity.Microsite) micrositeOut {
 	}
 	v := micrositeOut{
 		ID: p.ID, Slug: p.Slug, Title: p.Title, Status: p.Status,
-		BoundCodes: codes, AllowBYOAI: p.AllowBYOAI,
+		BoundCodes: codes, AllowBYOAI: p.AllowBYOAI, OpenWithoutCode: p.OpenWithoutCode,
 		HasLive: p.LiveBuildID != nil, HasStaging: p.StagingBuildID != nil,
 		CreatedAt: p.CreatedAt.Format(time.RFC3339),
 		UpdatedAt: p.UpdatedAt.Format(time.RFC3339),
@@ -245,16 +258,18 @@ type pageArgs struct {
 	// Ordered first per fieldalignment (pointers before others).
 	AllowByoai *bool `json:"allow_byoai"`
 	// StoreWritable —— set_store_writable's argument. A pointer for the same reason as AllowByoai.
-	StoreWritable  *bool  `json:"store_writable"`
-	Slug           string `json:"slug"`
-	NewSlug        string `json:"new_slug"`
-	Title          string `json:"title"`
-	Path           string `json:"path"`
-	Content        string `json:"content"`
-	BuildID        string `json:"build_id"`
-	SeoTitle       string `json:"seo_title"`
-	SeoDescription string `json:"seo_description"`
-	SeoImage       string `json:"seo_image"`
+	StoreWritable *bool `json:"store_writable"`
+	// OpenWithoutCode —— set_open_without_code's argument. A pointer for the same reason.
+	OpenWithoutCode *bool  `json:"open_without_code"`
+	Slug            string `json:"slug"`
+	NewSlug         string `json:"new_slug"`
+	Title           string `json:"title"`
+	Path            string `json:"path"`
+	Content         string `json:"content"`
+	BuildID         string `json:"build_id"`
+	SeoTitle        string `json:"seo_title"`
+	SeoDescription  string `json:"seo_description"`
+	SeoImage        string `json:"seo_image"`
 }
 
 func decodePageArgs(raw json.RawMessage) (pageArgs, error) {

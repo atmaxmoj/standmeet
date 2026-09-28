@@ -54,7 +54,8 @@ SELECT cp.id, cp.owner_id, cp.slug, cp.title, cp.status,
                ORDER BY ac.created_at
            ),
            ARRAY[]::text[]
-       )::text[] AS bound_codes
+       )::text[] AS bound_codes,
+       microsite_opens_without_code(cp.id)::boolean AS open_without_code
 FROM microsites cp
 WHERE cp.owner_id = $1 AND cp.status != 'deleted'
 ORDER BY cp.created_at DESC;
@@ -76,6 +77,7 @@ SELECT cp.id, cp.owner_id, cp.slug, cp.title, cp.status,
            ),
            ARRAY[]::text[]
        )::text[] AS bound_codes,
+       microsite_opens_without_code(cp.id)::boolean AS open_without_code,
        (SELECT COUNT(*) FROM microsites c2
         WHERE c2.owner_id = sqlc.arg('owner_id') AND c2.status != 'deleted'
           AND (sqlc.arg('slug')::text = '' OR c2.slug = sqlc.arg('slug'))
@@ -112,6 +114,26 @@ WHERE owner_id = $1 AND slug = $2 AND status != 'deleted'
 RETURNING id, owner_id, slug, title, status,
           live_build_id, staging_build_id, previous_live_build_id,
           allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at;
+
+-- name: SetMicrositeOpenWithoutCode :execrows
+-- The owner's explicit "open without an access code" for one page (microsite_access). 0 rows =
+-- no such live page.
+INSERT INTO microsite_access (page_id, owner_id, open_without_code)
+SELECT cp.id, cp.owner_id, sqlc.arg('open_without_code')::boolean
+FROM microsites cp
+WHERE cp.owner_id = sqlc.arg('owner_id') AND cp.slug = sqlc.arg('slug') AND cp.status != 'deleted'
+ON CONFLICT (page_id) DO UPDATE
+SET open_without_code = EXCLUDED.open_without_code, updated_at = now();
+
+-- name: MicrositeOpensWithoutCode :one
+SELECT microsite_opens_without_code(sqlc.arg('page_id'))::boolean AS open_without_code;
+
+-- name: CodeOpensMicrosite :one
+-- Does this code (a visitor session's code) open this page: an active code bound to it.
+SELECT EXISTS (
+    SELECT 1 FROM access_codes ac
+    WHERE ac.id = sqlc.arg('code_id') AND ac.microsite_id = sqlc.arg('page_id') AND ac.status = 'active'
+)::boolean AS opens;
 
 -- name: SetMicrositeLive :one
 -- Move the current live_build_id into previous_live_build_id (to support rollback), then set the new live.

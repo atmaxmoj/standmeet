@@ -37,6 +37,10 @@ type Microsite struct {
 	// StoreWritable —— whether visitors may WRITE this page's persistence store (security model C).
 	// Default false: a page has zero write attack surface until its owner opens it.
 	StoreWritable bool
+	// OpenWithoutCode —— may the page be opened without an access code (owner decision
+	// 2026-09-28): the owner's choice, else open iff no code is bound. Filled on list rows (the
+	// database decides it, microsite_opens_without_code); false on rows read one at a time.
+	OpenWithoutCode bool
 }
 
 // MicrositeBuild —— the state + output path of one sandbox vite build.
@@ -55,6 +59,10 @@ type MicrositeBuild struct {
 
 // ErrMicrositeNotFound —— slug / id lookup found no microsite.
 var ErrMicrositeNotFound = errors.New("microsite not found")
+
+// ErrMicrositeNeedsCode —— the page is closed to visitors without a code, and the request
+// carries no grant (an owner session, or a visitor session whose code is bound to the page).
+var ErrMicrositeNeedsCode = errors.New("microsite needs an access code")
 
 // ErrMicrositeBuildNotFound —— build_id lookup found no build.
 var ErrMicrositeBuildNotFound = errors.New("microsite build not found")

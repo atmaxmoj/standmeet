@@ -86,6 +86,16 @@ export async function createRole(
   return await res.json() as RoleView;
 }
 
+// setRoleCorpus —— narrow or widen a role's corpus allowlist, as the owner does on /admin/roles.
+export async function setRoleCorpus(
+  request: APIRequestContext, csrf: string, role: RoleView, corpusURIs: string[],
+): Promise<void> {
+  const res = await request.put(`${BACKEND}/api/admin/roles/${role.id}`, {
+    headers: { 'X-Csrftoken': csrf }, data: { name: role.name, corpus_uris: corpusURIs },
+  });
+  if (res.status() !== 200) throw new Error(`update role failed: ${res.status()} ${await res.text()}`);
+}
+
 export async function getRoleByName(
   request: APIRequestContext,
   name: string,

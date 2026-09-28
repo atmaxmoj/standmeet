@@ -161,11 +161,13 @@ func (q *Queries) CreateConversation(ctx context.Context, arg CreateConversation
 }
 
 const createDialog = `-- name: CreateDialog :one
+
 INSERT INTO dialogs (conversation_id)
 VALUES ($1)
 RETURNING id
 `
 
+// same tie rule as ListMessages
 // One Q-A round first creates a dialog row; the two messages hang off its id. Returns the real dialog id.
 func (q *Queries) CreateDialog(ctx context.Context, conversationID pgtype.UUID) (pgtype.UUID, error) {
 	row := q.db.QueryRow(ctx, createDialog, conversationID)
@@ -350,7 +352,7 @@ SELECT c.doc_key, c.started_at, m.role, m.body, m.created_at
 FROM messages m
 JOIN conversations c ON c.id = m.conversation_id
 WHERE c.member_id = $1 AND c.id <> $2
-ORDER BY m.created_at
+ORDER BY m.created_at, CASE m.role WHEN 'visitor' THEN 0 ELSE 1 END
 `
 
 type ListMemberOtherConversationMessagesParams struct {
@@ -395,9 +397,14 @@ func (q *Queries) ListMemberOtherConversationMessages(ctx context.Context, arg L
 }
 
 const listMessages = `-- name: ListMessages :many
-SELECT id, conversation_id, dialog_id, role, body, tool_calls, cited_wiki_ids, cited_output_ids, cited_subjectivity_ids, cited_writing_ids, grounded_subjectivity_ids, created_at FROM messages WHERE conversation_id = $1 ORDER BY created_at
+SELECT id, conversation_id, dialog_id, role, body, tool_calls, cited_wiki_ids, cited_output_ids, cited_subjectivity_ids, cited_writing_ids, grounded_subjectivity_ids, created_at FROM messages WHERE conversation_id = $1
+ORDER BY created_at, CASE role WHEN 'visitor' THEN 0 ELSE 1 END
 `
 
+// A turn's visitor and assistant rows are written in one transaction, so created_at (now() = the
+// transaction's start) is the SAME for both: the time alone cannot order them, and the tie came
+// back answer-first on a live table (owner transcript, 2026-09-28). Within a moment, the question
+// comes first. ListMemberOtherConversationMessages below orders by the same rule.
 func (q *Queries) ListMessages(ctx context.Context, conversationID pgtype.UUID) ([]Message, error) {
 	rows, err := q.db.Query(ctx, listMessages, conversationID)
 	if err != nil {

@@ -84,6 +84,26 @@ func (q *Queries) ClearMicrositeLive(ctx context.Context, id pgtype.UUID) (Micro
 	return i, err
 }
 
+const codeOpensMicrosite = `-- name: CodeOpensMicrosite :one
+SELECT EXISTS (
+    SELECT 1 FROM access_codes ac
+    WHERE ac.id = $1 AND ac.microsite_id = $2 AND ac.status = 'active'
+)::boolean AS opens
+`
+
+type CodeOpensMicrositeParams struct {
+	CodeID pgtype.UUID
+	PageID pgtype.UUID
+}
+
+// Does this code (a visitor session's code) open this page: an active code bound to it.
+func (q *Queries) CodeOpensMicrosite(ctx context.Context, arg CodeOpensMicrositeParams) (bool, error) {
+	row := q.db.QueryRow(ctx, codeOpensMicrosite, arg.CodeID, arg.PageID)
+	var opens bool
+	err := row.Scan(&opens)
+	return opens, err
+}
+
 const createMicrosite = `-- name: CreateMicrosite :one
 INSERT INTO microsites (owner_id, slug, title)
 VALUES ($1, $2, $3)
@@ -351,7 +371,8 @@ SELECT cp.id, cp.owner_id, cp.slug, cp.title, cp.status,
                ORDER BY ac.created_at
            ),
            ARRAY[]::text[]
-       )::text[] AS bound_codes
+       )::text[] AS bound_codes,
+       microsite_opens_without_code(cp.id)::boolean AS open_without_code
 FROM microsites cp
 WHERE cp.owner_id = $1 AND cp.status != 'deleted'
 ORDER BY cp.created_at DESC
@@ -374,6 +395,7 @@ type ListMicrositesByOwnerRow struct {
 	CreatedAt           pgtype.Timestamptz
 	UpdatedAt           pgtype.Timestamptz
 	BoundCodes          []string
+	OpenWithoutCode     bool
 }
 
 // Includes allow_byoai, plus **which codes open this page** (the other end of the binding).
@@ -405,6 +427,7 @@ func (q *Queries) ListMicrositesByOwner(ctx context.Context, ownerID pgtype.UUID
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.BoundCodes,
+			&i.OpenWithoutCode,
 		); err != nil {
 			return nil, err
 		}
@@ -429,6 +452,7 @@ SELECT cp.id, cp.owner_id, cp.slug, cp.title, cp.status,
            ),
            ARRAY[]::text[]
        )::text[] AS bound_codes,
+       microsite_opens_without_code(cp.id)::boolean AS open_without_code,
        (SELECT COUNT(*) FROM microsites c2
         WHERE c2.owner_id = $1 AND c2.status != 'deleted'
           AND ($2::text = '' OR c2.slug = $2)
@@ -474,6 +498,7 @@ type ListMicrositesPageRow struct {
 	CreatedAt           pgtype.Timestamptz
 	UpdatedAt           pgtype.Timestamptz
 	BoundCodes          []string
+	OpenWithoutCode     bool
 	Total               int32
 }
 
@@ -515,6 +540,7 @@ func (q *Queries) ListMicrositesPage(ctx context.Context, arg ListMicrositesPage
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.BoundCodes,
+			&i.OpenWithoutCode,
 			&i.Total,
 		); err != nil {
 			return nil, err
@@ -525,6 +551,17 @@ func (q *Queries) ListMicrositesPage(ctx context.Context, arg ListMicrositesPage
 		return nil, err
 	}
 	return items, nil
+}
+
+const micrositeOpensWithoutCode = `-- name: MicrositeOpensWithoutCode :one
+SELECT microsite_opens_without_code($1)::boolean AS open_without_code
+`
+
+func (q *Queries) MicrositeOpensWithoutCode(ctx context.Context, pageID pgtype.UUID) (bool, error) {
+	row := q.db.QueryRow(ctx, micrositeOpensWithoutCode, pageID)
+	var open_without_code bool
+	err := row.Scan(&open_without_code)
+	return open_without_code, err
 }
 
 const renameMicrosite = `-- name: RenameMicrosite :one
@@ -800,6 +837,31 @@ func (q *Queries) SetMicrositeLive(ctx context.Context, arg SetMicrositeLivePara
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const setMicrositeOpenWithoutCode = `-- name: SetMicrositeOpenWithoutCode :execrows
+INSERT INTO microsite_access (page_id, owner_id, open_without_code)
+SELECT cp.id, cp.owner_id, $1::boolean
+FROM microsites cp
+WHERE cp.owner_id = $2 AND cp.slug = $3 AND cp.status != 'deleted'
+ON CONFLICT (page_id) DO UPDATE
+SET open_without_code = EXCLUDED.open_without_code, updated_at = now()
+`
+
+type SetMicrositeOpenWithoutCodeParams struct {
+	OpenWithoutCode bool
+	OwnerID         pgtype.UUID
+	Slug            string
+}
+
+// The owner's explicit "open without an access code" for one page (microsite_access). 0 rows =
+// no such live page.
+func (q *Queries) SetMicrositeOpenWithoutCode(ctx context.Context, arg SetMicrositeOpenWithoutCodeParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setMicrositeOpenWithoutCode, arg.OpenWithoutCode, arg.OwnerID, arg.Slug)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const setMicrositeSEO = `-- name: SetMicrositeSEO :exec
