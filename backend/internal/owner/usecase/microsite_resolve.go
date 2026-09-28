@@ -97,7 +97,8 @@ func LiveMicrosites(
 func advertised(pages []entity.Microsite) []LivePageLink {
 	out := make([]LivePageLink, 0, len(pages))
 	for i := range pages {
-		if pages[i].LiveBuildID != nil && pages[i].OpenWithoutCode {
+		open := pages[i].Access != nil && pages[i].Access.OpenWithoutCode
+		if pages[i].LiveBuildID != nil && open {
 			out = append(out, LivePageLink{Slug: pages[i].Slug, Title: pages[i].Title})
 		}
 	}

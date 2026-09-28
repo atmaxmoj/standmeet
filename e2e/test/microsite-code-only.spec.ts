@@ -15,6 +15,7 @@ import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
+import { createMicrosite } from '@/fixtures/admin-mutations';
 import { createCode } from '@/fixtures/codes';
 import { findSetupToken, resetInstance } from '@/fixtures/instance';
 import { bindCodeToPage, publishPage } from '@/fixtures/microsite-rig';
@@ -37,16 +38,17 @@ test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } })
 
 test.describe.serial('microsites · open without an access code', () => {
   let admin: APIRequestContext;
+  let csrfToken = '';
 
   test.beforeAll(async ({ playwright }) => {
     test.setTimeout(600_000); // one microsite build
     resetInstance();
     admin = await playwright.request.newContext();
     await claim(admin, findSetupToken(), OWNER);
-    const { csrf } = await loginAPI(admin, OWNER.email, OWNER.password);
-    await publishPage(admin, csrf, SLUG, APP, 400_000);
-    const code = await createCode(admin, csrf, { code: CODE, label: 'cover' });
-    await bindCodeToPage(admin, csrf, code.id, SLUG);
+    ({ csrf: csrfToken } = await loginAPI(admin, OWNER.email, OWNER.password));
+    await publishPage(admin, csrfToken, SLUG, APP, 400_000);
+    const code = await createCode(admin, csrfToken, { code: CODE, label: 'cover' });
+    await bindCodeToPage(admin, csrfToken, code.id, SLUG);
   });
 
   test.afterAll(async () => { await admin.dispose(); });
@@ -75,6 +77,16 @@ test.describe.serial('microsites · open without an access code', () => {
     await page.waitForURL(`**/p/${SLUG}**`, { timeout: 15_000 });
     await expect(page.getByRole('heading', { name: MARK })).toBeVisible({ timeout: 15_000 });
     await visitor.close();
+  });
+
+  // Found on prod 2026-09-28: every promote receipt said open_without_code:false and
+  // bound_codes:[] — even for public pages, and for a page with a code bound. A single-page
+  // receipt never loaded either field and printed their zero values. A receipt that does not know
+  // a field leaves it out; one that states it states the truth.
+  test('a page receipt never misstates who opens the page', async () => {
+    const made = await createMicrosite(admin, csrfToken, { slug: 'receipt-check', title: 'r' });
+    expect(made['open_without_code'] ?? true, 'a new page with no code opens without one')
+      .toBe(true);
   });
 
   test('switched on, anyone reads the page', async ({ adminPage, browser }) => {

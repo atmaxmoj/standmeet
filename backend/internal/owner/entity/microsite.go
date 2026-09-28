@@ -20,16 +20,15 @@ type Microsite struct {
 	SeoDescription *string
 	// SeoImage — the Open Graph / share-card image URL (og:image, twitter:image).
 	SeoImage *string
-	ID       string
-	OwnerID  string
-	Slug     string
-	Title    string
-	Status   string // 'active' | 'archived' | 'deleted'
-	// BoundCodes —— which **live** codes unlock this page (the other end of
-	// the binding). Code→page is at most one, but page→code has no such
-	// limit, so this is an array. Empty = no code points here, so it can
-	// only be opened anonymously.
-	BoundCodes []string
+	// Access —— who opens the page. Loaded on list rows only; nil on a row read one at a time, so
+	// a receipt that did not load it says nothing rather than a zero value that reads as "closed,
+	// no codes".
+	Access  *MicrositeAccess
+	ID      string
+	OwnerID string
+	Slug    string
+	Title   string
+	Status  string // 'active' | 'archived' | 'deleted'
 	// AllowBYOAI —— whether this page lets a reader use their own key when
 	// no one has presented a grant. **A code overrides this**: the
 	// presented grant decides everything (I-4).
@@ -37,9 +36,16 @@ type Microsite struct {
 	// StoreWritable —— whether visitors may WRITE this page's persistence store (security model C).
 	// Default false: a page has zero write attack surface until its owner opens it.
 	StoreWritable bool
+}
+
+// MicrositeAccess —— a page's access, as the database decides it.
+type MicrositeAccess struct {
+	// BoundCodes —— which **live** codes unlock this page (the other end of the binding).
+	// Code→page is at most one, but page→code has no such limit, so this is an array.
+	BoundCodes []string
 	// OpenWithoutCode —— may the page be opened without an access code (owner decision
-	// 2026-09-28): the owner's choice, else open iff no code is bound. Filled on list rows (the
-	// database decides it, microsite_opens_without_code); false on rows read one at a time.
+	// 2026-09-28): the owner's choice, else open iff no code is bound
+	// (microsite_opens_without_code).
 	OpenWithoutCode bool
 }
 

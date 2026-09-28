@@ -167,25 +167,26 @@ var (
 
 // micrositeOut / buildOut —— outbound shape (same for both faces).
 type micrositeOut struct {
-	LatestBuildStatus string   `json:"latest_build_status,omitempty"`
-	PreviewURL        string   `json:"preview_url,omitempty"`
-	Title             string   `json:"title"`
-	Status            string   `json:"status"`
-	LiveBuildID       string   `json:"live_build_id,omitempty"`
-	CreatedAt         string   `json:"created_at"`
-	Slug              string   `json:"slug"`
-	UpdatedAt         string   `json:"updated_at"`
-	ID                string   `json:"id"`
-	LatestBuildID     string   `json:"latest_build_id,omitempty"`
-	SeoDescription    string   `json:"seo_description"`
-	SeoTitle          string   `json:"seo_title"`
-	SeoImage          string   `json:"seo_image"`
-	BoundCodes        []string `json:"bound_codes"`
-	HasLive           bool     `json:"has_live"`
-	HasStaging        bool     `json:"has_staging"`
-	AllowBYOAI        bool     `json:"allow_byoai"`
-	// OpenWithoutCode —— may a visitor with no code open the page (filled on list rows).
-	OpenWithoutCode bool `json:"open_without_code"`
+	// BoundCodes / OpenWithoutCode —— the page's access. Present on list rows; left out of a
+	// single-page receipt, which never loads them (a zero value there would read as "closed").
+	BoundCodes        *[]string `json:"bound_codes,omitempty"`
+	OpenWithoutCode   *bool     `json:"open_without_code,omitempty"`
+	LatestBuildStatus string    `json:"latest_build_status,omitempty"`
+	PreviewURL        string    `json:"preview_url,omitempty"`
+	Title             string    `json:"title"`
+	Status            string    `json:"status"`
+	LiveBuildID       string    `json:"live_build_id,omitempty"`
+	CreatedAt         string    `json:"created_at"`
+	Slug              string    `json:"slug"`
+	UpdatedAt         string    `json:"updated_at"`
+	ID                string    `json:"id"`
+	LatestBuildID     string    `json:"latest_build_id,omitempty"`
+	SeoDescription    string    `json:"seo_description"`
+	SeoTitle          string    `json:"seo_title"`
+	SeoImage          string    `json:"seo_image"`
+	HasLive           bool      `json:"has_live"`
+	HasStaging        bool      `json:"has_staging"`
+	AllowBYOAI        bool      `json:"allow_byoai"`
 }
 
 type buildOut struct {
@@ -197,14 +198,8 @@ type buildOut struct {
 }
 
 func toMicrositeOut(p *entity.Microsite) micrositeOut {
-	codes := p.BoundCodes
-	if codes == nil {
-		codes = []string{} // Empty array, not null — a reader can't tell null from
-		// "there are none" ([[empty-is-not-json-null]]).
-	}
 	v := micrositeOut{
-		ID: p.ID, Slug: p.Slug, Title: p.Title, Status: p.Status,
-		BoundCodes: codes, AllowBYOAI: p.AllowBYOAI, OpenWithoutCode: p.OpenWithoutCode,
+		ID: p.ID, Slug: p.Slug, Title: p.Title, Status: p.Status, AllowBYOAI: p.AllowBYOAI,
 		HasLive: p.LiveBuildID != nil, HasStaging: p.StagingBuildID != nil,
 		CreatedAt: p.CreatedAt.Format(time.RFC3339),
 		UpdatedAt: p.UpdatedAt.Format(time.RFC3339),
@@ -215,7 +210,22 @@ func toMicrositeOut(p *entity.Microsite) micrositeOut {
 	v.SeoTitle = derefOr(p.SeoTitle)
 	v.SeoDescription = derefOr(p.SeoDescription)
 	v.SeoImage = derefOr(p.SeoImage)
+	withAccess(&v, p.Access)
 	return v
+}
+
+// withAccess —— the page's access onto a list row. Loaded-and-empty codes are `[]`, not null
+// ([[empty-is-not-json-null]]); not loaded leaves both fields out.
+func withAccess(v *micrositeOut, a *entity.MicrositeAccess) {
+	if a == nil {
+		return
+	}
+	codes := a.BoundCodes
+	if codes == nil {
+		codes = []string{}
+	}
+	open := a.OpenWithoutCode
+	v.BoundCodes, v.OpenWithoutCode = &codes, &open
 }
 
 // derefOr — a *string as a plain string ("" when nil), so toMicrositeOut stays under the cyclo cap.
