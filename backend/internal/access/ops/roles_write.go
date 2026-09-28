@@ -75,7 +75,7 @@ func writeRole(
 		if perr != nil {
 			return nil, perr
 		}
-		if kerr := keepUnmentioned(ctx, d, ownerID, &in); kerr != nil {
+		if kerr := keepUnmentioned(ctx, d, ownerID, &in, raw); kerr != nil {
 			return nil, roleErr(kerr)
 		}
 		rl, err := apply(ctx, d.Roles, toRoleWriteInput(d, ownerID, &in))
@@ -121,7 +121,7 @@ func boolOr(p *bool, def bool) bool {
 // explicitly**. JSON distinguishes "field absent" (nil) from "given an empty array" — all it
 // takes is someone reading that distinction.
 func keepUnmentioned(
-	ctx context.Context, d RolesDeps, ownerID string, in *roleWriteArgs,
+	ctx context.Context, d RolesDeps, ownerID string, in *roleWriteArgs, raw json.RawMessage,
 ) error {
 	if in.RoleID == "" {
 		return nil // create: no prior value to keep
@@ -132,7 +132,32 @@ func keepUnmentioned(
 	}
 	keepGrants(&cur, in)
 	keepSwitches(&cur, in)
+	return keepText(&cur, in, raw)
+}
+
+// keepText —— the prompt, description, greeting and provider. Their "cleared" value (null /
+// "") is also their zero value, so only the request's keys tell "not named" from "cleared": the
+// panel clears a prompt by sending prompt_id: null, and that must still clear it.
+func keepText(cur *entity.Role, in *roleWriteArgs, raw json.RawMessage) error {
+	var named map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &named); err != nil {
+		return fp.BadInput("invalid arguments: " + err.Error())
+	}
+	keepString(named, "description", &in.Description, cur.Description())
+	keepString(named, "greeting", &in.Greeting, cur.Greeting())
+	keepString(named, "provider_id", &in.ProviderID, cur.ProviderID())
+	if _, ok := named["prompt_id"]; !ok {
+		if pid, has := cur.PromptID(); has {
+			in.PromptID = &pid
+		}
+	}
 	return nil
+}
+
+func keepString(named map[string]json.RawMessage, key string, dst *string, cur string) {
+	if _, ok := named[key]; !ok {
+		*dst = cur
+	}
 }
 
 // keepIDs — "field absent in the request (nil) keeps the current value; given `[]` means

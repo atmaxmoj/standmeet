@@ -19,6 +19,7 @@ import type { APIRequestContext } from '@playwright/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
+import { createPrompt } from '@/fixtures/prompts';
 import { createRole, getRoleByName } from '@/fixtures/roles';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
@@ -80,6 +81,42 @@ async function expectRenameKeepsGrant(
     '改个名字没提到 corpus_uris —— 它必须原样留着。清空这个 role 的语料 ACL '
     + '而且报成功，是一次没有回执的授权变更',
   ).toContain('wiki://public/**');
+}
+
+// expectPartialUpdateKeepsText — found on prod 2026-09-28: `role_update {role_id, name,
+// corpus_uris}` over MCP (narrowing the hiring role) came back with an empty description and
+// NO prompt — the persona the role's codes answer with was gone, and the receipt said success.
+// F-Q-3 kept the grants and the switches; the prompt, description, greeting and provider were
+// still "absent means empty". A field the request never names keeps its value.
+async function expectPartialUpdateKeepsText(
+  request: APIRequestContext, csrf: string,
+): Promise<void> {
+  const prompt = await createPrompt(request, csrf, { name: 'keeper-persona', body: 'Speak plainly.' });
+  const role = await createRole(request, csrf, {
+    name: 'text-keeper', description: 'for recruiters', greeting: 'Hello there',
+    prompt_id: prompt.id, corpus_uris: ['wiki://**'],
+  });
+  expect(role.prompt_id, 'precondition: the role has a prompt').toBe(prompt.id);
+
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: a partial update must keep the fields it does not name
+  const res = await request.put(`${BACKEND}/api/admin/roles/${role.id}`, {
+    headers: { 'X-Csrftoken': csrf }, data: { name: 'text-keeper', corpus_uris: ['output://**'] },
+  });
+  expect(res.status(), 'narrow the corpus').toBe(200);
+  const after = await getRoleByName(request, 'text-keeper');
+  expect(after.corpus_uris, 'the named field changed').toEqual(['output://**']);
+  expect(after.prompt_id, 'the prompt stays mounted').toBe(prompt.id);
+  expect(after.description, 'the description stays').toBe('for recruiters');
+  expect(after.greeting, 'the greeting stays').toBe('Hello there');
+
+  // The panel clears a prompt by sending it as null: naming the field still sets it.
+  // eslint-disable-next-line e2e-local/no-direct-mutating-api -- action under test: an explicit null still unmounts the prompt
+  const cleared = await request.put(`${BACKEND}/api/admin/roles/${role.id}`, {
+    headers: { 'X-Csrftoken': csrf }, data: { name: 'text-keeper', prompt_id: null },
+  });
+  expect(cleared.status(), 'unmount the prompt').toBe(200);
+  expect((await getRoleByName(request, 'text-keeper')).prompt_id ?? null, 'explicit null clears it')
+    .toBeNull();
 }
 
 // expectEvidenceSwitchSticks — the switch was requested on at create time, so it must
@@ -148,6 +185,13 @@ test.describe('A.3-IAM role REST · builtin + uniqueness', () => {
     async ({ playwright }) => {
       const { request, csrf } = await authedRequest(() => playwright.request.newContext());
       await expectRenameKeepsGrant(request, csrf);
+      await request.dispose();
+    });
+
+  test('a partial update keeps the prompt, description and greeting it does not name',
+    async ({ playwright }) => {
+      const { request, csrf } = await authedRequest(() => playwright.request.newContext());
+      await expectPartialUpdateKeepsText(request, csrf);
       await request.dispose();
     });
 
