@@ -20,7 +20,7 @@ import (
 var (
 	aliasMu sync.RWMutex
 	// River reads KindAliases off the zero value at registration.
-	aliases []string //nolint:gochecknoglobals // see above
+	aliases []string
 )
 
 func declareAliases(names []string) {

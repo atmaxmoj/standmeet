@@ -52,7 +52,7 @@ const (
 )
 
 // webhookSchedule — Svix: 5 s, 5 min, 30 min, 2 h, 5 h, 10 h, then 10 h steps.
-var webhookSchedule = [...]time.Duration{ //nolint:gochecknoglobals // the declared schedule
+var webhookSchedule = [...]time.Duration{
 	5 * time.Second, 5 * time.Minute, 30 * time.Minute,
 	2 * time.Hour, 5 * time.Hour, 10 * time.Hour,
 }

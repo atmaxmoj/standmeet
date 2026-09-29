@@ -15,7 +15,6 @@ import (
 )
 
 const (
-	//nolint:lll // test fixture, not a real secret
 	upgradeSecret = "upgrade-test-instance-secret-32-bytes-plus" //gitleaks:allow
 	upgradeOwner  = "11111111-1111-1111-1111-111111111111"
 	upgradeBlock  = "up-legacy"

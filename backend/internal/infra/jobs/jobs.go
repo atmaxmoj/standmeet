@@ -35,7 +35,7 @@ const (
 )
 
 // QueueWorkers — MaxWorkers per queue. Starting values; tuned by measurement.
-var QueueWorkers = map[string]int{ //nolint:gochecknoglobals // the declared queue table
+var QueueWorkers = map[string]int{
 	QueueIndex:       4,
 	QueueNotify:      2,
 	QueueWebhook:     8,
@@ -46,7 +46,7 @@ var QueueWorkers = map[string]int{ //nolint:gochecknoglobals // the declared que
 // QueueAwaited — the queues a request waits on: a write's index receipt and a mail receipt wait
 // up to 2 s for their job. A job there must not sit until the next poll when its insert
 // notification is swallowed, so these queues poll often (see the runtime adapter).
-var QueueAwaited = map[string]bool{ //nolint:gochecknoglobals // the declared queue table
+var QueueAwaited = map[string]bool{
 	QueueIndex:  true,
 	QueueNotify: true,
 }
