@@ -36,6 +36,12 @@ test.describe('résumé masters · the master editor', () => {
       // …and what it does not: no SEND.
       await expect(page.getByTestId('composer-send')).toHaveCount(0);
 
+      // Save writes the master (the Cover letter is a root field: shown while nothing is selected).
+      await editCoverLetter(page, EDIT);
+      await page.getByTestId('puck-save').click();
+      await expect.poll(async () => (await getMaster(api, m.id)).resume_content.cover_letter,
+        { message: 'Save persists the master', timeout: 15_000 }).toBe(EDIT);
+
       // The Header's field panel opens with its fields but no access-code picker.
       const canvas = page.frameLocator('iframe').first();
       await expect(async () => {
@@ -44,12 +50,6 @@ test.describe('résumé masters · the master editor', () => {
       }).toPass({ timeout: 30_000 });
       await expect(page.getByLabel('Email'), 'the Header fields are there').toBeVisible();
       await expect(page.getByTestId('composer-code-select'), 'no code picker for a master').toHaveCount(0);
-
-      // Save writes the master.
-      await editCoverLetter(page, EDIT);
-      await page.getByTestId('puck-save').click();
-      await expect.poll(async () => (await getMaster(api, m.id)).resume_content.cover_letter,
-        { message: 'Save persists the master', timeout: 15_000 }).toBe(EDIT);
 
       // "New draft from it" opens the new-draft flow on this master.
       await page.getByTestId('master-new-draft').click();

@@ -20,6 +20,7 @@ import { execSQL, findSetupToken, querySQL, resetInstance, restartBackend } from
 import { gotoAdminSection } from '@/fixtures/navigate';
 import { contentWith, openDrafts, seedDraft, seedDraftContent } from '@/fixtures/resume-masters';
 import { commitDraftAPI } from '@/fixtures/admin-mutations';
+import { createCode } from '@/fixtures/codes';
 
 const MIGRATION = '2026-09-29-resume-masters.sql';
 
@@ -48,6 +49,9 @@ test.describe('upgrade · deploying the new version adds résumé masters to a l
     const sent = await seedDraft(request, csrf, { company: 'Sent Co', role: 'Engineer' });
     await seedDraftContent(request, csrf, sent.id, contentWith('SENTSUMMARY'));
     await commitDraftAPI(request, csrf, sent.id);
+    // A plain code, newer than the application's: the composer's QR picker defaults to the newest
+    // active code, and a code already bound to an application cannot carry a second one.
+    await createCode(request, csrf, { code: 'PUBLIC-UPG', label: 'public' });
     const live = await seedDraft(request, csrf, { company: 'Live Co', role: 'Engineer' });
     await seedDraftContent(request, csrf, live.id, contentWith('LIVESUMMARY'));
     liveDraft = live.id;
