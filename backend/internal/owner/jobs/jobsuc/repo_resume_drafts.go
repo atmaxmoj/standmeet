@@ -22,6 +22,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmodel"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc/db"
@@ -64,16 +65,17 @@ func (r *ResumeDraftRepo) Create(
 	}
 	q := db.New(r.pool)
 	row, err := q.CreateResumeDraft(ctx, db.CreateResumeDraftParams{
-		OwnerID:       ownerUUID,
-		JobCacheID:    in.JobCacheID,
-		JobSnapshot:   snapshotJSON,
-		ResumeContent: contentJSON,
-		Template:      in.Template,
+		OwnerID:         ownerUUID,
+		JobCacheID:      in.JobCacheID,
+		JobSnapshot:     snapshotJSON,
+		ResumeContent:   contentJSON,
+		Template:        in.Template,
+		BasedOnMasterID: pgstore.UUIDOrNull(in.BasedOnMasterID),
 	})
 	if err != nil {
 		return jobsmodel.ResumeDraft{}, fmt.Errorf("create resume draft: %w", err)
 	}
-	return toDomainResumeDraft(&row)
+	return toDomainResumeDraft(&row, "")
 }
 
 // GetByID — looks up by (id, owner_id); expired or an owner mismatch returns
@@ -96,7 +98,7 @@ func (r *ResumeDraftRepo) GetByID(
 		}
 		return jobsmodel.ResumeDraft{}, fmt.Errorf("get resume draft: %w", err)
 	}
-	return toDomainResumeDraft(&row)
+	return toDomainResumeDraft(&row.ResumeDraft, row.BasedOnMasterName)
 }
 
 // UpdateContent — resume.update_draft: replaces the resume_content jsonb. job_snapshot
@@ -123,7 +125,7 @@ func (r *ResumeDraftRepo) UpdateContent(
 		}
 		return jobsmodel.ResumeDraft{}, fmt.Errorf("update resume draft: %w", err)
 	}
-	return toDomainResumeDraft(&row)
+	return toDomainResumeDraft(&row, "")
 }
 
 // UpdateDraftFull — the admin composer's Save payload (bundled to stay under the argument limit).
@@ -161,7 +163,7 @@ func (r *ResumeDraftRepo) UpdateContentAndTemplate(
 		}
 		return jobsmodel.ResumeDraft{}, fmt.Errorf("update resume draft: %w", err)
 	}
-	return toDomainResumeDraft(&row)
+	return toDomainResumeDraft(&row, "")
 }
 
 // Delete — resume.discard_draft; an owner mismatch silently succeeds (idempotent).
@@ -179,29 +181,56 @@ func (r *ResumeDraftRepo) Delete(ctx context.Context, ownerID, id string) error 
 	return nil
 }
 
-// ListByOwner — the admin /drafts view: lists the owner's unexpired drafts, ordered
-// by created_at desc. Rows past the 1-day TTL are excluded (filtered on the SQL side).
-func (r *ResumeDraftRepo) ListByOwner(
-	ctx context.Context, ownerID string,
-) ([]jobsmodel.ResumeDraft, error) {
-	owner, err := pgstore.ParseUUID(ownerID)
+// ListPage — one page of the admin /drafts view (docs/design/paging.md): the owner's unexpired
+// drafts, newest first, each naming the master it came from; the page reports how many drafts
+// there are in all. Rows past the 1-day TTL are excluded (filtered on the SQL side).
+func (r *ResumeDraftRepo) ListPage(
+	ctx context.Context, ownerID string, req paging.Request,
+) (paging.Page[jobsmodel.ResumeDraft], error) {
+	pk, err := parsePageKey(ownerID, req)
 	if err != nil {
-		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
+		return paging.Page[jobsmodel.ResumeDraft]{}, err
 	}
 	q := db.New(r.pool)
-	rows, err := q.ListResumeDraftsByOwner(ctx, owner)
+	total, err := q.CountResumeDrafts(ctx, pk.owner)
 	if err != nil {
-		return nil, fmt.Errorf("list resume drafts: %w", err)
+		return paging.Page[jobsmodel.ResumeDraft]{}, fmt.Errorf("count resume drafts: %w", err)
 	}
-	out := make([]jobsmodel.ResumeDraft, 0, len(rows))
-	for i := range rows {
-		d, terr := toDomainResumeDraft(&rows[i])
-		if terr != nil {
-			return nil, terr
-		}
-		out = append(out, d)
+	rows, err := q.ListResumeDraftsPage(ctx, db.ListResumeDraftsPageParams{
+		OwnerID: pk.owner, AfterAt: pk.after.At, AfterID: pk.after.ID, Lim: req.Fetch(),
+	})
+	if err != nil {
+		return paging.Page[jobsmodel.ResumeDraft]{}, fmt.Errorf("list resume drafts: %w", err)
 	}
-	return out, nil
+	page, err := paging.Map(paging.Cut(rows, req, draftRowCursor), draftRowToDomain)
+	return page.WithTotal(total), err
+}
+
+func draftRowCursor(row *db.ListResumeDraftsPageRow) paging.Cursor {
+	d := &row.ResumeDraft
+	return paging.Cursor{At: d.CreatedAt.Time, ID: pgstore.FormatUUID(d.ID)}
+}
+
+func draftRowToDomain(row *db.ListResumeDraftsPageRow) (jobsmodel.ResumeDraft, error) {
+	return toDomainResumeDraft(&row.ResumeDraft, row.BasedOnMasterName)
+}
+
+// pageKey —— an owner-scoped page request, parsed for the SQL.
+type pageKey struct {
+	after pgstore.PageAfter
+	owner pgtype.UUID
+}
+
+func parsePageKey(ownerID string, req paging.Request) (pageKey, error) {
+	owner, err := pgstore.ParseUUID(ownerID)
+	if err != nil {
+		return pageKey{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
+	}
+	after, err := pgstore.CursorArgs(req.After)
+	if err != nil {
+		return pageKey{}, fmt.Errorf("page cursor: %w", err)
+	}
+	return pageKey{owner: owner, after: after}, nil
 }
 
 // SweepExpired — called by the background sweeper / cron; deletes rows where
@@ -226,8 +255,9 @@ func parseDraftKey(ownerIDStr, idStr string) (draftKey, error) {
 	return draftKey{owner: owner, draft: draft}, nil
 }
 
-// toDomainResumeDraft — sqlc Row -> jobsmodel.ResumeDraft (includes jsonb unmarshal).
-func toDomainResumeDraft(row *db.ResumeDraft) (jobsmodel.ResumeDraft, error) {
+// toDomainResumeDraft — sqlc Row -> jobsmodel.ResumeDraft (includes jsonb unmarshal). masterName is
+// the joined name of the master it came from (” where the query does not join it).
+func toDomainResumeDraft(row *db.ResumeDraft, masterName string) (jobsmodel.ResumeDraft, error) {
 	var snapshot jobsmodel.FetchedJob
 	if err := json.Unmarshal(row.JobSnapshot, &snapshot); err != nil {
 		return jobsmodel.ResumeDraft{}, fmt.Errorf("unmarshal job snapshot: %w", err)
@@ -237,14 +267,16 @@ func toDomainResumeDraft(row *db.ResumeDraft) (jobsmodel.ResumeDraft, error) {
 		return jobsmodel.ResumeDraft{}, fmt.Errorf("unmarshal resume content: %w", err)
 	}
 	return jobsmodel.ResumeDraft{
-		ID:            pgstore.FormatUUID(row.ID),
-		OwnerID:       pgstore.FormatUUID(row.OwnerID),
-		JobCacheID:    row.JobCacheID,
-		Template:      row.Template,
-		PuckData:      row.PuckData,
-		JobSnapshot:   snapshot,
-		ResumeContent: content,
-		CreatedAt:     row.CreatedAt.Time,
-		ExpiresAt:     row.ExpiresAt.Time,
+		ID:                pgstore.FormatUUID(row.ID),
+		OwnerID:           pgstore.FormatUUID(row.OwnerID),
+		JobCacheID:        row.JobCacheID,
+		Template:          row.Template,
+		PuckData:          row.PuckData,
+		BasedOnMasterID:   pgstore.UUIDStrOrEmpty(row.BasedOnMasterID),
+		BasedOnMasterName: masterName,
+		JobSnapshot:       snapshot,
+		ResumeContent:     content,
+		CreatedAt:         row.CreatedAt.Time,
+		ExpiresAt:         row.ExpiresAt.Time,
 	}, nil
 }

@@ -47,8 +47,10 @@ const (
 // Deps — dependencies for the jobs admin routes. Log is required (encode
 // failures need logging).
 type Deps struct {
-	Apps    *jobsuc.ApplicationRepo
-	Drafts  *jobsuc.ResumeDraftRepo
+	Apps *jobsuc.ApplicationRepo
+	// Resume — the resume.* usecases' deps (drafts + masters), SHARED with the MCP resume fiber,
+	// so the panel and the owner's AI run the same usecase on the same repos.
+	Resume  *jobsuc.ResumeDeps
 	Sources *jobsuc.JobSourceRepo
 	// Jobs — the pool's usecase. The listings surface **doesn't read Redis
 	// itself**: it goes through the same `jobsuc.ListPoolBoard` as
@@ -80,6 +82,15 @@ func Mount(r chi.Router, deps Deps) {
 		r.Delete("/{id}", discardDraft(deps))
 		r.Get("/{id}/preview.pdf", previewDraft(deps))
 		r.Post("/{id}/commit", commitDraft(deps))
+		r.Post("/{id}/save-as-master", saveDraftAsMaster(&deps))
+	})
+	r.Route("/masters", func(r chi.Router) {
+		r.Get("/", listMasters(&deps))
+		r.Post("/", createMaster(&deps))
+		r.Get("/{id}", getMaster(&deps))
+		r.Patch("/{id}", patchMaster(&deps))
+		r.Delete("/{id}", deleteMaster(&deps))
+		r.Get("/{id}/preview.pdf", previewMaster(&deps))
 	})
 	r.Route("/applications", func(r chi.Router) {
 		r.Get("/", listApplications(deps))

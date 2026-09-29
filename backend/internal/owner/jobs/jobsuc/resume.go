@@ -27,8 +27,9 @@ import (
 
 // ResumeDeps — dependencies for the resume.* usecases.
 type ResumeDeps struct {
-	Drafts *ResumeDraftRepo
-	Cache  *jobcache.Pool
+	Drafts  *ResumeDraftRepo
+	Masters *ResumeMasterRepo
+	Cache   *jobcache.Pool
 }
 
 // DraftedResume — the return value of resume.draft / update_draft. Structured
@@ -39,11 +40,13 @@ type DraftedResume struct {
 }
 
 // DraftInput — the input to resume.draft (packed into a struct: content +
-// chosen template + target job).
+// chosen template + target job). MasterID names the master the draft starts
+// from: its content when Content is nil, and the draft's based_on either way.
 type DraftInput struct {
 	Content    *jobsmodel.ResumeContent
 	JobCacheID string
 	Template   string
+	MasterID   string
 }
 
 // DraftResume — Claude calls resume.draft: pulls the job snapshot from the
@@ -51,7 +54,8 @@ type DraftInput struct {
 func DraftResume(
 	ctx context.Context, deps ResumeDeps, ownerID string, in DraftInput,
 ) (DraftedResume, error) {
-	if err := requireFields(ownerID, in.JobCacheID, in.Content); err != nil {
+	seed, err := draftContent(ctx, &deps, ownerID, &in)
+	if err != nil {
 		return DraftedResume{}, err
 	}
 	snapshot, err := loadJobSnapshot(ctx, deps, ownerID, in.JobCacheID)
@@ -59,11 +63,12 @@ func DraftResume(
 		return DraftedResume{}, err
 	}
 	draft, err := deps.Drafts.Create(ctx, &jobsmodel.CreateResumeDraftInput{
-		OwnerID:       ownerID,
-		JobCacheID:    in.JobCacheID,
-		JobSnapshot:   snapshot,
-		ResumeContent: *in.Content,
-		Template:      in.Template,
+		OwnerID:         ownerID,
+		JobCacheID:      in.JobCacheID,
+		JobSnapshot:     snapshot,
+		ResumeContent:   seed.Content,
+		Template:        in.Template,
+		BasedOnMasterID: seed.MasterID,
 	})
 	if err != nil {
 		return DraftedResume{}, fmt.Errorf("create draft: %w", err)
@@ -72,27 +77,30 @@ func DraftResume(
 }
 
 // ManualDraftInput — the owner starts a draft by hand from the panel, with no
-// cached job behind it. Company is required; the rest are optional.
+// cached job behind it. Company is required; the rest are optional. MasterID is
+// the master to start from; Blank asks for an empty résumé even when a default
+// master exists; neither = the default master, else blank.
 type ManualDraftInput struct {
-	Company string
-	Role    string
-	JobURL  string
-	JobText string
+	Company  string
+	Role     string
+	JobURL   string
+	JobText  string
+	MasterID string
+	Blank    bool
 }
 
 // CreateManualDraft — the panel's "new draft" button. No Redis job to snapshot,
-// so the snapshot is built straight from what the owner typed; resume_content is
-// carried over from their most recent draft, so a second application starts from
-// the first rather than blank.
-// ponytail: carry-over is from prior drafts only, not sent applications — the
-// first-ever manual draft opens empty. Fold applications in if owners ask.
+// so the snapshot is built straight from what the owner typed; resume_content
+// comes from the chosen master, else the default master, else blank
+// (docs/design/resume-masters.md — this replaced "copy the newest draft", which
+// started blank after any quiet day).
 func CreateManualDraft(
-	ctx context.Context, deps ResumeDeps, ownerID string, in ManualDraftInput,
+	ctx context.Context, deps ResumeDeps, ownerID string, in *ManualDraftInput,
 ) (DraftedResume, error) {
 	if ownerID == "" || in.Company == "" {
 		return DraftedResume{}, apierr.ErrEmptyField
 	}
-	content, err := seedResumeContent(ctx, deps, ownerID)
+	seed, err := manualStart(ctx, &deps, ownerID, in)
 	if err != nil {
 		return DraftedResume{}, err
 	}
@@ -102,7 +110,8 @@ func CreateManualDraft(
 		JobSnapshot: jobsmodel.FetchedJob{
 			Company: in.Company, Title: in.Role, URL: in.JobURL, BodyText: in.JobText,
 		},
-		ResumeContent: content,
+		ResumeContent:   seed.Content,
+		BasedOnMasterID: seed.MasterID,
 	})
 	if err != nil {
 		return DraftedResume{}, fmt.Errorf("create manual draft: %w", err)
@@ -110,26 +119,37 @@ func CreateManualDraft(
 	return DraftedResume{Draft: draft}, nil
 }
 
-// seedResumeContent — carry the owner's most recent draft content into a fresh
-// manual draft (ListByOwner is created_at DESC, so [0] is newest); empty if none.
-func seedResumeContent(
-	ctx context.Context, deps ResumeDeps, ownerID string,
-) (jobsmodel.ResumeContent, error) {
-	prior, err := deps.Drafts.ListByOwner(ctx, ownerID)
-	if err != nil {
-		return jobsmodel.ResumeContent{}, fmt.Errorf("list prior drafts: %w", err)
+// manualStart — a hand-made draft's content: blank when asked, else from a master.
+func manualStart(
+	ctx context.Context, deps *ResumeDeps, ownerID string, in *ManualDraftInput,
+) (masterSeed, error) {
+	if in.Blank {
+		return masterSeed{Content: blankResumeContent()}, nil
 	}
-	if len(prior) > 0 {
-		return prior[0].ResumeContent, nil
+	return masterStart(ctx, deps, ownerID, in.MasterID)
+}
+
+// draftContent — resume.draft's content: what the agent wrote, else the named master's. A named
+// master must be the owner's (the lookup is owner-scoped) and is recorded as the draft's based_on.
+func draftContent(
+	ctx context.Context, deps *ResumeDeps, ownerID string, in *DraftInput,
+) (masterSeed, error) {
+	if !draftInputComplete(ownerID, in) {
+		return masterSeed{}, jobsmodel.ErrResumeDraftIncomplete
 	}
-	// Empty content, but with initialized slices: a nil slice marshals to JSON
-	// null, and the reader's schema takes an array (default([]) fills undefined,
-	// not null), so nil would fail the parse and the card would never render.
-	return jobsmodel.ResumeContent{
-		Works:      []jobsmodel.ResumeWork{},
-		Educations: []jobsmodel.ResumeEducation{},
-		Skills:     []jobsmodel.ResumeSkillSet{},
-	}, nil
+	if in.MasterID == "" {
+		return masterSeed{Content: *in.Content}, nil
+	}
+	seed, err := masterStart(ctx, deps, ownerID, in.MasterID)
+	if err == nil && in.Content != nil {
+		seed.Content = *in.Content
+	}
+	return seed, err
+}
+
+// draftInputComplete — resume.draft needs an owner, a job, and content or a master to copy it from.
+func draftInputComplete(ownerID string, in *DraftInput) bool {
+	return ownerID != "" && in.JobCacheID != "" && (in.Content != nil || in.MasterID != "")
 }
 
 // UpdateResumeDraft — Claude calls resume.update_draft to adjust content.

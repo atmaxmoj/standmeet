@@ -49,7 +49,7 @@ func patchDraft(deps Deps) http.HandlerFunc {
 			return
 		}
 		out, err := jobsuc.SaveResumeDraft(
-			r.Context(), jobsuc.ResumeDeps{Drafts: deps.Drafts}, &jobsuc.SaveDraftInput{
+			r.Context(), *deps.Resume, &jobsuc.SaveDraftInput{
 				OwnerID: ownerID, DraftID: chi.URLParam(r, "id"),
 				Content: &req.ResumeContent, Template: req.Template, PuckData: req.PuckData,
 			},
@@ -98,7 +98,7 @@ func previewQR(deps Deps, r *http.Request, ownerID string) string {
 func previewDraft(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := authmw.OwnerIDFrom(r.Context())
-		draft, err := deps.Drafts.GetByID(r.Context(), ownerID, chi.URLParam(r, "id"))
+		draft, err := deps.Resume.Drafts.GetByID(r.Context(), ownerID, chi.URLParam(r, "id"))
 		if err != nil {
 			handleDraftDetailErr(deps.Log, w, err)
 			return
@@ -112,23 +112,30 @@ func previewDraft(deps Deps) http.HandlerFunc {
 			JobSnapshot:   draft.JobSnapshot,
 		}
 		// The QR is the REAL picked code (see previewQR); the print-page base stays PRINT_BASE_URL.
-		qrURL := previewQR(deps, r, ownerID)
-		pdf, rerr := deps.Commit.Renderer.RenderApplicationPDF(r.Context(), &app, qrURL)
-		if rerr != nil {
-			deps.Log.Error("render draft preview", logErrKey, rerr)
-			writeServerErr(deps.Log, w)
-			return
-		}
-		// Success trace: a render can succeed yet produce a wrong-looking PDF (empty identity → a
-		// near-blank page, an over-large font_scale → too many pages). Logging the content SHAPE +
-		// output size makes "why does this PDF look like that" answerable from prod logs, not from
-		// re-rendering to guess ([[no-diagnosis-by-experiment]]).
-		logRenderShape(deps.Log, chi.URLParam(r, "id"), &draft, len(pdf))
-		w.Header().Set(ctHeader, "application/pdf")
-		w.Header().Set("Cache-Control", "no-store")
-		if _, werr := w.Write(pdf); werr != nil {
-			deps.Log.Error("write preview pdf", logErrKey, werr)
-		}
+		writePreviewPDF(&deps, w, r, &app, previewQR(deps, r, ownerID))
+	}
+}
+
+// writePreviewPDF —— render app through the print route and write the PDF. Shared by the draft
+// and the master preview, so both show what commit would print.
+func writePreviewPDF(
+	deps *Deps, w http.ResponseWriter, r *http.Request, app *jobsmodel.Application, qrURL string,
+) {
+	pdf, rerr := deps.Commit.Renderer.RenderApplicationPDF(r.Context(), app, qrURL)
+	if rerr != nil {
+		deps.Log.Error("render preview", logErrKey, rerr)
+		writeServerErr(deps.Log, w)
+		return
+	}
+	// Success trace: a render can succeed yet produce a wrong-looking PDF (empty identity → a
+	// near-blank page, an over-large font_scale → too many pages). Logging the content SHAPE +
+	// output size makes "why does this PDF look like that" answerable from prod logs, not from
+	// re-rendering to guess ([[no-diagnosis-by-experiment]]).
+	logRenderShape(deps.Log, app.ID, app, len(pdf))
+	w.Header().Set(ctHeader, "application/pdf")
+	w.Header().Set("Cache-Control", "no-store")
+	if _, werr := w.Write(pdf); werr != nil {
+		deps.Log.Error("write preview pdf", logErrKey, werr)
 	}
 }
 
@@ -136,10 +143,10 @@ func previewDraft(deps Deps) http.HandlerFunc {
 // that decide whether a PDF looks right (empty identity → near-blank; big font_scale → too many
 // pages; a wide left_width → a squeezed main column). Makes a wrong-looking PDF diagnosable from
 // prod logs instead of by re-rendering to guess ([[no-diagnosis-by-experiment]]).
-func logRenderShape(log *slog.Logger, draftID string, d *jobsmodel.ResumeDraft, pdfBytes int) {
+func logRenderShape(log *slog.Logger, id string, d *jobsmodel.Application, pdfBytes int) {
 	rc := &d.ResumeContent
-	log.Info("rendered draft preview",
-		"draft_id", draftID,
+	log.Info("rendered preview",
+		"id", id,
 		"template", d.Template,
 		"works", len(rc.Works),
 		"educations", len(rc.Educations),

@@ -87,9 +87,10 @@ async function countApplications(page: Page): Promise<number> {
 
 async function countDrafts(page: Page): Promise<number> {
   return await page.evaluate(async () => {
+    // A paged list (docs/design/paging.md): the count is the envelope's total.
     const r = await fetch('/api/admin/drafts', { credentials: 'include' });
-    const rows = await r.json() as unknown[];
-    return Array.isArray(rows) ? rows.length : -1;
+    const page = await r.json() as { total?: number };
+    return page.total ?? -1;
   });
 }
 

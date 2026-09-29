@@ -11,22 +11,36 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countResumeDrafts = `-- name: CountResumeDrafts :one
+SELECT COUNT(*)::int FROM resume_drafts WHERE owner_id = $1 AND expires_at > now()
+`
+
+// How many unexpired drafts the owner has across every page (the drafts header count).
+func (q *Queries) CountResumeDrafts(ctx context.Context, ownerID pgtype.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, countResumeDrafts, ownerID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const createResumeDraft = `-- name: CreateResumeDraft :one
-INSERT INTO resume_drafts (owner_id, job_cache_id, job_snapshot, resume_content, template)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, owner_id, job_cache_id, job_snapshot, resume_content, puck_data, template, expires_at, created_at
+INSERT INTO resume_drafts (owner_id, job_cache_id, job_snapshot, resume_content, template, based_on_master_id)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, owner_id, job_cache_id, job_snapshot, resume_content, puck_data, template, expires_at, created_at, based_on_master_id
 `
 
 type CreateResumeDraftParams struct {
-	OwnerID       pgtype.UUID
-	JobCacheID    string
-	JobSnapshot   []byte
-	ResumeContent []byte
-	Template      string
+	OwnerID         pgtype.UUID
+	JobCacheID      string
+	JobSnapshot     []byte
+	ResumeContent   []byte
+	Template        string
+	BasedOnMasterID pgtype.UUID
 }
 
 // Drafts are created by the MCP resume.draft path (no Puck editor involved), so puck_data starts
-// NULL and is adopted on the first admin Save (UpdateResumeDraftFull).
+// NULL and is adopted on the first admin Save (UpdateResumeDraftFull). based_on_master_id names the
+// master the content was copied from (NULL = blank or agent-written).
 func (q *Queries) CreateResumeDraft(ctx context.Context, arg CreateResumeDraftParams) (ResumeDraft, error) {
 	row := q.db.QueryRow(ctx, createResumeDraft,
 		arg.OwnerID,
@@ -34,6 +48,7 @@ func (q *Queries) CreateResumeDraft(ctx context.Context, arg CreateResumeDraftPa
 		arg.JobSnapshot,
 		arg.ResumeContent,
 		arg.Template,
+		arg.BasedOnMasterID,
 	)
 	var i ResumeDraft
 	err := row.Scan(
@@ -46,6 +61,7 @@ func (q *Queries) CreateResumeDraft(ctx context.Context, arg CreateResumeDraftPa
 		&i.Template,
 		&i.ExpiresAt,
 		&i.CreatedAt,
+		&i.BasedOnMasterID,
 	)
 	return i, err
 }
@@ -65,9 +81,10 @@ func (q *Queries) DeleteResumeDraft(ctx context.Context, arg DeleteResumeDraftPa
 }
 
 const getResumeDraft = `-- name: GetResumeDraft :one
-SELECT id, owner_id, job_cache_id, job_snapshot, resume_content, puck_data, template, expires_at, created_at
-FROM resume_drafts
-WHERE id = $1 AND owner_id = $2 AND expires_at > now()
+SELECT d.id, d.owner_id, d.job_cache_id, d.job_snapshot, d.resume_content, d.puck_data, d.template, d.expires_at, d.created_at, d.based_on_master_id, COALESCE(m.name, '')::text AS based_on_master_name
+FROM resume_drafts d
+LEFT JOIN resume_masters m ON m.id = d.based_on_master_id
+WHERE d.id = $1 AND d.owner_id = $2 AND d.expires_at > now()
 `
 
 type GetResumeDraftParams struct {
@@ -75,50 +92,81 @@ type GetResumeDraftParams struct {
 	OwnerID pgtype.UUID
 }
 
-func (q *Queries) GetResumeDraft(ctx context.Context, arg GetResumeDraftParams) (ResumeDraft, error) {
+type GetResumeDraftRow struct {
+	ResumeDraft       ResumeDraft
+	BasedOnMasterName string
+}
+
+func (q *Queries) GetResumeDraft(ctx context.Context, arg GetResumeDraftParams) (GetResumeDraftRow, error) {
 	row := q.db.QueryRow(ctx, getResumeDraft, arg.ID, arg.OwnerID)
-	var i ResumeDraft
+	var i GetResumeDraftRow
 	err := row.Scan(
-		&i.ID,
-		&i.OwnerID,
-		&i.JobCacheID,
-		&i.JobSnapshot,
-		&i.ResumeContent,
-		&i.PuckData,
-		&i.Template,
-		&i.ExpiresAt,
-		&i.CreatedAt,
+		&i.ResumeDraft.ID,
+		&i.ResumeDraft.OwnerID,
+		&i.ResumeDraft.JobCacheID,
+		&i.ResumeDraft.JobSnapshot,
+		&i.ResumeDraft.ResumeContent,
+		&i.ResumeDraft.PuckData,
+		&i.ResumeDraft.Template,
+		&i.ResumeDraft.ExpiresAt,
+		&i.ResumeDraft.CreatedAt,
+		&i.ResumeDraft.BasedOnMasterID,
+		&i.BasedOnMasterName,
 	)
 	return i, err
 }
 
-const listResumeDraftsByOwner = `-- name: ListResumeDraftsByOwner :many
-SELECT id, owner_id, job_cache_id, job_snapshot, resume_content, puck_data, template, expires_at, created_at
-FROM resume_drafts
-WHERE owner_id = $1 AND expires_at > now()
-ORDER BY created_at DESC
+const listResumeDraftsPage = `-- name: ListResumeDraftsPage :many
+SELECT d.id, d.owner_id, d.job_cache_id, d.job_snapshot, d.resume_content, d.puck_data, d.template, d.expires_at, d.created_at, d.based_on_master_id, COALESCE(m.name, '')::text AS based_on_master_name
+FROM resume_drafts d
+LEFT JOIN resume_masters m ON m.id = d.based_on_master_id
+WHERE d.owner_id = $1 AND d.expires_at > now()
+  AND ($2::timestamptz IS NULL
+    OR (d.created_at, d.id) < ($2, $3::uuid))
+ORDER BY d.created_at DESC, d.id DESC
+LIMIT $4
 `
 
-// admin /drafts view: the owner's unexpired drafts, ordered by created_at desc.
-func (q *Queries) ListResumeDraftsByOwner(ctx context.Context, ownerID pgtype.UUID) ([]ResumeDraft, error) {
-	rows, err := q.db.Query(ctx, listResumeDraftsByOwner, ownerID)
+type ListResumeDraftsPageParams struct {
+	OwnerID pgtype.UUID
+	AfterAt pgtype.Timestamptz
+	AfterID pgtype.UUID
+	Lim     int32
+}
+
+type ListResumeDraftsPageRow struct {
+	ResumeDraft       ResumeDraft
+	BasedOnMasterName string
+}
+
+// One page of the admin /drafts view (docs/design/paging.md): unexpired drafts, newest first, each
+// with the name of the master it came from (” = none).
+func (q *Queries) ListResumeDraftsPage(ctx context.Context, arg ListResumeDraftsPageParams) ([]ListResumeDraftsPageRow, error) {
+	rows, err := q.db.Query(ctx, listResumeDraftsPage,
+		arg.OwnerID,
+		arg.AfterAt,
+		arg.AfterID,
+		arg.Lim,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ResumeDraft
+	var items []ListResumeDraftsPageRow
 	for rows.Next() {
-		var i ResumeDraft
+		var i ListResumeDraftsPageRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.OwnerID,
-			&i.JobCacheID,
-			&i.JobSnapshot,
-			&i.ResumeContent,
-			&i.PuckData,
-			&i.Template,
-			&i.ExpiresAt,
-			&i.CreatedAt,
+			&i.ResumeDraft.ID,
+			&i.ResumeDraft.OwnerID,
+			&i.ResumeDraft.JobCacheID,
+			&i.ResumeDraft.JobSnapshot,
+			&i.ResumeDraft.ResumeContent,
+			&i.ResumeDraft.PuckData,
+			&i.ResumeDraft.Template,
+			&i.ResumeDraft.ExpiresAt,
+			&i.ResumeDraft.CreatedAt,
+			&i.ResumeDraft.BasedOnMasterID,
+			&i.BasedOnMasterName,
 		); err != nil {
 			return nil, err
 		}
@@ -143,7 +191,7 @@ const updateResumeDraftContent = `-- name: UpdateResumeDraftContent :one
 UPDATE resume_drafts
 SET resume_content = $3
 WHERE id = $1 AND owner_id = $2 AND expires_at > now()
-RETURNING id, owner_id, job_cache_id, job_snapshot, resume_content, puck_data, template, expires_at, created_at
+RETURNING id, owner_id, job_cache_id, job_snapshot, resume_content, puck_data, template, expires_at, created_at, based_on_master_id
 `
 
 type UpdateResumeDraftContentParams struct {
@@ -167,6 +215,7 @@ func (q *Queries) UpdateResumeDraftContent(ctx context.Context, arg UpdateResume
 		&i.Template,
 		&i.ExpiresAt,
 		&i.CreatedAt,
+		&i.BasedOnMasterID,
 	)
 	return i, err
 }
@@ -175,7 +224,7 @@ const updateResumeDraftFull = `-- name: UpdateResumeDraftFull :one
 UPDATE resume_drafts
 SET resume_content = $3, template = $4, puck_data = $5
 WHERE id = $1 AND owner_id = $2 AND expires_at > now()
-RETURNING id, owner_id, job_cache_id, job_snapshot, resume_content, puck_data, template, expires_at, created_at
+RETURNING id, owner_id, job_cache_id, job_snapshot, resume_content, puck_data, template, expires_at, created_at, based_on_master_id
 `
 
 type UpdateResumeDraftFullParams struct {
@@ -209,6 +258,7 @@ func (q *Queries) UpdateResumeDraftFull(ctx context.Context, arg UpdateResumeDra
 		&i.Template,
 		&i.ExpiresAt,
 		&i.CreatedAt,
+		&i.BasedOnMasterID,
 	)
 	return i, err
 }

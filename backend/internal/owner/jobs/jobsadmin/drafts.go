@@ -24,6 +24,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	authmw "github.com/atmaxmoj/standmeet/internal/infra/middleware"
+	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmodel"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc"
 )
@@ -35,35 +36,58 @@ import (
 // F-E-20). The content was already in the row ListByOwner fetches; this
 // just stops discarding it.
 type draftView struct {
-	UpdatedAt     time.Time               `json:"updated_at"`
-	ID            string                  `json:"id"`
-	Company       string                  `json:"company"`
-	Role          string                  `json:"role"`
-	ForJob        string                  `json:"for_job"`
-	Template      string                  `json:"template"`
-	ResumeContent jobsmodel.ResumeContent `json:"resume_content"`
+	UpdatedAt time.Time `json:"updated_at"`
+	// ExpiresAt — the 1-day TTL's end; the row's "N hours left" chip reads it.
+	ExpiresAt time.Time `json:"expires_at"`
+	ID        string    `json:"id"`
+	Company   string    `json:"company"`
+	Role      string    `json:"role"`
+	ForJob    string    `json:"for_job"`
+	Template  string    `json:"template"`
+	// BasedOnMasterID / Name — the master this draft started from (omitted = none).
+	BasedOnMasterID   string                  `json:"based_on_master_id,omitempty"`
+	BasedOnMasterName string                  `json:"based_on_master_name,omitempty"`
+	ResumeContent     jobsmodel.ResumeContent `json:"resume_content"`
 }
 
+func newDraftView(d *jobsmodel.ResumeDraft) draftView {
+	return draftView{
+		ID: d.ID, Company: d.JobSnapshot.Company, Role: d.JobSnapshot.Title, ForJob: d.JobCacheID,
+		UpdatedAt: d.CreatedAt, ExpiresAt: d.ExpiresAt, Template: d.Template,
+		BasedOnMasterID: d.BasedOnMasterID, BasedOnMasterName: d.BasedOnMasterName,
+		ResumeContent: d.ResumeContent,
+	}
+}
+
+// listDrafts — one page of the owner's drafts (docs/design/paging.md: {items, next_cursor, total}).
 func listDrafts(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := authmw.OwnerIDFrom(r.Context())
-		drafts, err := deps.Drafts.ListByOwner(r.Context(), ownerID)
+		req, perr := pageRequest(r)
+		if perr != nil {
+			writeBadCursor(deps.Log, w)
+			return
+		}
+		page, err := deps.Resume.Drafts.ListPage(r.Context(), ownerID, req)
 		if err != nil {
 			deps.Log.Error("list drafts", logErrKey, err)
 			writeServerErr(deps.Log, w)
 			return
 		}
-		writeDraftsList(deps.Log, w, drafts)
+		writeJSON(deps.Log, w, http.StatusOK, paging.Each(page, newDraftView))
 	}
 }
 
 // createDraftReq — the panel's "new draft" form. Only company is required;
-// role/URL/JD are optional context.
+// role/URL/JD are optional context. master_id = the master to start from;
+// blank = an empty résumé even when a default master exists; neither = the default.
 type createDraftReq struct {
-	Company string `json:"company"`
-	Role    string `json:"role"`
-	JobURL  string `json:"job_url"`
-	JobText string `json:"job_text"`
+	Company  string `json:"company"`
+	Role     string `json:"role"`
+	JobURL   string `json:"job_url"`
+	JobText  string `json:"job_text"`
+	MasterID string `json:"master_id"`
+	Blank    bool   `json:"blank"`
 }
 
 func createDraft(deps Deps) http.HandlerFunc {
@@ -77,9 +101,10 @@ func createDraft(deps Deps) http.HandlerFunc {
 			return
 		}
 		out, err := jobsuc.CreateManualDraft(
-			r.Context(), jobsuc.ResumeDeps{Drafts: deps.Drafts}, ownerID,
-			jobsuc.ManualDraftInput{
+			r.Context(), *deps.Resume, ownerID,
+			&jobsuc.ManualDraftInput{
 				Company: req.Company, Role: req.Role, JobURL: req.JobURL, JobText: req.JobText,
+				MasterID: req.MasterID, Blank: req.Blank,
 			},
 		)
 		if err != nil {
@@ -97,6 +122,10 @@ func handleCreateDraftErr(log *slog.Logger, w http.ResponseWriter, err error) {
 		})
 		return
 	}
+	if errors.Is(err, jobsmodel.ErrResumeMasterNotFound) {
+		writeMasterNotFound(log, w)
+		return
+	}
 	log.Error("create manual draft", logErrKey, err)
 	writeServerErr(log, w)
 }
@@ -104,26 +133,21 @@ func handleCreateDraftErr(log *slog.Logger, w http.ResponseWriter, err error) {
 func writeCreatedDraft(
 	log *slog.Logger, w http.ResponseWriter, draft *jobsmodel.ResumeDraft,
 ) {
-	view := draftView{
-		ID: draft.ID, Company: draft.JobSnapshot.Company,
-		Role: draft.JobSnapshot.Title, ForJob: draft.JobCacheID,
-		UpdatedAt: draft.CreatedAt, Template: draft.Template,
-		ResumeContent: draft.ResumeContent,
-	}
-	w.Header().Set(ctHeader, ctJSON)
-	w.WriteHeader(http.StatusCreated)
-	if err := json.NewEncoder(w).Encode(view); err != nil {
-		log.Error("encode created draft", logErrKey, err)
-	}
+	writeJSON(log, w, http.StatusCreated, newDraftView(draft))
 }
 
 // draftDetailView — #52: the composer fetches the real resume_content
 // (+ job context) on open.
 type draftDetailView struct {
-	ID       string `json:"id"`
-	Company  string `json:"company"`
-	Role     string `json:"role"`
-	Template string `json:"template"`
+	ExpiresAt time.Time `json:"expires_at"`
+	ID        string    `json:"id"`
+	Company   string    `json:"company"`
+	Role      string    `json:"role"`
+	Template  string    `json:"template"`
+	// BasedOnMasterID / Name — the master this draft started from (omitted = none); the composer's
+	// "set as master" offers to overwrite it.
+	BasedOnMasterID   string `json:"based_on_master_id,omitempty"`
+	BasedOnMasterName string `json:"based_on_master_name,omitempty"`
 	// PuckData — the Puck editor state to restore on open (omitted when the draft has none yet;
 	// the editor then derives it from resume_content). Passed through verbatim.
 	PuckData      json.RawMessage         `json:"puck_data,omitempty"`
@@ -134,7 +158,8 @@ type draftDetailView struct {
 func newDraftDetailView(draft *jobsmodel.ResumeDraft) draftDetailView {
 	return draftDetailView{
 		ID: draft.ID, Company: draft.JobSnapshot.Company,
-		Role: draft.JobSnapshot.Title, Template: draft.Template,
+		Role: draft.JobSnapshot.Title, Template: draft.Template, ExpiresAt: draft.ExpiresAt,
+		BasedOnMasterID: draft.BasedOnMasterID, BasedOnMasterName: draft.BasedOnMasterName,
 		ResumeContent: draft.ResumeContent,
 		PuckData:      draft.PuckData,
 	}
@@ -143,7 +168,7 @@ func newDraftDetailView(draft *jobsmodel.ResumeDraft) draftDetailView {
 func getDraft(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := authmw.OwnerIDFrom(r.Context())
-		draft, err := deps.Drafts.GetByID(r.Context(), ownerID, chi.URLParam(r, "id"))
+		draft, err := deps.Resume.Drafts.GetByID(r.Context(), ownerID, chi.URLParam(r, "id"))
 		if err != nil {
 			handleDraftDetailErr(deps.Log, w, err)
 			return
@@ -162,7 +187,7 @@ func discardDraft(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID := authmw.OwnerIDFrom(r.Context())
 		if err := jobsuc.DiscardResumeDraft(
-			r.Context(), jobsuc.ResumeDeps{Drafts: deps.Drafts}, ownerID, chi.URLParam(r, "id"),
+			r.Context(), *deps.Resume, ownerID, chi.URLParam(r, "id"),
 		); err != nil {
 			deps.Log.Error("discard draft", logErrKey, err)
 			writeServerErr(deps.Log, w)
@@ -183,24 +208,23 @@ func handleDraftDetailErr(log *slog.Logger, w http.ResponseWriter, err error) {
 	writeServerErr(log, w)
 }
 
-func writeDraftsList(
-	log *slog.Logger, w http.ResponseWriter, drafts []jobsmodel.ResumeDraft,
-) {
-	items := make([]draftView, 0, len(drafts))
-	for i := range drafts {
-		items = append(items, draftView{
-			ID:            drafts[i].ID,
-			Company:       drafts[i].JobSnapshot.Company,
-			Role:          drafts[i].JobSnapshot.Title,
-			ForJob:        drafts[i].JobCacheID,
-			UpdatedAt:     drafts[i].CreatedAt,
-			Template:      drafts[i].Template,
-			ResumeContent: drafts[i].ResumeContent,
-		})
-	}
+// jsonBody —— the bodies the drafts and masters routes answer with.
+type jsonBody interface {
+	draftView | paging.Page[draftView] |
+		*jobsmodel.ResumeMaster | paging.Page[jobsmodel.ResumeMaster]
+}
+
+// writeJSON — one encoded response body with its status.
+func writeJSON[T jsonBody](log *slog.Logger, w http.ResponseWriter, status int, v T) {
 	w.Header().Set(ctHeader, ctJSON)
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(items); err != nil {
-		log.Error("encode drafts", logErrKey, err)
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		log.Error("encode response", logErrKey, err)
 	}
+}
+
+func writeBadCursor(log *slog.Logger, w http.ResponseWriter) {
+	writeJSONErr(log, w, apierr.Envelope{
+		Status: http.StatusBadRequest, Code: "bad_request", Message: "bad cursor",
+	})
 }

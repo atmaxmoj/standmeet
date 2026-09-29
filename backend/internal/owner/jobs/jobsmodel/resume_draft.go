@@ -32,8 +32,12 @@ type ResumeDraft struct {
 	// PuckData — the Puck editor's own state JSON, passed through verbatim (the backend never
 	// interprets it). Nil = never opened+Saved in the Puck editor (agent-created or pre-Puck);
 	// the editor derives it from ResumeContent on open. Always rederivable from ResumeContent.
-	PuckData    json.RawMessage
-	JobSnapshot FetchedJob
+	PuckData json.RawMessage
+	// BasedOnMasterID / BasedOnMasterName — the master this draft started from ('' = none: blank,
+	// agent-written, or the master was deleted since). The name is read by join, never copied.
+	BasedOnMasterID   string
+	BasedOnMasterName string
+	JobSnapshot       FetchedJob
 	// ResumeContent last (trailing non-pointer float64 → minimal pointer-scan prefix).
 	ResumeContent ResumeContent
 }
@@ -41,10 +45,12 @@ type ResumeDraft struct {
 // CreateResumeDraftInput — the usecase-layer input for draft.create (the job snapshot has
 // already been pulled from the Redis pool and injected by the caller).
 type CreateResumeDraftInput struct {
-	OwnerID     string
-	JobCacheID  string
-	Template    string
-	JobSnapshot FetchedJob
+	OwnerID    string
+	JobCacheID string
+	Template   string
+	// BasedOnMasterID — the master ResumeContent was copied from ('' = none).
+	BasedOnMasterID string
+	JobSnapshot     FetchedJob
 	// ResumeContent last (trailing non-pointer float64 → minimal pointer-scan prefix).
 	ResumeContent ResumeContent
 }
@@ -56,4 +62,7 @@ var (
 	ErrResumeDraftNotFound = errors.New("resume draft not found")
 	// ErrResumeContentInvalid — content validation failed (a required field is missing).
 	ErrResumeContentInvalid = errors.New("resume content invalid")
+	// ErrResumeDraftIncomplete — resume.draft needs a job, and content or a master to copy it from.
+	ErrResumeDraftIncomplete = errors.New(
+		"job_cache_id, and resume_content or master_id, are required")
 )

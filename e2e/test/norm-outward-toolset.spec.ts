@@ -206,6 +206,8 @@ const GOLDEN_TOOLSET: readonly string[] = [
   // microsite.set_byoai -- whether this page allows readers to bring their
   // own key (voided once a code is attached, which then decides instead).
   'microsite.set_byoai',
+  // microsite.set_open_without_code -- "open without an access code", per page (2026-09-28).
+  'microsite.set_open_without_code',
   // microsite.set_store_writable / store_docs / store_delete_doc / store_clear -- the
   // page's data store (Resources -> Data): open it to visitor writes, and the owner-side
   // management of what it holds (list docs / delete one / clear the store).
@@ -298,6 +300,9 @@ const GOLDEN_TOOLSET: readonly string[] = [
   'jobs.register_source', 'jobs.list_sources', 'jobs.unregister_source',
   'jobs.fetch_new', 'jobs.fetch_result', 'jobs.show', 'jobs.discard',
   'resume.draft', 'resume.update_draft', 'resume.discard_draft',
+  // résumé masters (docs/design/resume-masters.md)
+  'resume.master_list', 'resume.master_get', 'resume.master_create', 'resume.master_update',
+  'resume.master_delete', 'resume.draft_save_as_master',
   'applications.commit',
   // screen assistant -- the desktop cue app streams cards + heard lines to /admin/screen-assistant
   'assistant.push',

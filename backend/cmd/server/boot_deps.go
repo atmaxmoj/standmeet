@@ -244,7 +244,9 @@ func buildJobsModule(d *deps.Runtime) *pluginjobs.Plugin {
 		// Read at call time: the job runtime and the bus are built after this module.
 		Queue: wire.JobsQueue(d), Events: wire.EventsRecorder(d),
 	}
-	resumeDeps := jobsuc.ResumeDeps{Drafts: d.ResumeDraftRepo, Cache: d.JobCachePool}
+	resumeDeps := jobsuc.ResumeDeps{
+		Drafts: d.ResumeDraftRepo, Masters: jobsuc.NewResumeMasterRepo(d.DB), Cache: d.JobCachePool,
+	}
 	appsDeps := jobsuc.ApplicationsDeps{
 		Apps: d.ApplicationRepo, Owners: d.OwnerRepo,
 		Roles: d.RoleRepo, Prompts: port.PromptsByName(d),

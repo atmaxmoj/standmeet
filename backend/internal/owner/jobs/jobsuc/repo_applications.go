@@ -179,7 +179,7 @@ func loadDraftForCommit(
 		}
 		return db.ResumeDraft{}, fmt.Errorf("load draft: %w", err)
 	}
-	return row, nil
+	return row.ResumeDraft, nil
 }
 
 // resolveCommitCodeRow — the code to link the application to: an existing one the owner reused

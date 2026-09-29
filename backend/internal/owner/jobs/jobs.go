@@ -128,7 +128,7 @@ func (p *Plugin) OwnerFibers() []registry.Fiber {
 // RequireCSRF middleware (the shared admin auth stack).
 func (p *Plugin) MountAdminRoutes(r chi.Router) {
 	jobsadmin.Mount(r, jobsadmin.Deps{
-		Apps: p.deps.AppsRepo, Drafts: p.deps.DraftsRepo,
+		Apps: p.deps.AppsRepo, Resume: p.deps.Resume,
 		Sources: p.deps.SourcesRepo, Jobs: p.deps.Jobs, Log: p.deps.Log,
 		// Commit — the panel's SEND button calls the **same** usecase, sharing
 		// this deps with the applications.commit path (F-E-9). Assembling a

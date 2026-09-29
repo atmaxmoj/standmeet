@@ -880,6 +880,7 @@ deps:
       - jobsuc
       - jobs             # jobs.fetch_result takes the source jobs' ids (jobs.JobID)
       - jobcues          # assistant.push writes the cue feed
+      - paging           # resume.master_list takes cursor/limit and answers a page (the one paginator)
     anyVendorDeps: true
 
   # mcputil — shared owner-MCP result marshaller. Leaf: only registry (for MCPResult).

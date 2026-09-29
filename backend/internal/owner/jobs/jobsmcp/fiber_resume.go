@@ -55,9 +55,9 @@ func (*resumeFiber) SystemPromptFragmentID(
 }
 
 func (c *resumeFiber) OwnerMCPBindings() []*registry.MCPBinding {
-	return []*registry.MCPBinding{
+	return append([]*registry.MCPBinding{
 		c.draftBinding(), c.updateDraftBinding(), c.discardDraftBinding(),
-	}
+	}, c.masterBindings()...)
 }
 
 // ───── resume.draft ─────────────────────────────────────────────
@@ -70,7 +70,9 @@ func (c *resumeFiber) draftBinding() *registry.MCPBinding {
 		// list page. The owner's AI would copy that phrase verbatim and
 		// send the owner there (F-E-8).
 		Description: "Curate a tailored resume for a cached job and stash it as a " +
-			"draft. Returns draft_id plus job_snapshot. Owner reviews it at " +
+			"draft. Start from a résumé master with master_id (see resume.master_list): " +
+			"without resume_content the draft copies the master's content. Returns draft_id, " +
+			"job_snapshot and resume_content. Owner reviews it at " +
 			"/admin/drafts — the draft's card there opens the composer (edit + live " +
 			"PDF preview). Final PDF (with real recruiter QR) is rendered " +
 			"by applications.commit. Draft TTL = 24h.",
@@ -79,11 +81,13 @@ func (c *resumeFiber) draftBinding() *registry.MCPBinding {
 			"properties":{
 				"job_cache_id":{"type":"string","description":"cache_id from jobs.fetch_new"},
 				"resume_content":{"type":"object",
-					"description":"Structured resume content."},
+					"description":"Structured resume content. Optional when master_id is given."},
+				"master_id":{"type":"string",
+					"description":"The master this draft starts from (its based_on)."},
 				"template":{"type":"string",
 					"description":"Layout: 'classic' or 'compact' (ATS). Empty=classic."}
 			},
-			"required":["job_cache_id","resume_content"]
+			"required":["job_cache_id"]
 		}`),
 		Handler: c.handleDraft,
 	}
@@ -93,6 +97,7 @@ type resumeDraftArgsWire struct {
 	ResumeContent *jobsmodel.ResumeContent `json:"resume_content"`
 	JobCacheID    string                   `json:"job_cache_id"`
 	Template      string                   `json:"template"`
+	MasterID      string                   `json:"master_id"`
 }
 
 func (c *resumeFiber) handleDraft(
@@ -102,14 +107,9 @@ func (c *resumeFiber) handleDraft(
 	if err := json.Unmarshal(raw, &args); err != nil {
 		return registry.MCPError("invalid arguments: " + err.Error())
 	}
-	if args.JobCacheID == "" {
-		return registry.MCPError("job_cache_id is required")
-	}
-	if args.ResumeContent == nil {
-		return registry.MCPError("resume_content is required")
-	}
 	drafted, err := jobsuc.DraftResume(ctx, *c.resume, ownerID, jobsuc.DraftInput{
 		Content: args.ResumeContent, JobCacheID: args.JobCacheID, Template: args.Template,
+		MasterID: args.MasterID,
 	})
 	if err != nil {
 		return resumeCapErrToResult(c.log, err, "draft")
@@ -213,14 +213,24 @@ func resumeCapErrToResult(log *slog.Logger, err error, op string) registry.MCPRe
 	return registry.MCPError("resume." + op + " failed")
 }
 
+// resumeClientErrs —— the errors the caller can act on, and what to tell it.
+var resumeClientErrs = []struct {
+	err error
+	msg string
+}{
+	{jobsmodel.ErrJobCacheMiss, "job cache miss (expired or never existed)"},
+	{jobsmodel.ErrResumeDraftNotFound, "draft not found (expired or wrong owner)"},
+	{jobsmodel.ErrResumeContentInvalid, "resume_content invalid"},
+	{jobsmodel.ErrResumeMasterNotFound, "master not found (wrong id or owner)"},
+	{jobsmodel.ErrResumeMasterNameRequired, "name is required"},
+	{jobsmodel.ErrResumeDraftIncomplete, jobsmodel.ErrResumeDraftIncomplete.Error()},
+}
+
 func resumeCapClientErr(err error) (string, bool) {
-	switch {
-	case errors.Is(err, jobsmodel.ErrJobCacheMiss):
-		return "job cache miss (expired or never existed)", true
-	case errors.Is(err, jobsmodel.ErrResumeDraftNotFound):
-		return "draft not found (expired or wrong owner)", true
-	case errors.Is(err, jobsmodel.ErrResumeContentInvalid):
-		return "resume_content invalid: " + err.Error(), true
+	for _, e := range resumeClientErrs {
+		if errors.Is(err, e.err) {
+			return e.msg, true
+		}
 	}
 	return "", false
 }

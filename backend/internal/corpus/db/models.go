@@ -544,15 +544,27 @@ type PublicConversationPolicy struct {
 }
 
 type ResumeDraft struct {
+	ID              pgtype.UUID
+	OwnerID         pgtype.UUID
+	JobCacheID      string
+	JobSnapshot     []byte
+	ResumeContent   []byte
+	PuckData        []byte
+	Template        string
+	ExpiresAt       pgtype.Timestamptz
+	CreatedAt       pgtype.Timestamptz
+	BasedOnMasterID pgtype.UUID
+}
+
+type ResumeMaster struct {
 	ID            pgtype.UUID
 	OwnerID       pgtype.UUID
-	JobCacheID    string
-	JobSnapshot   []byte
+	Name          string
 	ResumeContent []byte
-	PuckData      []byte
-	Template      string
-	ExpiresAt     pgtype.Timestamptz
+	IsDefault     bool
+	FromCompany   string
 	CreatedAt     pgtype.Timestamptz
+	UpdatedAt     pgtype.Timestamptz
 }
 
 type Role struct {
