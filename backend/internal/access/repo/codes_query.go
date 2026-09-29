@@ -91,11 +91,13 @@ func (r *CodeRepo) missingCodeReason(ctx context.Context, code string) error {
 }
 
 // CodeFilter — which codes a page holds: State is ”/'all', 'active', 'revoked' or
-// 'expired'; Q matches code or label; Embed 'none' keeps only codes no embed exposes.
+// 'expired'; Q matches code or label; Embed 'none' keeps only codes no embed exposes;
+// Application 'none' keeps only codes no application holds.
 type CodeFilter struct {
-	State string `json:"state"`
-	Q     string `json:"q"`
-	Embed string `json:"embed"`
+	State       string `json:"state"`
+	Q           string `json:"q"`
+	Embed       string `json:"embed"`
+	Application string `json:"application"`
 }
 
 // ListPage — one page of the owner's codes, newest first (docs/design/paging.md). Each row
@@ -112,7 +114,7 @@ func (r *CodeRepo) ListPage(
 		return paging.Page[entity.Code]{}, fmt.Errorf("list access codes: %w", err)
 	}
 	rows, err := db.New(r.pool).ListAccessCodesPage(ctx, db.ListAccessCodesPageParams{
-		OwnerID: ownerUUID, State: f.State, Q: f.Q, Embed: f.Embed,
+		OwnerID: ownerUUID, State: f.State, Q: f.Q, Embed: f.Embed, Application: f.Application,
 		AfterAt: after.At, AfterID: after.ID, Lim: req.Fetch(),
 	})
 	if err != nil {

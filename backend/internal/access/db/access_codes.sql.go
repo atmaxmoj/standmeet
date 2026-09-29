@@ -581,20 +581,25 @@ WHERE ac.owner_id = $1
   -- embed: 'none' = only codes no embed exposes yet (the embed picker; code_id is unique there).
   AND ($4::text <> 'none'
     OR NOT EXISTS (SELECT 1 FROM embeds em WHERE em.code_id = ac.id))
-  AND ($5::timestamptz IS NULL
-    OR (ac.created_at, ac.id) < ($5, $6::uuid))
+  -- application: 'none' = only codes no application holds yet (the résumé composer's picker;
+  -- access_code_id is unique on applications, so a held code cannot back a second one).
+  AND ($5::text <> 'none'
+    OR NOT EXISTS (SELECT 1 FROM applications ap WHERE ap.access_code_id = ac.id))
+  AND ($6::timestamptz IS NULL
+    OR (ac.created_at, ac.id) < ($6, $7::uuid))
 ORDER BY ac.created_at DESC, ac.id DESC
-LIMIT $7
+LIMIT $8
 `
 
 type ListAccessCodesPageParams struct {
-	OwnerID pgtype.UUID
-	State   string
-	Q       string
-	Embed   string
-	AfterAt pgtype.Timestamptz
-	AfterID pgtype.UUID
-	Lim     int32
+	OwnerID     pgtype.UUID
+	State       string
+	Q           string
+	Embed       string
+	Application string
+	AfterAt     pgtype.Timestamptz
+	AfterID     pgtype.UUID
+	Lim         int32
 }
 
 type ListAccessCodesPageRow struct {
@@ -636,6 +641,7 @@ func (q *Queries) ListAccessCodesPage(ctx context.Context, arg ListAccessCodesPa
 		arg.State,
 		arg.Q,
 		arg.Embed,
+		arg.Application,
 		arg.AfterAt,
 		arg.AfterID,
 		arg.Lim,

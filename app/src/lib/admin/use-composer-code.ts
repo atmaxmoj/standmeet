@@ -35,7 +35,9 @@ function publicURLOf(session: ReturnType<typeof useAdminSession>): string {
 
 export function useComposerCode(): ComposerCode {
   const session = useAdminSession();
-  const picker = useCodePicker();
+  // application: 'none' —— one code backs one application, so a code an earlier application holds
+  // cannot carry this résumé's QR; offering it made the second SEND fail.
+  const picker = useCodePicker({ application: 'none' });
   const offered = picker.page.items;
   const [selectedCode, setSelected] = useState<CodeView | undefined>(undefined);
   useEffect(() => { setSelected((cur) => cur ?? offered[0]); }, [offered]);

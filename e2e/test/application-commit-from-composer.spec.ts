@@ -72,6 +72,25 @@ test.describe('jobs · the composer SEND actually commits', () => {
       () => countDrafts(adminPage), { timeout: 10_000 },
     ).toBe(0);
   });
+
+  // The second application from the UI. The first SEND issued a code and bound it to that
+  // application; one code backs one application (applications_access_code_uniq). The picker used
+  // to default to the newest active code — that same bound code — so the second SEND died with a
+  // 500 and the owner saw nothing sent. The picker must only offer codes no application holds yet.
+  test('a second SEND from the UI also commits', async ({ adminPage, request }) => {
+    await seedOneDraft(request);
+    const before = await countApplications(adminPage);
+    expect(before, 'precondition: the first application exists').toBeGreaterThan(0);
+
+    await gotoAdminSection(adminPage, 'drafts');
+    await adminPage.getByRole('button', { name: /open composer/i }).first().click();
+    await adminPage.getByTestId('composer-send').click();
+    await adminPage.getByTestId('composer-confirm-send').click();
+
+    await expect.poll(
+      () => countApplications(adminPage), { timeout: 30_000 },
+    ).toBe(before + 1);
+  });
 });
 
 // countApplications / countDrafts -- go through the product's **own** read

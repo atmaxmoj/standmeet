@@ -92,6 +92,10 @@ WHERE ac.owner_id = sqlc.arg('owner_id')
   -- embed: 'none' = only codes no embed exposes yet (the embed picker; code_id is unique there).
   AND (sqlc.arg('embed')::text <> 'none'
     OR NOT EXISTS (SELECT 1 FROM embeds em WHERE em.code_id = ac.id))
+  -- application: 'none' = only codes no application holds yet (the résumé composer's picker;
+  -- access_code_id is unique on applications, so a held code cannot back a second one).
+  AND (sqlc.arg('application')::text <> 'none'
+    OR NOT EXISTS (SELECT 1 FROM applications ap WHERE ap.access_code_id = ac.id))
   AND (sqlc.narg('after_at')::timestamptz IS NULL
     OR (ac.created_at, ac.id) < (sqlc.narg('after_at'), sqlc.narg('after_id')::uuid))
 ORDER BY ac.created_at DESC, ac.id DESC

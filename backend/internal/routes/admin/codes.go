@@ -41,7 +41,8 @@ type CodesDeps struct {
 // MountCodes mounts the /codes subrouter (the caller is already inside the /codes prefix).
 func (h *Handlers) MountCodes(r chi.Router) {
 	face := h.CodesAdmin.Face
-	r.Get("/", h.dispatchOp(face, "codes.list", pagedQueryArgs("state", "q", "embed"), jsonOK))
+	r.Get("/", h.dispatchOp(face, "codes.list",
+		pagedQueryArgs("state", "q", "embed", "application"), jsonOK))
 	r.Get("/counts", h.dispatchOp(face, "codes.counts", emptyArgs, jsonOK))
 	r.Post("/", h.dispatchOp(face, "codes.create", bodyArgs, jsonCreated))
 	r.Post("/{code_id}/revoke",

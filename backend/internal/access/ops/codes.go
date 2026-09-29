@@ -200,7 +200,9 @@ var codeListFilters = json.RawMessage(`{
 			"description":"Which codes; omit for all. Expired = past expires_at, not revoked."},
 		"q":{"type":"string","description":"Case-insensitive substring of the code or its label."},
 		"embed":{"type":"string","enum":["","none"],
-			"description":"none = only codes that no embed exposes yet."}
+			"description":"none = only codes that no embed exposes yet."},
+		"application":{"type":"string","enum":["","none"],
+			"description":"none = only codes no job application holds yet."}
 	}
 }`)
 
