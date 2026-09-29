@@ -74,9 +74,9 @@ async function checkMicrositeSEO(playwright: Playwright): Promise<void> {
   expect(saved.seo_description).toBe(SEO_PAGE.seoDescription);
   expect(saved.seo_image).toBe(SEO_PAGE.seoImage);
 
-  const pages = await callTool<Array<{ slug: string; seo_title: string }>>(
+  const pages = await callTool<{ items: Array<{ slug: string; seo_title: string }> }>(
     request, token, sid, 'microsite.list', {});
-  const row = pages.find((p) => p.slug === SEO_PAGE.slug);
+  const row = pages.items.find((p) => p.slug === SEO_PAGE.slug);
   expect(row, 'the page is listed').toBeDefined();
   expect(row!.seo_title, 'the SEO title was stored, not just echoed').toBe(SEO_PAGE.seoTitle);
   await request.dispose();

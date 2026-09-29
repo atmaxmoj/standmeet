@@ -47,8 +47,8 @@ async function submitRequest(email: string, ip: string): Promise<number> {
 }
 
 async function requestID(email: string): Promise<string> {
-  const reqs = await callTool<{ id: string; email: string }[]>(request, token, sid, 'access_requests.list', {});
-  return reqs.find((r) => r.email === email)?.id ?? '';
+  const reqs = await callTool<{ items: { id: string; email: string }[] }>(request, token, sid, 'access_requests.list', {});
+  return reqs.items.find((r) => r.email === email)?.id ?? '';
 }
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
@@ -93,8 +93,8 @@ test.describe('P4 · side effects are durable jobs', () => {
     const row = adminPage.getByTestId(`request-row-${id}`);
     await expect(row.getByTestId('request-mail-state')).toHaveAttribute('data-state', 'sent', { timeout: 60_000 });
     await waitForMailEnvelopeTo(request, visitor, 30_000);
-    const after = await callTool<{ id: string; status: string }[]>(request, token, sid, 'access_requests.list', {});
-    expect(after.find((r) => r.id === id)?.status).toBe('replied');
+    const after = await callTool<{ items: { id: string; status: string }[] }>(request, token, sid, 'access_requests.list', {});
+    expect(after.items.find((r) => r.id === id)?.status).toBe('replied');
   });
 
   test('approval with a permanently failing relay shows failed and is not marked replied', async ({ adminPage }) => {
@@ -108,8 +108,8 @@ test.describe('P4 · side effects are durable jobs', () => {
     await adminPage.getByTestId('requests-filters').getByText('all', { exact: true }).click();
     const row = adminPage.getByTestId(`request-row-${id}`);
     await expect(row.getByTestId('request-mail-state')).toHaveAttribute('data-state', 'failed', { timeout: 60_000 });
-    const after = await callTool<{ id: string; status: string }[]>(request, token, sid, 'access_requests.list', {});
-    expect(after.find((r) => r.id === id)?.status).not.toBe('replied');
+    const after = await callTool<{ items: { id: string; status: string }[] }>(request, token, sid, 'access_requests.list', {});
+    expect(after.items.find((r) => r.id === id)?.status).not.toBe('replied');
     await resetSMTPFault(request);
   });
 

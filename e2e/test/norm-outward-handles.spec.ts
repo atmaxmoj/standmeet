@@ -59,6 +59,8 @@ const GOLDEN_OUTWARD: readonly Cap[] = [
   { id: 'jobs.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'resume.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'applications.bundle', shape: 'owner_only', origin: 'builtin' },
+  // The screen assistant's owner tools (assistant.push, e215acb8a) — owner-only by design.
+  { id: 'assistant.bundle', shape: 'owner_only', origin: 'builtin' },
 ];
 
 test.describe('能力归一化 · 【对外】自管理 MCP handles 黄金快照(本次不碰)', () => {
