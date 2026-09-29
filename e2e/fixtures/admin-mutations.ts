@@ -102,3 +102,8 @@ export async function createMcpServer(
 }
 export const grantMcpDep = (api: APIRequestContext, csrf: string, serverID: string, data: unknown) =>
   seed(api, 'post', `/api/admin/mcp-servers/${serverID}/dep-grants`, csrf, data);
+
+// commitDraftAPI —— SEND a draft through the panel's commit route (auto-issues a fresh code). For
+// seeding an existing application; the action under test drives the composer's SEND instead.
+export const commitDraftAPI = (api: APIRequestContext, csrf: string, id: string) =>
+  seed(api, 'post', `/api/admin/drafts/${id}/commit`, csrf, { code_mode: 'new', code_id: '' });
