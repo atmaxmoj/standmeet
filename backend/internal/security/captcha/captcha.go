@@ -57,11 +57,8 @@ var ErrCaptchaFailed = errors.New("captcha verification failed")
 // NewFromConfig picks a verifier based on cfg. If either SiteKey or Secret
 // is empty → noop. httpClient is only used on the Turnstile path; noop
 // never touches it. Caller may pass nil to fall back to the default
-// (10s timeout).
-//
+// (10s timeout). The implementation differs per cfg, so the interface
 // return is intentional here.
-//
-//nolint:ireturn // factory returns different impls per cfg — the interface
 func NewFromConfig(cfg Config, httpClient *http.Client) Verifier {
 	if cfg.Provider == ProviderTurnstile && cfg.SiteKey != "" && cfg.Secret != "" {
 		return newTurnstileVerifier(cfg.Secret, httpClient)

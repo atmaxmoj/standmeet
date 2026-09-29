@@ -115,8 +115,6 @@ func writeNotes(t *testing.T, pool *pgxpool.Pool, n int) []string {
 }
 
 // indexingRuntime —— the bus with the corpus subscriptions and a River runtime for its kinds.
-//
-//nolint:ireturn // the port is what the test reads jobs through
 func indexingRuntime(
 	t *testing.T, pool *pgxpool.Pool, ix usecase.Indexer,
 ) (*events.Bus, jobs.Runtime) {
@@ -137,8 +135,6 @@ func indexingRuntime(
 }
 
 // runIndexing —— the relay and started River workers, stopped when the test ends.
-//
-//nolint:ireturn // the port is what the test reads jobs through
 func runIndexing(t *testing.T, pool *pgxpool.Pool, ix usecase.Indexer) jobs.Runtime {
 	t.Helper()
 	ctx := context.Background()

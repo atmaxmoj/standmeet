@@ -67,7 +67,6 @@ func newFetchRig(t *testing.T, h http.HandlerFunc, wait time.Duration) *fetchRig
 	return r
 }
 
-//nolint:ireturn // the jobs port is the contract
 func startRuntime(t *testing.T, pool *pgxpool.Pool, kinds []jobs.Kind) jobs.Runtime {
 	t.Helper()
 	opts := jobsriver.Options{FetchPollInterval: fetchPoll, StopGrace: time.Second}

@@ -55,7 +55,7 @@ func (c *Context) Provide(ownerID, seam string, p Provider) (effect.Dispose, err
 
 // Resolve — the owner's active provider for a seam, or (nil, false) when none provides it. The
 // caller invokes a verb on it by name; it never learns the concrete provider or the seam's meaning.
-func (c *Context) Resolve(ownerID, seam string) (Provider, bool) { //nolint:ireturn // element iface
+func (c *Context) Resolve(ownerID, seam string) (Provider, bool) {
 	c.mu.Lock()
 	t, ok := c.owners[ownerID]
 	c.mu.Unlock()

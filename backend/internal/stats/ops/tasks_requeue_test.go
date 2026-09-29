@@ -20,7 +20,6 @@ import (
 // refusingJobs —— a jobs port whose every enqueue fails, so the relay poisons what it claims.
 type refusingJobs struct{ jobs.Jobs }
 
-//nolint:ireturn // test double of our own port
 func (f refusingJobs) With(tx pgstore.Tx) jobs.Jobs { return refusingJobs{f.Jobs.With(tx)} }
 
 func (refusingJobs) Enqueue(
@@ -32,8 +31,6 @@ func (refusingJobs) Enqueue(
 }
 
 // oneEventBus —— the bus and an unstarted runtime, with a single unfanned event.
-//
-//nolint:ireturn // the port is what the panel reads jobs through
 func oneEventBus(t *testing.T) (*events.Bus, jobs.Runtime) {
 	t.Helper()
 	pool := scratchDB(t)

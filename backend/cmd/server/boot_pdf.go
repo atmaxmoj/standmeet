@@ -23,8 +23,6 @@ import (
 // no typst). gotenberg's Chromium loads the print route (/print/application/<id>), which SSRs the
 // Puck <Render> and prints it, so what the owner arranges is exactly what prints. Enabled when
 // GOTENBERG_URL + PRINT_BASE_URL are set; else a noop that fails commit loudly (no empty PDF).
-//
-//nolint:ireturn // composition root deliberately returns interface
 func buildPDFRenderer(
 	log *slog.Logger, cfg *config.Config, store *printsess.Store,
 ) jobsuc.PDFRenderer {

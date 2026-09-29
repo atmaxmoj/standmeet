@@ -23,9 +23,8 @@ type recorder struct {
 }
 
 // Recorder — the outbox writer. Without With, each Record is its own transaction.
-func (b *Bus) Recorder() Recorder { return &recorder{b: b, q: b.pool} } //nolint:ireturn // port
+func (b *Bus) Recorder() Recorder { return &recorder{b: b, q: b.pool} }
 
-//nolint:ireturn // port
 func (r *recorder) With(tx pgstore.Tx) Recorder { return &recorder{b: r.b, q: tx} }
 
 func (r *recorder) Record(

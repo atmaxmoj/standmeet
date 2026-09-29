@@ -41,7 +41,6 @@ func kind(name, queue string, maxAttempts int, h jobs.Handler) jobs.Kind {
 	}
 }
 
-//nolint:ireturn // the port IS the object under test: the contract runs against jobs.Runtime
 func start(
 	t *testing.T, pool *pgxpool.Pool, kinds []jobs.Kind, periodics []jobs.Periodic,
 ) jobs.Runtime {

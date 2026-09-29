@@ -25,8 +25,6 @@ type Beginner interface {
 
 // Nested — where a repo bound by With(q) opens its own transaction: a savepoint inside q when q
 // is a transaction, else a transaction of its own on pool.
-//
-//nolint:ireturn // Beginner is the port both a pool and a transaction satisfy
 func Nested(q DBTX, pool *Pool) Beginner {
 	if tx, ok := q.(Tx); ok {
 		return tx

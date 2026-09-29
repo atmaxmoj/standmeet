@@ -9,11 +9,10 @@ import (
 
 // Recorder —— the outbox writer, resolved at call time: a use case wired before the bus is built
 // (BuildBackground) records through this and reaches the bus once it exists.
-func (d *Runtime) Recorder() events.Recorder { return lazyRecorder{d: d} } //nolint:ireturn // port
+func (d *Runtime) Recorder() events.Recorder { return lazyRecorder{d: d} }
 
 type lazyRecorder struct{ d *Runtime }
 
-//nolint:ireturn // port
 func (l lazyRecorder) With(tx pgstore.Tx) events.Recorder {
 	return l.d.Events.Recorder().With(tx)
 }

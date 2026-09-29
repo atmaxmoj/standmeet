@@ -21,7 +21,6 @@ import (
 
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
 
-	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	"github.com/atmaxmoj/standmeet/internal/plugin"
 	"github.com/atmaxmoj/standmeet/internal/plugin/blockconfig"
 	"github.com/atmaxmoj/standmeet/internal/plugin/blockquota"
@@ -35,9 +34,7 @@ import (
 //
 // Two blocks fighting over the same field name → panic. That's a startup-time factual
 // error, not runtime bad luck.
-//
-//nolint:ireturn // access accepts exactly this interface
-func CodeFieldSurface(d *deps.Runtime) access.CodeExtras {
+func CodeFieldSurface(d *deps.Runtime) *blockconfig.SubjectFields {
 	fields, err := blockconfig.NewCodeFields(d.Log, subjectBlocks(d, "code", codeDecl))
 	if err != nil {
 		panic(err)
@@ -51,9 +48,7 @@ func CodeFieldSurface(d *deps.Runtime) access.CodeExtras {
 // The only difference from CodeFieldSurface is which declaration it pulls. calendar.book's
 // notify_owner was the first one; before it, a per-role toggle could only be born as a column
 // on the kernel roles table.
-//
-//nolint:ireturn // access accepts exactly this interface
-func RoleFieldSurface(d *deps.Runtime) access.RoleExtras {
+func RoleFieldSurface(d *deps.Runtime) *blockconfig.SubjectFields {
 	fields, err := blockconfig.NewRoleFields(d.Log, subjectBlocks(d, "role", roleDecl))
 	if err != nil {
 		panic(err)
@@ -67,9 +62,7 @@ func RoleFieldSurface(d *deps.Runtime) access.RoleExtras {
 // Uses **the same declaration as a code** (`CodeConfig`): `max_bookings` means "how many times
 // this subject may book at most", and that has nothing to do with whether the subject is a code
 // or a key. Without this facade a quota attached to a key would have nowhere to be set (F-B-11).
-//
-//nolint:ireturn // access accepts exactly this interface
-func KeyFieldSurface(d *deps.Runtime) access.KeyExtras {
+func KeyFieldSurface(d *deps.Runtime) *blockconfig.SubjectFields {
 	fields, err := blockconfig.NewKeyFields(d.Log, subjectBlocks(d, "api_key", codeDecl))
 	if err != nil {
 		panic(err)

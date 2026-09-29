@@ -130,8 +130,6 @@ type Receipt struct {
 }
 
 // NewReceipt — nil indexer (Meili not configured) → nil: writes carry no index receipt.
-//
-//nolint:ireturn // nil-safe port
 func NewReceipt(ix usecase.Indexer, bus *events.Bus, rt jobs.Runtime) usecase.IndexReceipt {
 	if ix == nil {
 		return nil

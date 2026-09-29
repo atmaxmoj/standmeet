@@ -62,8 +62,6 @@ func alwaysOK(_ int32, w http.ResponseWriter) { w.WriteHeader(http.StatusNoConte
 
 // runningDelivery —— webhook.deliver on started River workers, with a client that may reach
 // loopback, and at most `attempts` attempts per job.
-//
-//nolint:ireturn // the port is what the test reads jobs through
 func runningDelivery(t *testing.T, fx fixture, attempts int) (*subscriber.Deps, jobs.Runtime) {
 	t.Helper()
 	var rt jobs.Runtime

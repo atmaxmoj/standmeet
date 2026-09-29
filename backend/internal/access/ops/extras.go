@@ -69,9 +69,7 @@ func (noExtras) Read(_ context.Context, _ string) map[string]json.RawMessage {
 
 func (noExtras) Write(_ context.Context, _ string, _ json.RawMessage) {}
 
-// is wired up
-//
-//nolint:ireturn // this seam is an interface by design: gives a "nothing" when no block
+// extrasOr — the seam is an interface by design: it gives a "nothing" when no block is wired up.
 func extrasOr(e SubjectExtras) SubjectExtras {
 	if e == nil {
 		return noExtras{}

@@ -75,8 +75,6 @@ type runtime struct {
 
 // New — builds the runtime. Declaration errors, duplicate kinds and a pool too small for the
 // workers are errors here, at boot, not surprises in production.
-//
-//nolint:ireturn // the whole point is to hand out the interface
 func New(
 	pool *pgxpool.Pool, kinds []jobs.Kind, periodics []jobs.Periodic, opts Options,
 ) (jobs.Runtime, error) {
@@ -236,7 +234,7 @@ func riverPeriodics(periodics []jobs.Periodic) []*river.PeriodicJob {
 	return out
 }
 
-func (r *runtime) With(tx pgstore.Tx) jobs.Jobs { //nolint:ireturn // the interface is the contract
+func (r *runtime) With(tx pgstore.Tx) jobs.Jobs {
 	cp := *r
 	cp.tx = tx
 	return &cp

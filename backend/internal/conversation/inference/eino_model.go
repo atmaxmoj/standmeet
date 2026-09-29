@@ -61,8 +61,6 @@ const BoundaryMaxTokens = 12288
 // Messages API; every other provider (deepseek / kimi / groq / together / openrouter /
 // siliconflow / custom self-host) goes through the openai-compat /v1/chat/completions API,
 // with BaseURL decided by cred.Endpoint.
-//
-//nolint:ireturn // dispatch by provider; caller holds the model.ToolCallingChatModel interface
 func BuildChatModel(ctx context.Context, cred *Cred) (model.ToolCallingChatModel, error) {
 	return BuildChatModelBudgeted(ctx, cred, 0)
 }
@@ -71,8 +69,6 @@ func BuildChatModel(ctx context.Context, cred *Cred) (model.ToolCallingChatModel
 // budget (0 = use the default). Only the boundary synthesis needs this (see
 // BoundaryMaxTokens): everywhere else should use the same default value, otherwise "how long
 // can one answer be" turns into constants scattered all over the place.
-//
-//nolint:ireturn // dispatch by provider; caller holds the model.ToolCallingChatModel interface
 func BuildChatModelBudgeted(
 	ctx context.Context, cred *Cred, maxTokens int,
 ) (model.ToolCallingChatModel, error) {
@@ -124,7 +120,6 @@ func validateUntrustedEndpoint(ctx context.Context, cred *Cred) error {
 	return nil
 }
 
-//nolint:ireturn // dispatch helper returns the interface BuildChatModel exposes
 func buildClaudeModel(
 	ctx context.Context, cred *Cred, maxTok int,
 ) (model.ToolCallingChatModel, error) {
@@ -144,7 +139,6 @@ func buildClaudeModel(
 	return cm, nil
 }
 
-//nolint:ireturn // dispatch helper returns the interface BuildChatModel exposes
 func buildOpenAICompatModel(
 	ctx context.Context, cred *Cred, maxTok int,
 ) (model.ToolCallingChatModel, error) {
@@ -206,15 +200,13 @@ func (m *contentGuardModel) Stream(
 	return out, nil
 }
 
-// transparent decorator — see Generate.
-//
-//nolint:ireturn,wrapcheck // implements model.ToolCallingChatModel (interface return);
+// WithTools — binds the tools on the inner model and keeps the guard around the result.
 func (m *contentGuardModel) WithTools(
 	tools []*schema.ToolInfo,
 ) (model.ToolCallingChatModel, error) {
 	bound, err := m.inner.WithTools(tools)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("chat model bind tools: %w", err)
 	}
 	return &contentGuardModel{inner: bound}, nil
 }

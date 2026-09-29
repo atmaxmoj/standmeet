@@ -204,7 +204,6 @@ type failingJobs struct {
 	failSubject string
 }
 
-//nolint:ireturn // test double of our own port
 func (f *failingJobs) With(tx pgstore.Tx) jobs.Jobs {
 	return &failingJobs{Jobs: f.Jobs.With(tx), failSubject: f.failSubject}
 }

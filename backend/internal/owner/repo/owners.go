@@ -288,8 +288,6 @@ func (r *Repo) settingsFor(ctx context.Context, o *db.Owner) entity.Settings {
 // only handles the owner itself: identity, byoai, the settings facet.
 
 // conn —— the transaction when bound by With, else the pool.
-//
-//nolint:ireturn // DBTX is the port both a pool and a transaction satisfy
 func (r *Repo) conn() pgstore.DBTX {
 	if r.q != nil {
 		return r.q

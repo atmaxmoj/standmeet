@@ -39,7 +39,6 @@ func (c *calendar) Invoke(
 	return json.RawMessage(`{"ok":true}`), nil
 }
 
-//nolint:ireturn // the runtime is the port under test
 func started(t *testing.T, cal *calendar) jobs.Runtime {
 	t.Helper()
 	ctx := context.Background()
@@ -64,8 +63,6 @@ func started(t *testing.T, cal *calendar) jobs.Runtime {
 }
 
 // run —— one compensating calendar delete, enqueued on a started runtime.
-//
-//nolint:ireturn // the runtime is the port under test
 func run(t *testing.T, cal *calendar) (jobs.Runtime, jobs.JobID) {
 	t.Helper()
 	ctx := context.Background()

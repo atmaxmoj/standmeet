@@ -152,8 +152,6 @@ func (r *RequestRepo) SetMailJob(ctx context.Context, ownerID, id string, jobID 
 }
 
 // conn —— the transaction when bound by With, else the pool.
-//
-//nolint:ireturn // DBTX is the port both a pool and a transaction satisfy
 func (r *RequestRepo) conn() pgstore.DBTX {
 	if r.q != nil {
 		return r.q

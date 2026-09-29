@@ -49,8 +49,6 @@ type meiliCorpusIndexer struct {
 }
 
 // NewCorpusIndexer —— constructor. client nil (Meili not configured) → returns nil.
-//
-//nolint:ireturn // nil-safe factory: client nil returns a nil interface
 func NewCorpusIndexer(client *search.Client, notes *repo.VaultSyncRepo) Indexer {
 	if client == nil {
 		return nil

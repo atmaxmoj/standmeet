@@ -195,6 +195,37 @@ linters:
         # by cfg, exposing only the Verifier interface — the same driver-selection factory
         # pattern as inference.Provider.
         - github.com/atmaxmoj/standmeet/internal/security/facade.Verifier
+        # The same factory one layer down, where the facade's Verifier is defined.
+        - github.com/atmaxmoj/standmeet/internal/security/captcha.Verifier
+        # More driver-selection factories of the same shape: the implementation is picked by
+        # config (gotenberg or a noop PDF renderer; the provider's eino chat model) or is absent
+        # (Meili, MaxMind or the subjectivity repo not configured). For "absent" the interface
+        # return is required: a nil *T inside an interface is non-nil, and callers nil-check.
+        - github.com/atmaxmoj/standmeet/internal/routes/public.ReportPDFRenderer
+        - github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc.PDFRenderer
+        - github.com/cloudwego/eino/components/model.ToolCallingChatModel
+        - github.com/atmaxmoj/standmeet/internal/monitor/facade.LocationResolver
+        - github.com/atmaxmoj/standmeet/internal/corpus/usecase.Indexer
+        - github.com/atmaxmoj/standmeet/internal/corpus/usecase.IndexReceipt
+        - github.com/atmaxmoj/standmeet/internal/corpus/usecase.SubjectivityCiteLookup
+        # The transactional ports. A repo's conn() is the pool or the transaction With bound —
+        # a runtime choice between two types, which is what DBTX / Beginner exist to hide. The
+        # jobs runtime and the event recorder hide River and the outbox behind the port
+        # (docs/design/event-bus-outbox-webhooks.md), and their With(tx) must return the port
+        # type to satisfy the interface at all.
+        - github.com/atmaxmoj/standmeet/internal/infra/pgstore.DBTX
+        - github.com/atmaxmoj/standmeet/internal/infra/pgstore.Beginner
+        - github.com/atmaxmoj/standmeet/internal/infra/jobs.Runtime
+        - github.com/atmaxmoj/standmeet/internal/infra/jobs.Jobs
+        - github.com/atmaxmoj/standmeet/internal/infra/events.Recorder
+        # Interfaces whose contract returns the interface itself, so an implementation cannot
+        # return anything narrower: effect.Meta's monoid Merge (Definition 27 of the paper the
+        # effect package ports), a seam's Provider held by seamctx, the Session a block dial
+        # returns (blockseam.Dial's signature), and a subject's extras with its "nothing" value.
+        - github.com/atmaxmoj/standmeet/internal/plugin/effect.Meta
+        - github.com/atmaxmoj/standmeet/internal/plugin/seamctx.Provider
+        - github.com/atmaxmoj/standmeet/internal/plugin/blockseam.Session
+        - github.com/atmaxmoj/standmeet/internal/access/ops.SubjectExtras
     revive:
       enable-all-rules: true
       rules:
