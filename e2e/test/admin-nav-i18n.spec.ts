@@ -36,6 +36,9 @@ test.describe('admin nav + section heading are translated', () => {
       await openReader(page, '/admin/dashboard');
       await expect(page.getByTestId('admin-nav-raw'), 'en nav label').toHaveText('raw');
       await expect(page.getByTestId('admin-nav-output'), 'en: output slug shows "outputs"').toHaveText('outputs');
+      // The providers page holds AI inference providers only; bare "providers" read like any
+      // vendor (owner: "'供应商' -> 'AI供应商'").
+      await expect(page.getByTestId('admin-nav-providers'), 'en: providers are AI providers').toHaveText('AI providers');
       await expect(page.getByTestId('section-header'), 'en heading').toContainText('dashboard');
 
       // Chinese via the URL locale prefix — the same page renders translated.
@@ -43,6 +46,7 @@ test.describe('admin nav + section heading are translated', () => {
       await expect(page.getByTestId('admin-nav-raw'), 'zh nav label').toHaveText('原始');
       await expect(page.getByTestId('admin-nav-output'), 'zh: output section name').toHaveText('输出');
       await expect(page.getByTestId('admin-nav-microsites')).toHaveText('微站');
+      await expect(page.getByTestId('admin-nav-providers'), 'zh: providers are AI providers').toHaveText('AI 供应商');
       // A group header (corpus → 语料库) is translated too.
       await expect(page.getByTestId('admin-sidebar'), 'zh group header').toContainText('语料库');
       // The big section heading follows the same catalog entry as the sidebar label.

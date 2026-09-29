@@ -1,5 +1,9 @@
 // ai-provider-config.spec.ts —— owner configures their own AI provider + key
-// on /admin/api-mcp. The plaintext key is never read back; a toast confirms success.
+// on /admin/providers. The plaintext key is never read back; a toast confirms success.
+//
+// The default-entry form used to sit on /admin/api-mcp as well, a second home for the same
+// provider table. The owner found it there ("this page can still set my AI? wasn't that all
+// moved to AI providers?"): it now lives only on the AI providers page, above the book.
 //
 // Phase 1 only checks "the key can be stored and cleared, and the UI state toggles
 // correctly". Phase 2, driving a real visitor chat through the Anthropic path, lives
@@ -20,7 +24,7 @@ const OWNER = {
 };
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
-test.describe('owner configures AI provider + key from /admin/api-mcp', () => {
+test.describe('owner configures AI provider + key from /admin/providers', () => {
   test.beforeAll(async ({ playwright }) => {
     resetInstance();
     const request = await playwright.request.newContext();
@@ -31,9 +35,20 @@ test.describe('owner configures AI provider + key from /admin/api-mcp', () => {
     await request.dispose();
   });
 
+  // One home: the form renders on AI providers, and the api·mcp page — fully rendered, its key
+  // list on screen — carries none. The first half keeps the second from passing on a page that
+  // simply failed to render.
+  test('the owner\'s AI form lives on AI providers, not on api·mcp', async ({ adminPage: page }) => {
+    await gotoAdminSection(page, 'providers');
+    await expect(page.getByTestId('ai-provider-panel')).toBeVisible();
+    await gotoAdminSection(page, 'api-mcp');
+    await expect(page.getByTestId('token-list'), 'api·mcp has rendered').toBeVisible();
+    await expect(page.getByTestId('ai-provider-panel')).toHaveCount(0);
+  });
+
   test('pick anthropic + paste key → key set; clear → mock + key gone',
     async ({ adminPage: page }) => {
-      await gotoAdminSection(page, 'api-mcp');
+      await gotoAdminSection(page, 'providers');
 
       await page.getByTestId('ai-provider-anthropic').click();
       // switching provider fills the preset endpoint by default; the model must be typed by hand (no default).
@@ -74,7 +89,7 @@ test.describe('owner configures AI provider + key from /admin/api-mcp', () => {
   // `mock-selfhost-*` —— two and not one, otherwise "the list came back" can't be told apart from "the product stuffed in a default".
   test('owner points at a self-hosted endpoint → the model list comes back (F-R-9)',
     async ({ adminPage: page }) => {
-      await gotoAdminSection(page, 'api-mcp');
+      await gotoAdminSection(page, 'providers');
       await page.getByTestId('ai-provider-custom').click();
       // the self-hosted stand-in in the dev stack. It's a docker service name → private address, the same class as an owner's home ollama.
       // don't write `/v1`: the backend appends `/v1/models` itself, and writing it makes `/v1/v1/models` → upstream 404.
@@ -136,7 +151,7 @@ test.describe('owner configures AI provider + key from /admin/api-mcp', () => {
 // storedKeyStillLists —— store once, reopen this screen, then click LOAD MODELS.
 // The word "reload" is the entire difference between this and the one above, and it's exactly where the product originally broke (F-R-11).
 async function storedKeyStillLists(page: Page): Promise<void> {
-  await gotoAdminSection(page, 'api-mcp');
+  await gotoAdminSection(page, 'providers');
   await page.getByTestId('ai-provider-custom').click();
   await page.getByTestId('ai-provider-endpoint').fill('http://llm-gateway:9300');
   // model is a required field for saving (SAVE is greyed while it's empty) —— type one first; what this
@@ -146,7 +161,7 @@ async function storedKeyStillLists(page: Page): Promise<void> {
   await page.getByTestId('ai-provider-save').click();
 
   await gotoAdminSection(page, 'dashboard');
-  await gotoAdminSection(page, 'api-mcp');
+  await gotoAdminSection(page, 'providers');
   await expect(
     page.getByText('key set · leave blank to keep'),
     'precondition: the key really is stored and the field really is empty',
@@ -163,7 +178,7 @@ async function storedKeyStillLists(page: Page): Promise<void> {
 async function expectModelsSentence(
   page: Page, want: { key: string; says: RegExp; neverSays: RegExp },
 ): Promise<void> {
-  await gotoAdminSection(page, 'api-mcp');
+  await gotoAdminSection(page, 'providers');
   await page.getByTestId('ai-provider-custom').click();
   await page.getByTestId('ai-provider-endpoint').fill('http://llm-gateway:9300');
   await page.getByTestId('ai-provider-key').fill(want.key);

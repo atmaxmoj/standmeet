@@ -93,7 +93,7 @@ test.describe('first-run claim · 4-step wizard polish', () => {
       await page.getByTestId('next').click();
       await submitReview(page);
       await page.waitForURL('**/admin/dashboard', { timeout: 10_000 });
-      await gotoAdminSection(page, 'api-mcp');
+      await gotoAdminSection(page, 'providers');
       await expectProviderOnFile(page);
     });
 
@@ -145,7 +145,7 @@ async function fillStep3Provider(page: Page): Promise<void> {
   await page.getByTestId('setup-ai-key').fill('sk-setup-wizard-fake-key');
 }
 
-// expectProviderOnFile -- confirms on /admin/api·mcp that step 3's configuration is
+// expectProviderOnFile -- confirms on /admin/providers that step 3's configuration is
 // genuinely persisted. The endpoint is the hardest criterion of the bunch: this step
 // never had the owner type it in, so it can only have come from the server looking it up
 // against the preset table by provider.

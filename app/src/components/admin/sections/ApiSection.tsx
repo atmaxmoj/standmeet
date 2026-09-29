@@ -1,6 +1,7 @@
 // ApiSection —— the design-spec version of /admin/api-mcp.
 // Top: SectionHeader + intro + new-token form (NewTokenInline).
-// Below: TokenRow list + AI provider panel + MCPClientPanel + MCPDownloadPanel.
+// Below: TokenRow list + MCPClientPanel + MCPDownloadPanel. (The owner's AI provider form lives on
+// /admin/providers only.)
 // e2e testids kept: new-token / token-name / token-create / token-plaintext / token-list /
 //   token-delete-{name}.
 
@@ -18,7 +19,6 @@ import { MCPClientPanel } from '@/components/admin/sections/api/MCPClientPanel';
 import { MCPDownloadPanel } from '@/components/admin/sections/api/MCPDownloadPanel';
 import { EmbedPanel } from '@/components/admin/sections/api/EmbedPanel';
 import { MCPServersPanel } from '@/components/admin/sections/api/MCPServersPanel';
-import { AIProviderPanel } from '@/components/admin/sections/api/AIProviderPanel';
 import { APIKeysPanel } from '@/components/admin/sections/api/APIKeysPanel';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 import { useTokens, type TokenItem, type TokensHook } from '@/lib/admin/use-tokens';
@@ -64,7 +64,6 @@ function Ready({ hook }: { hook: TokensHook }) {
           are two different things (F-K-1). The block above is for the owner's own client
           to sign with; this one is for third-party programs. */}
       <APIKeysPanel />
-      <AIProviderPanel />
       <MCPClientPanel />
       <MCPDownloadPanel />
       <MCPServersPanel />
