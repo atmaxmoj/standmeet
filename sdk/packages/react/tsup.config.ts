@@ -33,16 +33,23 @@ export default defineConfig({
   format: ['esm'],
   dts: true,
   clean: true,
-  external: ['react', 'react-dom'],
+  // The chat's own dependencies are bundled in (only React stays the host's): a microsite build then
+  // takes a few ready files instead of re-resolving thousands of modules (mermaid, unified, KaTeX)
+  // on every build — as externals they took the builder's vite step from ~2s to 20–90s.
+  external: ['react', 'react-dom', 'react/jsx-runtime'],
+  noExternal: [/^(?!react$|react-dom|react\/).*/],
+  // Browser builds of dependencies (vfile's own path/process shims); they run under Node too.
+  platform: 'browser',
+  minify: true,
   // No rollup tree-shake pass: it strips the 'use client' banner below. esbuild already drops dead
   // code, and the host's bundler tree-shakes again.
   treeshake: false,
   // splitting —— the chat's heavy renderers (mermaid, sanitize-html behind StaticHtmlBlock) are
   // lazy imports; without code splitting esbuild inlines them and every microsite would carry them.
   splitting: true,
-  // The chat's stylesheet (src/chat/chat.css + the *.module.css it uses) is emitted as
-  // dist/index.css, published as '@standmeet/sdk/styles.css'; its `@import 'katex/…'` stays an
-  // import the host resolves from this package's own katex dependency.
+  // The chat's stylesheet (src/chat/chat.css + the *.module.css it uses + KaTeX's) is emitted as
+  // dist/index.css, published as '@standmeet/sdk/styles.css'; KaTeX's fonts are copied beside it.
+  loader: { '.woff2': 'file', '.woff': 'file', '.ttf': 'file' },
   //
   // 'use client' —— everything here is a React client component or hook (state, effects, browser
   // storage). Bundling drops each source file's own directive, so the output states it once: a

@@ -2,11 +2,18 @@
 // Split out into a .ts file so MermaidBlock.tsx carries no try/catch / if
 // branches (the presentation layer only reads state).
 //
+// mermaid is loaded from the instance at run time (/vendor/mermaid/, served by the app), never
+// bundled: as a bundled lazy chunk it was a hundred-odd files every microsite build had to process
+// (the builder's vite step went from ~2s to ~40s), and megabytes in the embed. A page that never
+// shows a diagram never downloads it; one that does fetches the same file from the same place.
+//
 // Theme: mermaid's default blue-purple clashes with the design system
 // (warm cream + ink + vermillion). Force the 'base' theme, then inject
 // the design palette via themeVariables.
 // Same hex set for dark / light (no dynamic switch; re-initializing
 // mermaid is expensive, and the spec doesn't verify dark mode either).
+
+import { chatBaseURL } from './api.js';
 
 export type MermaidRenderResult =
 	| { kind: 'ok'; svg: string }
@@ -33,11 +40,41 @@ const MERMAID_THEME = {
 
 let initialized = false;
 
+// MermaidModule —— the slice of mermaid's API this file calls.
+interface MermaidModule {
+	default: {
+		initialize: (config: Record<string, unknown>) => void;
+		render: (id: string, source: string) => Promise<{ svg: string }>;
+	};
+}
+
+// loadMermaid —— the instance's copy (see the header), loaded by a module <script> rather than an
+// import() in this code: an import() of a run-time URL is something every bundler on the way (this
+// package's, a microsite's vite, the app's webpack) tries to resolve, and the comments that tell
+// them not to do not survive minification. The instance's expose.mjs imports mermaid and hands it
+// over on window.
+let loading: Promise<MermaidModule> | null = null;
+
+function loadMermaid(): Promise<MermaidModule> {
+	const w = window as unknown as { __standmeetMermaid?: MermaidModule['default'] };
+	loading ??= new Promise<MermaidModule>((resolve, reject) => {
+		const s = document.createElement('script');
+		s.type = 'module';
+		s.src = `${chatBaseURL()}/vendor/mermaid/expose.mjs`;
+		s.onload = () => (w.__standmeetMermaid === undefined
+			? reject(new Error('mermaid did not load'))
+			: resolve({ default: w.__standmeetMermaid }));
+		s.onerror = () => { loading = null; reject(new Error('mermaid could not be fetched')); };
+		document.head.append(s);
+	});
+	return loading;
+}
+
 export async function renderMermaidSVG(
 	id: string, source: string,
 ): Promise<MermaidRenderResult> {
 	try {
-		const mermaid = await import('mermaid');
+		const mermaid = await loadMermaid();
 		if (!initialized) {
 			mermaid.default.initialize({
 				startOnLoad: false,

@@ -1,7 +1,8 @@
 {
   "entry": [
     "src/app/**/page.tsx",
-    "src/app/**/layout.tsx"
+    "src/app/**/layout.tsx",
+    "scripts/*.mjs"
   ],
   "project": ["src/**/*.{ts,tsx}"],
   "ignoreDependencies": [

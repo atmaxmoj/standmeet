@@ -30,9 +30,10 @@
   },
   "dependencies": {
     "@standmeet/agent-core": "workspace:*",
-    "@standmeet/sdk-core": "workspace:*",
+    "@standmeet/sdk-core": "workspace:*"
+  },
+  "devDependencies": {
     "katex": "^0.16.11",
-    "mermaid": "^11.4.0",
     "react-markdown": "^10.1.0",
     "rehype-katex": "^7.0.1",
     "rehype-sanitize": "^6.0.0",
@@ -41,9 +42,7 @@
     "remark-math": "^6.0.0",
     "sanitize-html": "^2.17.5",
     "zod": "^4.4.3",
-    "zustand": "^5.0.13"
-  },
-  "devDependencies": {
+    "zustand": "^5.0.13",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@types/sanitize-html": "^2.16.1",

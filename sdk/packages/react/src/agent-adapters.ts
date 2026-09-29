@@ -90,6 +90,15 @@ async function* streamAgentTurnHTTP(
       visitor_timezone: browserTimezone(),
     }),
   });
+  // A refusal the session layer writes before any stream —— out of quota (gas_exhausted), the turn
+  // or period limit, a full code, a site the widget isn't enabled for —— comes as a JSON envelope
+  // `{error:{code,message}}` with a sentence for the reader. It is not a dead session: said as the
+  // server's own reason, it must not read "your session expired". 401 stays below: that one is.
+  const refusal = res.ok || res.status === 401 ? null : await jsonRefusal(res);
+  if (refusal !== null) {
+    yield { type: 'error', code: refusal.code, message: refusal.message };
+    return;
+  }
   if (res.body === null) {
     // Attach the HTTP status to the error so the layer above (agent-core send)
     // can tell 401/403 (session expired → prompt to re-enter) apart from a real
@@ -127,6 +136,21 @@ async function* streamAgentTurnHTTP(
   // 401/403 branch still has to stay: it's the line between "re-enter" and
   // "retry," and in that case there really is no other credential to go on.
   if (!res.ok && !sawEvent) throw statusError(res.status);
+}
+
+// jsonRefusal —— the server's `{error:{code,message}}` envelope, or null when the body is not one
+// (an SSE error stream is read by the caller; anything else falls to the status-code path).
+async function jsonRefusal(res: Response): Promise<{ code: string; message: string } | null> {
+  if (!(res.headers.get('Content-Type') ?? '').includes('application/json')) return null;
+  try {
+    const body: unknown = await res.json();
+    const err = typeof body === 'object' && body !== null ? (body as { error?: unknown }).error : undefined;
+    if (typeof err !== 'object' || err === null) return null;
+    const { code, message } = err as { code?: unknown; message?: unknown };
+    return typeof code === 'string' && typeof message === 'string' && message !== '' ? { code, message } : null;
+  } catch {
+    return null;
+  }
 }
 
 function statusError(status: number): Error {

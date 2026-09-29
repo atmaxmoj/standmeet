@@ -5,8 +5,9 @@
   "type": "module",
   "license": "MIT",
   "private": false,
-  "main": "./dist/embed.js",
-  "module": "./dist/embed.js",
+  "main": "./dist/esm/embed.js",
+  "module": "./dist/esm/embed.js",
+  "types": "./dist/esm/embed.d.ts",
   "files": [
     "dist",
     "README.md"

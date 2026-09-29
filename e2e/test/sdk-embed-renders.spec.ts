@@ -2,9 +2,9 @@
 // people to embed** itself: answers render as formatted markup, and the input box always
 // keeps accepting the visitor's typing.
 //
-// Drives against the **build artifact** (`sdk/packages/embed/dist/embed.global.js`,
-// `sdk-build` must run before `make app-build`), not a class in source — that file is
-// exactly what other people drop into their own site ([[test-covers-block-not-face]]).
+// Drives against what the instance serves (`/embed.js`, the loader that imports the chat from
+// `/embed/`), not a class in source — that script tag is exactly what other people drop into
+// their own site ([[test-covers-block-not-face]]).
 //
 // The cross-origin dimension is not covered by this guard: it needs a second origin, and is
 // driven manually (trajectory/sdk-embed). The two things guarded here are both origin-agnostic.
@@ -16,9 +16,6 @@
 //     so a second question couldn't even be typed. The version before that just sent it
 //     anyway → got rejected 429 by the per-session single-flight gate → all the screen
 //     showed was "didn't send, try again."
-
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page, Playwright } from '@playwright/test';
@@ -38,9 +35,6 @@ const OWNER = {
   fullName: 'Embed Owner',
 };
 const CODE = 'EMBEDR-01';
-const EMBED_DIST = join(
-  __dirname, '..', '..', 'sdk', 'packages', 'embed', 'dist', 'embed.global.js',
-);
 
 test.beforeAll(async ({ playwright }) => {
   await initOwner(playwright);
@@ -134,7 +128,7 @@ test.describe('F-O-6 / F-O-5 · 交付出去的那个 widget', () => {
 async function mountWidget(page: Page): Promise<void> {
   const base = process.env['BASE_URL'] ?? 'http://localhost:38127';
   await openGate(page, '/gate');
-  await page.addScriptTag({ content: readFileSync(EMBED_DIST, 'utf8') });
+  await page.addScriptTag({ url: `${base}/embed.js` });
   await page.evaluate(([b, c]) => {
     const el = document.createElement('standmeet-chat');
     el.setAttribute('base-url', b ?? '');

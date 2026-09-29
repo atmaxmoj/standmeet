@@ -21,9 +21,8 @@ cd "$(dirname "$0")/.."/..
 
 VENDOR="builder/vendor/@standmeet"
 # The closure @standmeet/sdk needs at runtime. sdk-core and agent-core are its
-# workspace dependencies; react/react-dom are peers, and its third-party dependencies (the chat's
-# markdown, KaTeX, mermaid, zustand, zod…) are installed from builder/package.json, which lists
-# them at the SDK's versions.
+# workspace dependencies; react/react-dom are peers and already in the builder image. Its
+# third-party dependencies (the chat's markdown, KaTeX, mermaid…) are bundled into its dist.
 PKGS="sdk-core agent-core sdk"
 
 # dirOf —— workspace directory for a package name (they do not match one-to-one).

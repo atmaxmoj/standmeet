@@ -36,6 +36,8 @@ export default tseslint.config(
       // source rules (tsconfig doesn't include them either).
       'public/tikz-fonts/**',
       'public/embed.js',
+      'public/embed/**',
+      'public/vendor/**',
       '**/*.test.ts',
       // Root-level config files aren't in tsconfig; typescript-eslint's typed-rules can't run
       // on them, so they're ignored separately to avoid a 'not found by project service' error.

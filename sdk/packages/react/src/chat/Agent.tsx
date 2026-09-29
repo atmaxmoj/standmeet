@@ -15,7 +15,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   byoaiOffered, forgetBYOAI, keyStorageAvailable, pageAllowsBYOAI, pageDocContext,
@@ -249,6 +249,17 @@ function useOwnKeyOffer({ ci, coded, ownKey, setOwnKey, keyNeeded }: {
   }, [ownKey]);
   const lastCode = ci.chat.dialogs.at(-1)?.answer.errorCode ?? '';
   const keyLost = KEY_LOST_CODES.has(lastCode);
+  // The saved key is gone (the engine already dropped it): stop saying "on your key" and ask for it
+  // again — the next turn must not run on anybody's key until the visitor adds theirs. Once per
+  // failed turn: the key the visitor adds next must not be undone by that same old turn.
+  const lastID = ci.chat.dialogs.at(-1)?.id ?? '';
+  const handled = useRef('');
+  useEffect(() => {
+    if (keyLost && handled.current !== lastID) {
+      handled.current = lastID;
+      setOwnKey(false);
+    }
+  }, [keyLost, lastID, setOwnKey]);
   const available = !coded;
   const showPanel = available && !ownKey && (keyNeeded || asked || keyLost);
   return {

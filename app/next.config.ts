@@ -114,6 +114,16 @@ const nextConfig: NextConfig = {
       ],
     },
     {
+      // /embed.js is a loader: it imports the chat itself from /embed/ as an ES module, and the chat
+      // loads mermaid from /vendor/ only when an answer carries a diagram. A module script from
+      // another origin needs CORS just like the loader does, or the embed stops at the loader.
+      source: '/:dir(embed|vendor)/:path*',
+      headers: [
+        { key: 'Access-Control-Allow-Origin', value: '*' },
+        { key: 'Cache-Control', value: 'public, max-age=300' },
+      ],
+    },
+    {
       // 访问码坐在 URL 的 query 里（简历 QR = `/<handle>?code=ABC`）。入口 hook 会立刻
       // history.replaceState 把它抹掉（use-absorb-code.ts），但首屏那一瞬 JS 还没跑，
       // 跨源子资源请求会把含码的完整 URL 放进 Referer 头。strict-origin-when-cross-origin：

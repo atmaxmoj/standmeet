@@ -15,9 +15,6 @@
 // ghost), ignores `layout`, and /p/<slug>?code= redirects to a bare /gate. The embed renders its
 // own DOM without citations.
 
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Page, Playwright } from '@playwright/test';
 
@@ -40,7 +37,6 @@ const SLUG = 'letter';
 const GHOST = 'What did your tests actually catch?';
 const TARGET_PATH = 'projects/lucerna';
 const TARGET_BODY = 'lucerna is a local-first knowledge tool I built.';
-const EMBED_DIST = join(__dirname, '..', '..', 'sdk', 'packages', 'embed', 'dist', 'embed.global.js');
 
 // PAGE —— a long letter with the agent in a rail: the recruiter page's shape. Long enough that
 // an agent placed after the letter is far below the first screen.
@@ -196,8 +192,9 @@ test.describe('chat is inherited: the microsite renders what the app renders', (
 test.describe('chat is inherited: the embed renders what the app renders', () => {
   test('the <standmeet-chat> embed renders citations and math too', async ({ page }) => {
     await openGate(page, '/gate');
-    await page.addScriptTag({ content: readFileSync(EMBED_DIST, 'utf8') });
     const base = process.env['BASE_URL'] ?? 'http://localhost:38127';
+    // The drop-in a host page adds: the instance's own /embed.js.
+    await page.addScriptTag({ url: `${base}/embed.js` });
     await page.evaluate(([b, c]) => {
       const el = document.createElement('standmeet-chat');
       el.setAttribute('base-url', b ?? '');
