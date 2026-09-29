@@ -43,7 +43,7 @@ var grepWords = []string{
 
 // generatedBodies — a batch of strings that look like note bodies.
 func generatedBodies(seed int64, n int) []string {
-	r := rand.New(rand.NewSource(seed)) //nolint:gosec // test corpus, not cryptographic use
+	r := rand.New(rand.NewSource(seed))
 	out := make([]string, 0, n)
 	for range n {
 		out = append(out, oneBody(r))
@@ -68,7 +68,7 @@ func oneBody(r *rand.Rand) string {
 func TestGrepNeverMisses(t *testing.T) {
 	t.Parallel()
 	bodies := generatedBodies(grepSeed, generatedN)
-	r := rand.New(rand.NewSource(grepFragSeed)) //nolint:gosec // same reason as above
+	r := rand.New(rand.NewSource(grepFragSeed))
 	for i := range bodies {
 		fragment, ok := pickFragment(r, bodies[i])
 		if !ok {

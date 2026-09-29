@@ -103,8 +103,10 @@ func scanEvent(row pgx.Row) (Event, error) {
 		&e.FannedOutAt, &fanout, &e.Poisoned, &e.LastError); err != nil {
 		return Event{}, fmt.Errorf("scan event: %w", err)
 	}
-	e.Fanout = []Target{}
-	_ = json.Unmarshal(fanout, &e.Fanout) //nolint:errcheck // written by fanOutRows only
+	if err := json.Unmarshal(fanout, &e.Fanout); err != nil {
+		// NULL until fanned out, and only fanOutRows writes it: unreadable reads as none.
+		e.Fanout = []Target{}
+	}
 	return e, nil
 }
 

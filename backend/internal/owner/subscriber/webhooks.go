@@ -189,7 +189,9 @@ func targeted(
 // testTarget —— the one endpoint a webhook.test event names (data.endpoint_id).
 func testTarget(eps []entity.WebhookEndpoint, ev *events.Event) []entity.WebhookEndpoint {
 	var a entity.DeliverArgs
-	_ = json.Unmarshal(ev.Data, &a) //nolint:errcheck // an unreadable test event goes nowhere
+	if err := json.Unmarshal(ev.Data, &a); err != nil {
+		return []entity.WebhookEndpoint{} // an unreadable test event goes nowhere
+	}
 	for i := range eps {
 		if eps[i].ID == a.EndpointID {
 			return eps[i : i+1]
@@ -239,7 +241,9 @@ func published(ev *events.Event) bool {
 		Published    bool `json:"published"`
 		WasPublished bool `json:"was_published"`
 	}
-	_ = json.Unmarshal(ev.Data, &d) //nolint:errcheck // unreadable → unpublished
+	if err := json.Unmarshal(ev.Data, &d); err != nil {
+		return false // unreadable reads as unpublished
+	}
 	return d.Published || d.WasPublished
 }
 

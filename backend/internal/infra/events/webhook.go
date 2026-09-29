@@ -26,6 +26,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -153,10 +154,12 @@ func signedRequest(ctx context.Context, url, secret string, ev *Event) (*http.Re
 }
 
 // drain — reads a little of the answer and closes it, so the connection can be reused.
+// The status already decided the outcome, so a failure here only costs the connection: log it.
 func drain(resp *http.Response) {
-	//nolint:errcheck // best effort: the outcome is already decided by the status
-	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, webhookDrainLimit))
-	_ = resp.Body.Close() //nolint:errcheck // best effort
+	_, cerr := io.Copy(io.Discard, io.LimitReader(resp.Body, webhookDrainLimit))
+	if err := errors.Join(cerr, resp.Body.Close()); err != nil {
+		slog.Debug("webhook: drain response", "err", err)
+	}
 }
 
 // ClassifyWebhook — the failure class of one delivery attempt (see the file comment).

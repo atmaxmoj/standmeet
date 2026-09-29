@@ -198,6 +198,16 @@ func TestSameSubjectInOneBatchCoalescesToTheLatestEvent(t *testing.T) {
 	}
 }
 
+// failingPasses —— n relay passes against j, any of which may fail: failure is the input.
+func failingPasses(t *testing.T, bus *events.Bus, j jobs.Jobs, n int) {
+	t.Helper()
+	for range n {
+		if _, err := bus.FanOut(context.Background(), j); err != nil {
+			t.Logf("relay pass failed, as designed: %v", err)
+		}
+	}
+}
+
 type failingJobs struct {
 	jobs.Jobs
 
@@ -227,10 +237,8 @@ func TestAFailingBatchRollsBackEntirelyAndAPoisonRowDoesNotBlockTheRest(t *testi
 	r.record(t, typNoteChanged, "wiki://poison", nil)
 	r.record(t, typNoteChanged, "wiki://ok-2", nil)
 	bad := &failingJobs{Jobs: r.jobs, failSubject: "wiki://poison"}
-	for range events.PoisonAfter + 1 {
-		// The poison row fails by design; the outcome is asserted on the jobs and backlog below.
-		_, _ = r.bus.FanOut(context.Background(), bad) //nolint:errcheck // failure is the input
-	}
+	// The poison row fails by design; the outcome is asserted on the jobs and backlog below.
+	failingPasses(t, r.bus, bad, events.PoisonAfter+1)
 	if got := r.jobCount(t, subIndex); got != 2 {
 		t.Fatalf("jobs = %d, want the two healthy events fanned out", got)
 	}

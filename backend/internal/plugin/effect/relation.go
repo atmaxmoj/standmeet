@@ -9,7 +9,10 @@
 
 package effect
 
-import "strings"
+import (
+	"reflect"
+	"strings"
+)
 
 // voidSuffix —— the naming convention by which a seam declares that an operation reports
 // success and nothing else. §3.4.2: "an interface publishing fewer outcomes admits fewer tests and
@@ -77,8 +80,11 @@ func comparableEqual(a, b any) bool {
 		return a == nil && b == nil
 	}
 	// Incomparable dynamic types panic on ==; an outcome carrying one is reporting something no
-	// key's operations should publish, and the honest answer is "these differ".
-	defer func() { _ = recover() }() //nolint:errcheck // recover's value is the signal, not a value
+	// key's operations should publish, and the honest answer is "these differ". Value.Comparable
+	// checks the dynamic value, so once it holds, == cannot panic whatever b is.
+	if !reflect.ValueOf(a).Comparable() {
+		return false
+	}
 	return a == b
 }
 

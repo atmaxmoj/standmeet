@@ -60,8 +60,16 @@ func (m *meili) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	//nolint:errcheck // a stand-in's reply; the client's decode is the check
-	_, _ = fmt.Fprintf(w, `{"uid":%s,"indexUid":"corpus_notes","status":"succeeded"}`, uid)
+	reply(fmt.Fprintf(w, `{"uid":%s,"indexUid":"corpus_notes","status":"succeeded"}`, uid))
+}
+
+// reply —— the stand-in's write result. A failed write is a broken rig, not an outcome the
+// client's decode should quietly absorb, so it panics (the server logs it; the test's client
+// then sees the dropped connection).
+func reply(_ int, err error) {
+	if err != nil {
+		panic(err)
+	}
 }
 
 func (m *meili) add(w http.ResponseWriter, r *http.Request) {
@@ -76,9 +84,8 @@ func (m *meili) add(w http.ResponseWriter, r *http.Request) {
 	}
 	m.mu.Unlock()
 	w.WriteHeader(http.StatusAccepted)
-	//nolint:errcheck // a stand-in's reply; the client's decode is the check
-	_, _ = fmt.Fprintf(w, `{"taskUid":%d,"indexUid":"corpus_notes","status":"enqueued"}`,
-		m.task.Add(1))
+	reply(fmt.Fprintf(w, `{"taskUid":%d,"indexUid":"corpus_notes","status":"enqueued"}`,
+		m.task.Add(1)))
 }
 
 func (m *meili) indexed() map[string]bool {

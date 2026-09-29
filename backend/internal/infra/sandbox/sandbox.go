@@ -102,8 +102,6 @@ func (*DockerRunner) Run(ctx context.Context, in *RunInput) (Result, error) {
 // content; the script itself runs inside the --network=none + --read-only
 // sandbox, so the shell-injection attack surface outside the container is
 // zero.
-//
-//nolint:gosec // docker subprocess args are controlled; script content runs inside the sandbox.
 func buildDockerCmd(ctx context.Context, image string, in *RunInput) *exec.Cmd {
 	argsEnv := in.ArgsJSON
 	if argsEnv == "" {

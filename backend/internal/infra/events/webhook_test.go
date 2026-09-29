@@ -19,8 +19,6 @@ import (
 
 // The Standard Webhooks specification's own test vector (cross-checked with
 // `openssl dgst -sha256 -mac HMAC`).
-//
-//nolint:gosec // G101: the public test vector, not a credential
 const (
 	vectorSecret = "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw" //gitleaks:allow
 	vectorID     = "msg_p5jXN8AQM9LWM0D4loKWxJek"

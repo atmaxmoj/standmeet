@@ -16,7 +16,7 @@ const (
 	CodeIssued                 = "code.issued"
 	CodeRevoked                = "code.revoked"
 	CodeRedeemed               = "code.redeemed"
-	APIKeyIssued               = "api_key.issued" //nolint:gosec // an event type name, no secret
+	APIKeyIssued               = "api_key.issued"
 	APIKeyRevoked              = "api_key.revoked"
 )
 

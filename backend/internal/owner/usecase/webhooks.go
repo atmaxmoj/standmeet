@@ -151,6 +151,16 @@ func SendWebhookTest(ctx context.Context, d *WebhooksDeps, ownerID, id string) (
 	return d.Bus.LatestFor(ctx, entity.WebhookTestEvent, "endpoint_id", id)
 }
 
+// deliveredEventID —— the event a delivery job carries. Only the fan-out writes these args, so
+// unreadable args name no event.
+func deliveredEventID(args json.RawMessage) string {
+	var a entity.DeliverArgs
+	if err := json.Unmarshal(args, &a); err != nil {
+		return ""
+	}
+	return a.EventID
+}
+
 // WebhookDeliveries —— the endpoint's deliveries, newest first.
 func WebhookDeliveries(
 	ctx context.Context, d *WebhooksDeps, ownerID, id string,
@@ -161,11 +171,10 @@ func WebhookDeliveries(
 	}
 	out := make([]Delivery, 0, len(list))
 	for i := range list {
-		var a entity.DeliverArgs
-		_ = json.Unmarshal(list[i].Args, &a) //nolint:errcheck // written by the fan-out only
 		out = append(out, Delivery{
-			JobID: list[i].ID, State: list[i].State, Attempt: list[i].Attempt, EventID: a.EventID,
-			Errors: list[i].Errors, CreatedAt: list[i].CreatedAt, FinalizedAt: list[i].FinalizedAt,
+			JobID: list[i].ID, State: list[i].State, Attempt: list[i].Attempt,
+			EventID: deliveredEventID(list[i].Args),
+			Errors:  list[i].Errors, CreatedAt: list[i].CreatedAt, FinalizedAt: list[i].FinalizedAt,
 		})
 	}
 	return out, nil

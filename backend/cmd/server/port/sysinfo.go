@@ -7,6 +7,7 @@ package port
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"runtime"
 	"sync"
@@ -150,12 +151,9 @@ func peerStat(ctx context.Context, c *http.Client, url string) stats.Container {
 	if err != nil {
 		return stats.Container{}
 	}
-	defer resp.Body.Close() //nolint:errcheck // best-effort read; close error is irrelevant
-	if resp.StatusCode != http.StatusOK {
-		return stats.Container{}
-	}
 	var s selfstat.Stat
-	if decErr := json.NewDecoder(resp.Body).Decode(&s); decErr != nil {
+	decErr := json.NewDecoder(resp.Body).Decode(&s)
+	if errors.Join(decErr, resp.Body.Close()) != nil || resp.StatusCode != http.StatusOK {
 		return stats.Container{}
 	}
 	return toContainer(s)

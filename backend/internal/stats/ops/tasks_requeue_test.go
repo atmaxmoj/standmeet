@@ -72,13 +72,22 @@ func invokeOp(t *testing.T, all []fp.Op, id, args string) {
 	t.Fatalf("no %s op", id)
 }
 
-// poisonTheEvent —— relay passes against a refusing queue until the bus's one event is poisoned;
+// refusedPass —— one relay pass against a refusing queue. Failure is the input, so a failed
+// pass is logged, not asserted.
+func refusedPass(ctx context.Context, t *testing.T, bus *events.Bus, rt jobs.Jobs) {
+	t.Helper()
+	if _, err := bus.FanOut(ctx, refusingJobs{rt}); err != nil {
+		t.Logf("relay pass failed, as designed: %v", err)
+	}
+}
+
+// poisonTheEvent ——relay passes against a refusing queue until the bus's one event is poisoned;
 // returns its id.
 func poisonTheEvent(t *testing.T, bus *events.Bus, rt jobs.Jobs) string {
 	t.Helper()
 	ctx := context.Background()
 	for range events.PoisonAfter + 1 {
-		_, _ = bus.FanOut(ctx, refusingJobs{rt}) //nolint:errcheck // failure is the input
+		refusedPass(ctx, t, bus, rt)
 	}
 	stuck, err := bus.List(ctx, events.Filter{Limit: 1})
 	if err != nil || len(stuck) != 1 || !stuck[0].Poisoned {

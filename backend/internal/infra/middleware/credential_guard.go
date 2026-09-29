@@ -45,9 +45,7 @@ import (
 )
 
 const (
-	// This is a redis key prefix, not a credential itself — gosec only
-	// sees the word "credential".
-	credRateLimitKeyPfx = "ratelimit:credential:" //nolint:gosec // redis key prefix
+	credRateLimitKeyPfx = "ratelimit:credential:"
 	credRateLimitWindow = 15 * time.Minute
 	// 5/15min/owner: a real person needs one attempt to change a
 	// credential; 5 failures already says this isn't the owner doing it.

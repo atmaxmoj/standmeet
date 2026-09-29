@@ -140,6 +140,12 @@ linters:
     errcheck:
       check-type-assertions: true
       check-blank: true
+      # pgx's own idiom is `defer tx.Rollback(ctx)`: after Commit it returns ErrTxClosed by
+      # design, and on a failing path the caller already reports the error that caused the
+      # rollback. Every Rollback in the tree is one of those two, so its error carries nothing
+      # a caller could act on.
+      exclude-functions:
+        - (github.com/jackc/pgx/v5.Tx).Rollback
     govet:
       enable-all: true
       settings:
@@ -310,6 +316,12 @@ linters:
         # injects already goes through html.EscapeString for quote/<> escaping; taint
         # analysis doesn't know that.
         - G705
+        # G101 guesses a credential from a NAME (token / key / cred / pass …) plus the entropy of
+        # a short string, so it fired on a header name (X-Captcha-Token), a redis key prefix, an
+        # event type (api_key.issued) and a dispatcher op id. Hardcoded secrets are gated by
+        # CONTENT instead: gitleaks (infra/scripts/check-secrets.sh) scans the staged diff and the
+        # whole history in `make lint` and in pre-commit, and goes red when gitleaks is missing.
+        - G101
     forbidigo:
       # analyze-types: true makes forbidigo match TYPE references too,
       # not just call expressions.  Required for the `any` ban below.
@@ -373,6 +385,20 @@ linters:
       # Scoped to _test.go so production callers keep their wrapcheck budget.
       - path: _test\.go$
         linters: [wrapcheck]
+      # Two gosec rules whose subject a test does not have. G404: a property test must replay
+      # the same corpus from a seed, which only a seeded math/rand source can do — nothing in a
+      # test draws a secret. G204: a test compiles its own fixture server into t.TempDir() and
+      # runs it; the variable in that argv is the temp path.
+      - path: _test\.go$
+        linters: [gosec]
+        text: "G404|G204"
+      # G204 flags every exec whose argv holds a variable, and the sandbox is the one production
+      # package whose job is to exec (`docker run`). Its argv goes to docker directly, never
+      # through a shell: the image comes from the language allow-list, and the owner's script is
+      # the argument the container runs, behind --network=none and --read-only.
+      - path: internal/infra/sandbox/
+        linters: [gosec]
+        text: G204
       # internal/plugin/effect is the port of arXiv:2608.25512 (docs/design/plugin/effects.md).
       # It is currently a CONTRACT: every method panics, and 119 properties behind the
       # Two rules do not apply to it, each for a reason that is a design decision rather than an

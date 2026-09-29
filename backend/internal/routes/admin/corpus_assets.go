@@ -46,7 +46,6 @@ const assetFileField = "file"
 
 const opAssetsUpload = "assets.upload"
 
-//nolint:gosec // G101 false positive: this is a dispatcher op id (verb name), not a credential.
 const opAssetsPoolUpload = "assets.pool_upload"
 
 // uploadPoolAsset — POST /assets. The Assets panel's own upload: a file picked with no corpus

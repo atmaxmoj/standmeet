@@ -26,7 +26,7 @@ const (
 		FOR EACH ROW EXECUTE FUNCTION refuse_write();
 		CREATE TRIGGER disk_full_stamp BEFORE UPDATE ON events
 		FOR EACH ROW EXECUTE FUNCTION refuse_write()`
-	relayPassFailed = "events: relay pass" //nolint:gosec // a log message, not a credential
+	relayPassFailed = "events: relay pass"
 	failedPasses    = 3
 	passesDeadline  = 20 * time.Second
 	// growthFloor —— the second wait must be at least this many times the first (exactly 2 with

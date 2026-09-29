@@ -5,9 +5,10 @@ package river
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
-	"math/rand/v2"
+	"math/big"
 	"slices"
 	"sync"
 	"time"
@@ -96,8 +97,18 @@ func (w *worker) NextRetry(job *river.Job[rawArgs]) time.Time {
 		backoff = jobs.DefaultBackoff
 	}
 	d := backoff(job.Attempt)
-	if span := int64(d) / jitterFraction; span > 0 {
-		d += time.Duration(rand.Int64N(2*span) - span) //nolint:gosec // jitter, not security
+	return time.Now().Add(d + jitter(int64(d)/jitterFraction))
+}
+
+// jitter —— a uniform offset in [-span, span). crypto/rand reads the system source; it does not
+// fail on the platforms we run, and if it ever did the retry would simply go without jitter.
+func jitter(span int64) time.Duration {
+	if span <= 0 {
+		return 0
 	}
-	return time.Now().Add(d)
+	n, err := rand.Int(rand.Reader, big.NewInt(2*span))
+	if err != nil {
+		return 0
+	}
+	return time.Duration(n.Int64() - span)
 }

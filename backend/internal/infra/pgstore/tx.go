@@ -41,12 +41,11 @@ func InTx(ctx context.Context, db Beginner, fn func(tx Tx) error) error {
 	}
 	defer func() {
 		if p := recover(); p != nil {
-			_ = tx.Rollback(context.WithoutCancel(ctx)) //nolint:errcheck // re-panicking below
+			_ = tx.Rollback(context.WithoutCancel(ctx))
 			panic(p)
 		}
 	}()
 	if err = fn(tx); err != nil {
-		//nolint:errcheck // fn's error is the one to report
 		_ = tx.Rollback(context.WithoutCancel(ctx))
 		return err
 	}
