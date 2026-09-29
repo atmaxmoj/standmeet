@@ -1,4 +1,3 @@
-//nolint:testpackage // white-box: pageRows is unexported paging logic tested beside it.
 package usecase
 
 import "testing"

@@ -1,4 +1,3 @@
-//nolint:testpackage // white-box: Snippet's cleanup is the unit under test, kept beside it.
 package usecase
 
 import (
