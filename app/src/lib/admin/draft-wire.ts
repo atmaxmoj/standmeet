@@ -58,13 +58,17 @@ export const DraftDetailSchema = z.object({
   // pre-Puck draft) → the editor derives it from resume_content on open. Loosely typed on purpose:
   // the app never inspects it, it only round-trips it back to the backend on Save.
   puck_data: z.unknown().optional(),
+  // The master this draft started from (absent = none) and when it expires — the composer's bar.
+  based_on_master_id: z.string().optional().default(''),
+  based_on_master_name: z.string().optional().default(''),
+  expires_at: z.string().optional().default(''),
 });
 export type DraftDetail = z.infer<typeof DraftDetailSchema>;
 
 // toDraftModel accepts template optionally: the detail fetch always carries it, but the list /
 // application thumbnails build this shape without a template (their thumbnail render ignores it).
 export function toDraftModel(
-  d: Omit<DraftDetail, 'template'> & { template?: string },
+  d: Pick<DraftDetail, 'id' | 'company' | 'role' | 'resume_content'> & { template?: string },
 ): DraftModel {
   const rc = d.resume_content;
   return {

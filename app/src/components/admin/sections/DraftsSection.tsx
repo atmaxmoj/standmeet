@@ -1,51 +1,60 @@
-// DraftsSection —— /admin/drafts. Owner views resume drafts Claude started along the
-// job-loop path; each card can "open composer →" into ResumeComposer.
+// DraftsSection —— /admin/drafts. On top, the owner's résumé masters (named, persistent; drafts
+// start from one — docs/design/resume-masters.md). Below, the drafts: one per job, 24 h, each with
+// the master it came from and how long it has left; a card's "open composer →" goes to the editor.
 //
-// Design source: docs/design/project/admin.js DraftsSection + DraftCard.
+// Design source: docs/design/project/admin.js DraftsSection + DraftCard, and the masters mockups.
 //
-// Data comes from a real GET /api/admin/drafts fetch (backend listResumeDraftsByOwner
-// SQL is already in place). The model the Composer opens with comes from
-// useDraftDetail → a real GET /api/admin/drafts/{id} detail fetch (#52, replacing the
-// old mockDraft placeholder).
+// Both lists page through the one paginator (docs/design/paging.md). The stores are module
+// singletons, so the section re-reads both on mount: the composer (save, SEND, set as master) and
+// the master editor change them while this page is not mounted.
 
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
-import { Btn } from '@/components/admin/atoms/Btn';
+import { ListPane } from '@/components/admin/ListPane';
+import { LoadMore } from '@/components/admin/LoadMore';
 import { NewDraftModal } from '@/components/admin/modals/NewDraftModal';
 import { DraftThumb } from '@/components/admin/sections/drafts/DraftThumb';
-import { listViewKind } from '@/lib/admin/list-view-kind';
+import { MastersStrip } from '@/components/admin/sections/drafts/MastersStrip';
 import { adminAPI } from '@/lib/api/admin';
+import { resolveBtnClass } from '@/lib/admin/btn-styles';
 import { useAction } from '@/lib/ui/use-action';
+import { stampDay } from '@/lib/ui/format-time';
+import { mastersPage } from '@/lib/admin/use-resume-masters';
+import { totalLabel, usePaged } from '@/lib/state/create-paged-store';
 import {
   draftActionKind,
   draftPillTone,
-  useAdminDrafts,
+  draftsPage,
+  hoursLeft,
   type AdminDraftRow,
 } from '@/lib/admin/use-admin-drafts';
 
+// Creating —— the new-draft modal is open, pre-selecting a master ('' = the default).
+type Creating = { preselect: string } | null;
+
 export function DraftsSection() {
   const t = useTranslations('adminJobs');
-  const { rows, loading, error, reload } = useAdminDrafts();
-  const [creating, setCreating] = useState(false);
+  const page = usePaged(draftsPage);
+  const [creating, setCreating] = useState<Creating>(null);
   const [discardId, setDiscardId] = useState<string | null>(null);
   const run = useAction();
   const router = useRouter();
+  useEffect(() => { void draftsPage.getState().reload(); void mastersPage.getState().reload(); }, []);
   // Open composer → the full-page Puck editor route. Editing / Save / SEND (commit) all live there
   // now (PuckComposer); this section is just the list + the way in.
   const openComposer = (id: string): void => { router.push(`/admin/edit-resume/${id}`); };
   // Discard → confirm modal → DELETE /drafts/{id} (same idempotent usecase as MCP resume.discard_draft)
-  // → refetch so the thrown-away row leaves the list (F-E-9: a stale row reads as "it failed"). The id
-  // comes from the modal (only rendered when discardId is set), so no null-guard branch lives here.
+  // → re-read so the thrown-away row leaves the list (F-E-9: a stale row reads as "it failed").
   const confirmDiscard = (id: string): void => {
     setDiscardId(null);
     void run(async () => {
       await adminAPI.deleteVoid(`/drafts/${id}`);
-      reload();
+      await draftsPage.getState().reload();
     }, { success: t('drafts.discarded') });
   };
   return (
@@ -53,15 +62,20 @@ export function DraftsSection() {
       <SectionHeader
         kicker={t('drafts.kicker')}
         slug="drafts"
-        count={loading ? t('drafts.loading') : t('drafts.titlePending', { count: rows.length })}
-        action={<NewDraftBtn onOpen={() => setCreating(true)} />}
+        count={totalLabel(page.total, (count) => t('drafts.titlePending', { count }))}
+        action={<NewDraftBtn onOpen={() => setCreating({ preselect: '' })} />}
       />
       <Intro />
-      <DraftListBody rows={rows} loading={loading} error={error} onOpen={openComposer} onDiscard={setDiscardId} />
+      <MastersStrip onNewDraft={(preselect) => setCreating({ preselect })} />
+      <ListPane status={page.status} count={page.items.length} empty={<EmptyState />}>
+        <DraftList rows={page.items} onOpen={openComposer} onDiscard={setDiscardId} />
+      </ListPane>
+      <LoadMore page={page} testid="drafts-load-more" />
       {creating && (
         <NewDraftModal
-          onClose={() => setCreating(false)}
-          onCreated={() => { setCreating(false); reload(); }}
+          preselect={creating.preselect}
+          onClose={() => setCreating(null)}
+          onCreated={() => { setCreating(null); void draftsPage.getState().reload(); }}
         />
       )}
       <DiscardDraftModal discardId={discardId} onCancel={() => setDiscardId(null)} onConfirm={confirmDiscard} />
@@ -92,7 +106,7 @@ function DiscardDraftModal({
 
 function NewDraftBtn({ onOpen }: { onOpen: () => void }) {
   const t = useTranslations('adminJobs');
-  return <Btn kind="solid" onClick={() => onOpen()}>{t('drafts.new')}</Btn>;
+  return <button type="button" onClick={onOpen} className={resolveBtnClass('solid')} data-testid="drafts-new">{t('drafts.new')}</button>;
 }
 
 // ink —— the <ink> tag for t.rich: lifts an emphasized word mid-sentence to ink color.
@@ -109,47 +123,10 @@ function Intro() {
   );
 }
 
-function DraftListBody(props: {
-  rows: readonly AdminDraftRow[];
-  loading: boolean;
-  error: string | null;
-  onOpen: (id: string) => void;
-  onDiscard: (id: string) => void;
-}) {
-  const kind = listViewKind(props.loading, props.error, props.rows.length);
-  const map = {
-    loading: <Loading />,
-    error: <LoadError msg={props.error ?? ''} />,
-    empty: <EmptyState />,
-    list: <DraftList rows={props.rows} onOpen={props.onOpen} onDiscard={props.onDiscard} />,
-  } as const;
-  return map[kind];
-}
-
-function Loading() {
-  const t = useTranslations('adminJobs');
-  return (
-    <p className="mono text-[11px] tracking-[0.14em] uppercase text-(--color-muted)">
-      {t('drafts.loading')}
-    </p>
-  );
-}
-
-function LoadError({ msg }: { msg: string }) {
-  return (
-    <p
-      className="mono text-[11px] tracking-[0.14em] uppercase text-(--color-accent)"
-      data-testid="drafts-error"
-    >
-      {msg}
-    </p>
-  );
-}
-
 function EmptyState() {
   const t = useTranslations('adminJobs');
   return (
-    <div className="sm-empty">
+    <div className="sm-empty" data-testid="drafts-empty">
       <p className="sm-empty-title">{t('drafts.emptyTitle')}</p>
       <p className="sm-empty-hint reading">
         {t.rich('drafts.emptyHint', {
@@ -178,10 +155,10 @@ function DraftCard({
   row, onOpen, onDiscard,
 }: { row: AdminDraftRow; onOpen: () => void; onDiscard: () => void }) {
   return (
-    <article data-testid="draft-card" className="border border-(--color-rule) rounded-[3px] p-4 hover:border-(--color-ink) transition-colors grid grid-cols-[1fr_200px] gap-4">
+    <article data-testid="draft-card" data-draft-id={row.id} className="border border-(--color-rule) rounded-[3px] p-4 hover:border-(--color-ink) transition-colors grid grid-cols-[1fr_200px] gap-4">
       <div>
         <DraftCardHead company={row.company} role={row.role} status={row.status} />
-        <DraftCardMeta updatedAt={row.updated_at} forJob={row.for_job} />
+        <DraftCardMeta row={row} />
         <DraftDiff text={row.diff_text} />
         <DraftCardActions onOpen={onOpen} onDiscard={onDiscard} draftId={row.id} actionKind={draftActionKind(row.status)} />
       </div>
@@ -216,13 +193,20 @@ function DraftStatusPill({ status }: { status?: AdminDraftRow['status'] }) {
   );
 }
 
-function DraftCardMeta({ updatedAt, forJob }: { updatedAt: string; forJob: string }) {
+// DraftCardMeta —— updated · job · based on <master> · N hours left.
+function DraftCardMeta({ row }: { row: AdminDraftRow }) {
   const t = useTranslations('adminJobs');
   return (
     <div className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-muted) flex items-baseline gap-3 flex-wrap mb-4">
-      <span>{t('drafts.metaUpdated', { date: formatDate(updatedAt) })}</span>
+      <span>{t('drafts.metaUpdated', { date: stampDay(row.updated_at) })}</span>
       <span className="text-(--color-faint)">·</span>
-      <span>{t.rich('drafts.metaJob', { job: forJob, ink })}</span>
+      <span>{t.rich('drafts.metaJob', { job: row.for_job, ink })}</span>
+      {row.based_on_master_name !== '' && (
+        <span data-testid="draft-based-on">{t('drafts.basedOn', { name: row.based_on_master_name })}</span>
+      )}
+      <span data-testid="draft-expiry" className="sm-pill">
+        {t('drafts.hoursLeft', { count: hoursLeft(row.expires_at, Date.now()) })}
+      </span>
     </div>
   );
 }
@@ -233,11 +217,6 @@ function DraftDiff({ text }: { text?: string }) {
       {text}
     </blockquote>
   ) : null;
-}
-
-
-function formatDate(iso: string): string {
-  return iso ? iso.slice(0, 10) : '—';
 }
 
 function DraftCardActions({ onOpen, onDiscard, draftId, actionKind }: { onOpen: () => void; onDiscard: () => void; draftId: string; actionKind: 'reviewing' | 'draft' | 'sent' }) {

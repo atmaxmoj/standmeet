@@ -10,23 +10,23 @@ import { useParams } from 'next/navigation';
 
 import { PuckComposer } from '@/components/admin/composer/PuckComposer';
 import { Skel } from '@/components/skeletons/Skel';
-import { useDraftDetail } from '@/lib/admin/draft-detail';
+import { useDraftDetail, type DraftContext } from '@/lib/admin/draft-detail';
 import type { DraftModel } from '@/lib/admin/draft-model';
 
 export default function EditResumePage() {
   const params = useParams();
   const id = typeof params?.['id'] === 'string' ? params['id'] : '';
-  const { model, error } = useDraftDetail(id);
-  return <EditResumeBody model={model} error={error} />;
+  const { model, context, error } = useDraftDetail(id);
+  return <EditResumeBody model={model} context={context} error={error} />;
 }
 
-function EditResumeBody({ model, error }: {
-  model: DraftModel | null; error: string | null;
+function EditResumeBody({ model, context, error }: {
+  model: DraftModel | null; context: DraftContext; error: string | null;
 }) {
   const failed = error !== null;
   return failed
     ? <p data-testid="edit-resume-error" className="p-6 text-(--color-accent)">{error}</p>
     : model === null
       ? <div data-testid="edit-resume-loading" className="p-6"><Skel h="h-8" w="w-64" /></div>
-      : <PuckComposer model={model} />;
+      : <PuckComposer model={model} context={context} />;
 }

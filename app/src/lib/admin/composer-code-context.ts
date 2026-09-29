@@ -26,18 +26,26 @@ export interface ComposerCodeControl {
   // canvas draws the REAL QR from this (via Puck metadata), so the owner previews the actual code the
   // committed PDF will carry, not a placeholder.
   qrURL: string;
+  // showPicker —— false in the master editor: a master has no job and no code, so the Header's field
+  // panel carries no code picker there.
+  showPicker: boolean;
 }
 
 const noopSetCodeId = (): void => undefined;
 
-export const ComposerCodeContext = createContext<ComposerCodeControl>({
+const NO_CODES = {
   activeCodes: [],
   codeId: '',
   setCodeId: noopSetCodeId,
   codeQuery: '',
   setCodeQuery: noopSetCodeId,
   qrURL: '',
-});
+};
+
+export const ComposerCodeContext = createContext<ComposerCodeControl>({ ...NO_CODES, showPicker: true });
+
+// MASTER_CODE_CONTROL —— the master editor's value: no codes, no picker, the QR placeholder.
+export const MASTER_CODE_CONTROL: ComposerCodeControl = { ...NO_CODES, showPicker: false };
 
 export function useComposerCodeControl(): ComposerCodeControl {
   return useContext(ComposerCodeContext);

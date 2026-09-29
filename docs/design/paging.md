@@ -134,11 +134,13 @@ typing narrows on the server. One source, one shape.
 | admin corpus grids + writings grid | the section's corpus.list / writings.list page (the /page routes are deleted) | own copy | done v0.1.84 |
 | admin writings list view, header, parent picker | writings.list (+ q, state) | read every page | done v0.1.84 |
 | corpus parent pickers (wiki / output create, writings) | the genre's list with q (use-parent-picker) | loaded rows only | done v0.1.84 |
+| résumé drafts (owner overruled "leave alone (TTL)" on 2026-09-29: "分页也要做好了，别忘了") | GET /admin/drafts (+ total) | unbounded | done 2026-09-29 |
+| résumé masters (docs/design/resume-masters.md) | resume.master_list = GET /admin/masters (+ total); the new-draft picker reads the same store | owner-created | done 2026-09-29 |
 
 Joins that replaced "look the id up in the full list": code rows carry `role_name`, embed rows
 carry `code`. A code card's "opens" select reads one shared options page (newest 200 pages) plus
 the code's own page. Order is per list: newest first everywhere except roles (oldest first, so
 the builtin public role leads); the cursor is (time, id) either way.
 
-Out of scope: one conversation's transcript, resume drafts and the job pool (TTL), the
-activity feed and task views (recent-only by design).
+Out of scope: one conversation's transcript, the job pool (TTL), the activity feed and task
+views (recent-only by design).

@@ -124,8 +124,8 @@ function SecHead({ title, lead = false }: { title: string; lead?: boolean }): Re
 // Empty codes → a placeholder option (SEND still auto-issues a fresh code when none is picked).
 function HeaderCodeField(): ReactElement {
   const t = useTranslations('adminShell.composer');
-  const { activeCodes, codeId, setCodeId, codeQuery, setCodeQuery } = useComposerCodeControl();
-  return (
+  const { activeCodes, codeId, setCodeId, codeQuery, setCodeQuery, showPicker } = useComposerCodeControl();
+  return !showPicker ? <></> : (
     <>
       <CodeSearchField value={codeQuery} onChange={setCodeQuery} testid="composer-code-search" />
       <SelectField testid="composer-code-select" aria-label="access code" value={codeId} onChange={(e) => setCodeId(e.target.value)} mono>

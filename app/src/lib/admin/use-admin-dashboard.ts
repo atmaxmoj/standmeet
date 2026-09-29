@@ -1,6 +1,6 @@
 // use-admin-dashboard —— fans out fetches across existing admin endpoints, returning KPI counts.
-// Paged lists (codes, requests, conversations) answer with a server-side count; the short config
-// lists (drafts, providers) are still fetched and counted here.
+// Paged lists (codes, requests, conversations, drafts) answer with a server-side count; the short
+// config list (providers) is still fetched and counted here.
 
 import { useEffect, useState } from 'react';
 
@@ -69,7 +69,6 @@ const GrowthSchema = z.object({
 // Codes, requests and conversations are paged lists: their counts come from the server (the
 // codes counts op, a list's `total`), never from the length of a fetched page.
 const CodeCountsSchema = z.object({ active: z.number() });
-const DraftRowSchema = z.object({ id: z.string(), status: z.string().optional() });
 // key_configured is the only credential for "can this entry actually be called" — a provider row with no key can't answer a visitor.
 const ProviderRowSchema = z.object({ id: z.string(), key_configured: z.boolean() });
 
@@ -121,7 +120,7 @@ async function load(setState: (s: State) => void): Promise<void> {
       fetchList('/api/admin/codes/counts', CodeCountsSchema),
       fetchListTotal(`/api/admin/access-requests?status=${ACCESS_REQUEST_OPEN}`),
       fetchListTotal('/api/admin/conversations'),
-      fetchList('/api/admin/drafts/', z.array(DraftRowSchema)),
+      fetchListTotal('/api/admin/drafts'),
       fetchList('/api/admin/providers/', z.array(ProviderRowSchema)),
     ]);
     setState({
@@ -131,7 +130,7 @@ async function load(setState: (s: State) => void): Promise<void> {
         codesLive: codes.active,
         requestsNew,
         conversationsCount,
-        draftsReviewing: drafts.filter((d) => d.status !== 'sent').length,
+        draftsReviewing: drafts,
         pulse: growth.series.map((d) => d.count),
         pulseDays: growth.series.map((d) => d.day),
         aiProviderUsable: providers.some((p) => p.key_configured),

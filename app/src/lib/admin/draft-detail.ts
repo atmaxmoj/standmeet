@@ -8,18 +8,27 @@ import type { DraftModel } from '@/lib/admin/draft-model';
 import { DraftDetailSchema, toDraftModel } from '@/lib/admin/draft-wire';
 import { safeJson } from '@/lib/api/typed-json';
 
+// DraftContext —— what the composer's bar shows beside the résumé: the master the draft came from
+// (id '' = none) and when it expires.
+export interface DraftContext {
+  basedOnId: string;
+  basedOnName: string;
+  expiresAt: string;
+}
+
 interface DetailState {
   model: DraftModel | null;
-  // puckData — the raw Puck state to restore, or null when the draft has none yet (derive on open).
-  puckData: unknown;
+  context: DraftContext;
   error: string | null;
 }
 
+const NO_CONTEXT: DraftContext = { basedOnId: '', basedOnName: '', expiresAt: '' };
+
 export function useDraftDetail(id: string | null): DetailState {
-  const [state, setState] = useState<DetailState>({ model: null, puckData: null, error: null });
+  const [state, setState] = useState<DetailState>({ model: null, context: NO_CONTEXT, error: null });
   useEffect(() => {
     if (id === null) {
-      setState({ model: null, puckData: null, error: null });
+      setState({ model: null, context: NO_CONTEXT, error: null });
       return;
     }
     void load(id, setState);
@@ -31,9 +40,13 @@ async function load(id: string, setState: (s: DetailState) => void): Promise<voi
   try {
     const res = await fetch(`/api/admin/drafts/${id}`, { credentials: 'include' });
     if (!res.ok) throw new Error(`draft detail: ${res.status}`);
-    const detail = await safeJson(res, DraftDetailSchema);
-    setState({ model: toDraftModel(detail), puckData: detail.puck_data ?? null, error: null });
+    const d = await safeJson(res, DraftDetailSchema);
+    setState({
+      model: toDraftModel(d),
+      context: { basedOnId: d.based_on_master_id, basedOnName: d.based_on_master_name, expiresAt: d.expires_at },
+      error: null,
+    });
   } catch (e) {
-    setState({ model: null, puckData: null, error: e instanceof Error ? e.message : 'load draft failed' });
+    setState({ model: null, context: NO_CONTEXT, error: e instanceof Error ? e.message : 'load draft failed' });
   }
 }

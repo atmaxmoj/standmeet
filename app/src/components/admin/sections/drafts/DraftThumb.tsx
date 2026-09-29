@@ -19,16 +19,19 @@
 import { ResumePuckRender } from '@/components/admin/resume-page/ResumePuckRender';
 import { toDraftModel } from '@/lib/admin/draft-wire';
 import { draftToResumeContent, type DraftModel } from '@/lib/admin/draft-model';
-import type { AdminDraftRow } from '@/lib/admin/use-admin-drafts';
+import type { ResumeContentWire } from '@/lib/admin/draft-wire';
 
 import styles from '@/components/admin/sections/drafts/DraftThumb.module.css';
+
+// ThumbRow —— what a thumbnail needs: a draft row or a master row both carry it.
+interface ThumbRow { id: string; resume_content: ResumeContentWire }
 
 // A draft has no access code yet (the code is issued at applications.commit), so there is no real URL
 // to encode. Passing '' draws the QR placeholder frame — the same thing the editor shows before a code
 // is picked — rather than a scannable QR that encodes a dead marker (owner: "假的，不要假的").
 const PREVIEW_QR_URL = '';
 
-export function DraftThumb({ row }: { row: AdminDraftRow }) {
+export function DraftThumb({ row }: { row: ThumbRow }) {
   const model = previewModel(row);
   // The SAME renderer as the editor + PDF (ResumePuckRender / resumePuckConfig). It used to draw the
   // legacy <ResumePage>, which the A3 cutover left behind — so the card drifted from the preview it is
@@ -46,9 +49,6 @@ export function DraftThumb({ row }: { row: AdminDraftRow }) {
 // previewModel — routes through the **same** mapping as the composer (`toDraftModel`).
 // A copied mapping would let the card and the opened draft drift apart over time —
 // which is exactly the shape of the original bug.
-function previewModel(row: AdminDraftRow): DraftModel {
-  return toDraftModel({
-    id: row.id, company: row.company, role: row.role,
-    resume_content: row.resume_content,
-  });
+function previewModel(row: ThumbRow): DraftModel {
+  return toDraftModel({ id: row.id, company: '', role: '', resume_content: row.resume_content });
 }
