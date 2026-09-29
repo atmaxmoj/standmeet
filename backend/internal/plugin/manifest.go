@@ -143,11 +143,7 @@ type Manifest struct {
 // Field order follows pointer width — enforced by govet fieldalignment — so the grouping
 // below is by size, not by subject. The comments carry the subject instead.
 type Transport struct {
-	//nolint:forbidigo // the substrate must NOT name the MCP server type: knowing it would
-	// couple every block declaration to the vendor library, which is the coupling the
-	// manifest exists to remove. The one place that needs the concrete type asserts it
-	// (mount/dial.go), and a wrong type there is a dial error naming the block, not a panic.
-	InProcessServer any               `yaml:"-"`
+	InProcessServer InProcess         `yaml:"-"`
 	Env             map[string]string `yaml:"env"`
 	Headers         map[string]string `yaml:"headers"`
 	Sandbox         *Sandbox          `yaml:"sandbox"`
@@ -161,6 +157,15 @@ type Transport struct {
 	SpecBytes       []byte            `yaml:"-"`
 	BindingBytes    []byte            `yaml:"-"`
 	Args            []string          `yaml:"args"`
+}
+
+// InProcess — an MCP server linked into the host process (Kind TransportInProcess). The
+// substrate must NOT name the MCP server type: knowing it would couple every block declaration
+// to the vendor library, which is the coupling the manifest exists to remove. mount.InProcess
+// carries the vendor's server under this marker, and dialling unwraps it there.
+type InProcess interface {
+	// InProcessMCP marks the value as an in-process server; it does nothing.
+	InProcessMCP()
 }
 
 // Sandbox — the confinement a spawned block runs under.

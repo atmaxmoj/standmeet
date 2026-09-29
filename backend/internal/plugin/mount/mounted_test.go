@@ -151,7 +151,7 @@ func TestMCPApp_InProcessUnifiedPath(t *testing.T) {
 		ID: "inproc_cap", Shape: plugin.ShapeVisitorOnly, ACL: plugin.ACLAlways,
 		RawToolNames: true,
 		Transport: plugin.Transport{
-			Kind: plugin.TransportInProcess, InProcessServer: srv,
+			Kind: plugin.TransportInProcess, InProcessServer: InProcess{Server: srv},
 		},
 	}
 	reg := registry.NewRegistry()

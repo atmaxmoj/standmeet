@@ -80,18 +80,27 @@ func dialHTTP(ctx context.Context, m *plugin.Manifest, _ string) (*mcpclient.Ses
 func dialInProcess(
 	ctx context.Context, m *plugin.Manifest, _ string,
 ) (*mcpclient.Session, error) {
-	// The manifest carries this as `any` because a YAML declaration cannot name a Go
-	// value; whoever built the manifest in memory put a server here. A wrong type is
-	// a wiring bug in that builder, so it fails loudly rather than dialling nothing.
-	srv, ok := m.Transport.InProcessServer.(*server.MCPServer)
+	// A YAML declaration cannot name a Go value; whoever built the manifest in memory put a
+	// server here. A wrong type is a wiring bug in that builder, so it fails loudly rather
+	// than dialling nothing.
+	ip, ok := m.Transport.InProcessServer.(InProcess)
 	if !ok {
 		return nil, wrapDial(fmt.Errorf(
 			"in_process transport for %q carries %T, not an MCP server",
 			m.ID, m.Transport.InProcessServer))
 	}
-	sess, err := mcpclient.DialInProcess(ctx, srv)
+	sess, err := mcpclient.DialInProcess(ctx, ip.Server)
 	return sess, wrapDial(err)
 }
+
+// InProcess — the vendor's MCP server as a manifest's in-process transport
+// (plugin.Transport.InProcessServer). The plugin package names only the marker.
+type InProcess struct {
+	Server *server.MCPServer
+}
+
+// InProcessMCP marks InProcess as a plugin.InProcess.
+func (InProcess) InProcessMCP() {}
 
 // dialSandboxStdio —— the main process starts the third-party server inside a bubblewrap
 // isolation environment (read-only host runtime + read-only plugin code + a per-session

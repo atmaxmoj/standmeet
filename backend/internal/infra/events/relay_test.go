@@ -221,7 +221,7 @@ func (f *failingJobs) With(tx pgstore.Tx) jobs.Jobs {
 func (f *failingJobs) Enqueue(
 	ctx context.Context,
 	kind string,
-	args any, //nolint:forbidigo // implements jobs.Jobs.Enqueue, whose args is a JSON payload
+	args pgstore.JSONB,
 	o jobs.EnqueueOpts,
 ) (jobs.JobID, error) {
 	if a, ok := args.(events.JobArgs); ok && a.Subject == f.failSubject {

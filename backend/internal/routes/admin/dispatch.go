@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -36,12 +37,7 @@ type argsFrom func(r *http.Request) (json.RawMessage, error)
 
 // renderOK — how to respond on success. Returning 200 with a payload, or 204 empty, is
 // this facade's decision.
-type renderOK func(log logger, w http.ResponseWriter, body json.RawMessage)
-
-// logger — a narrow interface using only Error (handlers actually hold a *slog.Logger).
-type logger interface {
-	Error(msg string, args ...any) //nolint:forbidigo // this is slog's actual signature
-}
+type renderOK func(log *slog.Logger, w http.ResponseWriter, body json.RawMessage)
 
 func emptyArgs(*http.Request) (json.RawMessage, error) {
 	return json.RawMessage(`{}`), nil
@@ -176,11 +172,11 @@ func twoURLParams(first, second string) argsFrom {
 
 // jsonOK — 200 + writes the convergence point's payload out verbatim (never decode and
 // re-encode it: re-encoding would just build a second copy of the shape).
-func jsonOK(log logger, w http.ResponseWriter, body json.RawMessage) {
+func jsonOK(log *slog.Logger, w http.ResponseWriter, body json.RawMessage) {
 	writeStatusBody(log, w, http.StatusOK, body)
 }
 
-func writeStatusBody(log logger, w http.ResponseWriter, status int, body json.RawMessage) {
+func writeStatusBody(log *slog.Logger, w http.ResponseWriter, status int, body json.RawMessage) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if _, err := w.Write(body); err != nil {
@@ -193,7 +189,7 @@ func writeStatusBody(log logger, w http.ResponseWriter, status int, body json.Ra
 // contract; the convergence point side is a bare array (which is what MCP's facade
 // wants). Adding this wrapper is this facade's own shape decision.
 func jsonListOK(key string) renderOK {
-	return func(log logger, w http.ResponseWriter, body json.RawMessage) {
+	return func(log *slog.Logger, w http.ResponseWriter, body json.RawMessage) {
 		wrapped, err := json.Marshal(map[string]json.RawMessage{key: body})
 		if err != nil {
 			log.Error("wrap list body", logErrKey, err)
@@ -205,13 +201,13 @@ func jsonListOK(key string) renderOK {
 
 // jsonCreated — 201 + payload. Resource-creating routes have historically returned it
 // this way.
-func jsonCreated(log logger, w http.ResponseWriter, body json.RawMessage) {
+func jsonCreated(log *slog.Logger, w http.ResponseWriter, body json.RawMessage) {
 	writeStatusBody(log, w, http.StatusCreated, body)
 }
 
 // noContent — 204 empty. Some admin routes have historically returned it this way, and
 // the frontend is written against that contract.
-func noContent(_ logger, w http.ResponseWriter, _ json.RawMessage) {
+func noContent(_ *slog.Logger, w http.ResponseWriter, _ json.RawMessage) {
 	w.WriteHeader(http.StatusNoContent)
 }
 

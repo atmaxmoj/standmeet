@@ -24,7 +24,7 @@ func (f refusingJobs) With(tx pgstore.Tx) jobs.Jobs { return refusingJobs{f.Jobs
 
 func (refusingJobs) Enqueue(
 	context.Context, string,
-	any, //nolint:forbidigo // implements jobs.Jobs.Enqueue, whose args is a JSON payload
+	pgstore.JSONB,
 	jobs.EnqueueOpts,
 ) (jobs.JobID, error) {
 	return 0, errors.New("enqueue refused")

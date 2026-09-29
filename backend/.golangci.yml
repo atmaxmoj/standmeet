@@ -541,6 +541,15 @@ linters:
       # gosec G703 is a "walking your own repo's directories" false-positive.
       - path: tools/
         linters: [cyclop, gocognit, gosec]
+      # Same reason for the fmt.Print* ban only (the `any` ban stays on): a CLI gate reports on
+      # stdout, the medium its caller (make lint) reads; slog is the server's log.
+      - path: tools/
+        linters: [forbidigo]
+        text: fmt\.Print
+      # A jwt.Keyfunc is `func(*jwt.Token) (interface{}, error)`: golang-jwt fixes the result
+      # type, so every key lookup literal must spell `any` to be one.
+      - linters: [forbidigo]
+        source: func\(\w+ \*jwt\.Token\) \(any, error\)
       # blockload's block-loading glue (toolCallBudget / the ext-mcp bundle, etc.) is
       # unexported and worth white-box unit-testing; exempt testpackage as with usecases.
       - path: internal/routes/blockload/

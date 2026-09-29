@@ -243,7 +243,7 @@ func (r *runtime) With(tx pgstore.Tx) jobs.Jobs {
 func (r *runtime) Enqueue(
 	ctx context.Context,
 	kind string,
-	args any, //nolint:forbidigo // the JSON payload; encoding/json.Marshal takes interface{}
+	args pgstore.JSONB,
 	opts jobs.EnqueueOpts,
 ) (jobs.JobID, error) {
 	k, ok := r.kinds[kind]
@@ -259,8 +259,7 @@ func (r *runtime) Enqueue(
 	return r.insert(ctx, rawArgs{kind: kind, raw: raw}, io)
 }
 
-//nolint:forbidigo // args is the JSON payload; encoding/json.Marshal takes interface{}
-func marshalArgs(args any) (json.RawMessage, error) {
+func marshalArgs(args pgstore.JSONB) (json.RawMessage, error) {
 	switch a := args.(type) {
 	case nil:
 		return json.RawMessage("{}"), nil

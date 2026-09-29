@@ -121,8 +121,7 @@ var errOutboxDown = errors.New("outbox down")
 
 func (r failingRecorder) With(pgstore.Tx) events.Recorder { return r }
 
-//nolint:forbidigo // the Recorder port's signature: data is the JSON payload
-func (failingRecorder) Record(context.Context, string, string, string, any) error {
+func (failingRecorder) Record(context.Context, string, string, string, pgstore.JSONB) error {
 	return errOutboxDown
 }
 

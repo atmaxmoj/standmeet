@@ -32,6 +32,12 @@ type DBTX interface {
 	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 }
 
+// JSONB — a value bound for a jsonb column: a job's args, an event's data. It goes to
+// encoding/json.Marshal as it is, and the one handler that knows its shape reads it back as raw
+// JSON. Nothing between those two looks inside, so the ports that carry it (jobs.Jobs.Enqueue,
+// events.Recorder.Record) name it here, at the driver boundary, instead of spelling `any`.
+type JSONB = any
+
 // ErrParseOwnerIDPrefix — the uniform wrap prefix for an owner_id string parse failure.
 const ErrParseOwnerIDPrefix = "parse owner id: %w"
 

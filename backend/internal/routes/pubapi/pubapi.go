@@ -233,11 +233,16 @@ func (h *Handlers) writeErr(w http.ResponseWriter, status int, reason, detail st
 	h.writeJSON(w, status, errResp{Reason: reason, Detail: detail})
 }
 
-//nolint:forbidigo // json.Encoder.Encode needs interface{}; allowed here (as in admin/helpers.go).
-func (h *Handlers) writeJSON(w http.ResponseWriter, status int, body any) {
+func (h *Handlers) writeJSON(w http.ResponseWriter, status int, body jsonBody) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(body); err != nil {
 		h.d.Log.Warn("api write json", "err", err)
 	}
 }
+
+// jsonBody —— the two bodies this API answers with outside the dispatched ops.
+type jsonBody interface{ pubapiBody() }
+
+func (errResp) pubapiBody()   {}
+func (toolsResp) pubapiBody() {}

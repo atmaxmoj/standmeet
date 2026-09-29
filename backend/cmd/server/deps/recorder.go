@@ -19,7 +19,7 @@ func (l lazyRecorder) With(tx pgstore.Tx) events.Recorder {
 
 func (l lazyRecorder) Record(
 	ctx context.Context, ownerID, typ, subject string,
-	data any, //nolint:forbidigo // the JSON payload; encoding/json.Marshal takes interface{}
+	data pgstore.JSONB,
 ) error {
 	return l.d.Events.Recorder().Record(ctx, ownerID, typ, subject, data)
 }

@@ -20,15 +20,21 @@ func serverErr() apierr.Envelope {
 	}
 }
 
+// jsonBody —— the bodies the hand-written admin routes answer with (the dispatched ones write the
+// convergence point's JSON verbatim). A new body type joins the set, so what a route sends stays
+// a named shape instead of `any`.
+type jsonBody interface {
+	recoverResponse | confirmEmailResponse | []sessionView | credFormResp | connectInitResp |
+		vaultStateView | genreTagsResponse | []subjectivityListItem | apierr.Envelope |
+		map[string]bool | map[string]int64
+}
+
 // writeJSON — 200 + JSON body.
-//
-//nolint:forbidigo // json.Encoder.Encode requires interface{}; allowed here, centrally
-func writeJSON(log *slog.Logger, w http.ResponseWriter, v any) {
+func writeJSON[T jsonBody](log *slog.Logger, w http.ResponseWriter, v T) {
 	writeJSONStatus(log, w, http.StatusOK, v)
 }
 
-//nolint:forbidigo // json.Encoder.Encode requires interface{}; allowed here, centrally
-func writeJSONStatus(log *slog.Logger, w http.ResponseWriter, status int, v any) {
+func writeJSONStatus[T jsonBody](log *slog.Logger, w http.ResponseWriter, status int, v T) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(v); err != nil {
