@@ -22,13 +22,17 @@ type Props = {
   children: ReactNode;
 };
 
+const FULL_BLEED_ROUTES = ['/admin/edit-resume', '/admin/edit-master'];
+
 export function AdminShell({ children }: Props) {
   const session = useAdminSession();
   const pathname = usePathname();
   const active = adminActiveSlug(pathname);
-  // The résumé composer is a full-bleed editor (its own full-height Puck canvas): it butts straight
-  // against the sidebar with no content padding, so the shell drops its gutters for that route only.
-  const bleed = (pathname ?? '').startsWith('/admin/edit-resume');
+  // The résumé editors (a draft's composer and a master's editor) are full-bleed: their own
+  // full-height Puck canvas butts straight against the sidebar with no content padding, so the shell
+  // drops its gutters for those routes only. A new full-bleed editor route belongs in this list, or
+  // its page grows past the screen (the master editor did, 2026-09-29).
+  const bleed = FULL_BLEED_ROUTES.some((r) => (pathname ?? '').startsWith(r));
   return session.kind === 'ready'
     ? <AdminLayout active={active} bleed={bleed} handle={session.session.handle} email={session.session.email}>{children}</AdminLayout>
     : <Loading state={session.kind} />;
