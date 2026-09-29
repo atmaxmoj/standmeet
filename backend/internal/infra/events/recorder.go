@@ -13,8 +13,7 @@ import (
 // Recorder — writes domain events into the outbox. With(tx) joins the caller's transaction.
 type Recorder interface {
 	With(tx pgstore.Tx) Recorder
-	//nolint:forbidigo // data is the JSON payload; encoding/json.Marshal takes interface{}
-	Record(ctx context.Context, ownerID, typ, subject string, data any) error
+	Record(ctx context.Context, ownerID, typ, subject string, data pgstore.JSONB) error
 }
 
 type recorder struct {
@@ -23,15 +22,14 @@ type recorder struct {
 }
 
 // Recorder — the outbox writer. Without With, each Record is its own transaction.
-func (b *Bus) Recorder() Recorder { return &recorder{b: b, q: b.pool} } //nolint:ireturn // port
+func (b *Bus) Recorder() Recorder { return &recorder{b: b, q: b.pool} }
 
-//nolint:ireturn // port
 func (r *recorder) With(tx pgstore.Tx) Recorder { return &recorder{b: r.b, q: tx} }
 
 func (r *recorder) Record(
 	ctx context.Context,
 	ownerID, typ, subject string,
-	data any, //nolint:forbidigo // the JSON payload; encoding/json.Marshal takes interface{}
+	data pgstore.JSONB,
 ) error {
 	if _, ok := r.b.types[typ]; !ok {
 		return fmt.Errorf("%w: %s", ErrUndeclaredType, typ)
@@ -52,9 +50,7 @@ func (r *recorder) Record(
 }
 
 // encodeData — data as JSON; nil is the empty object.
-//
-//nolint:forbidigo // data is the JSON payload; encoding/json.Marshal takes interface{}
-func encodeData(data any) ([]byte, error) {
+func encodeData(data pgstore.JSONB) ([]byte, error) {
 	raw, err := json.Marshal(data)
 	if err != nil {
 		return nil, fmt.Errorf("marshal event data: %w", err)

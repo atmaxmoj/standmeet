@@ -25,8 +25,6 @@ const (
 // or unreadable database returns nil; monitor then geolocates from headers only (never fatal). The
 // interface return is deliberate: a nil interface means "header-only", whereas a typed-nil
 // *geoAdapter would be a non-nil interface (the classic nil-interface trap).
-//
-//nolint:ireturn // nil = header-only geo; a typed-nil concrete would be a non-nil interface
 func loadGeoResolver(log *slog.Logger) monitor.LocationResolver {
 	path := os.Getenv(geoEnv)
 	if path == "" {

@@ -82,7 +82,6 @@ func (r *ApplicationRepo) Commit(
 		out, txErr = commitTx(ctx, tx, in)
 		return txErr
 	}); err != nil {
-		//nolint:wrapcheck // InTx names begin/commit; commitTx names its steps
 		return CommitOutput{}, err
 	}
 	return out, nil

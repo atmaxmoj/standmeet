@@ -182,9 +182,8 @@ func TestIsolationDerivesAContextAndWritesNothingShared(t *testing.T) {
 
 type denyList struct{ denied []string }
 
-// the interface. Returning denyList would make two providers' metadata uncombinable.
-//
-//nolint:ireturn // Def 27: a metadata monoid composes across providers, so ⊕ is typed at
+// Merge — Def 27: a metadata monoid composes across providers, so ⊕ is typed at the interface.
+// Returning denyList would make two providers' metadata uncombinable.
 func (d denyList) Merge(other effect.Meta) effect.Meta {
 	o, ok := other.(denyList)
 	if !ok {

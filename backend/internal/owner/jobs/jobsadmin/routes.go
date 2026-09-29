@@ -282,7 +282,10 @@ func listApplications(deps Deps) http.HandlerFunc {
 
 // pageRequest —— ?cursor= and ?limit= as a page request (docs/design/paging.md).
 func pageRequest(r *http.Request) (paging.Request, error) {
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit")) //nolint:errcheck // absent/bad = default
+	limit, lerr := strconv.Atoi(r.URL.Query().Get("limit"))
+	if lerr != nil {
+		limit = 0 // absent or malformed: the default page size
+	}
 	a := paging.Args{Cursor: r.URL.Query().Get("cursor"), Limit: limit}
 	req, err := a.Parse()
 	if err != nil {

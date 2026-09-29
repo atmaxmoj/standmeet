@@ -46,12 +46,12 @@ var validators = map[string]fieldValidator{
 		return validateTime(k, r)
 	},
 	plugin.ConfigTypeBool: func(_ *plugin.ConfigField, k string, r json.RawMessage) error {
-		return validateShape(k, r, new(bool), "a boolean")
+		return validateShape[bool](k, r, "a boolean")
 	},
 	plugin.ConfigTypeStringList: func(
 		_ *plugin.ConfigField, k string, r json.RawMessage,
 	) error {
-		return validateShape(k, r, &[]string{}, "an array of strings")
+		return validateShape[[]string](k, r, "an array of strings")
 	},
 }
 
@@ -59,7 +59,7 @@ func validateOne(f *plugin.ConfigField, key string, raw json.RawMessage) error {
 	if v, ok := validators[f.Type]; ok {
 		return v(f, key, raw)
 	}
-	return validateShape(key, raw, new(string), "a string")
+	return validateShape[string](key, raw, "a string")
 }
 
 func validateInt(f *plugin.ConfigField, key string, raw json.RawMessage) error {
@@ -108,12 +108,11 @@ func isTwoDigits(s string) bool {
 	return s[0] >= '0' && s[0] <= '9' && s[1] >= '0' && s[1] <= '9'
 }
 
-// validateShape — whether the value can decode into the declared type. into
-// is only used to attempt the decode, its value is never read.
-//
-//nolint:forbidigo // into has to be able to hold any declared type; only used to try decoding
-func validateShape(key string, raw json.RawMessage, into any, want string) error {
-	if err := json.Unmarshal(raw, into); err != nil {
+// validateShape — whether the value can decode into the declared type T. The decoded value is
+// never read.
+func validateShape[T bool | string | []string](key string, raw json.RawMessage, want string) error {
+	var into T
+	if err := json.Unmarshal(raw, &into); err != nil {
 		return fmt.Errorf("%w: %q must be %s", ErrInvalidValue, key, want)
 	}
 	return nil

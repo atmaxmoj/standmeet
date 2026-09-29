@@ -70,7 +70,6 @@ func Subscriptions(ix usecase.Indexer) []events.Subscription {
 func indexEvent(ctx context.Context, ix usecase.Indexer, ev *events.Event) error {
 	var d noteData
 	if err := json.Unmarshal(ev.Data, &d); err != nil || d.NoteID == "" {
-		//nolint:wrapcheck // Discard is the job layer's failure class; it wraps the cause
 		return jobs.Discard(fmt.Errorf("corpus.index: unreadable event data %s", ev.Data))
 	}
 	return applyNoteChange(ctx, ix, ev.OwnerID, &d)
@@ -78,8 +77,6 @@ func indexEvent(ctx context.Context, ix usecase.Indexer, ev *events.Event) error
 
 // applyNoteChange — the index write one note change calls for. The Indexer's errors already name
 // their step; each is the job attempt's recorded error, so it is returned as is.
-//
-//nolint:wrapcheck // see above
 func applyNoteChange(ctx context.Context, ix usecase.Indexer, ownerID string, d *noteData) error {
 	switch {
 	case d.Op == "deleted":
@@ -123,7 +120,6 @@ func EnqueueReindex(
 		return 0, err
 	}
 	args := reindexArgs{OwnerID: owner}
-	//nolint:wrapcheck // names the kind
 	return j.Enqueue(ctx, ReindexKind, args, jobs.EnqueueOpts{})
 }
 
@@ -134,8 +130,6 @@ type Receipt struct {
 }
 
 // NewReceipt — nil indexer (Meili not configured) → nil: writes carry no index receipt.
-//
-//nolint:ireturn // nil-safe port
 func NewReceipt(ix usecase.Indexer, bus *events.Bus, rt jobs.Runtime) usecase.IndexReceipt {
 	if ix == nil {
 		return nil

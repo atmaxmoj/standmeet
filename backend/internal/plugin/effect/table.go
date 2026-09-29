@@ -159,10 +159,9 @@ func (t *Table) Intercept(k string, meta Meta) *Table {
 // MetaAt —— the interception metadata in force at a key, or nil.
 //
 // Exposed because Definition 27's constraint is only observable at the point of access: a component
-// reads its coeffect through the context, and the context is what carries ι. compose, and a
-// concrete type here would make that impossible.
-//
-//nolint:ireturn // Def 27 types ι at the MONOID interface: metadata from two providers must
+// reads its coeffect through the context, and the context is what carries ι. Def 27 types ι at
+// the MONOID interface: metadata from two providers must compose, and a concrete type here
+// would make that impossible.
 func (t *Table) MetaAt(k string) Meta {
 	t.mu.Lock()
 	m, ok := t.meta[k]

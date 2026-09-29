@@ -25,23 +25,19 @@ func MakeMCPRun(
 	budget time.Duration,
 ) registry.RunFn {
 	return func(ctx context.Context, args string) (string, error) {
+		// The Go-side nil is the RunFn contract: a failed call is a tool_result the agent reads,
+		// not an error that aborts the whole stream.
 		return CallToToolResult(
 			session.CallToolWithin(ctx, realToolName, []byte(args), sctx, budget),
-		)
+		), nil
 	}
 }
 
 // CallToToolResult —— fold a CallTool err into an errJSON tool_result, so the SDK
-// continues rather than aborting (returning nil for the Go-side err is the RunFn
-// contract).
-//
-// The nil is deliberate — it lets the agent loop continue instead of aborting the
-// whole stream.
-//
-//nolint:nilerr // tool-result envelope: err goes into the JSON text, Go err return
-func CallToToolResult(out string, err error) (string, error) {
+// continues rather than aborting.
+func CallToToolResult(out string, err error) string {
 	if err != nil {
-		return errJSON("external mcp tool: " + err.Error()), nil
+		return errJSON("external mcp tool: " + err.Error())
 	}
-	return out, nil
+	return out
 }

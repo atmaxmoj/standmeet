@@ -146,7 +146,6 @@ func (p *pruneRun) all(ctx context.Context) error {
 
 // owner —— one owner's prune and the hook's writes, in one transaction.
 func (p *pruneRun) owner(ctx context.Context, row *db.ListScheduledPublicPrunesRow) error {
-	//nolint:wrapcheck // pruneOne and the hook name their steps
 	return pgstore.InTx(ctx, p.r.pool, func(tx pgstore.Tx) error {
 		n, err := pruneOne(ctx, db.New(tx), p.log, row, p.now)
 		if err != nil || n == 0 {

@@ -32,10 +32,7 @@ const (
 // grepWords — the vocabulary used to generate corpus bodies. Two-character Chinese words
 // are deliberately included: the thing a tokenizer can't segment out is exactly this
 // tool's reason to exist, and GrepBody has to work on it exactly as well as on ASCII.
-//
-// mean not testing that half at all
-//
-//nolint:gosmopolitan // the Chinese words ARE the thing under test; swapping to ASCII would
+// Swapping them for ASCII would mean not testing that half at all.
 var grepWords = []string{
 	"cybernetics", "ashby", "requisite", "variety", "homeostat", "feedback",
 	"控制论", "反馈回路", "自组织", "SM-4471/b", "C++", "a.b.c", "naive",
@@ -43,7 +40,7 @@ var grepWords = []string{
 
 // generatedBodies — a batch of strings that look like note bodies.
 func generatedBodies(seed int64, n int) []string {
-	r := rand.New(rand.NewSource(seed)) //nolint:gosec // test corpus, not cryptographic use
+	r := rand.New(rand.NewSource(seed))
 	out := make([]string, 0, n)
 	for range n {
 		out = append(out, oneBody(r))
@@ -68,7 +65,7 @@ func oneBody(r *rand.Rand) string {
 func TestGrepNeverMisses(t *testing.T) {
 	t.Parallel()
 	bodies := generatedBodies(grepSeed, generatedN)
-	r := rand.New(rand.NewSource(grepFragSeed)) //nolint:gosec // same reason as above
+	r := rand.New(rand.NewSource(grepFragSeed))
 	for i := range bodies {
 		fragment, ok := pickFragment(r, bodies[i])
 		if !ok {

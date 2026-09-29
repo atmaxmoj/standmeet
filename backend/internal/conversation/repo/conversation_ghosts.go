@@ -219,8 +219,6 @@ func toDomainGhost(row *db.ConversationGhost) entity.Ghost {
 }
 
 // conn —— the transaction when bound by With, else the pool.
-//
-//nolint:ireturn // DBTX is the port both a pool and a transaction satisfy
 func (r *GhostRepo) conn() pgstore.DBTX {
 	if r.q != nil {
 		return r.q

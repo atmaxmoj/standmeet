@@ -13,6 +13,8 @@ package mw
 
 import (
 	"context"
+	"errors"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -326,6 +328,10 @@ func (s *statusRecorder) Unwrap() http.ResponseWriter { return s.ResponseWriter 
 func (s *statusRecorder) Flush() {
 	// A writer with nothing flushable underneath has nothing to flush — the same nothing that
 	// happened before, except now it is this line's decision instead of a silent feature loss.
-	//nolint:errcheck,gosec // http.Flusher.Flush returns nothing — there is no caller to tell
-	http.NewResponseController(s.ResponseWriter).Flush()
+	// http.Flusher.Flush returns nothing, so any other failure can only be logged; the next
+	// Write reports a dead connection to the handler anyway.
+	err := http.NewResponseController(s.ResponseWriter).Flush()
+	if err != nil && !errors.Is(err, http.ErrNotSupported) {
+		slog.Debug("monitor: flush", "err", err)
+	}
 }

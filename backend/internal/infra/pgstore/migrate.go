@@ -148,7 +148,7 @@ func applyOne(ctx context.Context, pool *Pool, name string) error {
 	// Rollback's error has nowhere useful to go: on a successful commit it's bound to
 	// return ErrTxClosed, and on the failure path the error actually worth reporting is
 	// the **one below**, not the rollback itself.
-	defer func() { _ = tx.Rollback(ctx) }() //nolint:errcheck // see above
+	defer func() { _ = tx.Rollback(ctx) }()
 	if rerr := runInTx(ctx, tx, name, body); rerr != nil {
 		return rerr
 	}

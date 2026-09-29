@@ -205,7 +205,7 @@ func applyDefault(
 // optionalName — a rename's name, trimmed; nil = no rename; blank is refused.
 func optionalName(s *string) (*string, error) {
 	if s == nil {
-		return nil, nil //nolint:nilnil // no name = no rename, not an error
+		return nil, nil
 	}
 	t := strings.TrimSpace(*s)
 	if t == "" {

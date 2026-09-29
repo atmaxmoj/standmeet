@@ -32,7 +32,6 @@ const (
 	jobBound = (surge + events.RelayBatch - 1) / events.RelayBatch
 )
 
-//nolint:ireturn // the port is what the panel reads jobs through
 func surgeBus(t *testing.T) (*events.Bus, jobs.Runtime) {
 	t.Helper()
 	pool := scratchDB(t)

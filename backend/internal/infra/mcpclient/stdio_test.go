@@ -27,7 +27,6 @@ const marker = "[EXT-MCP-MARKER]"
 func buildMockStdio(t *testing.T) string {
 	t.Helper()
 	bin := filepath.Join(t.TempDir(), "mcpmock")
-	//nolint:gosec // test: compiles a known mock server into t.TempDir(), command is fixed.
 	cmd := exec.CommandContext(t.Context(), "go", "build", "-o", bin, "./mcp")
 	cmd.Dir = "../../../../mock-stack"
 	out, err := cmd.CombinedOutput()

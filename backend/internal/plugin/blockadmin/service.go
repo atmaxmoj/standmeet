@@ -86,7 +86,7 @@ func (s *Service) DeclaredOwnerOpIDs() []string {
 // have to know "the mail card has a send button" by itself, and a seam name leaks back into
 // the generic layer — exactly what owner_op.go exists to prevent.
 func (s *Service) OwnerOpsOf(id string) []adapters.OwnerOp {
-	m := s.Manifest(id) //nolint:varnamelen // one-letter is the local idiom for a manifest here
+	m := s.Manifest(id)
 	if m == nil {
 		return []adapters.OwnerOp{}
 	}

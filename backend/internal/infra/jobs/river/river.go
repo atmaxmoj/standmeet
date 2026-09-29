@@ -75,8 +75,6 @@ type runtime struct {
 
 // New — builds the runtime. Declaration errors, duplicate kinds and a pool too small for the
 // workers are errors here, at boot, not surprises in production.
-//
-//nolint:ireturn // the whole point is to hand out the interface
 func New(
 	pool *pgxpool.Pool, kinds []jobs.Kind, periodics []jobs.Periodic, opts Options,
 ) (jobs.Runtime, error) {
@@ -200,7 +198,7 @@ func addPeriodic(all map[string]jobs.Kind, p jobs.Periodic) error {
 // addKind — validates k and adds it to all; a name declared twice is an error.
 func addKind(all map[string]jobs.Kind, k *jobs.Kind) error {
 	if err := k.Validate(); err != nil {
-		return err //nolint:wrapcheck // already names the kind
+		return err
 	}
 	if _, dup := all[k.Name]; dup {
 		return fmt.Errorf("job kind %q declared twice", k.Name)
@@ -236,7 +234,7 @@ func riverPeriodics(periodics []jobs.Periodic) []*river.PeriodicJob {
 	return out
 }
 
-func (r *runtime) With(tx pgstore.Tx) jobs.Jobs { //nolint:ireturn // the interface is the contract
+func (r *runtime) With(tx pgstore.Tx) jobs.Jobs {
 	cp := *r
 	cp.tx = tx
 	return &cp
@@ -245,7 +243,7 @@ func (r *runtime) With(tx pgstore.Tx) jobs.Jobs { //nolint:ireturn // the interf
 func (r *runtime) Enqueue(
 	ctx context.Context,
 	kind string,
-	args any, //nolint:forbidigo // the JSON payload; encoding/json.Marshal takes interface{}
+	args pgstore.JSONB,
 	opts jobs.EnqueueOpts,
 ) (jobs.JobID, error) {
 	k, ok := r.kinds[kind]
@@ -261,8 +259,7 @@ func (r *runtime) Enqueue(
 	return r.insert(ctx, rawArgs{kind: kind, raw: raw}, io)
 }
 
-//nolint:forbidigo // args is the JSON payload; encoding/json.Marshal takes interface{}
-func marshalArgs(args any) (json.RawMessage, error) {
+func marshalArgs(args pgstore.JSONB) (json.RawMessage, error) {
 	switch a := args.(type) {
 	case nil:
 		return json.RawMessage("{}"), nil

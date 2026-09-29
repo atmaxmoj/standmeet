@@ -118,7 +118,6 @@ func saveInTxAndCommit(
 		res, serr = runSaveInTx(ctx, deps, tx, in)
 		return serr
 	}); err != nil {
-		//nolint:wrapcheck // InTx names begin/commit; runSaveInTx names its steps
 		return saveCommitted{}, err
 	}
 	return res, nil

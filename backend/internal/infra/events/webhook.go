@@ -26,6 +26,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -52,7 +53,7 @@ const (
 )
 
 // webhookSchedule — Svix: 5 s, 5 min, 30 min, 2 h, 5 h, 10 h, then 10 h steps.
-var webhookSchedule = [...]time.Duration{ //nolint:gochecknoglobals // the declared schedule
+var webhookSchedule = [...]time.Duration{
 	5 * time.Second, 5 * time.Minute, 30 * time.Minute,
 	2 * time.Hour, 5 * time.Hour, 10 * time.Hour,
 }
@@ -121,7 +122,7 @@ func DeliverWebhook(
 ) error {
 	req, err := signedRequest(ctx, url, secret, ev)
 	if err != nil {
-		return jobs.Discard(err) //nolint:wrapcheck // the failure class; it wraps the cause
+		return jobs.Discard(err)
 	}
 	resp, err := client.Do(req)
 	if resp != nil {
@@ -153,10 +154,12 @@ func signedRequest(ctx context.Context, url, secret string, ev *Event) (*http.Re
 }
 
 // drain — reads a little of the answer and closes it, so the connection can be reused.
+// The status already decided the outcome, so a failure here only costs the connection: log it.
 func drain(resp *http.Response) {
-	//nolint:errcheck // best effort: the outcome is already decided by the status
-	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, webhookDrainLimit))
-	_ = resp.Body.Close() //nolint:errcheck // best effort
+	_, cerr := io.Copy(io.Discard, io.LimitReader(resp.Body, webhookDrainLimit))
+	if err := errors.Join(cerr, resp.Body.Close()); err != nil {
+		slog.Debug("webhook: drain response", "err", err)
+	}
 }
 
 // ClassifyWebhook — the failure class of one delivery attempt (see the file comment).
@@ -169,7 +172,7 @@ func ClassifyWebhook(resp *http.Response, err error) error {
 
 func classifyTransport(err error) error {
 	if errors.Is(err, httpx.ErrBlockedEgress) {
-		return jobs.Discard(err) //nolint:wrapcheck // the failure class; it wraps the cause
+		return jobs.Discard(err)
 	}
 	return fmt.Errorf("webhook delivery: %w", err)
 }
@@ -181,10 +184,10 @@ func classifyStatus(resp *http.Response) error {
 	}
 	answered := fmt.Errorf("webhook endpoint answered %d", code)
 	if d, ok := askedToWait(resp); ok {
-		return jobs.Snooze(d) //nolint:wrapcheck // the failure class
+		return jobs.Snooze(d)
 	}
 	if permanent(code) {
-		return jobs.Discard(answered) //nolint:wrapcheck // the failure class; it wraps the cause
+		return jobs.Discard(answered)
 	}
 	return answered
 }

@@ -21,8 +21,6 @@ import (
 func (r *WritingRepo) With(q pgstore.DBTX) *WritingRepo { return &WritingRepo{pool: r.pool, q: q} }
 
 // conn —— the transaction when bound by With, else the pool.
-//
-//nolint:ireturn // DBTX is the port both a pool and a transaction satisfy
 func (r *WritingRepo) conn() pgstore.DBTX {
 	if r.q != nil {
 		return r.q

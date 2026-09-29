@@ -16,7 +16,7 @@ import (
 )
 
 // claimTable — the in-process claim table. key = collection + "\x00" + key.
-var claimTable = struct { //nolint:gochecknoglobals // mini-host state, mirrors real host's table
+var claimTable = struct {
 	till map[string]time.Time
 	mu   sync.Mutex
 }{till: map[string]time.Time{}}

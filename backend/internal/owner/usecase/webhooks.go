@@ -64,7 +64,7 @@ func WebhookEventTypes(d *WebhooksDeps) []events.Type { return d.Bus.WebhookType
 func ListWebhooks(
 	ctx context.Context, d *WebhooksDeps, ownerID string,
 ) ([]entity.WebhookEndpoint, error) {
-	return d.Repo.ListWebhooks(ctx, ownerID) //nolint:wrapcheck // the repo names its step
+	return d.Repo.ListWebhooks(ctx, ownerID)
 }
 
 // CreateWebhook —— validates, then stores the endpoint with a fresh secret.
@@ -76,7 +76,7 @@ func CreateWebhook(
 	}
 	secret, err := events.NewWebhookSecret()
 	if err != nil {
-		return CreatedWebhook{}, err //nolint:wrapcheck // names itself
+		return CreatedWebhook{}, err
 	}
 	ep := entity.WebhookEndpoint{URL: *in.URL, EventTypes: in.EventTypes}
 	if in.Description != nil {
@@ -84,7 +84,7 @@ func CreateWebhook(
 	}
 	created, err := d.Repo.CreateWebhook(ctx, ownerID, &ep, secret)
 	if err != nil {
-		return CreatedWebhook{}, err //nolint:wrapcheck // the repo names its step
+		return CreatedWebhook{}, err
 	}
 	return CreatedWebhook{Endpoint: created, Secret: secret}, nil
 }
@@ -116,29 +116,27 @@ func UpdateWebhook(
 	p := entity.WebhookPatch{
 		URL: in.URL, Description: in.Description, Enabled: in.Enabled, EventTypes: in.EventTypes,
 	}
-	return d.Repo.UpdateWebhook(ctx, ownerID, id, &p) //nolint:wrapcheck // the repo names its step
+	return d.Repo.UpdateWebhook(ctx, ownerID, id, &p)
 }
 
 // DeleteWebhook —— removes the endpoint.
 func DeleteWebhook(ctx context.Context, d *WebhooksDeps, ownerID, id string) error {
-	return d.Repo.DeleteWebhook(ctx, ownerID, id) //nolint:wrapcheck // the repo names its step
+	return d.Repo.DeleteWebhook(ctx, ownerID, id)
 }
 
 // RotateWebhookSecret —— a new secret, shown this once. Deliveries sign with it from now on.
 func RotateWebhookSecret(ctx context.Context, d *WebhooksDeps, ownerID, id string) (string, error) {
 	secret, err := events.NewWebhookSecret()
 	if err != nil {
-		return "", err //nolint:wrapcheck // names itself
+		return "", err
 	}
 	if rerr := d.Repo.RotateWebhookSecret(ctx, ownerID, id, secret); rerr != nil {
-		return "", rerr //nolint:wrapcheck // the repo names its step
+		return "", rerr
 	}
 	return secret, nil
 }
 
 // SendWebhookTest —— records a webhook.test event for this endpoint only. Returns the event id.
-//
-//nolint:wrapcheck // the repo and the bus name their own steps
 func SendWebhookTest(ctx context.Context, d *WebhooksDeps, ownerID, id string) (string, error) {
 	if _, err := d.Repo.GetWebhook(ctx, ownerID, id); err != nil {
 		return "", err
@@ -153,6 +151,16 @@ func SendWebhookTest(ctx context.Context, d *WebhooksDeps, ownerID, id string) (
 	return d.Bus.LatestFor(ctx, entity.WebhookTestEvent, "endpoint_id", id)
 }
 
+// deliveredEventID —— the event a delivery job carries. Only the fan-out writes these args, so
+// unreadable args name no event.
+func deliveredEventID(args json.RawMessage) string {
+	var a entity.DeliverArgs
+	if err := json.Unmarshal(args, &a); err != nil {
+		return ""
+	}
+	return a.EventID
+}
+
 // WebhookDeliveries —— the endpoint's deliveries, newest first.
 func WebhookDeliveries(
 	ctx context.Context, d *WebhooksDeps, ownerID, id string,
@@ -163,11 +171,10 @@ func WebhookDeliveries(
 	}
 	out := make([]Delivery, 0, len(list))
 	for i := range list {
-		var a entity.DeliverArgs
-		_ = json.Unmarshal(list[i].Args, &a) //nolint:errcheck // written by the fan-out only
 		out = append(out, Delivery{
-			JobID: list[i].ID, State: list[i].State, Attempt: list[i].Attempt, EventID: a.EventID,
-			Errors: list[i].Errors, CreatedAt: list[i].CreatedAt, FinalizedAt: list[i].FinalizedAt,
+			JobID: list[i].ID, State: list[i].State, Attempt: list[i].Attempt,
+			EventID: deliveredEventID(list[i].Args),
+			Errors:  list[i].Errors, CreatedAt: list[i].CreatedAt, FinalizedAt: list[i].FinalizedAt,
 		})
 	}
 	return out, nil
@@ -181,7 +188,7 @@ func RedeliverWebhook(ctx context.Context, d *WebhooksDeps, ownerID, id string) 
 	}
 	for i := range list {
 		if rerr := d.Jobs.Retry(ctx, list[i].ID); rerr != nil {
-			return i, rerr //nolint:wrapcheck // names the job
+			return i, rerr
 		}
 	}
 	return len(list), nil
@@ -193,14 +200,14 @@ func deliveryJobs(
 	ctx context.Context, d *WebhooksDeps, ownerID, id string, st jobs.State,
 ) ([]jobs.Job, error) {
 	if _, err := d.Repo.GetWebhook(ctx, ownerID, id); err != nil {
-		return nil, err //nolint:wrapcheck // the repo names its step
+		return nil, err
 	}
 	args, err := json.Marshal(map[string]string{"endpoint_id": id})
 	if err != nil {
 		return nil, fmt.Errorf("delivery filter: %w", err)
 	}
 	f := jobs.Filter{Kind: entity.WebhookDeliverKind, State: st, Args: args, Limit: maxDeliveries}
-	return d.Jobs.List(ctx, f) //nolint:wrapcheck // names itself
+	return d.Jobs.List(ctx, f)
 }
 
 // validateWebhookURL —— http(s), and a public host: the delivery client's SSRF guard would refuse

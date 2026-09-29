@@ -178,7 +178,7 @@ func decodeIPBanAdd(ownerID string, raw json.RawMessage) (*ban.IPInput, error) {
 // optionalRFC3339 -- empty means unset (permanent), not an error.
 func optionalRFC3339(s string) (*time.Time, error) {
 	if s == "" {
-		return nil, nil //nolint:nilnil // empty = unset, not an error
+		return nil, nil
 	}
 	t, err := time.Parse(time.RFC3339, s)
 	if err != nil {

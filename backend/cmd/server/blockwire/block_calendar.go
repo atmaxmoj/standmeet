@@ -64,7 +64,6 @@ func newOpenAPIBlockCalendarProxy(
 	}
 }
 
-//nolint:ireturn // blockseam.Dial's contract is to return the Session interface (injected seam)
 func dialBlock(ctx context.Context, mm *plugin.Manifest) (blockseam.Session, error) {
 	return mount.DialBlock(ctx, mm)
 }

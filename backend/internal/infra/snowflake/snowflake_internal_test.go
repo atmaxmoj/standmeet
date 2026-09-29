@@ -1,4 +1,4 @@
-package snowflake //nolint:testpackage // white-box: needs unexported internals + Node.now
+package snowflake
 
 import (
 	"strings"

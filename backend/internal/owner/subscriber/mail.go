@@ -88,14 +88,11 @@ func MailSubscriptions(d *MailDeps) []events.Subscription {
 // this booking, then deletes it. Idempotent: a notice already sent is gone, so a second run sends
 // nothing. No notice = the role asked for none. No mail supplier or no owner address = nothing
 // can ever be sent, so the notice is dropped (and the drop logged).
-//
-//nolint:wrapcheck // the repo names its steps
 func notifyBooking(ctx context.Context, d *MailDeps, ev *events.Event) error {
 	var data struct {
 		BookingID string `json:"booking_id"`
 	}
 	if err := json.Unmarshal(ev.Data, &data); err != nil || data.BookingID == "" {
-		//nolint:wrapcheck // Discard is the failure class; it wraps the cause
 		return jobs.Discard(fmt.Errorf("owner.notify: unreadable event data %s", ev.Data))
 	}
 	n, err := d.Owners.BookingNotice(ctx, ev.OwnerID, data.BookingID)
@@ -107,8 +104,6 @@ func notifyBooking(ctx context.Context, d *MailDeps, ev *events.Event) error {
 
 // sendThenForget —— send, then delete the notice: a crash in between sends it twice, never zero
 // times.
-//
-//nolint:wrapcheck // the repo names its steps
 func sendThenForget(
 	ctx context.Context, d *MailDeps, ev *events.Event, n *repo.BookingNotice,
 ) error {
@@ -120,8 +115,6 @@ func sendThenForget(
 
 // sendBookingNotice —— one send of n. nil also when it can never be sent (no owner address, no
 // mail supplier): the drop is logged and the notice goes.
-//
-//nolint:wrapcheck // the repo and the port name their steps
 func sendBookingNotice(
 	ctx context.Context, d *MailDeps, ev *events.Event, n *repo.BookingNotice,
 ) error {
@@ -163,7 +156,6 @@ func notifyOwner(ctx context.Context, d *MailDeps, ev *events.Event) error {
 		RequestID string `json:"request_id"`
 	}
 	if err := json.Unmarshal(ev.Data, &data); err != nil || data.RequestID == "" {
-		//nolint:wrapcheck // Discard is the failure class; it wraps the cause
 		return jobs.Discard(fmt.Errorf("owner.notify: unreadable event data %s", ev.Data))
 	}
 	if noSupplier(ctx, d, ev.OwnerID) {
@@ -205,7 +197,6 @@ func notifyBySlot(
 	return nil
 }
 
-//nolint:wrapcheck // the repos and the port name their steps
 func sendNotify(ctx context.Context, d *MailDeps, ev *events.Event, requestID string) error {
 	req, err := d.Reqs.GetByID(ctx, ev.OwnerID, requestID)
 	if err != nil {
@@ -223,8 +214,6 @@ func sendNotify(ctx context.Context, d *MailDeps, ev *events.Event, requestID st
 }
 
 // sendApproval —— one attempt of the approval mail: send, then mark the request replied.
-//
-//nolint:wrapcheck // the repos and the port name their steps
 func sendApproval(ctx context.Context, d *MailDeps, raw json.RawMessage) error {
 	a, err := approvalArgs(raw)
 	if err != nil {
@@ -260,8 +249,6 @@ func confirmArgs(raw json.RawMessage) (entity.EmailConfirmArgs, error) {
 }
 
 // approvalNotice —— the request, its code and the owner's page, rendered.
-//
-//nolint:wrapcheck // the repos name their steps
 func approvalNotice(
 	ctx context.Context, d *MailDeps, a *entity.ApprovalNoticeArgs,
 ) (usecase.OutboundNotice, error) {
@@ -284,8 +271,6 @@ func approvalNotice(
 // sendEmailConfirm —— one attempt of the confirmation mail. The token is minted here and its
 // hash stored only while this exact change is still pending; a cancelled or replaced change
 // sends nothing. Each attempt mints a new token, so only the latest mail's link works.
-//
-//nolint:wrapcheck // the repo and the port name their steps
 func sendEmailConfirm(ctx context.Context, d *MailDeps, raw json.RawMessage) error {
 	a, err := confirmArgs(raw)
 	if err != nil {
@@ -305,8 +290,6 @@ func sendEmailConfirm(ctx context.Context, d *MailDeps, raw json.RawMessage) err
 
 // mintConfirmToken —— a fresh link token whose hash the pending row now accepts; "" when the
 // change is no longer pending (cancelled, replaced or expired).
-//
-//nolint:wrapcheck // the usecase and the repo name their steps
 func mintConfirmToken(
 	ctx context.Context, d *MailDeps, a *entity.EmailConfirmArgs,
 ) (string, error) {
@@ -324,13 +307,13 @@ func mintConfirmToken(
 
 // badArgs —— args no attempt can read.
 func badArgs(kind string, raw json.RawMessage) error {
-	return jobs.Discard(fmt.Errorf("%s: bad args %s", kind, raw)) //nolint:wrapcheck // the class
+	return jobs.Discard(fmt.Errorf("%s: bad args %s", kind, raw))
 }
 
 // discardMissing —— a row the job needs is gone (deleted request, revoked code): nothing to send.
 func discardMissing(err error) error {
 	if errors.Is(err, access.ErrAccessRequestNotFound) || errors.Is(err, access.ErrCodeInvalid) {
-		return jobs.Discard(err) //nolint:wrapcheck // the failure class
+		return jobs.Discard(err)
 	}
 	return err
 }

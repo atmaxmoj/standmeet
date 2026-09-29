@@ -216,7 +216,6 @@ func (r *MicrositeBuildRepo) MarkFailed(
 	return toDomainBuild(&row)
 }
 
-//nolint:ireturn // DBTX is the port both a pool and a transaction satisfy
 func (r *MicrositeBuildRepo) conn() pgstore.DBTX {
 	if r.q != nil {
 		return r.q

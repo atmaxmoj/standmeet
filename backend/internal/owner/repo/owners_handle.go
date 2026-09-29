@@ -37,7 +37,6 @@ func (r *Repo) UpdateHandle(
 		ownerRow, txErr = updateHandleTx(ctx, tx, pgID, newHandle)
 		return txErr
 	}); err != nil {
-		//nolint:wrapcheck // InTx names begin/commit; updateHandleTx names its steps
 		return entity.Owner{}, err
 	}
 	return ownerRow, nil

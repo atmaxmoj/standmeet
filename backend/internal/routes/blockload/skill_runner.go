@@ -271,7 +271,7 @@ func makeSkillRunScript(runner sandbox.Runner, skills []marketplace.Skill) regis
 		result, err := runner.Run(ctx, &sandbox.RunInput{
 			Language: script.Language, Script: script.Content, ArgsJSON: a.scriptArgsJSON(),
 		})
-		return skillRunToToolResult(&result, err)
+		return skillRunToToolResult(&result, err), nil
 	}
 }
 
@@ -286,13 +286,11 @@ func findSkillScript(s *marketplace.Skill, filename string) *marketplace.SkillSc
 
 // skillRunToToolResult —— folds a sandbox error into errJSON inside tool_result, so the
 // LLM sees "tool failed" instead of the agent loop aborting.
-//
-//nolint:nilerr // tool-result envelope: err goes into the JSON text, Go err return nil
-func skillRunToToolResult(r *sandbox.Result, err error) (string, error) {
+func skillRunToToolResult(r *sandbox.Result, err error) string {
 	if err != nil {
-		return errJSON("skill script: " + err.Error()), nil
+		return errJSON("skill script: " + err.Error())
 	}
-	return formatSkillRunResult(r), nil
+	return formatSkillRunResult(r)
 }
 
 // skillRunPayload —— the wire shape of a sandbox execution result.

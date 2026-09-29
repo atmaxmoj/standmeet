@@ -198,13 +198,22 @@ func TestSameSubjectInOneBatchCoalescesToTheLatestEvent(t *testing.T) {
 	}
 }
 
+// failingPasses —— n relay passes against j, any of which may fail: failure is the input.
+func failingPasses(t *testing.T, bus *events.Bus, j jobs.Jobs, n int) {
+	t.Helper()
+	for range n {
+		if _, err := bus.FanOut(context.Background(), j); err != nil {
+			t.Logf("relay pass failed, as designed: %v", err)
+		}
+	}
+}
+
 type failingJobs struct {
 	jobs.Jobs
 
 	failSubject string
 }
 
-//nolint:ireturn // test double of our own port
 func (f *failingJobs) With(tx pgstore.Tx) jobs.Jobs {
 	return &failingJobs{Jobs: f.Jobs.With(tx), failSubject: f.failSubject}
 }
@@ -212,7 +221,7 @@ func (f *failingJobs) With(tx pgstore.Tx) jobs.Jobs {
 func (f *failingJobs) Enqueue(
 	ctx context.Context,
 	kind string,
-	args any, //nolint:forbidigo // implements jobs.Jobs.Enqueue, whose args is a JSON payload
+	args pgstore.JSONB,
 	o jobs.EnqueueOpts,
 ) (jobs.JobID, error) {
 	if a, ok := args.(events.JobArgs); ok && a.Subject == f.failSubject {
@@ -228,10 +237,8 @@ func TestAFailingBatchRollsBackEntirelyAndAPoisonRowDoesNotBlockTheRest(t *testi
 	r.record(t, typNoteChanged, "wiki://poison", nil)
 	r.record(t, typNoteChanged, "wiki://ok-2", nil)
 	bad := &failingJobs{Jobs: r.jobs, failSubject: "wiki://poison"}
-	for range events.PoisonAfter + 1 {
-		// The poison row fails by design; the outcome is asserted on the jobs and backlog below.
-		_, _ = r.bus.FanOut(context.Background(), bad) //nolint:errcheck // failure is the input
-	}
+	// The poison row fails by design; the outcome is asserted on the jobs and backlog below.
+	failingPasses(t, r.bus, bad, events.PoisonAfter+1)
 	if got := r.jobCount(t, subIndex); got != 2 {
 		t.Fatalf("jobs = %d, want the two healthy events fanned out", got)
 	}

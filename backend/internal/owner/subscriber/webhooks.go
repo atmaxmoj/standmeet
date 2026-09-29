@@ -122,7 +122,7 @@ func fanOut(ctx context.Context, d *Deps, ev *events.Event) error {
 	}
 	eps, err := d.Repo.EnabledWebhooks(ctx, ev.OwnerID)
 	if err != nil {
-		return err //nolint:wrapcheck // the repo names its step
+		return err
 	}
 	targets, err := Targets(ctx, eps, ev, d.Embeds)
 	if err != nil {
@@ -131,7 +131,7 @@ func fanOut(ctx context.Context, d *Deps, ev *events.Event) error {
 	if len(targets) == 0 {
 		return nil
 	}
-	return pgstore.InTx(ctx, d.Pool, func(tx pgstore.Tx) error { //nolint:wrapcheck // names itself
+	return pgstore.InTx(ctx, d.Pool, func(tx pgstore.Tx) error {
 		return enqueueDeliveries(ctx, d.Jobs().With(tx), targets, ev.ID)
 	})
 }
@@ -189,7 +189,9 @@ func targeted(
 // testTarget —— the one endpoint a webhook.test event names (data.endpoint_id).
 func testTarget(eps []entity.WebhookEndpoint, ev *events.Event) []entity.WebhookEndpoint {
 	var a entity.DeliverArgs
-	_ = json.Unmarshal(ev.Data, &a) //nolint:errcheck // an unreadable test event goes nowhere
+	if err := json.Unmarshal(ev.Data, &a); err != nil {
+		return []entity.WebhookEndpoint{} // an unreadable test event goes nowhere
+	}
 	for i := range eps {
 		if eps[i].ID == a.EndpointID {
 			return eps[i : i+1]
@@ -239,7 +241,9 @@ func published(ev *events.Event) bool {
 		Published    bool `json:"published"`
 		WasPublished bool `json:"was_published"`
 	}
-	_ = json.Unmarshal(ev.Data, &d) //nolint:errcheck // unreadable → unpublished
+	if err := json.Unmarshal(ev.Data, &d); err != nil {
+		return false // unreadable reads as unpublished
+	}
 	return d.Published || d.WasPublished
 }
 
@@ -260,7 +264,6 @@ func deliver(ctx context.Context, d *Deps, raw json.RawMessage) error {
 func deliverArgs(raw json.RawMessage) (entity.DeliverArgs, error) {
 	var a entity.DeliverArgs
 	if err := json.Unmarshal(raw, &a); err != nil || a.EndpointID == "" || a.EventID == "" {
-		//nolint:wrapcheck // the failure class; it wraps the cause
 		return a, jobs.Discard(fmt.Errorf("webhook.deliver: bad args %s", raw))
 	}
 	return a, nil
@@ -268,8 +271,6 @@ func deliverArgs(raw json.RawMessage) (entity.DeliverArgs, error) {
 
 // lease —— the endpoint with its lease taken, or the failure class of why not: gone or turned
 // off → discard; busy → snooze (no attempt spent).
-//
-//nolint:wrapcheck // Discard / Snooze are the failure classes; the repo names its own step
 func lease(ctx context.Context, d *Deps, id string) (entity.WebhookEndpoint, error) {
 	ep, err := d.Repo.LeaseWebhook(ctx, id, leaseFor)
 	switch {
@@ -287,14 +288,12 @@ func settle(ctx context.Context, d *Deps, id string, result error) error {
 	sctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), settleTimeout)
 	defer cancel()
 	if result == nil {
-		return d.Repo.WebhookSucceeded(sctx, id) //nolint:wrapcheck // the repo names its step
+		return d.Repo.WebhookSucceeded(sctx, id)
 	}
-	return d.Repo.WebhookFailed(sctx, id, DisableAfter, disabledReason) //nolint:wrapcheck // same
+	return d.Repo.WebhookFailed(sctx, id, DisableAfter, disabledReason)
 }
 
 // post —— the event and the secret (short reads, no transaction), then the HTTP call.
-//
-//nolint:wrapcheck // each step names itself; the delivery's error is the attempt's recorded error
 func post(ctx context.Context, d *Deps, ep *entity.WebhookEndpoint, eventID string) error {
 	ev, err := d.Event(ctx, eventID)
 	if errors.Is(err, events.ErrNotFound) {

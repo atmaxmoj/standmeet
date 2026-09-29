@@ -70,7 +70,7 @@ func AcceptGhost(
 		var merr error
 		row, merr = deps.Repo.With(tx).MarkAccepted(ctx, ownerID, conversationID, ghostID)
 		if merr != nil {
-			return merr //nolint:wrapcheck // wrapped below
+			return merr
 		}
 		data := map[string]string{"ghost_id": row.ID, "conversation_id": conversationID}
 		return deps.Events.With(tx).Record(ctx, ownerID, GhostAccepted, "ghost/"+row.ID, data)

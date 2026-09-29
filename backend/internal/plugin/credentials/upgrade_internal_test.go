@@ -1,13 +1,14 @@
-// upgrade_test.go — the vault→credmgr migration's upgrade path (item 10). Credentials moved off
-// the block_connections.credentials_enc column into the credential-manager (credmgr). An existing
-// owner's value still sits in the legacy column with nothing in credmgr yet; resolveCreds must fall
-// back to the legacy blob AND self-heal it into credmgr so the next read hits the new source. When
-// credmgr already has the value it wins and the legacy blob is ignored.
+// upgrade_internal_test.go — the vault→credmgr migration's upgrade path (item 10).
+// Credentials moved off the block_connections.credentials_enc column into the credential-manager
+// (credmgr). An existing owner's value still sits in the legacy column with nothing in credmgr
+// yet; resolveCreds must fall back to the legacy blob AND self-heal it into credmgr so the next
+// read hits the new source. When credmgr already has the value it wins and the legacy blob is
+// ignored.
 //
 // White-box (resolveCreds is unexported) with a fake SecretStore — no DB, so the fallback logic is
 // pinned fast. Not parallel: t.Setenv (INSTANCE_SECRET) forbids it.
 
-package credentials //nolint:testpackage // white-box: resolveCreds is unexported
+package credentials
 
 import (
 	"context"
@@ -15,7 +16,6 @@ import (
 )
 
 const (
-	//nolint:lll // test fixture, not a real secret
 	upgradeSecret = "upgrade-test-instance-secret-32-bytes-plus" //gitleaks:allow
 	upgradeOwner  = "11111111-1111-1111-1111-111111111111"
 	upgradeBlock  = "up-legacy"

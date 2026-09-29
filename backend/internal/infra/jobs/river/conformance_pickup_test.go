@@ -40,7 +40,15 @@ func TestAWaitedOnQueuePicksUpAJobWhoseNotificationWasSwallowed(t *testing.T) {
 	}
 }
 
-// pickupWithinBound —— on queue q, a job inserted insertGap after another runs within pickupBound.
+// stopRuntime —— stops rt; a failed stop fails the test.
+func stopRuntime(ctx context.Context, t *testing.T, rt jobs.Runtime) {
+	t.Helper()
+	if err := rt.Stop(ctx); err != nil {
+		t.Error(err)
+	}
+}
+
+// pickupWithinBound ——on queue q, a job inserted insertGap after another runs within pickupBound.
 func pickupWithinBound(t *testing.T, pool *pgxpool.Pool, q string) {
 	t.Helper()
 	ctx := context.Background()
@@ -52,7 +60,7 @@ func pickupWithinBound(t *testing.T, pool *pgxpool.Pool, q string) {
 	if err = rt.Start(ctx); err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = rt.Stop(ctx) }() //nolint:errcheck // the outcome is asserted above
+	defer stopRuntime(ctx, t, rt)
 	for range 3 {
 		enqueue(t, rt, k) // its notification wakes the worker, which fetches it
 		time.Sleep(insertGap)

@@ -25,7 +25,9 @@ func serveFetch(
 ) []jobsFetched {
 	t.Helper()
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(body)) //nolint:errcheck // test server; a write error is not the SUT
+		if _, err := w.Write([]byte(body)); err != nil {
+			t.Error(err)
+		}
 	}))
 	t.Cleanup(ts.Close)
 	jobs, err := build(ts.Client(), ts.URL).Fetch(context.Background(), cfg)

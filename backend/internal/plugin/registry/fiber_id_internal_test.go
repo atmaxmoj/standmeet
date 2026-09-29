@@ -1,7 +1,7 @@
-// fiber_id_test.go — the per-fiber storage identity derivation (rule 3). White-box: FiberID
+// fiber_id_internal_test.go —the per-fiber storage identity derivation (rule 3). White-box: FiberID
 // reads the bundle fields the exposure walk caches (bundleID/bundleBound), which are unexported.
 
-package registry //nolint:testpackage // white-box: reads unexported bundle fields
+package registry
 
 import "testing"
 

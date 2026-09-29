@@ -295,8 +295,6 @@ func buildJobsModule(d *deps.Runtime) *pluginjobs.Plugin {
 // convert/html directly (simple HTML doc, no print-page/printsess dance), so
 // the public Handlers get a raw gotenberg client (or Noop when unconfigured →
 // the route returns a friendly 503).
-//
-//nolint:ireturn // composition root deliberately returns interface
 func buildReportPDFRenderer(cfg *config.Config) publicroutes.ReportPDFRenderer {
 	if cfg.GotenbergURL == "" {
 		return gotenberg.NoopClient{}

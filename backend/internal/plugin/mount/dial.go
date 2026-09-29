@@ -80,18 +80,27 @@ func dialHTTP(ctx context.Context, m *plugin.Manifest, _ string) (*mcpclient.Ses
 func dialInProcess(
 	ctx context.Context, m *plugin.Manifest, _ string,
 ) (*mcpclient.Session, error) {
-	// The manifest carries this as `any` because a YAML declaration cannot name a Go
-	// value; whoever built the manifest in memory put a server here. A wrong type is
-	// a wiring bug in that builder, so it fails loudly rather than dialling nothing.
-	srv, ok := m.Transport.InProcessServer.(*server.MCPServer)
+	// A YAML declaration cannot name a Go value; whoever built the manifest in memory put a
+	// server here. A wrong type is a wiring bug in that builder, so it fails loudly rather
+	// than dialling nothing.
+	ip, ok := m.Transport.InProcessServer.(InProcess)
 	if !ok {
 		return nil, wrapDial(fmt.Errorf(
 			"in_process transport for %q carries %T, not an MCP server",
 			m.ID, m.Transport.InProcessServer))
 	}
-	sess, err := mcpclient.DialInProcess(ctx, srv)
+	sess, err := mcpclient.DialInProcess(ctx, ip.Server)
 	return sess, wrapDial(err)
 }
+
+// InProcess — the vendor's MCP server as a manifest's in-process transport
+// (plugin.Transport.InProcessServer). The plugin package names only the marker.
+type InProcess struct {
+	Server *server.MCPServer
+}
+
+// InProcessMCP marks InProcess as a plugin.InProcess.
+func (InProcess) InProcessMCP() {}
 
 // dialSandboxStdio —— the main process starts the third-party server inside a bubblewrap
 // isolation environment (read-only host runtime + read-only plugin code + a per-session
@@ -164,10 +173,18 @@ func SetNativeKeyIssuer(i *nativekey.Issuer) { nativeKeyIssuer = i }
 // unchanged and an empty key. The manifest is copied (its Env cloned) so the per-dial secret never
 // lands on the shared manifest — two sessions of one block get two keys.
 func withNativeKey(m *plugin.Manifest, fiberID string) (plugin.Manifest, nativekey.Key) {
-	if !reachBackKeyWanted(m) {
+	return withKeyFrom(nativeKeyIssuer, m, fiberID)
+}
+
+// withKeyFrom —— withNativeKey against a given issuer (nil = none configured). The injected
+// global is read once, in withNativeKey; everything below takes the issuer as a value.
+func withKeyFrom(
+	iss *nativekey.Issuer, m *plugin.Manifest, fiberID string,
+) (plugin.Manifest, nativekey.Key) {
+	if !reachBackKeyWanted(iss, m) {
 		return *m, ""
 	}
-	k, err := nativeKeyIssuer.Issue(fiberID)
+	k, err := iss.Issue(fiberID)
 	if err != nil {
 		return *m, "" // mint failed → dial without a key; the reach-back stays socket-confined
 	}
@@ -180,9 +197,9 @@ func withNativeKey(m *plugin.Manifest, fiberID string) (plugin.Manifest, nativek
 
 // reachBackKeyWanted —— a block gets a native key only if an issuer is configured and it declares
 // host ops (it reaches back). A non-reach-back or third-party block gets none.
-func reachBackKeyWanted(m *plugin.Manifest) bool {
+func reachBackKeyWanted(iss *nativekey.Issuer, m *plugin.Manifest) bool {
 	s := m.Transport.Sandbox
-	return nativeKeyIssuer != nil && s != nil && len(s.HostOps) > 0
+	return iss != nil && s != nil && len(s.HostOps) > 0
 }
 
 // clonedEnvWith —— a copy of env with one key set (never mutates the caller's map).

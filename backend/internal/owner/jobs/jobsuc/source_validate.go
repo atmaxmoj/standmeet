@@ -10,6 +10,5 @@ import (
 // layering is admin → usecase → fetch). The error is already owner-readable
 // ("greenhouse config: board is required").
 func ValidateSourceConfig(kind string, config []byte) error {
-	//nolint:wrapcheck // passthrough: the validator's message goes to the owner verbatim (400 body)
 	return jobfetch.ValidateKindConfig(kind, config)
 }

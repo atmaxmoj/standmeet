@@ -5,6 +5,7 @@ package events_test
 // plan* › "Saturation and degradation UTs").
 
 import (
+	"bytes"
 	"context"
 	"log/slog"
 	"strings"
@@ -26,7 +27,7 @@ const (
 		FOR EACH ROW EXECUTE FUNCTION refuse_write();
 		CREATE TRIGGER disk_full_stamp BEFORE UPDATE ON events
 		FOR EACH ROW EXECUTE FUNCTION refuse_write()`
-	relayPassFailed = "events: relay pass" //nolint:gosec // a log message, not a credential
+	relayPassFailed = "events: relay pass"
 	failedPasses    = 3
 	passesDeadline  = 20 * time.Second
 	// growthFloor —— the second wait must be at least this many times the first (exactly 2 with
@@ -34,27 +35,30 @@ const (
 	growthFloor = 1.5
 )
 
-// passClock —— a log handler that records when each failed relay pass was logged.
+// passClock —— the sink of a JSON log handler: it records when each failed relay pass was
+// logged. The handler writes one record per Write, so a line carrying the pass's message is one
+// failed pass.
 type passClock struct {
 	times []time.Time
 	mu    sync.Mutex
 }
 
-func (*passClock) Enabled(context.Context, slog.Level) bool { return true }
+// passMessage —— the relay's failed-pass message as the JSON handler writes it.
+var passMessage = []byte(`"msg":"` + relayPassFailed + `"`)
 
-//nolint:gocritic // hugeParam: slog.Handler's own signature takes the record by value
-func (p *passClock) Handle(_ context.Context, r slog.Record) error {
-	if r.Message == relayPassFailed {
+func (p *passClock) Write(line []byte) (int, error) {
+	if bytes.Contains(line, passMessage) {
 		p.mu.Lock()
 		p.times = append(p.times, time.Now())
 		p.mu.Unlock()
 	}
-	return nil
+	return len(line), nil
 }
 
-func (p *passClock) WithAttrs([]slog.Attr) slog.Handler { return p }
-
-func (p *passClock) WithGroup(string) slog.Handler { return p }
+// logger —— a logger at every level whose records land in p.
+func (p *passClock) logger() *slog.Logger {
+	return slog.New(slog.NewJSONHandler(p, &slog.HandlerOptions{Level: slog.LevelDebug}))
+}
 
 func (p *passClock) snapshot() []time.Time {
 	p.mu.Lock()
@@ -178,7 +182,7 @@ func (r *rig) assertRelayBacksOff(t *testing.T) {
 	r.record(t, typNoteChanged, "wiki://stuck", nil)
 	r.execAll(t, refuseRelayWrites)
 	clock := &passClock{}
-	r.bus.SetLogger(slog.New(clock))
+	r.bus.SetLogger(clock.logger())
 	r.startRelay(context.Background(), t)
 	at := clock.awaitPasses(t, failedPasses)
 	first, second := at[1].Sub(at[0]), at[2].Sub(at[1])

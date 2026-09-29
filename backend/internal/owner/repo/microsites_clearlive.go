@@ -43,8 +43,6 @@ func (r *MicrositeRepo) With(q pgstore.DBTX) *MicrositeRepo {
 func (r *MicrositeRepo) Pool() *pgstore.Pool { return r.pool }
 
 // conn —— the transaction when bound by With, else the pool.
-//
-//nolint:ireturn // DBTX is the port both a pool and a transaction satisfy
 func (r *MicrositeRepo) conn() pgstore.DBTX {
 	if r.q != nil {
 		return r.q

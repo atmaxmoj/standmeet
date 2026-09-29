@@ -69,15 +69,12 @@ func SettleBuild(ctx context.Context, d BuildSettleDeps, rep *BuildReport) error
 	if rep.Status != BuildBuilt && rep.Status != BuildFailed {
 		return ErrBadBuildStatus
 	}
-	//nolint:wrapcheck // InTx names begin/commit; the steps name themselves
 	return pgstore.InTx(ctx, d.Builds.Pool(), func(tx pgstore.Tx) error {
 		return settleIn(ctx, tx, d, rep)
 	})
 }
 
 // settleIn —— the settle's three writes, on tx.
-//
-//nolint:wrapcheck // the repo, Record and Notify name their steps
 func settleIn(ctx context.Context, tx pgstore.Tx, d BuildSettleDeps, rep *BuildReport) error {
 	b, err := markSettled(ctx, d.Builds.With(tx), rep)
 	if err != nil {
@@ -96,7 +93,6 @@ func settleIn(ctx context.Context, tx pgstore.Tx, d BuildSettleDeps, rep *BuildR
 	return pgstore.Notify(ctx, tx, BuildSettledChannel, page.OwnerID)
 }
 
-//nolint:wrapcheck // the repo names its step
 func markSettled(
 	ctx context.Context, builds *repo.MicrositeBuildRepo, rep *BuildReport,
 ) (entity.MicrositeBuild, error) {
@@ -125,7 +121,7 @@ func AwaitBuildSettled(
 	builds := d.Builds
 	cur, err := builds.SettleVersion(ctx, ownerID)
 	if err != nil || cur > since {
-		return cur, err //nolint:wrapcheck // the repo names its step
+		return cur, err
 	}
 	timer := time.NewTimer(maxWait)
 	defer timer.Stop()

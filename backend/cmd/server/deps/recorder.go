@@ -9,19 +9,17 @@ import (
 
 // Recorder —— the outbox writer, resolved at call time: a use case wired before the bus is built
 // (BuildBackground) records through this and reaches the bus once it exists.
-func (d *Runtime) Recorder() events.Recorder { return lazyRecorder{d: d} } //nolint:ireturn // port
+func (d *Runtime) Recorder() events.Recorder { return lazyRecorder{d: d} }
 
 type lazyRecorder struct{ d *Runtime }
 
-//nolint:ireturn // port
 func (l lazyRecorder) With(tx pgstore.Tx) events.Recorder {
 	return l.d.Events.Recorder().With(tx)
 }
 
 func (l lazyRecorder) Record(
 	ctx context.Context, ownerID, typ, subject string,
-	data any, //nolint:forbidigo // the JSON payload; encoding/json.Marshal takes interface{}
+	data pgstore.JSONB,
 ) error {
-	//nolint:wrapcheck // Record names the type
 	return l.d.Events.Recorder().Record(ctx, ownerID, typ, subject, data)
 }

@@ -61,7 +61,6 @@ func (r *CodeRepo) insertMemberUnderCap(
 		row, ierr = insertMemberTx(ctx, tx, codeUUID, displayName, anon)
 		return ierr
 	}); terr != nil {
-		//nolint:wrapcheck // InTx names begin/commit; fn names its steps
 		return entity.CodeMember{}, terr
 	}
 	return toDomainMember(&row), nil
@@ -74,8 +73,6 @@ func (r *CodeRepo) With(q pgstore.DBTX) *CodeRepo { return &CodeRepo{pool: r.poo
 func (r *CodeRepo) Pool() *pgstore.Pool { return r.pool }
 
 // conn —— the transaction when bound by With, else the pool.
-//
-//nolint:ireturn // DBTX is the port both a pool and a transaction satisfy
 func (r *CodeRepo) conn() pgstore.DBTX {
 	if r.q != nil {
 		return r.q

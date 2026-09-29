@@ -1,4 +1,3 @@
-//nolint:testpackage // white-box: Snippet's cleanup is the unit under test, kept beside it.
 package usecase
 
 import (
@@ -15,7 +14,6 @@ const bigCharCount = 200
 // callout, and Snippet used to hand that markup straight to the search widget as the excerpt.
 func TestSnippetStripsI18nToggleMarkup(t *testing.T) {
 	t.Parallel()
-	//nolint:gosmopolitan // the Chinese toggle label is exactly the markup that must be stripped
 	body := "> [!i18n]\n" +
 		"> <label><input type=\"radio\" name=\"cogsci-lang\" checked>EN</label>" +
 		"<label><input type=\"radio\" name=\"cogsci-lang\">中文</label>\n" +
@@ -36,7 +34,6 @@ func TestSnippetStripsI18nToggleMarkup(t *testing.T) {
 // in half yields invalid UTF-8, which postgres rejects on the way back in.
 func TestSnippetCutsOnCharacterBoundary(t *testing.T) {
 	t.Parallel()
-	//nolint:gosmopolitan // a multibyte glyph is the point: the cut must not split one
 	got := Snippet(strings.Repeat("字", bigCharCount))
 	if !utf8.ValidString(got) {
 		t.Fatalf("snippet cut mid-character (invalid UTF-8): %q", got)

@@ -33,7 +33,6 @@ func DeleteWritingWithAssets(
 func deleteWritingInTx(
 	ctx context.Context, deps WritingsTxDeps, ownerID, writingID string,
 ) error {
-	//nolint:wrapcheck // InTx names begin/commit; runDeleteRows names its steps
 	return pgstore.InTx(ctx, deps.Writings.Pool(), func(tx pgstore.Tx) error {
 		return runDeleteRows(ctx, deps, tx, ownerID, writingID)
 	})

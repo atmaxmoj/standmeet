@@ -18,7 +18,10 @@ import (
 func MountScreenAssistant(r chi.Router, store *cues.Store, log *slog.Logger) {
 	r.Get("/screen-assistant/events", func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query().Get("since")
-		since, _ := strconv.ParseInt(q, 10, 64) //nolint:errcheck // absent = 0
+		since, perr := strconv.ParseInt(q, 10, 64)
+		if perr != nil {
+			since = 0 // absent or malformed: from the start
+		}
 		events, err := store.Since(r.Context(), authmw.OwnerIDFrom(r.Context()), since)
 		if err != nil {
 			log.Error("list cues", logErrKey, err)

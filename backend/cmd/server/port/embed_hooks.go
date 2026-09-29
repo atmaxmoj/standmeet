@@ -23,7 +23,7 @@ type EmbedHooks struct {
 func (h EmbedHooks) List(ctx context.Context, ownerID string) (map[string]access.EmbedHook, error) {
 	eps, err := owner.EmbedHooks(ctx, h.Webhooks, ownerID)
 	if err != nil {
-		return nil, err //nolint:wrapcheck // the owner domain names its step
+		return nil, err
 	}
 	out := make(map[string]access.EmbedHook, len(eps))
 	for id := range eps {
@@ -38,10 +38,10 @@ func (h EmbedHooks) Set(
 ) (access.EmbedHookSet, error) {
 	got, err := owner.SetEmbedHook(ctx, h.Webhooks, ownerID, embedID, url)
 	if errors.Is(err, owner.ErrWebhookInput) {
-		return access.EmbedHookSet{}, fp.BadInput(err.Error()) //nolint:wrapcheck // the class
+		return access.EmbedHookSet{}, fp.BadInput(err.Error())
 	}
 	if err != nil {
-		return access.EmbedHookSet{}, err //nolint:wrapcheck // the owner domain names its step
+		return access.EmbedHookSet{}, err
 	}
 	if got.Endpoint.ID == "" {
 		return access.EmbedHookSet{}, nil

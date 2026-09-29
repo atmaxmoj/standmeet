@@ -204,9 +204,7 @@ func checkCaptchaOrWrite(
 // captchaTokenHeader — the frontend LoginForm sends the widget token over
 // X-Captcha-Token. Not put in the body, so LoginGuard doesn't need to parse
 // JSON; the header follows the same pattern as CSRF.
-// gosec G101 misflags "Token" as a hardcoded credential — this is only a
-// header name.
-const captchaTokenHeader = "X-Captcha-Token" //nolint:gosec // header name, not a credential
+const captchaTokenHeader = "X-Captcha-Token"
 
 // clientIP is the bucketing key for login rate-limiting. It's the
 // clientaddr middleware's conclusion: either the visitor's own address, or

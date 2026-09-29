@@ -90,7 +90,7 @@ func parseEmbedToken(
 	var auth entity.EmbedAuth
 	// jwt.Keyfunc's signature requires returning (any, error) — a library
 	// boundary, not business code choosing any.
-	keyFunc := func(t *jwt.Token) (any, error) { //nolint:forbidigo // jwt.Keyfunc boundary
+	keyFunc := func(t *jwt.Token) (any, error) {
 		a, err := deps.Embeds.AuthByKeyID(ctx, headerKID(t))
 		if err != nil {
 			return nil, fmt.Errorf("embed key lookup: %w", err)

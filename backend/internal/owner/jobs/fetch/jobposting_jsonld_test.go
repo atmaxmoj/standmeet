@@ -112,7 +112,9 @@ func TestJSONLD_FetchViaURLsAccounts(t *testing.T) {
 			http.NotFound(w, r)
 			return
 		}
-		_, _ = w.Write([]byte(pageWith(ashbyLD))) //nolint:errcheck // test server
+		if _, err := w.Write([]byte(pageWith(ashbyLD))); err != nil {
+			t.Error(err)
+		}
 	}))
 	t.Cleanup(ts.Close)
 	cfg := fmt.Sprintf(`{"urls":["%s/jobs/1","%s/missing"]}`, ts.URL, ts.URL)
@@ -132,10 +134,14 @@ func TestJSONLD_FetchViaSitemapFilters(t *testing.T) {
 		body := fmt.Sprintf(`<urlset><url><loc>%s/jobs/1</loc></url>`+
 			`<url><loc>%s/jobs/2</loc></url><url><loc>%s/about</loc></url></urlset>`,
 			base, base, base)
-		_, _ = w.Write([]byte(body)) //nolint:errcheck // test server
+		if _, err := w.Write([]byte(body)); err != nil {
+			t.Error(err)
+		}
 	})
 	mux.HandleFunc("/jobs/", func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(pageWith(ashbyLD))) //nolint:errcheck // test server
+		if _, err := w.Write([]byte(pageWith(ashbyLD))); err != nil {
+			t.Error(err)
+		}
 	})
 	ts := httptest.NewServer(mux)
 	t.Cleanup(ts.Close)

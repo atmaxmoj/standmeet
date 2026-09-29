@@ -41,7 +41,7 @@ func (c Cursor) Encode() string {
 // Decode — "" is the first page (nil cursor).
 func Decode(s string) (*Cursor, error) {
 	if s == "" {
-		return nil, nil //nolint:nilnil // empty cursor = first page, not an error
+		return nil, nil
 	}
 	raw, err := base64.RawURLEncoding.DecodeString(s)
 	if err != nil {

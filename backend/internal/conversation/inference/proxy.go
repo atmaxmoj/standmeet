@@ -112,7 +112,6 @@ func Stream(
 	forwardEinoStream(log, w, streamReader)
 }
 
-//nolint:ireturn // returns the eino interface BuildChatModel exposes
 func buildAndAttachTools(
 	ctx context.Context, cred *Cred, req *ChatRequest,
 ) (model.ToolCallingChatModel, error) {
@@ -135,7 +134,6 @@ func pickModelCred(cred *Cred, override string) *Cred {
 	return &out
 }
 
-//nolint:ireturn // returns the same eino interface as BuildChatModel
 func attachTools(
 	cm model.ToolCallingChatModel, tools []ChatRequestTool,
 ) (model.ToolCallingChatModel, error) {

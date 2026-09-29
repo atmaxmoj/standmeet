@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/access/entity"
 	"github.com/atmaxmoj/standmeet/internal/access/repo"
@@ -195,8 +196,10 @@ func createdOut(
 		return json.Marshal(out)
 	}
 	if err := setHook(ctx, d, ownerID, &out, url); err != nil {
-		//nolint:errcheck // the hook's error is the answer
-		_ = d.Embeds.Delete(ctx, ownerID, out.ID)
+		if derr := d.Embeds.Delete(ctx, ownerID, out.ID); derr != nil {
+			// The hook's error stays the answer; the owner also learns the embed was left behind.
+			err = errors.Join(err, fmt.Errorf("take the new embed back out: %w", derr))
+		}
 		return nil, fp.OpErr("set embed update hook", err)
 	}
 	return json.Marshal(out)

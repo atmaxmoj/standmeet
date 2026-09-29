@@ -20,7 +20,6 @@ const (
 	cutFillRepeats  = 59
 )
 
-//nolint:gosmopolitan // the CJK titles ARE the thing under test: the slug rule for CJK titles
 var paritySamples = []string{
 	"Hello, World!", "  leading and trailing  ", "Already-slugged", "UPPER lower MiXeD",
 	"卢塞恩项目笔记", "卢塞恩 项目 / 规划", "Ünïcödé Çafé", "日本語のタイトル", "한국어 제목",

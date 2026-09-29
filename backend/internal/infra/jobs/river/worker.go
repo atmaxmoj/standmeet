@@ -5,9 +5,10 @@ package river
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
-	"math/rand/v2"
+	"math/big"
 	"slices"
 	"sync"
 	"time"
@@ -20,7 +21,7 @@ import (
 var (
 	aliasMu sync.RWMutex
 	// River reads KindAliases off the zero value at registration.
-	aliases []string //nolint:gochecknoglobals // see above
+	aliases []string
 )
 
 func declareAliases(names []string) {
@@ -74,17 +75,16 @@ type worker struct {
 func (w *worker) Work(ctx context.Context, job *river.Job[rawArgs]) error {
 	k, ok := w.kinds[job.Kind]
 	if !ok {
-		//nolint:wrapcheck // River's control error; River records the cause's own message
 		return river.JobCancel(fmt.Errorf("%w: %s", jobs.ErrUnknownKind, job.Kind))
 	}
 	err := k.Handle(ctx, json.RawMessage(job.EncodedArgs))
 	if d, snoozed := jobs.SnoozeOf(err); snoozed {
-		return river.JobSnooze(d) //nolint:wrapcheck // River's control error
+		return river.JobSnooze(d)
 	}
 	if jobs.IsDiscard(err) {
-		return river.JobCancel(err) //nolint:wrapcheck // River's control error
+		return river.JobCancel(err)
 	}
-	return err //nolint:wrapcheck // the handler's own error is the attempt's recorded error
+	return err
 }
 
 func (w *worker) Timeout(job *river.Job[rawArgs]) time.Duration {
@@ -97,8 +97,18 @@ func (w *worker) NextRetry(job *river.Job[rawArgs]) time.Time {
 		backoff = jobs.DefaultBackoff
 	}
 	d := backoff(job.Attempt)
-	if span := int64(d) / jitterFraction; span > 0 {
-		d += time.Duration(rand.Int64N(2*span) - span) //nolint:gosec // jitter, not security
+	return time.Now().Add(d + jitter(int64(d)/jitterFraction))
+}
+
+// jitter —— a uniform offset in [-span, span). crypto/rand reads the system source; it does not
+// fail on the platforms we run, and if it ever did the retry would simply go without jitter.
+func jitter(span int64) time.Duration {
+	if span <= 0 {
+		return 0
 	}
-	return time.Now().Add(d)
+	n, err := rand.Int(rand.Reader, big.NewInt(2*span))
+	if err != nil {
+		return 0
+	}
+	return time.Duration(n.Int64() - span)
 }

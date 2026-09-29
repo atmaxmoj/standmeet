@@ -142,7 +142,7 @@ func (b *Bus) validate(s *Subscription, seen map[string]bool) error {
 		return err
 	}
 	k := b.kindOf(s)
-	return k.Validate() //nolint:wrapcheck // already names the kind
+	return k.Validate()
 }
 
 // checkGlobs — every glob of s must match at least one declared type.

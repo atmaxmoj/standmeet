@@ -145,8 +145,6 @@ func issueAndQueue(
 }
 
 // recordApproval —— code.issued and access_request.approved, on the approval's transaction.
-//
-//nolint:wrapcheck // Record names the type
 func recordApproval(ctx context.Context, rec events.Recorder, in *issue, codeID string) error {
 	if err := access.RecordCodeEvent(ctx, rec, access.CodeIssued, in.ownerID, codeID); err != nil {
 		return err

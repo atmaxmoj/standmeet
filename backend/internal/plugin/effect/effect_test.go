@@ -65,7 +65,7 @@ func TestSetupReturnsItsOwnInverse(t *testing.T) {
 	var s effect.Scope
 	// The (nil, nil) is the POINT: Def 8 gives every effect an inverse, and a setup that yields
 	// none must be refused rather than stored.
-	noInverse := func() (effect.Dispose, error) { return nil, nil } //nolint:nilnil // see above
+	noInverse := func() (effect.Dispose, error) { return nil, nil }
 	_, err := s.Effect("no-inverse", noInverse)
 	require.ErrorIs(t, err, effect.ErrNoInverse,
 		"a setup yielding no inverse is not an effect function (Def 8) and must be refused, "+

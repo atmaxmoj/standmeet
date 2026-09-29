@@ -204,8 +204,6 @@ func TestTurningAnEndpointBackOnClearsItsStreak(t *testing.T) {
 
 // harness — the delivery deps over a River runtime that is built but not started, so enqueued
 // jobs stay put for the assertions.
-//
-//nolint:ireturn // the port is what the tests read jobs through
 func harness(t *testing.T, pool *pgxpool.Pool, r *repo.Repo) (*subscriber.Deps, jobs.Runtime) {
 	t.Helper()
 	var rt jobs.Runtime

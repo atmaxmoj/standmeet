@@ -116,7 +116,7 @@ func (r *ChatRepo) runInTx(
 		out, ferr = fn(db.New(tx))
 		return ferr
 	}); err != nil {
-		return "", err //nolint:wrapcheck // InTx names begin/commit; fn names its steps
+		return "", err
 	}
 	return out, nil
 }

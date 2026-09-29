@@ -32,7 +32,6 @@ type VaultImports struct {
 func (v VaultImports) RecordVaultImport(
 	ctx context.Context, ownerID string, rec entity.VaultImportReceipt,
 ) error {
-	//nolint:wrapcheck // the repo and Record name their steps
 	return pgstore.InTx(ctx, v.Owners.Pool(), func(tx pgstore.Tx) error {
 		if err := v.Owners.With(tx).RecordVaultImport(ctx, ownerID, rec); err != nil {
 			return err
@@ -46,5 +45,5 @@ func (v VaultImports) RecordVaultImport(
 func (v VaultImports) GetVaultImportReceipt(
 	ctx context.Context, ownerID string,
 ) (entity.VaultImportReceipt, error) {
-	return v.Owners.GetVaultImportReceipt(ctx, ownerID) //nolint:wrapcheck // the repo names it
+	return v.Owners.GetVaultImportReceipt(ctx, ownerID)
 }

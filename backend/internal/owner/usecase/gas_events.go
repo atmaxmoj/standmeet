@@ -15,7 +15,6 @@ import (
 
 // NoteGasExhausted —— the visitor gate found this tank dry: gas.exhausted, once per fill.
 func NoteGasExhausted(ctx context.Context, d ProvidersDeps, ownerID, providerID string) error {
-	//nolint:wrapcheck // the repo and Record name their steps
 	return pgstore.InTx(ctx, d.Owners.Pool(), func(tx pgstore.Tx) error {
 		moved, err := d.Owners.With(tx).MarkGasExhausted(ctx, ownerID, providerID)
 		if err != nil || !moved {
@@ -35,8 +34,6 @@ func GasRefillPeriodicJobs(owners *repo.Repo, rec events.Recorder) []periodic.Jo
 
 // updateProviderRow —— the provider row. A fill (set_gas with an amount) commits with its
 // gas.refilled; any other update is the row alone.
-//
-//nolint:wrapcheck // the caller names the step
 func updateProviderRow(
 	ctx context.Context, d ProvidersDeps, in *repo.UpdateProviderInput,
 ) (repo.ProviderRow, error) {
@@ -56,6 +53,5 @@ func updateProviderRow(
 
 func recordGas(ctx context.Context, rec events.Recorder, typ, ownerID, providerID string) error {
 	data := map[string]string{"provider_id": providerID}
-	//nolint:wrapcheck // Record names the type
 	return rec.Record(ctx, ownerID, typ, "provider/"+providerID, data)
 }

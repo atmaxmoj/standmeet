@@ -204,8 +204,7 @@ func registerAgentSkills(ctx context.Context, d *deps.Runtime) {
 	blockwire.BlockQuotaHooks(d, hooks)
 	// The dial-error hook this installs records WHY a block vanished, on a context detached
 	// from whichever assembly was running. See blockwire.recordBlockFailure.
-	//nolint:contextcheck // detached on purpose
-	blockwire.RegisterDiscoveredPlugins(d, depReg, hooks)
+	blockwire.RegisterDiscoveredPlugins(ctx, d, depReg, hooks)
 	blockwire.BlockEnableGate(d)
 	// The other gate, and the one that answers first: a code carrying a bundle is
 	// granted the bundle's contents, read live at every assembly.

@@ -23,19 +23,6 @@ import (
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 )
 
-// i18nMinimalExample — the copy-pasteable minimal form attached to the error. No
-// frontmatter needed at all.
-//
-//nolint:gosmopolitan // the Chinese side of the example is half of this contract
-const i18nMinimalExample = "> [!i18n]\n" +
-	"> > [!lang] en\n" +
-	"> > # Title\n" +
-	"> > English body.\n" +
-	">\n" +
-	"> > [!lang] zh\n" +
-	"> > # 标题\n" +
-	"> > 中文正文。"
-
 // guardI18n — runs a body's multilingual structure through validation. Any error-level
 // diagnostic → reject, handing every one of them plus a minimal example back to the
 // caller. Warnings don't block (translation quality shouldn't hold up a write).
@@ -55,7 +42,7 @@ func i18nRejection(ds []i18n.Diagnostic) string {
 			lines = append(lines, "  · "+ds[i].Message)
 		}
 	}
-	lines = append(lines, "the minimum form is:\n"+i18nMinimalExample)
+	lines = append(lines, "the minimum form is:\n"+i18n.MinimalExample)
 	return strings.Join(lines, "\n")
 }
 
@@ -109,7 +96,7 @@ func checkI18n() fp.Invoke {
 			Languages: nonNilStrings(doc.Langs),
 		}
 		if !out.Acceptable {
-			out.Example = i18nMinimalExample
+			out.Example = i18n.MinimalExample
 		}
 		return json.Marshal(out)
 	}

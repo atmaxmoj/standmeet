@@ -4,7 +4,7 @@
 // reserved prefix / that's core / that's empty. A leaky guard → these assertions go red
 // (guard-must-fail-on-the-bug).
 
-package blockstore //nolint:testpackage // schemaName/assertDroppable are unexported, share pkg
+package blockstore
 
 import "testing"
 

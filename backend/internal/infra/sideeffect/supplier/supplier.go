@@ -65,7 +65,6 @@ func Enqueue(ctx context.Context, j jobs.Jobs, a *Args) error {
 func run(ctx context.Context, inv Invoker, raw json.RawMessage) error {
 	var a Args
 	if err := json.Unmarshal(raw, &a); err != nil || a.Seam == "" || a.Verb == "" {
-		//nolint:wrapcheck // the failure class; it wraps the cause
 		return jobs.Discard(fmt.Errorf("%s: bad args %s", Kind, raw))
 	}
 	_, err := inv.Invoke(ctx, a.OwnerID, a.Seam, a.Verb, a.Args)
@@ -79,7 +78,7 @@ func classify(err error, a *Args) error {
 	}
 	err = fmt.Errorf("%s %s/%s: %w", Kind, a.Seam, a.Verb, err)
 	if adapters.SupplierPermanent(err) {
-		return jobs.Discard(err) //nolint:wrapcheck // the failure class; it wraps the cause
+		return jobs.Discard(err)
 	}
 	return err
 }

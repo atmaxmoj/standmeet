@@ -37,10 +37,12 @@ import (
 // (b) when registering a config plugin, its Requires is checked — a plugin declaring a
 // dependency name core can't supply → rejected (fail-fast, requires-boot-reject).
 func RegisterDiscoveredPlugins(
-	d *deps.Runtime, depReg *registry.DepRegistry, hooks map[string]mount.BlockHooks,
+	ctx context.Context, d *deps.Runtime, depReg *registry.DepRegistry,
+	hooks map[string]mount.BlockHooks,
 ) {
-	registerBuiltins(d, hooks) // built-in dep names are known by construction; no re-check needed
-	registerPluginSource(d, os.Getenv("STANDMEET_PLUGINS"), registry.OriginManaged, depReg)
+	// built-in dep names are known by construction; no re-check needed
+	registerBuiltins(ctx, d, hooks)
+	registerPluginSource(ctx, d, os.Getenv("STANDMEET_PLUGINS"), registry.OriginManaged, depReg)
 }
 
 // registerBuiltins — the built-in blocks shipped with the product. Code lives in its
@@ -50,11 +52,11 @@ func RegisterDiscoveredPlugins(
 // origin=builtin label — the load mechanism has no special path at all. hooks attaches
 // per-session BlockHooks to the built-ins that need runtime hooks (booker: supplier+quota tool
 // gate; retrieval: corpus-scope fragment/enabled gate).
-func registerBuiltins(d *deps.Runtime, hooks map[string]mount.BlockHooks) {
+func registerBuiltins(ctx context.Context, d *deps.Runtime, hooks map[string]mount.BlockHooks) {
 	ms := BlockManifests()
 	noteBlock(ms)
 	dupes := mount.RegisterDiscoveredPluginsHooked(
-		d.AgentSkills, ms, registry.OriginBuiltin, hooks, blockDialErrLog(d),
+		d.AgentSkills, ms, registry.OriginBuiltin, hooks, blockDialErrLog(ctx, d),
 	)
 	for _, id := range dupes {
 		d.Log.Warn("builtin register skipped (duplicate id)", "id", id)
@@ -75,11 +77,15 @@ func registerBuiltins(d *deps.Runtime, hooks map[string]mount.BlockHooks) {
 // Recording is best-effort and never blocks the visitor's path: this runs while a
 // session is being assembled, the block is already being hidden, and a failure to
 // write down WHY must not become a second failure the visitor can feel.
-func blockDialErrLog(d *deps.Runtime) func(id string, err error) {
+//
+// ctx is where the hook was installed (boot, or the install request). Only its values travel:
+// context.WithoutCancel drops its cancellation, so the record outlives whatever installed it.
+func blockDialErrLog(ctx context.Context, d *deps.Runtime) func(id string, err error) {
+	base := context.WithoutCancel(ctx)
 	return func(id string, err error) {
 		d.Log.Warn("visitor block failed to bind — hidden from this session",
 			"block", id, "err", err)
-		recordBlockFailure(d, id, err)
+		recordBlockFailure(base, d, id, err)
 	}
 }
 
@@ -91,15 +97,16 @@ func blockDialErrLog(d *deps.Runtime) func(id string, err error) {
 // layers of plugin code that is otherwise owner-agnostic. When this instance becomes
 // multi-tenant the assumption is in one function, which is where it can be seen.
 //
-// The context is a fresh one, not the visitor's, and that is the point: this write records WHY
-// a block vanished from the session being assembled. Inheriting the caller's context would
-// cancel the record at exactly the moment it matters — the assembly that failed — leaving the
-// owner with the same silence the entry exists to end. Its own short budget bounds it instead.
-func recordBlockFailure(d *deps.Runtime, id string, err error) {
+// The context is never the visitor's, and that is the point: this write records WHY a block
+// vanished from the session being assembled. Inheriting the assembly's context would cancel the
+// record at exactly the moment it matters — the assembly that failed — leaving the owner with
+// the same silence the entry exists to end. base carries no cancellation (see blockDialErrLog);
+// its own short budget bounds the write instead.
+func recordBlockFailure(base context.Context, d *deps.Runtime, id string, err error) {
 	if d.Assembly == nil {
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), failureWriteTimeout)
+	ctx, cancel := context.WithTimeout(base, failureWriteTimeout)
 	defer cancel()
 	ownerID, oerr := port.NewSoleOwnerLookup(d).SoleOwnerID(ctx)
 	if oerr != nil || ownerID == "" {
@@ -147,7 +154,8 @@ func blockTitle(ctx context.Context, d *deps.Runtime, ownerID, id string) string
 // unregistered seam) → rejected + logged, rather than let it come up carrying a
 // dependency it can never satisfy (fail-fast, same nature as the version gate).
 func registerPluginSource(
-	d *deps.Runtime, path string, origin registry.Origin, depReg *registry.DepRegistry,
+	ctx context.Context, d *deps.Runtime, path string, origin registry.Origin,
+	depReg *registry.DepRegistry,
 ) {
 	res, err := plugin.LoadOwnerSource(path)
 	if err != nil {
@@ -160,7 +168,7 @@ func registerPluginSource(
 	}
 	kept := keepResolvableDeps(d, res.Manifests, depReg)
 	noteBlock(kept)
-	dupes := mount.RegisterDiscoveredPlugins(d.AgentSkills, kept, origin, blockDialErrLog(d))
+	dupes := mount.RegisterDiscoveredPlugins(d.AgentSkills, kept, origin, blockDialErrLog(ctx, d))
 	for _, id := range dupes {
 		d.Log.Warn("plugin register skipped (duplicate id)", "id", id)
 	}

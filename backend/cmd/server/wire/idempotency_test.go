@@ -44,7 +44,7 @@ type driver func(t *testing.T, h *idem) []idemCase
 
 // drivers —— one per registered subscription. Adding a subscription means adding its driver
 // here; the test fails until then.
-var drivers = map[string]driver{ //nolint:gochecknoglobals // the test's table
+var drivers = map[string]driver{
 	corpussub.IndexSubscriber:            driveIndex,
 	entity.WebhookFanout:                 driveWebhookFanout,
 	entity.OwnerNotify:                   driveOwnerNotify,

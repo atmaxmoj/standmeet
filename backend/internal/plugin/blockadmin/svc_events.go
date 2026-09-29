@@ -35,7 +35,6 @@ func EventTypes() []events.Type {
 // inTx —— fn with a copy of the service whose connection writes and recorder join one
 // transaction.
 func (s *Service) inTx(ctx context.Context, fn func(t *Service) error) error {
-	//nolint:wrapcheck // InTx names begin/commit; fn names its steps
 	return pgstore.InTx(ctx, s.d.Repo.Pool(), func(tx pgstore.Tx) error {
 		d := *s.d
 		d.Repo, d.Events = s.d.Repo.With(tx), s.d.Events.With(tx)
@@ -46,13 +45,12 @@ func (s *Service) inTx(ctx context.Context, fn func(t *Service) error) error {
 // setActive —— claims the seam slot for id and records supplier.activated.
 func (s *Service) setActive(ctx context.Context, ownerID, id, seam string) error {
 	if err := s.d.Repo.SetActive(ctx, ownerID, id, seam); err != nil {
-		return err //nolint:wrapcheck // callers name the step
+		return err
 	}
 	return s.record(ctx, SupplierActivated, ownerID, id)
 }
 
 func (s *Service) record(ctx context.Context, typ, ownerID, id string) error {
 	data := map[string]string{"supplier_id": id}
-	//nolint:wrapcheck // Record names the type
 	return s.d.Events.Record(ctx, ownerID, typ, "supplier/"+id, data)
 }

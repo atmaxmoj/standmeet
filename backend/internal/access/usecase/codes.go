@@ -45,7 +45,6 @@ type CodesDeps struct {
 
 // RecordCodeEvent —— one code.* event on rec (join the write's transaction with With(tx)).
 func RecordCodeEvent(ctx context.Context, rec events.Recorder, typ, ownerID, codeID string) error {
-	//nolint:wrapcheck // Record names the type
 	return rec.Record(ctx, ownerID, typ, "code/"+codeID, map[string]string{"code_id": codeID})
 }
 
@@ -63,7 +62,7 @@ func IssueCode(
 	cerr := pgstore.InTx(ctx, d.Codes.Pool(), func(tx pgstore.Tx) error {
 		var werr error
 		if code, werr = d.Codes.With(tx).Create(ctx, in); werr != nil {
-			return werr //nolint:wrapcheck // wrapped below
+			return werr
 		}
 		return RecordCodeEvent(ctx, d.Events.With(tx), CodeIssued, in.OwnerID, code.ID)
 	})
@@ -115,7 +114,7 @@ func assumedRoleOrInvited(
 func RevokeCode(ctx context.Context, d CodesDeps, ownerID, codeID string) error {
 	err := pgstore.InTx(ctx, d.Codes.Pool(), func(tx pgstore.Tx) error {
 		if werr := d.Codes.With(tx).Revoke(ctx, ownerID, codeID); werr != nil {
-			return werr //nolint:wrapcheck // wrapped below
+			return werr
 		}
 		return RecordCodeEvent(ctx, d.Events.With(tx), CodeRevoked, ownerID, codeID)
 	})

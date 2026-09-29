@@ -101,7 +101,7 @@ func (c *Counter) Remaining(ctx context.Context, subject blockconfig.Scope) (*in
 // limitOf — the limit on this subject. Unset / null / ≤ 0 → nil (unlimited).
 func (c *Counter) limitOf(ctx context.Context, subject blockconfig.Scope) (*int32, error) {
 	if subject.ID() == "" {
-		return nil, nil //nolint:nilnil // no subject = unlimited, not an error
+		return nil, nil
 	}
 	values, err := c.cfg.ValuesScoped(ctx, subject, c.subjectFields)
 	if err != nil {
@@ -109,7 +109,7 @@ func (c *Counter) limitOf(ctx context.Context, subject blockconfig.Scope) (*int3
 	}
 	raw, ok := values[c.decl.ConfigKey]
 	if !ok {
-		return nil, nil //nolint:nilnil // key absent = unlimited
+		return nil, nil
 	}
 	return decodeLimit(raw)
 }
@@ -120,7 +120,7 @@ func decodeLimit(raw json.RawMessage) (*int32, error) {
 		return nil, fmt.Errorf("blockquota limit decode: %w", err)
 	}
 	if limit == nil || *limit <= 0 {
-		return nil, nil //nolint:nilnil // null / ≤0 = unlimited
+		return nil, nil
 	}
 	return limit, nil
 }

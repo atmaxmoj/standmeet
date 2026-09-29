@@ -70,9 +70,9 @@ func main() {
 		_, _ = fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(2)
 	}
-	_, _ = fmt.Println(res.headline) //nolint:forbidigo // a CLI gate's report medium is stdout
+	_, _ = fmt.Println(res.headline)
 	for _, f := range res.findings {
-		_, _ = fmt.Println(f) //nolint:forbidigo // a CLI gate's report medium is stdout
+		_, _ = fmt.Println(f)
 	}
 	if len(res.findings) > 0 {
 		os.Exit(1)

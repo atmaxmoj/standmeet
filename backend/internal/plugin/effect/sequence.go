@@ -50,16 +50,16 @@ func (s *Scope) Advance(it *Iterator) (bool, error) {
 	}
 	it.begin(s)
 
-	undo, more, err := step(it)
+	taken, err := step(it)
 	if err != nil {
 		return false, joinRollback(s, it.mark, err)
 	}
-	yield := func() (Dispose, error) { return undo, nil }
+	yield := func() (Dispose, error) { return taken.undo, nil }
 	if _, regErr := s.Effect("iteration", yield); regErr != nil {
 		return false, regErr
 	}
-	it.next = more
-	it.done = more == nil
+	it.next = taken.more
+	it.done = taken.more == nil
 	return !it.done, nil
 }
 
@@ -83,23 +83,25 @@ func (it *Iterator) begin(s *Scope) {
 	st.mu.Unlock()
 }
 
-// step —— one iteration, held to Definition 17. Three results because that IS the shape of an
-// iteration: the inverse, the continuation, and whether it got that far.
-//
+// iteration —— what one iteration of Definition 17 yields when it gets that far: the inverse of
+// what it just did, and the continuation (nil = Nothing).
+type iteration struct {
+	undo Dispose
+	more Step
+}
+
 // step —— one iteration, held to Definition 17: it yields the inverse of what it just did, and
 // an iteration that yields none is not one.
-//
-//nolint:revive // function-result-limit: Definition 17 gives an iteration three results.
-func step(it *Iterator) (Dispose, Step, error) {
+func step(it *Iterator) (iteration, error) {
 	undo, more, err := it.next()
 	if err == nil && undo == nil {
 		err = ErrNoInverse
 	}
 	if err != nil {
 		it.done = true
-		return nil, nil, err
+		return iteration{}, err
 	}
-	return undo, more, nil
+	return iteration{undo: undo, more: more}, nil
 }
 
 // joinRollback —— revert what this run installed, and report the failure alongside any the

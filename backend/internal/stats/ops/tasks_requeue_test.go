@@ -20,20 +20,17 @@ import (
 // refusingJobs —— a jobs port whose every enqueue fails, so the relay poisons what it claims.
 type refusingJobs struct{ jobs.Jobs }
 
-//nolint:ireturn // test double of our own port
 func (f refusingJobs) With(tx pgstore.Tx) jobs.Jobs { return refusingJobs{f.Jobs.With(tx)} }
 
 func (refusingJobs) Enqueue(
 	context.Context, string,
-	any, //nolint:forbidigo // implements jobs.Jobs.Enqueue, whose args is a JSON payload
+	pgstore.JSONB,
 	jobs.EnqueueOpts,
 ) (jobs.JobID, error) {
 	return 0, errors.New("enqueue refused")
 }
 
 // oneEventBus —— the bus and an unstarted runtime, with a single unfanned event.
-//
-//nolint:ireturn // the port is what the panel reads jobs through
 func oneEventBus(t *testing.T) (*events.Bus, jobs.Runtime) {
 	t.Helper()
 	pool := scratchDB(t)
@@ -75,13 +72,22 @@ func invokeOp(t *testing.T, all []fp.Op, id, args string) {
 	t.Fatalf("no %s op", id)
 }
 
-// poisonTheEvent —— relay passes against a refusing queue until the bus's one event is poisoned;
+// refusedPass —— one relay pass against a refusing queue. Failure is the input, so a failed
+// pass is logged, not asserted.
+func refusedPass(ctx context.Context, t *testing.T, bus *events.Bus, rt jobs.Jobs) {
+	t.Helper()
+	if _, err := bus.FanOut(ctx, refusingJobs{rt}); err != nil {
+		t.Logf("relay pass failed, as designed: %v", err)
+	}
+}
+
+// poisonTheEvent ——relay passes against a refusing queue until the bus's one event is poisoned;
 // returns its id.
 func poisonTheEvent(t *testing.T, bus *events.Bus, rt jobs.Jobs) string {
 	t.Helper()
 	ctx := context.Background()
 	for range events.PoisonAfter + 1 {
-		_, _ = bus.FanOut(ctx, refusingJobs{rt}) //nolint:errcheck // failure is the input
+		refusedPass(ctx, t, bus, rt)
 	}
 	stuck, err := bus.List(ctx, events.Filter{Limit: 1})
 	if err != nil || len(stuck) != 1 || !stuck[0].Poisoned {

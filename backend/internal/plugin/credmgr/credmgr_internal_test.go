@@ -1,11 +1,11 @@
-// credmgr_test.go — the credential-manager's crypto boundary: a sealed secret round-trips
+// credmgr_internal_test.go —the credential-manager's crypto boundary: a sealed secret round-trips
 // back to the same value for its owner, is bound to that owner (another owner cannot open it),
 // and a tampered blob is refused. Persistence (blockstore) is covered by the e2e; this pins the
 // security-critical encode/decode pair, which is pure (no DB).
 //
 // Not parallel: t.Setenv (INSTANCE_SECRET) forbids t.Parallel.
 
-package credmgr //nolint:testpackage // white-box: encode/decode are unexported crypto helpers
+package credmgr
 
 import (
 	"strings"
@@ -13,7 +13,6 @@ import (
 )
 
 const (
-	//nolint:lll // test fixture, not a real secret
 	testInstanceSecret = "test-instance-secret-at-least-32-bytes-long" //gitleaks:allow
 	ownerA             = "11111111-1111-1111-1111-111111111111"
 	ownerB             = "22222222-2222-2222-2222-222222222222"

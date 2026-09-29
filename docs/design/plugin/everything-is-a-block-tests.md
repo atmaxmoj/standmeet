@@ -135,7 +135,7 @@ is exactly what makes it the safety net across the fold.
 | uninstall a storing block drops its schema — no orphan leak | `block-uninstall-drops-schema` |
 | per-session sandbox workspace is provisioned, TTL-swept by cron; a fresh one survives | `sandbox-workspace-ttl-cron` |
 | an owner's stored data survives a schema/vocabulary/column move across a deploy — incl. the credential value surviving in credmgr through the cap→block vocabulary rename | `upgrade-block-vocabulary`, `upgrade-embed-schema`, `upgrade-access-code-slug`, `upgrade-pending-email-columns`, `upgrade-monitoring-enabled-column`, `upgrade-homepage-seo-columns`, `upgrade-application-code-unique`, `upgrade-code-entropy-compat` |
-| **credential-manager (credmgr) is the vault-off-bespoke store**: a non-native secret (telegram token, SMTP password, API key) is sealed in credmgr's own db-block schema (`mcp_credential_manager`, rule 3), keyed by (owner, block id); block_connections keeps metadata only, `credentials_enc` empty | ✅ `vault-credmgr-telegram` (e2e) · `credentials/upgrade_test.go` (resolveCreds fallback + self-heal, UT) |
+| **credential-manager (credmgr) is the vault-off-bespoke store**: a non-native secret (telegram token, SMTP password, API key) is sealed in credmgr's own db-block schema (`mcp_credential_manager`, rule 3), keyed by (owner, block id); block_connections keeps metadata only, `credentials_enc` empty | ✅ `vault-credmgr-telegram` (e2e) · `credentials/upgrade_internal_test.go` (resolveCreds fallback + self-heal, UT) |
 
 ## H. The blocks themselves — behavior, not build ✅
 

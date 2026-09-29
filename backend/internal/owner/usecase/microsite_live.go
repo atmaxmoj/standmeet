@@ -79,7 +79,7 @@ func pageFact(
 		}
 		return deps.Events().With(tx).Record(ctx, page.OwnerID, typ, "microsite/"+page.Slug, data)
 	})
-	return out, err //nolint:wrapcheck // the callers name the step
+	return out, err
 }
 
 func promoteCheck(

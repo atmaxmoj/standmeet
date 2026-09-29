@@ -155,12 +155,6 @@ type OpProvider interface {
 	CanPerform(ctx context.Context, ownerID, op string) (bool, error)
 }
 
-// splitDep — `"calendar:events.insert"` → ("calendar","events.insert"); no colon → (name, "").
-func splitDep(name string) (string, string) { //nolint:revive // dep + op, order is in the doc comment
-	dep, op, _ := strings.Cut(name, ":")
-	return dep, op
-}
-
 // NamedProvider — wraps a (name, Connected closure) pair as a DepProvider. The composition
 // root uses it to register a supplier proxy's Connected method (calendar / smtp) as a named
 // dependency, without the supplier package importing this registry back. Credentials never pass
@@ -245,7 +239,7 @@ func (r *DepRegistry) Lookup(name string) (DepProvider, bool) {
 func (r *DepRegistry) Unknown(names []string) []string {
 	var out []string
 	for _, n := range names {
-		dep, op := splitDep(n)
+		dep, op, _ := strings.Cut(n, ":") // "<dep>:<op>"; no colon → op ""
 		p, ok := r.providers[dep]
 		if !ok {
 			out = append(out, n)
@@ -310,7 +304,7 @@ func (r *DepRegistry) Unconnected(
 // "connected or not" — the latter would tell a read-only connection "yes, you're connected"
 // and then every write 403s (F-B-8).
 func (r *DepRegistry) lacks(ctx context.Context, ownerID, name string) (bool, error) {
-	dep, op := splitDep(name)
+	dep, op, _ := strings.Cut(name, ":") // "<dep>:<op>"; no colon → op ""
 	p, ok := r.providers[dep]
 	if !ok {
 		return true, nil

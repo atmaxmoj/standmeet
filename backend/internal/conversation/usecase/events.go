@@ -59,7 +59,6 @@ func PrunePeriodicJobs(
 // recordStarted ——conversation.started for chat, on rec (joined to the insert's transaction).
 func recordStarted(ctx context.Context, rec events.Recorder, chat *entity.Chat) error {
 	data := map[string]string{"conversation_id": chat.ID, "mode": string(chat.Mode)}
-	//nolint:wrapcheck // Record names the type
 	return rec.Record(ctx, chat.OwnerID, ConversationStarted, "conversation/"+chat.ID, data)
 }
 
@@ -68,7 +67,6 @@ func recordStarted(ctx context.Context, rec events.Recorder, chat *entity.Chat) 
 func (d *VisitorSessionDeps) inTx(
 	ctx context.Context, fn func(t *VisitorSessionDeps) error,
 ) error {
-	//nolint:wrapcheck // InTx names begin/commit; fn names its steps
 	return pgstore.InTx(ctx, d.Chats.Pool(), func(tx pgstore.Tx) error {
 		t := *d
 		t.Codes, t.Chats, t.Events = d.Codes.With(tx), d.Chats.With(tx), d.Events.With(tx)
@@ -82,7 +80,7 @@ func createChat(
 ) (entity.Chat, error) {
 	chat, err := deps.Chats.CreateChat(ctx, in)
 	if err != nil {
-		return entity.Chat{}, err //nolint:wrapcheck // callers name the step
+		return entity.Chat{}, err
 	}
 	err = recordStarted(ctx, deps.Events, &chat)
 	return chat, err
@@ -106,6 +104,5 @@ func recordRedeemed(
 	ctx context.Context, deps *VisitorSessionDeps, codeID, ownerID, memberID string,
 ) error {
 	data := map[string]string{"code_id": codeID, "member_id": memberID}
-	//nolint:wrapcheck // Record names the type
 	return deps.Events.Record(ctx, ownerID, access.CodeRedeemed, "code/"+codeID, data)
 }

@@ -50,8 +50,6 @@ type subjectivityCiteResolver struct {
 // NewSubjectivityCiteResolver —— for the composition root: wraps a subjectivity NoteRepo
 // as a lookup. Returns nil when repo is nil (callers with no subjectivity wiring take
 // the no-op resolve path).
-//
-//nolint:ireturn // nil-safe factory: nil repo returns nil interface, caller nil-guards around it
 func NewSubjectivityCiteResolver(notes *repo.NoteRepo) SubjectivityCiteLookup {
 	if notes == nil {
 		return nil

@@ -28,7 +28,6 @@ const echoerID = "echoer"
 func buildPluginMock(t *testing.T) string {
 	t.Helper()
 	bin := filepath.Join(t.TempDir(), "mcpmock")
-	//nolint:gosec // test: compiles a known mock server into t.TempDir(), a fixed command.
 	cmd := exec.CommandContext(t.Context(), "go", "build", "-o", bin, "./mcp")
 	cmd.Dir = "../../../../mock-stack"
 	out, err := cmd.CombinedOutput()
@@ -152,7 +151,7 @@ func TestMCPApp_InProcessUnifiedPath(t *testing.T) {
 		ID: "inproc_cap", Shape: plugin.ShapeVisitorOnly, ACL: plugin.ACLAlways,
 		RawToolNames: true,
 		Transport: plugin.Transport{
-			Kind: plugin.TransportInProcess, InProcessServer: srv,
+			Kind: plugin.TransportInProcess, InProcessServer: InProcess{Server: srv},
 		},
 	}
 	reg := registry.NewRegistry()

@@ -10,11 +10,11 @@ import (
 )
 
 // Jobs — enqueue work. With(tx) binds the insert to the caller's transaction: the job exists if
-// and only if the transaction commits.
+// and only if the transaction commits. args is a pgstore.JSONB: marshaled as it is, read back
+// as raw JSON by the kind's handler.
 type Jobs interface {
 	With(tx pgstore.Tx) Jobs
-	//nolint:forbidigo // args is the JSON payload; encoding/json.Marshal takes interface{}
-	Enqueue(ctx context.Context, kind string, args any, opts EnqueueOpts) (JobID, error)
+	Enqueue(ctx context.Context, kind string, args pgstore.JSONB, opts EnqueueOpts) (JobID, error)
 }
 
 // Inspector — reads and acts on job rows (the Tasks panel, MCP tasks.*).
