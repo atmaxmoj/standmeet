@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { chooseVisitorView } from '@/app/visitor-root';
-import type { VisitorSession } from '@/lib/visitor/session-store';
+import type { VisitorSession } from '@standmeet/sdk';
 
 function session(over: Partial<VisitorSession>): VisitorSession {
   return {

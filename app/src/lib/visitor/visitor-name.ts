@@ -9,7 +9,7 @@
 // During SSR the pending store's code is null → doesn't pop up (no
 // hydration mismatch).
 
-import { usePendingCodeStore } from '@/lib/gate/use-pending-code-store';
+import { usePendingCodeStore } from '@standmeet/sdk';
 
 // useShouldAskVisitorName —— pops up whenever there's a pending code
 // (scanned in but hasn't picked a name and started the session yet).

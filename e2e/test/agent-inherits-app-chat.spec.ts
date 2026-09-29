@@ -105,11 +105,12 @@ async function initOwner(playwright: Playwright): Promise<void> {
 }
 
 // enterOnPage —— the recruiter's path: redeem the code (it lands on its page), then wait for the
-// page's agent.
+// page's agent to hold the code (inline, not the gate hand-off). Attached, not visible: on a phone
+// the agent is the floating dock, whose own box is empty (the pill and the panel are fixed).
 async function enterOnPage(page: Page, name: string): Promise<void> {
   await enterCodeSession(page, CODE, name);
   await page.waitForURL(`**/p/${SLUG}**`, { timeout: 20_000 });
-  await expect(page.getByTestId('agent-widget')).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId('agent-widget')).toHaveAttribute('data-mode', 'inline', { timeout: 20_000 });
 }
 
 async function ask(page: Page, text: string): Promise<void> {

@@ -94,7 +94,7 @@ test.describe('visitor multi-conversation model', () => {
       await expect(panel.getByTestId('chat-progress')).toHaveCount(0, { timeout: 15_000 });
       // Burning through turn 2 in the dock exhausts the member's budget (2) — used is a
       // member-level shared value, so it locks immediately.
-      await expect(panel.getByTestId('floating-chat-input')).toBeDisabled();
+      await expect(panel.getByTestId('chat-input-field')).toBeDisabled();
 
       // Back to the main page: once restore lands (the main conversation's 1 turn
       // reappears, and the same VisitorView sets used to 2), the main composer is also
@@ -125,7 +125,7 @@ async function openDock(page: Page): Promise<ReturnType<Page['getByTestId']>> {
 }
 
 async function askDock(page: Page, text: string): Promise<void> {
-  const input = page.getByTestId('floating-chat-input');
+  const input = page.getByTestId('floating-chat-panel').getByTestId('chat-input-field');
   await input.fill(text);
   await input.press('Enter');
 }

@@ -8,7 +8,7 @@
 import { useTranslations } from 'next-intl';
 import { useCallback, useState } from 'react';
 
-import { corpusHref } from '@/lib/corpus/href';
+import { corpusHref } from '@standmeet/sdk';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { Chip } from '@/components/admin/atoms/Chip';
 import { CorpusEntryForm } from '@/components/admin/sections/corpus/CorpusEntryForm';

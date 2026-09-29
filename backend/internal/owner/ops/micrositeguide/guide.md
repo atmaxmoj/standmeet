@@ -33,9 +33,16 @@ AssetWidget, BlockWidget } from '@standmeet/sdk'`:
 
 - `<CorpusWidget heading? limit? />` — every published corpus entry as a card; clicking one opens
   the note **inline** (no navigation), with a quiet "read in full ↗" to the reader.
-- `<AgentWidget placeholder? examples? />` — the agent. With no grant it hands the question to
-  /gate; with a code it is the code's own agent inline (corpus scope, persona, quota, and the
-  code's dock buttons all inherited — nothing to wire). Just drop it in.
+- `<AgentWidget layout? placeholder? examples? lang? />` — the agent: the same chat the owner's
+  own site runs (answers as rendered markdown and math, the retrieval card, citations, the code's
+  suggested question, dock buttons). With no grant it hands the question to /gate; with a code it
+  is the code's own agent (corpus scope, persona, quota inherited — nothing to wire). `layout`:
+  - `"rail"` — **use this on a letter / a long page a reader reads top to bottom.** A column beside
+    the page on a wide screen, always in view, so a question can be asked at the line that raised
+    it; a floating dock on a phone. The page's column makes room by itself.
+  - `"inline"` (default) — in the page flow where you put it (a page whose point IS the chat).
+  - `"dock"` — the floating pill on every screen size.
+  `examples` are the starter questions shown before the first turn.
 - `<GateWidget label? sublabel? />` — the access CTA (enter a code / bring a key / request access).
 - `<PageNavWidget exclude? heading? />` — links to the owner's other published pages.
 - `<AssetWidget asset="standmeet-asset:<id>" alt? download? />` — embed one asset from the owner's
@@ -66,7 +73,8 @@ AssetWidget, BlockWidget } from '@standmeet/sdk'`:
   - `sm.fetchCorpusCards()` → published corpus cards; `sm.fetchWikiLanding(path)` → one note's body;
     `sm.fetchMicrosites()` → the owner's other published pages.
 - `import { StandMeetProvider, useChatSession, AnswerText } from '@standmeet/sdk'`
-  - `useChatSession(input)` → `{ messages, streaming, error, send(text) }` (what AgentWidget uses).
+  - `useChatSession(input)` → `{ messages, streaming, error, send(text), clear() }` — the same
+    engine AgentWidget runs, as plain state, for a page that draws its own chat.
   - `<AnswerText text={…} />` renders an answer with StandMeet's paragraph/citation formatting.
 
 ## Persist state — the page's own store

@@ -11,7 +11,7 @@ import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 
 import { fetchCodeIntro, type CodeIntro } from '@/lib/api/public';
-import { usePendingCodeStore } from '@/lib/gate/use-pending-code-store';
+import { usePendingCodeStore } from '@standmeet/sdk';
 
 type PickerT = ReturnType<typeof useTranslations<'visitor.visitorNamePicker'>>;
 

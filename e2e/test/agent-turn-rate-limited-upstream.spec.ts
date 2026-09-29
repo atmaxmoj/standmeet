@@ -13,7 +13,7 @@
 // second model call is visible (same method as agent-widget-ask-visitor-card).
 
 import { test, expect } from '@/fixtures/test';
-import type { Browser, Page } from '@playwright/test';
+import type { Browser, Locator, Page } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { publishEntry, seedWiki } from '@/fixtures/corpus';
@@ -76,7 +76,7 @@ test.describe('agent turn · the provider says 429', () => {
       const visitor = await openWidget(browser);
       const logBefore = new Date().toISOString();
       await ask(visitor, `what do you read ${searchTag}`);
-      await expect(visitor.getByTestId('agent-widget-error'), 'the visitor is told the AI is busy')
+      await expect(lastAnswer(visitor), 'the visitor is told the AI is busy')
         .toContainText(/busy/i, { timeout: 30_000 });
       await expect.poll(() => turnLog(logBefore).includes('agent turn stop'), {
         timeout: 30_000, message: 'the turn finished',
@@ -98,9 +98,10 @@ test.describe('agent turn · the provider says 429', () => {
       const tag = await scriptMockRateLimit(request, 1);
       const visitor = await openWidget(browser);
       await ask(visitor, `hello ${tag}`);
-      const error = visitor.getByTestId('agent-widget-error');
+      const error = lastAnswer(visitor);
       await expect(error, 'the visitor is told the AI is busy').toContainText(/busy/i, { timeout: 90_000 });
       await expect(error).not.toContainText(/went wrong/i);
+      await expect(error, 'read as the rate limit').toHaveAttribute('data-error-code', 'rate_limited');
       await visitor.context().close();
       await request.dispose();
     });
@@ -126,6 +127,12 @@ async function openWidget(browser: Browser): Promise<Page> {
 }
 
 async function ask(page: Page, text: string): Promise<void> {
-  await page.getByTestId('agent-widget-input').fill(text);
-  await page.getByTestId('agent-widget-input').press('Enter');
+  const input = page.getByTestId('agent-widget').getByTestId('chat-input-field');
+  await input.fill(text);
+  await input.press('Enter');
+}
+
+// lastAnswer —— the latest turn's answer: an error is said inside it.
+function lastAnswer(page: Page): Locator {
+  return page.getByTestId('agent-widget').getByTestId('answer-body').last();
 }

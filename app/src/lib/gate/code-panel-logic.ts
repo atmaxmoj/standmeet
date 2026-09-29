@@ -6,7 +6,9 @@
 // uppercase + strip non-[A-Z0-9-] + 32-char cap; paste auto-submits;
 // a wrong code → shake + clear + refocus.
 
-import { loadStoredSession, type GateHook } from '@/lib/gate/use-gate';
+import { loadStoredSession } from '@standmeet/sdk';
+
+import type { GateHook } from '@/lib/gate/use-gate';
 import { landAfterIssue } from '@/lib/visitor/code-landing';
 
 export function normalizeCode(raw: string): string {

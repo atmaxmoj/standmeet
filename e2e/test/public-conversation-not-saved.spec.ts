@@ -70,7 +70,7 @@ test.describe('conversations · owner can stop saving public conversations', () 
       await expect(adminPage.getByTestId('conv-prune-status')).toContainText('not saved', { timeout: 10_000 });
 
       // A new public conversation: answered on screen, but not stored.
-      await visitor.getByTestId('agent-widget-clear').click();
+      await visitor.getByTestId('chat-clear').click();
       await ask(visitor, await scriptMockReplyText(request, 'second answer'), UNSAVED_Q, 'second answer');
       await expect.poll(() => backendLogTail(2000).includes(SKIP_LOG), {
         timeout: 15_000, message: 'the backend reached its write step and skipped it',
@@ -84,9 +84,11 @@ test.describe('conversations · owner can stop saving public conversations', () 
 });
 
 async function ask(page: Page, tag: string, question: string, answer: string): Promise<void> {
-  await page.getByTestId('agent-widget-input').fill(`${question} ${tag}`);
-  await page.getByTestId('agent-widget-ask').click();
-  await expect(page.getByTestId('agent-widget-transcript')).toContainText(answer, { timeout: 30_000 });
+  const widget = page.getByTestId('agent-widget');
+  const input = widget.getByTestId('chat-input-field');
+  await input.fill(`${question} ${tag}`);
+  await input.press('Enter');
+  await expect(widget.getByTestId('answer-body').last()).toContainText(answer, { timeout: 30_000 });
 }
 
 function messageCount(marker: string): number {

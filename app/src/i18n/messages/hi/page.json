@@ -19,10 +19,6 @@
     "assistantLabel": "{handle}’s ai",
     "references": "references · {count}"
   },
-  "toolCalls": {
-    "searched": "searched {count}",
-    "read": "read {count}"
-  },
   "topBar": {
     "live": "live"
   },

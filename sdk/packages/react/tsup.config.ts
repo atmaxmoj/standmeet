@@ -34,7 +34,20 @@ export default defineConfig({
   dts: true,
   clean: true,
   external: ['react', 'react-dom'],
-  treeshake: true,
-  splitting: false,
+  // No rollup tree-shake pass: it strips the 'use client' banner below. esbuild already drops dead
+  // code, and the host's bundler tree-shakes again.
+  treeshake: false,
+  // splitting —— the chat's heavy renderers (mermaid, sanitize-html behind StaticHtmlBlock) are
+  // lazy imports; without code splitting esbuild inlines them and every microsite would carry them.
+  splitting: true,
+  // The chat's stylesheet (src/chat/chat.css + the *.module.css it uses) is emitted as
+  // dist/index.css, published as '@standmeet/sdk/styles.css'; its `@import 'katex/…'` stays an
+  // import the host resolves from this package's own katex dependency.
+  //
+  // 'use client' —— everything here is a React client component or hook (state, effects, browser
+  // storage). Bundling drops each source file's own directive, so the output states it once: a
+  // Next server component (the app's output page renders ChatMarkdown) then renders these as
+  // client components, which is what they are.
+  banner: { js: "'use client';" },
   esbuildPlugins: stripping ? [stripTestIdPlugin] : [],
 });

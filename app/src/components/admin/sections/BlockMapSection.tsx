@@ -15,7 +15,7 @@ import { useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 
 import { SectionHeader } from '@/components/admin/SectionHeader';
-import { MermaidBlock } from '@/components/page/MermaidBlock';
+import { MermaidBlock } from '@standmeet/sdk';
 import { useBlockGraph, mermaidSource, type GraphNode } from '@/lib/admin/use-block-graph';
 
 export function BlockMapSection() {

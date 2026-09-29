@@ -24,7 +24,6 @@
     "brand": "standmeet",
     "live": "live",
     "fullPage": "full page →",
-    "ghostAccept": "↹ tab",
     "ready": "{handle}'s ai · ready",
     "codedWelcome": "{greeting}. I'm an AI grounded in {handle}'s curated corpus. You've come in on the <accent>{codeLabel}</accent> slice.",
     "codedRedaction": "Private topics outside this code's scope are redacted. {handle} reads transcripts afterward.",
@@ -32,28 +31,9 @@
     "codedGhostHint": "Ask anything. There's a suggested question waiting in the box — press Tab to take it.",
     "byoaiWelcome": "Hi. I'm an AI grounded in {handle}'s curated corpus. You're running on your own <accent>{provider}</accent> key — public slice only.",
     "byoaiScope": "Work, projects, public takes — fair game. Private topics return a “need a code” response.",
-    "sessionFull": "session full",
-    "limitReached": "You've hit this session's {reason} limit — contact {handle} to be granted more.",
-    "ask": "ask <big>↵</big>",
     "footnote": "<muted>how this works</muted> · answers come from {handle}'s curated corpus. private topics return a redaction rather than a guess.",
     "footnoteCoded": " {handle} reads the transcript afterward.",
     "footnoteByoai": " your api key never leaves the browser."
-  },
-  "chatTranscript": {
-    "you": "you",
-    "ai": "ai",
-    "references": "references · {count}"
-  },
-  "composerAttachments": {
-    "pasted": "pasted",
-    "remove": "✕"
-  },
-  "floatingChatDock": {
-    "close": "close ✕",
-    "thinking": "thinking",
-    "ask": "ask ",
-    "askTheAI": "ask the AI",
-    "emptyHint": "Ask about this page — answered in the owner’s voice, grounded in the corpus. A separate thread, but the AI still sees your other conversations."
   },
   "restrictedDoc": {
     "opening": "opening…",

@@ -13,13 +13,7 @@ import {
   EMPTY_TREE_CONTEXT, TreeContextSchema, TreeResponseSchema,
   type TreeContext, type TreeNode,
 } from '@/lib/corpus/tree';
-import type {
-  BYOAIHeaders,
-  IssueSessionInput,
-  PublicSessionResponse,
-  StandMeetClient,
-  SSEEvent,
-} from '@standmeet/sdk-core';
+import type { StandMeetClient } from '@standmeet/sdk-core';
 
 export type {
   BYOAIHeaders,
@@ -64,22 +58,8 @@ function client(): StandMeetClient {
   return createClient({ baseURL: baseURL(), fetchImpl: ssrFetch });
 }
 
-// v1 single-owner instance —— session input carries no handle.
-export interface IssueCodeSessionInput {
-  code: string;
-  visitor_name?: string;
-  visitor_email?: string; // optional; the email entered at entry → session profile
-  member_id?: string;
-}
-
-// BYOAI key / endpoint / model are never persisted on any server layer anymore;
-// the session only sends the provider name for conversation audit. The plaintext
-// key + endpoint + model go into the browser vault (lib/gate/byoai-vault.ts);
-// each chat derives an AES key from session_token, stuffs an AES-GCM envelope
-// into the X-BYOAI-Key header, with endpoint / model going in two more headers.
-export interface IssueBYOAISessionInput {
-  byoai_provider: string;
-}
+// Issuing a session, reading a conversation back and calling a card's tool are the chat's own
+// calls: they live with the chat, in @standmeet/sdk (src/chat/api.ts).
 
 // fetchWikiLanding —— lang is optional: for a multilingual note the server
 // already picks the right side (so SSR also has the correct copy; crawlers and
@@ -117,161 +97,6 @@ export async function fetchCodeIntro(code: string): Promise<CodeIntro | null> {
   }
 }
 
-// Conversation aggregate read model (GET /conversations/<id>). The concept has
-// three layers, code → session → conversation, and the session token finds the
-// conversation. The frontend hydrates it all in one shot on load.
-const GhostSchema = z.object({ text: z.string(), selected: z.boolean() });
-const DialogCitationSchema = z.object({
-  genre: z.enum(['wiki', 'output']),
-  path: z.string(),
-  title: z.string(),
-});
-// ToolCallSchema —— one tool call within the conversation aggregate.
-//
-// result **must be optional**: since F-A-28, results from the retrieval family
-// (corpus_*) are stripped before being sent down to the visitor (that's note
-// body text, some of it private), leaving only name + ok. But in zod v4,
-// `z.unknown()` inside an object is **non-optional** — a missing key throws
-// `expected nonoptional, received undefined`, which fails the **entire**
-// aggregate's safeParse, sends fetchConversation to 'error', and
-// restoreSession returns silently — the visitor sees a blank transcript on
-// refresh: their whole conversation just disappeared.
-//
-// result for non-retrieval tools (booker report cards / summarize / skill_* /
-// ext_*) is still present as usual, and those cards need it to re-render after
-// a refresh, so this field can't just be deleted here — it can only be
-// loosened.
-const ToolCallSchema = z.object({
-  name: z.string(),
-  ok: z.boolean(),
-  result: z.unknown().optional(),
-});
-const AggDialogSchema = z.object({
-  created_at: z.string(),
-  question: z.string(),
-  answer: z.string(),
-  ghosts: z.array(GhostSchema),
-  citations: z.array(DialogCitationSchema),
-  tool_calls: z.array(ToolCallSchema),
-});
-// ConvEventSchema —— a record of an in-card action. It isn't anyone's spoken
-// text, so it doesn't go into dialogs: that shape is question-and-answer, and
-// forcing it in would break the pairing.
-const ConvEventSchema = z.object({ created_at: z.string(), text: z.string() });
-const ViewSchema = z.object({
-  session: z.object({
-    visitor_name: z.string(),
-    // used_turns —— member-level turns used (the backend sums across all of
-    // this person's conversations). The frontend strip shows "used" from this,
-    // no longer counting local dialogs on a single surface (which undercounts
-    // with multiple conversations).
-    used_turns: z.number().optional().default(0),
-    code: z.object({
-      max_turns_per_session: z.number(),
-      max_members: z.number(),
-      member_count: z.number(),
-    }),
-  }),
-  conversation: z.object({
-    dialogs: z.array(AggDialogSchema),
-    started_at: z.string(),
-    // events —— **things that happened** in this conversation (the visitor
-    // cancelled a booking / sent a confirmation, from a card). optional: an
-    // older instance's response (not yet sending this field) must not fail the
-    // whole safeParse over it — that would leave the visitor seeing a blank
-    // transcript after refresh (same lesson as ToolCallSchema.result).
-    events: z.array(ConvEventSchema).optional().default([]),
-  }),
-});
-export type DialogCitation = z.infer<typeof DialogCitationSchema>;
-export type AggDialog = z.infer<typeof AggDialogSchema>;
-export type ConvEvent = z.infer<typeof ConvEventSchema>;
-
-// VisitorView —— the camelCase shape after parsing the endpoint response.
-// session (identity + code quota) + conversation (dialogs / ended / summary).
-// count is derived from dialogs.length, it doesn't carry its own field.
-export interface VisitorView {
-  visitorName: string;
-  maxTurns: number;
-  usedTurns: number;
-  maxMembers: number;
-  memberCount: number;
-  dialogs: AggDialog[];
-  // events —— must be folded back into **the message list the model sees**
-  // after a refresh, otherwise a booking cancelled from a card gets forgotten
-  // by the agent again when the page is reopened (F-B-9).
-  events: ConvEvent[];
-}
-
-// ConversationResult —— three states: alive / invalidated (401/403, needs
-// re-entry) / flaky (keep current state). A dead session must not be silently
-// swallowed as an empty history — the stale identity has to be cleared, and
-// the visitor sent back to the entry point that matches whether they have a
-// code.
-export type ConversationResult =
-  | { status: 'ok'; view: VisitorView }
-  | { status: 'invalid' }
-  | { status: 'error' };
-
-// openDocConversation —— multi-conversation model: the floating window
-// find-or-creates this member's own conversation on a given doc
-// (POST /conversations {doc_key}). Returns conversation_id; returns null on
-// failure (caller falls back to the main conversation, doesn't crash).
-// Idempotent: reopening the same doc returns the same conversation.
-export async function openDocConversation(
-  docKey: string, sessionToken: string,
-): Promise<string | null> {
-  try {
-    const res = await fetch(`${baseURL()}/api/v1/conversations`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
-      body: JSON.stringify({ doc_key: docKey }),
-    });
-    if (!res.ok) return null;
-    const parsed = z.object({ conversation_id: z.string() }).safeParse(await res.json());
-    return parsed.success ? parsed.data.conversation_id : null;
-  } catch {
-    return null;
-  }
-}
-
-// The two POSTs for a booked card (confirmation email / cancel) live in
-// api/booking.ts to stay under the 350-line cap.
-
-// fetchConversation —— fetches the conversation aggregate with a session token
-// (GET /conversations/<id>). 401/403 = token invalidated (expired / instance
-// reset / revoked) → 'invalid'; any other non-2xx / network failure / wrong
-// shape → 'error' (keep the current state, don't crash).
-export async function fetchConversation(
-  conversationID: string, sessionToken: string,
-): Promise<ConversationResult> {
-  try {
-    const res = await fetch(`${baseURL()}/api/v1/conversations/${conversationID}`, {
-      headers: { Authorization: `Bearer ${sessionToken}` },
-    });
-    if (res.status === 401 || res.status === 403) return { status: 'invalid' };
-    if (!res.ok) return { status: 'error' };
-    const parsed = ViewSchema.safeParse(await res.json());
-    return parsed.success
-      ? { status: 'ok', view: toView(parsed.data) }
-      : { status: 'error' };
-  } catch {
-    return { status: 'error' };
-  }
-}
-
-function toView(d: z.infer<typeof ViewSchema>): VisitorView {
-  return {
-    visitorName: d.session.visitor_name,
-    maxTurns: d.session.code.max_turns_per_session,
-    usedTurns: d.session.used_turns,
-    maxMembers: d.session.code.max_members,
-    memberCount: d.session.code.member_count,
-    dialogs: d.conversation.dialogs,
-    events: d.conversation.events,
-  };
-}
-
 // VisitorDoc —— the full text of a cited document, fetched via corpus_read
 // with a visitor session for the lockscreen page.
 const VisitorDocSchema = z.object({
@@ -279,44 +104,6 @@ const VisitorDocSchema = z.object({
   result: z.object({ body: z.string(), title: z.string() }),
 });
 export interface VisitorDoc { title: string; body: string }
-
-// callVisitorTool —— mcp-ui:tool dispatch for a booked card: calls a named
-// tool (calendar_cancel / send_confirmation) using the visitor session. The
-// host dispatches with session context (conversation + token) attached, and
-// returns the tool result wire ({ok,...}). A bad response / network failure →
-// {ok:false,error}, and the card goes into its error terminal state from that.
-export async function callVisitorTool(
-  conversationID: string, sessionToken: string,
-  name: string, args: Record<string, unknown>,
-): Promise<Record<string, unknown>> {
-  if (conversationID === '' || sessionToken === '' || name === '') {
-    return { ok: false, error: 'unavailable' };
-  }
-  try {
-    const res = await fetch(
-      `${baseURL()}/api/v1/sessions/${conversationID}/tools/${encodeURIComponent(name)}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
-        body: JSON.stringify(args),
-      },
-    );
-    const body: unknown = await res.json();
-    if (!isRecordValue(body)) return { ok: false, error: 'bad_response' };
-    // /tools envelope is {ok, result:<tool wire>, reason}. The card wants the tool
-    // wire (result); a dispatch failure (no result — expired session / quota) →
-    // return the envelope itself (ok:false + reason) so the card degrades in-card.
-    return isRecordValue(body['result']) ? body['result'] : body;
-  } catch {
-    return { ok: false, error: 'network' };
-  }
-}
-
-// isRecordValue —— narrows res.json()'s unknown down to a Record (avoids an
-// `as` assertion, satisfies eslint consistent-type-assertions).
-function isRecordValue(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null;
-}
 
 
 // fetchVisitorDoc —— when the public landing page is behind the lockscreen,
@@ -472,30 +259,6 @@ export async function fetchWikiTreeStats(token = ''): Promise<WikiTreeStats> {
     return EMPTY_WIKI_STATS;
   }
 }
-
-export const issuePublicSession = () => client().issueSession({ mode: 'public' });
-export const issueCodeSession = (input: IssueCodeSessionInput) =>
-  client().issueSession({ ...input, mode: 'code' });
-export const issueBYOAISession = (input: IssueBYOAISessionInput) =>
-  client().issueSession({ ...input, mode: 'byoai' });
-
-// streamChatMessage —— **system is required**: goes through /agent/turn, an
-// empty system means the model never gets the fragment + persona (F-O-2).
-// Each session composes it once first via composeChatSystem.
-export function streamChatMessage(
-  conversationID: string, sessionToken: string, content: string,
-  system: string, byoai?: BYOAIHeaders,
-): AsyncGenerator<SSEEvent, void, unknown> {
-  return client().streamMessage(conversationID, sessionToken, content, system, byoai);
-}
-
-// composeChatSystem —— this session's system prompt (fragment + persona).
-export const composeChatSystem = (s: PublicSessionResponse): Promise<string> =>
-  client().composeSystem(s);
-
-// Some callers still need IssueSessionInput directly (microsite uses it in
-// sdk-react's useChatSession), re-exported for compatibility.
-export type { IssueSessionInput };
 
 // ─── posts (blog) ────────────────────────────────────────────────────
 // The SDK doesn't cover posts yet; this goes straight to raw fetch. Move it

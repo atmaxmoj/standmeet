@@ -15,6 +15,13 @@ export default tseslint.config(
     },
   },
   {
+    // The chat (src/chat) came from the app and keeps its idiom: presentation code states a guarded
+    // effect as `ready && send()` instead of an if (the app's same rule, app/eslint.config.mjs).
+    rules: {
+      '@typescript-eslint/no-unused-expressions': ['error', { allowShortCircuit: true, allowTernary: true }],
+    },
+  },
+  {
     // i18n —— the widgets render on owners' pages for visitors in any language, so their UI copy
     // comes from the SDK catalog (src/i18n.ts, t('key')), never inline. The widgets once shipped
     // English-only because nothing here checked (owner, 2026-09-25). `jsx-only`, not the app's

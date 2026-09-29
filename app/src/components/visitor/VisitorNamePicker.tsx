@@ -15,7 +15,7 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 
-import { usePendingCodeStore } from '@/lib/gate/use-pending-code-store';
+import { usePendingCodeStore } from '@standmeet/sdk';
 import {
   dismissPicker,
   submitPickerName,

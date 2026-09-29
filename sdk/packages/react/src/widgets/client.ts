@@ -6,15 +6,19 @@
 
 import { createClient } from '@standmeet/sdk-core';
 
+import { chatBaseURL } from '../chat/api.js';
+
 // widgetClient —— same-origin client shared by every widget (baseURL '' = the instance serving
 // the page). Module-level so all widgets on a page reuse one instance.
 export const widgetClient = createClient({ baseURL: '' });
 
 // gateHref —— a codeless visitor's agent question hands off to /gate, which continues the answer
-// once they present a code / key. Empty question → the bare gate.
+// once they present a code / key. Empty question → the bare gate. The instance's gate: on the
+// embed that is another origin (chatBaseURL).
 export function gateHref(question: string): string {
   const q = question.trim();
-  return q === '' ? '/gate' : `/gate?q=${encodeURIComponent(q)}`;
+  const gate = `${chatBaseURL()}/gate`;
+  return q === '' ? gate : `${gate}?q=${encodeURIComponent(q)}`;
 }
 
 // stripMarkdown —— a light pass so a note's raw body reads as prose inline (widgets don't ship a

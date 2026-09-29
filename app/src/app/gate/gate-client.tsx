@@ -15,7 +15,7 @@ import { Seal } from '@/components/gate/Seal';
 import { WhatsBehind } from '@/components/gate/WhatsBehind';
 import { useTheme } from '@/lib/page/use-theme';
 import { useGate } from '@/lib/gate/use-gate';
-import { useVisitorSessionStore } from '@/lib/visitor/session-store';
+import { useVisitorSessionStore } from '@standmeet/sdk';
 import type { MicrositeLink } from '@/lib/api/microsites';
 
 type Props = {

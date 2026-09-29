@@ -19,10 +19,6 @@
     "assistantLabel": "{handle} 的 ai",
     "references": "引用 · {count}"
   },
-  "toolCalls": {
-    "searched": "已搜索 {count}",
-    "read": "已读 {count}"
-  },
   "topBar": {
     "live": "在线"
   },

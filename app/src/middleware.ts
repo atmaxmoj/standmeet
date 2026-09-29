@@ -17,7 +17,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
 import { LOCALES, LOCALE_COOKIE, LOCALE_HEADER } from '@/i18n/locales';
-import { SESSION_COOKIE } from '@/lib/visitor/session-cookie';
+import { SESSION_COOKIE } from '@standmeet/sdk-core';
 
 const BACKEND_URL = process.env['BACKEND_URL'] ?? 'http://backend:8000';
 const YEAR_SECONDS = 60 * 60 * 24 * 365;

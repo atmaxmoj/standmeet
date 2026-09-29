@@ -7,7 +7,7 @@
 // and gone once the answer lands.
 //
 // RED before the change: the widget renders no throbber element (only the placeholder text changes),
-// so agent-widget-throbber never appears.
+// so the progress line (chat-progress) never appears.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';
@@ -72,14 +72,18 @@ test.describe('AgentWidget · shows an animated progress throbber while the agen
       await expect(reader.getByTestId('agent-widget')).toHaveAttribute('data-mode', 'inline', { timeout: 20_000 });
 
       // [[think:3000]] holds the turn 3s before answering, so the throbber is reliably observable.
-      await reader.getByTestId('agent-widget-input').fill(`tell me something ${tag} [[think:3000]]`);
-      await reader.getByTestId('agent-widget-ask').click();
+      const widget = reader.getByTestId('agent-widget');
+      const input = widget.getByTestId('chat-input-field');
+      await input.fill(`tell me something ${tag} [[think:3000]]`);
+      await input.press('Enter');
 
-      const throbber = reader.getByTestId('agent-widget-throbber');
-      await expect(throbber, 'an animated throbber shows while the agent works').toBeVisible({ timeout: 10_000 });
+      // The progress line holds the animated indicator: the thinking word, or a running tool's throbber.
+      const throbber = widget.getByTestId('chat-progress');
+      await expect(throbber.locator('[data-testid="answer-pending"], [data-testid="tool-throbbers"]'),
+        'an animated throbber shows while the agent works').toBeVisible({ timeout: 10_000 });
 
       // Once the answer streams in, the throbber gives way to the answer text.
-      await expect(reader.getByTestId('agent-widget-transcript')).toContainText(ANSWER, { timeout: 30_000 });
+      await expect(widget.getByTestId('answer-body').last()).toContainText(ANSWER, { timeout: 30_000 });
       await expect(throbber, 'the throbber clears when the answer lands').toBeHidden();
 
       await reader.context().close();

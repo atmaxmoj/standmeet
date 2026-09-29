@@ -21,8 +21,7 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-
-import { citationHref, corpusHref, type CorpusGenre, type CorpusRef } from '@/lib/corpus/href';
+import { corpusHref, withLang, type CorpusRef } from '@standmeet/sdk';
 
 // useCorpusHref —— returns an address-building function that appends the
 // reader's current language.
@@ -36,42 +35,6 @@ export function useCorpusHref(): (ref: CorpusRef) => string {
   return (ref: CorpusRef) => withLang(corpusHref(ref), lang);
 }
 
-// useCitationHref —— the citation shown under an answer, also carrying
-// language. Choosing path vs. slug still belongs to citationHref (that's a
-// genre concern); this only appends the language.
-export function useCitationHref():
-(c: { genre: CorpusGenre; path: string; slug: string }) => string {
-  const lang = useSearchParams()?.get('lang') ?? '';
-  return (c) => withLang(citationHref(c), lang);
-}
+// Citations under an answer and links inside a rendered body carry the language too; those are the
+// chat's own links and live with it (@standmeet/sdk, src/chat/reader-lang.ts).
 
-// useReaderLangHref —— append language to an address that's **already computed**.
-//
-// Links inside the body don't go through corpusHref: the vault's `[[X]]` gets
-// rewritten by the backend into `/wiki/<path>` before being handed to the
-// markdown renderer. And that's exactly the kind of link readers click most
-// as they read — breadcrumbs carried the language, body links didn't, so the
-// choice was still lost on the very first click (this is what production
-// telemetry showed: three breadcrumb links carrying ?lang=zh, three body links bare).
-//
-// Only recognizes this site's own corpus paths: external links and other
-// routes pass through unchanged — tacking our query param onto a third-party
-// address is both useless and rude.
-export function useReaderLangHref(): (href: string) => string {
-  const lang = useSearchParams()?.get('lang') ?? '';
-  return (href: string) => (isCorpusPath(href) ? withLang(href, lang) : href);
-}
-
-const CORPUS_PATH = /^\/(wiki|output|writings)\//;
-
-// isCorpusPath —— a corpus address on this site, and **not already carrying a
-// query string**. One that already has one has already stated what it wants,
-// so it isn't overridden (e.g. the switcher's own `?lang=en` links).
-function isCorpusPath(href: string): boolean {
-  return CORPUS_PATH.test(href) && !href.includes('?');
-}
-
-// withLang —— an empty address passes through unchanged (caller uses this to skip rendering the link, see corpusHref).
-function withLang(href: string, lang: string): string {
-  return href === '' || lang === '' ? href : `${href}?lang=${encodeURIComponent(lang)}`;
-}

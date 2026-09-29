@@ -16,11 +16,10 @@ import { useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
 
 import { useCorpusHref } from '@/lib/corpus/use-corpus-href';
-import { ChatMarkdown } from '@/components/page/markdown';
+import { ChatMarkdown, FloatingChatDock } from '@standmeet/sdk';
 import { Attachments, CoverImage } from '@/components/visitor/CorpusMedia';
 import { coverURL, expandBody } from '@/lib/corpus/media';
 import { CorpusContent } from '@/components/page/CorpusContent';
-import { FloatingChatDock } from '@/components/visitor/FloatingChatDock';
 import { LanguageSwitch } from '@/components/visitor/LanguageSwitch';
 import { ReaderAboutCard } from '@/components/visitor/ReaderAboutCard';
 import { RestrictedDoc } from '@/components/visitor/RestrictedDoc';

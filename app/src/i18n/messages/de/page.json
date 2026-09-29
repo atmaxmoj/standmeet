@@ -19,10 +19,6 @@
     "assistantLabel": "{handle}'s ki",
     "references": "referenzen · {count}"
   },
-  "toolCalls": {
-    "searched": "durchsucht {count}",
-    "read": "liest {count}"
-  },
   "topBar": {
     "live": "live"
   },

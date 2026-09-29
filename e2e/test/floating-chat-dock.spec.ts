@@ -56,7 +56,7 @@ test.describe('FloatingChatDock on writings/wiki pages', () => {
       await pill.click();
       const panel = page.getByTestId('floating-chat-panel');
       await expect(panel).toBeVisible({ timeout: 3_000 });
-      const input = panel.locator('input');
+      const input = panel.getByTestId('chat-input-field');
       await expect(input).toBeVisible();
       // Close panel
       await page.getByTestId('floating-dock-pill').click();
@@ -79,7 +79,7 @@ test.describe('FloatingChatDock on writings/wiki pages', () => {
       // No reset button (removed at the owner's request).
       await expect(panel.getByRole('button', { name: /reset/i })).toHaveCount(0);
 
-      const input = page.getByTestId('floating-chat-input');
+      const input = panel.getByTestId('chat-input-field');
       await input.fill('tell me about yourself');
       await input.press('Enter');
       // The same throbber + answer-body as the main chat (the real ChatMarkdown
@@ -115,7 +115,7 @@ async function dockFullFlow({ page }: { page: Page }): Promise<void> {
     name: 'corpus_read', args: { path: 'projects/lucerna' },
   });
 
-  const input = page.getByTestId('floating-chat-input');
+  const input = panel.getByTestId('chat-input-field');
   await input.fill(`tell me about lucerna${searchTag}${readTag}`);
   await input.press('Enter');
 
@@ -152,7 +152,7 @@ async function dockSendsDocContext({ page }: { page: Page }): Promise<void> {
   await openReader(page, '/wiki/projects/lucerna');
   await expect(page.getByTestId('wiki-landing')).toBeVisible({ timeout: 5_000 });
   await page.getByTestId('floating-dock-pill').click();
-  const input = page.getByTestId('floating-chat-input');
+  const input = page.getByTestId('floating-chat-panel').getByTestId('chat-input-field');
   await input.fill('tell me more about this');
   await input.press('Enter');
   await expect(page.getByTestId('floating-chat-panel').getByTestId('answer-body'))

@@ -8,8 +8,7 @@
 // the honest anonymous state. A network blip is NOT treated as dead — don't nuke a good session on a
 // transient failure (fail-open: an over-eager clear would log a live visitor out on one flaky GET).
 
-import { loadStoredSession } from '@/lib/gate/use-gate';
-import { clearAndPreserveCode } from '@/lib/visitor/session-recovery';
+import { clearAndPreserveCode, loadStoredSession } from '@standmeet/sdk';
 
 export async function validateVisitorSession(): Promise<void> {
   const sess = loadStoredSession();

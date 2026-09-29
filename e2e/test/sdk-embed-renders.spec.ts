@@ -56,13 +56,13 @@ test.describe('F-O-6 / F-O-5 · 交付出去的那个 widget', () => {
     await mountWidget(page);
     await ask(page, `who owns this${tag}`);
 
-    const answer = page.locator('standmeet-chat [data-role="assistant"]').last();
+    const answer = page.locator('standmeet-chat').getByTestId('answer-body').last();
     await expect(answer, '答案到了').toContainText('Sijie Wang', { timeout: 25_000 });
     // **Narrow the assertion to just the paragraph our sentence is in**: the mock echoes the
     // system prompt back into the answer, and it already contains bold block names
     // (`ask_visitor` etc.) — taking `toHaveText` on the whole block would collide with those,
     // which is mock noise, not product behavior.
-    const para = answer.locator('.para').filter({ hasText: 'Sijie Wang' });
+    const para = answer.locator('div.reading').filter({ hasText: 'Sijie Wang' });
     await expect(para.locator('strong'), '粗体渲成 <strong>').toHaveText('Sijie Wang');
     await expect(para.locator('em'), '斜体渲成 <em>').toHaveText('really');
     await expect(para.locator('code'), '行内代码渲成 <code>').toHaveText('client.ts');
@@ -80,7 +80,7 @@ test.describe('F-O-6 / F-O-5 · 交付出去的那个 widget', () => {
     await req.dispose();
 
     await mountWidget(page);
-    const box = page.locator('standmeet-chat textarea');
+    const box = page.locator('standmeet-chat').getByTestId('chat-input-field');
     await ask(page, `first question${first}`);
 
     // The previous turn is still streaming — the input box must still accept typing (RED:
@@ -90,9 +90,9 @@ test.describe('F-O-6 / F-O-5 · 交付出去的那个 widget', () => {
 
     // Both questions land on screen (the queued one should be visible right away), and both
     // answers arrive.
-    await expect(page.locator('standmeet-chat [data-role="visitor"]'))
+    await expect(page.locator('standmeet-chat').getByTestId('visitor-question'))
       .toHaveCount(2, { timeout: 5_000 });
-    await expect(page.locator('standmeet-chat [data-role="assistant"]').last())
+    await expect(page.locator('standmeet-chat').getByTestId('answer-body').last())
       .toContainText('Second answer here', { timeout: 40_000 });
   });
 
@@ -116,7 +116,7 @@ test.describe('F-O-6 / F-O-5 · 交付出去的那个 widget', () => {
     await mountWidget(page);
     await ask(page, `this turn will fail${tag}`);
 
-    const answer = page.locator('standmeet-chat [data-role="assistant"]').last();
+    const answer = page.locator('standmeet-chat').getByTestId('answer-body').last();
     // Wait for text to actually land in this slot first — otherwise "doesn't contain
     // error:" would already be true while it's still empty
     // ([[negated-assertion-passes-while-absent]]).
@@ -142,11 +142,11 @@ async function mountWidget(page: Page): Promise<void> {
     el.setAttribute('code', c ?? '');
     document.body.append(el);
   }, [base, CODE]);
-  await expect(page.locator('standmeet-chat textarea')).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator('standmeet-chat').getByTestId('chat-input-field')).toBeVisible({ timeout: 10_000 });
 }
 
 async function ask(page: Page, text: string): Promise<void> {
-  const box = page.locator('standmeet-chat textarea');
+  const box = page.locator('standmeet-chat').getByTestId('chat-input-field');
   await box.fill(text);
   await box.press('Enter');
 }

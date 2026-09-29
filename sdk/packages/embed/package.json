@@ -18,9 +18,13 @@
   },
   "dependencies": {
     "@standmeet/sdk": "workspace:*",
-    "@standmeet/sdk-core": "workspace:*"
+    "@standmeet/sdk-core": "workspace:*",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
     "eslint": "^9.39.3",
     "tsup": "^8.3.0",
     "typescript": "^5.7.0",

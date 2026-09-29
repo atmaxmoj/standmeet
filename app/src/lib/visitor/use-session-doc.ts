@@ -8,7 +8,7 @@
 import { useEffect, useState } from 'react';
 
 import { fetchVisitorDoc, type VisitorDoc } from '@/lib/api/public';
-import { loadStoredSession } from '@/lib/gate/use-gate';
+import { loadStoredSession } from '@standmeet/sdk';
 
 export interface SessionDocState {
   loading: boolean;

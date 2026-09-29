@@ -100,7 +100,7 @@ async function cardTurn(rf: RequestFactory, browser: Browser): Promise<void> {
   expect(rec.contains, 'the turn carries the page the visitor is on').toBe(true);
 
   await frame.getByTestId('ask-visitor-opt-1').click();
-  await expect(visitor.locator('[data-testid="agent-widget-transcript"] [data-role="visitor"]').last(),
+  await expect(visitor.getByTestId('agent-widget').getByTestId('visitor-question').last(),
     'the choice is sent as the visitor\'s next message').toContainText(OPTIONS[1], { timeout: 10_000 });
   await visitor.context().close();
   await request.dispose();
@@ -113,7 +113,7 @@ async function retrievalTurn(rf: RequestFactory, browser: Browser): Promise<void
   const replyTag = await scriptMockReplyText(request, ANSWER_AFTER_SEARCH);
   const visitor = await openWidget(browser);
   await ask(visitor, `what do you read ${toolTag}${replyTag}`);
-  await expect(visitor.getByTestId('agent-widget-transcript'))
+  await expect(visitor.getByTestId('agent-widget').getByTestId('answer-body').last())
     .toContainText(ANSWER_AFTER_SEARCH, { timeout: 30_000 });
   // Same rule as the main chat: retrieval collapses, it isn't a card per search.
   expect(await visitor.getByTestId('agent-widget').locator('iframe').count(),
@@ -141,7 +141,8 @@ async function darkCard(rf: RequestFactory, browser: Browser): Promise<void> {
   // that moment, and persisting it resurrected stale cards forever (prod: old "searched · 0
   // entries" + light-palette cards kept coming back after v0.1.67 fixed both).
   await visitor.reload();
-  await expect(visitor.getByTestId('agent-widget-transcript'), 'the question survives the reload')
+  await expect(visitor.getByTestId('agent-widget').getByTestId('visitor-question').last(),
+    'the question survives the reload')
     .toContainText('can I use it in French', { timeout: 20_000 });
   expect(await visitor.getByTestId('agent-widget').locator('iframe').count(),
     'no card is restored from storage').toBe(0);
@@ -157,8 +158,10 @@ async function rateLimitedTurn(rf: RequestFactory, browser: Browser): Promise<vo
   const asked = Date.now();
   await ask(visitor, `hello ${tag}`);
   // Waiting out a 40s retry-after in silence looked like a dead page (prod, Groq free tier).
-  await expect(visitor.getByTestId('agent-widget-error'), 'the visitor is told, promptly')
-    .toContainText(/busy/i, { timeout: 15_000 });
+  // The error is said inside the turn's answer.
+  const answer = visitor.getByTestId('agent-widget').getByTestId('answer-body').last();
+  await expect(answer, 'the visitor is told, promptly').toContainText(/busy/i, { timeout: 15_000 });
+  await expect(answer, 'as the rate-limit error').toHaveAttribute('data-error-code', 'rate_limited');
   expect(Date.now() - asked, 'did not sit out the retry-after').toBeLessThan(20_000);
   await visitor.context().close();
   await request.dispose();
@@ -172,8 +175,9 @@ async function openWidget(browser: Browser, colorScheme: 'light' | 'dark' = 'lig
 }
 
 async function ask(page: Page, text: string): Promise<void> {
-  await page.getByTestId('agent-widget-input').fill(text);
-  await page.getByTestId('agent-widget-ask').click();
+  const input = page.getByTestId('agent-widget').getByTestId('chat-input-field');
+  await input.fill(text);
+  await input.press('Enter');
 }
 
 async function assertCard(page: Page): Promise<FrameLocator> {

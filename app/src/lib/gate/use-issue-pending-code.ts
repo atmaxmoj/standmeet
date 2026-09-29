@@ -14,12 +14,10 @@
 
 import { useCallback, useState } from 'react';
 
-import { issueCodeSession } from '@/lib/api/public';
-import { persistSession } from '@/lib/gate/use-gate';
-import { usePendingCodeStore } from '@/lib/gate/use-pending-code-store';
-import { useVisitorSessionStore } from '@/lib/visitor/session-store';
+import {
+  issueCodeSession, persistSession, seedEphemeralStores, usePendingCodeStore, useVisitorSessionStore,
+} from '@standmeet/sdk';
 import { landAfterIssue, applyLanding } from '@/lib/visitor/code-landing';
-import { seedEphemeralStores } from '@/lib/page/use-chat-restore';
 import {
   loadMemberID, rememberMemberID, rememberVisitorName, rememberVisitorEmail,
 } from '@/lib/visitor/visitor-name';

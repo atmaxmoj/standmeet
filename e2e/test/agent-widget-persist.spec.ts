@@ -11,7 +11,7 @@
 // history, so after reload the transcript is empty and the next turn carries no prior context.
 
 import { test, expect } from '@/fixtures/test';
-import type { APIRequestContext, Playwright } from '@playwright/test';
+import type { APIRequestContext, Page, Playwright } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { resetInstance, findSetupToken, execSQL, querySQL } from '@/fixtures/instance';
@@ -68,33 +68,30 @@ test.describe('AgentWidget · conversation persists in localStorage at page gran
 
       // Turn 1
       const tag1 = await scriptMockReplyText(request, A1);
-      await reader.getByTestId('agent-widget-input').fill(`first question ${tag1}`);
-      await reader.getByTestId('agent-widget-ask').click();
-      await expect(reader.getByTestId('agent-widget-transcript')).toContainText(A1, { timeout: 30_000 });
+      const widget = reader.getByTestId('agent-widget');
+      await ask(reader, `first question ${tag1}`);
+      await expect(widget.getByTestId('answer-body').last()).toContainText(A1, { timeout: 30_000 });
 
       // Reload — the transcript must come back from localStorage.
       await reader.reload();
-      await expect(reader.getByTestId('agent-widget-transcript'),
+      await expect(widget.getByTestId('answer-body').first(),
         'the conversation survives a reload').toContainText(A1, { timeout: 20_000 });
 
       // Turn 2 after reload — the request must carry A1 as history (memory restored).
       const tag2 = await scriptMockReplyText(request, A2);
-      await reader.getByTestId('agent-widget-input').fill(`second question ${tag2}`);
-      await reader.getByTestId('agent-widget-ask').click();
-      await expect(reader.getByTestId('agent-widget-transcript')).toContainText(A2, { timeout: 30_000 });
+      await ask(reader, `second question ${tag2}`);
+      await expect(widget.getByTestId('answer-body').last()).toContainText(A2, { timeout: 30_000 });
       const rec = await lastGatewayRequest(request, tag2, A1);
       expect(rec.found, 'the second turn hit the gateway').toBe(true);
       expect(rec.contains, 'the second turn carried the pre-reload answer as history').toBe(true);
 
       // The visitor can clear the conversation; it stays cleared across a reload.
-      await reader.getByTestId('agent-widget-clear').click();
-      await expect(reader.getByTestId('agent-widget-transcript'), 'clear wipes the transcript')
-        .not.toContainText(A1);
+      await reader.getByTestId('chat-clear').click();
+      await expect(widget, 'clear wipes the transcript').not.toContainText(A1);
       await reader.reload();
-      await expect(reader.getByTestId('agent-widget'), 'widget re-renders after the clearing reload')
-        .toBeVisible({ timeout: 20_000 });
-      await expect(reader.getByTestId('agent-widget-transcript'), 'the cleared chat does not come back')
-        .not.toContainText(A1);
+      await expect(widget, 'widget re-renders after the clearing reload')
+        .toHaveAttribute('data-mode', 'inline', { timeout: 20_000 });
+      await expect(widget, 'the cleared chat does not come back').not.toContainText(A1);
       // The visitor's reset is client-only: the owner's server-side record of that turn stays.
       expect(Number(querySQL(`SELECT count(*) FROM messages WHERE body LIKE '%${A1}%'`)),
         'resetting the widget does not delete the server-side conversation').toBeGreaterThan(0);
@@ -103,7 +100,7 @@ test.describe('AgentWidget · conversation persists in localStorage at page gran
       const other = await (await browser.newContext()).newPage();
       await openReader(other, `/p/${SLUG2}`);
       await expect(other.getByTestId('agent-widget')).toBeVisible({ timeout: 20_000 });
-      await expect(other.getByTestId('agent-widget-transcript'), 'a different page starts fresh')
+      await expect(other.getByTestId('agent-widget'), 'a different page starts fresh')
         .not.toContainText(A1);
 
       await reader.context().close();
@@ -111,6 +108,12 @@ test.describe('AgentWidget · conversation persists in localStorage at page gran
       await request.dispose();
     });
 });
+
+async function ask(page: Page, text: string): Promise<void> {
+  const input = page.getByTestId('agent-widget').getByTestId('chat-input-field');
+  await input.fill(text);
+  await input.press('Enter');
+}
 
 async function publishWidget(
   request: APIRequestContext, token: string, sid: string, slug: string,

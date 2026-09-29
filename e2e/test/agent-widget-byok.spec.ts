@@ -13,7 +13,7 @@
 //     enters answers; after a reload the saved key is reused without asking again.
 
 import { test, expect } from '@/fixtures/test';
-import type { APIRequestContext, Browser, Page } from '@playwright/test';
+import type { APIRequestContext, Browser, Locator, Page } from '@playwright/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { execSQL, findSetupToken, resetInstance } from '@/fixtures/instance';
@@ -120,15 +120,16 @@ async function codedNeverByok(rf: RequestFactory, browser: Browser): Promise<voi
   // The turn runs on the code's provider, not the saved visitor key.
   const tag = await scriptMockReplyText(request, CODED_ANSWER);
   await ask(visitor, `what do you build ${tag}`);
-  await expect(visitor.getByTestId('agent-widget-transcript')).toContainText(CODED_ANSWER, { timeout: TURN_WAIT });
+  await expect(lastAnswer(visitor)).toContainText(CODED_ANSWER, { timeout: TURN_WAIT });
   expect((await lastGatewayRequest(request, tag)).auth_prefix, 'the owner pays').toBe(CODE_KEY.slice(0, 8));
   expect(await visitor.getByTestId('agent-widget-byok-active').count(), 'no "on your key" for a guest').toBe(0);
 
   // The code's own quota runs out: the guest is told, and still never asked for a key.
   execSQL(`UPDATE owner_providers SET gas_tokens=0, gas_filled_at=now() WHERE id='${codeProviderID}'`);
   await ask(visitor, 'one more question');
-  await expect(visitor.getByTestId('agent-widget-error'), 'the out-of-quota turn is surfaced')
-    .toBeVisible({ timeout: TURN_WAIT });
+  // The error is said inside the second turn's answer (the server's "reached its usage limit").
+  await expect(visitor.getByTestId('agent-widget').getByTestId('answer-body')).toHaveCount(2, { timeout: TURN_WAIT });
+  await expect(lastAnswer(visitor), 'the out-of-quota turn is surfaced').toContainText(/limit/i);
   const byokUI = visitor.getByTestId('agent-widget').locator(
     '[data-testid="agent-widget-byok-offer"], [data-testid="agent-widget-byok"], [data-testid="agent-widget-byok-active"]',
   );
@@ -144,13 +145,13 @@ async function rateLimitedOffersByok(rf: RequestFactory, browser: Browser): Prom
   const request = await rf.newContext();
   const visitor = await openWidget(browser, 'inline');
   await ask(visitor, `hello ${await scriptMockRateLimit(request, 40)}`);
-  await expect(visitor.getByTestId('agent-widget-error')).toContainText(/busy/i, { timeout: TURN_WAIT });
+  await expect(lastAnswer(visitor)).toContainText(/busy/i, { timeout: TURN_WAIT });
   await visitor.getByTestId('agent-widget-byok-offer').click();
 
   await enterKey(visitor);
   // Start a fresh conversation on the key: the scripted rate limit matches its tag anywhere in the
   // request, and the carried-over history would re-trigger it (a mock artifact, not the product).
-  await visitor.getByTestId('agent-widget-clear').click();
+  await visitor.getByTestId('chat-clear').click();
   const tag = await scriptMockReplyText(request, ANSWER);
   await ask(visitor, `what do you build ${tag}`);
   await expectVisitorKeyServed(visitor, request, tag);
@@ -162,8 +163,7 @@ async function rateLimitedOffersByok(rf: RequestFactory, browser: Browser): Prom
   await expect(visitor.getByTestId('agent-widget')).toHaveAttribute('data-mode', 'inline', { timeout: 20_000 });
   const back = await scriptMockReplyText(request, OWNER_TIER_ANSWER);
   await ask(visitor, `back again ${back}`);
-  await expect(visitor.getByTestId('agent-widget-transcript'))
-    .toContainText(OWNER_TIER_ANSWER, { timeout: TURN_WAIT });
+  await expect(lastAnswer(visitor)).toContainText(OWNER_TIER_ANSWER, { timeout: TURN_WAIT });
   expect((await lastGatewayRequest(request, back)).auth_prefix, 'the owner tier serves again')
     .toBe(PUBLIC_KEY.slice(0, 8));
   await visitor.context().close();
@@ -189,8 +189,7 @@ async function noQuotaOpensByok(rf: RequestFactory, browser: Browser): Promise<v
     .toBeVisible({ timeout: 20_000 });
   const tag2 = await scriptMockReplyText(request, 'Second answer on the saved key.');
   await ask(visitor, `and after a reload ${tag2}`);
-  await expect(visitor.getByTestId('agent-widget-transcript'))
-    .toContainText('Second answer on the saved key.', { timeout: TURN_WAIT });
+  await expect(lastAnswer(visitor)).toContainText('Second answer on the saved key.', { timeout: TURN_WAIT });
   expect((await lastGatewayRequest(request, tag2)).auth_prefix).toBe(VISITOR_KEY.slice(0, 8));
   await visitor.context().close();
   await request.dispose();
@@ -217,12 +216,15 @@ async function unreadableSavedKey(rf: RequestFactory, browser: Browser): Promise
     };
   }));
   await visitor.reload();
-  await expect(visitor.getByTestId('agent-widget')).toHaveAttribute('data-mode', 'byok', { timeout: 20_000 });
+  // The saved envelope still says "on your key" — the state the owner saw before asking.
+  await expect(visitor.getByTestId('agent-widget-byok-active')).toBeVisible({ timeout: 20_000 });
 
   const tag = await scriptMockReplyText(request, 'Answered on somebody else\'s key.');
   await ask(visitor, `what do you build ${tag}`);
-  await expect(visitor.getByTestId('agent-widget-error'), 'the visitor is told their key must be added again')
+  await expect(lastAnswer(visitor), 'the visitor is told their key must be added again')
     .toContainText(/key/i, { timeout: TURN_WAIT });
+  await expect(lastAnswer(visitor), 'as the lost-key error')
+    .toHaveAttribute('data-error-code', /^byoai_key_(unreadable|required)$/);
   await expect(visitor.getByTestId('agent-widget-byok'), 'the key panel is back').toBeVisible({ timeout: 10_000 });
   expect(await gatewayRequestExists(request, tag.trim()), 'no provider answered that turn — least of all the owner\'s')
     .toBe(false);
@@ -231,7 +233,7 @@ async function unreadableSavedKey(rf: RequestFactory, browser: Browser): Promise
   // unsent question stays in the transcript and rides along as history, and the mock matches a tag
   // anywhere in the request (a mock artifact, not the product — same as the rate-limited case).
   await enterKey(visitor);
-  await visitor.getByTestId('agent-widget-clear').click();
+  await visitor.getByTestId('chat-clear').click();
   const again = await scriptMockReplyText(request, ANSWER);
   await ask(visitor, `what do you build ${again}`);
   await expectVisitorKeyServed(visitor, request, again);
@@ -259,12 +261,18 @@ async function enterKey(page: Page): Promise<void> {
 }
 
 async function ask(page: Page, text: string): Promise<void> {
-  await page.getByTestId('agent-widget-input').fill(text);
-  await page.getByTestId('agent-widget-ask').click();
+  const input = page.getByTestId('agent-widget').getByTestId('chat-input-field');
+  await input.fill(text);
+  await input.press('Enter');
+}
+
+// lastAnswer —— the latest turn's answer: an error is said inside it.
+function lastAnswer(page: Page): Locator {
+  return page.getByTestId('agent-widget').getByTestId('answer-body').last();
 }
 
 async function expectVisitorKeyServed(page: Page, request: APIRequestContext, tag: string): Promise<void> {
-  await expect(page.getByTestId('agent-widget-transcript')).toContainText(ANSWER, { timeout: TURN_WAIT });
+  await expect(lastAnswer(page)).toContainText(ANSWER, { timeout: TURN_WAIT });
   const rec = await lastGatewayRequest(request, tag);
   expect(rec.auth_prefix, 'the turn ran on the visitor\'s key').toBe(VISITOR_KEY.slice(0, 8));
   expect(rec.model, 'with the visitor\'s model').toBe(VISITOR_MODEL);

@@ -1,354 +1,118 @@
-// embed.ts —— <standmeet-chat base-url="..." tier="public" code="...">
-// Web Component. Drop-in single <script> for any site to use.
+// embed.ts —— <standmeet-chat base-url="https://alice.dev" [code|embed kid key] [mode] [layout] [lang]>
+// Web Component: one <script> tag and the owner's chat is on any site.
 //
-// No React dependency internally; calls sdk-core's createClient + streamMessage directly,
-// hand-rolls the DOM rendering of the transcript: **question = mono small heading, answer =
-// serif body**, two distinct voices, matching the design spec.
+// It renders the one chat (docs/design/sdk-chat-inheritance.md): the SDK's <Agent>, the same
+// transcript, composer and dock the owner's own site renders, so everything the app's chat can do
+// the embed can do, with nothing to port. This file only opens the session and mounts it.
 //
-// ⚠️ This sentence used to be **false**: the comment said this, while the whole file had not
-// a single line of styling — a bare div with a `data-role` attribute shipped to someone
-// else's site, font and color left entirely to the host page's mercy, question and answer
-// same size and color, you couldn't even see where one turn ended
-// (three 2026-08-13 design-review 🎨🔴 items, all pointing here). **A comment describes
-// intent, not outcome.**
-// Now the styles live in a shadow root: the host page's CSS can't get in, ours can't leak
-// out — this surface is a deliverable, it must carry its own product identity rather than
-// take on the shape of whatever site it lands on.
+// Sealed both ways: the chat mounts in a shadow root carrying the SDK's stylesheet and the design
+// tokens, so the host page's CSS can't get in and ours can't leak out.
 //
-// v1 is single-owner-instance — base-url points straight at the owner's own standmeet
-// deployment, there's no handle attribute anymore.
-//
-// Usage:
-//   <script src="https://alice.dev/embed/embed.iife.js"></script>
-//   <standmeet-chat base-url="https://alice.dev"></standmeet-chat>
+// The session: with embed credentials (embed id + kid + private key) the element signs an EdDSA JWT
+// on the spot and sends only that — **never the plaintext code** ([[embed-credential-never-carries-the-code]]).
+// Else a `code` attribute, else the owner's public tier (mode="public").
 
-import { createClient, parseAnswerText } from '@standmeet/sdk-core';
-import type {
-  StandMeetClient, SessionMode, SSEEvent, AnswerSpan, IssueSessionInput,
-} from '@standmeet/sdk-core';
+import { createElement } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { createClient, type IssueSessionInput, type PublicSessionResponse } from '@standmeet/sdk-core';
+import {
+  Agent, persistSession, peekStoredSession, setChatBaseURL, useVisitorSessionStore, type AgentLayout,
+} from '@standmeet/sdk';
+import sdkStyles from '@standmeet/sdk/styles.css';
 
 const TAG = 'standmeet-chat';
 
-// SHELL_CSS —— this surface's product identity. Three things, matching the three
-// 2026-08-13 design-review items:
-//
-//  1. **Identity**: cream paper + ink + vermillion + serif/mono dual typeface. **No external
-//     font fetch** — a drop-in script hitting a CDN for fonts adds a cross-origin request on
-//     someone else's page, and silently swaps faces when the fetch fails
-//     ([[right-bytes-wrong-glyphs]]). So instead we ship a font stack: use Newsreader if the
-//     host has it installed, fall back to Georgia — both still serif, the voice doesn't change.
-//  2. **Hierarchy**: the question is a mono small heading (small, wide letter-spacing, muted),
-//     the answer is serif body text (large, ink-colored, loose line-height).
-//     Before, both were the same size and color, and the browser's default blue focus ring
-//     on the input was the most eye-catching thing on the page — the hierarchy was backwards.
-//  3. **Boundary**: a hairline rule + whitespace between each turn, so you can count turns
-//     at a glance.
-const SHELL_CSS = `
+// TOKENS —— the design tokens the chat's stylesheet reads. On the owner's own site the page defines
+// them; on someone else's site nothing does, so the shadow host carries them. The fonts are named,
+// never fetched: a drop-in script hitting a CDN adds a cross-origin request to someone else's page
+// ([[right-bytes-wrong-glyphs]]); Newsreader if installed, else Georgia — still serif.
+const TOKENS = `
   :host {
-    --sm-paper: #F3EFE6; --sm-ink: #1B1814; --sm-muted: #7A7167;
-    --sm-rule: #DCD3BF; --sm-accent: #B5391C;
-    --sm-serif: 'Newsreader', Georgia, 'Times New Roman', serif;
-    --sm-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-    display: block; background: var(--sm-paper); color: var(--sm-ink);
-    border: 1px solid var(--sm-rule); border-radius: 3px;
-    max-width: 46em; padding: 0;
+    --color-paper: #F3EFE6; --color-ink: #1B1814; --color-muted: #7A7167; --color-faint: #A89F92;
+    --color-rule: #DCD3BF; --color-accent: #B5391C;
+    --font-serif: 'Newsreader', Georgia, 'Times New Roman', serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    display: block; background: var(--color-paper); color: var(--color-ink);
+    border: 1px solid var(--color-rule); border-radius: 3px; max-width: 46em; padding: 18px 24px;
   }
-  [data-role="transcript"] { padding: 22px 24px 6px; }
-  /* One turn = question + answer. A hairline rule between turns makes the boundary visible. */
-  [data-role="visitor"] {
-    font-family: var(--sm-mono); font-size: 10.5px; letter-spacing: 0.14em;
-    text-transform: uppercase; color: var(--sm-muted);
-    margin: 0 0 10px; padding-top: 18px; border-top: 1px solid var(--sm-rule);
-  }
-  [data-role="transcript"] > [data-role="visitor"]:first-child {
-    padding-top: 0; border-top: none;
-  }
-  [data-role="assistant"] {
-    font-family: var(--sm-serif); font-size: 16.5px; line-height: 1.62;
-    color: var(--sm-ink); margin: 0 0 22px; white-space: pre-wrap;
-  }
-  /* An answer with no text yet = still thinking. Pure CSS, adds no new event or ability
-     (progress indication belongs to the Result column). */
-  [data-role="assistant"]:empty::after {
-    content: '…'; color: var(--sm-muted); font-family: var(--sm-mono);
-  }
-  /* Paragraphs and inline markup (F-O-6): bold and inline code in the answer now render as
-     typography instead of printing the raw asterisks/backticks. Note: this comment lives
-     inside the SHELL_CSS template literal — it can't contain a backtick character, that
-     would truncate the whole string. */
-  [data-role="assistant"] .para { margin: 0 0 0.85em; }
-  [data-role="assistant"] .para:last-child { margin-bottom: 0; }
-  [data-role="assistant"] strong { font-weight: 600; }
-  [data-role="assistant"] em { font-style: italic; }
-  [data-role="assistant"] code {
-    font-family: var(--sm-mono); font-size: 0.88em;
-    background: color-mix(in oklab, var(--sm-ink) 7%, transparent);
-    padding: 0.1em 0.3em; border-radius: 2px;
-  }
-  /* The answer block itself is no longer pre-wrap: paragraph breaks are now handled by
-     .para (pre-wrap would double-count the blank line between paragraphs). */
-  [data-role="assistant"] { white-space: normal; }
-  textarea {
-    display: block; width: 100%; box-sizing: border-box;
-    font-family: var(--sm-mono); font-size: 13px; line-height: 1.5;
-    color: var(--sm-ink); background: transparent;
-    border: none; border-top: 1px solid var(--sm-rule);
-    padding: 14px 24px 16px; resize: none; outline: none;
-  }
-  textarea::placeholder { color: var(--sm-muted); }
-  /* Focus uses a vermillion bar on the left instead of the browser's default blue ring —
-     the ring competed with the answer for attention. */
-  textarea:focus { box-shadow: inset 2px 0 0 var(--sm-accent); }
+  .reading { font-family: var(--font-serif); font-size: 18px; line-height: 1.55; font-weight: 380; }
 `;
 
-class StandMeetChatElement extends HTMLElement {
-  private client: StandMeetClient | null = null;
-  private session: { id: string; token: string; system: string } | null = null;
-  private transcript: HTMLDivElement;
-  private input: HTMLTextAreaElement;
-  // pending / queue —— whether a turn is in flight right now, plus the questions waiting
-  // behind it. The backend only runs one turn per session at a time
-  // (a race gets rejected with 429, F-O-5), so this is serialized here; but **it does not
-  // gray out the input** — queuing is the product's job, not a discipline imposed on the
-  // visitor (F-A-42).
-  private pending = false;
-  private readonly queue: string[] = [];
+// The stylesheet's KaTeX @import names a package path; inside a shadow root it would resolve
+// against the host page's URL and 404. Equations still lay out from KaTeX's own inline styles.
+const CHAT_CSS = sdkStyles.replace(/@import[^;]+;/g, '');
 
-  constructor() {
-    super();
-    this.transcript = document.createElement('div');
-    this.input = document.createElement('textarea');
-  }
+class StandMeetChatElement extends HTMLElement {
+  private root: Root | null = null;
 
   connectedCallback(): void {
-    const baseURL = this.getAttribute('base-url') ?? '';
-    this.client = createClient({ baseURL });
-    this.renderShell();
-    this.input.addEventListener('keydown', this.onKeyDown);
+    setChatBaseURL(this.getAttribute('base-url') ?? '');
+    const shadow = this.shadowRoot ?? this.attachShadow({ mode: 'open' });
+    const style = document.createElement('style');
+    style.textContent = TOKENS + CHAT_CSS;
+    const mount = document.createElement('div');
+    shadow.replaceChildren(style, mount);
+    void this.openSession().then(() => { this.mountAgent(mount); });
   }
 
   disconnectedCallback(): void {
-    this.input.removeEventListener('keydown', this.onKeyDown);
+    this.root?.unmount();
+    this.root = null;
   }
 
-  private renderShell(): void {
-    this.transcript.setAttribute('data-role', 'transcript');
-    this.input.setAttribute('placeholder', 'ask…');
-    this.input.setAttribute('rows', '2');
-    // shadow root: the host page's CSS can't get in, ours can't leak out. Something shipped
-    // to someone else's site has to be sealed on both sides.
-    const root = this.shadowRoot ?? this.attachShadow({ mode: 'open' });
-    const style = document.createElement('style');
-    style.textContent = SHELL_CSS;
-    root.append(style, this.transcript, this.input);
+  private mountAgent(mount: HTMLElement): void {
+    this.root = createRoot(mount);
+    this.root.render(createElement(Agent, {
+      layout: toLayout(this.getAttribute('layout')),
+      lang: this.getAttribute('lang') ?? undefined,
+      placeholder: this.getAttribute('placeholder') ?? undefined,
+      publicTier: this.getAttribute('mode') === 'public',
+    }));
   }
 
-  // onKeyDown —— **always accept** this question (F-O-5 → F-A-42).
-  //
-  // The backend only runs one turn per session at a time (`ErrSessionBusy` → 429), so
-  // sending again while the previous turn is still streaming gets rejected, and the visitor
-  // reads "didn't go through, try again" — both halves of that sentence are false.
-  //
-  // My previous fix was to **gray out the input**. That was wrong, and wrong in a classic
-  // way: global rule #10 says "when an action can't be done right now (busy / not ready /
-  // conflicting), **accept the request and queue it, don't gray it out**. Graying out means
-  // making a person stand and watch the screen." The product's own visitor page made this
-  // same mistake, caught by F-A-42 — an input that looked perfectly ready ate every
-  // keystroke the visitor typed into it. Both surfaces now follow the same rule: accept,
-  // show it, queue it.
-  private readonly onKeyDown = (ev: KeyboardEvent): void => {
-    if (ev.key !== 'Enter' || ev.shiftKey) return;
-    ev.preventDefault();
-    const text = this.input.value.trim();
-    if (!text) return;
-    this.input.value = '';
-    this.enqueue(text);
-  };
-
-  // enqueue —— the question posts to the transcript immediately (the visitor sees their own
-  // message stay put), then gets queued.
-  private enqueue(text: string): void {
-    this.appendBlock('visitor', text);
-    this.queue.push(text);
-    void this.drain();
-  }
-
-  // drain —— runs one turn at a time (backend requirement), but anything queued behind it
-  // gets picked up and run automatically, no need for the visitor to resend.
-  private async drain(): Promise<void> {
-    if (this.pending) return;
-    this.pending = true;
+  // openSession —— a coded visitor's session is issued here and stored where the chat reads it, so
+  // the <Agent> below is that code's agent from its first render. A return visit with the same code
+  // keeps its session (and so its member and its conversation).
+  private async openSession(): Promise<void> {
+    const code = this.getAttribute('code') ?? '';
+    const embedded = this.hasAttribute('embed');
+    if (!embedded && code === '') return; // public tier or the gate: <Agent> decides
+    if (!embedded && peekStoredSession()?.code === code) return;
     try {
-      for (let text = this.queue.shift(); text !== undefined; text = this.queue.shift()) {
-        await this.runTurn(text);
-      }
-    } finally {
-      this.pending = false;
-    }
-  }
-
-  private async runTurn(text: string): Promise<void> {
-    const assistant = this.appendBlock('assistant', '');
-    try {
-      await this.ensureSession();
-      const sess = this.session;
-      if (!sess) throw new Error('no session');
-      if (!this.client) throw new Error('no client');
-      for await (const ev of this.client.streamMessage(
-        sess.id, sess.token, text, sess.system,
-      )) {
-        applyEventToBlock(assistant, ev);
-      }
+      const client = createClient({ baseURL: this.getAttribute('base-url') ?? '' });
+      const sess = await client.issueSession(await this.sessionInput(code));
+      persistSession(sess, false);
+      storeDisplay(sess, code);
     } catch (e) {
-      // Prefer language the visitor can understand; technical detail goes to console
-      // (project rule: no raw error strings in the UI).
-      // **Speak by category**: one blanket sentence for every failure tells someone to
-      // retry even when the message actually went through (F-O-5).
-      assistant.textContent = turnFailureText(e);
-      console.error('[standmeet-chat] turn failed', e);
+      // No session → <Agent> shows the gate handoff; the reason goes to the console only.
+      console.error('[standmeet-chat] could not open a session', e);
     }
   }
 
-  private async ensureSession(): Promise<void> {
-    if (this.session || !this.client) return;
-    const s = await this.client.issueSession(await this.sessionInput());
-    // system prompt is assembled once per session: the fragment + this session's persona.
-    // Without it the model gets an empty system prompt and answers like a generic chatbot,
-    // unrelated to this owner (F-O-2).
-    this.session = {
-      id: s.conversation_id, token: s.session_token,
-      system: await this.client.composeSystem(s),
-    };
-  }
-
-  // sessionInput —— how this session opens. **Anti-leak path (preferred)**: if the host page
-  // supplied embed credentials (embed id + kid + private key), sign an EdDSA JWT on the spot
-  // and send only embed_token, **never the plaintext code**. No credentials → fall back to
-  // the old path (mode + code / public). See [[embed-credential-never-carries-the-code]].
-  private async sessionInput(): Promise<IssueSessionInput> {
+  private async sessionInput(code: string): Promise<IssueSessionInput> {
     const embed = this.getAttribute('embed');
     const kid = this.getAttribute('kid');
     const key = this.getAttribute('key');
     if (embed && kid && key) {
-      const embedToken = await signEmbedJWT(kid, embed, window.location.origin, key);
-      return { mode: 'code', embed_token: embedToken };
+      return { mode: 'code', embed_token: await signEmbedJWT(kid, embed, window.location.origin, key) };
     }
-    return {
-      mode: toMode(this.getAttribute('mode') ?? 'public'),
-      code: this.getAttribute('code') ?? undefined,
-    };
-  }
-
-  private appendBlock(role: 'visitor' | 'assistant', text: string): HTMLDivElement {
-    const div = document.createElement('div');
-    div.setAttribute('data-role', role);
-    div.textContent = text;
-    this.transcript.appendChild(div);
-    return div;
+    return { mode: 'code', code };
   }
 }
 
-// turnFailureText —— why this turn didn't go through, **stated by category** (F-O-5).
-//
-// 429 means "this session is busy right now": the previous turn is still streaming. It
-// calls for a **different next step** than other failures — those can be retried, retrying
-// this one just gets rejected again. A single catch used to collapse both into the same
-// sentence, "That did not go through. Please try again.", which told people to retry even
-// when the message **actually went through**
-// ([[collapsed-error-class-kills-its-own-branch]]).
-//
-// The gate in onKeyDown now keeps most of this class from reaching here at all; it stays
-// because **the gate doesn't block every path in** (multiple tabs, programmatic calls),
-// and this sentence still has to be true when it does.
-function turnFailureText(e: unknown): string {
-  const status = (e as { status?: unknown } | null)?.status;
-  if (status === 429) return 'Still answering the previous question — one moment.';
-  return 'That did not go through. Please try again.';
+// storeDisplay —— the session's display state (quota, label), which the chat's quota lock reads.
+function storeDisplay(sess: PublicSessionResponse, code: string): void {
+  useVisitorSessionStore.getState().setSession({
+    code: code === '' ? null : code, visitor: null, byoai: false, byoaiProvider: '',
+    label: sess.code_label ?? null,
+    used: sess.quota.used_turns, max: sess.quota.max_turns,
+    maxMembers: sess.quota.max_members, memberCount: sess.members.length,
+    startedAt: Date.now(), email: '', ownerCanDeliver: sess.owner_can_deliver ?? false,
+  });
 }
 
-// applyEventToBlock —— streaming accumulation. **The raw text accumulates in the dataset,
-// what renders on screen is the formatted version** (F-O-6).
-//
-// This used to do `textContent +=` directly, so `**like this**` and backticks printed
-// literally to the visitor — syntax meant for the model leaking in front of a human
-// (same class as F-R-7's `[[wikilink]]`). The product's own visitor page renders this
-// correctly, the embed didn't: another case of "one ability, two surfaces, only one
-// of them implemented."
-function applyEventToBlock(block: HTMLDivElement, ev: SSEEvent): void {
-  if (ev.kind === 'token') {
-    block.dataset['raw'] = (block.dataset['raw'] ?? '') + ev.text;
-    renderInline(block, block.dataset['raw']);
-  } else if (ev.kind === 'error') {
-    block.textContent = streamFailureText(ev);
-    console.error('[standmeet-chat] stream error', ev.code, ev.message);
-  }
-}
-
-// streamFailureText —— an error arriving over the stream, what should the visitor's block
-// say (F-O-9)?
-//
-// The bill: this line used to be `error: ${ev.message}`. But the message the backend sends
-// down **is already a sentence meant for a human**
-// ("Something went wrong on my end — please try again."), so what showed up on screen was
-// *"error: Something went wrong on my end…"* — a perfectly good sentence with a technical
-// prefix we glued onto it ourselves, on a widget embedded on **someone else's site**. The
-// `catch` path twelve lines up was already fixed (`turnFailureText`, the F-O-5 change), the
-// stream-event path never caught up: one ability, two surfaces, only one got fixed.
-//
-// So: **use the backend's human-facing sentence as-is**; only fall back ourselves when it
-// didn't send one (`client.ts` defaults to `'error'`). Technical detail goes to console,
-// same rule as the catch path.
-function streamFailureText(ev: { readonly message: string }): string {
-  const msg = ev.message.trim();
-  return msg === '' || msg === 'error'
-    ? 'That did not go through. Please try again.'
-    : msg;
-}
-
-// renderInline —— recognizes exactly three things: `**bold**`, `` `code` ``, and blank-line
-// paragraph breaks.
-//
-// **No innerHTML, no markdown library**: this code runs on **someone else's page**, so an
-// XSS here is an XSS on someone else's origin. This builds the DOM entirely with
-// `createElement` + `textContent` — the injection surface doesn't exist in the first place,
-// no need to bolt on a sanitizer (a full markdown pipeline would need rehype-sanitize
-// ordered before rehype-katex, [[katex-sanitize-order]], but that's a separate concern, not
-// handled here).
-//
-// The three markers were chosen deliberately, not picked at random: these are the markers
-// that actually show up **at high frequency** in model answers; everything else (tables,
-// lists, links) should degrade to plain text in a small window embedded on someone else's
-// page anyway.
-// renderInline —— parsing goes through core's `parseAnswerText` (the same one the React
-// bindings use, F-O-8), this just assembles the resulting spans into DOM. All
-// `createElement` + `textContent`, never touches innerHTML.
-function renderInline(block: HTMLDivElement, raw: string): void {
-  block.textContent = '';
-  for (const spans of parseAnswerText(raw)) {
-    const p = document.createElement('div');
-    p.className = 'para';
-    for (const piece of spans) {
-      p.appendChild(spanToNode(piece));
-    }
-    block.appendChild(p);
-  }
-}
-
-const SPAN_TAG: Readonly<Record<string, string>> = {
-  bold: 'strong', italic: 'em', code: 'code',
-};
-
-function spanToNode(m: AnswerSpan): Node {
-  const tag = SPAN_TAG[m.kind];
-  if (tag === undefined) return document.createTextNode(m.text);
-  const el = document.createElement(tag);
-  el.textContent = m.text;
-  return el;
-}
-
-const MODES: readonly SessionMode[] = ['public', 'code', 'byoai'];
-function toMode(s: string): SessionMode {
-  return MODES.find((m) => m === s) ?? 'public';
+function toLayout(s: string | null): AgentLayout {
+  return s === 'rail' || s === 'dock' ? s : 'inline';
 }
 
 // b64url —— base64url without padding (JWT segment encoding). Input is ASCII JSON / raw bytes.

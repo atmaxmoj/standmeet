@@ -14,9 +14,8 @@
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 
-import { ChatMarkdown } from '@/components/page/markdown';
+import { ChatMarkdown, FloatingChatDock } from '@standmeet/sdk';
 import { CorpusContent } from '@/components/page/CorpusContent';
-import { FloatingChatDock } from '@/components/visitor/FloatingChatDock';
 import { SessionStrip } from '@/components/visitor/SessionStrip';
 import type { VisitorDoc } from '@/lib/api/public';
 import { useSessionScopedDoc } from '@/lib/visitor/use-session-doc';

@@ -1,0 +1,366 @@
+@import 'katex/dist/katex.min.css';
+
+/* chat.css —— the chat views' own rules, shipped in @standmeet/sdk/styles.css. The views render on
+   the app, on a microsite and on a third-party page, so every token has a fallback: a host that
+   does not define --z-float (a microsite) still gets a dock above its content. Moved from the app's
+   sm-atoms.css; the app loads this sheet too, so each rule has one home. */
+
+:root {
+  --smc-mono: var(--font-mono, 'JetBrains Mono', ui-monospace, monospace);
+  --smc-serif: var(--font-serif, 'Newsreader', Georgia, serif);
+  --smc-ease: .15s cubic-bezier(.4, 0, .2, 1);
+}
+
+/* ── transcript (ChatTranscript) ──────────────────────────────────── */
+.smc-transcript { flex: 1; }
+.smc-dialog { padding-top: 2.5rem; padding-bottom: 2.5rem; border-bottom: 1px solid var(--color-rule); }
+.smc-dialog-you {
+  font-family: var(--smc-mono); font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase;
+  margin-bottom: .75rem; display: flex; align-items: baseline; gap: .75rem; color: var(--color-ink);
+}
+.smc-progress { padding: 0 1.5rem .25rem; text-align: left; }
+@media (min-width: 1024px) { .smc-progress { padding-left: 0; padding-right: 0; } }
+.smc-throbber, .smc-thinking {
+  font-family: var(--smc-mono); font-size: 11px; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--color-muted);
+}
+.smc-throbber { margin-bottom: .75rem; }
+.smc-thinking { margin-top: .75rem; }
+.smc-speaker {
+  font-family: var(--smc-mono); font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--color-accent); margin-bottom: .75rem;
+}
+.smc-para { margin-bottom: 1rem; font-size: 18px; }
+.smc-para:last-child { margin-bottom: 0; }
+.smc-citations { margin-top: 1.5rem; }
+.smc-citations > summary {
+  font-family: var(--smc-mono); font-size: 10px; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--color-muted); cursor: pointer; list-style: none; user-select: none;
+  display: inline-flex; align-items: baseline; gap: .375rem;
+  transition: color var(--smc-ease);
+}
+.smc-citations > summary::-webkit-details-marker { display: none; }
+.smc-citations > summary:hover { color: var(--color-accent); }
+.smc-citations-caret { color: var(--color-faint); transition: transform var(--smc-ease); display: inline-block; }
+.smc-citations[open] .smc-citations-caret { transform: rotate(90deg); }
+.smc-citation-list { display: flex; flex-direction: column; gap: .25rem; margin: .5rem 0 0; padding: 0; list-style: none; }
+.smc-citation {
+  font-family: var(--smc-mono); font-size: 11px; color: var(--color-muted); text-decoration: none;
+  display: flex; align-items: baseline; gap: .5rem; transition: color var(--smc-ease);
+}
+.smc-citation:hover { color: var(--color-accent); }
+.smc-faint { color: var(--color-faint); }
+.smc-citation-out { font-size: 10px; color: var(--color-faint); margin-left: auto; }
+
+/* ── the visitor's question + long pastes (ComposerAttachments) ───── */
+.smc-question { margin-bottom: 1.75rem; }
+.smc-question-text {
+  font-family: var(--smc-serif); font-style: italic; font-size: 22px; line-height: 1.3;
+  font-weight: 380; letter-spacing: -.003em; margin: 0;
+}
+.smc-attachments { display: flex; flex-direction: column; gap: .375rem; margin: 0 0 .5rem; padding: 0; list-style: none; }
+.smc-attachment {
+  display: flex; align-items: center; gap: .75rem; padding: .5rem .75rem;
+  border: 1px solid var(--color-rule); color: var(--color-muted);
+}
+.smc-attachment-kind {
+  font-family: var(--smc-mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--color-accent); flex-shrink: 0;
+}
+.smc-attachment-name {
+  font-family: var(--smc-mono); font-size: 11px; min-width: 0; flex: 1;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.smc-attachment-remove {
+  font-family: var(--smc-mono); font-size: 12px; color: var(--color-faint); flex-shrink: 0;
+  background: none; border: 0; cursor: pointer; transition: color var(--smc-ease);
+}
+.smc-attachment-remove:hover { color: var(--color-accent); }
+.smc-pasted { margin-top: .75rem; border: 1px solid var(--color-rule); }
+.smc-pasted > summary {
+  font-family: var(--smc-mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--color-muted); cursor: pointer; list-style: none; padding: .5rem .75rem;
+  display: flex; align-items: center; gap: .5rem; transition: color var(--smc-ease);
+}
+.smc-pasted > summary::-webkit-details-marker { display: none; }
+.smc-pasted > summary:hover { color: var(--color-accent); }
+.smc-pasted-kind { color: var(--color-accent); }
+.smc-pasted-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.smc-pasted-body {
+  font-size: 13px; white-space: pre-wrap; padding: .75rem; margin: 0;
+  border-top: 1px solid var(--color-rule); max-height: 40vh; overflow-y: auto;
+}
+
+/* ── partial answer (PartialNotice) ───────────────────────────────── */
+.smc-partial {
+  font-family: var(--smc-mono); font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--color-accent); margin-top: 1.25rem;
+}
+
+/* ── composer ─────────────────────────────────────────────────────── */
+.smc-composer {
+  position: sticky; bottom: 0; z-index: var(--z-dock, 30);
+  background: color-mix(in oklab, var(--color-paper) 95%, transparent);
+  backdrop-filter: blur(8px); border-top: 1px solid var(--color-rule);
+  padding-top: 1rem; padding-bottom: 1.25rem;
+}
+.smc-composer.is-dock, .smc-composer.is-inline {
+  position: static; background: none; backdrop-filter: none; border-top: 0; padding: .75rem 0;
+}
+.smc-composer-row {
+  display: flex; align-items: flex-start; gap: 1rem; padding: .75rem 0; position: relative;
+  border-top: 1px solid var(--color-ink); border-bottom: 1px solid var(--color-ink);
+}
+.smc-composer-prompt {
+  color: var(--color-accent); font-family: var(--smc-serif); flex-shrink: 0; line-height: 1;
+  padding-top: .25rem; font-size: 26px;
+}
+.is-dock .smc-composer-prompt { font-size: 20px; }
+.smc-composer-cell { position: relative; flex: 1; min-width: 0; }
+/* The textarea and the ghost under it share one typography, or the caret lands on another
+   baseline than the ghost (GhostText). */
+.smc-composer-input, .smc-ghost {
+  font-family: var(--smc-serif); font-size: 22px; line-height: 1.4; font-weight: 380;
+}
+.is-dock .smc-composer-input, .is-dock .smc-ghost { font-size: 17px; }
+.smc-composer-input {
+  width: 100%; background: transparent; color: var(--color-ink); resize: none;
+  border: 0; padding: 0; margin: 0; display: block;
+}
+.smc-composer-input::placeholder { color: var(--color-faint); }
+/* The row's ink rules already frame the input; a browser focus ring would be a second frame. */
+.smc-composer-input:focus, .smc-composer-input:focus-visible { outline: none; }
+.smc-composer-input:disabled { opacity: .6; }
+.smc-composer-input.is-over-ghost { position: absolute; inset: 0; height: 100%; }
+.smc-ghost { pointer-events: none; white-space: pre-wrap; overflow-wrap: break-word; color: var(--color-faint); }
+.smc-ghost-hint {
+  pointer-events: none; margin-top: .125rem; text-align: right;
+  font-family: var(--smc-mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--color-faint);
+}
+.smc-composer-send, .smc-composer-full {
+  font-family: var(--smc-mono); text-transform: uppercase; flex-shrink: 0; align-self: flex-end;
+  padding-bottom: .25rem;
+}
+.smc-composer-send {
+  font-size: 11.5px; letter-spacing: .18em; color: var(--color-muted); background: none; border: 0;
+  cursor: pointer; transition: color var(--smc-ease);
+}
+.smc-composer-send:hover { color: var(--color-accent); }
+.smc-composer-send:disabled { color: var(--color-faint); }
+.smc-composer-send-key { font-size: 14px; }
+.smc-composer-full { font-size: 10.5px; letter-spacing: .16em; color: var(--color-accent); }
+.smc-limit {
+  font-family: var(--smc-mono); font-size: 10.5px; letter-spacing: .06em; color: var(--color-muted);
+  margin: .5rem 0 0;
+}
+.smc-starters { display: flex; flex-wrap: wrap; column-gap: .25rem; row-gap: .5rem; margin-bottom: .75rem; overflow-x: auto; }
+.smc-starters-label {
+  font-family: var(--smc-mono); font-size: 10px; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--color-faint); margin-right: .75rem; flex-shrink: 0; padding-top: .125rem;
+}
+.smc-starter {
+  font-family: var(--smc-serif); font-style: italic; color: var(--color-muted); text-align: left;
+  flex-shrink: 0; font-size: 14.5px; line-height: 1.4; background: none; border: 0; padding: 0;
+  cursor: pointer; transition: color var(--smc-ease);
+}
+.smc-starter:hover { color: var(--color-accent); }
+.smc-starter:disabled { opacity: .5; }
+.smc-starter-sep { color: var(--color-faint); font-style: normal; margin: 0 .5rem; }
+.smc-dock-buttons { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: .75rem; }
+.smc-dock-button {
+  font-family: var(--smc-mono); font-size: 11px; letter-spacing: .06em; padding: .375rem .75rem;
+  border: 1px solid var(--color-rule); color: var(--color-ink); background: none; cursor: pointer;
+}
+.smc-dock-button:hover { border-color: var(--color-ink); }
+.smc-dock-button:disabled { opacity: .4; cursor: not-allowed; }
+
+/* ── diagram and widget blocks inside an answer ───────────────────── */
+.smc-widget-frame { width: 100%; border: 1px solid var(--color-rule); border-radius: 3px; margin: 1rem 0; }
+.smc-tikz { margin: 1.5rem 0; display: flex; justify-content: center; overflow-x: auto; }
+.smc-tikz svg { max-width: 100%; height: auto; }
+.smc-tikz-source { color: var(--color-muted); }
+.smc-tikz-loading {
+  margin: 1.5rem 0; height: 6rem;
+  background: color-mix(in oklab, var(--color-rule) 30%, transparent);
+  animation: smc-pulse 2s cubic-bezier(.4, 0, .6, 1) infinite;
+}
+@keyframes smc-pulse { 50% { opacity: .5; } }
+.smc-app-card { width: 100%; border: none; display: block; }
+
+/* ── the agent on a page (Agent.tsx) ──────────────────────────────── */
+.smc-agent.is-inline { width: 100%; }
+.smc-handoff {
+  display: flex; align-items: center; gap: .75rem; padding-bottom: .5rem;
+  border-bottom: 1px solid color-mix(in oklab, var(--color-ink) 25%, transparent);
+  transition: border-color var(--smc-ease);
+}
+.smc-handoff:focus-within { border-color: var(--color-accent); }
+.smc-handoff-input {
+  flex: 1; min-width: 0; background: transparent; border: 0; outline: none; padding: 0;
+  font-family: var(--smc-serif); font-size: 20px; color: var(--color-ink);
+}
+.smc-handoff-input::placeholder { color: var(--color-faint); }
+.smc-handoff-ask {
+  font-family: var(--smc-mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--color-accent); background: none; border: 0; cursor: pointer; flex-shrink: 0;
+  transition: letter-spacing var(--smc-ease);
+}
+.smc-handoff-ask:hover { letter-spacing: .2em; }
+.smc-examples { margin: 1.25rem 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; column-gap: 1.5rem; row-gap: .5rem; }
+.smc-examples .smc-starter { font-size: 16px; }
+.smc-key-offer {
+  margin-bottom: .75rem; font-family: var(--smc-mono); font-size: 11px; letter-spacing: .06em;
+  color: var(--color-accent); text-decoration: underline; background: none; border: 0; padding: 0; cursor: pointer;
+}
+.smc-key-active {
+  margin: 0 0 .75rem; font-family: var(--smc-mono); font-size: 10.5px; color: var(--color-faint);
+  display: flex; gap: .5rem;
+}
+.smc-key-forget { text-decoration: underline; background: none; border: 0; padding: 0; color: inherit; cursor: pointer; font: inherit; }
+.smc-key-forget:hover { color: var(--color-accent); }
+.smc-clear-row { display: flex; justify-content: flex-end; }
+.smc-clear {
+  font-family: var(--smc-mono); font-size: 11px; color: var(--color-faint); background: none; border: 0;
+  cursor: pointer; transition: color var(--smc-ease);
+}
+.smc-clear:hover { color: var(--color-accent); }
+
+/* ── dock head ────────────────────────────────────────────────────── */
+.smc-dock-title {
+  font-family: var(--smc-mono); font-size: 10px; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--color-muted);
+}
+.smc-dock-caret { font-size: 14px; }
+
+/* ── motion atoms the transcript uses ─────────────────────────────── */
+@keyframes sm-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.sm-rise { animation: sm-rise var(--m-rise, .35s cubic-bezier(.2,.7,.2,1)) both; }
+
+@keyframes sm-dot-bounce {
+  0%, 80%, 100% { opacity: .25; transform: translateY(0); }
+  40%           { opacity: 1;   transform: translateY(-2px); }
+}
+.sm-dot {
+  display: inline-block;
+  animation: sm-dot-bounce 1.2s ease-in-out infinite;
+}
+.sm-dot:nth-child(2) { animation-delay: .15s; }
+.sm-dot:nth-child(3) { animation-delay: .3s; }
+
+/* ── floating chat dock · chat without leaving the page ───────────── */
+.sm-floating-chat-trigger {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: var(--z-float, 40);
+  padding: 10px 14px;
+  font-family: var(--font-mono, 'JetBrains Mono', ui-monospace, monospace);
+  font-size: 11px;
+  letter-spacing: var(--tk-label, 0.14em);
+  text-transform: uppercase;
+  color: var(--color-paper);
+  background: var(--color-ink);
+  border: 1px solid var(--color-ink);
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  transition:
+    background var(--m-snap, .15s ease),
+    color var(--m-snap, .15s ease);
+}
+.sm-floating-chat-trigger:hover {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+.sm-floating-chat-pending {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: inherit;
+}
+.sm-floating-chat-panel {
+  position: fixed;
+  right: 18px;
+  bottom: 64px;
+  z-index: calc(var(--z-float, 40) + 1);  /* sits right above its trigger */
+  width: 380px;
+  max-width: calc(100vw - 36px);
+  max-height: 70vh;
+  background: var(--color-paper);
+  border: 1px solid var(--color-rule);
+  border-radius: 4px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
+  display: flex;
+  flex-direction: column;
+}
+.sm-floating-chat-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-rule);
+}
+.sm-floating-chat-transcript {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.sm-floating-chat-empty {
+  flex: 1;
+  padding: 16px;
+  font-family: var(--font-serif, 'Newsreader', Georgia, serif);
+  font-size: 14.5px;
+  color: var(--color-muted);
+  line-height: 1.55;
+}
+/* sm-floating-chat-compact — #35: the floating panel reuses the main chat's ChatTranscript,
+   but in a compact form: tightens DialogCard's large padding + the answer font size
+   (high-specificity override of Tailwind's explicit sizing). */
+.sm-floating-chat-compact article { padding-top: 14px; padding-bottom: 14px; }
+.sm-floating-chat-compact [data-testid='answer-body'] .reading { font-size: 15px; }
+.sm-floating-chat-compact [data-testid='chat-progress'] { padding-left: 0; padding-right: 0; }
+
+/* The dock's input is the shared Composer (compact); this only frames it. */
+.sm-floating-chat-form {
+  padding: 0 14px;
+  border-top: 1px solid var(--color-rule);
+}
+
+@media (max-width: 540px) {
+  .sm-floating-chat-panel {
+    right: 8px;
+    left: 8px;
+    width: auto;
+    bottom: 60px;
+  }
+}
+
+/* ── rail · the agent beside the page on a wide screen ─────────────── */
+/* Below the breakpoint the rail is not rendered and the dock takes over (Agent.tsx reads the same
+   width through matchMedia, so the two never both show). */
+.sm-agent-rail {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: var(--sm-rail-width, 400px);
+  z-index: var(--z-dock, 30);
+  background: var(--color-paper);
+  border-left: 1px solid var(--color-rule);
+  display: flex;
+  flex-direction: column;
+}
+.sm-agent-rail-head { padding: 18px 22px 12px; border-bottom: 1px solid var(--color-rule); }
+.sm-agent-rail-transcript { flex: 1; min-height: 0; overflow-y: auto; padding: 0 22px; }
+.sm-agent-rail-transcript article { padding-top: 18px; padding-bottom: 18px; }
+.sm-agent-rail-transcript [data-testid='answer-body'] .reading { font-size: 16px; }
+.sm-agent-rail-composer { padding: 0 22px 14px; }
+/* The page beside the rail keeps its column clear of it. */
+body.sm-has-agent-rail { padding-right: var(--sm-rail-width, 400px); }

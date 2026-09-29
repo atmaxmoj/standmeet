@@ -10,7 +10,7 @@
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 
-import { corpusHref } from '@/lib/corpus/href';
+import { corpusHref } from '@standmeet/sdk';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import styles from '@/components/admin/sections/OutputSection.module.css';
 import { CorpusViewToggle } from '@/components/admin/atoms/CorpusViewToggle';

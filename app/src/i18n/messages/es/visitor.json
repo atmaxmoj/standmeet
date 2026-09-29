@@ -24,7 +24,6 @@
     "brand": "standmeet",
     "live": "vivo",
     "fullPage": "página completa →",
-    "ghostAccept": "↹ tab",
     "ready": "ia de {handle} · lista",
     "codedWelcome": "{greeting}. Soy una IA anclada en el corpus curado de {handle}. Ha venido en el segmento <accent>{codeLabel}</accent>.",
     "codedRedaction": "Los temas privados fuera del alcance de este código se redactan. {handle} lee las transcripciones después.",
@@ -32,28 +31,9 @@
     "codedGhostHint": "Pregunta cualquier cosa. Hay una pregunta sugerida esperando en la caja — presiona Tab para llevarla.",
     "byoaiWelcome": "Hola. Soy una IA anclada en el corpus curado de {handle}. Se está ejecutando en su propia clave <accent>{provider}</accent> — solo segmento público.",
     "byoaiScope": "Trabajo, proyectos, opiniones públicas — juego justo. Los temas privados devuelven una respuesta de 'necesita un código'.",
-    "sessionFull": "sesión completa",
-    "limitReached": "Ha alcanzado el límite {reason} de esta sesión — comuníquese con {handle} para que se le otorgue más.",
-    "ask": "preguntar <big>↵</big>",
     "footnote": "<muted>cómo funciona esto</muted> · las respuestas provienen del corpus curado de {handle}. los temas privados devuelven una redacción en lugar de una conjetura.",
     "footnoteCoded": " {handle} lee la transcripción después.",
     "footnoteByoai": " su clave api nunca abandona el navegador."
-  },
-  "chatTranscript": {
-    "you": "Usted",
-    "ai": "ia",
-    "references": "referencias · {count}"
-  },
-  "composerAttachments": {
-    "pasted": "pegado",
-    "remove": "✕"
-  },
-  "floatingChatDock": {
-    "close": "cerrar ✕",
-    "thinking": "pensando",
-    "ask": "preguntar ",
-    "askTheAI": "pregúntele a la IA",
-    "emptyHint": "Pregunte sobre esta página — respondida en la voz del propietario, anclada en el corpus. Un hilo separado, pero la IA aún ve sus otras conversaciones."
   },
   "restrictedDoc": {
     "opening": "abriendo…",

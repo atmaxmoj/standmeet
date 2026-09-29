@@ -1,8 +1,11 @@
 @import "tailwindcss";
 @import "./sm-atoms.css";
 @import "./sm-mobile.css";
-/* KaTeX render styles (used by chat markdown) */
-@import "katex/dist/katex.min.css";
+/* The chat's own stylesheet (with KaTeX's): the chat lives in @standmeet/sdk. */
+@import "@standmeet/sdk/styles.css";
+/* The SDK's other widgets (AgentWidget on the default home) still name Tailwind utilities; a
+   package in node_modules is not scanned unless named. */
+@source "../../node_modules/@standmeet/sdk/dist";
 
 /* StandMeet design tokens —— canonical source: docs/design/project/sm-tokens.css.
    warm cream paper + ink + vermillion accent + amber/violet/acid supporting colors;

@@ -19,10 +19,6 @@
     "assistantLabel": "ia de {handle}",
     "references": "références · {count}"
   },
-  "toolCalls": {
-    "searched": "recherche {count}",
-    "read": "lire {count}"
-  },
   "topBar": {
     "live": "en direct"
   },

@@ -80,9 +80,10 @@ test.describe('AgentWidget · codeless answers inline only when a public provide
       await expect(widget).toBeVisible({ timeout: 20_000 });
       await expect(widget, 'codeless + public provider with quota → inline').toHaveAttribute('data-mode', 'inline');
 
-      await reader.getByTestId('agent-widget-input').fill(`what do you write about? ${tag}`);
-      await reader.getByTestId('agent-widget-ask').click();
-      await expect(reader.getByTestId('agent-widget-transcript'), 'answer renders inline')
+      const input = widget.getByTestId('chat-input-field');
+      await input.fill(`what do you write about? ${tag}`);
+      await input.press('Enter');
+      await expect(widget.getByTestId('answer-body').last(), 'answer renders inline')
         .toContainText(ANSWER, { timeout: 30_000 });
       expect(reader.url(), 'stayed on the page — no gate redirect').toContain(`/p/${SLUG}`);
 

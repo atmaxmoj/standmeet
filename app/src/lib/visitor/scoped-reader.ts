@@ -6,7 +6,7 @@
 // response → null, and the reader keeps the RestrictedDoc it already showed.
 
 import { baseURL, fetchWikiContext } from '@/lib/api/public';
-import { loadStoredSession } from '@/lib/gate/use-gate';
+import { loadStoredSession } from '@standmeet/sdk';
 import { parseWikiLanding, type WikiLandingEntry } from '@/lib/visitor/wiki-landing';
 import type { TreeContext } from '@/lib/corpus/tree';
 

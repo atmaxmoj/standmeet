@@ -10,12 +10,11 @@ import { getTranslations } from 'next-intl/server';
 
 import type { OutputLandingView } from '@standmeet/sdk-core';
 
-import { ChatMarkdown } from '@/components/page/markdown';
+import { ChatMarkdown, FloatingChatDock } from '@standmeet/sdk';
 import { CorpusContent } from '@/components/page/CorpusContent';
 import { Attachments, CoverImage } from '@/components/visitor/CorpusMedia';
 import { coverURL, expandBody } from '@/lib/corpus/media';
 import { AskAboutThis } from '@/components/visitor/AskAboutThis';
-import { FloatingChatDock } from '@/components/visitor/FloatingChatDock';
 import { ReaderAboutCard } from '@/components/visitor/ReaderAboutCard';
 import { RestrictedDoc } from '@/components/visitor/RestrictedDoc';
 import { SessionStrip } from '@/components/visitor/SessionStrip';

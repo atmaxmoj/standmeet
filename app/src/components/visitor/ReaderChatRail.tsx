@@ -33,7 +33,7 @@ import { useTranslations } from 'next-intl';
 
 import { BYOAIPanel } from '@/components/gate/BYOAIPanel';
 import { useGate } from '@/lib/gate/use-gate';
-import { useVisitorChatAvailable } from '@/lib/visitor/session-store';
+import { useVisitorChatAvailable } from '@standmeet/sdk';
 
 import styles from '@/components/visitor/ReaderChatRail.module.css';
 

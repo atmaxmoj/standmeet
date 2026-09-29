@@ -15,7 +15,7 @@ import { useCorpusHref } from '@/lib/corpus/use-corpus-href';
 import type { WritingView } from '@/lib/api/public';
 import { WritingsScrollLoader } from '@/components/writings/WritingsScrollLoader';
 import { WritingCardLead, WritingRow } from '@/components/writings/WritingCards';
-import { FloatingChatDock } from '@/components/visitor/FloatingChatDock';
+import { FloatingChatDock } from '@standmeet/sdk';
 import { SessionStrip } from '@/components/visitor/SessionStrip';
 import { useWritingsFeed } from '@/lib/writings/use-writings-feed';
 

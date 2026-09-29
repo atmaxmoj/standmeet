@@ -14,15 +14,12 @@
 
 'use client';
 
-import { lazy, Suspense, type ReactNode } from 'react';
+import { Suspense, type ReactNode } from 'react';
+import { isMermaidCode, mermaidSource, MermaidBlock } from '@standmeet/sdk';
 
-import { isMermaidCode, mermaidSource } from '@/components/page/markdown-helpers';
 import styles from '@/components/writings/WritingArticleMarkdown.module.css';
 
-const MermaidBlock = lazy(async () => {
-  const mod = await import('@/components/page/MermaidBlock');
-  return { default: mod.MermaidBlock };
-});
+// MermaidBlock is light; the ~600KB mermaid library it renders with loads lazily inside it.
 
 export { styles as markdownStyles };
 

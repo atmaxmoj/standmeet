@@ -15,6 +15,7 @@ export type {
   TurnMsg,
 } from './client.js';
 export { readSSE } from './sse.js';
+export { SESSION_COOKIE } from './session-cookie.js';
 export { isRetrievalTool } from './tool-shape.js';
 export { pageCardTheme } from './card-theme.js';
 // byoai —— the visitor's own key: encrypted browser storage + the per-turn header envelope.

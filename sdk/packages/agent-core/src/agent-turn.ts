@@ -183,7 +183,7 @@ export class VisitorTurnAgent {
         return;
       case 'error':
         ctx.errored = true;
-        this.emit({ type: 'error', message: ev.message });
+        this.emit({ type: 'error', message: ev.message, code: ev.code });
     }
   }
 

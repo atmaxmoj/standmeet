@@ -66,7 +66,6 @@ test.describe.serial('AgentWidget · the page\'s language, English by default', 
   test('a Chinese browser on a page that names no language sees English', async ({ browser }) => {
     const page = await openAs(browser, 'zh-CN', 'byok');
     const w = page.getByTestId('w-default');
-    await expect(w.getByTestId('agent-widget-input'), 'the ask box').toHaveAttribute('placeholder', /^[^一-鿿]*[A-Za-z]{3}[^一-鿿]*$/);
     await expect(w.getByTestId('agent-widget-byok'), 'the BYOK panel').toContainText(/key/i);
     await page.context().close();
   });
@@ -74,7 +73,6 @@ test.describe.serial('AgentWidget · the page\'s language, English by default', 
   test('an English browser on a widget told lang="zh" sees Chinese', async ({ browser }) => {
     const page = await openAs(browser, 'en-US', 'byok');
     const w = page.getByTestId('w-zh');
-    await expect(w.getByTestId('agent-widget-input'), 'the ask box').toHaveAttribute('placeholder', CJK);
     await expect(w.getByTestId('agent-widget-byok'), 'the BYOK panel').toContainText(CJK);
     await expect(w.getByTestId('agent-widget-byok-submit'), 'its button').toContainText(CJK);
     await page.context().close();
@@ -85,9 +83,20 @@ test.describe.serial('AgentWidget · the page\'s language, English by default', 
     execSQL(`UPDATE owner_providers SET gas_tokens=NULL WHERE id='${providerID}'`);
     const page = await openAs(browser, 'zh-CN', 'inline');
     const w = page.getByTestId('w-custom');
-    await expect(w.getByTestId('agent-widget-input'), 'the author\'s placeholder')
+    await expect(w.getByTestId('chat-input-field'), 'the author\'s placeholder')
       .toHaveAttribute('placeholder', PLACEHOLDER);
     await expect(w, 'the author\'s example question').toContainText(EXAMPLE);
+    await page.context().close();
+  });
+
+  // The ask box is only on screen once the visitor can ask (in BYOK mode it waits for the key),
+  // so its own copy is checked in inline mode.
+  test('inline mode: the ask box speaks the page\'s language, not the browser\'s', async ({ browser }) => {
+    const page = await openAs(browser, 'zh-CN', 'inline');
+    await expect(page.getByTestId('w-default').getByTestId('chat-input-field'), 'no lang → English')
+      .toHaveAttribute('placeholder', /^[^一-鿿]*[A-Za-z]{3}[^一-鿿]*$/);
+    await expect(page.getByTestId('w-zh').getByTestId('chat-input-field'), 'lang="zh" → Chinese')
+      .toHaveAttribute('placeholder', CJK);
     await page.context().close();
   });
 });

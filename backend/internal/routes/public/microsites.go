@@ -205,13 +205,26 @@ func (h *MicrositeHandlers) grantOpens(r *http.Request, pageID string) bool {
 
 // writeServeErr —— a closed page without a grant: the page itself sends the reader to enter a
 // code; its sub-assets are simply not there (404, like every other resolve error).
+//
+// A reader who arrived WITH a code (`/p/<slug>?code=X`, the link a recruiter clicks) goes to
+// the code link every other surface uses, `/?code=X`: it redeems the code, asks their name, and
+// lands on the page the code opens. The bare /gate dropped the code and asked for it again.
 func (h *MicrositeHandlers) writeServeErr(w http.ResponseWriter, r *http.Request, err error) {
 	rel, _ := normalizeAssetRel(chi.URLParam(r, "*"))
 	if errors.Is(err, owner.ErrMicrositeNeedsCode) && rel == "index.html" {
-		http.Redirect(w, r, "/gate", http.StatusFound)
+		http.Redirect(w, r, closedPageEntry(r), http.StatusFound)
 		return
 	}
 	writeAssetErr(h.Log, w, err)
+}
+
+// closedPageEntry —— where a reader without a grant goes: the code link when they carry a code,
+// else the gate.
+func closedPageEntry(r *http.Request) string {
+	if code := r.URL.Query().Get("code"); code != "" {
+		return "/?code=" + url.QueryEscape(code)
+	}
+	return "/gate"
 }
 
 // resolvePublicSearch —— corpus.retrieval's public_search setting for the sole owner, or false.

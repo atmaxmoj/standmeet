@@ -11,7 +11,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
-import { ChatMarkdown } from '@/components/page/markdown';
+import { ChatMarkdown } from '@standmeet/sdk';
 
 describe('ChatMarkdown · KaTeX layout survives the sanitize pipeline', () => {
   // a sum + subscripts + superscript exercises struts AND vlists (the exact spans that lost their

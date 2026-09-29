@@ -122,4 +122,7 @@ export type AgentEvent =
   // parsing (the trailing frame was only used to set sawDone), so a
   // half-sentence passed itself off as a complete answer (F-A-34).
   | { readonly type: 'turn_finished'; readonly stopReason: TurnStopReason }
-  | { readonly type: 'error'; readonly message: string };
+  // code —— the server's machine code ('rate_limited', 'byoai_key_required', …) when the error came
+  // from the turn stream; absent for a transport cut. The UI speaks a known code in the visitor's
+  // language and offers a way forward (rate limited → bring your own key).
+  | { readonly type: 'error'; readonly message: string; readonly code?: string };

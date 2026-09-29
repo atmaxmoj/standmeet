@@ -35,7 +35,9 @@ set -eu
 # The boundary is real: public-page addresses are built in the presentation layer (href / Link), the
 # data-access layer builds API paths.
 SRC="app/src/components app/src/app"
-HOME_FILE="app/src/lib/corpus/href.ts"
+# The home moved with the chat into the SDK (docs/design/sdk-chat-inheritance.md); the app imports
+# corpusHref from @standmeet/sdk.
+HOME_FILE="sdk/packages/react/src/chat/href.ts"
 
 fail=0
 
@@ -68,7 +70,7 @@ offenders=$(find $SRC \( -name '*.ts' -o -name '*.tsx' \) -print0 2>/dev/null \
 if [ -n "$offenders" ]; then
   echo "check-one-corpus-href: a corpus URL is hand-built instead of going through corpusHref():"
   echo "$offenders"
-  echo "  → import { corpusHref } from '@/lib/corpus/href'"
+  echo "  → import { corpusHref } from '@standmeet/sdk'"
   echo "     wiki/output address by path, writings by slug — that split lives only inside href.ts."
   fail=1
 fi

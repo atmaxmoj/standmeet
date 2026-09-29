@@ -30,7 +30,7 @@ import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 
 import type { WikiTreeStats } from '@/lib/api/public';
-import { useVisitorSessionStore } from '@/lib/visitor/session-store';
+import { useVisitorSessionStore } from '@standmeet/sdk';
 
 // allGatedAnonymous —— no session, and published (= entries − gated) is 0.
 // Doesn't apply to an invited visitor: every entry opens for them, so

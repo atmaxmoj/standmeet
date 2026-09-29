@@ -26,12 +26,12 @@ import { Cover } from '@/components/writings/Cover';
 import { CorpusContent } from '@/components/page/CorpusContent';
 import { markdownComponents, markdownStyles } from '@/components/writings/WritingArticleMarkdown';
 import { AskAboutThis } from '@/components/visitor/AskAboutThis';
-import { FloatingChatDock } from '@/components/visitor/FloatingChatDock';
-import { CORPUS_REMARK_PLUGINS } from '@/components/page/markdown';
+import {
+  CORPUS_REMARK_PLUGINS, FloatingChatDock, escapeCurrencyDollars, promoteDisplayMath,
+} from '@standmeet/sdk';
 import { LanguageSwitch } from '@/components/visitor/LanguageSwitch';
 import { SessionStrip } from '@/components/visitor/SessionStrip';
 import { expandBody } from '@/lib/corpus/media';
-import { escapeCurrencyDollars, promoteDisplayMath } from '@/components/page/markdown-helpers';
 
 interface Props {
   writing: WritingView;

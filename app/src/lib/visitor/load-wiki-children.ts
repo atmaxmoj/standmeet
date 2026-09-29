@@ -7,7 +7,7 @@
 import { fetchWikiContext, fetchWikiTree, fetchWikiTreeStats } from '@/lib/api/public';
 import type { WikiTreeStats } from '@/lib/api/public';
 import type { TreeNode } from '@/lib/corpus/tree';
-import { loadStoredSession } from '@/lib/gate/use-gate';
+import { loadStoredSession } from '@standmeet/sdk';
 
 export function loadWikiChildren(parentID: string): Promise<TreeNode[]> {
   const token = loadStoredSession()?.session_token ?? '';

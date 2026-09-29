@@ -8,6 +8,7 @@ import type { Metadata } from 'next';
 import { Newsreader, JetBrains_Mono } from 'next/font/google';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale } from 'next-intl/server';
+import { ChatLangProvider } from '@standmeet/sdk';
 
 import '@/app/globals.css';
 import { ThemeSync } from '@/components/page/ThemeSync';
@@ -41,6 +42,8 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     <html lang={locale} className={`${newsreader.variable} ${jetbrainsMono.variable}`}>
       <body>
         <NextIntlClientProvider>
+          {/* The chat (from @standmeet/sdk) speaks the page's locale too. */}
+          <ChatLangProvider lang={locale}>
           <ToastProvider>
             {/* Dark/light mounts here, present on every surface, */}
             {/* so nobody has to remember it (UX-94). */}
@@ -48,6 +51,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             {children}
             <Toaster />
           </ToastProvider>
+          </ChatLangProvider>
         </NextIntlClientProvider>
       </body>
     </html>

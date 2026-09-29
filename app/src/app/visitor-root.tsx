@@ -22,12 +22,11 @@ import { ChatRoom } from '@/components/visitor/ChatRoom';
 import { VisitorNamePicker } from '@/components/visitor/VisitorNamePicker';
 import { DefaultHome } from '@/app/default-home';
 import { useAbsorbCodeFromURL } from '@/lib/gate/use-absorb-code';
-import { usePendingCodeStore } from '@/lib/gate/use-pending-code-store';
-import { useShouldAskVisitorName } from '@/lib/visitor/visitor-name';
 import {
-  useVisitorSessionStore, bindVisitorSessionSync, type VisitorSession,
-} from '@/lib/visitor/session-store';
-import type { SessionMode } from '@/lib/page/use-chat';
+  usePendingCodeStore, useVisitorSessionStore, bindVisitorSessionSync,
+  type SessionMode, type VisitorSession,
+} from '@standmeet/sdk';
+import { useShouldAskVisitorName } from '@/lib/visitor/visitor-name';
 
 export function VisitorRoot({ name, handle, hasCode }: {
   name: string; handle: string; hasCode: boolean;

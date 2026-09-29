@@ -21,10 +21,8 @@
 
 import { useEffect } from 'react';
 
-import { loadStoredSession } from '@/lib/gate/use-gate';
-import { usePendingCodeStore } from '@/lib/gate/use-pending-code-store';
+import { loadStoredSession, peekStoredSession, usePendingCodeStore } from '@standmeet/sdk';
 import { landAfterIssue, applyLanding } from '@/lib/visitor/code-landing';
-import { peekStoredSession } from '@/lib/visitor/session-store';
 import { clearNameDismiss } from '@/lib/visitor/visitor-name';
 
 export function useAbsorbCodeFromURL(): void {

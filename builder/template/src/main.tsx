@@ -3,6 +3,7 @@
 import { createRoot, hydrateRoot } from 'react-dom/client';
 
 import './theme.css'; // the StandMeet design system (tokens + fonts + base), for every page.
+import '@standmeet/sdk/styles.css'; // the chat's own stylesheet (the SDK's Agent, transcript, composer).
 import { track } from './track'; // traffic instrumentation, for every page (see track.ts).
 import OwnerApp from './owner-entry';
 

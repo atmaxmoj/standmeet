@@ -17,7 +17,8 @@
 // stored language is Chinese and theme dark. Contract:
 //   • hydration raises no error (no React #418);
 //   • the page switches to the stored language and theme after mount;
-//   • a question shows its answer; a failed turn shows a readable error line in the widget.
+//   • a question shows its answer; a failed turn shows a readable error in the widget (inside the
+//     turn's answer, marked with data-error-code).
 
 import { test, expect } from '@/fixtures/test';
 import type { Page } from '@playwright/test';
@@ -69,7 +70,7 @@ async function openAsZhVisitor(page: Page): Promise<string[]> {
 }
 
 async function ask(page: Page, text: string): Promise<void> {
-  const input = page.getByTestId('agent-widget-input');
+  const input = page.getByTestId('agent-widget').getByTestId('chat-input-field');
   await expect(input).toBeEnabled({ timeout: 20_000 });
   await input.fill(text);
   await input.press('Enter');
@@ -100,7 +101,8 @@ test.describe('microsite · a Chinese-language visitor chats on a prerendered pa
     const page = await (await browser.newContext()).newPage();
     const errors = await openAsZhVisitor(page);
     await ask(page, `灯塔有多少级台阶？ ${tag}`);
-    await expect(page.getByTestId('agent-widget-transcript')).toContainText('九十七级台阶', { timeout: 30_000 });
+    await expect(page.getByTestId('agent-widget').getByTestId('answer-body').last())
+      .toContainText('九十七级台阶', { timeout: 30_000 });
     expect(errors.filter((e) => /#418|hydrat/i.test(e)), 'no hydration mismatch').toEqual([]);
     await page.context().close();
     await request.dispose();
@@ -112,8 +114,10 @@ test.describe('microsite · a Chinese-language visitor chats on a prerendered pa
     const page = await (await browser.newContext()).newPage();
     await openAsZhVisitor(page);
     await ask(page, `会失败的问题 ${tag}`);
-    await expect(page.getByTestId('agent-widget-error')).toBeVisible({ timeout: 60_000 });
-    await expect(page.getByTestId('agent-widget-error')).not.toHaveText('');
+    // The error is said inside the turn's answer, marked with the server's error code.
+    const answer = page.getByTestId('agent-widget').getByTestId('answer-body').last();
+    await expect(answer, 'the turn ended in an error').toHaveAttribute('data-error-code', /.+/, { timeout: 60_000 });
+    await expect(answer).not.toHaveText('');
     await page.context().close();
     await request.dispose();
   });

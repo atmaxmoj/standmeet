@@ -2,7 +2,7 @@
 // chat_report. Pulled out of the component layer so it can keep to no-`if`
 // + complexity ≤ 3.
 
-import { loadStoredSession } from '@/lib/gate/use-gate';
+import { loadStoredSession } from '@standmeet/sdk';
 
 export type ReportLoadState =
   | { kind: 'loading' }

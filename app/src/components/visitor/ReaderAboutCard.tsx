@@ -22,7 +22,7 @@
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 
-import { useVisitorChatAvailable } from '@/lib/visitor/session-store';
+import { useVisitorChatAvailable } from '@standmeet/sdk';
 
 export function ReaderAboutCard({ genre, handle }: { genre: 'wiki' | 'output'; handle: string }) {
   const t = useTranslations('reader');

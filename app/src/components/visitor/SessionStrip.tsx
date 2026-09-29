@@ -19,11 +19,11 @@ import { useTranslations } from 'next-intl';
 
 import {
   bindVisitorSessionSync,
+  usePendingCodeStore,
   useVisitorSessionStore,
   type VisitorSession,
-} from '@/lib/visitor/session-store';
+} from '@standmeet/sdk';
 import { validateVisitorSession } from '@/lib/visitor/validate-session';
-import { usePendingCodeStore } from '@/lib/gate/use-pending-code-store';
 import { cssVars } from '@/lib/ui/css-vars';
 
 // Slots —— a surface can slot **its own** header content into this

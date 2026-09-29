@@ -24,7 +24,6 @@
     "brand": "standmeet",
     "live": "在线",
     "fullPage": "整页 →",
-    "ghostAccept": "↹ tab",
     "ready": "{handle} 的 ai · 就绪",
     "codedWelcome": "{greeting}。我是一个以 {handle} 精选语料库为依据的 AI。你是通过 <accent>{codeLabel}</accent> 切片进来的。",
     "codedRedaction": "此访问码范围之外的私密话题会被屏蔽。{handle} 事后会阅读对话记录。",
@@ -32,28 +31,9 @@
     "codedGhostHint": "尽管问。框里有一个建议的问题在等着——按 Tab 采用它。",
     "byoaiWelcome": "你好。我是一个以 {handle} 精选语料库为依据的 AI。你正用自己的 <accent>{provider}</accent> 密钥运行——仅公开切片。",
     "byoaiScope": "工作、项目、公开观点——尽管问。私密话题会返回「需要访问码」的回应。",
-    "sessionFull": "会话已满",
-    "limitReached": "你已达到此会话的{reason}上限——联系 {handle} 以获得更多。",
-    "ask": "提问 <big>↵</big>",
     "footnote": "<muted>这是怎么运作的</muted> · 回答来自 {handle} 的精选语料库。私密话题返回屏蔽而非臆测。",
     "footnoteCoded": " {handle} 事后会阅读对话记录。",
     "footnoteByoai": " 你的 api 密钥永不离开浏览器。"
-  },
-  "chatTranscript": {
-    "you": "你",
-    "ai": "ai",
-    "references": "引用 · {count}"
-  },
-  "composerAttachments": {
-    "pasted": "已粘贴",
-    "remove": "✕"
-  },
-  "floatingChatDock": {
-    "close": "关闭 ✕",
-    "thinking": "思考中",
-    "ask": "提问 ",
-    "askTheAI": "向 AI 提问",
-    "emptyHint": "就这个页面提问——以主理人的口吻作答，基于语料库。这是一条独立的对话线，但 AI 仍能看到你的其他对话。"
   },
   "restrictedDoc": {
     "opening": "打开中…",

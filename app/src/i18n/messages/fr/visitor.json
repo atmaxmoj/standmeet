@@ -24,7 +24,6 @@
     "brand": "standmeet",
     "live": "en direct",
     "fullPage": "page complète →",
-    "ghostAccept": "↹ tab",
     "ready": "ia de {handle} · prête",
     "codedWelcome": "{greeting}. Je suis une IA fondée sur le corpus curé de {handle}. Vous êtes arrivé sur la tranche <accent>{codeLabel}</accent>.",
     "codedRedaction": "Les sujets privés en dehors de la portée de ce code sont masqués. {handle} examine les transcriptions après.",
@@ -32,28 +31,9 @@
     "codedGhostHint": "Demandez n'importe quoi. Il y a une question suggérée qui attend dans la boîte — appuyez sur Tab pour la prendre.",
     "byoaiWelcome": "Salut. Je suis une IA fondée sur le corpus curé de {handle}. Vous fonctionnez sur votre propre clé <accent>{provider}</accent> — portée publique uniquement.",
     "byoaiScope": "Travail, projets, prises publiques — juste. Les sujets privés renvoient une réponse « besoin d'un code ».",
-    "sessionFull": "session complète",
-    "limitReached": "Vous avez atteint la limite {reason} de cette session — contactez {handle} pour que vous soyez accordé plus.",
-    "ask": "demander <big>↵</big>",
     "footnote": "<muted>comment ça marche</muted> · les réponses viennent du corpus curé de {handle}. les sujets privés retournent une rédaction plutôt qu'une supposition.",
     "footnoteCoded": " {handle} examine la transcription après.",
     "footnoteByoai": " votre clé api ne quitte jamais le navigateur."
-  },
-  "chatTranscript": {
-    "you": "vous",
-    "ai": "ia",
-    "references": "références · {count}"
-  },
-  "composerAttachments": {
-    "pasted": "collé",
-    "remove": "✕"
-  },
-  "floatingChatDock": {
-    "close": "fermer ✕",
-    "thinking": "réfléchir",
-    "ask": "demander ",
-    "askTheAI": "demander à l'IA",
-    "emptyHint": "Demandez à propos de cette page — répondu à la voix du propriétaire, fondé sur le corpus. Un fil séparé, mais l'IA voit toujours vos autres conversations."
   },
   "restrictedDoc": {
     "opening": "ouverture…",

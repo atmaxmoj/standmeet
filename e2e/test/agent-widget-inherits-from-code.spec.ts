@@ -209,21 +209,20 @@ test.describe('the embedded AgentWidget inherits the code (corpus + persona + do
       // 1. grant adopted → inline, not the handoff.
       await expect(w).toHaveAttribute('data-mode', 'inline');
       // 2. the code's dock button is inherited from the stored blob.
-      await expect(page.getByTestId(`agent-widget-dock-${BLOCK_SUMMARIZE}`))
-        .toBeVisible({ timeout: 10_000 });
+      const dock = w.getByTestId(`dock-button-${BLOCK_SUMMARIZE}`);
+      await expect(dock).toBeVisible({ timeout: 10_000 });
 
       // 3. a turn runs through the ADOPTED session, and the answer carries the persona mark.
-      await page.getByTestId('agent-widget-input').fill(`what are you working on ${tag}`);
-      await page.getByTestId('agent-widget-ask').click();
-      await expect(page.getByTestId('agent-widget-transcript'))
-        .toContainText('noted.', { timeout: 30_000 });
-      await expect(page.getByTestId('agent-widget-transcript'),
-        'the code persona reached the model through the adopted session')
+      const input = w.getByTestId('chat-input-field');
+      await input.fill(`what are you working on ${tag}`);
+      await input.press('Enter');
+      const answer = w.getByTestId('answer-body').last();
+      await expect(answer).toContainText('noted.', { timeout: 30_000 });
+      await expect(answer, 'the code persona reached the model through the adopted session')
         .toContainText(PERSONA_MARK, { timeout: 30_000 });
 
       // 4. clicking the dock button sends its trigger as a visitor message.
-      await page.getByTestId(`agent-widget-dock-${BLOCK_SUMMARIZE}`).click();
-      await expect(page.getByTestId('agent-widget-transcript'))
-        .toContainText(TRIGGER, { timeout: 15_000 });
+      await dock.click();
+      await expect(w.getByTestId('visitor-question').last()).toContainText(TRIGGER, { timeout: 15_000 });
     });
 });

@@ -10,8 +10,7 @@
 import { useTranslations } from 'next-intl';
 
 import { ModalShell } from '@/components/admin/modals/ModalShell';
-import { DiagramDiagnostics } from '@/components/page/diagram-diagnostics';
-import { ChatMarkdown } from '@/components/page/markdown';
+import { ChatMarkdown, DiagramDiagnostics } from '@standmeet/sdk';
 import {
   deriveGhostView,
   pickTranscriptState,
