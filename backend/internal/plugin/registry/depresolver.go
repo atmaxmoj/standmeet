@@ -239,7 +239,7 @@ func (r *DepRegistry) Lookup(name string) (DepProvider, bool) {
 func (r *DepRegistry) Unknown(names []string) []string {
 	var out []string
 	for _, n := range names {
-		dep, op, _ := strings.Cut(n, ":") // "calendar:events.insert"; no colon → op ""
+		dep, op, _ := strings.Cut(n, ":") // "<dep>:<op>"; no colon → op ""
 		p, ok := r.providers[dep]
 		if !ok {
 			out = append(out, n)
@@ -304,7 +304,7 @@ func (r *DepRegistry) Unconnected(
 // "connected or not" — the latter would tell a read-only connection "yes, you're connected"
 // and then every write 403s (F-B-8).
 func (r *DepRegistry) lacks(ctx context.Context, ownerID, name string) (bool, error) {
-	dep, op, _ := strings.Cut(name, ":") // "calendar:events.insert"; no colon → op ""
+	dep, op, _ := strings.Cut(name, ":") // "<dep>:<op>"; no colon → op ""
 	p, ok := r.providers[dep]
 	if !ok {
 		return true, nil
