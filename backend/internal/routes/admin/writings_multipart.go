@@ -45,11 +45,8 @@ func parseWritingMultipart(w http.ResponseWriter, r *http.Request) (parsedMultip
 	// ParseMultipartForm itself only caps the in-memory portion; MaxBytesReader bounds
 	// the reader upstream, returning 413 on overage instead of blowing up memory.
 	// Passing w lets net/http mark the connection as broken on overage (after a 413 the
-	// client no longer attempts keepalive). gosec G120's warning conflicts with this
-	// defense — MaxBytesReader already backstops it, so the suppression is an
-	// explanatory nolint.
+	// client no longer attempts keepalive).
 	r.Body = http.MaxBytesReader(w, r.Body, maxWritingMultipartSize)
-	// #nosec G120 -- already bounded upstream by MaxBytesReader.
 	if err := r.ParseMultipartForm(maxWritingMultipartSize); err != nil {
 		return parsedMultipart{}, parseMultipartErr(err)
 	}

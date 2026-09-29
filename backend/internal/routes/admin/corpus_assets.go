@@ -237,7 +237,6 @@ func parseAssetForm(w http.ResponseWriter, r *http.Request) error {
 	// ParseMultipartForm only caps the in-memory portion; MaxBytesReader bounds the
 	// reader upstream, so an overage returns 413 instead of exhausting memory.
 	r.Body = http.MaxBytesReader(w, r.Body, maxAssetUploadSize)
-	// #nosec G120 -- already bounded upstream by MaxBytesReader.
 	if err := r.ParseMultipartForm(maxAssetUploadSize); err != nil {
 		return errors.New("could not read the uploaded file: " + err.Error())
 	}
