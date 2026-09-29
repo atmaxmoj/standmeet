@@ -51,11 +51,10 @@ func MountInstalledBlockAs(
 	ProvisionBlockStorage(ctx, d, m)
 	ms := []plugin.Manifest{*m}
 	noteBlock(ms)
-	// The dial-error hook records WHY a block vanished, on its own detached context. It has
-	// to be detached: the hook fires while a session is being assembled, and inheriting that
-	// context would cancel the record at exactly the moment it matters. See
-	// recordBlockFailure.
-	hook := blockDialErrLog(d) //nolint:contextcheck // detached ctx (see recordBlockFailure)
+	// The dial-error hook records WHY a block vanished, on a context detached from this one
+	// (context.WithoutCancel): the hook fires later, while a session is being assembled, long
+	// after the install that set it up. See recordBlockFailure.
+	hook := blockDialErrLog(ctx, d)
 	dupes := mount.RegisterDiscoveredPlugins(d.AgentSkills, ms, origin, hook)
 	for _, id := range dupes {
 		d.Log.Warn("installed block not mounted (id already registered)", "id", id)

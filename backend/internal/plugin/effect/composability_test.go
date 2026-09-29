@@ -86,19 +86,18 @@ func twoPhase() effect.Component {
 				if err != nil {
 					return nil, nil, err
 				}
-				return undo, finished, nil
+				return undo, finished(), nil
 			})
 		},
 	}
 }
 
-// finished —— the last iteration of a sequence: yields Nothing.
-//
-// iteration three results — the new state, its inverse, and Maybe(next).
-//
-//nolint:revive // function-result-limit: this IS effect.Step, and Definition 17 gives an
-func finished() (effect.Dispose, effect.Step, error) {
-	return func() error { return nil }, nil, nil
+// finished —— the last iteration of a sequence: a no-op inverse, and Nothing after it. The
+// three-result shape is effect.Step's own (Definition 17), declared once there.
+func finished() effect.Step {
+	return func() (effect.Dispose, effect.Step, error) {
+		return func() error { return nil }, nil, nil
+	}
 }
 
 func TestADivertedTransitionInstallsNothing(t *testing.T) {

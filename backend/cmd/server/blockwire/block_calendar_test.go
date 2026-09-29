@@ -12,8 +12,10 @@ import (
 // landed as a bare summary. This locks every seam field through the mapping.
 func TestInsertEventArgsForwardsEveryField(t *testing.T) {
 	t.Parallel()
-	//nolint:revive // a fixed calendar instant is the whole point of a mapping fixture
-	start := time.Date(2026, time.September, 22, 14, 0, 0, 0, time.UTC)
+	start, err := time.Parse(time.RFC3339, "2026-09-22T14:00:00Z")
+	if err != nil {
+		t.Fatal(err)
+	}
 	req := &adapters.InsertEventReq{
 		Summary:      "Chat with Zhang",
 		Description:  "Booked via StandMeet.\nTopic: partnership\nWith: Zhang",

@@ -48,7 +48,7 @@ func (c *mcpAppFiber) VisitorListBinding(
 	// registered AFTER boot (an owner installs one) or its boot warm timed out. Return State (dock
 	// button) and kick a background warm; a later assembly binds hot. Deliberately does NOT block
 	// here — a per-session wait stacks across cold blocks and slows/times out every assembly.
-	c.warmInBackground(in) //nolint:contextcheck // detached warm outlives the request
+	c.warmInBackground(ctx)
 	return &registry.Binding{
 		Tools:     nil, // warm not landed: State (dock button) shows; a later assembly binds hot
 		State:     c.stateFor(ctx, in),
@@ -107,10 +107,12 @@ const warmDialTimeout = 20 * time.Second
 
 // warmInBackground —— warmOnce detached, for the SELF-HEAL case only (a block first reached cold —
 // registered after boot, or its boot warm timed out). A finished/cancelled request must not kill
-// it, hence context.Background. Not a job: the cache it fills lives in this process's memory.
-func (c *mcpAppFiber) warmInBackground(_ *registry.AssembleInput) {
+// it, hence context.WithoutCancel: the request's values, none of its cancellation. Not a job: the
+// cache it fills lives in this process's memory.
+func (c *mcpAppFiber) warmInBackground(ctx context.Context) {
 	in := &registry.AssembleInput{ConversationID: warmConversationID}
-	detach.Go("block warm "+c.m.ID, func() { c.warmOnce(context.Background(), in) })
+	detached := context.WithoutCancel(ctx)
+	detach.Go("block warm "+c.m.ID, func() { c.warmOnce(detached, in) })
 }
 
 // skipWarm —— this fiber should not be warmed at all: a workspace-per-session block

@@ -134,14 +134,14 @@ func FetchResultOf(
 ) (FetchOutcome, error) {
 	outcomes := make([]sourceOutcome, 0, len(ids))
 	for _, id := range ids {
-		o, done, err := outcomeOf(ctx, &deps, ownerID, id)
+		o, err := outcomeOf(ctx, &deps, ownerID, id)
 		if err != nil {
 			return FetchOutcome{}, err
 		}
-		if !done {
+		if o == nil {
 			return receipt(ids), nil
 		}
-		outcomes = append(outcomes, o)
+		outcomes = append(outcomes, *o)
 	}
 	return FetchOutcome{Result: assemble(ctx, &deps, ownerID, since, outcomes)}, nil
 }
@@ -185,22 +185,23 @@ func awaitFetch(ctx context.Context, deps *JobsDeps, ids []jobs.JobID) bool {
 	return true
 }
 
-// outcomeOf — job id's outcome, and whether the job is done. Three results on purpose: "not done
-// yet" is neither an outcome nor an error.
-//
-//nolint:revive // function-result-limit: (outcome, done, err) — see above
+// outcomeOf — job id's outcome, or nil while the job is not done: "not done yet" is neither an
+// outcome nor an error.
 func outcomeOf(
 	ctx context.Context, deps *JobsDeps, ownerID string, id jobs.JobID,
-) (sourceOutcome, bool, error) {
+) (*sourceOutcome, error) {
 	fj, err := ownFetchJob(ctx, deps, ownerID, id)
 	if err != nil {
-		return sourceOutcome{}, false, err
+		return nil, err
 	}
 	if !fj.job.State.Terminal() {
-		return sourceOutcome{}, false, nil
+		return nil, nil
 	}
 	o, err := storedOutcome(ctx, deps, &fj.args, &fj.job)
-	return o, true, err
+	if err != nil {
+		return nil, err
+	}
+	return &o, nil
 }
 
 // fetchJob —— one source job, and its args.

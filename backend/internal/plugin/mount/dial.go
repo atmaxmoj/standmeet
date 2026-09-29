@@ -173,10 +173,18 @@ func SetNativeKeyIssuer(i *nativekey.Issuer) { nativeKeyIssuer = i }
 // unchanged and an empty key. The manifest is copied (its Env cloned) so the per-dial secret never
 // lands on the shared manifest — two sessions of one block get two keys.
 func withNativeKey(m *plugin.Manifest, fiberID string) (plugin.Manifest, nativekey.Key) {
-	if !reachBackKeyWanted(m) {
+	return withKeyFrom(nativeKeyIssuer, m, fiberID)
+}
+
+// withKeyFrom —— withNativeKey against a given issuer (nil = none configured). The injected
+// global is read once, in withNativeKey; everything below takes the issuer as a value.
+func withKeyFrom(
+	iss *nativekey.Issuer, m *plugin.Manifest, fiberID string,
+) (plugin.Manifest, nativekey.Key) {
+	if !reachBackKeyWanted(iss, m) {
 		return *m, ""
 	}
-	k, err := nativeKeyIssuer.Issue(fiberID)
+	k, err := iss.Issue(fiberID)
 	if err != nil {
 		return *m, "" // mint failed → dial without a key; the reach-back stays socket-confined
 	}
@@ -189,9 +197,9 @@ func withNativeKey(m *plugin.Manifest, fiberID string) (plugin.Manifest, nativek
 
 // reachBackKeyWanted —— a block gets a native key only if an issuer is configured and it declares
 // host ops (it reaches back). A non-reach-back or third-party block gets none.
-func reachBackKeyWanted(m *plugin.Manifest) bool {
+func reachBackKeyWanted(iss *nativekey.Issuer, m *plugin.Manifest) bool {
 	s := m.Transport.Sandbox
-	return nativeKeyIssuer != nil && s != nil && len(s.HostOps) > 0
+	return iss != nil && s != nil && len(s.HostOps) > 0
 }
 
 // clonedEnvWith —— a copy of env with one key set (never mutates the caller's map).

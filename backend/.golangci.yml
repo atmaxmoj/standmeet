@@ -255,10 +255,9 @@ linters:
         # Cap function outputs at 2 — anything beyond `(value, error)`
         # belongs in a result struct (named fields self-document) or
         # uses a sentinel error to encode the "not found" case in the
-        # error channel (stdlib convention: sql.ErrNoRows, io.EOF).
-        # The few legitimate exceptions — wire's `(value, cleanup,
-        # error)` cleanup-func contract — carry a per-line `//nolint`
-        # naming the reason.
+        # error channel (stdlib convention: sql.ErrNoRows, io.EOF), or
+        # makes the optional part a *T. No per-line exceptions: the
+        # repo carries no //nolint at all.
         - name: function-result-limit
           arguments: [2]
         # line-length-limit at the default 80 fires for any
