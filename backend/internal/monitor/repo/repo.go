@@ -20,7 +20,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/monitor/entity"
@@ -89,8 +92,12 @@ func (r *Repo) ResolveVisit(
 	if qerr != nil {
 		// No open visit is the common case on a first hit, and pgx reports it as an error.
 		// Opening a fresh visit answers both that and a genuine query failure; the alternative
-		// is dropping the event, which loses more than it protects.
-		return entity.VisitID(secret, viewerID, now), nil //nolint:nilerr // see above
+		// is dropping the event, which loses more than it protects. The genuine failure is
+		// logged; the common case is not.
+		if !errors.Is(qerr, pgx.ErrNoRows) {
+			slog.Warn("monitor: newest-visit lookup failed; opening a fresh visit", "err", qerr)
+		}
+		return entity.VisitID(secret, viewerID, now), nil
 	}
 	return visitID, nil
 }

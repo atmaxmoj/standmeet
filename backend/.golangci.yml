@@ -137,6 +137,13 @@ linters:
         - .WithStack(
         - river.JobCancel(
         - river.JobSnooze(
+    nilnil:
+      # The project's rule for an optional value is *T (scripts/check-no-nil-container: "Optional
+      # uses *T; collections always return empty container"). So `(*T, error)` returning
+      # (nil, nil) IS the answer "absent" — no expiry, no cursor, no limit, unmetered, no notice
+      # waiting — not an invalid value a sentinel should replace. The default list minus ptr:
+      # a nil map / chan / func / interface with a nil error is still flagged.
+      checked-types: [chan, func, iface, map, uintptr, unsafeptr]
     errcheck:
       check-type-assertions: true
       check-blank: true
@@ -392,6 +399,10 @@ linters:
       - path: _test\.go$
         linters: [gosec]
         text: "G404|G204"
+      # A test that proves a caller refuses (nil, nil) has to build one — effect's Definition 8
+      # test hands Scope.Effect a setup with no inverse and asserts ErrNoInverse.
+      - path: _test\.go$
+        linters: [nilnil]
       # G204 flags every exec whose argv holds a variable, and the sandbox is the one production
       # package whose job is to exec (`docker run`). Its argv goes to docker directly, never
       # through a shell: the image comes from the language allow-list, and the owner's script is

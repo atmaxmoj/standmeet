@@ -15,8 +15,12 @@ package blockstore
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log/slog"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // maxClaimTTL —— the longest a claim can live. A claim exists to cover the "peek then act"
@@ -54,7 +58,13 @@ func (s *Store) Claim(ctx context.Context, c ClaimKey, ttl time.Duration) (bool,
 	var got bool
 	qerr := s.pool.QueryRow(ctx, sql, collection, key, clampClaimTTL(ttl).String()).Scan(&got)
 	if qerr != nil {
-		return false, nil //nolint:nilerr // insert failed = held by someone else, not a fault
+		// Held and not yet expired: the conflict updates no row, so RETURNING yields none.
+		// Any other failure also answers "not yours" (the caller's message for a lost race),
+		// as it always has — but it is logged, because it is not a race.
+		if !errors.Is(qerr, pgx.ErrNoRows) {
+			slog.Warn("blockstore: claim query failed; answering not-claimed", "err", qerr)
+		}
+		return false, nil
 	}
 	return got, nil
 }

@@ -70,7 +70,7 @@ func (r *Repo) BookingNotice(
 		WHERE owner_id = $1 AND booking_id = $2`, owner, bookingID,
 	).Scan(&n.Summary, &n.VisitorName, &n.StartAt)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil //nolint:nilnil // none waiting is not an error
+		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("read booking notice: %w", err)

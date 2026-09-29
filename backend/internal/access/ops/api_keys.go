@@ -219,7 +219,7 @@ func decodeAPIKeyCreate(raw json.RawMessage) (apiKeyCreateArgs, error) {
 // parseAPIKeyExpiry — empty = never expires, not an error.
 func parseAPIKeyExpiry(s string) (*time.Time, error) {
 	if s == "" {
-		return nil, nil //nolint:nilnil // empty = unset, not an error
+		return nil, nil
 	}
 	t, err := time.Parse(time.RFC3339, s)
 	if err != nil {

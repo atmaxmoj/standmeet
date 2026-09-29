@@ -152,12 +152,19 @@ func (r *ResumeMasterRepo) ClearDefault(ctx context.Context, ownerID, id string)
 	return nil
 }
 
+// wellFormedKey — the key when both ids parse. For an idempotent delete a malformed id is not
+// a failure, only an id that names nothing.
+func wellFormedKey(ownerID, id string) (draftKey, bool) {
+	key, err := parseDraftKey(ownerID, id)
+	return key, err == nil
+}
+
 // Delete — idempotent (an unknown or already-deleted master succeeds). Drafts based on it keep
 // their content and stop naming it (ON DELETE SET NULL).
 func (r *ResumeMasterRepo) Delete(ctx context.Context, ownerID, id string) error {
-	key, err := parseDraftKey(ownerID, id)
-	if err != nil {
-		return nil //nolint:nilerr // a malformed id names no master: nothing to delete
+	key, ok := wellFormedKey(ownerID, id)
+	if !ok {
+		return nil // a malformed id names no master: nothing to delete
 	}
 	if _, derr := db.New(r.pool).DeleteResumeMaster(ctx, db.DeleteResumeMasterParams{
 		ID: key.draft, OwnerID: key.owner,

@@ -133,7 +133,7 @@ func decodeCodeCreate(raw json.RawMessage, ownerID string) (*repo.CreateCodeInpu
 // parseOptionalRFC3339 — empty = not set (never expires), not an error.
 func parseOptionalRFC3339(s string) (*time.Time, error) {
 	if s == "" {
-		return nil, nil //nolint:nilnil // empty = unset, not an error
+		return nil, nil
 	}
 	t, err := time.Parse(time.RFC3339, s)
 	if err != nil {

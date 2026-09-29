@@ -37,7 +37,7 @@ func ProviderRemaining(
 	ctx context.Context, spend SpendReader, row *repo.ProviderRow,
 ) (*int64, error) {
 	if row.GasTokens == nil || spend == nil {
-		return nil, nil //nolint:nilnil // nil = unmetered, a normal answer in this domain
+		return nil, nil
 	}
 	spent, err := spend.SpentSince(ctx, row.ID, gasPeriodStart(row))
 	if err != nil {
