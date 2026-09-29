@@ -14,6 +14,7 @@
 package effect_test
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -189,7 +190,7 @@ func (d denyList) Merge(other effect.Meta) effect.Meta {
 	if !ok {
 		return d
 	}
-	return denyList{denied: append(append([]string{}, d.denied...), o.denied...)}
+	return denyList{denied: slices.Concat(d.denied, o.denied)}
 }
 func (d denyList) Empty() bool { return len(d.denied) == 0 }
 

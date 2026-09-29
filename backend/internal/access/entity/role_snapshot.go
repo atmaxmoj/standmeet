@@ -247,6 +247,8 @@ func (s *RoleSnapshot) DeniedCorpusURIs() []string { return slices.Clone(s.denie
 
 // MarshalJSON / UnmarshalJSON —— sessions are stored in Redis as JSON; the encapsulated
 // type is not serializable by default, so a sidecar wire form maps the fields out.
+// A pointer receiver: RoleSnapshot is only ever serialized through a pointer (the session holds
+// *RoleSnapshot); see revive's marshal-receiver note in .golangci.yml.
 func (s *RoleSnapshot) MarshalJSON() ([]byte, error) {
 	b, err := json.Marshal(roleSnapshotWire{
 		FrozenAt:             s.frozenAt,

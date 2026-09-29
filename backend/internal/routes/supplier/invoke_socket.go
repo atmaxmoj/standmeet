@@ -48,18 +48,12 @@ func invokeHandler(inv Invoker, bg Background) hostop.Invoke {
 	return func(
 		ctx context.Context, raw json.RawMessage,
 	) (json.RawMessage, error) {
-		var req struct {
-			OwnerID    string          `json:"owner_id"`
-			Seam       string          `json:"seam"`
-			Verb       string          `json:"verb"`
-			Args       json.RawMessage `json:"args"`
-			Background bool            `json:"background"`
-		}
+		var req invokeReq
 		if err := json.Unmarshal(raw, &req); err != nil {
 			return nil, fmt.Errorf("supplier.invoke: decode: %w", err)
 		}
 		if req.Background {
-			return background(ctx, bg, req.OwnerID, req.Seam, req.Verb, req.Args)
+			return background(ctx, bg, &req)
 		}
 		out, err := inv.Invoke(ctx, req.OwnerID, req.Seam, req.Verb, req.Args)
 		if err != nil {
@@ -79,12 +73,20 @@ func invokeHandler(inv Invoker, bg Background) hostop.Invoke {
 	}
 }
 
+// invokeReq —— the supplier.invoke call: which owner's supplier, which seam and verb, the args,
+// and whether to run it as a committed background job.
+type invokeReq struct {
+	OwnerID    string          `json:"owner_id"`
+	Seam       string          `json:"seam"`
+	Verb       string          `json:"verb"`
+	Args       json.RawMessage `json:"args"`
+	Background bool            `json:"background"`
+}
+
 // background —— {ok:true} once the call is a committed job.
-func background(
-	ctx context.Context, bg Background, ownerID, seam, verb string, args json.RawMessage,
-) (json.RawMessage, error) {
-	if err := bg(ctx, ownerID, seam, verb, args); err != nil {
-		return nil, fmt.Errorf("supplier.invoke %s/%s background: %w", seam, verb, err)
+func background(ctx context.Context, bg Background, req *invokeReq) (json.RawMessage, error) {
+	if err := bg(ctx, req.OwnerID, req.Seam, req.Verb, req.Args); err != nil {
+		return nil, fmt.Errorf("supplier.invoke %s/%s background: %w", req.Seam, req.Verb, err)
 	}
 	return json.RawMessage(`{"ok":true,"background":true}`), nil
 }

@@ -34,8 +34,7 @@ var fallback = Envelope{
 // 500 fallback (no internal detail leaks). DisplayError takes priority: if an error explicitly
 // declares itself displayable, honor that.
 func Classify(err error, cases []Case) Envelope {
-	var de DisplayError
-	if errors.As(err, &de) {
+	if de, ok := errors.AsType[DisplayError](err); ok {
 		return Envelope{
 			Status: de.HTTPStatus(), Code: de.DisplayCode(), Message: de.DisplayMessage(),
 		}

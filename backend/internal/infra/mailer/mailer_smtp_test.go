@@ -70,7 +70,7 @@ func TestBuildMessageStripsHeaderInjectionFromName(t *testing.T) {
 	if strings.Contains(raw, "\r\nBcc:") {
 		t.Fatalf("CR/LF in display name leaked an injected header:\n%s", raw)
 	}
-	headerBlock := strings.SplitN(raw, "\r\n\r\n", 2)[0]
+	headerBlock, _, _ := strings.Cut(raw, "\r\n\r\n")
 	if strings.Count(headerBlock, "\r\n") != wantHeaderSep {
 		t.Fatalf("expected exactly 6 header lines, got header block:\n%s", headerBlock)
 	}

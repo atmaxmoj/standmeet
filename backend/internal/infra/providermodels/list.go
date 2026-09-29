@@ -88,8 +88,7 @@ func displayFor(err error) error {
 		return apierr.Display(http.StatusBadRequest, "endpoint_blocked",
 			"That endpoint resolves to an internal/private address and is not allowed.")
 	}
-	var refused refusedError
-	if errors.As(err, &refused) {
+	if refused, ok := errors.AsType[refusedError](err); ok {
 		return refusalDisplay(refused, err)
 	}
 	return apierr.DisplayWrap(http.StatusBadRequest, "provider_unreachable",

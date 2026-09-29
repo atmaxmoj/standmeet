@@ -36,8 +36,7 @@ func Coded(err error, code string) error { return codedError{inner: err, code: c
 // CodeOf —— retrieve an explicitly pinned code. Not pinned → ok=false, facade uses the category's
 // default code.
 func CodeOf(err error) (string, bool) {
-	var t codedError
-	if errors.As(err, &t) {
+	if t, ok := errors.AsType[codedError](err); ok {
 		return t.code, true
 	}
 	return "", false

@@ -21,8 +21,7 @@ func openapiTransient(err error) bool {
 	if err == nil {
 		return false
 	}
-	var se *openapi.StatusError
-	if errors.As(err, &se) {
+	if se, ok := errors.AsType[*openapi.StatusError](err); ok {
 		return se.Transient
 	}
 	return isNetworkErr(err)
@@ -30,8 +29,7 @@ func openapiTransient(err error) bool {
 
 // isNetworkErr — transport-layer jitter like dial/timeout/EOF.
 func isNetworkErr(err error) bool {
-	var ne net.Error
-	if errors.As(err, &ne) {
+	if ne, ok := errors.AsType[net.Error](err); ok && ne != nil {
 		return true
 	}
 	return errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF)

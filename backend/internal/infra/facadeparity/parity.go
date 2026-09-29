@@ -82,7 +82,7 @@ func (r Reach) Plane() Plane { return r.plane }
 
 // Except —— narrow a base reach by block class, e.g. OwnerAction().Except(Browser).
 func (r Reach) Except(classes ...FacadeClass) Reach {
-	r.except = append(append([]FacadeClass{}, r.except...), classes...)
+	r.except = slices.Concat(r.except, classes)
 	return r
 }
 

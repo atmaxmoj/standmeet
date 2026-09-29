@@ -205,8 +205,7 @@ func isRevokedFault(err error) bool {
 // blockFaultSentence — the block's own user-facing sentence for a fault, surfaced verbatim (the
 // block owns its wording; the host does not re-word it).
 func blockFaultSentence(err error) string {
-	var fe *hostop.FaultError
-	if errors.As(err, &fe) {
+	if fe, ok := errors.AsType[*hostop.FaultError](err); ok {
 		return fe.Error()
 	}
 	return err.Error()

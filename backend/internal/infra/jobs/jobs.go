@@ -103,8 +103,7 @@ func Snooze(d time.Duration) error { return &snoozeError{d: d} }
 
 // SnoozeOf — the snooze duration, if err is a Snooze.
 func SnoozeOf(err error) (time.Duration, bool) {
-	var s *snoozeError
-	if errors.As(err, &s) {
+	if s, ok := errors.AsType[*snoozeError](err); ok {
 		return s.d, true
 	}
 	return 0, false

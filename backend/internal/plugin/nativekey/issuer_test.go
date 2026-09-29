@@ -87,12 +87,9 @@ func TestIssuer_ConcurrentAccess(t *testing.T) {
 	iss := nativekey.NewIssuer()
 	const workers = 16
 	var wg sync.WaitGroup
-	wg.Add(workers)
 	for w := range workers {
-		go func(id string) {
-			defer wg.Done()
-			churn(t, iss, id)
-		}(string(rune('A' + w)))
+		id := string(rune('A' + w))
+		wg.Go(func() { churn(t, iss, id) })
 	}
 	wg.Wait()
 }

@@ -34,6 +34,8 @@ linters:
                       # business constants get named regardless.
 
     # ── conflict with stdlib / community Go idioms ──
+    - exhaustruct_v5  # (golangci-lint 2.14 deprecated `exhaustruct` and replaced it with
+                      # `exhaustruct_v5`; same linter, same reason — both names stay off.)
     - exhaustruct     # Forces every struct literal to set every field; Go's
                       # zero-value-as-default is the whole point of literals.
                       # Project-locally we lean on the zero value (e.g. http.Server
@@ -210,6 +212,20 @@ linters:
               allow-strs: '""'
               allow-ints: "0,1,2,3,24,100"
               allow-floats: "0.0,1.0"
+        # multiline-if-init (revive 1.17, arrived with golangci-lint 2.14 on 2026-09-29 through
+        # enable-all-rules) flags an `if x, err := f(\n args); err != nil` whose init wraps. It is
+        # layout only — the 100-column line-length-limit above is what forces the wrap — and it
+        # fired on 158 existing sites; obeying it would mean hoisting every such call out of its
+        # `if` and widening each variable's scope, which is the opposite of what if-init is for.
+        - name: multiline-if-init
+          disabled: true
+        # marshal-receiver (revive 1.17, same arrival) wants MarshalJSON on a value receiver.
+        # For a large type that cannot be satisfied: a value receiver copies the struct on every
+        # call (gocritic hugeParam) and mixes receiver kinds on one type (recvcheck). The rule's
+        # worry — a value serialized without its MarshalJSON — is a data-flow property the rule
+        # cannot see; our marshaled aggregates travel by pointer.
+        - name: marshal-receiver
+          disabled: true
     gosec:
       excludes:
         # G115 fires on every numeric type conversion; pgx already

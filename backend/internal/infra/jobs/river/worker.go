@@ -62,7 +62,7 @@ func (a rawArgs) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON — accepts any JSON. River decodes each job's args into a rawArgs before Work;
 // Work reads job.EncodedArgs, never the decoded value, so there is nothing to keep.
-func (rawArgs) UnmarshalJSON([]byte) error { return nil }
+func (*rawArgs) UnmarshalJSON([]byte) error { return nil }
 
 // worker — dispatches by kind and translates the handler's failure class into River's.
 type worker struct {

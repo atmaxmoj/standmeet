@@ -65,8 +65,7 @@ func hasFault(err error, codes ...string) bool {
 // transientTransport — the non-fault transient signal: a net.Error (dropped/refused/timeout) or an
 // EOF, for the in-host (non-block) mail paths.
 func transientTransport(err error) bool {
-	var ne net.Error
-	if errors.As(err, &ne) {
+	if ne, ok := errors.AsType[net.Error](err); ok && ne != nil {
 		return true
 	}
 	return errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF)

@@ -131,10 +131,13 @@ func TestCallVerb_ReusesWarmSandboxPerOwner(t *testing.T) {
 		"(memory eiab-build-progress.md, 2026-09-20). Unskip when the reuse pool lands.")
 	t.Parallel()
 	vault := &fakeVault{creds: json.RawMessage(emptyObj)}
-	var dials int
+	var (
+		dials   int
+		dialErr error // stays nil: this test is about reuse, not dial failure
+	)
 	dial := func(context.Context, *plugin.Manifest) (blockseam.Session, error) {
 		dials++
-		return &fakeSession{out: mcpclient.ToolOutcome{Text: emptyObj}}, nil
+		return &fakeSession{out: mcpclient.ToolOutcome{Text: emptyObj}}, dialErr
 	}
 	p := blockseam.New(manifest(), vault, dial)
 	ctx := context.Background()

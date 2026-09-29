@@ -79,16 +79,13 @@ func ClassifyStreamErr(err error) StreamErrClass {
 // eino-ext *APIError (components/model/openai convOrigAPIError), a new value with no Unwrap. So
 // that is the type read here; go-openai's *RequestError is not converted and reaches us as is.
 func upstreamStatus(err error) int {
-	var oaiAPI *einoopenai.APIError
-	if errors.As(err, &oaiAPI) {
+	if oaiAPI, ok := errors.AsType[*einoopenai.APIError](err); ok {
 		return oaiAPI.HTTPStatusCode
 	}
-	var oaiReq *openai.RequestError
-	if errors.As(err, &oaiReq) {
+	if oaiReq, ok := errors.AsType[*openai.RequestError](err); ok {
 		return oaiReq.HTTPStatusCode
 	}
-	var claude *anthropic.Error
-	if errors.As(err, &claude) {
+	if claude, ok := errors.AsType[*anthropic.Error](err); ok {
 		return claude.StatusCode
 	}
 	return 0

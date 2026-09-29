@@ -197,10 +197,12 @@ func notifyBySlot(
 	case access.NotifyDropped:
 		d.Log.Warn("access-request owner notification dropped (email-bomb cap)",
 			"owner_id", ev.OwnerID, "request_id", requestID)
-		return nil
-	default: // NotifySent: this request's owner notice already went out
-		return nil
+	case access.NotifySent: // this request's owner notice already went out: nothing to do
+	default:
+		d.Log.Warn("access-request owner notification: unknown slot, nothing sent",
+			"owner_id", ev.OwnerID, "request_id", requestID, "slot", slot)
 	}
+	return nil
 }
 
 //nolint:wrapcheck // the repos and the port name their steps
