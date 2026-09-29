@@ -399,6 +399,16 @@ linters:
       - path: _test\.go$
         linters: [gosec]
         text: "G404|G204"
+      # gosmopolitan keeps hard-coded non-Latin text out of the server; that stays on for
+      # production code. Two places have such text as their subject. Tests of a bilingual product
+      # (CJK slugs, a Chinese pane, a multibyte cut, grep over unsegmented words) feed the real
+      # input, and ASCII stand-ins would leave that half untested. internal/corpus/i18n is the
+      # package for multilingual notes: its label table is each language's own spelling, and
+      # its contract example must show a second language.
+      - path: _test\.go$
+        linters: [gosmopolitan]
+      - path: internal/corpus/i18n/
+        linters: [gosmopolitan]
       # A test that proves a caller refuses (nil, nil) has to build one — effect's Definition 8
       # test hands Scope.Effect a setup with no inverse and asserts ErrNoInverse.
       - path: _test\.go$

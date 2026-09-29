@@ -90,8 +90,6 @@ func Label(code string, labels map[string]string) string {
 
 // builtinLabels —— default spellings for non-Latin scripts: a Chinese reader seeing
 // "ZH" would take it for someone else's language.
-//
-//nolint:gosmopolitan // this table's content IS each language's own spelling; ASCII defeats it
 var builtinLabels = map[string]string{
 	"zh": "中文", "zh-hans": "简体", "zh-hant": "繁體",
 	"ja": "日本語", "ko": "한국어", "ru": "Русский",

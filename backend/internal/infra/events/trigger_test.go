@@ -145,7 +145,6 @@ func TestInsertEmitsCreatedWithTheNotesURI(t *testing.T) {
 	}
 }
 
-//nolint:gosmopolitan // the Chinese title is the thing under test: a CJK segment in the URI path
 func TestAChildsURIWalksItsParentChain(t *testing.T) {
 	t.Parallel()
 	tr := triggerRig(t)

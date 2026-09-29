@@ -32,10 +32,7 @@ const (
 // grepWords — the vocabulary used to generate corpus bodies. Two-character Chinese words
 // are deliberately included: the thing a tokenizer can't segment out is exactly this
 // tool's reason to exist, and GrepBody has to work on it exactly as well as on ASCII.
-//
-// mean not testing that half at all
-//
-//nolint:gosmopolitan // the Chinese words ARE the thing under test; swapping to ASCII would
+// Swapping them for ASCII would mean not testing that half at all.
 var grepWords = []string{
 	"cybernetics", "ashby", "requisite", "variety", "homeostat", "feedback",
 	"控制论", "反馈回路", "自组织", "SM-4471/b", "C++", "a.b.c", "naive",

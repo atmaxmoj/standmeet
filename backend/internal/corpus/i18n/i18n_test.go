@@ -19,7 +19,6 @@ const (
 	langZH = "zh"
 )
 
-//nolint:gosmopolitan // Chinese sample is the tested object: the other pane of a bilingual note
 const twoPanes = `> [!i18n]
 > > [!lang] en
 > > # Title
@@ -77,18 +76,12 @@ func TestMonolingualNoteIsSilent(t *testing.T) {
 // outside the block is language-neutral, and appears under both languages. This is
 // the entire content of "one note ≠ N documents" — an N-documents implementation
 // would duplicate it twice, and this test is the only one that tells the two apart.
-//
-//nolint:gosmopolitan,cyclop // as above; Chinese pane is the target; 2 langs x 2 asserts
 func TestNeutralProseSurvivesBothLanguages(t *testing.T) {
 	t.Parallel()
 	body := "Intro prose.\n\n" + twoPanes + "\nOutro prose.\n"
 	doc := Parse(body)
-	for _, lang := range []string{langEN, langZH} {
-		out := Render(&doc, lang, langEN)
-		if !strings.Contains(out, "Intro prose.") || !strings.Contains(out, "Outro prose.") {
-			t.Fatalf("neutral prose missing under %q:\n%s", lang, out)
-		}
-	}
+	requireNeutralProse(t, &doc, langEN)
+	requireNeutralProse(t, &doc, langZH)
 	en := Render(&doc, langEN, langEN)
 	if strings.Contains(en, "中文正文") {
 		t.Fatal("the other language's prose must not be in the en render at all")
@@ -98,7 +91,16 @@ func TestNeutralProseSurvivesBothLanguages(t *testing.T) {
 	}
 }
 
-// TestSeveralRegionsInOneNote — multiple regions in one note, with neutral prose
+// requireNeutralProse — the prose outside the block is in the render for lang.
+func requireNeutralProse(t *testing.T, doc *Doc, lang string) {
+	t.Helper()
+	out := Render(doc, lang, langEN)
+	if !strings.Contains(out, "Intro prose.") || !strings.Contains(out, "Outro prose.") {
+		t.Fatalf("neutral prose missing under %q:\n%s", lang, out)
+	}
+}
+
+// TestSeveralRegionsInOneNote —multiple regions in one note, with neutral prose
 // sandwiched between them (the shape of a real sample).
 func TestSeveralRegionsInOneNote(t *testing.T) {
 	t.Parallel()
@@ -121,8 +123,6 @@ func TestSeveralRegionsInOneNote(t *testing.T) {
 // TestButtonRowIsDropped — Obsidian's radio-button row is a presentation artifact,
 // not content: not one character of it should leak out (neither as a control nor
 // as text).
-//
-//nolint:gosmopolitan // the Chinese label in the button row is a verbatim sample
 func TestButtonRowIsDropped(t *testing.T) {
 	t.Parallel()
 	body := "> [!i18n]\n" +
@@ -258,7 +258,6 @@ func TestLangMustHaveAPane(t *testing.T) {
 
 // — selection and labels —
 
-//nolint:gosmopolitan // the Chinese pane is the sample itself
 func TestResolveFallsBackToLangNotToLangsZero(t *testing.T) {
 	t.Parallel()
 	body := "> [!i18n]\n> > [!lang] zh\n> > 中文\n>\n> > [!lang] en\n> > English\n"
@@ -274,7 +273,6 @@ func TestResolveFallsBackToLangNotToLangsZero(t *testing.T) {
 	}
 }
 
-//nolint:gosmopolitan // the label rule test is precisely about the Chinese spelling
 func TestLabelUsesVaultRuleThenBuiltinThenUppercase(t *testing.T) {
 	t.Parallel()
 	if got := Label(langZH, map[string]string{langZH: "简体中文"}); got != "简体中文" {

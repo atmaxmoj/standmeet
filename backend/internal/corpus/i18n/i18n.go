@@ -31,6 +31,17 @@ package i18n
 
 import "regexp"
 
+// MinimalExample — the copy-pasteable minimal form of the contract above, attached to a
+// rejected write. No frontmatter needed at all.
+const MinimalExample = "> [!i18n]\n" +
+	"> > [!lang] en\n" +
+	"> > # Title\n" +
+	"> > English body.\n" +
+	">\n" +
+	"> > [!lang] zh\n" +
+	"> > # 标题\n" +
+	"> > 中文正文。"
+
 // Severity — how serious a diagnostic is. Error gets the MCP write rejected;
 // Warning only reports (the sync still goes through).
 type Severity string
