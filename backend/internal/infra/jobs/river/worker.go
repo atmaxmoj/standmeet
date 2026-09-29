@@ -74,17 +74,16 @@ type worker struct {
 func (w *worker) Work(ctx context.Context, job *river.Job[rawArgs]) error {
 	k, ok := w.kinds[job.Kind]
 	if !ok {
-		//nolint:wrapcheck // River's control error; River records the cause's own message
 		return river.JobCancel(fmt.Errorf("%w: %s", jobs.ErrUnknownKind, job.Kind))
 	}
 	err := k.Handle(ctx, json.RawMessage(job.EncodedArgs))
 	if d, snoozed := jobs.SnoozeOf(err); snoozed {
-		return river.JobSnooze(d) //nolint:wrapcheck // River's control error
+		return river.JobSnooze(d)
 	}
 	if jobs.IsDiscard(err) {
-		return river.JobCancel(err) //nolint:wrapcheck // River's control error
+		return river.JobCancel(err)
 	}
-	return err //nolint:wrapcheck // the handler's own error is the attempt's recorded error
+	return err
 }
 
 func (w *worker) Timeout(job *river.Job[rawArgs]) time.Duration {

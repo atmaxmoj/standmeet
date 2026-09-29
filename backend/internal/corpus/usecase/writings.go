@@ -72,7 +72,7 @@ func switchPublished(
 		data := map[string]string{"writing_id": p.ID(), "slug": p.Slug()}
 		return deps.Events.With(tx).Record(ctx, ownerID, typ, "writing/"+p.ID(), data)
 	})
-	return p, err //nolint:wrapcheck // the callers name the step
+	return p, err
 }
 
 // UnpublishWriting —— reverts a writing back to draft.

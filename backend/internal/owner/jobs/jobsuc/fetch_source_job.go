@@ -25,7 +25,7 @@ func runFetchSource(ctx context.Context, deps *JobsDeps, raw json.RawMessage) er
 	}
 	src, err := deps.Sources.GetByID(ctx, a.OwnerID, a.SourceID)
 	if errors.Is(err, jobsmodel.ErrJobSourceNotFound) {
-		return jobs.Discard(err) //nolint:wrapcheck // unregistered since: nothing to fetch
+		return jobs.Discard(err)
 	}
 	if err != nil {
 		return fmt.Errorf("load source: %w", err)
@@ -36,7 +36,6 @@ func runFetchSource(ctx context.Context, deps *JobsDeps, raw json.RawMessage) er
 func parseFetchArgs(raw json.RawMessage) (fetchSourceArgs, error) {
 	var a fetchSourceArgs
 	if err := json.Unmarshal(raw, &a); err != nil || a.SourceID == "" || a.RunID == "" {
-		//nolint:wrapcheck // Discard is the failure class; it wraps the cause
 		return a, jobs.Discard(fmt.Errorf("%s: bad args %s", FetchSourceKind, raw))
 	}
 	return a, nil
@@ -55,10 +54,9 @@ func keepOutcome(
 	}
 	kept, err := json.Marshal(o)
 	if err != nil {
-		//nolint:wrapcheck // Discard is the failure class; it wraps the cause
 		return jobs.Discard(fmt.Errorf("encode fetch outcome: %w", err))
 	}
-	return deps.Cache.PutRun(ctx, a.RunID, a.SourceID, kept) //nolint:wrapcheck // names its step
+	return deps.Cache.PutRun(ctx, a.RunID, a.SourceID, kept)
 }
 
 // fetchSource — fetch, dedup against this source's seen ids, pool; the attempt is recorded on the

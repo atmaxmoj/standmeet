@@ -87,17 +87,16 @@ type wire struct {
 // Send — one attempt, its failure classified (see the package comment).
 func (s Sender) Send(ctx context.Context, ownerID string, m Message) error {
 	if wait := s.throttle.Wait(ctx, m.To); wait > 0 {
-		return jobs.Snooze(wait) //nolint:wrapcheck // the failure class
+		return jobs.Snooze(wait)
 	}
 	args, err := json.Marshal(wire(m))
 	if err != nil {
-		//nolint:wrapcheck // the failure class
 		return jobs.Discard(fmt.Errorf("mail send: encode: %w", err))
 	}
 	if _, err = s.inv.Invoke(ctx, ownerID, category, opSend, args); err != nil {
 		err = fmt.Errorf("mail send: %w", err)
 		if !adapters.MailTransient(err) {
-			return jobs.Discard(err) //nolint:wrapcheck // the failure class; it wraps the cause
+			return jobs.Discard(err)
 		}
 		return err
 	}

@@ -101,7 +101,7 @@ func scanEvent(row pgx.Row) (Event, error) {
 	)
 	if err := row.Scan(&e.ID, &e.Seq, &e.OwnerID, &e.Type, &e.Subject, &e.Data, &e.OccurredAt,
 		&e.FannedOutAt, &fanout, &e.Poisoned, &e.LastError); err != nil {
-		return Event{}, err //nolint:wrapcheck // callers wrap
+		return Event{}, fmt.Errorf("scan event: %w", err)
 	}
 	e.Fanout = []Target{}
 	_ = json.Unmarshal(fanout, &e.Fanout) //nolint:errcheck // written by fanOutRows only

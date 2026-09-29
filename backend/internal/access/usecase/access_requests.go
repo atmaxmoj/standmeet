@@ -58,7 +58,7 @@ func SubmitForOwner(
 			Email: in.Email, Message: in.Message,
 		})
 		if cerr != nil {
-			return cerr //nolint:wrapcheck // the repo names its step
+			return cerr
 		}
 		data := map[string]string{"request_id": out.ID}
 		return deps.Events.With(tx).Record(ctx, ownerID, entity.AccessRequestCreated,
@@ -117,13 +117,13 @@ func setStatus(
 	err := pgstore.InTx(ctx, deps.Pool, func(tx pgstore.Tx) error {
 		var uerr error
 		if out, uerr = deps.Repo.With(tx).UpdateStatus(ctx, ownerID, id, status); uerr != nil {
-			return uerr //nolint:wrapcheck // the caller names the step
+			return uerr
 		}
 		data := map[string]string{"request_id": out.ID, "status": out.Status}
 		return deps.Events.With(tx).Record(ctx, ownerID, AccessRequestStatusChanged,
 			"access_request/"+out.ID, data)
 	})
-	return out, err //nolint:wrapcheck // the caller names the step
+	return out, err
 }
 
 // validStatus — for writes: must be one of the three enum values.

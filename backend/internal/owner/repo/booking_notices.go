@@ -30,7 +30,6 @@ type BookingNotice struct {
 func (r *Repo) RecordBooking(
 	ctx context.Context, n *BookingNotice, record func(tx pgstore.Tx) error,
 ) error {
-	//nolint:wrapcheck // InTx names begin/commit; the steps name themselves
 	return pgstore.InTx(ctx, r.pool, func(tx pgstore.Tx) error {
 		if err := record(tx); err != nil {
 			return err

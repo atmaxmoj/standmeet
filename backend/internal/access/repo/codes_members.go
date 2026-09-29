@@ -61,7 +61,6 @@ func (r *CodeRepo) insertMemberUnderCap(
 		row, ierr = insertMemberTx(ctx, tx, codeUUID, displayName, anon)
 		return ierr
 	}); terr != nil {
-		//nolint:wrapcheck // InTx names begin/commit; fn names its steps
 		return entity.CodeMember{}, terr
 	}
 	return toDomainMember(&row), nil

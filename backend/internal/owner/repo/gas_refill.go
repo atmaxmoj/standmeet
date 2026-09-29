@@ -115,7 +115,6 @@ func refillOne(
 	if !due {
 		return nil
 	}
-	//nolint:wrapcheck // the steps name themselves
 	return pgstore.InTx(ctx, r.pool, func(tx pgstore.Tx) error {
 		if err := r.With(tx).BumpGasFilledAt(ctx, p.ID); err != nil || refilled == nil {
 			return err

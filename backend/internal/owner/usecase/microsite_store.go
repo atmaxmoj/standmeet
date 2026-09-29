@@ -115,7 +115,7 @@ func VisitorInsert(
 	ierr := pgstore.InTx(ctx, deps.Pages.Pool(), func(tx pgstore.Tx) error {
 		var derr error
 		if id, derr = deps.Docs.Insert(ctx, tx, page.ID, w.Collection, w.Doc); derr != nil {
-			return derr //nolint:wrapcheck // wrapped below
+			return derr
 		}
 		data := map[string]string{"collection": w.Collection, "doc_id": id}
 		return deps.Events().With(tx).Record(ctx, ownerID, MicrositeStoreDocInserted,

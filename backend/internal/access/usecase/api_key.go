@@ -47,7 +47,6 @@ type IssueAPIKeyDeps struct {
 
 // RevokeAPIKey —— revokes the owner's key; an unknown key is entity.ErrAPIKeyNotFound.
 func RevokeAPIKey(ctx context.Context, deps IssueAPIKeyDeps, ownerID, keyID string) error {
-	//nolint:wrapcheck // the repo and Record name their steps
 	return pgstore.InTx(ctx, deps.Keys.Pool(), func(tx pgstore.Tx) error {
 		if err := deps.Keys.With(tx).Revoke(ctx, keyID, ownerID); err != nil {
 			return err
@@ -57,7 +56,6 @@ func RevokeAPIKey(ctx context.Context, deps IssueAPIKeyDeps, ownerID, keyID stri
 }
 
 func recordKeyEvent(ctx context.Context, rec events.Recorder, typ, ownerID, keyID string) error {
-	//nolint:wrapcheck // Record names the type
 	return rec.Record(ctx, ownerID, typ, "api_key/"+keyID, map[string]string{"key_id": keyID})
 }
 
@@ -105,7 +103,7 @@ func IssueAPIKey(
 			RateLimitRPM: in.RateLimitRPM, ExpiresAt: in.ExpiresAt,
 		})
 		if err != nil {
-			return err //nolint:wrapcheck // wrapped below
+			return err
 		}
 		return recordKeyEvent(ctx, deps.Events.With(tx), APIKeyIssued, in.OwnerID, key.ID)
 	})

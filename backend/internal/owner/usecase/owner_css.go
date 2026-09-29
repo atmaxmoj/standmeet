@@ -33,10 +33,7 @@ type CSSStore interface {
 // SetOwnerCSS — writes owner CSS from any surface (admin/MCP/sync): sanitize+scope
 // first, then store the safe version.
 func SetOwnerCSS(ctx context.Context, store CSSStore, ownerID, raw string) error {
-	if err := store.SetCSS(ctx, ownerID, SanitizeAndScopeCSS(raw)); err != nil {
-		return err //nolint:wrapcheck // store already wraps
-	}
-	return nil
+	return store.SetCSS(ctx, ownerID, SanitizeAndScopeCSS(raw))
 }
 
 // SanitizeAndScopeCSS — strips dangerous constructs + scopes to .corpus-content.

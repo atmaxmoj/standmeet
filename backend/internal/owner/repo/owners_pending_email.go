@@ -63,9 +63,9 @@ func (r *Repo) StartPendingEmail(
 		_, qerr = q.SetOwnerPendingEmailJob(ctx, db.SetOwnerPendingEmailJobParams{
 			ID: pgID, PendingEmail: &normalized, PendingEmailJobID: &job,
 		})
-		return qerr //nolint:wrapcheck // the only statement left; the tx error names it
+		return qerr
 	})
-	return out, err //nolint:wrapcheck // InTx names begin/commit; the steps name themselves
+	return out, err
 }
 
 // PendingEmailStart —— one pending email change to record.

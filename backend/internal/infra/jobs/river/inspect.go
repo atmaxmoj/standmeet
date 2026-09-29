@@ -50,7 +50,7 @@ func scanJob(row pgx.Row) (jobs.Job, error) {
 	)
 	if err := row.Scan(&id, &j.Kind, &j.Queue, &state, &j.Attempt, &j.MaxAttempts, &j.Args, &errs,
 		&j.CreatedAt, &j.ScheduledAt, &finish); err != nil {
-		return jobs.Job{}, err //nolint:wrapcheck // callers wrap with context
+		return jobs.Job{}, fmt.Errorf("scan job: %w", err)
 	}
 	j.ID, j.State, j.FinalizedAt = jobs.JobID(id), jobs.State(state), finish
 	j.Errors = make([]jobs.AttemptError, 0, len(errs))

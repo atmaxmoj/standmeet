@@ -22,6 +22,5 @@ func (l lazyRecorder) Record(
 	ctx context.Context, ownerID, typ, subject string,
 	data any, //nolint:forbidigo // the JSON payload; encoding/json.Marshal takes interface{}
 ) error {
-	//nolint:wrapcheck // Record names the type
 	return l.d.Events.Recorder().Record(ctx, ownerID, typ, subject, data)
 }

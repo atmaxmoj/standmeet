@@ -144,7 +144,6 @@ func (r *InstanceRepo) ClaimAndCreateOwner(
 		ownerRow, txErr = claimTx(ctx, tx, tokenHash, input)
 		return txErr
 	}); err != nil {
-		//nolint:wrapcheck // InTx names begin/commit; claimTx names its steps
 		return entity.Owner{}, err
 	}
 	return ownerRow, nil

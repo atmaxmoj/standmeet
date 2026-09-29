@@ -25,7 +25,7 @@ func commitEvents(rec events.Recorder, ownerID string, reuse *access.Code) func(
 		if reuse == nil {
 			err := access.RecordCodeEvent(ctx, r, access.CodeIssued, ownerID, codeID)
 			if err != nil {
-				return err //nolint:wrapcheck // Record names the type
+				return err
 			}
 		}
 		appID := out.Application.ID

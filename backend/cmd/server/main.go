@@ -152,14 +152,14 @@ func wireAndServe(
 	// The bus and the job runtime are built before the dispatcher: the Tasks ops and the corpus
 	// write receipts read them. They start last, below, once every block has registered.
 	if berr := wire.BuildBackground(&rt); berr != nil {
-		return berr //nolint:wrapcheck // wire already names the failing part (bus / job runtime)
+		return berr
 	}
 	// One outbound convergence point: MCP face and admin face must project from
 	// **the same** declaration, or there's no basis for parity between them.
 	rt.Dispatch = wire.BuildDispatcher(&rt)
 	registerAgentSkills(ctx, &rt)
 	if sberr := wire.StartBackground(ctx, &rt); sberr != nil {
-		return sberr //nolint:wrapcheck // wire already names the failing part (start jobs)
+		return sberr
 	}
 	return serve(ctx, &rt, net.JoinHostPort(cfg.Host, cfg.Port), stop)
 }

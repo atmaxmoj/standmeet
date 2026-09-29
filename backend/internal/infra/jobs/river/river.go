@@ -200,7 +200,7 @@ func addPeriodic(all map[string]jobs.Kind, p jobs.Periodic) error {
 // addKind — validates k and adds it to all; a name declared twice is an error.
 func addKind(all map[string]jobs.Kind, k *jobs.Kind) error {
 	if err := k.Validate(); err != nil {
-		return err //nolint:wrapcheck // already names the kind
+		return err
 	}
 	if _, dup := all[k.Name]; dup {
 		return fmt.Errorf("job kind %q declared twice", k.Name)

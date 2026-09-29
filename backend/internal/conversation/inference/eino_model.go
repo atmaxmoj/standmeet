@@ -184,20 +184,26 @@ type contentGuardModel struct {
 	inner model.ToolCallingChatModel
 }
 
-// ClassifyStreamErr) inspects the provider's own error; wrapping would change what it sees.
-//
-//nolint:wrapcheck // transparent decorator: the caller's error classification (errors.go /
+// Generate — the provider's error is wrapped with %w, so the classification in errors.go
+// (errors.Is / errors.AsType down the chain) still reads the provider's own type.
 func (m *contentGuardModel) Generate(
 	ctx context.Context, input []*schema.Message, opts ...model.Option,
 ) (*schema.Message, error) {
-	return m.inner.Generate(ctx, ensureMessageContent(stripReasoningContent(input)), opts...)
+	out, err := m.inner.Generate(ctx, ensureMessageContent(stripReasoningContent(input)), opts...)
+	if err != nil {
+		return nil, fmt.Errorf("chat model generate: %w", err)
+	}
+	return out, nil
 }
 
-//nolint:wrapcheck // transparent decorator — see Generate.
 func (m *contentGuardModel) Stream(
 	ctx context.Context, input []*schema.Message, opts ...model.Option,
 ) (*schema.StreamReader[*schema.Message], error) {
-	return m.inner.Stream(ctx, ensureMessageContent(stripReasoningContent(input)), opts...)
+	out, err := m.inner.Stream(ctx, ensureMessageContent(stripReasoningContent(input)), opts...)
+	if err != nil {
+		return nil, fmt.Errorf("chat model stream: %w", err)
+	}
+	return out, nil
 }
 
 // transparent decorator — see Generate.

@@ -167,7 +167,11 @@ type repeatGuardedTool struct {
 }
 
 func (t *repeatGuardedTool) Info(ctx context.Context) (*schema.ToolInfo, error) {
-	return t.inner.Info(ctx) //nolint:wrapcheck // pure passthrough; wrapping obscures the error
+	info, err := t.inner.Info(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("tool %s info: %w", t.name, err)
+	}
+	return info, nil
 }
 
 func (t *repeatGuardedTool) InvokableRun(
@@ -182,7 +186,7 @@ func (t *repeatGuardedTool) InvokableRun(
 	}
 	out, err := t.inner.InvokableRun(ctx, args, opts...)
 	if err != nil {
-		return out, err //nolint:wrapcheck // the tool's own error surfaces as-is, unrewritten
+		return out, fmt.Errorf("tool %s: %w", t.name, err)
 	}
 	t.ledger.remember(key, out)
 	return out, nil

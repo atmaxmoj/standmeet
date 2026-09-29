@@ -112,6 +112,31 @@ linters:
       # this repo's enabled nonamedreturns (no named returns) policy — the two can't both
       # be satisfied. nonamedreturns wins; turn this gocritic check off.
       disabled-checks: [unnamedResult]
+    wrapcheck:
+      # wrapcheck exists to put this program's context on an error that crosses in from code
+      # that does not know it. Our own packages already do that: a repo names its step, InTx
+      # names begin/commit, Record names the event type, and the classifying constructors
+      # (jobs.Discard / Snooze, facadeparity.BadInput / Coded) MAKE an error whose class the
+      # caller switches on. Re-wrapping at every in-module hop only stacked a second frame on
+      # a message that already named its step — 120 sites said so in a //nolint of their own.
+      # Third-party errors stay under the rule.
+      ignore-package-globs:
+        - github.com/atmaxmoj/standmeet/*
+      # The defaults, plus River's control signals: JobCancel / JobSnooze build the value River
+      # itself reads to cancel or snooze a job. They are instructions to the framework, not a
+      # failure to annotate, and wrapping one changes only the message River records.
+      ignore-sigs:
+        - .Errorf(
+        - errors.New(
+        - errors.Unwrap(
+        - errors.Join(
+        - .Wrap(
+        - .Wrapf(
+        - .WithMessage(
+        - .WithMessagef(
+        - .WithStack(
+        - river.JobCancel(
+        - river.JobSnooze(
     errcheck:
       check-type-assertions: true
       check-blank: true

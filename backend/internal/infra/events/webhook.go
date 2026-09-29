@@ -121,7 +121,7 @@ func DeliverWebhook(
 ) error {
 	req, err := signedRequest(ctx, url, secret, ev)
 	if err != nil {
-		return jobs.Discard(err) //nolint:wrapcheck // the failure class; it wraps the cause
+		return jobs.Discard(err)
 	}
 	resp, err := client.Do(req)
 	if resp != nil {
@@ -169,7 +169,7 @@ func ClassifyWebhook(resp *http.Response, err error) error {
 
 func classifyTransport(err error) error {
 	if errors.Is(err, httpx.ErrBlockedEgress) {
-		return jobs.Discard(err) //nolint:wrapcheck // the failure class; it wraps the cause
+		return jobs.Discard(err)
 	}
 	return fmt.Errorf("webhook delivery: %w", err)
 }
@@ -181,10 +181,10 @@ func classifyStatus(resp *http.Response) error {
 	}
 	answered := fmt.Errorf("webhook endpoint answered %d", code)
 	if d, ok := askedToWait(resp); ok {
-		return jobs.Snooze(d) //nolint:wrapcheck // the failure class
+		return jobs.Snooze(d)
 	}
 	if permanent(code) {
-		return jobs.Discard(answered) //nolint:wrapcheck // the failure class; it wraps the cause
+		return jobs.Discard(answered)
 	}
 	return answered
 }

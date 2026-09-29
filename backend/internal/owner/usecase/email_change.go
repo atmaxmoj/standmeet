@@ -122,7 +122,7 @@ func switchEmailNow(
 		func(o *repo.Repo) error {
 			var uerr error
 			updated, uerr = o.UpdateEmail(ctx, ownerID, normalized)
-			return uerr //nolint:wrapcheck // wrapped below
+			return uerr
 		})
 	if err != nil {
 		return EmailChangeOutput{}, fmt.Errorf("update email: %w", err)
@@ -174,7 +174,7 @@ func ConfirmEmailChange(
 	err := pgstore.InTx(ctx, deps.Owners.Pool(), func(tx pgstore.Tx) error {
 		var cerr error
 		if owner, cerr = deps.Owners.With(tx).ConfirmPendingEmail(ctx, hash); cerr != nil {
-			return cerr //nolint:wrapcheck // classified below
+			return cerr
 		}
 		return deps.Events.With(tx).Record(ctx, owner.ID, OwnerEmailChanged, "owner/"+owner.ID, nil)
 	})

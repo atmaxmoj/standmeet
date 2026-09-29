@@ -64,7 +64,6 @@ type ownerFacts struct {
 func (f ownerFacts) record(
 	ctx context.Context, typ, ownerID string, write func(o *repo.Repo) error,
 ) error {
-	//nolint:wrapcheck // the steps and Record name themselves
 	return pgstore.InTx(ctx, f.owners.Pool(), func(tx pgstore.Tx) error {
 		if err := write(f.owners.With(tx)); err != nil {
 			return err

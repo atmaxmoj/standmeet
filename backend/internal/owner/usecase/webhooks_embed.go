@@ -17,7 +17,7 @@ func EmbedHooks(
 ) (map[string]entity.WebhookEndpoint, error) {
 	eps, err := d.Repo.ListWebhooks(ctx, ownerID)
 	if err != nil {
-		return nil, err //nolint:wrapcheck // the repo names its step
+		return nil, err
 	}
 	out := map[string]entity.WebhookEndpoint{}
 	for i := range eps {
@@ -76,14 +76,14 @@ func createEmbedHook(
 	}
 	secret, err := events.NewWebhookSecret()
 	if err != nil {
-		return CreatedWebhook{}, err //nolint:wrapcheck // names itself
+		return CreatedWebhook{}, err
 	}
 	ep := entity.WebhookEndpoint{
 		URL: url, EventTypes: []string{entity.NoteChanged}, EmbedID: embedID,
 	}
 	created, err := d.Repo.CreateWebhook(ctx, ownerID, &ep, secret)
 	if err != nil {
-		return CreatedWebhook{}, err //nolint:wrapcheck // the repo names its step
+		return CreatedWebhook{}, err
 	}
 	return CreatedWebhook{Endpoint: created, Secret: secret}, nil
 }

@@ -80,7 +80,6 @@ func RecordDialog(
 		return err
 	}
 	// The turn's rows and one conversation.message per role commit together.
-	//nolint:wrapcheck // InTx names begin/commit; the steps name themselves
 	return pgstore.InTx(ctx, deps.Chats.Pool(), func(tx pgstore.Tx) error {
 		t := *deps
 		t.Chats = deps.Chats.With(tx)
@@ -100,7 +99,7 @@ func recordMessages(
 		data := map[string]string{"conversation_id": in.ConversationID, "role": role}
 		if err := rec.Record(ctx, in.OwnerID, ConversationMessage,
 			"conversation/"+in.ConversationID, data); err != nil {
-			return err //nolint:wrapcheck // Record names the type
+			return err
 		}
 	}
 	return nil

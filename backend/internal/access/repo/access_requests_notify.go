@@ -50,7 +50,7 @@ func (r *RequestRepo) ClaimNotifySlot(
 		out, cerr = claimNotifySlot(ctx, tx, ids, limit, window)
 		return cerr
 	})
-	return out, err //nolint:wrapcheck // each step names itself
+	return out, err
 }
 
 func claimNotifySlot(

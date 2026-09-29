@@ -16,8 +16,5 @@ type FaviconStore interface {
 // and a stale/missing id just falls back to the default (never a crash), so a check would only
 // add a cross-module read for no safety gain.
 func SetOwnerFavicon(ctx context.Context, store FaviconStore, ownerID, assetID string) error {
-	if err := store.SetFavicon(ctx, ownerID, assetID); err != nil {
-		return err //nolint:wrapcheck // store already wraps
-	}
-	return nil
+	return store.SetFavicon(ctx, ownerID, assetID)
 }

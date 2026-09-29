@@ -67,7 +67,6 @@ func (b BookingRecorder) RecordBooking(ctx context.Context, in *BookingRecord) e
 		return fmt.Errorf("%w: %s %q", ErrBadBookingRecord, in.Type, in.BookingID)
 	}
 	data := map[string]string{"booking_id": in.BookingID}
-	//nolint:wrapcheck // the repo and Record name their steps
 	return b.Owners.RecordBooking(ctx, in.Notice, func(tx pgstore.Tx) error {
 		return b.Events.With(tx).Record(ctx, in.OwnerID, in.Type, "booking/"+in.BookingID, data)
 	})

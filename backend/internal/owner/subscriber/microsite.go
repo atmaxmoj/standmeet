@@ -106,7 +106,6 @@ func builtID(ev *events.Event) (string, error) {
 		Status  string `json:"status"`
 	}
 	if err := json.Unmarshal(ev.Data, &data); err != nil || data.BuildID == "" {
-		//nolint:wrapcheck // Discard is the failure class; it wraps the cause
 		return "", jobs.Discard(fmt.Errorf("%s: unreadable event data %s", ev.Type, ev.Data))
 	}
 	if data.Status != usecase.BuildBuilt {
@@ -121,7 +120,6 @@ func publishHomepage(ctx context.Context, d *BuildSettledDeps, b *entity.Microsi
 	md := usecase.MicrositeDeps{
 		Pages: d.Pages, Builds: d.Builds, Events: func() events.Recorder { return d.Events },
 	}
-	//nolint:wrapcheck // the usecase names its step
 	return usecase.AutopublishHomepageOnBuilt(ctx, md, b, d.Log)
 }
 
