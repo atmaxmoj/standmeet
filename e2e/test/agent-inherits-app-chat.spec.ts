@@ -300,6 +300,48 @@ test.describe('chat is inherited: a diagram opens large', () => {
     await expect(overlay).toHaveCount(0);
     await expect(figure.locator('svg'), 'the diagram is back in the chat').toBeVisible();
   });
+
+  // Found in the v0.1.99 smoke: a real answer's diagram had a blank line between two subgraphs, and
+  // the chat split the answer into paragraphs on blank lines before reading it as markdown — the
+  // fence was cut in two, half the diagram drew, and the rest showed as raw source text.
+  test('a diagram with a blank line inside stays one diagram', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await enterOnPage(page, 'Blank Line Reader');
+    const w = page.getByTestId('agent-widget');
+    const tag = await scriptMockReplyText(page.request,
+      'The shape:\n\n```mermaid\nflowchart TB\n  subgraph HOST[host]\n    A[Head node]\n  end\n\n  subgraph SB[sandbox]\n    B[Tail node]\n  end\n  A --> B\n```\n\nThat is all.');
+    await ask(page, `draw it${tag}`);
+    const svg = w.getByTestId('answer-body').last().getByTestId('mermaid-svg').locator('svg');
+    await expect(svg, 'the part after the blank line is in the drawing').toContainText('Tail node', { timeout: 30_000 });
+    await expect(svg).toContainText('Head node');
+  });
+
+  // Found in the same smoke: in a dark theme the backdrop mixed from --color-ink, which is light
+  // there, so opening a diagram washed the page out instead of dimming it.
+  test('the backdrop dims the page in a dark theme', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await enterOnPage(page, 'Dark Reader');
+    const w = page.getByTestId('agent-widget');
+    const tag = await scriptMockReplyText(page.request, '```mermaid\ngraph LR\n  A[one] --> B[two]\n```');
+    await ask(page, `dark diagram${tag}`);
+    const figure = w.getByTestId('mermaid-svg').last();
+    await expect(figure.locator('svg')).toBeVisible({ timeout: 30_000 });
+    await figure.getByTestId('figure-zoom').click();
+    const overlay = page.getByTestId('figure-zoom-overlay');
+    await expect(overlay).toBeVisible();
+    // The computed color may be oklab()/color(): paint it on a 1px canvas and read the pixel back.
+    const [css, lum] = await overlay.evaluate((el) => {
+      const color = getComputedStyle(el).backgroundColor;
+      const c = document.createElement('canvas'); c.width = 1; c.height = 1;
+      const ctx = c.getContext('2d');
+      if (ctx === null) return [color, 255] as const;
+      ctx.fillStyle = color; ctx.fillRect(0, 0, 1, 1);
+      const [r = 255, g = 255, b = 255] = ctx.getImageData(0, 0, 1, 1).data;
+      return [color, (r + g + b) / 3] as const;
+    });
+    expect(lum, `the scrim is dark (${css})`).toBeLessThan(60);
+  });
 });
 
 test.describe('chat is inherited: the embed renders what the app renders', () => {

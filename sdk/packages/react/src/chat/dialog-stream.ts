@@ -452,9 +452,32 @@ function errorAnswer(msg: string, code: string): Answer {
 }
 
 // splitParas —— splits body text into paragraphs on blank lines (used for
-// dialog rendering; restore also uses it to rebuild history).
+// dialog rendering; restore also uses it to rebuild history). A blank line
+// inside a fenced block (``` / ~~~, e.g. a mermaid diagram between two
+// subgraphs) or a $$ display-math block is part of that block, not a break:
+// splitting there cut the fence in two, half the diagram drew and the rest
+// showed as raw source (v0.1.99 smoke).
 export function splitParas(body: string): string[] {
-  return body.split(/\n{2,}/).map((s) => s.trim()).filter((s) => s !== '');
+  const paras: string[] = [];
+  let cur: string[] = [];
+  let fence = '';
+  let math = false;
+  const flush = () => {
+    const p = cur.join('\n').trim();
+    if (p !== '') paras.push(p);
+    cur = [];
+  };
+  for (const line of body.split('\n')) {
+    const t = line.trim();
+    const open = /^(```+|~~~+)/.exec(t)?.[1];
+    if (fence === '' && open !== undefined) fence = open.slice(0, 3);
+    else if (fence !== '' && t.startsWith(fence) && t.replace(/[`~]/g, '') === '') fence = '';
+    else if (fence === '' && t === '$$') math = !math;
+    if (t === '' && fence === '' && !math) flush();
+    else cur.push(line);
+  }
+  flush();
+  return paras;
 }
 
 function nowHM(): string {

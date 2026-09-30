@@ -194,7 +194,9 @@
 .smc-zoom {
   position: fixed; inset: 0; z-index: var(--z-modal, 60);
   display: grid; place-items: center; padding: 4vh 4vw;
-  background: color-mix(in oklab, var(--color-ink, #1B1814) 72%, transparent);
+  /* A fixed dark scrim, not mixed from --color-ink: ink is light in a dark theme, and the backdrop
+     then washed the page out instead of dimming it (v0.1.99 smoke). */
+  background: rgba(12, 10, 8, 0.78);
   cursor: zoom-out;
 }
 .smc-zoom-stage {
