@@ -1,0 +1,317 @@
+{
+  "blockMap": {
+    "empty": "還沒有 block",
+    "error": "無法載入 block 依賴圖"
+  },
+  "blocks": {
+    "installKicker": "安裝",
+    "installHeading": "新增一個 block",
+    "installIntro": "把 block 的 manifest 貼進來。它寫明這個 block 叫什麼、面向誰、怎麼啓動、要哪些設定。",
+    "installPlaceholder": "id: acme.widget\ntitle: Acme Widget\nversion: \"1\"\nshape: visitor_only",
+    "install": "安裝",
+    "installedToast": "block 已安裝",
+    "groupsKicker": "組裝",
+    "groupsHeading": "組",
+    "groupsIntro": "一個組就是一組有名字的 block。一張碼指向它，就正好能用這些——即時生效，從組裏拿掉一塊，正在開着的會話立刻就調不到了。",
+    "groupNamePlaceholder": "recruiter",
+    "create": "新增",
+    "groupCreatedToast": "已新增一個組",
+    "remove": "移除",
+    "removedToast": "已移除",
+    "addBlock": "+ {id}",
+    "addedToast": "已加入",
+    "grantNet": "net(允許)",
+    "blocksFailed": "{count} 個 block 啓動失敗",
+    "settings": "設定",
+    "save": "儲存",
+    "savedToast": "已儲存",
+    "close": "關閉",
+    "codeGroupLabel": "組 · 這張碼能用什麼",
+    "codeGroupNone": "不綁組——按 role 的授權",
+    "codeGroup": "組 · {name}",
+    "blockOff": "· 已關",
+    "help": {
+      "group": "組就是一組有名字的 block。在這裏組裝一個，再掛到一張 code 上。",
+      "attach": "把一張 code 指向一個組，它就正好能用那些 block——即時生效，拿掉一塊會立刻影響已開啓的會話。"
+    }
+  },
+  "credField": {
+    "host": "主機",
+    "port": "連接埠",
+    "username": "用户名",
+    "password": "密碼",
+    "from_address": "發件地址",
+    "from_name": "發件人名稱",
+    "tls": "TLS",
+    "url": "URL",
+    "token": "令牌",
+    "api_key": "API 密鑰",
+    "client_id": "客户端 ID",
+    "client_secret": "客户端密鑰",
+    "redirect_uri": "重新導向 URI",
+    "scope": "權限範圍"
+  },
+  "common": {
+    "connect": "連接",
+    "close": "✕"
+  },
+  "api": {
+    "intro": "MCP 密鑰讓 AI 客户端（Claude、Cursor、自訂腳本）把 raw 條目推入你的語料庫、提升它們、管理存取碼。每個密鑰是一對 Ed25519 密鑰——伺服器只存公鑰；你把私鑰 PEM 儲存在 <code>~/.standmeet/credentials.json</code>，客户端每次請求都簽名。",
+    "keysHeading": "mcp 密鑰",
+    "empty": "還沒有密鑰 · 生成一個來接入你的第一個 AI 客户端",
+    "kicker": "整合 · 程式介面",
+    "keyCount": "{count} 個密鑰"
+  },
+  "aiProvider": {
+    "heading": "主理人的 ai",
+    "intro": "訪客對話所使用的服務供應商。選一個預設，或指向你自建的 OpenAI 相容端點（ollama / vllm / lm-studio）。密鑰以 INSTANCE_SECRET 靜態加密，永不回讀到本頁。",
+    "provider": "服務供應商",
+    "endpoint": "端點",
+    "model": "模型",
+    "apiKey": "api 密鑰",
+    "clearKey": "清除密鑰 ×",
+    "keyPlaceholderSet": "● 已設定 · 輸入以替換",
+    "keyPlaceholderUnset": "在此貼上密鑰",
+    "hintReplace": "儲存時將替換現有密鑰",
+    "hintSet": "● 已設定密鑰 · 留空以保留",
+    "hintUnset": "○ 未設定",
+    "saving": "儲存中…",
+    "save": "儲存",
+    "savedToast": "已儲存 AI 供應商",
+    "clearedToast": "已清除 AI 供應商"
+  },
+  "mcpClient": {
+    "heading": "mcp 設定",
+    "subhead": "儲存 credentials.json + 把設定貼到你的客户端",
+    "filePath": "檔案路徑",
+    "foot": "貼上並儲存 credentials.json（權限 0600）後，重啓你的客户端。每次請求都簽名一個短時效的 sigv1 挑戰——伺服器永遠看不到你的私鑰。"
+  },
+  "mcpDownload": {
+    "heading": "連接你的 mcp 客户端",
+    "badge": "Sigv1 · /mcp",
+    "intro": "把你的 AI 客户端指向你實例的 MCP 端點。認證用你在上方生成的 Ed25519 密鑰對（Sigv1）。該端點透過 MCP-over-HTTP 聚合你的主理人工具。",
+    "note": "Claude Desktop / Cursor 透過上方設定中的 stdio 客户端（npx @standmeet/mcp-client）連接，它在底層用 Sigv1 以 MCP-over-HTTP 與此端點通訊。",
+    "endpointLabel": "mcp 端點"
+  },
+  "mcpServers": {
+    "heading": "外部 MCP 伺服器",
+    "count": "已註冊 {count} 個",
+    "intro": "訪客 agent 可作為工具呼叫的 MCP 伺服器。新增任意來源的伺服器——它的 URL 和一個可選的認證頭——然後在存取碼下把它掛到某個角色上。",
+    "empty": "還沒有",
+    "remove": "移除",
+    "check": "檢測",
+    "checking": "詢問中…",
+    "checkTools": "{count, plural, =0 {有應答，但不提供工具} one {# 個工具} other {# 個工具}}",
+    "checkFailed": "無應答——{reason}",
+    "checkRefused": "有應答，但拒絕了認證頭——請檢查頭的名稱與取值",
+    "checkNoAnswer": "無應答——該 URL 處沒有任何東西回應",
+    "authBadge": "認證：{name}",
+    "add": "新增 MCP 伺服器",
+    "removedToast": "已移除伺服器",
+    "probeUnreachable": "無法連接",
+    "addError": "無法新增 MCP 伺服器",
+    "fieldName": "名稱",
+    "fieldUrl": "網址",
+    "fieldAuthName": "認證頭名稱（可選）",
+    "fieldAuthValue": "認證頭值（可選）"
+  },
+  "newToken": {
+    "label": "生成密鑰",
+    "submit": "生成",
+    "namePlaceholder": "裝置標籤 — 例如 'mojat-mbp'"
+  },
+  "newlyCreated": {
+    "warning": "現在就儲存——私鑰只展示一次",
+    "keyId": "密鑰 id",
+    "pem": "私鑰（pem）",
+    "download": "下載 .pem",
+    "dismiss": "關閉"
+  },
+  "tokenRow": {
+    "meta": "建立於 {created} · 最近使用 {lastUsed}",
+    "never": "從未",
+    "lastFrom": "{device} · {ip}",
+    "algo": "ed25519",
+    "revoke": "吊銷",
+    "keyId": "密鑰 id",
+    "deletedToast": "已刪除密鑰"
+  },
+  "suppliers": {
+    "intro": "supplier 讓 agent 觸達外部服務——日曆和電郵已在下方就緒，你也可上傳自己的（OpenAPI / 協議）supplier 來新增更多。",
+    "catalogError": "無法載入 supplier 目錄——請重新整理後重試。",
+    "overwritePrompt": "已存在一個 <mono>{seam}</mono> supplier。要覆蓋它嗎？",
+    "overwrite": "覆蓋",
+    "add": "+ 新增 supplier",
+    "builtinHeading": "可連接",
+    "builtinCount": "{count} 個可用",
+    "uploadedHeading": "你上傳的 supplier",
+    "uploadedCount": "已安裝 {count} 個",
+    "kicker": "整合",
+    "count": "日曆 · 電郵已上線 · 可上傳自訂",
+    "removedToast": "已移除 supplier"
+  },
+  "calendar": {
+    "heading": "Google 日曆",
+    "credentialsHint": "Google Cloud 控制台 → API 與服務 → 憑證 → OAuth 客户端 ID（桌面）。用主理人自己的客户端；沒有全域的 StandMeet OAuth。",
+    "saveCredentials": "儲存憑證",
+    "authorize": "在 Google 上授權 →",
+    "disconnect": "斷開連接（保留憑證）",
+    "policyHeading": "預約策略",
+    "timezone": "時區（IANA）",
+    "timezoneUnsetOption": "— 未設定 —",
+    "timezoneUnsetHint": "未設定，因此上面的時段按 UTC 解讀。你的瀏覽器顯示 {detected}——選它，訪客就會得到你本意的時段。",
+    "weekdays": "允許的工作日",
+    "statusConnected": "已連接",
+    "statusCredsOnly": "僅憑證 · 點擊授權",
+    "statusNotConfigured": "未設定",
+    "disconnectedToast": "已斷開連接",
+    "hoursStart": "工作時間開始（HH:MM）",
+    "hoursEnd": "工作時間結束（HH:MM）",
+    "leadDays": "最少提前天數",
+    "bufferMin": "緩衝分鐘數（現有事件前後）"
+  },
+  "blockPanel": {
+    "reliedLock": "已鎖定 · 被 {who} 依賴",
+    "kicker": "可用性",
+    "heading": "block",
+    "intro": "關掉一個 block，它的工具就從每個訪客會話中消失。內建 block 可停用但不可刪除；只有你自己寫的才能移除。",
+    "empty": "尚未註冊任何 block。",
+    "loading": "載入中…",
+    "removeTitle": "移除 block",
+    "removedToast": "已移除 block",
+    "help": {
+      "block": "block 是你的 AI 能用的一項能力——搜語料、約時間、發電郵。先開啓，再放進一個組。"
+    }
+  },
+  "supplierCard": {
+    "disconnect": "斷開連接",
+    "statusConnecting": "連接中…",
+    "statusConnected": "已連接",
+    "statusNotConnected": "未連接"
+  },
+  "supplierOp": {
+    "run": "執行",
+    "running": "執行中…",
+    "sent": "已被 {kind} supplier 接受——請查看收件箱確認送達。",
+    "unreachable": "無法觸達你的實例——請檢查網絡後重試。",
+    "failedNoReason": "沒有成功，且 supplier 未給出原因——請查看伺服器日誌。"
+  },
+  "supplierList": {
+    "loadError": "無法載入你的 supplier——請重新整理後重試。",
+    "delete": "刪除",
+    "removeAria": "移除 supplier"
+  },
+  "skills": {
+    "new": "+ 新增技能",
+    "personaEmpty": "還沒有技能。",
+    "builtin": "內建",
+    "showPrompt": "顯示提示詞",
+    "delete": "刪除",
+    "modalTitle": "新增技能",
+    "promptLabel": "提示詞",
+    "cancel": "取消",
+    "create": "建立",
+    "kicker": "ai · 技能",
+    "trackedCount": "已追蹤 {count} 個",
+    "toggleOn": "開",
+    "toggleOff": "關",
+    "deletedToast": "已刪除技能 {name}",
+    "createdToast": "已建立技能 {name}",
+    "fieldName": "名稱",
+    "fieldDescription": "描述",
+    "namePlaceholder": "例如 patent-review",
+    "descriptionPlaceholder": "一句話摘要",
+    "promptPlaceholder": "附加到基礎人設的額外系統提示詞…",
+    "tabInstalled": "我的技能",
+    "tabMarketplace": "市場"
+  },
+  "installedCard": {
+    "source": "來源 · {source}",
+    "builtin": "· 內建"
+  },
+  "marketplaceCard": {
+    "repoStars": "★ {stars} 儲存庫",
+    "author": "{author} · v{version}",
+    "authorOnly": "{author}",
+    "installed": "✓ 已安裝",
+    "needs": "需要 {missing}",
+    "installing": "安裝中…",
+    "install": "安裝 ↓"
+  },
+  "marketplaceTab": {
+    "intro": "技能聚合自兩個來源——開放的 <ink>anthropics/skills</ink> GitHub 儲存庫（任何人都可 fork + PR）和 <ink>SkillsMP</ink>（商業渠道）。安裝會拉取該技能的 SKILL.md、解析其 frontmatter，並寫一份你完全擁有的本地副本——之後可編輯提示詞或允許的工具，與市場脱鈎。",
+    "manualHint": "在別處找到了技能？貼上它的 <ink>SKILL.md</ink>（YAML frontmatter + 正文）。它會作為你擁有的本地副本安裝——不經市場，不聯網拉取。",
+    "manualInstall": "安裝",
+    "loadMore": "載入更多",
+    "searchIcon": "⌕",
+    "empty": "沒有匹配的技能。換個詞，或切換來源——GitHub 儲存庫和 SkillsMP 是並行查詢的。",
+    "pasteToggle": "貼上一個 SKILL.md",
+    "namePlaceholder": "名稱（可選 — 預設取 frontmatter）",
+    "searchPlaceholder": "搜尋技能…",
+    "sourceAriaLabel": "市場來源",
+    "sourceAll": "全部",
+    "installedToast": "已安裝技能"
+  },
+  "mySkills": {
+    "empty": "還沒有技能——從市場標籤頁安裝一個，或在「技能」下新增你自己的。"
+  },
+  "providerBook": {
+    "heading": "服務供應商簿",
+    "intro": "所有你能發送一輪對話的服務供應商。其中一個是預設——當存取碼和角色都未指定其他時所用的那個。刪除某條是安全的：指向它的存取碼和角色會回退到預設。",
+    "empty": "還沒有條目 · 你上面設定的那個就是預設",
+    "defaultBadge": "預設",
+    "makeDefault": "設為預設",
+    "delete": "刪除 ×",
+    "keySet": "● 已設密鑰",
+    "keyUnset": "○ 無密鑰",
+    "addHeading": "新增一條",
+    "label": "標籤",
+    "labelHint": "你給這條起的名字",
+    "add": "新增",
+    "gasUnmetered": "不計量",
+    "gasFill": "設預算",
+    "gasUnmeter": "移除計量",
+    "gasFilled": "預算已設",
+    "gasFillPlaceholder": "token 數",
+    "gasHelp": "這個 provider 的 token 預算——你自己設的、每個週期最多花多少。按下面的計劃自動續滿；花完時訪客會被引導去拿一個存取碼，或自帶 key。",
+    "gasRefillSet": "設定計劃",
+    "gasRefillSaved": "計劃已儲存",
+    "fieldProvider": "供應商",
+    "fieldEndpoint": "端點",
+    "fieldModel": "模型",
+    "fieldApiKey": "api 密鑰"
+  },
+  "apiKeys": {
+    "heading": "對外 api 密鑰",
+    "intro": "第三方程式用來呼叫你公開 API 的密鑰（smk_…）。與上方的 MCP 密鑰不同：那些為你自己的 AI 客户端簽名，這些則交給別人的程式碼。若某個洩露，在此吊銷它。",
+    "labelField": "標籤",
+    "labelPlaceholder": "這個密鑰給誰用——例如 'zapier'",
+    "roleField": "套用角色",
+    "mint": "簽發密鑰",
+    "secretOnce": "現在就複製——密鑰只展示一次",
+    "dismiss": "關閉",
+    "empty": "還沒有對外密鑰",
+    "revoke": "吊銷",
+    "revokeConfirm": "吊銷此密鑰？任何用它的東西都會立即停止工作。",
+    "statusActive": "有效",
+    "statusRevoked": "已吊銷"
+  },
+  "embed": {
+    "heading": "嵌入到另一個站點",
+    "blurb": "把這兩行放進任意頁面——你自己的網誌、客户的站點、一個落地頁。無需構建步驟，也無需 React：腳本會註冊一個與本實例通訊的 <standmeet-chat> 元素。"
+  },
+  "assemble": {
+    "statusConnected": "已連接",
+    "statusConnecting": "連接中…",
+    "statusNotConnected": "未連接",
+    "field": {
+      "url": "CalDAV 網址",
+      "username": "用户名",
+      "password": "密碼",
+      "host": "主機",
+      "port": "連接埠",
+      "from": "發件地址",
+      "tls": "TLS (none | starttls | tls)"
+    }
+  }
+}

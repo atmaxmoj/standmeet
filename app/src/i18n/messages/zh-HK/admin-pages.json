@@ -1,0 +1,243 @@
+{
+  "page": {
+    "intro": "編排訪客落地時看到的各個區塊。Hero 是那段文案 + 聊天輸入。洞見和項目是通往你語料庫的視窗——固定已發佈的條目，頁面就會展示每一條的標題 + 摘錄，並連結進閲讀器。再往下：你在哪裏，以及如何找到你。改動透過 PUT /admin/page 持久化。"
+  },
+  "pinManager": {
+    "empty": "還沒有固定項——此區塊在頁面上隱藏。",
+    "unpin": "取消固定",
+    "add": "+ 固定一個已發佈條目",
+    "close": "× 關閉",
+    "noneToPin": "沒有可固定的——請先發佈一個語料庫條目。"
+  },
+  "saveBar": {
+    "saving": "儲存中…",
+    "unsaved": "有未儲存的更改",
+    "saved": "已儲存",
+    "inSync": "已同步",
+    "save": "儲存",
+    "revert": "還原"
+  },
+  "handle": {
+    "label": "handle",
+    "change": "更改",
+    "cancel": "取消",
+    "saving": "儲存中…",
+    "save": "儲存 handle",
+    "updated": "handle 已更新為 /{handle}"
+  },
+  "publicUrl": {
+    "label": "公開 URL",
+    "unset": "未設定",
+    "change": "更改",
+    "cancel": "取消",
+    "inputPlaceholder": "https://yourdomain.com",
+    "saving": "儲存中…",
+    "save": "儲存 URL",
+    "updated": "公開 URL 已更新為 {url}",
+    "hintEmpty": "貼上招聘方會看到的 URL",
+    "hintInvalid": "必須以 http:// 或 https:// 開頭",
+    "hintUnchanged": "無更改",
+    "hintChanged": "QR 碼 + canonical 標籤會使用此 URL"
+  },
+  "domain": {
+    "defaultLabel": "預設",
+    "defaultHint": "無需設定 · 始終可用",
+    "inUse": "● 使用中",
+    "customLabel": "自訂域名",
+    "schemePrefix": "https://",
+    "clear": "清除",
+    "effectiveHost": "實際分享主機 ·",
+    "effectiveHostNote": "· 用於存取碼分享連結、QR 碼、門禁頁腳。",
+    "verifyFailed": "無法驗證此域名，請重試。",
+    "inputPlaceholder": "yourdomain.com",
+    "checking": "檢查中…",
+    "verifyDns": "驗證 dns ↗",
+    "badgeUnset": "○ 未設定 · 使用預設",
+    "badgeVerified": "● 已驗證 · 線上",
+    "badgePending": "◐ 正在加入允許列表…",
+    "badgeNotAllowed": "○ 不在允許列表中",
+    "hintValid": "看起來是有效主機 · 點擊驗證以加入允許列表",
+    "hintInvalid": "還不是有效主機",
+    "hintEmpty": "例如 yourdomain.com、talk.yourdomain.com"
+  },
+  "byoai": {
+    "modeLabel": "byoai 模式",
+    "modeHelp": "開啓時，門禁頁會在存取碼輸入下方顯示「自帶 AI」選項。",
+    "acceptedProviders": "接受的服務供應商",
+    "saving": "儲存中…",
+    "save": "儲存 byoai",
+    "hintLoading": "載入中…",
+    "hintSaving": "儲存中…",
+    "hintDefault": "編輯完成後儲存",
+    "turnOn": "開啓",
+    "turnOff": "關閉",
+    "flagOn": "● 開",
+    "flagOff": "○ 關",
+    "blurbLabel": "公開範圍説明 · 顯示在 API 密鑰輸入框旁",
+    "blurbHint": "把預期講清楚 · 最多兩句"
+  },
+  "preview": {
+    "openPublic": "開啓公開頁",
+    "loading": "載入存取碼…",
+    "seeAsCode": "以存取碼視角查看",
+    "cardCodeRole": "{code} · 角色 {role}",
+    "byoaiCardTitle": "BYOAI · 匿名",
+    "byoaiCardScope": "僅公開範圍",
+    "frameTitle": "預覽 · 訪客檢視",
+    "byoaiBannerMode": "byoai 模式",
+    "byoaiBannerModel": "模型 · 訪客自帶",
+    "byoaiBannerScope": "公開範圍",
+    "byoaiWelcome": "你好。你正用自己的 API 密鑰執行——推理你付費，僅限公開部分。私密話題會返回「需要存取碼」的回應。",
+    "selectCode": "從左側選擇一個存取碼",
+    "codedBannerCode": "存取碼 · {code}",
+    "previewGreeting": "你好",
+    "suggestedByYou": "你建議的",
+    "kicker": "存取 · 外部檢視"
+  },
+  "microsites": {
+    "intro": {
+      "before": "自訂頁面位於",
+      "slugPath": "/p/<slug>",
+      "after": "。在下方寫一個，或透過 MCP 從 Claude 驅動同一套生命週期——兩者做的是同一件事。頁面可讀取你的語料庫並搭載你的 AI；存取碼可指向某個頁面，於是出示該存取碼會開啓頁面而非預設聊天。"
+    },
+    "importsSummary": "你可以匯入什麼",
+    "empty": {
+      "lead": "還沒有自訂頁面。主理人透過 MCP 建立 / 構建 / 提升",
+      "toolCreate": "microsite.create",
+      "toolWriteFile": ".write_file",
+      "toolBuild": ".build",
+      "toolPromote": ".promote_to_live"
+    },
+    "columns": {
+      "page": "頁面",
+      "template": "範本",
+      "visibility": "可見性",
+      "codes": "存取碼",
+      "access": "存取",
+      "accessHelp": "誰能開啓這個頁面。關掉時，只有你和存取碼綁定到本頁的訪客能開啓；其他人會被引去輸入存取碼。綁定了存取碼的頁面預設關閉。自帶密鑰只對沒有存取碼的訪客生效。",
+      "updated": "更新",
+      "actions": "操作"
+    },
+    "visibilityState": {
+      "live": "線上",
+      "staging": "預發",
+      "none": "無"
+    },
+    "deleteConfirm": {
+      "title": "刪除這個頁面?",
+      "body": "這會移除 /p/{slug} 及其構建,無法撤銷。",
+      "homeTitle": "重置主頁?",
+      "homeBody": "這會把 / 恢復為內建預設主頁。你的自訂主頁草稿會保留——隨時可以編輯並重新發佈。",
+      "cancel": "取消",
+      "confirm": "刪除",
+      "homeConfirm": "恢復預設"
+    },
+    "homeReverted": "主頁已恢復為內建預設",
+    "slugPath": "/p/{slug}",
+    "viewLive": "查看線上",
+    "noLiveBuild": "無線上構建",
+    "authorHeading": "寫一個頁面",
+    "authorHelp": "貼上頁面的 App.tsx。它在沙箱中構建，若構建成功則發佈在 /p/<slug>。你可匯入 @standmeet/sdk 來讀取語料庫並詢問你的 AI。",
+    "slugLabel": "slug——頁面位於 /p/<slug>",
+    "sourceLabel": "App.tsx",
+    "seoHeading": "seo",
+    "seoSave": "儲存 seo",
+    "rename": "重新命名",
+    "renamed": "已重新命名為 /p/{slug}",
+    "saveName": "儲存",
+    "nameSaved": "✓ 已儲存",
+    "slugPrefix": "/p/",
+    "publish": "構建 + 發佈 →",
+    "published": "頁面已發佈",
+    "buildRunning": "構建中…",
+    "buildBuilt": "已構建",
+    "buildFailed": "構建失敗",
+    "buildPreview": "構建預覽 →",
+    "newPage": "＋ 新頁面",
+    "homepage": {
+      "title": "你的主頁",
+      "hint": "在 / 提供的頁面 —— 像任何 microsite 一樣編輯",
+      "edit": "編輯主頁 →"
+    },
+    "previewEmpty": "還沒有構建 — 構建後預覽",
+    "homepageBadge": "主頁",
+    "edit": "編輯",
+    "backToList": "← 所有頁面",
+    "viewCode": "程式碼",
+    "viewSplit": "分欄",
+    "viewRender": "預覽",
+    "addFile": "新增檔案",
+    "needSlug": "↑ 先給頁面起個 slug",
+    "staged": "已構建 — 預覽見下方",
+    "stagingLabel": "預覽（staging）— 尚未上線",
+    "boundNone": "無",
+    "openWithoutCode": "無存取碼也能開啓",
+    "openToastOn": "/p/{slug} 無需存取碼即可開啓",
+    "openToastOff": "/p/{slug} 現在需要存取碼",
+    "byoaiOn": "讀者可自帶密鑰",
+    "byoaiOff": "不允許自帶密鑰",
+    "byoaiVoid": "byok · 由存取碼決定",
+    "takeDown": "下線",
+    "tookDown": "/p/{slug} 已不再提供服務",
+    "delete": "刪除",
+    "deleted": "/p/{slug} 已刪除",
+    "byoaiNote": "僅在無人出示存取碼時適用。帶存取碼到訪的讀者由該存取碼限定範圍，此設定不適用。",
+    "templatesAvailable": "可用範本",
+    "templates": {
+      "press-kit": {
+        "label": "press-kit",
+        "desc": "照片 · 簡介變體 · 下載"
+      },
+      "list-prose": {
+        "label": "list-with-prose",
+        "desc": "上方列表，下方文字説明"
+      },
+      "menu": {
+        "label": "menu",
+        "desc": "帶編號的服務 / 報價行"
+      },
+      "auto-now": {
+        "label": "auto-now",
+        "desc": "AI 概括的最新條目 · /now"
+      }
+    },
+    "previewLabel": "預覽 · 最近一次成功構建",
+    "previewNoBuild": "還沒有構建。讓你的 AI 寫並構建這個頁面。",
+    "buildNone": "無構建",
+    "kicker": "資源 · 微站",
+    "byoaiToastOn": "已為 /p/{slug} 開啓 BYOK",
+    "byoaiToastOff": "已為 /p/{slug} 關閉 BYOK",
+    "renamePlaceholder": "new-slug",
+    "slugPlaceholder": "例如 press-kit",
+    "addFilePlaceholder": "Component.tsx",
+    "stagingFrameTitle": "預發預覽",
+    "seoUpdated": "SEO 已更新",
+    "seoTitlePlaceholder": "頁面標題（瀏覽器標籤 + 搜尋）",
+    "seoDescPlaceholder": "用於搜尋結果的一行描述",
+    "seoImagePlaceholder": "分享卡片圖片 URL（og:image）"
+  },
+  "assets": {
+    "searchPlaceholder": "按檔案名稱搜尋",
+    "intro": "你上傳的所有圖片和檔案，在語料庫和微站之間共享。仍被某個條目或頁面引用的素材無法刪除——請先在那裏移除；刪除失敗時會指出是誰在引用它。",
+    "error": "無法載入素材——請重新載入後重試。",
+    "empty": "還沒有素材。可從語料庫編輯器或微站的素材元件新增。",
+    "delete": "刪除",
+    "deleted": "素材已刪除",
+    "upload": "新增素材",
+    "uploaded": "素材已新增",
+    "kicker": "資源 · 素材"
+  },
+  "data": {
+    "slugPath": "/p/{slug}",
+    "intro": "每個微站都有自己的數據儲存區，訪客可寫入其中——例如投票統計、報名表。開啓某個可查看其內容、刪除文件或清空儲存區。",
+    "empty": "還沒有微站——建立頁面後即會出現數據儲存區。",
+    "error": "無法載入微站——請重新載入後重試。",
+    "storeError": "無法載入此儲存區。",
+    "storeEmpty": "此儲存區為空。",
+    "clear": "清空儲存區",
+    "cleared": "儲存區已清空",
+    "delete": "刪除",
+    "docDeleted": "文件已刪除",
+    "kicker": "資源 · 數據"
+  }
+}

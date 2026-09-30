@@ -1,0 +1,29 @@
+{
+  "output": {
+    "kicker": "輸出 · 來自 {handle} 的語料庫",
+    "polished": "精修",
+    "updated": "更新於 {date}",
+    "pdfPreview": "PDF 預覽",
+    "writings": "文章",
+    "breadcrumbCurrent": "輸出 · {slug}",
+    "aboutHeading": "關於這篇",
+    "aboutBody": "來自 {handle} 語料庫的精修輸出——由 wiki 條目提升而成、面向公眾的稿件。AI 使用同一套語料庫，因此下方的追問會直接引用這篇及相關條目。",
+    "aboutBodyGated": "來自 {handle} 語料庫的精修輸出——由 wiki 條目提升而成、面向公眾的稿件。本站的 AI 基於同一套語料庫並直接引用它，而回答會花 {handle} 的錢，所以它在存取碼後等待：",
+    "backToWriting": "← 文章"
+  },
+  "wiki": {
+    "by": "作者",
+    "backToWiki": "← wiki",
+    "subEntries": "子條目",
+    "attachments": "附件",
+    "aboutHeading": "關於這一條",
+    "aboutBody": "{handle} 的一條 wiki 條目。本站的 AI 以同一套語料庫為依據，因此你可在下方追問，得到 {handle} 口吻的回答，並附有指向此類條目的引用。",
+    "aboutBodyGated": "{handle} 的一條 wiki 條目。本站的 AI 以同一套語料庫為依據、以 {handle} 的口吻作答，並附有指向此類條目的引用——回答會花 {handle} 的錢，所以它在存取碼後等待：",
+    "indexKicker": "wiki",
+    "indexHeading": "語料庫，逐條目"
+  },
+  "enterAccessCode": "輸入存取碼 →",
+  "tree": {
+    "loading": "載入中…"
+  }
+}

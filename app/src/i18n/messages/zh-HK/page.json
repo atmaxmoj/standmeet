@@ -1,0 +1,36 @@
+{
+  "fallback": {
+    "settingUp": "這個頁面正在搭建中。",
+    "enter": "申請存取 ↗"
+  },
+  "brand": "standmeet",
+  "hero": {
+    "someExamples": "一些例子"
+  },
+  "askInput": {
+    "ask": "提問"
+  },
+  "contact": {
+    "jumpToChat": "跳到聊天 ↑",
+    "orDirectly": "或直接聯絡："
+  },
+  "where": {
+    "hiringFilter": "如果你在招聘，這些條件應當都滿足"
+  },
+  "conversation": {
+    "you": "你",
+    "assistantLabel": "{handle} 的 ai",
+    "references": "引用 · {count}"
+  },
+  "topBar": {
+    "live": "在線"
+  },
+  "footer": {
+    "requestAccess": "申請存取 ↗",
+    "grounded": "基於依據的檢索，不回退到開放網絡"
+  },
+  "report": {
+    "title": "報告 · {id}",
+    "print": "列印 ↗"
+  }
+}

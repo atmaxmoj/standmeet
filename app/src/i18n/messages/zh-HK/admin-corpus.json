@@ -1,0 +1,241 @@
+{
+  "view": {
+    "tree": "樹",
+    "grid": "網格",
+    "groupLabel": "列表檢視"
+  },
+  "assets": {
+    "reuseToggle": "從池中重用",
+    "reuseHide": "隱藏池",
+    "poolEmpty": "池中沒有其他素材",
+    "heading": "檔案",
+    "empty": "還沒有附加檔案",
+    "choose": "選擇檔案",
+    "kindImage": "圖片",
+    "kindAttachment": "附件",
+    "insert": "插入正文",
+    "setCover": "用作封面",
+    "unsetCover": "取消用作封面",
+    "isCover": "封面",
+    "remove": "移除"
+  },
+  "hero": {
+    "headline": "封面標題",
+    "headlinePlaceholder": "疊加在封面圖上的那行字",
+    "hue": "色調",
+    "hueDefault": "— 預設 —"
+  },
+  "subjectivity": {
+    "intro": "你的自我模型——品味、判斷、你在意什麼。除非把某條筆記標為可引用，否則保持私密。可在此寫，也可透過與你的 AI 交談來寫；兩者落在同一處。",
+    "empty": "這裏還什麼都沒有",
+    "new": "+ 新增筆記"
+  },
+  "citable": {
+    "label": "可引用——出現在回答的引用中",
+    "help": "關閉它，AI 仍會讀取這條筆記、仍用它來塑造回答——只是不會列在「引用」下。這是署名開關，不是保密開關：要徹底不讓 AI 讀取，請在 /admin/roles 或存取碼上收回它的語料庫 URI。"
+  },
+  "search": {
+    "label": "搜尋",
+    "placeholder": "筆記中的字詞——標題或正文",
+    "idleHint": "下方列表是最新一頁；搜尋會查遍整個語料庫",
+    "searching": "正在搜尋整個語料庫…",
+    "found": "{count, plural, one {# 條匹配} other {# 條匹配}}“{query}”——搜尋了整個語料庫，不只這一頁",
+    "foundCapped": "顯示“{query}”的前 {count} 條匹配——搜尋了整個語料庫；縮小字詞以看到更少結果",
+    "none": "整個語料庫中沒有匹配“{query}”的內容。此索引是詞法索引：詞內子串、與標點粘連的詞、以及中日韓文都分詞欠佳，所以空結果並不能證明筆記不存在——試試其中一個獨特的完整詞。",
+    "failed": "搜尋失敗：{reason}"
+  },
+  "common": {
+    "loading": "載入中…",
+    "saving": "儲存中…",
+    "save": "儲存",
+    "saveLanding": "儲存落地頁",
+    "cancel": "取消",
+    "edit": "編輯",
+    "body": "正文",
+    "tagsLabel": "標籤（逗號分隔）",
+    "noneRoot": "— 無（根） —",
+    "deleteX": "刪除 ×"
+  },
+  "form": {
+    "title": "標題",
+    "parent": "父節點（可選）",
+    "parentSearch": "按標題搜尋",
+    "entryHeading": "筆記本身（正文、檔案、標籤）"
+  },
+  "seoEditor": {
+    "heading": "公開落地頁（url 由標題在樹中的位置推導）",
+    "description": "meta 描述",
+    "indexed": "已發佈——此 URL 上有一個公開頁面，並列入 sitemap.xml"
+  },
+  "scope": {
+    "kept": "按原樣保留（不在樹上）：",
+    "allOfIt": "— 全部（{glob}）",
+    "everythingUnder": "+ 其下的所有內容",
+    "referable": "可引用——此條目可作為被引用來源出現",
+    "notReferable": "可讀但不可引用——AI 讀它，但它永不被引用"
+  },
+  "wiki": {
+    "newEntry": "+ 新增條目",
+    "all": "全部",
+    "empty": "還沒有 wiki 條目。使用「+ 新增條目」，從 /admin/raw 提升，或呼叫 MCP <tool>promote_to_wiki</tool>。",
+    "dotPublic": "● 公開",
+    "dotPrivate": "● 私密",
+    "edit": "編輯 ↗",
+    "promoteToOutput": "提升 → 輸出 ↗",
+    "viewLive": "查看 ↗"
+  },
+  "output": {
+    "slugPath": "/output/'<'slug>",
+    "intro": "輸出是由你的 wiki 條目組裝而成、面向公眾的成品——可下載的 PDF、獨立的網頁文章、投資人 deck。每個都有自己的 SEO 落地頁，位於 <code>{slugPath}</code>。三種可見性：<ink>公開</ink>（對任何人開放，列入 sitemap）、<amber>不公開列出</amber>（僅憑存取碼可見）、<violet>私密</violet>（僅特定存取碼範圍，從不被索引）。",
+    "newPdf": "+ pdf 引流磁石",
+    "newEssay": "+ 網頁文章",
+    "empty": "還沒有輸出條目。使用「+ 新增輸出」，從 /admin/wiki 提升，或呼叫 MCP <tool>promote_wiki_to_output</tool>。",
+    "coverKicker": "輸出 · {visibility}",
+    "views": "0 次瀏覽",
+    "downloads": "0 次下載",
+    "pathPrefix": "/output/",
+    "edit": "編輯",
+    "previewLive": "預覽 ↗"
+  },
+  "raw": {
+    "untitled": "(無標題)",
+    "quickDump": "快速記錄",
+    "dumpHint": "貼上一個想法 · 稍後提升",
+    "dumpOrigin": "admin · 或 mcp",
+    "dumping": "記錄中…",
+    "dump": "記錄 ↵",
+    "unindexedHint": "raw 在提升前不會被索引",
+    "empty": "還沒有 raw 條目。從 MCP 客户端推送一條（raw_dump 工具）。",
+    "flaggedPrivateBadge": "· 標記為私密",
+    "promoteToWiki": "提升 → wiki ↗",
+    "edit": "編輯",
+    "delete": "刪除",
+    "flaggedPrivateField": "標記為私密（排除在公開聊天之外）"
+  },
+  "writings": {
+    "newWriting": "＋ 新增文章",
+    "intro": "主理人精選的文章。使用下方的塊編輯器——輸入 `/` 調出塊選單，或透過 `writing_create` MCP 工具交給 Claude。無論哪種方式都儲存為規範的 markdown。",
+    "composer": "編輯器 · {slug}",
+    "backToList": "← 返回列表",
+    "empty": "還沒有文章。",
+    "coverHue": "封面色調",
+    "hueAmber": "琥珀",
+    "hueViolet": "紫羅蘭",
+    "hueAcid": "酸綠",
+    "parent": "父級（閲讀器樹）",
+    "currentParent": "當前父級",
+    "publishImmediately": "立即發佈",
+    "coverImage": "封面圖（可選）",
+    "chooseCover": "選擇一張圖",
+    "noImg": "無圖",
+    "clear": "清除"
+  },
+  "obsidianBar": {
+    "export": "↓ 匯出到 Obsidian",
+    "importing": "匯入中…",
+    "import": "↑ 從 Obsidian 匯入",
+    "working": "處理中…",
+    "result": "{created} 新增 · {updated} 更新 · {deleted} 刪除 · {skipped} 跳過",
+    "errors": "· {count, plural, one {# 個錯誤} other {# 個錯誤}}"
+  },
+  "sideRail": {
+    "crosslinks": "交叉連結",
+    "outgoing": "外鏈 · {count}",
+    "noneYet": "還沒有 · 輸入 [[ 新增",
+    "keyboard": "鍵盤",
+    "keyInsertBlock": "插入塊",
+    "keyCrossLinkPicker": "交叉連結選擇器",
+    "keyPasteImage": "在行內貼上圖片",
+    "keyInlineLink": "新增行內連結",
+    "keyCloseMenu": "關閉選單"
+  },
+  "obsidian": {
+    "manualMode": "○ 手動模式",
+    "importExport": "匯入 / 匯出",
+    "help": "匯入會選取你的 Obsidian 庫資料夾（wiki / subjectivity / raw / writings），並按庫中路徑更新或插入對應的語料庫筆記。匯出會把你的語料庫下載為一個 markdown + frontmatter 的庫。",
+    "noSync": "沒有即時同步，沒有檔案監視——這兩個動作就是全部機制，不執行就什麼都不會發生。"
+  },
+  "kicker": {
+    "raw": "語料庫 · 收件箱",
+    "wiki": "語料庫 · 精選",
+    "subjectivity": "語料庫 · 自我模型",
+    "output": "語料庫 · 對外",
+    "writings": "語料庫 · 寫作",
+    "obsidian": "整合 · 庫"
+  },
+  "count": {
+    "unprocessed": "{n} 條未處理",
+    "entries": "{n} 條條目",
+    "notes": "{n} 條筆記",
+    "artifacts": "{n} 個成品",
+    "writings": "{n} 篇文章",
+    "drafts": "{n} 篇草稿"
+  },
+  "action": {
+    "create": "建立",
+    "promote": "提升",
+    "saveEntry": "儲存條目"
+  },
+  "filter": {
+    "all": "全部",
+    "unprocessed": "未處理",
+    "flaggedPrivate": "標記私密",
+    "promoted": "已提升"
+  },
+  "placeholder": {
+    "tags": "架構, ai, 獨立開發",
+    "seoDescription": "用於 og:description 的一行摘要",
+    "rawDump": "貼上一個想法、一段聊天記錄、一個尚未成形的觀點。",
+    "writingSlug": "網址標識",
+    "writingTitle": "文章標題",
+    "writingExcerpt": "一行摘要（也用作封面副標題）",
+    "writingCoverHeadline": "醒目標題",
+    "writingTags": "逗號, 分隔"
+  },
+  "writingForm": {
+    "headingNew": "新增文章",
+    "headingEdit": "編輯 / {slug}",
+    "statusPublished": "已發佈",
+    "statusDraft": "草稿",
+    "actEdit": "編輯",
+    "actPublish": "發佈",
+    "actUnpublish": "取消發佈",
+    "actDelete": "刪除",
+    "fieldSlug": "slug",
+    "fieldTitle": "標題",
+    "fieldExcerpt": "摘要",
+    "fieldCoverHeadline": "封面標題",
+    "fieldTags": "標籤",
+    "coverPreviewAlt": "封面預覽",
+    "noFileSelected": "未選擇檔案"
+  },
+  "toast": {
+    "wikiCreated": "已建立 wiki",
+    "wikiUpdated": "已更新 wiki",
+    "wikiDeleted": "已刪除 wiki",
+    "promotedToOutput": "已提升為輸出",
+    "subjectivityCreated": "已建立自我模型筆記",
+    "subjectivityUpdated": "已更新自我模型筆記",
+    "outputCreated": "已建立輸出",
+    "outputUpdated": "已更新輸出",
+    "outputDeleted": "已刪除輸出",
+    "rawUpdated": "已更新 raw",
+    "rawDeleted": "已刪除 raw",
+    "promotedToWiki": "已提升為 wiki",
+    "obsidianImported": "已匯入 Obsidian 庫",
+    "writingDeleted": "已刪除文章",
+    "writingPublished": "已發佈",
+    "writingUnpublished": "已取消發佈",
+    "writingSaved": "已儲存文章 {slug}"
+  },
+  "confirm": {
+    "deleteWiki": "刪除 wiki「{title}」？{warn} 此操作無法撤銷。",
+    "deleteWikiChildren": " 這也會刪除它的 {n} 個子條目。",
+    "deleteOutput": "刪除輸出「{title}」？此操作無法撤銷。",
+    "deleteRaw": "刪除這條 raw 條目？此操作無法撤銷。"
+  },
+  "savedLine": {
+    "saved": "已儲存",
+    "savedUnpinned": "已儲存——取消發佈也已將其從 {sections} 移除"
+  }
+}

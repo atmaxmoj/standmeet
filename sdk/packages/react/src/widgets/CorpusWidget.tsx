@@ -27,7 +27,7 @@ export interface CorpusWidgetProps {
 // Notes carry only en/zh panes, so every other UI locale reads the English pane.
 function resolveLang(explicit?: string): string {
   if (explicit) return explicit;
-  return resolveLocale() === 'zh' ? 'zh' : 'en';
+  return resolveLocale().startsWith('zh') ? 'zh' : 'en'; // zh-HK reads the zh pane too
 }
 
 // CorpusWidget —— `lang` reaches the widget's own copy (heading, "reading…") through WidgetLang,

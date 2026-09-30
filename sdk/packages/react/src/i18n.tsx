@@ -9,7 +9,7 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
-export const LOCALES = ['en', 'zh', 'fr', 'hi', 'de', 'ja', 'ko', 'es'] as const;
+export const LOCALES = ['en', 'zh', 'zh-HK', 'fr', 'hi', 'de', 'ja', 'ko', 'es'] as const;
 export type Locale = (typeof LOCALES)[number];
 
 const en = {
@@ -124,6 +124,64 @@ const zh: Catalog = {
   'composer.placeholder': '提问…',
   'tools.searched': '已搜索 {count}',
   'tools.read': '已读 {count}',
+};
+
+// zhHK —— Hong Kong Traditional with Hong Kong vocabulary, converted from zh (OpenCC s2hk plus a
+// Hong Kong term map: 預設, 登入, 設定, 搜尋, 儲存, 開啓 …), the same way the app's zh-HK catalogs were,
+// with the app catalogs' reviewed terms: access = 存取, an access code = 存取碼, HK glyph 啓.
+const zhHK: Catalog = {
+  askPlaceholder: '想問什麼都可以…',
+  askLabel: '提一個問題',
+  ask: '提問 ↗',
+  newConversation: '新對話',
+  thinking: '思考中',
+  needKeyPlaceholder: '先在上面填好你的 AI key 再提問',
+  useSavedKey: '改用你儲存的 AI key →',
+  useOwnKey: '改用你自己的 AI key →',
+  onYourKey: '正在用你的 {provider} key',
+  forgetKey: '刪除它',
+  errRateLimited: 'AI 現在有點忙——稍等一分鐘再問。',
+  errKeyUnreadable: '這個瀏覽器裏儲存的 AI key 讀不出來了——請重新填一次。',
+  byokIntro: '這裏的免費額度已經用完了。帶上你自己的 AI key 就能繼續提問——它加密儲存在這個瀏覽器裏，只隨你的問題發出，也只能讀取公開的內容。',
+  byokProvider: 'AI 服務供應商',
+  byokEndpoint: '端點位址',
+  byokModel: '模型',
+  byokModelPlaceholder: '模型 id',
+  byokKey: 'API key',
+  byokSaveFailed: '無法在這個瀏覽器裏儲存 key。',
+  byokSubmit: '用我的 key ↗',
+  blockNoSession: '請用存取碼開啓這個頁面來使用它。',
+  blockRun: '執行',
+  blockUnreachable: '插件暫時連不上。',
+  blockNeedCode: '沒有訪客會話——請用存取碼開啓這個頁面。',
+  blockRefused: '插件拒絕了這個請求。',
+  corpusHeading: '來自語料庫',
+  corpusReading: '讀取中…',
+  corpusOpen: '開啓 ↗',
+  gateKicker: '存取',
+  gateLabel: '有存取碼，或者想要一個？',
+  gateSublabel: '輸入存取碼 · 自帶 key · 申請存取 ↗',
+  pageNavHeading: '站內其他頁面',
+  'transcript.you': '你',
+  'transcript.enlargeDiagram': '放大圖示',
+  'transcript.closeDiagram': '關閉',
+  'transcript.ai': 'ai',
+  'transcript.references': '引用 · {count}',
+  'attachments.pasted': '已貼上',
+  'attachments.remove': '✕',
+  'dock.close': '關閉 ✕',
+  'dock.thinking': '思考中',
+  'dock.ask': '提問 ',
+  'dock.askTheAI': '向 AI 提問',
+  'dock.emptyHint': '就這個頁面提問——以主理人的口吻作答，基於語料庫。這是一條獨立的對話線，但 AI 仍能看到你的其他對話。',
+  'composer.ghostAccept': '↹ tab',
+  'composer.ask': '提問',
+  'composer.sessionFull': '會話已滿',
+  'composer.limitReached': '你已達到此會話的{reason}上限——聯絡 {handle} 以獲得更多。',
+  'composer.try': '試試',
+  'composer.placeholder': '提問…',
+  'tools.searched': '已搜尋 {count}',
+  'tools.read': '已讀 {count}',
 };
 
 const fr: Catalog = {
@@ -456,10 +514,20 @@ const es: Catalog = {
   'tools.read': 'leer {count}',
 };
 
-export const CATALOGS: Record<Locale, Catalog> = { en, zh, fr, hi, de, ja, ko, es };
+export const CATALOGS: Record<Locale, Catalog> = { en, zh, 'zh-HK': zhHK, fr, hi, de, ja, ko, es };
 
 function isLocale(v: string): v is Locale {
   return (LOCALES as readonly string[]).includes(v);
+}
+
+// matchLocale —— a language tag (any case: zh-HK, zh-hk, en-US) → a supported locale: the whole tag
+// when it is one (zh-HK), else its base language (en-US → en), else null.
+function matchLocale(tag: string): Locale | null {
+  const want = tag.trim().toLowerCase();
+  const whole = LOCALES.find((l) => l.toLowerCase() === want);
+  if (whole !== undefined) return whole;
+  const base = want.split('-')[0] ?? '';
+  return isLocale(base) ? base : null;
 }
 
 // resolveLocale —— the PAGE's language, English by default: explicit (the widget's `lang` prop) wins;
@@ -470,10 +538,13 @@ function isLocale(v: string): v is Locale {
 // `sm-lang` either: localStorage is shared by every page on the instance, so one bilingual page's
 // choice put "向 AI 提问" on an English letter (owner, 2026-09-30). Never throws (no document).
 export function resolveLocale(explicit?: string): Locale {
-  if (explicit !== undefined && isLocale(explicit)) return explicit;
+  if (explicit !== undefined) {
+    const given = matchLocale(explicit);
+    if (given !== null) return given;
+  }
   try {
-    const declared = (document.documentElement.lang || '').toLowerCase().split('-')[0] ?? '';
-    if (isLocale(declared)) return declared;
+    const declared = matchLocale(document.documentElement.lang || '');
+    if (declared !== null) return declared;
   } catch { /* no document */ }
   return 'en';
 }

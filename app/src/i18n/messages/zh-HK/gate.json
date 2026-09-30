@@ -1,0 +1,81 @@
+{
+  "common": {
+    "noCode": "沒有存取碼？",
+    "yourName": "你的名字",
+    "checking": "核對中…"
+  },
+  "seal": {
+    "brand": "standmeet · {handle}",
+    "private": "私密"
+  },
+  "hero": {
+    "reached": "你來到了 {handle} 的語料庫",
+    "headline": "這裏不對外開放",
+    "lede": "{handle} 只在有理由交談時才發放存取碼——一場招聘、一次投資人通話、一次顧問摸底、一篇媒體報道。如果你有存取碼，輸進來。否則——自帶 AI 來與公開語料庫聊天{note}。",
+    "ledeNote": "，或留個言",
+    "haveCode": "有存取碼？"
+  },
+  "footnote": {
+    "text": "<muted>這是怎麼運作的</muted> · standmeet 用一場限定範圍、留有記錄的對話，取代簡歷 / linkedin / 冷電郵回覆。它不是一個聊天機器人演示。每個存取碼都是手工簽發的，每份對話記錄都由 {handle} 親自審閲。"
+  },
+  "footer": {
+    "brand": "standmeet",
+    "retrieval": "私有語料庫檢索",
+    "byHand": "靠手工，不靠資訊流"
+  },
+  "whatsBehind": {
+    "chatLabel": "一場對話，不是一個頁面",
+    "chatBody": "沒有簡歷可翻。你提問，AI 以主理人的口吻作答，只依據他們真正寫下的東西。",
+    "sliceLabel": "一個限定的切片",
+    "sliceBody": "每個存取碼解鎖語料庫的一個特定切片——例如面試切片、投資人切片、顧問切片。私密話題保持屏蔽。",
+    "recordLabel": "單場對話，留有記錄",
+    "recordBody": "主理人事後會看到對話記錄。把它當成一次與抽不出時間的人的會面，而不是 ChatGPT。"
+  },
+  "codePanel": {
+    "enter": "進入",
+    "hint": "存取碼形如 <sample>OAEN-3K2</sample> · 主理人把它做進QR 碼或連結 · 大小寫無所謂 · 整段貼進來（帶不帶橫槓都行）然後按回車。",
+    "nameHint": "你的名字能讓主理人區分共用同一存取碼的不同訪客。"
+  },
+  "byoai": {
+    "headline": "自帶你的 AI",
+    "lede": "用你自己的密鑰存取主理人的公開語料庫。選任意 OpenAI 相容的服務供應商，或指向你自建的端點。私密話題會返回「需要存取碼」。",
+    "bulletKey": "你的密鑰從不接觸我們的伺服器——僅加密存在你的瀏覽器裏",
+    "bulletPays": "檢索由主理人付費，推理由你付費",
+    "bulletPrivate": "私密話題返回「去申請一個存取碼」",
+    "chooseModel": "選擇一個模型",
+    "endpoint": "端點",
+    "model": "模型",
+    "apiKey": "api 密鑰",
+    "keyNote": "從不上傳 · 加密存在你的瀏覽器裏",
+    "keyShapeHint": "這個服務供應商的密鑰通常以 {prefix} 開頭——如果你的不一樣，也沒關係",
+    "reveal": "顯示",
+    "hide": "隱藏",
+    "readyUsing": "就緒 · 正在使用",
+    "fillHint": "填寫端點、模型 + 密鑰以解鎖公開聊天。",
+    "insecureOrigin": "此頁面透過普通 http 提供，因此你的瀏覽器不會讓任何站點在此儲存密鑰——自帶 AI 需要一個 https 網址。向主理人索要一個，或改用存取碼。",
+    "warmingUp": "預熱中…",
+    "submit": "開始公開聊天 ↗"
+  },
+  "request": {
+    "headline": "告訴 {handle} 你是誰",
+    "lede": "一段簡短的留言。如果值得一談——透過 AI 或當面——他們可能會發給你一個存取碼。手工閲讀，不進隊列。",
+    "openButton": "寫一段留言 ↘",
+    "orgLabel": "你在哪裏工作",
+    "emailLabel": "電郵地址",
+    "whyLabel": "你為什麼想聊",
+    "footerNote": "直達主理人 · 手工閲讀",
+    "sending": "發送中…",
+    "send": "發送 ↵",
+    "sent": "已發送",
+    "anonVisitor": "訪客",
+    "sentBody": "謝謝你，{name}。主理人會手工閲讀這些——沒有機器人，沒有隊列。如果合適，他們會親自聯絡 <accent>{email}</accent>，附上一個存取碼以及它開放語料庫的哪個切片。",
+    "sentTail": "不是每段留言都會有回覆。如果一週內沒收到迴音，那就是回覆了。"
+  },
+  "read": {
+    "kicker": "沒有存取碼？· 閲讀",
+    "heading": "其中一部分已經開放。",
+    "body": "語料庫中已發佈的部分不需要你提供任何東西——不需要存取碼，不需要密鑰。像讀任何人的筆記那樣讀它。",
+    "wiki": "wiki",
+    "writings": "文章"
+  }
+}

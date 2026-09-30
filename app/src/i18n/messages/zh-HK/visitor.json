@@ -1,0 +1,92 @@
+{
+  "consent": {
+    "title": "訪問統計同意",
+    "body": "本站以匿名、無 Cookie 的方式統計訪問量，方便站長了解哪些內容被閲讀——不儲存任何個人數據。是否統計這次訪問？",
+    "accept": "接受",
+    "decline": "拒絕"
+  },
+  "common": {
+    "try": "試試"
+  },
+  "modelLoader": {
+    "pickModel": "選擇一個模型…",
+    "type": "類型"
+  },
+  "askAboutThis": {
+    "header": "就這{label}向 AI 提問",
+    "essay": "篇文章",
+    "entry": "條條目",
+    "piece": "篇",
+    "context": "上下文：“{title}”",
+    "ask": "提問 ↵"
+  },
+  "chatRoom": {
+    "brand": "standmeet",
+    "live": "在線",
+    "fullPage": "整頁 →",
+    "ready": "{handle} 的 ai · 就緒",
+    "codedWelcome": "{greeting}。我是一個以 {handle} 精選語料庫為依據的 AI。你是透過 <accent>{codeLabel}</accent> 切片進來的。",
+    "codedRedaction": "此存取碼範圍之外的私密話題會被屏蔽。{handle} 事後會閲讀對話記錄。",
+    "codedStarters": "儘管問。下方有些開場白，若你需要一個切入點。",
+    "codedGhostHint": "儘管問。框裏有一個建議的問題在等着——按 Tab 採用它。",
+    "byoaiWelcome": "你好。我是一個以 {handle} 精選語料庫為依據的 AI。你正用自己的 <accent>{provider}</accent> 密鑰執行——僅公開切片。",
+    "byoaiScope": "工作、項目、公開觀點——儘管問。私密話題會返回「需要存取碼」的回應。",
+    "footnote": "<muted>這是怎麼運作的</muted> · 回答來自 {handle} 的精選語料庫。私密話題返回屏蔽而非臆測。",
+    "footnoteCoded": " {handle} 事後會閲讀對話記錄。",
+    "footnoteByoai": " 你的 api 密鑰永不離開瀏覽器。"
+  },
+  "restrictedDoc": {
+    "opening": "開啓中…",
+    "kindOutput": "輸出",
+    "kindEntry": "條目",
+    "lockedTitle": "此{kind}需要存取碼",
+    "lockedBody": "主理人已限制此條目。在門禁頁輸入存取碼以查看完整內容。",
+    "outOfScopeTitle": "你的存取碼觸及不到這一條",
+    "outOfScopeBody": "要麼它在你的存取碼覆蓋範圍之外，要麼這個地址上什麼都沒有——實例不會告訴你是哪種。在下方提問，AI 會從你能讀到的內容作答。",
+    "enterCode": "輸入存取碼 →",
+    "home": "← 首頁"
+  },
+  "sessionStrip": {
+    "byoaiMode": "byoai · {provider}",
+    "you": "你 · {visitor}",
+    "exit": "退出會話",
+    "byoaiUnlimited": "訪客付費 · 無限制",
+    "names": "名字",
+    "requestMore": "申請更多 ↗",
+    "turns": "輪次"
+  },
+  "visitorNamePicker": {
+    "whosReading": "誰在閲讀？",
+    "full": "此存取碼已滿——達到了名字數量上限。向分享給你的人索要一個新的。",
+    "prompt": "聊天開始前的最後一件事——主理人稍後會在你的對話記錄上看到它。選一個短名字；用暱稱也行。",
+    "capacityDefault": "不止一個人可以使用這個存取碼。",
+    "capacityNote": "一直用<strong>同一個名字</strong>，你的對話就以「你」為單位歸組；<strong>換個名字</strong>會被視作新的人，另起一段對話。要把存取碼給別人？讓他們掃碼並選自己的名字。不想給名字？<strong>跳過</strong>同樣會佔用該存取碼的一個名字，作為訪客——而之後再回來會以一個新訪客身份重新開始。",
+    "start": "開始 ↵",
+    "skip": "跳過",
+    "starting": "正在開始聊天",
+    "kicker": "已獲准進入 · 存取碼 {code}",
+    "kickerNoCode": "開始之前",
+    "defaultGreeting": "這是 {handle} 的 AI。儘管問——它用 {handle} 的口吻回答，依據是其真實的作品。",
+    "defaultGreetingAnon": "儘管問這個 AI——它用主理人的口吻回答，依據是真實的作品。",
+    "capacity": "最多 {max} 人可以使用這個存取碼——已有 {count} 人加入。",
+    "namePlaceholder": "你的名字",
+    "emailPlaceholder": "電郵地址（可選，用於接收會議邀請）"
+  },
+  "wikiTopBar": {
+    "brand": "standmeet",
+    "wiki": "wiki",
+    "writing": "文章",
+    "chat": "聊天"
+  },
+  "wikiTreeView": {
+    "head": "wiki 樹",
+    "stats": "<num>{entries}</num> 條目 · <num>{roots}</num> 根 · <num>{gated}</num> 受限",
+    "gatedHint": "這些條目是私密的——輸入存取碼",
+    "indexEmpty": "這裏還沒有發佈任何內容。"
+  },
+  "readerChat": {
+    "kicker": "就此提問",
+    "heading": "就這條條目提個問題。",
+    "lede": "AI 以主理人的口吻作答，基於這套語料庫。自帶你的密鑰即可開始——它永不離開你的瀏覽器。"
+  }
+}

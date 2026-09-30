@@ -1,0 +1,327 @@
+{
+  "common": {
+    "cancel": "取消",
+    "create": "建立",
+    "delete": "刪除",
+    "systemPill": "[系統]",
+    "corpus": "語料庫",
+    "tools": "工具",
+    "prompt": "提示詞",
+    "provider": "服務供應商",
+    "saveCorpus": "儲存語料庫",
+    "noneDash": "— 無 —",
+    "byHand": "或手動填寫：",
+    "rawDenied": "無論此列表如何設定，raw://** 始終對訪客關閉"
+  },
+  "codes": {
+    "new": "＋ 新增存取碼",
+    "intro": "每個存取碼為某位確定的對象開放你 wiki 的一部分——一場招聘、一次投資人引薦、或單獨一次媒體來訪。多人可共用一個存取碼；有人輸入它時，AI 會先問對方是誰，再把其歸入該存取碼的成員名單。每張卡片都帶一個QR 碼。",
+    "empty": "還沒有存取碼。",
+    "filterEmpty": "沒有符合篩選的存取碼。",
+    "searchPlaceholder": "搜尋碼或標籤",
+    "filter": {
+      "active": "生效",
+      "revoked": "已吊銷",
+      "expired": "已過期",
+      "all": "全部"
+    },
+    "kicker": "存取 · 存取碼",
+    "count": "{active} 個生效 · {total} 個共計",
+    "toast": {
+      "revoked": "已吊銷存取碼",
+      "created": "已建立存取碼 {code}",
+      "quotasUpdated": "已更新配額"
+    }
+  },
+  "codeCard": {
+    "preview": "預覽 ↗",
+    "edit": "編輯",
+    "revoke": "吊銷",
+    "changeCode": "改碼",
+    "changeCodeTitle": "更改這個存取碼？",
+    "changeCodeWarn": "輪換存取碼後，所有已經發出去的副本都會失效——你已發出的簡歷 PDF 和QR 碼、分享出去的 ?code= 連結——並會把正在使用它的人踢下線。Embed 和已有的申請仍然有效（按 id 綁定）。此操作無法撤銷。",
+    "changeCodeCancel": "取消",
+    "changeCodeConfirm": "確認更改",
+    "changeCodeDone": "存取碼已改為 {code}",
+    "roleFrozen": "簽發時鎖定的角色（已凍結）",
+    "quota": "配額",
+    "status": "狀態 · {status}",
+    "viewConversations": "查看對話 →",
+    "openShare": "開啓分享面板——大QR 碼、可複製連結、可列印",
+    "opensLabel": "開啓",
+    "opensChat": "訪客聊天",
+    "opensPageOption": "/p/{slug}",
+    "statusActive": "● 生效中",
+    "roleLabel": "角色",
+    "membersLabel": "成員",
+    "qrLabel": "QR",
+    "namesCapped": "{used} / {cap} 名額",
+    "namesUncapped": "{used} 名額 · 無限",
+    "turnsCapped": "{n} 輪",
+    "turnsUncapped": "無限輪次",
+    "expires": "· 到期 {date}",
+    "noExpiry": "· 永不過期",
+    "toast": {
+      "ghostUpdated": "已更新 {code} 的幽靈規則",
+      "opensChat": "{code} 現在開啓訪客聊天",
+      "opensPage": "{code} 現在開啓 /p/{slug}"
+    }
+  },
+  "codeCorpus": {
+    "loadError": "無法載入此存取碼的語料庫範圍。請重新整理後重試。",
+    "grantsNothing": "（該角色不授予任何內容）",
+    "publishedSlice": "（你已發佈的一切——此角色不單獨維護列表）",
+    "inherited": "語料庫 · 繼承自角色",
+    "takenBack": "在此存取碼上收回",
+    "helpSummary": "收回如何生效 ▸",
+    "help": "此存取碼從角色所授予的內容中收回的 URI，每行一個。它只能做減法、不能做加法——你在此寫下的內容永遠不會開啓角色未授予的東西。典型用法：角色授予 subjectivity://**（所有觀點），而此存取碼收回 subjectivity://cv（簡歷不外露）。改動只影響此後簽發的會話：角色在會話簽發時被凍結，因此正在聊天的訪客保留舊範圍——但同一存取碼（無論它多舊）的下一個會話會拿到新範圍。",
+    "toast": {
+      "narrowed": "已收窄 {label} 的語料庫"
+    }
+  },
+  "members": {
+    "loading": "正在載入成員…",
+    "none": "還沒有訪客用過這個存取碼。",
+    "anonymous": "匿名",
+    "toggle": "成員"
+  },
+  "conversations": {
+    "privateHits": "{count, plural, one {# 個會話} other {# 個會話}}觸及了私密話題",
+    "filterChip": "篩選 · 存取碼 · {code}",
+    "clear": "清除 ×",
+    "thVisitor": "訪客",
+    "thViaCode": "經由存取碼",
+    "thIp": "ip",
+    "thTurns": "輪次",
+    "thSentiment": "情緒",
+    "thFlags": "標記",
+    "thLast": "最近",
+    "privFlag": "{hits} 私密",
+    "empty": "還沒有對話。訪客透過存取碼或 BYOAI 會話聊天後，就會顯示在這裏。",
+    "kicker": "存取 · 會話",
+    "count": "{count} 個會話"
+  },
+  "transcript": {
+    "loading": "正在載入對話記錄…",
+    "empty": "此對話中沒有訊息。",
+    "cited": "引用 · {kind}",
+    "ghostsTitle": "已展示的幽靈文本",
+    "download": "下載 ↓",
+    "groundingTitle": "塑造這些回答的立場筆記 · 不對訪客展示",
+    "grounded": "有依據",
+    "kicker": "對話",
+    "modalTitle": "對話記錄 · {id}"
+  },
+  "conversationPrune": {
+    "title": "公開對話",
+    "help": "公開和 BYOAI 對話不需要存取碼，記錄可能越積越多。可以關掉儲存（完全不存），或設一個計劃（cron，UTC）刪除閒置超過保留期的對話（留空 = 關閉）。憑存取碼進來的對話不受影響。",
+    "saveLabel": "儲存公開對話",
+    "notSaved": "不儲存",
+    "cronLabel": "清理計劃（cron）",
+    "daysLabel": "保留天數",
+    "days": "天",
+    "save": "儲存",
+    "saved": "清理計劃已儲存",
+    "off": "已關閉 —— 公開對話永久保留",
+    "on": "{cron}（UTC）：刪除閒置超過 {days} 天的公開對話 · 存取碼對話保留"
+  },
+  "ghostTelemetry": {
+    "title": "幽靈引導 · 各導引點漏斗",
+    "thWaypoint": "導引點",
+    "thShown": "展示",
+    "thAccepted": "採納",
+    "thRate": "比率",
+    "all": "全部"
+  },
+  "prompts": {
+    "new": "+ 新增提示詞",
+    "intro": "人設庫。歸主理人所有，無分類。每一條都是一段文字——你在這裏告訴它是誰，AI 就成為誰。供角色使用。",
+    "empty": "還沒有提示詞——通常在主理人認領實例時會預置 public。",
+    "modalTitle": "新增提示詞",
+    "bodyLabel": "正文",
+    "kicker": "存取 · 人設",
+    "fields": {
+      "name": "名稱",
+      "description": "描述"
+    },
+    "namePlaceholder": "例如 面向招聘方",
+    "descPlaceholder": "何時使用此人設",
+    "bodyPlaceholder": "你是 '{'owner'}' 的 AI 代理。請準確回答問題…",
+    "toast": {
+      "created": "已建立提示詞 {name}",
+      "deleted": "已刪除提示詞 {name}"
+    }
+  },
+  "requests": {
+    "deliveryHint": "尚無已驗證的外發渠道——請在「supplier」下設定一個，這樣批准請求時就能簽發存取碼並發送。在此之前你只能手動把請求標記為已回覆／已關閉。",
+    "intro": "來自門禁頁「沒有存取碼」路徑的提交。簽發存取碼或回信後標記為已回覆；關閉即歸檔。主理人親自閲讀每一條——這正是本意所在。",
+    "empty": "沒有{filter}請求。",
+    "issued": "已簽發 {code}",
+    "mail": {
+      "sending": "電郵發送中…",
+      "sent": "電郵已發送",
+      "failed": "電郵發送失敗"
+    },
+    "decline": "婉拒",
+    "approve": "批准 · 簽發並電郵發送存取碼 →",
+    "connectMail": "連接電郵以簽發存取碼",
+    "kicker": "存取 · 門禁收件箱",
+    "countTotal": "{n} 個共計",
+    "countNew": "{n} 個新增",
+    "toast": {
+      "declined": "已婉拒請求"
+    }
+  },
+  "roles": {
+    "searchPlaceholder": "搜尋角色",
+    "new": "+ 新增角色",
+    "intro": "一個角色打包了一份提示詞（人設）、一份 agent 可讀取的語料庫 URI 正向列表、一組技能，以及它可呼叫的 MCP 伺服器。存取碼本身不直接攜帶權限——每個存取碼在簽發時<em>套用</em>一個角色，並將該快照凍結到那個會話。編輯角色只影響此後的會話。",
+    "empty": "還沒有角色——通常在主理人認領實例時會預置 public。",
+    "kicker": "存取 · 人設",
+    "skillsLabel": "技能",
+    "mcpServersLabel": "mcp 伺服器",
+    "meta": {
+      "corpus": "語料庫",
+      "skills": "技能",
+      "mcp": "mcp",
+      "codes": "存取碼",
+      "published": "你已發佈的內容",
+      "uris": "{n} 個 URI",
+      "servers": "{n} 個伺服器",
+      "activeCodes": "{n} 個生效"
+    },
+    "toast": {
+      "created": "已建立角色 {name}",
+      "deleted": "已刪除角色 {name}",
+      "promptUpdated": "已更新 {name} 的提示詞",
+      "corpusUpdated": "已更新 {name} 的語料庫 URI",
+      "toolsUpdated": "已更新 {name} 的工具授權",
+      "dockUpdated": "已更新 {name} 的快捷欄按鈕",
+      "ghostUpdated": "已更新 {name} 的幽靈規則",
+      "aboutUpdated": "已更新 {name} 的説明",
+      "providerUpdated": "已更新 {name} 的服務供應商",
+      "waypointsUpdated": "已更新 {name} 的導引點"
+    }
+  },
+  "roleCreate": {
+    "title": "新增角色",
+    "promptNone": "（無）",
+    "providerDefault": "— 實例預設 —",
+    "corpusLabel": "語料庫 uri · 每行一個",
+    "noneConfigured": "尚未設定",
+    "fields": {
+      "name": "名稱",
+      "description": "描述",
+      "greeting": "問候語"
+    },
+    "namePlaceholder": "例如 recruiter-default",
+    "descPlaceholder": "何時使用此角色",
+    "greetingPlaceholder": "顯示在訪客姓名選擇器上——留空則用預設值"
+  },
+  "roleGas": {
+    "help": "按此角色所屬服務供應商的額度計量。關閉（預設）表示完全不做用量檢查；開啓表示一旦該服務供應商額度耗盡，訪客就被攔下。額度為空的服務供應商無論如何都不計量。"
+  },
+  "roleCorpus": {
+    "help": "agent 可讀取的語料庫 URI 正向列表，每行一個。任意匹配：命中任意一行即可讀取，因此粒度可以任你細分——wiki://thinking/** 授予整個子樹，subjectivity://standpoint 只授予那一條筆記。空列表 = 什麼都讀不到。改動只影響此後簽發的會話：角色在會話簽發時被凍結，因此正在聊天的訪客保留舊範圍——但同一存取碼（無論它多舊）的下一個會話會拿到新範圍。",
+    "citabilityNote": "這裏只控制 agent 能「讀」什麼。它讀到的條目是否也在回答下方作為被引用來源列出，是另一個逐條目的開關——即該條目自己卡片上（在 wiki／輸出下）的「作為來源引用」勾選框。所以一個條目可以在這裏可讀，卻永遠不出現在回答的引用中。",
+    "publicIsPublished": "你已發佈的一切——沒有單獨的列表。這是訪客在沒有存取碼時（以及 BYOAI 時）獲得的身份，它只有在某條目自身的發佈開關開啓時才能讀取該條目。在 wiki 或輸出下的條目卡片上開啓開關；這裏沒有可編輯的東西，因此兩者永遠不會相互矛盾。"
+  },
+  "roleTools": {
+    "help": "此角色可呼叫的東西：你的技能，以及你在 api · mcp 下註冊的外部 MCP 伺服器。預設不授予任何東西——你新增的伺服器只有在此處勾選的角色才能存取。改動只影響此後簽發的會話：角色在會話簽發時被凍結，因此正在聊天的訪客保留舊範圍——但同一存取碼（無論它多舊）的下一個會話會拿到新範圍。",
+    "save": "儲存工具 · {name}"
+  },
+  "roleDock": {
+    "label": "快捷欄",
+    "help": "觸發語——按下此按鈕時系統代訪客發出的那行文字；AI 把它當作訪客的提問來處理。例如「總結目前為止的對話」：按下按鈕等同於訪客親自輸入那行文字。",
+    "triggerPlaceholder": "觸發語（例如 總結這段對話）",
+    "save": "儲存快捷欄 · {name}"
+  },
+  "roleGhost": {
+    "label": "幽靈規則",
+    "help": "開啓時，AI 只能把訪客引向有語料庫證據支撐的導引點——無證據的引導提示會被丟棄（預約及其他終點導引點不受影響）。凍結進每個會話；存取碼可覆蓋此設定。",
+    "save": "儲存幽靈規則 · {name}"
+  },
+  "codeGhost": {
+    "label": "幽靈證據",
+    "inherit": "繼承角色",
+    "on": "要求證據",
+    "off": "全部允許"
+  },
+  "roleDesc": {
+    "label": "説明",
+    "help": "描述此角色的一句話——訪客是誰、AI 應如何對待他們。僅在此處顯示（面向主理人）。",
+    "placeholder": "例如 B 輪創業公司的招聘方",
+    "save": "儲存説明 · {name}"
+  },
+  "roleWaypoints": {
+    "label": "導引點",
+    "help": "AI 可温和引導訪客前往的目的地——每個目標一條（例如「預約通話」「讀一讀控制論那條筆記」）。每條帶一個權重（越高越優先），並可選地附上支撐它的語料庫證據。把預約／聯絡類目標標記為終點。凍結進每個會話；為空 = AI 從不引導。",
+    "idPlaceholder": "id（例如 book-a-call）",
+    "descPlaceholder": "這個目的地是什麼",
+    "weightLabel": "權重",
+    "terminalLabel": "終點",
+    "evidencePlaceholder": "證據 URI，逗號分隔（例如 wiki://cybernetics）",
+    "add": "+ 新增導引點",
+    "remove": "移除",
+    "save": "儲存導引點 · {name}"
+  },
+  "embeds": {
+    "new": "＋ 新增嵌入",
+    "intro": "嵌入把本實例的聊天以一個 <standmeet-chat> 標籤放到別人的網站上。每個嵌入暴露一個存取碼——該頁面上的訪客以此存取碼的角色聊天，無需輸入存取碼。由於元件執行在你無法掌控的站點上，請固定它可載入的來源。",
+    "empty": "還沒有嵌入。建立一個，給合作站點一份即插即用的聊天。",
+    "exposesCode": "暴露",
+    "originsAny": "在任意來源執行",
+    "originsPinned": "已固定 {count} 個",
+    "snippetLabel": "貼上到宿主頁面",
+    "copySnippet": "複製",
+    "copied": "已複製",
+    "keyNote": "元件憑證已簽發——帶密鑰的程式碼片段僅在建立時展示過一次。刪除並重建以重新簽發。",
+    "kidLabel": "kid {kid}",
+    "revealKicker": "元件已就緒",
+    "revealTitle": "現在就複製此程式碼片段",
+    "revealWarning": "它攜帶元件的簽名密鑰，只展示一次。現在就複製——它無法再次顯示。它不包含你的存取碼；由伺服器解析。若丟失，請刪除此嵌入並新增一個。",
+    "edit": "編輯",
+    "delete": "刪除",
+    "deleted": "已移除嵌入",
+    "created": "已建立嵌入",
+    "updated": "已更新嵌入",
+    "unknownCode": "存取碼已移除",
+    "hookRevealKicker": "已接上更新鈎子",
+    "hookRevealTitle": "現在複製簽名密鑰",
+    "hookSecretLabel": "更新鈎子的簽名密鑰",
+    "hookSecretOnce": "只顯示這一次。接收方網站用它驗證每個事件的簽名。丟了的話，清空鈎子網址並儲存，再重新填上，就會得到新的密鑰。",
+    "form": {
+      "createTitle": "把存取碼暴露為元件",
+      "editTitle": "編輯嵌入",
+      "createKicker": "新增嵌入",
+      "editKicker": "編輯嵌入",
+      "labelField": "標籤 · 僅你可見",
+      "labelPlaceholder": "例如 Acme 招聘頁",
+      "codeField": "此嵌入暴露的存取碼",
+      "codePlaceholder": "選擇一個存取碼…",
+      "originsField": "允許的來源 · 每行一個 · 留空 = 任意",
+      "originsPlaceholder": "https://acme.example\nhttps://careers.acme.example",
+      "originsHelp": "協議 + 主機，末尾不帶路徑（https://acme.example）。元件在此處未列出的任何來源都會被拒絕。",
+      "hookField": "更新鈎子網址 · 可選",
+      "hookPlaceholder": "https://acme.example/api/corpus-hook",
+      "hookHelp": "這個嵌入的存取碼能讀到的筆記，每次改動都會以簽名事件發到這裏，網站據此重新整理它的副本。副本模式必須填。",
+      "syncModeField": "同步方式",
+      "syncMode": {
+        "live": "即時",
+        "copy": "副本 · RSS + 鈎子"
+      },
+      "syncModeHelp": {
+        "live": "網站每次請求都直接讀這個實例。永遠最新，不需要鈎子。",
+        "copy": "網站保留一份副本（可以據此提供 RSS 和 sitemap），由更新鈎子告訴它哪裏變了。"
+      },
+      "save": "建立嵌入",
+      "saveEdit": "儲存更改",
+      "cancel": "取消",
+      "codeRequired": "請先選擇一個存取碼"
+    },
+    "kicker": "存取 · 元件",
+    "thEmbed": "嵌入",
+    "thOrigins": "來源",
+    "thCreated": "建立時間"
+  }
+}

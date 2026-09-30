@@ -82,5 +82,6 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
 // Matched paths only: the root (homepage) and any `/<locale>/…` prefix. Every other path is left
 // alone — it reads the persisted NEXT_LOCALE cookie in i18n/request.ts.
 export const config = {
-  matcher: ['/', '/(en|zh|fr|hi|de|ja|ko|es)', '/(en|zh|fr|hi|de|ja|ko|es)/:path*'],
+  // A literal (Next reads it at build time), so it repeats LOCALES; zh-HK precedes zh.
+  matcher: ['/', '/(en|zh-HK|zh|fr|hi|de|ja|ko|es)', '/(en|zh-HK|zh|fr|hi|de|ja|ko|es)/:path*'],
 };

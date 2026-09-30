@@ -266,6 +266,16 @@ test.describe('chat is inherited: the chat speaks the page\'s language', () => {
     await enterOnPage(page, 'Lang Reader');
     await expect(page.getByTestId('agent-widget').locator('.smc-dock-title')).toHaveText('ask the AI');
   });
+
+  test('a page that declares zh-HK gets the chat in Hong Kong Traditional', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await enterOnPage(page, 'HK Reader');
+    const title = page.getByTestId('agent-widget').locator('.smc-dock-title');
+    await expect(title).toHaveText('ask the AI');
+    // The page switches its declared language (what a bilingual page's toggle does); the chat follows.
+    await page.evaluate(() => { document.documentElement.lang = 'zh-HK'; });
+    await expect(title).toHaveText('向 AI 提問');
+  });
 });
 
 // Owner, 2026-09-30: a diagram in a conversation can be too small to read. It gets a button in its

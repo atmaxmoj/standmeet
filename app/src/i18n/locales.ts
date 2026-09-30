@@ -5,7 +5,9 @@
 // LOCALES — the supported UI languages. en is the base; every other locale must mirror its message
 // keys (enforced recursively by infra/scripts/check-i18n-keys). Adding one is: append here, add its
 // messages/<locale>/ catalog, and add it to the middleware matcher.
-export const LOCALES = ['en', 'zh', 'fr', 'hi', 'de', 'ja', 'ko', 'es'] as const;
+// zh-HK —— Hong Kong Traditional with Hong Kong vocabulary (owner, 2026-09-30). The region subtag
+// is part of the code: it is the URL prefix (/zh-HK/…), the cookie value and <html lang>.
+export const LOCALES = ['en', 'zh', 'zh-HK', 'fr', 'hi', 'de', 'ja', 'ko', 'es'] as const;
 export type Locale = (typeof LOCALES)[number];
 export const DEFAULT_LOCALE: Locale = 'en';
 
@@ -16,9 +18,10 @@ export const LOCALE_COOKIE = 'NEXT_LOCALE';
 export const LOCALE_HEADER = 'x-locale';
 
 // LOCALE_LABELS — how each language names ITSELF (endonym), for the switcher: a reader recognizes
-// their own language by its own name, not an English one.
+// their own language by its own name, not an English one. With two Chinese variants, each says
+// which script it is.
 export const LOCALE_LABELS: Record<Locale, string> = {
-  en: 'English', zh: '中文', fr: 'Français', hi: 'हिन्दी',
+  en: 'English', zh: '简体中文', 'zh-HK': '繁體中文（香港）', fr: 'Français', hi: 'हिन्दी',
   de: 'Deutsch', ja: '日本語', ko: '한국어', es: 'Español',
 };
 

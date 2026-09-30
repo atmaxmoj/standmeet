@@ -28,6 +28,8 @@ const OWNER = {
 const EN_HEADLINE = 'This isn’t open';
 const ZH_HEADLINE = '这里不对外开放';
 const FR_HEADLINE = "Ce n'est pas ouvert";
+// Hong Kong Traditional (owner, 2026-09-30: "i18n加一个港繁吧") — 這裏, not the Simplified 这里.
+const ZH_HK_HEADLINE = '這裏不對外開放';
 
 test.describe('G · the UI language lives in the URL and is switchable', () => {
   test.beforeAll(async ({ playwright }) => {
@@ -51,6 +53,22 @@ test.describe('G · the UI language lives in the URL and is switchable', () => {
     await openReader(page, '/fr/gate');
     await expect(page.getByText(FR_HEADLINE, { exact: false }).first()).toBeVisible({ timeout: 15_000 });
     expect(page.url()).toContain('/fr/gate');
+  });
+
+  test('`/zh-HK/gate` is Hong Kong Traditional, and the switcher offers it', async ({ page }) => {
+    await openReader(page, '/zh-HK/gate');
+    await expect(page.getByText(ZH_HK_HEADLINE, { exact: false }).first()).toBeVisible({ timeout: 15_000 });
+    expect(page.url(), 'the region subtag stays in the URL').toContain('/zh-HK/gate');
+    await expect(page.locator('html')).toHaveAttribute('lang', 'zh-HK');
+
+    await openGate(page, '/en/gate');
+    await expect(page.getByText(EN_HEADLINE, { exact: false }).first()).toBeVisible({ timeout: 15_000 });
+    const sw = page.getByTestId('locale-switch');
+    await sw.locator('summary').click();
+    await expect(sw.getByTestId('locale-opt-zh-HK')).toHaveText('繁體中文（香港）');
+    await sw.getByTestId('locale-opt-zh-HK').click();
+    await expect(page.getByText(ZH_HK_HEADLINE, { exact: false }).first()).toBeVisible({ timeout: 15_000 });
+    await expect.poll(() => new URL(page.url()).pathname).toMatch(/^\/zh-HK(\/|$)/);
   });
 
   test('the top-right switcher renders 中文 on click (no reload), and the choice persists',

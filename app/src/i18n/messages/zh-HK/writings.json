@@ -1,0 +1,57 @@
+{
+  "common": {
+    "brand": "standmeet",
+    "writings": "文章",
+    "backToWritings": "← 返回文章",
+    "read": "閲讀 →",
+    "readMinutes": "{minutes} 分鐘閲讀"
+  },
+  "breadcrumb": {
+    "back": "← 文章"
+  },
+  "tree": {
+    "head": "文章"
+  },
+  "cover": {
+    "tag": "文章 · standmeet",
+    "locked": "私密 · 存取碼限制"
+  },
+  "article": {
+    "coverNo": "{date} · 文章",
+    "linkedFrom": "連結來源",
+    "privateEssay": "私密文章",
+    "lockedBody": "這篇文章受限；去申請一個存取碼。",
+    "requestInvite": "申請存取碼 →"
+  },
+  "cards": {
+    "leadNo": "第 01 篇 · {date}",
+    "latest": "最新",
+    "no": "第 {n} 篇",
+    "readMinutesShort": "{minutes} 分鐘"
+  },
+  "index": {
+    "orSkipTheReading": "或者跳過閲讀",
+    "askHeading": "直接問 AI",
+    "askBody": "這裏能讀到的一切，都能以主理人的口吻講給你聽。這場對話還涉及他尚未寫下的內容，答案來自語料庫而非歸檔。",
+    "openTheChat": "開啓聊天 →",
+    "ifYouOnlyReadTwo": "如果你唯讀兩篇",
+    "chat": "聊天",
+    "essays": "文章",
+    "title": "文章",
+    "lede": "語料庫的浮現。每篇文章都是我一直在思考的某件事的展開版——你可以直接就其中任何一篇問 AI。",
+    "browseByTag": "按標籤瀏覽",
+    "clear": "× 清除 · 顯示 {total} 中的 {filtered} 篇",
+    "all": "全部",
+    "empty": "還沒有文章。",
+    "mostRecent": "最新",
+    "archive": "歸檔",
+    "filteredBy": "篩選條件",
+    "essayCount": "{count, plural, one {# 篇文章} other {# 篇文章}}"
+  },
+  "editor": {
+    "slashNoMatch": "無匹配",
+    "crosslink": "交叉連結",
+    "crosslinkNoMatch": "無匹配 · 輸入一個 slug 以建立",
+    "crosslinkHint": "↑↓ 導覽 · ↵ 插入 · esc 取消"
+  }
+}
