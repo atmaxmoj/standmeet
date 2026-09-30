@@ -234,9 +234,11 @@ app-lint:
 	  echo "[skip] app/ has no node_modules or package.json — skipping"; \
 	fi
 
+# sdk-lint —— the SDK packages only. `pnpm -r` run from sdk/ still spans the whole workspace (app, e2e,
+# im-bridge re-linted: 122s instead of ~30s, 2026-09-30); app-lint and e2e-lint own those.
 sdk-lint:
 	@if [ -d sdk/packages/core/node_modules ]; then \
-	  cd sdk && pnpm -r lint; \
+	  pnpm -r --filter './sdk/packages/**' lint; \
 	else \
 	  echo "[skip] sdk/ has no node_modules — skipping"; \
 	fi

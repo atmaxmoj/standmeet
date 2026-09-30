@@ -13,10 +13,11 @@
 #     belongs on pre-push. The commit gate still exists (a commit is not nothing), it is just scoped
 #     to what this commit changed; pre-push is the unscoped real gate. Fast.
 #
-#   pre-push — the WHOLE thing, GLOBALLY, unscoped: the full aggregate `make lint` across every
-#     subproject PLUS im-bridge's vitest. This is the last line before code leaves the machine; CI /
-#     Coolify run the same chain, so green here is green in the pipeline. lint-cached makes a tree
-#     already linted green by hand a no-op.
+#   pre-push — the same lint targets, scoped to the subprojects this push changes against
+#     origin/main (infra/scripts/lint-changed.sh); a shared path (infra/, Makefile, root manifests)
+#     still runs the full `make lint`. The unscoped whole-repo chain took 5–11 minutes per push even
+#     when no Go changed (646s on 2026-09-30). PLUS im-bridge's vitest. FULL_LINT=1 forces the full
+#     chain.
 
 pre-commit:
   parallel: false   # keep output legible + avoid several `make`/go/node runs contending at once
@@ -51,9 +52,9 @@ pre-commit:
 pre-push:
   parallel: false
   commands:
-    # everything, unscoped — the full lint chain (lint-cached skips a tree already green) …
+    # the lint targets for what this push changes (a shared path → the full chain) …
     lint:
-      run: make lint-cached
+      run: infra/scripts/lint-changed.sh
     # … plus im-bridge's vitest, which is a test (kept out of `make lint`) but must still run before
     # anything is pushed.
     im-bridge-test:
