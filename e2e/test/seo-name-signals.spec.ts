@@ -20,7 +20,8 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { publishEntry, seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
-import { publishPage } from '@/fixtures/microsite-rig';
+import { createCode } from '@/fixtures/codes';
+import { bindCodeToPage, publishPage } from '@/fixtures/microsite-rig';
 
 const APP_BASE = process.env['APP_BASE_URL'] ?? 'http://localhost:38127';
 
@@ -31,6 +32,7 @@ const OWNER = {
 const WIKI_PATH = 'notes/why-names-matter';
 const WRITING_SLUG = 'a-published-essay';
 const MICRO_SLUG = 'portfolio';
+const CLOSED_SLUG = 'for-a-recruiter';
 
 // HOME —— a home page that renders its own <title> and description in JSX (React hoists them into
 // <head>), as the live one does. The site-root SEO must replace them, not sit beside them.
@@ -66,6 +68,10 @@ test.beforeAll(async ({ playwright }) => {
   });
   await publishPage(request, csrf, 'home', HOME, 300_000);
   await publishPage(request, csrf, MICRO_SLUG, 'export default function App(){return <main>work</main>;}', 300_000);
+  // A page bound to a code opens only with that code (binding closes it): a crawler has no code.
+  await publishPage(request, csrf, CLOSED_SLUG, 'export default function App(){return <main>for you</main>;}', 300_000);
+  const code = await createCode(request, csrf, { code: 'SEO-CLOSED-1', label: 'recruiter' });
+  await bindCodeToPage(request, csrf, code.id, CLOSED_SLUG);
   await request.dispose();
 });
 
@@ -144,5 +150,17 @@ test.describe('every public page carries the owner and its own address', () => {
   test('the sitemap lists published writings', async ({ request }) => {
     const res = await request.get(`${APP_BASE}/sitemap.xml`);
     expect(await res.text()).toContain(`<loc>${APP_BASE}/writings/${WRITING_SLUG}</loc>`);
+  });
+
+  // Found 2026-09-30 on sijie.xyz: the sitemap listed /p/mattermost, a page bound to a code, which
+  // sends a visitor without one (every crawler) to /gate. The sitemap lists what a crawler can read.
+  test('the sitemap lists open microsites, not ones that need a code', async ({ request }) => {
+    const res = await request.get(`${APP_BASE}/sitemap.xml`);
+    const body = await res.text();
+    expect(body).toContain(`<loc>${APP_BASE}/p/${MICRO_SLUG}</loc>`);
+    const closed = await request.get(`${APP_BASE}/p/${CLOSED_SLUG}`, { maxRedirects: 0 });
+    expect(closed.status(), 'the bound page turns a codeless visitor away').toBe(302);
+    expect(body.split('\n').filter((l) => l.includes(`/p/${CLOSED_SLUG}<`)),
+      'no sitemap entry for a page that needs a code').toEqual([]);
   });
 });

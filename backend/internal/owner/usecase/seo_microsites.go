@@ -33,5 +33,9 @@ func IndexedMicrosites(ctx context.Context, deps SEODeps) []LandingURL {
 // liveNonHomeMicrosite — a page that belongs in the sitemap: it has a live build, and it is not the
 // reserved home page (served at `/`, already listed as the owner's public URL).
 func liveNonHomeMicrosite(p *entity.Microsite) bool {
-	return p.LiveBuildID != nil && p.Slug != HomepageSlug
+	// Open without a code too: a page bound to a code sends every codeless visitor (every
+	// crawler) to /gate, so listing it hands a search engine an address it can only read as the
+	// gate (sijie.xyz listed /p/mattermost, 2026-09-30). Same rule as the public listing.
+	open := p.Access != nil && p.Access.OpenWithoutCode
+	return p.LiveBuildID != nil && p.Slug != HomepageSlug && open
 }
