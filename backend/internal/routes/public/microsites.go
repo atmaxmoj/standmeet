@@ -91,6 +91,8 @@ func (h *MicrositeHandlers) Mount(r chi.Router) {
 	// rewrites `/` here; 404 until an owner promotes a `home` page.
 	r.Get("/homepage", h.serveHomepage())
 	r.Get("/homepage/*", h.serveHomepage())
+	// HEAD / —— link previewers and SEO tools ask HEAD first; chi's Get alone answered 405.
+	r.Head("/homepage", h.serveHomepage())
 	// The site root's SEO (title / description / OG image), read by the app's DefaultHome for its
 	// <head> when no `home` build is live, and by the homepage editor to load current values.
 	// Owner-level + public (it IS the public SEO), so it holds regardless of the `home` lifecycle.
@@ -186,6 +188,7 @@ func (h *MicrositeHandlers) serveSlugAt(
 			// The homepage's SEO is the owner's site-root SEO, which wins over whatever the `home`
 			// build's own page row carried — the root's SEO lives on the owner, not the microsite.
 			applySEOOverlay(&asset, seoOverlay)
+			applyIdentity(&asset, &live, slug)
 			return asset, nil
 		},
 		AssetPath: chi.URLParam(r, "*"),

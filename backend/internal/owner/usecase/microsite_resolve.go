@@ -28,7 +28,9 @@ func ResolveLiveBuild(
 	if err != nil {
 		return LivePage{}, err
 	}
-	return resolveByOwner(ctx, deps, soleOwner.ID, slug)
+	live, lerr := resolveByOwner(ctx, deps, soleOwner.ID, slug)
+	live.OwnerName, live.PublicURL = soleOwner.FullName, soleOwner.PublicURL
+	return live, lerr
 }
 
 // ResolveOpenBuild —— ResolveLiveBuild for a visitor: a page closed to visitors without a code
@@ -114,8 +116,12 @@ type LivePage struct {
 	SeoTitle       *string
 	SeoDescription *string
 	SeoImage       *string
-	Build          entity.MicrositeBuild
-	AllowBYOAI     bool
+	// OwnerName, PublicURL —— whose site this is and where it lives, for what a crawler reads: the
+	// homepage's Person JSON-LD and title fallback, every page's canonical URL. Live pages only.
+	OwnerName  string
+	PublicURL  string
+	Build      entity.MicrositeBuild
+	AllowBYOAI bool
 	// OpenWithoutCode —— may a visitor with no code read this page (see
 	// microsite_opens_without_code). Filled for the live page; the owner's preview doesn't ask.
 	OpenWithoutCode bool

@@ -36,6 +36,10 @@ type BuiltAsset struct {
 	// PublicChat — the public tier's state (PublicChatOn / Spent / Off); injected into <head> so
 	// the codeless AgentWidget picks inline, the visitor's own key, or the /gate handoff.
 	PublicChat string
+	// Canonical, PersonLD —— the page's own address and (homepage) the owner as a schema.org
+	// Person; see microsite_identity.go. Empty for the admin preview.
+	Canonical  string
+	PersonLD   string
 	AllowBYOAI bool
 	// PublicSearch —— corpus.retrieval's public_search flag for the sole owner, injected into
 	// <head> so the codeless corpus_search BlockWidget knows it may open a public session.
@@ -76,6 +80,7 @@ func ServeBuildAsset(w http.ResponseWriter, _ *http.Request, req *BuildAssetReq)
 		base: baseOf(req), allowBYOAI: asset.AllowBYOAI,
 		publicSearch: asset.PublicSearch, publicChat: asset.PublicChat, slug: asset.Slug,
 		seoTitle: asset.SeoTitle, seoDescription: asset.SeoDescription, seoImage: asset.SeoImage,
+		canonical: asset.Canonical, personLD: asset.PersonLD,
 	})
 }
 

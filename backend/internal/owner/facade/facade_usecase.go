@@ -95,6 +95,7 @@ var (
 	IndexedOutputLandings     = usecase.IndexedOutputLandings
 	IndexedWikiLandings       = usecase.IndexedWikiLandings
 	IndexedMicrosites         = usecase.IndexedMicrosites
+	IndexedWritings           = usecase.IndexedWritings
 	ListAllowedDomains        = usecase.ListAllowedDomains
 	ListKeypairs              = usecase.ListKeypairs
 	ListPages                 = usecase.ListPages

@@ -65,7 +65,9 @@ export function homepageMetadata(seo: HomepageSEO, fallbackName: string): Metada
   const hasDesc = seo.description !== '';
   const hasImage = seo.image !== '';
   return {
-    title,
+    // absolute: the site root's title is the whole title, not "<title> — <owner>" (the root layout's
+    // template for every other page).
+    title: { absolute: title },
     ...(hasDesc ? { description: seo.description } : {}),
     openGraph: {
       title,

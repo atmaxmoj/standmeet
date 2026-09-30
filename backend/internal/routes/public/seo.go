@@ -105,6 +105,7 @@ func sitemapURLs(ctx context.Context, deps owner.SEODeps) []sitemapURL {
 	out = appendLandings(out, soleOwner.PublicURL, "wiki", owner.IndexedWikiLandings(ctx, deps))
 	out = appendLandings(out, soleOwner.PublicURL, "output", owner.IndexedOutputLandings(ctx, deps))
 	out = appendLandings(out, soleOwner.PublicURL, "p", owner.IndexedMicrosites(ctx, deps))
+	out = appendLandings(out, soleOwner.PublicURL, "writings", owner.IndexedWritings(ctx, deps))
 	return out
 }
 
@@ -114,10 +115,18 @@ func appendLandings(
 	for i := range landings {
 		urls = append(urls, sitemapURL{
 			Loc:     fmt.Sprintf("%s/%s/%s", base, segment, landings[i].Path),
-			LastMod: time.Unix(landings[i].UpdatedAt, 0).UTC().Format(time.RFC3339),
+			LastMod: lastMod(landings[i].UpdatedAt),
 		})
 	}
 	return urls
+}
+
+// lastMod —— RFC3339, or "" when the source has no update time (no entry beats a 1970 date).
+func lastMod(unix int64) string {
+	if unix == 0 {
+		return ""
+	}
+	return time.Unix(unix, 0).UTC().Format(time.RFC3339)
 }
 
 func renderSitemap(urls []sitemapURL) string {

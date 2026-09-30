@@ -30,6 +30,8 @@ type pageHead struct {
 	publicChat string
 	// slug —— the live microsite this is ("" = preview): the standmeet-microsite meta.
 	slug       string
+	canonical  string
+	personLD   string
 	allowBYOAI bool
 	// publicSearch —— whether corpus.retrieval's public_search is on for this owner. Read fresh
 	// per request (same reasoning as allowBYOAI): flip it off on the panel and the next page load
@@ -47,6 +49,7 @@ type pageHead struct {
 func (p *pageHead) tags() string {
 	return `<base href="` + html.EscapeString(p.base) + `">` +
 		seoHead(p.seoTitle, p.seoDescription, p.seoImage) +
+		identityTags(p.canonical, p.personLD) +
 		boolMeta("standmeet-page-byoai", p.allowBYOAI) +
 		boolMeta("standmeet-public-search", p.publicSearch) +
 		meta("standmeet-public-chat", p.publicChat) +
@@ -116,6 +119,7 @@ func writeHTMLWithBase(log *slog.Logger, w http.ResponseWriter, f io.Reader, hea
 // → XSS.
 func injectHead(htmlBody string, head *pageHead) string {
 	tag := head.tags()
+	htmlBody = withoutReplaced(htmlBody, head)
 	if i := strings.Index(htmlBody, "<head>"); i >= 0 {
 		return htmlBody[:i+len("<head>")] + tag + htmlBody[i+len("<head>"):]
 	}

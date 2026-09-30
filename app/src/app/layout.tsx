@@ -12,6 +12,7 @@ import { ChatLangProvider } from '@standmeet/sdk';
 
 import '@/app/globals.css';
 import { ThemeSync } from '@/components/page/ThemeSync';
+import { fetchInstance } from '@/lib/api/instance';
 import { ToastProvider, Toaster } from '@/lib/ui/toast';
 
 const newsreader = Newsreader({
@@ -28,10 +29,24 @@ const jetbrainsMono = JetBrains_Mono({
   variable: '--font-jetbrains-mono',
 });
 
-export const metadata: Metadata = {
-  title: 'StandMeet',
-  description: 'A personal page that argues back.',
-};
+// generateMetadata —— every page's <title> names whose site it is: "<page> — <owner>", and the
+// owner's name alone where a page sets none. A crawler searching for the owner's name found only
+// "StandMeet" and bare slugs before (2026-09-30). Degrades to "StandMeet" if the instance can't be read.
+export async function generateMetadata(): Promise<Metadata> {
+  const name = await ownerName();
+  return {
+    title: { template: `%s — ${name}`, default: name },
+    description: 'A personal page that argues back.',
+  };
+}
+
+async function ownerName(): Promise<string> {
+  try {
+    return (await fetchInstance()).name || 'StandMeet';
+  } catch {
+    return 'StandMeet';
+  }
+}
 
 // RootLayout — async: locale comes from next-intl's request config (currently always 'en').
 // `<html lang>` follows it instead of being hardcoded — hardcoding it would add one more

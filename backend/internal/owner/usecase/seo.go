@@ -20,6 +20,8 @@ type SEODeps struct {
 	SEO    *corpus.SEORepo
 	Wiki   *corpus.WikiRepo
 	Output *corpus.OutputRepo
+	// Writings —— published writings, listed in the sitemap at /writings/<slug>.
+	Writings *corpus.WritingRepo
 	// Microsites — the owner's custom pages, so the sitemap can list live ones at /p/<slug>.
 	Microsites *repo.MicrositeRepo
 	NoteRefs   *corpus.NoteRefRepo
