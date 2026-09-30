@@ -177,6 +177,44 @@
 
 /* ── diagram and widget blocks inside an answer ───────────────────── */
 .smc-widget-frame { width: 100%; border: 1px solid var(--color-rule); border-radius: 3px; margin: 1rem 0; }
+/* ── a diagram and its enlarge button (ZoomableFigure) ─────────────── */
+.smc-figure { position: relative; }
+.smc-figure-zoom {
+  position: absolute; top: 4px; right: 4px; z-index: 1;
+  width: 28px; height: 28px; display: grid; place-items: center;
+  font: 15px/1 var(--font-mono, 'JetBrains Mono', ui-monospace, monospace);
+  color: var(--color-muted, #6b6258);
+  background: color-mix(in oklab, var(--color-paper, #F3EFE6) 85%, transparent);
+  border: 1px solid var(--color-rule, rgba(27, 24, 20, 0.14)); border-radius: 2px;
+  cursor: zoom-in; opacity: .55; transition: opacity 120ms, color 120ms;
+}
+.smc-figure:hover .smc-figure-zoom, .smc-figure-zoom:focus-visible { opacity: 1; color: var(--color-accent, #B5391C); }
+@media (hover: none) { .smc-figure-zoom { opacity: 1; } }
+
+.smc-zoom {
+  position: fixed; inset: 0; z-index: var(--z-modal, 60);
+  display: grid; place-items: center; padding: 4vh 4vw;
+  background: color-mix(in oklab, var(--color-ink, #1B1814) 72%, transparent);
+  cursor: zoom-out;
+}
+.smc-zoom-stage {
+  max-width: 92vw; max-height: 88vh; padding: 20px; overflow: auto; cursor: auto;
+  background: var(--color-paper, #F3EFE6); border: 1px solid var(--color-rule, rgba(27, 24, 20, 0.14));
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35); transform-origin: center center;
+}
+.smc-zoom-stage svg {
+  display: block; width: min(86vw, 1400px) !important; max-width: none !important;
+  height: auto !important; max-height: 80vh;
+}
+.smc-zoom-close {
+  position: fixed; top: 16px; right: 16px; width: 36px; height: 36px;
+  display: grid; place-items: center; font: 22px/1 var(--font-mono, 'JetBrains Mono', ui-monospace, monospace);
+  color: var(--color-paper, #F3EFE6); background: transparent;
+  border: 1px solid color-mix(in oklab, var(--color-paper, #F3EFE6) 45%, transparent); border-radius: 2px;
+  cursor: pointer;
+}
+.smc-zoom-close:hover, .smc-zoom-close:focus-visible { border-color: var(--color-accent, #B5391C); color: var(--color-accent, #B5391C); }
+
 .smc-tikz { margin: 1.5rem 0; display: flex; justify-content: center; overflow-x: auto; }
 .smc-tikz svg { max-width: 100%; height: auto; }
 .smc-tikz-source { color: var(--color-muted); }

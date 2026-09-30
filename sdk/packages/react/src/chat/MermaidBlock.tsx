@@ -13,6 +13,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useDiagramDiagnostics } from './diagram-diagnostics.js';
 import { logger } from './log.js';
 import { renderMermaidSVG, type MermaidRenderResult } from './mermaid-render.js';
+import { ZoomableFigure } from './ZoomableFigure.js';
 
 interface MermaidBlockProps {
   source: string;
@@ -48,7 +49,9 @@ export function MermaidBlock({ source }: MermaidBlockProps): React.ReactElement 
   const { svg, error } = renderState(result);
   return error !== null
     ? <FailedDiagram source={source} message={error} />
-    : <div className="smc-figure" data-testid="mermaid-svg" dangerouslySetInnerHTML={{ __html: svg }} />;
+    : svg === ''
+      ? <div className="smc-figure" data-testid="mermaid-svg" />
+      : <ZoomableFigure svg={svg} className="smc-mermaid" testid="mermaid-svg" />;
 }
 
 // FailedDiagram —— the cell for a diagram that failed to compile. **Who's

@@ -13,6 +13,7 @@ import { z } from 'zod';
 import { chatBaseURL } from './api.js';
 import { useDiagramDiagnostics } from './diagram-diagnostics.js';
 import { logger } from './log.js';
+import { ZoomableFigure } from './ZoomableFigure.js';
 
 type TikZState =
   | { kind: 'loading' }
@@ -37,12 +38,8 @@ export function TikZBlock({ source }: { source: string }): React.ReactElement {
       // it out with, and on a narrower column it would push straight past
       // the edge. max-w-full + h-auto lets it scale proportionally, and if
       // that's still not enough it scrolls horizontally inside this cell
-      // without affecting the page itself.
-      <div
-        data-testid="tikz-svg"
-        className="smc-tikz smc-figure"
-        dangerouslySetInnerHTML={{ __html: state.svg }}
-      />
+      // without affecting the page itself. The corner button opens it large (ZoomableFigure).
+      <ZoomableFigure svg={state.svg} className="smc-tikz" testid="tikz-svg" />
     )
     : <PendingDiagram source={source} kind={state.kind} />;
 }

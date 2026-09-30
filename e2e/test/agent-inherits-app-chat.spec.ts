@@ -268,6 +268,40 @@ test.describe('chat is inherited: the chat speaks the page\'s language', () => {
   });
 });
 
+// Owner, 2026-09-30: a diagram in a conversation can be too small to read. It gets a button in its
+// top-right corner that opens it large in the middle of the screen (animated from where it sits),
+// and Escape puts it back. Written in the SDK, so every surface has it; asked here on the rail.
+test.describe('chat is inherited: a diagram opens large', () => {
+  test('the enlarge button shows the diagram large and centered; Escape closes it', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await enterOnPage(page, 'Diagram Reader');
+    const w = page.getByTestId('agent-widget');
+    const tag = await scriptMockReplyText(page.request,
+      'Here is the flow.\n\n```mermaid\ngraph LR\n  A[plugin] --> B[hostdesk]\n  B --> C[backend]\n```\n');
+    await ask(page, `draw the sandbox${tag}`);
+    const figure = w.getByTestId('mermaid-svg').last();
+    await expect(figure.locator('svg')).toBeVisible({ timeout: 30_000 });
+    const small = await figure.locator('svg').boundingBox();
+
+    await figure.getByTestId('figure-zoom').click();
+    const overlay = page.getByTestId('figure-zoom-overlay');
+    await expect(overlay.locator('svg')).toBeVisible();
+    await expect.poll(async () => (await overlay.locator('svg').boundingBox())?.width ?? 0,
+      { message: 'the diagram opens much larger than it sits in the chat' })
+      .toBeGreaterThan((small?.width ?? 0) * 1.5);
+    // It grows out of the figure (at the rail, on the right) and settles in the middle: poll until it
+    // arrives rather than measuring mid-flight.
+    await expect.poll(async () => {
+      const big = await overlay.locator('svg').boundingBox();
+      return Math.abs((big?.x ?? 0) + (big?.width ?? 0) / 2 - 720);
+    }, { message: 'centered across the screen' }).toBeLessThan(40);
+
+    await page.keyboard.press('Escape');
+    await expect(overlay).toHaveCount(0);
+    await expect(figure.locator('svg'), 'the diagram is back in the chat').toBeVisible();
+  });
+});
+
 test.describe('chat is inherited: the embed renders what the app renders', () => {
   test('the <standmeet-chat> embed renders citations and math too', async ({ page }) => {
     await openGate(page, '/gate');
