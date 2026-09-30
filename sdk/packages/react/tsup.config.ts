@@ -38,8 +38,16 @@ export default defineConfig({
   // on every build — as externals they took the builder's vite step from ~2s to 20–90s.
   external: ['react', 'react-dom', 'react/jsx-runtime'],
   noExternal: [/^(?!react$|react-dom|react\/).*/],
-  // Browser builds of dependencies (vfile's own path/process shims); they run under Node too.
+  // The chat runs in the browser AND under Node (the app's server render), so a dependency must be
+  // built for both. Browser platform: Node built-ins are mapped away through each package's
+  // "browser" field (postcss's path/fs/url; vfile's own path shim). The "worker" condition: a DOM
+  // build must not be picked where a DOM-free one exists — decode-named-character-reference's
+  // browser build calls document.createElement at import, which 500'd every server-rendered page;
+  // its exports list "worker" (no DOM) ahead of "browser".
   platform: 'browser',
+  esbuildOptions(options) {
+    options.conditions = ['worker'];
+  },
   minify: true,
   // No rollup tree-shake pass: it strips the 'use client' banner below. esbuild already drops dead
   // code, and the host's bundler tree-shakes again.

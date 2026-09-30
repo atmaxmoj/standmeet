@@ -27,7 +27,7 @@ import {
   type RetrievalCounts,
 } from './tool-call-shape.js';
 import type { ToolCallView } from './use-chat.js';
-import styles from './ToolCallCards.module.css';
+import './tool-call-cards.css';
 
 interface ToolCallCardsProps {
   calls: readonly ToolCallView[];
@@ -54,7 +54,7 @@ export function ToolCallCards({
   const retrieval = calls.filter((c) => c.ok && isRetrievalTool(c.name));
   const others = otherCards(calls, byName);
   return retrieval.length + others.length === 0 ? null : (
-    <div className={styles['stack']} data-testid="tool-call-cards">
+    <div className="smc-tools" data-testid="tool-call-cards">
       {retrieval.length > 0 ? <RetrievalSummary counts={retrievalCounts(retrieval)} /> : null}
       {others.map((c, i) => (
         <ToolCallCard
@@ -82,10 +82,10 @@ function otherCards(
 function RetrievalSummary({ counts }: { counts: RetrievalCounts }) {
   const t = useChatT('tools');
   return (
-    <div className={styles['retrievalSummary']} data-testid="retrieval-summary">
-      <span className={styles['kicker']}>{t('searched', { count: counts.searches })}</span>
+    <div className="smc-tools-summary" data-testid="retrieval-summary">
+      <span className="smc-tools-kicker">{t('searched', { count: counts.searches })}</span>
       <span aria-hidden>·</span>
-      <span className={styles['kicker']}>{t('read', { count: counts.reads })}</span>
+      <span className="smc-tools-kicker">{t('read', { count: counts.reads })}</span>
     </div>
   );
 }
@@ -163,9 +163,9 @@ function nonSandboxCard(ctx: CardCtx) {
 // ([[display-fallback-reintroduces-the-bug]]).
 function GenericDumpCard({ call }: { call: ToolCallView }) {
   return (
-    <details className={styles['genericCard']} data-testid={`tool-card-${call.name}`}>
-      <summary className={styles['kicker']}>{call.name}</summary>
-      <pre className={styles['dump']}>{jsonPretty(call.result)}</pre>
+    <details className="smc-tools-card" data-testid={`tool-card-${call.name}`}>
+      <summary className="smc-tools-kicker">{call.name}</summary>
+      <pre className="smc-tools-dump">{jsonPretty(call.result)}</pre>
     </details>
   );
 }

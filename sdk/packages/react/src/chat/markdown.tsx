@@ -26,7 +26,7 @@ import { remarkVaultLinks } from './markdown-vault-links.js';
 import {
   escapeCurrencyDollars, mermaidSource, promoteDisplayMath,
 } from './markdown-helpers.js';
-import styles from './ChatMarkdown.module.css';
+import './chat-markdown.css';
 
 // mermaid is ~600KB; the lazy import keeps it out of the SSR bundle.
 const MermaidBlock = lazy(async () => {
@@ -131,8 +131,8 @@ function LazyBlock(
 
 // variant —— 'chat' (default) is the compact layout for chat replies;
 // 'article' gives wiki / writing long-form reading an editorial-grade layout
-// (p 21/1.65, h2 serif 26, blockquote 24 italic accent), see the .article
-// modifier in ChatMarkdown.module.css. Both variants share the same
+// (p 21/1.65, h2 serif 26, blockquote 24 italic accent), see the .smc-md-article
+// modifier in chat-markdown.css. Both variants share the same
 // markdown pipeline.
 type MarkdownVariant = 'chat' | 'article';
 
@@ -151,13 +151,10 @@ function CorpusAnchor(props: React.ComponentPropsWithoutRef<'a'>): React.ReactEl
 export function ChatMarkdown(
   { source, variant = 'chat' }: { source: string; variant?: MarkdownVariant },
 ): React.ReactElement {
-  // styles.body scope —— in ChatMarkdown.module.css this fits table / pre /
-  // code / blockquote / a / ul with the design palette (warm cream + ink + vermillion).
-  const cls = variant === 'article'
-    ? `${styles['body']} ${styles['article']}`
-    : styles['body'];
+  // smc-md scope —— chat-markdown.css fits table / pre / code / blockquote / a / ul with the
+  // design palette (warm cream + ink + vermillion); smc-md-article adds the long-form layout.
   return (
-    <div className={cls}>
+    <div className={variant === 'article' ? 'smc-md smc-md-article' : 'smc-md'}>
       <ReactMarkdown
         remarkPlugins={CORPUS_REMARK_PLUGINS}
         // ORDER MATTERS (F-R-3): sanitize FIRST, then katex. rehype-katex emits dozens of spans

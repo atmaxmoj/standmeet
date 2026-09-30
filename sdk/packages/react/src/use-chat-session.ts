@@ -51,12 +51,20 @@ export function useChatSession(input: Pick<IssueSessionInput, 'mode'>): ChatStat
     messages: chat.dialogs.flatMap(toMessages),
     streaming: chat.pending,
     tool: last?.pending === true && last.currentTool !== null ? last.currentTool : null,
-    error: chat.error,
+    error: chat.error ?? failedText(last),
     errorCode: last?.answer.errorCode ?? null,
     byok: { available: false },
     send: chat.ask,
     clear: chat.reset,
   };
+}
+
+// failedText —— the engine says a failed turn inside that turn's answer (the transcript shows it
+// there); an author drawing their own chat reads it as `error`, the server's own sentence ("this
+// session has reached its turn limit", "your session is no longer valid").
+function failedText(last: Dialog | undefined): string | null {
+  if (last === undefined || !last.failed) return null;
+  return last.answer.notice ?? last.answer.paras.join('\n\n');
 }
 
 function toMessages(d: Dialog): ChatMessage[] {

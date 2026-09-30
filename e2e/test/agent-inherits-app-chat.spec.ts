@@ -152,11 +152,17 @@ test.describe('chat is inherited: the microsite renders what the app renders', (
     await expect(w.locator(`[data-testid="citation-row"][data-citation-path="${TARGET_PATH}"]`))
       .toHaveAttribute('href', `/wiki/${TARGET_PATH}`);
 
-    const mathTag = await scriptMockReplyText(page.request, 'Growth is $x^2$ and **really** steady.');
+    const mathTag = await scriptMockReplyText(page.request, 'Growth is $x^2$ and **really** steady in `lucerna`.');
     await ask(page, `how does it grow${mathTag}`);
     const answer = w.getByTestId('answer-body').last();
     await expect(answer.locator('.katex').first(), 'math renders with KaTeX').toBeVisible({ timeout: 30_000 });
     await expect(answer.locator('strong').filter({ hasText: 'really' })).toBeVisible();
+    // The chat's own stylesheet reached the answer, not only its markup: inline code is tinted.
+    // (A class name that maps to no rule renders the same text with no style at all.)
+    const code = answer.locator('code').filter({ hasText: 'lucerna' });
+    await expect(code).toBeVisible();
+    expect(await code.evaluate((el) => getComputedStyle(el).backgroundColor), 'inline code is styled')
+      .not.toBe('rgba(0, 0, 0, 0)');
   });
 
   test('layout="rail" keeps the input on screen beside the letter on a wide screen', async ({ page }) => {

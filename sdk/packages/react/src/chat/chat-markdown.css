@@ -1,15 +1,15 @@
-/* ChatMarkdown.module.css — scope for ChatMarkdown's output. Applies the
+/* chat-markdown.css — scope (.smc-md) for ChatMarkdown's output. Applies the
    design language (warm cream + ink + vermillion) to default markdown
    elements (table / code / blockquote / a / ul / hr), coexisting with the
    .reading serif body.
 
-   Parent container carries className={styles.body}. */
+   Parent container carries class smc-md (markdown.tsx). */
 
 /* headings — a chat answer occasionally has outline structure; the mono
    kicker style matches the deck header (newspaper kicker). h1-h3 use mono
    small-caps, h4-h6 use serif to keep the semantics without inflating the
    font size (chat isn't an essay). */
-.body h1, .body h2, .body h3 {
+.smc-md h1, .smc-md h2, .smc-md h3 {
   font-family: var(--font-mono);
   font-size: 0.78em;
   font-weight: 500;
@@ -18,36 +18,36 @@
   color: var(--color-muted);
   margin: 1.4em 0 0.4em;
 }
-.body h4, .body h5, .body h6 {
+.smc-md h4, .smc-md h5, .smc-md h6 {
   font-family: var(--font-serif);
   font-weight: 500;
   font-size: 1em;
   margin: 1em 0 0.3em;
 }
-.body h1:first-child, .body h2:first-child, .body h3:first-child,
-.body h4:first-child, .body h5:first-child, .body h6:first-child {
+.smc-md h1:first-child, .smc-md h2:first-child, .smc-md h3:first-child,
+.smc-md h4:first-child, .smc-md h5:first-child, .smc-md h6:first-child {
   margin-top: 0;
 }
 
-.body a {
+.smc-md a {
   color: var(--color-accent);
   text-decoration: underline;
   text-decoration-color: color-mix(in oklab, var(--color-accent) 50%, transparent);
   text-underline-offset: 2px;
   transition: color 120ms;
 }
-.body a:hover { color: var(--color-accent-soft); }
+.smc-md a:hover { color: var(--color-accent-soft); }
 
-.body ul, .body ol {
+.smc-md ul, .smc-md ol {
   margin: 0.6em 0 0.6em 1.4em;
   padding: 0;
 }
-.body ul { list-style: disc; }
-.body ol { list-style: decimal; }
-.body li { margin: 0.2em 0; }
-.body li > p { margin: 0; }
+.smc-md ul { list-style: disc; }
+.smc-md ol { list-style: decimal; }
+.smc-md li { margin: 0.2em 0; }
+.smc-md li > p { margin: 0; }
 
-.body blockquote {
+.smc-md blockquote {
   border-left: 2px solid var(--color-accent);
   padding: 0.1em 0 0.1em 0.9em;
   margin: 0.8em 0;
@@ -56,7 +56,7 @@
 }
 
 /* inline code — mono + a faint paper-tint background; stays out of the way. */
-.body :not(pre) > code {
+.smc-md :not(pre) > code {
   font-family: var(--font-mono);
   font-size: 0.88em;
   padding: 0.08em 0.34em;
@@ -67,7 +67,7 @@
 /* fenced code block — paper-tinted block, mono, no syntax highlighting
    (a chat agent rarely outputs code; when it does, readable indentation
    is enough). */
-.body pre {
+.smc-md pre {
   margin: 0.8em 0;
   padding: 0.7em 0.9em;
   background: color-mix(in oklab, var(--color-ink) 5%, transparent);
@@ -78,24 +78,24 @@
   font-size: 0.86em;
   line-height: 1.5;
 }
-.body pre code { background: transparent; padding: 0; }
+.smc-md pre code { background: transparent; padding: 0; }
 
 /* GFM table — rule-style horizontal lines (matching the newspaper / journal
    style); no cell borders, rows are separated by rule lines instead, so it
    reads more like a transcript and less like a spreadsheet. */
-.body table {
+.smc-md table {
   border-collapse: collapse;
   margin: 0.8em 0;
   font-family: var(--font-mono);
   font-size: 0.88em;
 }
-.body th, .body td {
+.smc-md th, .smc-md td {
   padding: 0.35em 0.9em 0.35em 0;
   border-bottom: 1px solid var(--color-rule);
   text-align: left;
   vertical-align: top;
 }
-.body th {
+.smc-md th {
   font-weight: 500;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -104,14 +104,14 @@
 }
 
 /* hr — same rule-style horizontal line; not a solid 1px box. */
-.body hr {
+.smc-md hr {
   border: 0;
   border-top: 1px solid var(--color-rule);
   margin: 1em 0;
 }
 
-/* KaTeX display — **use katex.min.css's own defaults, unchanged** (already
-   imported by globals.css): `margin: 1em 0; text-align: center`. Add
+/* KaTeX display — **use katex.min.css's own defaults, unchanged** (imported
+   with this sheet): `margin: 1em 0; text-align: center`. Add
    **no custom overrides** here:
    - the earlier `text-align: left; margin: 0.6em` was too tight → tall
      formulas crowded adjacent lines (F-R-3, first half);
@@ -124,15 +124,14 @@
 
 /* mermaid / tikz SVG figure — width-capped to avoid overflowing the reading
    column, and **centered** (same F-R-3 batch: figures weren't centered
-   before). A diagram reads better centered. MermaidBlock / TikZBlock's inner
-   div carries a global testid, so the CSS module needs :global to reach it. */
-.body :global([data-testid="mermaid-svg"]),
-.body :global([data-testid="tikz-svg"]) {
+   before). A diagram reads better centered. */
+.smc-md [data-testid="mermaid-svg"],
+.smc-md [data-testid="tikz-svg"] {
   text-align: center;
   margin: 1.4em 0;
 }
-.body :global([data-testid="mermaid-svg"]) svg,
-.body :global([data-testid="tikz-svg"]) svg {
+.smc-md [data-testid="mermaid-svg"] svg,
+.smc-md [data-testid="tikz-svg"] svg {
   display: block;      /* SVG is inline by default; block + margin auto is what actually centers it (text-align can't center a fixed-width block) */
   margin: 0 auto;
   max-width: 100%;
@@ -142,7 +141,7 @@
 /* mermaid render error — show the error on failure instead of failing
    silently, but keep the color scheme non-alarming; muted accent +
    paper-tinted block (matching the look of a normal pre code block). */
-.body :global([data-testid="mermaid-error"]) {
+.smc-md [data-testid="mermaid-error"] {
   color: var(--color-accent);
   background: color-mix(in oklab, var(--color-accent) 6%, transparent);
   border-left: 2px solid var(--color-accent);
@@ -158,7 +157,7 @@
    **centered** (margin auto): most images in the vault are diagrams/figures,
    which read better centered (same F-R-3 batch: previously left-aligned
    with `margin: 0.6em 0`). */
-.body img {
+.smc-md img {
   max-width: 100%;
   height: auto;
   display: block;
@@ -168,15 +167,15 @@
 /* ── article variant (wiki / long-form writing) ─────────────────────
    Editorial-grade reading typography, matching the design's wiki.js /
    blog.js .article-body: large serif body text + serif subhead + accent
-   pull-quote. Declared after the .body rules → at equal specificity, later
+   pull-quote. Declared after the .smc-md rules → at equal specificity, later
    source order wins, overriding chat's compact typography (h2 mono kicker /
-   small blockquote). The parent container carries both .body and .article. */
-.article p {
+   small blockquote). The parent container carries both .smc-md and .smc-md-article. */
+.smc-md-article p {
   font-size: 21px;
   line-height: 1.65;
   margin-bottom: 1.4em;
 }
-.article h2, .article h3 {
+.smc-md-article h2, .smc-md-article h3 {
   font-family: var(--font-serif);
   font-weight: 500;
   text-transform: none;
@@ -184,10 +183,10 @@
   line-height: 1.25;
   color: var(--color-ink);
 }
-.article h2 { font-size: 26px; margin: 2.4em 0 0.5em; }
-.article h3 { font-size: 21px; margin: 2em 0 0.4em; }
-.article h2:first-child, .article h3:first-child { margin-top: 0; }
-.article blockquote {
+.smc-md-article h2 { font-size: 26px; margin: 2.4em 0 0.5em; }
+.smc-md-article h3 { font-size: 21px; margin: 2em 0 0.4em; }
+.smc-md-article h2:first-child, .smc-md-article h3:first-child { margin-top: 0; }
+.smc-md-article blockquote {
   font-style: italic;
   font-size: 24px;
   line-height: 1.4;
@@ -199,8 +198,7 @@
 }
 
 /* Obsidian callout — remark-callouts turns a `> [!type]` blockquote into
-   `.callout[data-callout]` + `.callout-title`. :global is needed because the
-   class is injected by remark (not a CSS-module hashed name).
+   `.callout[data-callout]` + `.callout-title`.
 
    **Color runs through `--callout-color`** (Obsidian's contract: an `R, G, B`
    triple); the default, set on `.corpus-content` in `globals.css`, is the
@@ -209,8 +207,8 @@
    `.callout[data-callout="theorem"]{--callout-color:79,140,230}` really does
    turn it blue — previously this was hardcoded to `var(--color-accent)`,
    so a color the owner set here **had no reader at all** (F-L-36). */
-.body :global(.callout),
-.article :global(.callout) {
+.smc-md .callout,
+.smc-md-article .callout {
   border-left: 3px solid rgb(var(--callout-color, 181, 57, 28));
   background: color-mix(in srgb, rgb(var(--callout-color, 181, 57, 28)) 6%, transparent);
   padding: 0.75em 1.05em;
@@ -220,8 +218,8 @@
   font-size: 16px;
   line-height: 1.55;
 }
-.body :global(.callout > .callout-title),
-.article :global(.callout > .callout-title) {
+.smc-md .callout > .callout-title,
+.smc-md-article .callout > .callout-title {
   font-family: var(--font-mono, 'JetBrains Mono', ui-monospace, monospace);
   font-size: 11px;
   font-weight: 500;
@@ -230,5 +228,5 @@
   color: rgb(var(--callout-color, 181, 57, 28));
   margin: 0 0 0.5em;
 }
-.body :global(.callout > :last-child),
-.article :global(.callout > :last-child) { margin-bottom: 0; }
+.smc-md .callout > :last-child,
+.smc-md-article .callout > :last-child { margin-bottom: 0; }
