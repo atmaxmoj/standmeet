@@ -140,8 +140,9 @@ function Conversation({ thread, layout = 'inline', placeholder, examples }: Agen
   const ci = useChatController(mode, docContext, persistKey);
   const keys = useOwnKeyOffer({ ci, coded, ownKey, setOwnKey, keyNeeded: asker === 'key-needed' });
   const dockCount = useDockButtonsStore((s) => s.buttons.length);
+  // The testid is a JSX attribute at each root (not a key here): the release build strips only
+  // attributes, and an object key would ship to visitors.
   const surface = {
-    'data-testid': 'agent-widget',
     'data-mode': keys.waitingForKey ? 'byok' : 'inline',
     'data-dock-count': dockCount,
   };
@@ -169,14 +170,14 @@ function Conversation({ thread, layout = 'inline', placeholder, examples }: Agen
   const wide = useWideScreen();
   if (layout === 'dock' || (layout === 'rail' && !wide)) {
     return (
-      <section {...surface} className="smc-agent is-docked">
+      <section {...surface} data-testid="agent-widget" className="smc-agent is-docked">
         <DockPanel ci={ci} handle="" starters={examples ?? []} placeholder={placeholder}
           head={<OwnKeyControls keys={keys} />} />
       </section>
     );
   }
   if (layout === 'rail') return <Rail surface={surface} body={body} composer={composer} />;
-  return <section {...surface} className="smc-agent is-inline">{body}{composer}</section>;
+  return <section {...surface} data-testid="agent-widget" className="smc-agent is-inline">{body}{composer}</section>;
 }
 
 // Rail —— fixed beside the page. Rendered into <body> so no transformed ancestor of the author's
@@ -189,7 +190,7 @@ function Rail({ surface, body, composer }: {
     return () => { document.body.classList.remove('sm-has-agent-rail'); };
   }, []);
   return createPortal(
-    <aside {...surface} className="sm-agent-rail">
+    <aside {...surface} data-testid="agent-widget" className="sm-agent-rail">
       <RailHead />
       <div className="sm-agent-rail-transcript">{body}</div>
       <div className="sm-agent-rail-composer">{composer}</div>

@@ -48,7 +48,7 @@ export function MermaidBlock({ source }: MermaidBlockProps): React.ReactElement 
   const { svg, error } = renderState(result);
   return error !== null
     ? <FailedDiagram source={source} message={error} />
-    : <div data-testid="mermaid-svg" dangerouslySetInnerHTML={{ __html: svg }} />;
+    : <div className="smc-figure" data-testid="mermaid-svg" dangerouslySetInnerHTML={{ __html: svg }} />;
 }
 
 // FailedDiagram —— the cell for a diagram that failed to compile. **Who's
@@ -66,6 +66,6 @@ function FailedDiagram(
   const diagnostics = useDiagramDiagnostics();
   logger.error('mermaid compile failed', { message, source });
   return diagnostics
-    ? <pre data-testid="mermaid-error">{message}</pre>
+    ? <pre className="smc-diagram-error" data-testid="mermaid-error">{message}</pre>
     : null;
 }

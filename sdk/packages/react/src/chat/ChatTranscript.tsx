@@ -143,7 +143,7 @@ function AnswerView({ answer }: { answer: Dialog['answer'] }) {
   const paras = known !== null && answer.notice === undefined ? [known] : answer.paras;
   const notice = known !== null && answer.notice !== undefined ? known : answer.notice;
   return (
-    <div data-testid="answer-body" data-error-code={answer.errorCode ?? ''}>
+    <div className="smc-answer" data-testid="answer-body" data-error-code={answer.errorCode ?? ''}>
       {paras.map((p, i) => (
         <div key={i} className="reading smc-para">
           <ChatMarkdown source={p} />

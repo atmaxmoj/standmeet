@@ -124,14 +124,13 @@
 
 /* mermaid / tikz SVG figure — width-capped to avoid overflowing the reading
    column, and **centered** (same F-R-3 batch: figures weren't centered
-   before). A diagram reads better centered. */
-.smc-md [data-testid="mermaid-svg"],
-.smc-md [data-testid="tikz-svg"] {
+   before). A diagram reads better centered. Class selectors, not [data-testid]: the release
+   build strips testids, so a testid rule never applies in prod. */
+.smc-md .smc-figure {
   text-align: center;
   margin: 1.4em 0;
 }
-.smc-md [data-testid="mermaid-svg"] svg,
-.smc-md [data-testid="tikz-svg"] svg {
+.smc-md .smc-figure svg {
   display: block;      /* SVG is inline by default; block + margin auto is what actually centers it (text-align can't center a fixed-width block) */
   margin: 0 auto;
   max-width: 100%;
@@ -141,7 +140,7 @@
 /* mermaid render error — show the error on failure instead of failing
    silently, but keep the color scheme non-alarming; muted accent +
    paper-tinted block (matching the look of a normal pre code block). */
-.smc-md [data-testid="mermaid-error"] {
+.smc-md .smc-diagram-error {
   color: var(--color-accent);
   background: color-mix(in oklab, var(--color-accent) 6%, transparent);
   border-left: 2px solid var(--color-accent);

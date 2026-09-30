@@ -40,7 +40,7 @@ export function TikZBlock({ source }: { source: string }): React.ReactElement {
       // without affecting the page itself.
       <div
         data-testid="tikz-svg"
-        className="smc-tikz"
+        className="smc-tikz smc-figure"
         dangerouslySetInnerHTML={{ __html: state.svg }}
       />
     )
