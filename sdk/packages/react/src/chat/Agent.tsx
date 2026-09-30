@@ -30,7 +30,9 @@ import { ChatTranscript, ChatProgress, KEY_LOST_CODES } from './ChatTranscript.j
 import { Composer } from './Composer.js';
 import { DockPanel } from './FloatingChatDock.js';
 import { useChatController } from './chat-controller.js';
+import type { Dialog } from './dialog-stream.js';
 import { useDockButtonsStore } from './dock-buttons-store.js';
+import { usePinToBottom } from './pin-to-bottom.js';
 import { bindVisitorSessionSync } from './session-store.js';
 import { loadStoredSession } from './stored-session.js';
 import type { SessionMode } from './use-chat.js';
@@ -176,15 +178,17 @@ function Conversation({ thread, layout = 'inline', placeholder, examples }: Agen
       </section>
     );
   }
-  if (layout === 'rail') return <Rail surface={surface} body={body} composer={composer} />;
+  if (layout === 'rail') return <Rail surface={surface} body={body} composer={composer} dialogs={ci.chat.dialogs} />;
   return <section {...surface} data-testid="agent-widget" className="smc-agent is-inline">{body}{composer}</section>;
 }
 
 // Rail —— fixed beside the page. Rendered into <body> so no transformed ancestor of the author's
 // page can pin it inside itself; the page's own column makes room (sm-has-agent-rail).
-function Rail({ surface, body, composer }: {
+function Rail({ surface, body, composer, dialogs }: {
   surface: Record<string, string | number>; body: React.ReactNode; composer: React.ReactNode;
+  dialogs: readonly Dialog[];
 }) {
+  const scrollRef = usePinToBottom<HTMLDivElement>(dialogs);
   useEffect(() => {
     document.body.classList.add('sm-has-agent-rail');
     return () => { document.body.classList.remove('sm-has-agent-rail'); };
@@ -192,7 +196,7 @@ function Rail({ surface, body, composer }: {
   return createPortal(
     <aside {...surface} data-testid="agent-widget" className="sm-agent-rail">
       <RailHead />
-      <div className="sm-agent-rail-transcript">{body}</div>
+      <div ref={scrollRef} className="sm-agent-rail-transcript">{body}</div>
       <div className="sm-agent-rail-composer">{composer}</div>
     </aside>,
     document.body,

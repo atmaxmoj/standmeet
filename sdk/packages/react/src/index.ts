@@ -24,6 +24,7 @@ export { MermaidBlock } from './chat/MermaidBlock.js';
 export { DiagramDiagnostics } from './chat/diagram-diagnostics.js';
 // The chat —— state.
 export { useChatController, useChatRoomDerived } from './chat/chat-controller.js';
+export { usePinToBottom } from './chat/pin-to-bottom.js';
 export { useChat } from './chat/use-chat.js';
 export type { SessionMode, ChatState as ChatEngineState } from './chat/use-chat.js';
 export { seedEphemeralStores } from './chat/use-chat-restore.js';

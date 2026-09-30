@@ -115,6 +115,20 @@ async function ask(page: Page, text: string): Promise<void> {
   await input.press('Enter');
 }
 
+// askLongTurns —— three turns whose answers are each taller than the chat's box, asked where a
+// visitor asks them (the composer inside `box`); waits for each answer before the next question.
+async function askLongTurns(page: Page, box: ReturnType<Page['getByTestId']>): Promise<void> {
+  const long = Array.from({ length: 12 }, (_, i) => `Paragraph ${i + 1} of a long answer about lucerna.`).join('\n\n');
+  for (let i = 1; i <= 3; i++) {
+    const tag = await scriptMockReplyText(page.request, long);
+    const input = box.getByTestId('chat-input-field');
+    await input.fill(`long question ${i}${tag}`);
+    await input.press('Enter');
+    await expect(box.getByTestId('answer-body')).toHaveCount(i, { timeout: 30_000 });
+    await expect(box.getByTestId('answer-body').last()).toContainText('Paragraph 12', { timeout: 30_000 });
+  }
+}
+
 test.describe.configure({ timeout: 420_000 });
 
 test.beforeAll(async ({ playwright }) => {
@@ -192,6 +206,31 @@ test.describe('chat is inherited: the microsite renders what the app renders', (
     await expect(pill).toBeInViewport({ timeout: 15_000 });
     await pill.click();
     await expect(page.getByTestId('floating-chat-panel').getByTestId('chat-input-field')).toBeVisible();
+  });
+});
+
+test.describe('chat is inherited: the rail and the dock follow the conversation', () => {
+  // Found in the v0.1.97 smoke: the rail and the dock have their own scroll box, and a new turn
+  // landed below it — the visitor asked and kept seeing the old answer. The box follows the
+  // conversation like any chat: the end of the newest answer is on screen (an answer taller than
+  // the box scrolls its own question up, as in the app room).
+  test('the rail follows the conversation: the newest answer is on screen', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await enterOnPage(page, 'Follow Reader');
+    const box = page.getByTestId('agent-widget');
+    await askLongTurns(page, box);
+    await expect(box.getByTestId('answer-body').last().getByText('Paragraph 12', { exact: false }).last())
+      .toBeInViewport({ timeout: 10_000 });
+  });
+
+  test('the phone dock follows the conversation: the newest answer is on screen', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await enterOnPage(page, 'Follow Phone');
+    await page.getByTestId('floating-dock-pill').click();
+    const box = page.getByTestId('floating-chat-panel');
+    await askLongTurns(page, box);
+    await expect(box.getByTestId('answer-body').last().getByText('Paragraph 12', { exact: false }).last())
+      .toBeInViewport({ timeout: 10_000 });
   });
 });
 

@@ -25,6 +25,7 @@ import type { SessionMode } from './use-chat.js';
 import { ChatTranscript, ChatProgress } from './ChatTranscript.js';
 import { Composer } from './Composer.js';
 import { useChatController } from './chat-controller.js';
+import { usePinToBottom } from './pin-to-bottom.js';
 import { useVisitorSessionStore, useVisitorChatAvailable } from './session-store.js';
 
 type Controller = ReturnType<typeof useChatController>;
@@ -50,13 +51,14 @@ export function DockPanel({ ci, handle, starters, placeholder, head }: {
   head?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const scrollRef = usePinToBottom<HTMLDivElement>(ci.chat.dialogs);
   return (
     <>
       <ChatTrigger open={open} onToggle={() => setOpen((o) => !o)} pending={ci.chat.pending} />
       {open && (
         <div className="sm-floating-chat-panel sm-rise" data-testid="floating-chat-panel">
           <PanelHead extra={head} />
-          <div className="sm-floating-chat-transcript sm-floating-chat-compact">
+          <div ref={scrollRef} className="sm-floating-chat-transcript sm-floating-chat-compact">
             {ci.chat.dialogs.length === 0 && !ci.chat.pending
               ? <EmptyHint />
               : (

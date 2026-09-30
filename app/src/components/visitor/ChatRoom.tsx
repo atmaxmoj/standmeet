@@ -4,12 +4,11 @@
 
 'use client';
 
-import { useEffect, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import {
   ChatProgress, ChatTranscript, Composer, tryVisible, useChatController, useChatRoomDerived,
-  type SessionMode,
+  usePinToBottom, type SessionMode,
 } from '@standmeet/sdk';
 
 import { SessionStrip } from '@/components/visitor/SessionStrip';
@@ -25,14 +24,7 @@ export function ChatRoom({ owner, mode }: Props) {
   // For a visitor who arrived with a question (/gate?q= → through the gate →
   // /?q=): on mount, go ahead and ask that question (don't drop it).
   useConsumeQuestionFromURL(ci.onAsk);
-  // Normal-chat behaviour: keep the transcript pinned to the bottom as messages
-  // arrive + stream (dialogs is a fresh array each stream tick → fires here),
-  // so the newest answer is always in view.
-  const scrollRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = scrollRef.current;
-    el && el.scrollTo(0, el.scrollHeight);
-  }, [ci.chat.dialogs]);
+  const scrollRef = usePinToBottom<HTMLDivElement>(ci.chat.dialogs);
   return (
     <div className="h-screen flex flex-col overflow-hidden" data-testid="chatroom">
       <SessionStrip
