@@ -9,9 +9,20 @@
 //
 // So compose only carries **wiring** (the backend address), never a setting.
 
-/** IMConfig —— which IM this instance is currently configured with. Empty token = owner hasn't configured one yet. */
+/** IMConfig —— which IM this instance is currently configured with. Empty token = owner hasn't configured that platform yet. */
 export interface IMConfig {
   telegramToken: string;
+  discordToken: string;
+}
+
+export type Platform = 'telegram' | 'discord';
+
+/** platformsFor —— the platforms to run: every one the owner connected. */
+export function platformsFor(cfg: IMConfig): Platform[] {
+  const out: Platform[] = [];
+  if (cfg.telegramToken !== '') out.push('telegram');
+  if (cfg.discordToken !== '') out.push('discord');
+  return out;
 }
 
 /**
@@ -26,26 +37,49 @@ export interface IMConfig {
 export async function fetchIMConfig(internalURL: string): Promise<IMConfig> {
   const res = await fetch(`${internalURL}/internal/im/config`);
   if (!res.ok) throw new Error(`im config: ${res.status}`);
-  const body = (await res.json()) as { telegram_token?: unknown };
-  const t = body.telegram_token;
-  return { telegramToken: typeof t === 'string' ? t : '' };
+  const body = (await res.json()) as { telegram_token?: unknown; discord_token?: unknown };
+  const str = (v: unknown): string => (typeof v === 'string' ? v : '');
+  return { telegramToken: str(body.telegram_token), discordToken: str(body.discord_token) };
+}
+
+const NONE: IMConfig = { telegramToken: '', discordToken: '' };
+
+/**
+ * waitForChange —— resolves with the new configuration once it differs from `running`: the owner
+ * connected another platform, disconnected one, or rotated a token. The bridge restarts on it
+ * (compose's restart policy brings it back on the new configuration) — a platform connected after
+ * the bridge started must not sit ignored while the owner wonders why nothing happens.
+ * An unreachable backend is not a change (a network blip must not restart the bridge).
+ */
+export async function waitForChange(
+  internalURL: string, running: IMConfig, opts: { everyMs?: number } = {},
+): Promise<IMConfig> {
+  const every = opts.everyMs ?? 15_000;
+  for (;;) {
+    await new Promise((r) => setTimeout(r, every));
+    const cfg = await fetchIMConfig(internalURL).catch(() => running);
+    if (cfg.telegramToken !== running.telegramToken || cfg.discordToken !== running.discordToken) {
+      return cfg;
+    }
+  }
 }
 
 /**
- * waitForToken —— waits until the owner has finished configuring it.
+ * waitForConfig —— waits until the owner has connected at least one platform, and returns the
+ * whole configuration (a bridge runs every platform the owner connected).
  *
  * **Unconfigured is not an error**: an instance that hasn't connected an IM yet is
  * perfectly normal. Idling and waiting beats crashing, or spamming a screen of auth
  * failures — the latter would make the owner think something is broken.
  */
-export async function waitForToken(
+export async function waitForConfig(
   internalURL: string, opts: { everyMs?: number; log?: (m: string) => void } = {},
-): Promise<string> {
+): Promise<IMConfig> {
   const every = opts.everyMs ?? 15_000;
   let said = false;
   for (;;) {
-    const cfg = await fetchIMConfig(internalURL).catch(() => ({ telegramToken: '' }));
-    if (cfg.telegramToken !== '') return cfg.telegramToken;
+    const cfg = await fetchIMConfig(internalURL).catch(() => NONE);
+    if (platformsFor(cfg).length > 0) return cfg;
     if (!said) {
       opts.log?.('im-bridge: no chat platform configured yet — waiting. ' +
         'Connect one under /admin/suppliers.');

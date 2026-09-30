@@ -7,7 +7,7 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { fetchIMConfig, waitForToken } from '../src/config.js';
+import { fetchIMConfig, platformsFor, waitForChange, waitForConfig } from '../src/config.js';
 
 afterEach(() => { vi.unstubAllGlobals(); });
 
@@ -44,9 +44,9 @@ describe('bot token 从实例取', () => {
     const fetchMock = respondWith([{ telegram_token: '' }, { telegram_token: 'T-2' }]);
     vi.stubGlobal('fetch', fetchMock);
     const logs: string[] = [];
-    const token = await waitForToken('http://backend:8000',
+    const cfg = await waitForConfig('http://backend:8000',
       { everyMs: 1, log: (m) => logs.push(m) });
-    expect(token).toBe('T-2');
+    expect(cfg.telegramToken).toBe('T-2');
     // The "not configured yet" notice is said only once — repeating the same line
     // every 15 seconds would make the log unreadable.
     expect(logs, 'the waiting notice is said once, not on every poll').toHaveLength(1);
@@ -54,6 +54,50 @@ describe('bot token 从实例取', () => {
     // which is the pre-rename name — that route is gone, so the one line the bridge ever
     // prints was pointing at a 404 ([[vocabulary-must-not-diverge]]).
     expect(logs[0]).toMatch(/admin\/suppliers/);
+  });
+
+  it('Discord 的 token 也从实例取', async () => {
+    vi.stubGlobal('fetch', respondWith([{ telegram_token: '', discord_token: 'D-1' }]));
+    const cfg = await fetchIMConfig('http://backend:8000');
+    expect(cfg.discordToken).toBe('D-1');
+    expect(cfg.telegramToken).toBe('');
+  });
+
+  it('只配了 Discord 也算配好了：等待结束，交回整份配置', async () => {
+    vi.stubGlobal('fetch', respondWith([{}, { discord_token: 'D-2' }]));
+    const cfg = await waitForConfig('http://backend:8000', { everyMs: 1 });
+    expect(cfg).toEqual({ telegramToken: '', discordToken: 'D-2' });
+  });
+
+  it('按配置起平台：配了哪个就起哪个', () => {
+    expect(platformsFor({ telegramToken: 'T', discordToken: '' })).toEqual(['telegram']);
+    expect(platformsFor({ telegramToken: '', discordToken: 'D' })).toEqual(['discord']);
+    expect(platformsFor({ telegramToken: 'T', discordToken: 'D' })).toEqual(['telegram', 'discord']);
+  });
+
+  it('owner 后来又连了一个平台（或断开、换了 token）→ 察觉到变化', async () => {
+    // A bridge that started on Telegram must not ignore a Discord bot connected later: the owner
+    // pressed Connect and would see nothing happen. It notices, and the caller restarts on it.
+    const running = { telegramToken: 'T', discordToken: '' };
+    vi.stubGlobal('fetch', respondWith([
+      { telegram_token: 'T' }, { telegram_token: 'T', discord_token: 'D' },
+    ]));
+    const next = await waitForChange('http://backend:8000', running, { everyMs: 1 });
+    expect(next).toEqual({ telegramToken: 'T', discordToken: 'D' });
+  });
+
+  it('内部口一时连不上不算变化（不能因为网络抖一下就把桥重启）', async () => {
+    let n = 0;
+    vi.stubGlobal('fetch', vi.fn(() => {
+      n += 1;
+      if (n === 1) return Promise.reject(new Error('ECONNREFUSED'));
+      return Promise.resolve({
+        ok: true, json: () => Promise.resolve({ telegram_token: 'T2' }),
+      } as Response);
+    }));
+    const next = await waitForChange('http://backend:8000',
+      { telegramToken: 'T', discordToken: '' }, { everyMs: 1 });
+    expect(next.telegramToken, 'the unreachable poll was not read as "all disconnected"').toBe('T2');
   });
 
   it('内部口暂时挂了也接着等，不把桥拖死', async () => {
@@ -68,6 +112,6 @@ describe('bot token 从实例取', () => {
     // It's normal for the backend to come up after the bridge (compose starts both
     // containers at the same time). If the bridge exited on the first failed
     // connection, it would never come up, and the log would only say ECONNREFUSED.
-    expect(await waitForToken('http://backend:8000', { everyMs: 1 })).toBe('T-3');
+    expect((await waitForConfig('http://backend:8000', { everyMs: 1 })).telegramToken).toBe('T-3');
   });
 });

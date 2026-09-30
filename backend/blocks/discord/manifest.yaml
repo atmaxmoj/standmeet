@@ -1,0 +1,13 @@
+id: discord
+title: Discord
+provides: im
+
+# kind: credential — like telegram: the owner stores a Discord bot token and this block does nothing
+# itself. The im-bridge reads the token from GET /internal/im/config (discord_token) and runs the
+# bot through the Chat SDK's Discord adapter, over the Gateway (an outbound connection — a
+# self-hosted instance needs no public callback URL). The bot's application must have the
+# Message Content intent enabled in the Discord developer portal.
+transport:
+  kind: credential
+
+# No owner_ops and no seam contract: a credential only, as for telegram.

@@ -26,11 +26,17 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-// IMDeps — deps for /internal/im/config. Token resolves the sole owner's current Telegram
-// bot token (empty when nothing is connected — normal; the bridge polls until one appears).
+// IMDeps — deps for /internal/im/config. Tokens resolves the sole owner's current bot token per
+// platform (empty when nothing is connected — normal; the bridge polls until one appears).
 type IMDeps struct {
-	Log   *slog.Logger
-	Token func(ctx context.Context) string
+	Log    *slog.Logger
+	Tokens func(ctx context.Context) IMTokens
+}
+
+// IMTokens — one bot token per chat platform the bridge can run; empty = not connected.
+type IMTokens struct {
+	Telegram string
+	Discord  string
 }
 
 // MountIM — mounts /im/config; the caller has already added the /internal prefix.
@@ -38,15 +44,15 @@ func MountIM(r chi.Router, deps IMDeps) {
 	r.Get("/im/config", imConfig(deps))
 }
 
-// imConfig — responds {"telegram_token": "..."} — empty when nothing is connected, which
-// is normal (the bridge polls every 15s until a token appears).
+// imConfig — responds {"telegram_token": "...", "discord_token": "..."} — empty when that
+// platform is not connected, which is normal (the bridge polls every 15s until one appears).
 func imConfig(deps IMDeps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		token := ""
-		if deps.Token != nil {
-			token = deps.Token(r.Context())
+		var t IMTokens
+		if deps.Tokens != nil {
+			t = deps.Tokens(r.Context())
 		}
-		body := map[string]string{"telegram_token": token}
+		body := map[string]string{"telegram_token": t.Telegram, "discord_token": t.Discord}
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(body); err != nil {
 			deps.Log.Error("encode im config", "err", err)
