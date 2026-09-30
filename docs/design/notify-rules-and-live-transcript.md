@@ -79,11 +79,12 @@ rule {
   endpoint with (connection, card); the bridge posts it to the owner's chat.
 - The owner links their own IM account once (the bridge already knows its bot; the owner sends the
   bot a pairing code from the admin page, and the bridge records the owner's chat id).
-- **Decide — WhatsApp.** The bridge speaks Telegram today. WhatsApp needs the WhatsApp Business
-  Cloud API: a Meta business account, a verified business phone number, and pre-approved message
-  templates for anything the owner did not reply to within 24 hours. Options: (a) Telegram first,
-  WhatsApp after the owner sets up the Meta account; (b) WhatsApp only. Recommended: (a) — the
-  mechanism is the same, and Telegram needs no business verification.
+- **Channel order (owner, 2026-09-30: "我想至少能用discord").** The bridge is built on Vercel's
+  Chat SDK (`chat` + `@chat-adapter/telegram`); `@chat-adapter/discord` exists at the same version
+  (4.41.1) and renders embeds, which is the card. Discord comes first, then Telegram (already
+  wired for visitor chat). WhatsApp needs the WhatsApp Business Cloud API — a Meta business
+  account, a verified phone number, pre-approved templates for messages outside 24 hours — and
+  waits until the owner has that account; the mechanism does not change.
 
 ### The live transcript
 
