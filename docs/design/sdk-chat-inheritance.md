@@ -82,7 +82,11 @@ The SDK imports nothing from Next:
 - Language: the SDK catalogs (`sdk/packages/react/src/i18n.tsx`, 8 locales, typed so a missing key
   in any locale is a compile error) hold every key the moved views use, taken from
   `app/src/i18n/messages/*` and deleted there. The app states its locale once in the root layout
-  (`<ChatLangProvider lang>`); a microsite passes `lang` or its stored `sm-lang`.
+  (`<ChatLangProvider lang>`). Anywhere else the chat speaks the `lang` prop, else the language the
+  page declares (`<html lang>`, followed live), else English. Never the stored `sm-lang`:
+  localStorage is shared by every page on the instance, so one bilingual page's toggle put
+  "向 AI 提问" on an English letter. `usePageLang` (a bilingual page's toggle) sets `<html lang>`;
+  `sm-lang` is only that toggle's memory.
 - The reader's `?lang=` on corpus links: `reader-lang.ts` reads it from a host that provides it
   (`ReaderLangProvider`) or from the page URL. The app's own reader components keep their
   next/navigation hooks, built on the same pure helpers (`withLang`, `corpusHref`).
@@ -94,7 +98,7 @@ The SDK imports nothing from Next:
   `sm-floating-chat-*`) defined in `src/chat/chat.css`, with a fallback on every design token, so
   the chat looks right on a host that defines none (the embed on a third-party site has no
   Tailwind at all).
-- The SDK build emits `dist/index.css` (chat.css + the views' CSS modules + an `@import` of
+- The SDK build emits `dist/index.css` (chat.css, chat-markdown.css, tool-call-cards.css and
   KaTeX's sheet), published as `@standmeet/sdk/styles.css`. The app's `globals.css` and the builder
   template's `main.tsx` import it; the embed injects it as text into its shadow root.
 - The build keeps code splitting (mermaid and sanitize-html stay lazy) and states `'use client'`
@@ -133,12 +137,37 @@ The SDK imports nothing from Next:
   from `/embed/` (~1 MB first load; heavy parts lazy). `/embed/*` and `/vendor/*` send CORS.
 - Styles are plain CSS with semantic classes; tsup does not compile CSS modules (every
   `styles.x` read undefined). The parity spec checks a computed style, not only markup.
+- The release strips `data-testid` (the SDK's tsup plugin strips JSX attributes only). A testid
+  passed as an object key ships to visitors (the release gate caught `agent-widget`), and a CSS
+  rule that selects `[data-testid=…]` never applies in production. Testids are JSX attributes;
+  styles select classes.
+
+## Found on sijie.xyz and fixed (smokes of v0.1.97–v0.1.100)
+
+Each has an e2e in `agent-inherits-app-chat.spec.ts`, seen red on the old code.
+
+- The rail and the dock did not follow the conversation (their own scroll box stayed put).
+  `usePinToBottom` is the one implementation; the app room uses it too.
+- A page thread was keyed by the page alone: a second code on the same page showed the first
+  code's conversation. The key is page + the code holding the session.
+- The chat's language leaked from another page (see "What the SDK takes from its host").
+- An answer was split into paragraphs on every blank line before markdown, cutting a fenced block
+  with a blank line inside (a mermaid diagram between subgraphs). `splitParas` keeps fences and
+  `$$` blocks whole.
+
+## Added after release (owner, 2026-09-30)
+
+- A diagram (mermaid, TikZ) has a button in its top-right corner that opens it large in the middle
+  of the screen, growing out of its own box (FLIP, Web Animations API; skipped under reduced
+  motion) on a fixed dark scrim. `ZoomableFigure`, so every surface has it.
 
 ## Known ceilings
 
 - The dock's own fallback placeholder ("Ask a follow-up…") is English; a microsite passes its own.
 - The admin code self-test keeps its compact preview UI but runs on the one engine (`useChat` with
   a caller-issued, ephemeral session).
+- A page thread persisted before v0.1.100 keeps its old paragraph split in that browser (the
+  stored dialog holds split paragraphs); re-splitting on load is queued.
 
 ## Later, on this mechanism
 
@@ -156,11 +185,20 @@ sync docs.
 - [x] Worktree + own dev stack (`make stack-init`: standmeet-wt-sdk-chat, app :38927)
 - [x] Tests first, seen RED (dd0c26ffa): `agent-inherits-app-chat.spec.ts` — code link, parity, rail geometry, phone dock, embed
 - [x] Implement: move engine + views; styles in CSS; `<Agent layout>`; embed mounts `<Agent>`; gate; `?code=` fix; 13 existing specs moved to the unified testids
-- [ ] Acceptance: full suite on the final code (nolint merged in). Second half 1186/1186 green;
-      first half running. Reds found and fixed on the way: BYOK key-lost reset, quota refusal shown
-      as "session expired", SSR 500 (DOM at import), CSS modules not compiled, useChatSession error,
-      microsite build time; stale specs (paged list tools, owner-only golden).
-- [ ] Merge to main (with the nolint branch)
-- [ ] Release, upgrade sijie.xyz, rebuild live microsites
-- [ ] Smoke on sijie.xyz with a selftest code: `/p/mattermost` rail answers with citations
-- [ ] Sync docs (this ledger, CLAUDE.md surfaces, memory)
+- [x] Acceptance: full suite on the final code (nolint merged in). Second half 1186/1186; first
+      half 913 + the 2 embed reds fixed; the new spec REPEAT=5. Reds found and fixed on the way:
+      BYOK key-lost reset, quota refusal shown as "session expired", SSR 500 (DOM at import), CSS
+      modules not compiled, useChatSession error, microsite build time; stale specs (paged list
+      tools, owner-only golden). High-load reds rerun one by one, green.
+- [x] Merge to main with the nolint branch (022803f98)
+- [x] Release: v0.1.96 never built (tag pushes did not reach CircleCI — the repo had no webhook;
+      re-followed, tags now trigger the release). v0.1.97 failed the release strip gate (a testid
+      object key) → fixed and shipped; v0.1.98–v0.1.100 carry the smoke fixes and the diagram zoom.
+- [x] Deploy: sijie.xyz upgraded to each version; the 10 live microsites rebuilt each time;
+      `/p/mattermost` switched to `layout="rail"` with its copy rewritten for the panel.
+- [x] Smoke with selftest codes (revoked after): code link → name → page; rail answers with a tool
+      card, citations, markdown; booking landed on the real calendar and both mails in the inbox
+      (booking cancelled); English rail on a browser that stored Chinese; per-code thread; diagram
+      zoom animates and the whole diagram draws. Phone width not drivable in this Chrome — covered
+      by the 390px e2e.
+- [x] Sync docs (this ledger, CLAUDE.md, memory)

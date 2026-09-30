@@ -31,7 +31,9 @@ A self-hostable platform for people who think a lot but don't like writing. Owne
 
 **SDK.** Core abilities (chat, content retrieval, asset rendering, access-code check) are packaged for embedding into anyone's site:
 - `@standmeet/sdk` — React components + hooks
-- Web Components / vanilla JS bundle — single `<script>` tag drop-in
+- Web Components / vanilla JS bundle — single `<script>` tag drop-in (`/embed.js`, a tiny loader that imports the chat module from `/embed/`)
+
+**Chat lives in the SDK only** (`docs/design/sdk-chat-inheritance.md`). The app room, every microsite (`<Agent layout="inline" | "rail" | "dock">`, `AgentWidget` is an alias) and `<standmeet-chat>` render the same SDK engine and views, so a chat feature written once reaches every surface. `infra/scripts/check-chat-only-in-sdk.sh` (in `make app-lint`) keeps turn-running code out of the surfaces. Chat styles are semantic classes in the SDK's CSS (`@standmeet/sdk/styles.css`), never in TSX. The chat speaks the page's declared language (`<html lang>`), not a stored preference.
 
 **Custom page hosting.** Owners can write their own React page using the SDK; a sandboxed builder (the pattern in `standmeet-server/page-builder/` is the seed) builds it and hosts the static output on the instance. Owner doesn't manage deploy infra.
 
