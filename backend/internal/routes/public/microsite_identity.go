@@ -10,31 +10,38 @@ import (
 	"html"
 	"regexp"
 	"strings"
-
-	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
 
+// siteIdentity —— plain values the caller reads off the live page (this file reaches no domain:
+// check-routes-via-dispatcher).
+type siteIdentity struct {
+	ownerName string
+	publicURL string
+	slug      string
+	home      bool // the site root, not /p/<slug>
+}
+
 // applyIdentity —— fill the crawler-facing identity of a live page from the owner it belongs to.
-func applyIdentity(asset *BuiltAsset, live *owner.LivePage, slug string) {
-	asset.Canonical = canonicalFor(live.PublicURL, slug)
-	if slug != owner.HomepageSlug {
+func applyIdentity(asset *BuiltAsset, id *siteIdentity) {
+	asset.Canonical = canonicalFor(id)
+	if !id.home {
 		return
 	}
-	asset.PersonLD = personLD(live.OwnerName, live.PublicURL)
+	asset.PersonLD = personLD(id.ownerName, id.publicURL)
 	if asset.SeoTitle == nil {
-		asset.SeoTitle = optStr(live.OwnerName)
+		asset.SeoTitle = optStr(id.ownerName)
 	}
 }
 
 // canonicalFor —— the page's one address, in the same form the sitemap lists it.
-func canonicalFor(publicURL, slug string) string {
-	if publicURL == "" {
+func canonicalFor(id *siteIdentity) string {
+	if id.publicURL == "" {
 		return ""
 	}
-	if slug == owner.HomepageSlug {
-		return publicURL
+	if id.home {
+		return id.publicURL
 	}
-	return publicURL + "/p/" + slug
+	return id.publicURL + "/p/" + id.slug
 }
 
 // personLD —— a schema.org Person for the owner ("" when the owner has no name yet). json.Marshal

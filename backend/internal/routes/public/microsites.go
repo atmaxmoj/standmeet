@@ -188,7 +188,10 @@ func (h *MicrositeHandlers) serveSlugAt(
 			// The homepage's SEO is the owner's site-root SEO, which wins over whatever the `home`
 			// build's own page row carried — the root's SEO lives on the owner, not the microsite.
 			applySEOOverlay(&asset, seoOverlay)
-			applyIdentity(&asset, &live, slug)
+			applyIdentity(&asset, &siteIdentity{
+				ownerName: live.OwnerName, publicURL: live.PublicURL, slug: slug,
+				home: slug == owner.HomepageSlug,
+			})
 			return asset, nil
 		},
 		AssetPath: chi.URLParam(r, "*"),
