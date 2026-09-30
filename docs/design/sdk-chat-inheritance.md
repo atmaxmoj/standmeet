@@ -120,11 +120,22 @@ The SDK imports nothing from Next:
 - Live microsites bake the SDK at build time ([[builder-image-bakes-the-sdk]]): after the
   upgrade, each live microsite is rebuilt (inert marker file) to pick up the new SDK.
 
+## Packaging (what the acceptance run taught)
+
+- The SDK bundles its dependencies (only React is the host's), built for the browser with the
+  `worker` export condition: the chat runs in the browser and in the app's server render, and a
+  dependency's browser build may touch the DOM at import (decode-named-character-reference did —
+  every server-rendered page 500'd).
+- mermaid is never bundled. The app serves its ESM build at `/vendor/mermaid/` (copied at build)
+  and the chat loads it with a module script when an answer has a diagram. Bundled, it was ~100
+  chunks every microsite build processed (builder vite step ~2s → ~40s).
+- The embed is `/embed.js`, a 167-byte loader, which imports the chat as a code-split ES module
+  from `/embed/` (~1 MB first load; heavy parts lazy). `/embed/*` and `/vendor/*` send CORS.
+- Styles are plain CSS with semantic classes; tsup does not compile CSS modules (every
+  `styles.x` read undefined). The parity spec checks a computed style, not only markup.
+
 ## Known ceilings
 
-- The embed bundle is 1.55 MB minified (React, the markdown pipeline, sanitize-html's postcss). An
-  IIFE cannot load chunks lazily, so mermaid is replaced by a stand-in there: a diagram in an
-  answer renders as nothing in the embed (as a failed diagram does everywhere).
 - The dock's own fallback placeholder ("Ask a follow-up…") is English; a microsite passes its own.
 - The admin code self-test keeps its compact preview UI but runs on the one engine (`useChat` with
   a caller-issued, ephemeral session).
@@ -145,7 +156,10 @@ sync docs.
 - [x] Worktree + own dev stack (`make stack-init`: standmeet-wt-sdk-chat, app :38927)
 - [x] Tests first, seen RED (dd0c26ffa): `agent-inherits-app-chat.spec.ts` — code link, parity, rail geometry, phone dock, embed
 - [x] Implement: move engine + views; styles in CSS; `<Agent layout>`; embed mounts `<Agent>`; gate; `?code=` fix; 13 existing specs moved to the unified testids
-- [ ] Acceptance: new specs green, REPEAT=5; every existing chat / agent-widget / embed spec green; `make lint`
+- [ ] Acceptance: full suite on the final code (nolint merged in). Second half 1186/1186 green;
+      first half running. Reds found and fixed on the way: BYOK key-lost reset, quota refusal shown
+      as "session expired", SSR 500 (DOM at import), CSS modules not compiled, useChatSession error,
+      microsite build time; stale specs (paged list tools, owner-only golden).
 - [ ] Merge to main (with the nolint branch)
 - [ ] Release, upgrade sijie.xyz, rebuild live microsites
 - [ ] Smoke on sijie.xyz with a selftest code: `/p/mattermost` rail answers with citations

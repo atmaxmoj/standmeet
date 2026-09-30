@@ -79,11 +79,15 @@ test.describe('embed · the snippet we hand out points at something that exists'
       // Someone else's site fetches it cross-origin.
       expect(res.headers()['access-control-allow-origin'] ?? '').toBe('*');
 
-      // And this JS must actually register that element -- "got back a 200'd script"
-      // and "got the embed" are two different claims.
-      const body = await res.text();
-      expect(body).toContain('standmeet-chat');
-      expect(body.length).toBeGreaterThan(1000);
+      // And the embed must actually come of it -- "got back a 200'd script" and "got the
+      // embed" are two different claims. The script is a loader: it imports the chat from
+      // /embed/embed.js beside it, a module another site fetches cross-origin too.
+      const loader = await res.text();
+      expect(loader, 'the loader imports the chat from beside it').toContain('embed/embed.js');
+      const chat = await request.get(new URL('embed/embed.js', src).toString());
+      expect(chat.status(), 'the chat module is served').toBe(200);
+      expect(chat.headers()['access-control-allow-origin'] ?? '', 'cross-origin, like the loader').toBe('*');
+      expect(await chat.text(), 'and it registers the element').toContain('standmeet-chat');
     });
 
   // Asserting an `access-control-allow-origin: *` header, and "someone else's site can
@@ -104,6 +108,10 @@ test.describe('embed · the snippet we hand out points at something that exists'
           s.src = src; s.onload = resolve; s.onerror = () => reject(new Error('script failed'));
           document.head.appendChild(s);
         });
+        // The loader imports the chat module from the instance's origin; the element is
+        // defined once that cross-origin import lands (it needs CORS as much as the loader).
+        // Never defined → this waits out the test timeout, which is the red.
+        await customElements.whenDefined('standmeet-chat');
         return customElements.get('standmeet-chat') !== undefined;
       }, EMBED_SRC);
       expect(loaded, 'embed 脚本在第三方来源上没有注册那个元素').toBe(true);
