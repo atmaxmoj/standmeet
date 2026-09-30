@@ -33,6 +33,7 @@ const OWNER = {
   handle: 'inherit', fullName: 'Inherit Owner',
 };
 const CODE = 'INHERIT-1';
+const OTHER_CODE = 'INHERIT-2';
 const SLUG = 'letter';
 const GHOST = 'What did your tests actually catch?';
 const TARGET_PATH = 'projects/lucerna';
@@ -97,14 +98,17 @@ async function initOwner(playwright: Playwright): Promise<void> {
   await publishPage(request, csrf);
   const bound = await adminJSON(request, csrf, 'patch', `/codes/${code.id}/microsite`, { slug: SLUG });
   expect(bound.status, 'bind the code to the page').toBe(200);
+  const other = await createCode(request, csrf, { code: OTHER_CODE, label: 'inherit-other' });
+  expect((await adminJSON(request, csrf, 'patch', `/codes/${other.id}/microsite`, { slug: SLUG })).status,
+    'bind the second code to the page').toBe(200);
   await request.dispose();
 }
 
 // enterOnPage —— the recruiter's path: redeem the code (it lands on its page), then wait for the
 // page's agent to hold the code (inline, not the gate hand-off). Attached, not visible: on a phone
 // the agent is the floating dock, whose own box is empty (the pill and the panel are fixed).
-async function enterOnPage(page: Page, name: string): Promise<void> {
-  await enterCodeSession(page, CODE, name);
+async function enterOnPage(page: Page, name: string, code = CODE): Promise<void> {
+  await enterCodeSession(page, code, name);
   await page.waitForURL(`**/p/${SLUG}**`, { timeout: 20_000 });
   await expect(page.getByTestId('agent-widget')).toHaveAttribute('data-mode', 'inline', { timeout: 20_000 });
 }
@@ -231,6 +235,36 @@ test.describe('chat is inherited: the rail and the dock follow the conversation'
     await askLongTurns(page, box);
     await expect(box.getByTestId('answer-body').last().getByText('Paragraph 12', { exact: false }).last())
       .toBeInViewport({ timeout: 10_000 });
+  });
+});
+
+// Found in the v0.1.98 smoke: the page thread kept in this browser was keyed by the page alone, so
+// a second code opened on the same page showed the first code's conversation (another visitor's
+// name, their booking). The thread belongs to the code that holds the session.
+test.describe('chat is inherited: a page thread belongs to its code', () => {
+  test('a second code on the same page starts its own thread', async ({ page }) => {
+    await enterOnPage(page, 'First Code Reader');
+    const w = page.getByTestId('agent-widget');
+    await ask(page, `first code question${await scriptMockReplyText(page.request, 'First answer.')}`);
+    await expect(w.getByTestId('answer-body')).toContainText('First answer.', { timeout: 30_000 });
+
+    await enterOnPage(page, 'Second Code Reader', OTHER_CODE);
+    await ask(page, `second code question${await scriptMockReplyText(page.request, 'Second answer.')}`);
+    await expect(w.getByTestId('answer-body').last()).toContainText('Second answer.', { timeout: 30_000 });
+    await expect(w.getByTestId('visitor-question'), 'only this code\'s own question').toHaveCount(1);
+  });
+});
+
+// Found by the owner on /p/mattermost (v0.1.98): an English letter, and the rail said "向 AI 提问".
+// The chat read `sm-lang` — the choice a bilingual page's language toggle stores — and localStorage
+// is shared by every page on the instance, so one page's choice leaked onto another. The chat speaks
+// the language the page itself declares (<html lang>).
+test.describe('chat is inherited: the chat speaks the page\'s language', () => {
+  test('an English page stays English when another page stored Chinese', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.addInitScript(() => { window.localStorage.setItem('sm-lang', 'zh'); });
+    await enterOnPage(page, 'Lang Reader');
+    await expect(page.getByTestId('agent-widget').locator('.smc-dock-title')).toHaveText('ask the AI');
   });
 });
 

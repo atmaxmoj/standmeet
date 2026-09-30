@@ -103,6 +103,9 @@ test.describe('microsite · a Chinese-language visitor chats on a prerendered pa
     await ask(page, `灯塔有多少级台阶？ ${tag}`);
     await expect(page.getByTestId('agent-widget').getByTestId('answer-body').last())
       .toContainText('九十七级台阶', { timeout: 30_000 });
+    // The page switched itself to Chinese, so the chat's own words are Chinese too (it follows the
+    // language the page declares).
+    await expect(page.getByTestId('agent-widget').getByText('你', { exact: true })).toBeVisible();
     expect(errors.filter((e) => /#418|hydrat/i.test(e)), 'no hydration mismatch').toEqual([]);
     await page.context().close();
     await request.dispose();

@@ -8,11 +8,13 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-const LANG_KEY = 'sm-lang';        // the same key the SDK widgets read (i18n.ts)
+const LANG_KEY = 'sm-lang';        // this toggle's memory; the widgets read <html lang>, not this
 const THEME_KEY = 'standmeet-dark'; // '1' dark, '0' light, absent = follow the system
 
 /** The page language among `supported`: `fallback` on the first render, then the visitor's stored
- *  choice, else their browser language, else `fallback`. Setting it stores the choice. */
+ *  choice, else their browser language, else `fallback`. Setting it stores the choice. The page
+ *  declares whichever it shows (<html lang>): that is what screen readers and the SDK's own widgets
+ *  follow — the stored choice is only this toggle's memory. */
 export function usePageLang<L extends string>(
   supported: readonly L[], fallback: L,
 ): [L, (lang: L) => void] {
@@ -23,6 +25,9 @@ export function usePageLang<L extends string>(
   useEffect(() => {
     setLang(visitorLang(initial.current.supported, initial.current.fallback));
   }, []);
+  useEffect(() => {
+    try { document.documentElement.lang = lang; } catch { /* no document */ }
+  }, [lang]);
   const choose = (next: L) => {
     setLang(next);
     try { localStorage.setItem(LANG_KEY, next); } catch { /* no storage */ }

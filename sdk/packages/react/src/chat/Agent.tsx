@@ -44,7 +44,8 @@ export interface AgentProps {
   // The author's own copy, shown as given in every mode.
   readonly placeholder?: string;
   readonly examples?: readonly string[];
-  // The page's language for the chat's own copy. Absent → the page's stored `sm-lang`, else English.
+  // The page's language for the chat's own copy. Absent → the language the page declares
+  // (<html lang>), else English.
   readonly lang?: string;
   // publicTier —— a codeless visitor answers on the owner's public tier. On the instance's own pages
   // the server says so in the page meta; the embed on another site has no such meta, so its host
@@ -64,7 +65,9 @@ function resolveAsker(publicTier: boolean): Asker {
 }
 
 // PageThread —— the page this agent sits on: the conversation about it is its own thread (a
-// microsite's slug, from the meta the server injects), kept in this browser per page.
+// microsite's slug, from the meta the server injects), kept in this browser per page and per code —
+// a second code opened on the same page is another visitor, with a thread of its own. A codeless
+// visitor keeps one thread per page (bringing their own key does not start a new one).
 interface PageThread { asker: Asker; docContext?: DocContext; persistKey: string }
 
 function resolveThread(publicTier: boolean): PageThread {
@@ -72,7 +75,9 @@ function resolveThread(publicTier: boolean): PageThread {
   const docContext = dc?.path !== undefined && dc.genre !== undefined
     ? { title: dc.title, path: dc.path, genre: dc.genre }
     : undefined;
-  return { asker: resolveAsker(publicTier), docContext, persistKey: `agent:${window.location.pathname}` };
+  const stored = loadStoredSession();
+  const holder = stored === null ? '' : `@${stored.slug !== '' ? stored.slug : stored.conversation_id}`;
+  return { asker: resolveAsker(publicTier), docContext, persistKey: `agent:${window.location.pathname}${holder}` };
 }
 
 export function Agent(props: AgentProps) {

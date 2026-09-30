@@ -22,7 +22,7 @@ export interface CorpusWidgetProps {
 }
 
 // resolveLang —— which language to ask the wiki-landing endpoint for. Explicit prop wins; else the
-// page's stored choice (same 'sm-lang' key the pages use), else English (resolveLocale). The backend
+// language the page declares (<html lang>), else English (resolveLocale). The backend
 // picks the matching `[!i18n]` pane, so the preview never shows both languages + radio markup.
 // Notes carry only en/zh panes, so every other UI locale reads the English pane.
 function resolveLang(explicit?: string): string {
