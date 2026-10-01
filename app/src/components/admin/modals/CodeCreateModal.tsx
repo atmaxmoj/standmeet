@@ -1,7 +1,7 @@
 // CodeCreateModal — one modal for both "new code" and "edit existing code".
 // When existing is null it calls onCreate (POST /codes); when non-null it calls
-// onUpdateQuotas (PATCH /codes/:id/quotas) — currently only quotas are editable,
-// the code string itself is locked (external share links still point at it).
+// onUpdateQuotas (PATCH /codes/:id/slug when the landing path changed, then /quotas) — the
+// landing path and quotas are editable; the code string is locked (share links point at it).
 // Other fields (label / scope / tags) are future work.
 //
 // e2e testid kept: code-form / code-input / code-label / code-tags /
@@ -71,7 +71,7 @@ function ModalFooter({
   editing, disabled, onClose,
 }: { editing: boolean; disabled: boolean; onClose: () => void }) {
   const t = useTranslations('adminShell.codeModal');
-  const label = editing ? 'save quotas' : 'create code';
+  const label = editing ? 'save' : 'create code';
   const testid = editing ? 'code-save' : 'code-create';
   return (
     <div className="flex items-center justify-end gap-3 border-t border-(--color-rule) pt-4">

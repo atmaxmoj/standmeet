@@ -17,6 +17,7 @@ export function CreateCodeFields({ form, editing }: EditingProps) {
   return (
     <div className="space-y-7">
       <CoreFieldsSlot form={form} editing={editing} />
+      <SlugInput form={form} />
       <QuotasField form={form} />
       <NonQuotaSlot form={form} editing={editing} />
     </div>
@@ -91,6 +92,23 @@ function CodeInput({ form }: Props) {
         onChange={(e) => form.setCode(e.target.value)}
         placeholder="OPENAI-001"
         className="sm-field-input sm-mono uppercase"
+      />
+    </label>
+  );
+}
+
+// SlugInput —— where a visitor lands after redeeming the code: /c/<slug>. Editable after issue too.
+function SlugInput({ form }: Props) {
+  return (
+    <label className="block">
+      <FieldKicker text="landing path · /c/… · blank = generated" />
+      <input
+        type="text"
+        data-testid="code-slug"
+        value={form.values.slug}
+        onChange={(e) => form.setSlug(e.target.value)}
+        placeholder="e.g. acme-recruiter"
+        className="sm-field-input sm-mono"
       />
     </label>
   );

@@ -135,6 +135,13 @@ var ErrCodeRevoked = errors.New("access code revoked")
 // ErrCodeTaken — the code string is already taken (access_codes.code is unique).
 var ErrCodeTaken = errors.New("access code already exists")
 
+// ErrSlugTaken — another of the owner's codes already lands on this path
+// (access_codes_owner_slug_idx).
+var ErrSlugTaken = errors.New("code landing path already used")
+
+// ErrSlugInvalid — the landing path is empty after sanitizing, or shadows a route (reservedSlugs).
+var ErrSlugInvalid = errors.New("code landing path invalid")
+
 // ErrCodeExpired — the access code has expired.
 var ErrCodeExpired = errors.New("access code expired")
 

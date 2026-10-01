@@ -53,6 +53,8 @@ export const CodeViewSchema = z.object({
   bundle: z.string().nullish().transform((v) => v ?? ''),
   // role_name —— the assumed role's name, joined on list rows; '' on a write receipt.
   role_name: z.string().nullish().transform((v) => v ?? ''),
+  // slug —— the landing path: a visitor who redeems the code lands on /c/<slug>.
+  slug: z.string().nullish().transform((v) => v ?? ''),
 });
 export type CodeView = z.infer<typeof CodeViewSchema>;
 
@@ -69,11 +71,15 @@ export interface CreateCodeInput {
   provider_id?: string;
   // bundle —— the blocks this code carries, by bundle name. Omit for none.
   bundle?: string;
+  // slug —— the landing path (/c/<slug>). Omit for a generated one.
+  slug?: string;
 }
 
 export interface QuotasInput {
   max_members: number | null;
   max_turns_per_session: number | null;
+  // slug —— a new landing path, sent only when the owner changed it in the edit modal.
+  slug?: string;
 }
 
 export type CodeCounts = Record<CodeFilter, number>;
@@ -172,8 +178,13 @@ async function rotateCode(id: string, newCode: string): Promise<void> {
   replaceCode(await adminAPI.patch(`/codes/${id}/code`, { code: newCode }, CodeViewSchema));
 }
 
-async function updateQuotas(id: string, input: QuotasInput): Promise<void> {
-  replaceCode(await adminAPI.patch(`/codes/${id}/quotas`, input, CodeViewSchema));
+// updateQuotas —— the edit modal's save. A changed path goes first: a taken one throws before
+// the quotas move, so the modal stays open on the refusal with nothing half-saved.
+async function updateQuotas(id: string, { slug, ...quotas }: QuotasInput): Promise<void> {
+  if (slug !== undefined) {
+    replaceCode(await adminAPI.patch(`/codes/${id}/slug`, { slug }, CodeViewSchema));
+  }
+  replaceCode(await adminAPI.patch(`/codes/${id}/quotas`, quotas, CodeViewSchema));
 }
 
 // setGhostEvidence —— F-A-10 per-code override: null = inherits the role; true/false = explicit override (code takes priority over role).
@@ -227,6 +238,7 @@ function toCreateBody(input: CreateCodeInput): Record<string, unknown> {
     // CreateCodeInput and not added here is silently dropped: the owner picks a bundle,
     // the code is issued, and it carries nothing. That happened.
     bundle: input.bundle ?? '',
+    slug: input.slug ?? '',
   };
 }
 
@@ -256,6 +268,7 @@ export async function dispatchSave(
   await onUpdateQuotas(existing.id, {
     max_members: input.max_members ?? null,
     max_turns_per_session: input.max_turns_per_session ?? null,
+    ...(input.slug === undefined || input.slug === existing.slug ? {} : { slug: input.slug }),
   });
 }
 

@@ -29,6 +29,7 @@ type codeCreateArgs struct {
 	AssumedRoleID      string              `json:"assumed_role_id"`
 	ExpiresAt          string              `json:"expires_at"`
 	ProviderID         string              `json:"provider_id"`
+	Slug               string              `json:"slug"`
 	Ghosts             []string            `json:"ghosts"`
 }
 
@@ -127,6 +128,7 @@ func decodeCodeCreate(raw json.RawMessage, ownerID string) (*repo.CreateCodeInpu
 		// empty = not specified: inherits the role's, then falls back to the owner default.
 		ProviderID:     in.ProviderID,
 		LimitPerPeriod: in.LimitPerPeriod,
+		Slug:           in.Slug,
 	}, nil
 }
 

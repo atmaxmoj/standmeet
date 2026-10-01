@@ -151,6 +151,22 @@ func RotateCode(
 	return code, nil
 }
 
+// SetCodeSlug — renames the code's landing path. Sessions stay: the path is a locator, not a
+// credential, so a visitor mid-conversation keeps talking and lands on the new path next time.
+func SetCodeSlug(
+	ctx context.Context, d CodesDeps, ownerID, codeID, slug string,
+) (entity.Code, error) {
+	clean, verr := entity.OwnerSlug(slug)
+	if verr != nil {
+		return entity.Code{}, verr
+	}
+	code, err := d.Codes.SetSlug(ctx, ownerID, codeID, clean)
+	if err != nil {
+		return entity.Code{}, fmt.Errorf("set code slug: %w", err)
+	}
+	return code, nil
+}
+
 // rotationCodeValid — the new code must be a single non-empty URL-safe token (rides in ?code=).
 func rotationCodeValid(s string) bool {
 	return s != "" && !strings.ContainsAny(s, " \t\n/?#&")

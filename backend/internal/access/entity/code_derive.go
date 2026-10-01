@@ -74,6 +74,14 @@ func DeriveSlug(provided, generated string) string {
 	return s
 }
 
+// OwnerSlug — an owner-chosen landing slug, sanitized; ErrSlugInvalid when nothing usable is left.
+func OwnerSlug(provided string) (string, error) {
+	if s := DeriveSlug(provided, ""); s != "" {
+		return s, nil
+	}
+	return "", ErrSlugInvalid
+}
+
 func sanitizeSlug(in string) string {
 	out := make([]rune, 0, slugMaxLen)
 	for _, c := range in {

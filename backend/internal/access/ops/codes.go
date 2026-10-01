@@ -34,7 +34,7 @@ type CodesDeps struct {
 
 // Codes — the code itself + its ACL facet.
 func Codes(d *CodesDeps) []fp.Op {
-	return append(codeCoreOps(d), codeACLOps(d.ACL)...)
+	return append(append(codeCoreOps(d), setSlugOp(d)), codeACLOps(d.ACL)...)
 }
 
 func codeCoreOps(d *CodesDeps) []fp.Op {
@@ -143,7 +143,9 @@ var (
 			"bundle":{"type":"string",
 				"description":"Bundle this code carries, read live. Omit to use the role's grant."},
 			"bundle_id":{"type":"string",
-				"description":"Bundle id this code carries (id wins over the bundle name)."}
+				"description":"Bundle id this code carries (id wins over the bundle name)."},
+			"slug":{"type":"string",
+				"description":"Landing path /c/<slug>. Omit for a generated one."}
 		},
 		"required":[]
 	}`)
@@ -325,6 +327,12 @@ var codeErrClasses = []struct {
 	}},
 	{entity.ErrCodeTaken, func() error {
 		return fp.Coded(fp.Conflict("code already exists"), "code_taken")
+	}},
+	{entity.ErrSlugTaken, func() error {
+		return fp.Coded(fp.Conflict("that path is already used by another code"), "slug_taken")
+	}},
+	{entity.ErrSlugInvalid, func() error {
+		return fp.BadInput("a path needs letters or digits and must not be a reserved word")
 	}},
 	{entity.ErrDenialKindUnknown, func() error {
 		return fp.BadInput("kind must be block, skill or corpus")

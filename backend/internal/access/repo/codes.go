@@ -91,8 +91,8 @@ func createCodeOn(ctx context.Context, q *db.Queries, in *CreateCodeInput) (enti
 	}
 	row, err := q.CreateAccessCode(ctx, *params)
 	if err != nil {
-		if name, hit := pgstore.UniqueViolation(err); hit && name == "access_codes_code_key" {
-			return entity.Code{}, entity.ErrCodeTaken
+		if taken := uniqueCodeErr(err); taken != nil {
+			return entity.Code{}, taken
 		}
 		return entity.Code{}, fmt.Errorf("create access code: %w", err)
 	}

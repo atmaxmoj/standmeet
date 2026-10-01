@@ -57,6 +57,8 @@ func (h *Handlers) MountCodes(r chi.Router) {
 	// visitor chat.
 	r.Patch("/{code_id}/microsite",
 		h.dispatchOp(face, "codes.set_microsite", bodyWithURLParam(paramCodeID), jsonOK))
+	r.Patch("/{code_id}/slug",
+		h.dispatchOp(face, "codes.set_slug", bodyWithURLParam(paramCodeID), jsonOK))
 	// Which group (bundle) of blocks this code carries, set after issue. An empty bundle
 	// unbinds, falling back to the role's grant.
 	r.Patch("/{code_id}/bundle",

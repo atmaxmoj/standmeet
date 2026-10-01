@@ -35,6 +35,14 @@ SET code = $3
 WHERE id = $1 AND owner_id = $2
 RETURNING *;
 
+-- name: UpdateAccessCodeSlug :one
+-- The owner renames a code's landing path (/c/<slug>). owner-scoped; the unique index
+-- access_codes_owner_slug_idx (owner_id, slug) rejects a slug another of the owner's codes holds.
+UPDATE access_codes
+SET slug = $3
+WHERE id = $1 AND owner_id = $2
+RETURNING *;
+
 -- name: GetAccessCode :one
 -- **Do not add lower() here**: the `code` column is `citext` (see schema.sql:245), so the
 -- comparison is already case-insensitive. I once assumed "?code= won't get in because the code

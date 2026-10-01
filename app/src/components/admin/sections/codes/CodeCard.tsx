@@ -115,6 +115,7 @@ function CodeCardTitle({ code }: { code: CodeView }) {
       </div>
       <div className="mono text-[11px] tracking-[0.04em] text-(--color-muted) mt-1">
         <span className="text-(--color-ink)">{code.code}</span>
+        <span className="ml-3" data-testid={`code-landing-${code.code}`}>{`/c/${code.slug}`}</span>
         <PurposeText purpose={code.purpose} />
       </div>
     </div>

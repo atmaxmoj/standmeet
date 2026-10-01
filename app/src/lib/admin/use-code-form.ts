@@ -31,13 +31,15 @@ export interface CodeFormState {
   // narrowing of the role: when a bundle is set it IS the grant, read live, so editing
   // the bundle moves every code bound to it.
   bundle: string;
+  // slug —— the landing path (/c/<slug>); '' on create = a generated one.
+  slug: string;
 }
 
 const EMPTY: CodeFormState = {
   code: '', label: '', purpose: '',
   suggested: ['', ''],
   maxMembers: '', maxTurns: '', maxBookings: '',
-  assumedRoleID: '', promptID: '', providerID: '', bundle: '',
+  assumedRoleID: '', promptID: '', providerID: '', bundle: '', slug: '',
 };
 
 export interface CodeFormHook {
@@ -52,6 +54,7 @@ export interface CodeFormHook {
   setPromptID: (v: string) => void;
   setProviderID: (v: string) => void;
   setBundle: (v: string) => void;
+  setSlug: (v: string) => void;
   updateQ: (i: number, v: string) => void;
   addQ: () => void;
   removeQ: (i: number) => void;
@@ -86,6 +89,7 @@ export function useCodeForm(initial?: Partial<CodeView>): CodeFormHook {
   const setBundle = useCallback(
     (bundle: string) => setValues((v) => ({ ...v, bundle })), [],
   );
+  const setSlug = useCallback((slug: string) => setValues((v) => ({ ...v, slug })), []);
 
   const updateQ = useCallback((i: number, txt: string) => {
     setValues((v) => ({ ...v, suggested: v.suggested.map((q, j) => j === i ? txt : q) }));
@@ -101,7 +105,7 @@ export function useCodeForm(initial?: Partial<CodeView>): CodeFormHook {
 
   return {
     values, setCode, setLabel, setPurpose, setMaxMembers, setMaxTurns,
-    setMaxBookings, setAssumedRoleID, setPromptID, setProviderID, setBundle,
+    setMaxBookings, setAssumedRoleID, setPromptID, setProviderID, setBundle, setSlug,
     updateQ, addQ, removeQ, reset, toInput,
   };
 }
@@ -121,6 +125,7 @@ function seed(initial?: Partial<CodeView>): CodeFormState {
     promptID:      initial?.prompt_id ?? '',
     providerID:    initial?.provider_id ?? '',
     bundle:        initial?.bundle ?? '',
+    slug:          initial?.slug ?? '',
   };
 }
 
@@ -144,6 +149,7 @@ function buildInput(v: CodeFormState): CreateCodeInput {
     // bundle name as "no bundle", and sending one explicitly would be this form
     // asserting a choice the owner did not make.
     ...(v.bundle === '' ? {} : { bundle: v.bundle }),
+    ...(v.slug.trim() === '' ? {} : { slug: v.slug.trim() }),
   };
 }
 

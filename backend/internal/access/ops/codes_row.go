@@ -41,6 +41,8 @@ type codeRow struct {
 	// chat**, not "failed to answer". The page side can see the code, this side can see the
 	// page — a binding visible only one way, and people forget they made it.
 	MicrositeSlug string `json:"microsite_slug"`
+	// Slug — the code's landing path: a visitor who redeems it lands on /c/<slug>.
+	Slug string `json:"slug"`
 	// Bundle — which bundle this code carries, by name. Empty = none, and the code is
 	// judged by its role exactly as before. This is the field that makes "what can this
 	// code do" readable off the codes list instead of simulated across three screens
@@ -68,6 +70,7 @@ func toCodeRow(c *entity.Code, memberCount int32) codeRow {
 		CreatedAt:     c.CreatedAt.UTC().Format(time.RFC3339),
 		ExpiresAt:     formatOptionalTime(c.ExpiresAt),
 		MicrositeSlug: c.MicrositeSlug,
+		Slug:          c.Slug,
 		Bundle:        c.Bundle,
 		RoleName:      c.RoleName,
 		MemberCount:   memberCount,

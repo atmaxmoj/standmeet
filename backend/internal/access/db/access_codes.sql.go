@@ -1124,6 +1124,49 @@ func (q *Queries) UpdateAccessCodeRole(ctx context.Context, arg UpdateAccessCode
 	return i, err
 }
 
+const updateAccessCodeSlug = `-- name: UpdateAccessCodeSlug :one
+UPDATE access_codes
+SET slug = $3
+WHERE id = $1 AND owner_id = $2
+RETURNING id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, microsite_id, bundle_id, limit_per_period, slug, created_at, assumed_role_id, prompt_id, inline_prompt
+`
+
+type UpdateAccessCodeSlugParams struct {
+	ID      pgtype.UUID
+	OwnerID pgtype.UUID
+	Slug    string
+}
+
+// The owner renames a code's landing path (/c/<slug>). owner-scoped; the unique index
+// access_codes_owner_slug_idx (owner_id, slug) rejects a slug another of the owner's codes holds.
+func (q *Queries) UpdateAccessCodeSlug(ctx context.Context, arg UpdateAccessCodeSlugParams) (AccessCode, error) {
+	row := q.db.QueryRow(ctx, updateAccessCodeSlug, arg.ID, arg.OwnerID, arg.Slug)
+	var i AccessCode
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.Code,
+		&i.Label,
+		&i.Purpose,
+		&i.Ghosts,
+		&i.ExpiresAt,
+		&i.Status,
+		&i.MaxTurnsPerSession,
+		&i.MaxMembers,
+		&i.RequireGhostEvidence,
+		&i.ProviderID,
+		&i.MicrositeID,
+		&i.BundleID,
+		&i.LimitPerPeriod,
+		&i.Slug,
+		&i.CreatedAt,
+		&i.AssumedRoleID,
+		&i.PromptID,
+		&i.InlinePrompt,
+	)
+	return i, err
+}
+
 const upsertCodeMember = `-- name: UpsertCodeMember :one
 INSERT INTO code_members (code_id, display_name, email, is_anonymous)
 VALUES ($1, $2, $3, $4)
