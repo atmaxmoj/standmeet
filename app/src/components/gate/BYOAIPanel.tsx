@@ -51,7 +51,6 @@ export function BYOAIPanel({ hook }: Props) {
   const router = useRouter();
   const [form, setForm] = useState<ProviderFormState>(initialForm);
   const [apiKey, setApiKey] = useState('');
-  const [reveal, setReveal] = useState(false);
   // modelError — the message `LOAD MODELS` fails with, **kept on this page** (UX-82).
   //
   // It used to go through `toast.error`: the click lands on a button in the BYOAI panel,
@@ -102,7 +101,6 @@ export function BYOAIPanel({ hook }: Props) {
             form={form} onProvider={onProvider}
             onEndpoint={onEndpoint} onModel={onModel}
             apiKey={apiKey} setApiKey={setApiKey}
-            reveal={reveal} setReveal={setReveal}
             onSubmit={onSubmit} busy={hook.byoai.busy} error={hook.byoai.error}
             models={models} modelError={modelError} canStore={canStore}
           />
@@ -143,8 +141,6 @@ type FormProps = {
   onModel: (v: string) => void;
   apiKey: string;
   setApiKey: (v: string) => void;
-  reveal: boolean;
-  setReveal: (v: boolean) => void;
   onSubmit: (e: React.FormEvent) => Promise<void>;
   busy: boolean;
   error: string | null;
@@ -183,7 +179,6 @@ function BYOAIForm(p: FormProps) {
       />
       <KeyRow
         value={p.apiKey} onChange={p.setApiKey}
-        reveal={p.reveal} onToggleReveal={() => p.setReveal(!p.reveal)}
         placeholder={ph.key}
         keyPrefix={ph.keyPrefix}
       />

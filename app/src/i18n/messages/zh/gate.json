@@ -48,8 +48,6 @@
     "apiKey": "api 密钥",
     "keyNote": "从不上传 · 加密存在你的浏览器里",
     "keyShapeHint": "这个服务商的密钥通常以 {prefix} 开头——如果你的不一样，也没关系",
-    "reveal": "显示",
-    "hide": "隐藏",
     "readyUsing": "就绪 · 正在使用",
     "fillHint": "填写端点、模型 + 密钥以解锁公开聊天。",
     "insecureOrigin": "此页面通过普通 http 提供，因此你的浏览器不会让任何站点在此存储密钥——自带 AI 需要一个 https 地址。向主理人索要一个，或改用访问码。",

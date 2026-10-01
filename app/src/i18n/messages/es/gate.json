@@ -48,8 +48,6 @@
     "apiKey": "clave api",
     "keyNote": "nunca cargada · almacenada encriptada en su navegador",
     "keyShapeHint": "las claves para este proveedor generalmente comienzan con {prefix} — si la suya es diferente, adelante",
-    "reveal": "revelar",
-    "hide": "esconder",
     "readyUsing": "listo · usando",
     "fillHint": "complete punto final, modelo + clave para desbloquear el chat público.",
     "insecureOrigin": "esta página se sirve sobre http plano, así que su navegador no permitirá que ningún sitio almacene una clave aquí — traiga su propia IA necesita una dirección https. pida al propietario una o use un código de acceso en su lugar.",

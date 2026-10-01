@@ -13,6 +13,7 @@ import { useTranslations } from 'next-intl';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useCallback } from 'react';
 
+import { SecretInput } from '@/components/atoms/SecretInput';
 import { Field } from '@/components/auth/Field';
 import { usePasswordResetForm, type PasswordResetFormHook } from '@/lib/auth/use-password-reset-form';
 
@@ -81,25 +82,15 @@ function ResetFormBody({ hook, onSubmit }: ResetUIProps) {
   return (
     <form onSubmit={onSubmit} className="mt-10 space-y-5">
       <Field label="new password (≥ 12 chars)">
-        <input
-          type="password"
-          value={hook.next}
-          onChange={(e) => hook.setNext(e.target.value)}
-          disabled={hook.busy}
-          data-testid="reset-new-password"
-          autoComplete="new-password"
-          className="sm-field-input"
+        <SecretInput
+          testid="reset-new-password" value={hook.next} onChange={hook.setNext}
+          disabled={hook.busy} className="sm-field-input"
         />
       </Field>
       <Field label="confirm new password">
-        <input
-          type="password"
-          value={hook.confirm}
-          onChange={(e) => hook.setConfirm(e.target.value)}
-          disabled={hook.busy}
-          data-testid="reset-confirm-password"
-          autoComplete="new-password"
-          className="sm-field-input"
+        <SecretInput
+          testid="reset-confirm-password" value={hook.confirm} onChange={hook.setConfirm}
+          disabled={hook.busy} className="sm-field-input"
         />
       </Field>
       <ErrorLine message={hook.error} />

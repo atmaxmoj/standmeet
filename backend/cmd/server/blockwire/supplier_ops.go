@@ -161,6 +161,8 @@ func listSuppliers(ops supplierOps) fp.Invoke {
 type catalogRowOut struct {
 	supplierRowOut
 
+	// Help —— the block's own setup line (where its credential comes from), shown on its card.
+	Help     string       `json:"help,omitempty"`
 	OwnerOps []ownerOpOut `json:"owner_ops,omitempty"`
 }
 
@@ -212,10 +214,19 @@ func catalogSuppliers(ops supplierOps) fp.Invoke {
 			rows = append(rows, catalogRowOut{
 				supplierRowOut: toSupplierRow(&conns[i]),
 				OwnerOps:       toOwnerOps(ops.svc.OwnerOpsOf(conns[i].BlockID)),
+				Help:           helpOf(ops.svc.Manifest(conns[i].BlockID)),
 			})
 		}
 		return json.Marshal(rows)
 	}
+}
+
+// helpOf —— a built-in block's declared setup line ("" when it declares none).
+func helpOf(m *adapters.Manifest) string {
+	if m == nil {
+		return ""
+	}
+	return m.Help
 }
 
 type supplierIDArgs struct {

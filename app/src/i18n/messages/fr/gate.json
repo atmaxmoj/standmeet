@@ -48,8 +48,6 @@
     "apiKey": "clé api",
     "keyNote": "jamais téléchargée · stockée chiffrée dans votre navigateur",
     "keyShapeHint": "les clés pour ce fournisseur commencent généralement par {prefix} — si la vôtre est différente, allez-y",
-    "reveal": "révéler",
-    "hide": "masquer",
     "readyUsing": "prêt · utilisation",
     "fillHint": "remplissez point de terminaison, modèle + clé pour déverrouiller le chat public.",
     "insecureOrigin": "cette page est servie sur http brut, donc votre navigateur ne laissera aucun site stocker une clé ici — apportez votre propre IA a besoin d'une adresse https. demandez-la au propriétaire, ou utilisez plutôt un code d'accès.",

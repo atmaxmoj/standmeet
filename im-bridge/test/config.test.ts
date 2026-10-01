@@ -63,6 +63,12 @@ describe('bot token 从实例取', () => {
     expect(cfg.telegramToken).toBe('');
   });
 
+  it('粘贴带进来的首尾空白在入口处去掉', async () => {
+    vi.stubGlobal('fetch', respondWith([{ tokens: { discord: '  D-1\n', telegram: ' T-1 ' } }]));
+    expect(await fetchIMConfig('http://backend:8000'))
+      .toEqual({ telegramToken: 'T-1', discordToken: 'D-1' });
+  });
+
   it('早年用 API 建的 IM 供应商（up-… id）照旧是 Telegram', async () => {
     // Before blocks had names, a Telegram bot was connected as a credential supplier with a random
     // id. The instance names no platform, so the bridge must still read that token as Telegram.

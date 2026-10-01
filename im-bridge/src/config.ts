@@ -49,7 +49,8 @@ export async function fetchIMConfig(internalURL: string): Promise<IMConfig> {
  */
 function fromTokens(raw: unknown): IMConfig {
   const tokens = typeof raw === 'object' && raw !== null ? raw as Record<string, unknown> : {};
-  const str = (v: unknown): string => (typeof v === 'string' ? v : '');
+  // trimmed here, once: a pasted token often carries a stray space or newline
+  const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
   const others = Object.entries(tokens).filter(([id]) => id !== 'discord' && id !== 'telegram');
   return {
     telegramToken: str(tokens['telegram']) || str(others[0]?.[1]),

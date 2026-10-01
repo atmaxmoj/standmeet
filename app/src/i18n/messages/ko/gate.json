@@ -48,8 +48,6 @@
     "apiKey": "api key",
     "keyNote": "never uploaded · stored encrypted in your browser",
     "keyShapeHint": "keys for this provider usually start with {prefix} — if yours is different, go ahead",
-    "reveal": "reveal",
-    "hide": "hide",
     "readyUsing": "ready · using",
     "fillHint": "fill endpoint, model + key to unlock the public chat.",
     "insecureOrigin": "this page is served over plain http, so your browser won't let any site store a key here — bring-your-own-AI needs an https address. ask the owner for one, or use an access code instead.",

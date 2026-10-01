@@ -257,21 +257,19 @@ func directSeamKind(kind string) bool {
 
 // assembleDeps —— dependencies to assemble one supplier (openapi and protocol share the set).
 type assembleDeps struct {
-	doer          *http.Client
-	store         connectionStoreAdapter
-	credVault     credVaultAdapter
-	telegramVault telegramVaultAdapter
-	allow         egress.Allow
+	doer      *http.Client
+	store     connectionStoreAdapter
+	credVault credVaultAdapter
+	allow     egress.Allow
 }
 
 func newAssembleDeps(repo *credentials.Repo) *assembleDeps {
 	allow := supplierEgressAllow()
 	return &assembleDeps{
-		doer:          allow.GuardedHTTPClient(),
-		store:         connectionStoreAdapter{repo: repo},
-		credVault:     credVaultAdapter{repo: repo},
-		telegramVault: telegramVaultAdapter{repo: repo},
-		allow:         allow,
+		doer:      allow.GuardedHTTPClient(),
+		store:     connectionStoreAdapter{repo: repo},
+		credVault: credVaultAdapter{repo: repo},
+		allow:     allow,
 	}
 }
 
@@ -294,7 +292,7 @@ func assembleSupplier(m *adapters.Manifest, d *assembleDeps) (adapters.Supplier,
 		// out of band (the `im` seam's token, read by im-bridge). No host client, no protocol name;
 		// the manifest declaring `kind: credential` is the whole selection, so the host stays blind
 		// to which block this is. telegram lives here now (it was a `case "telegram"`).
-		return adapters.NewCredentialOnlySupplier(m.ID, d.telegramVault), nil
+		return adapters.NewCredentialOnlySupplier(m.ID, d.credVault, m.Check, d.doer), nil
 	default:
 		// No `case "protocol"` any more: SMTP was the sole protocol supplier and is now a block
 		// (assembled by blockSeamSupplier, like CalDAV). A sandbox_stdio block never reaches here.

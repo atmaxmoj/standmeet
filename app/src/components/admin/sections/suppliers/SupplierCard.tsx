@@ -8,6 +8,7 @@
 import { useTranslations } from 'next-intl';
 
 import { SupplierOps } from '@/components/admin/sections/suppliers/SupplierOps';
+import { SecretInput } from '@/components/atoms/SecretInput';
 import { SelectField } from '@/components/atoms/SelectField';
 import { useSupplierRedirectURI } from '@/lib/admin/redirect-uri';
 import { useSupplierCard, type SupplierCardHook } from '@/lib/admin/use-supplier-card';
@@ -41,6 +42,7 @@ export function SupplierCardBody({ entry }: { entry: CatalogEntry }) {
   return (
     <>
       <CardHead name={cardName(entry)} connected={hook.connected} connecting={hook.connecting} />
+      <HelpNote help={entry.help ?? ''} />
       <ScopeShortfallNote missing={hook.missingScopes} />
       <UnreadableNote reason={hook.unreadable} />
       <SchemeSelect schemes={hook.schemes} />
@@ -132,6 +134,12 @@ function ScopeShortfallNote({ missing }: { missing: readonly string[] }) {
   );
 }
 
+// HelpNote — the block's own line on where its credential comes from ("都在ui里面写", owner,
+// 2026-10-01): setting up Discord used to need instructions given in chat.
+function HelpNote({ help }: { help: string }) {
+  return help === '' ? null : <p className="sm-supplier-help">{help}</p>;
+}
+
 function UnreadableNote({ reason }: { reason: string }) {
   return reason === '' ? null : (
     <p
@@ -204,12 +212,19 @@ function CredField({ name, onChange }: {
   return (
     <label className="sm-field">
       <span className="sm-field-label">{credFieldLabel(t, name)}</span>
-      <input
-        data-testid={`supplier-field-${name}`}
-        type={isSecret(name) ? 'password' : 'text'}
-        onChange={(e) => onChange(name, e.target.value)}
-        className="sm-field-input sm-mono"
-      />
+      {isSecret(name) ? (
+        <SecretInput
+          testid={`supplier-field-${name}`} onChange={(v) => onChange(name, v)}
+          className="sm-field-input sm-mono"
+        />
+      ) : (
+        <input
+          data-testid={`supplier-field-${name}`}
+          type="text"
+          onChange={(e) => onChange(name, e.target.value)}
+          className="sm-field-input sm-mono"
+        />
+      )}
     </label>
   );
 }

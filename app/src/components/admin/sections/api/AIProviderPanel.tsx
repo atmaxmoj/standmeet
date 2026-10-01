@@ -19,6 +19,7 @@ import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 
 import { AdminSectionHead } from '@/components/admin/AdminSectionHead';
+import { SecretInput } from '@/components/atoms/SecretInput';
 import { ModelLoaderRow } from '@/components/inference/ModelLoaderRow';
 import { InlineSkeleton } from '@/components/skeletons/InlineSkeleton';
 import { type AIProviderPresetView } from '@/lib/api/admin';
@@ -252,14 +253,12 @@ function KeyRow({
   return (
     <div>
       <Label>{t('apiKey')}</Label>
-      <input
-        type="password"
+      <SecretInput
+        testid="ai-provider-key"
         value={keyText}
-        onChange={(e) => setKey(e.target.value)}
+        onChange={setKey}
         placeholder={configured ? t('keyPlaceholderSet') : t('keyPlaceholderUnset')}
-        spellCheck={false}
         autoComplete="off"
-        data-testid="ai-provider-key"
         className="sm-field-input sm-mono"
       />
       <KeyHint configured={configured} typing={keyText !== ''} />

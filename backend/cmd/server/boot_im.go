@@ -30,12 +30,15 @@ func imTokensReader(d *deps.Runtime) func(context.Context) map[string]string {
 	}
 }
 
-// imTokens — block id → the token it stores, for every im supplier that carries one.
-// Disconnecting a supplier clears its credentials (ClearTokens), so an empty credential already
-// means "not usable".
+// imTokens — block id → the token it stores, for every CONNECTED im supplier. A stored token whose
+// connect was refused (the service did not accept it) is not handed over: on sijie the bridge ran
+// a token Discord refused and crash-looped.
 func imTokens(log *slog.Logger, conns []credentials.Connection) map[string]string {
 	out := make(map[string]string, len(conns))
 	for i := range conns {
+		if !conns[i].Connected {
+			continue
+		}
 		if token := connToken(log, &conns[i]); token != "" {
 			out[conns[i].BlockID] = token
 		}

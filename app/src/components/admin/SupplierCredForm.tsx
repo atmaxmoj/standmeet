@@ -10,6 +10,7 @@ import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import type { ReactNode } from 'react';
 
+import { SecretInput } from '@/components/atoms/SecretInput';
 import { SelectField } from '@/components/atoms/SelectField';
 import type { AuthField, AuthForms, AuthScheme } from '@/lib/admin/use-supplier-ingest';
 import { credFieldLabel } from '@/lib/admin/cred-field-label';
@@ -227,14 +228,23 @@ function PlainField({ field, values }: { field: AuthField; values?: Record<strin
       <span className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-muted) block mb-1">
         {credFieldLabel(t, field.key)}
       </span>
-      <input
-        type={field.type === 'password' ? 'password' : 'text'}
-        data-testid={`supplier-field-${field.key}`}
-        readOnly={readonly}
-        defaultValue={readonly ? '/api/admin/suppliers/{id}/callback' : ''}
-        onChange={(e) => { values && (values[field.key] = e.target.value); }}
-        className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-1.5 mono text-[12px]"
-      />
+      {field.type === 'password' ? (
+        <SecretInput
+          testid={`supplier-field-${field.key}`}
+          defaultValue=""
+          onChange={(v) => { values && (values[field.key] = v); }}
+          className="sm-field-input sm-mono"
+        />
+      ) : (
+        <input
+          type="text"
+          data-testid={`supplier-field-${field.key}`}
+          readOnly={readonly}
+          defaultValue={readonly ? '/api/admin/suppliers/{id}/callback' : ''}
+          onChange={(e) => { values && (values[field.key] = e.target.value); }}
+          className="w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-ink) py-1.5 mono text-[12px]"
+        />
+      )}
     </label>
   );
 }

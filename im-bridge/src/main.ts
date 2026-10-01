@@ -10,7 +10,7 @@
 import { createTelegramAdapter } from '@chat-adapter/telegram';
 
 import { platformsFor, waitForChange, waitForConfig } from './config.js';
-import { discordAdapter, listenForever } from './discord.js';
+import { listenForever, prepareDiscord } from './discord.js';
 import { startBridge } from './index.js';
 
 function wiring(key: string, fallback: string): string {
@@ -34,7 +34,7 @@ async function main(): Promise<void> {
   // 那种情况下桥会安静地一条消息都收不到，日志里也不会说它在等一个永远不来的回调。
   const telegram = platforms.includes('telegram')
     ? createTelegramAdapter({ botToken: cfg.telegramToken, mode: 'polling' }) : undefined;
-  const discord = platforms.includes('discord') ? discordAdapter(cfg.discordToken) : undefined;
+  const discord = platforms.includes('discord') ? await prepareDiscord(cfg.discordToken, say) : undefined;
   const chat = startBridge({ adapters: { ...(telegram && { telegram }), ...(discord && { discord }) }, baseURL });
 
   // **先 initialize 再开始收消息** —— 适配器是被 Chat 实例初始化的，

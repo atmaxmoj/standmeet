@@ -48,8 +48,6 @@
     "apiKey": "api-schlüssel",
     "keyNote": "nie hochgeladen · in Ihrem Browser verschlüsselt gespeichert",
     "keyShapeHint": "Schlüssel für diesen Provider beginnen normalerweise mit {prefix} — wenn Ihr anders ist, weiter machen",
-    "reveal": "zeigen",
-    "hide": "verbergen",
     "readyUsing": "bereit · verwenden",
     "fillHint": "füllen Sie Endpunkt, Modell + Schlüssel um den öffentlichen Chat freizuschalten.",
     "insecureOrigin": "Diese Seite wird über einfaches http bereitgestellt, daher lässt Ihr Browser keine Site einen Schlüssel hier speichern — bring-your-own-AI benötigt eine https-Adresse. Fragen Sie den Eigentümer nach einem oder verwenden Sie stattdessen einen Zugriffscode.",

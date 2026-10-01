@@ -22,6 +22,44 @@ import reactPlugin from 'eslint-plugin-react';
 import reactHooksPlugin from 'eslint-plugin-react-hooks';
 import i18nextPlugin from 'eslint-plugin-i18next';
 
+// Presentation layer —— rendering + interaction only. No business logic, state derivation, or
+// control flow here.
+const PRESENTATION_SYNTAX = [
+  {
+    selector: 'JSXElement[openingElement.name.name="style"]',
+    message: 'No inline `<style>` in JSX — put styles in a .css file imported once.',
+  },
+  {
+    selector: 'JSXAttribute[name.name="style"]',
+    message: 'No `style={{...}}` attribute in JSX — use Tailwind classes or a CSS file. ' +
+      'Truly runtime-dynamic values: single-line eslint-disable with a why.',
+  },
+  {
+    selector: 'IfStatement',
+    message:
+      'Presentation layer: no `if`. ' +
+      'Business logic → domain or usecase. ' +
+      'State derivation → zustand selector. ' +
+      'Conditional rendering → && or ternary.',
+  },
+  {
+    selector: 'CallExpression[callee.name="useMemo"]',
+    message:
+      'Presentation layer: no `useMemo`. ' +
+      'Derived state should be computed in zustand store actions. ' +
+      'Components read pre-computed values from store — zero calculation in render.',
+  },
+];
+
+// A masked field is SecretInput, the one component that owns `type="password"` (its eye shows
+// what was typed). Owner, 2026-09-30: one component everywhere, bare masked fields banned.
+const SECRET_INPUT = 'src/components/atoms/SecretInput.tsx';
+const NO_BARE_PASSWORD = {
+  selector: 'JSXAttribute[name.name="type"] Literal[value="password"]',
+  message: 'A masked field is <SecretInput> (components/atoms/SecretInput.tsx): it carries the ' +
+    'eye that shows what was typed. No bare type="password".',
+};
+
 export default tseslint.config(
   {
     ignores: [
@@ -205,33 +243,7 @@ export default tseslint.config(
       'src/components/**/*.tsx',
     ],
     rules: {
-      'no-restricted-syntax': [
-        'error',
-        {
-          selector: 'JSXElement[openingElement.name.name="style"]',
-          message: 'No inline `<style>` in JSX — put styles in a .css file imported once.',
-        },
-        {
-          selector: 'JSXAttribute[name.name="style"]',
-          message: 'No `style={{...}}` attribute in JSX — use Tailwind classes or a CSS file. ' +
-            'Truly runtime-dynamic values: single-line eslint-disable with a why.',
-        },
-        {
-          selector: 'IfStatement',
-          message:
-            'Presentation layer: no `if`. ' +
-            'Business logic → domain or usecase. ' +
-            'State derivation → zustand selector. ' +
-            'Conditional rendering → && or ternary.',
-        },
-        {
-          selector: 'CallExpression[callee.name="useMemo"]',
-          message:
-            'Presentation layer: no `useMemo`. ' +
-            'Derived state should be computed in zustand store actions. ' +
-            'Components read pre-computed values from store — zero calculation in render.',
-        },
-      ],
+      'no-restricted-syntax': ['error', ...PRESENTATION_SYNTAX, NO_BARE_PASSWORD],
       'complexity': ['error', { max: 3 }],
       'max-lines-per-function': [
         'error',
@@ -271,6 +283,14 @@ export default tseslint.config(
     files: ['src/components/writings/WritingArticleMarkdown.tsx'],
     rules: {
       '@next/next/no-img-element': 'off',
+    },
+  },
+
+  // SecretInput owns `type="password"`: the presentation rules, minus the bare-password ban.
+  {
+    files: [SECRET_INPUT],
+    rules: {
+      'no-restricted-syntax': ['error', ...PRESENTATION_SYNTAX],
     },
   },
 );

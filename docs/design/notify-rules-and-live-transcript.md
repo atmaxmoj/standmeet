@@ -24,8 +24,8 @@ Status: DRAFT 2026-09-30, for the owner's review. Decisions the owner makes are 
     only; no update or delete event).
 - Owner notification (`owner.notify`) is hard-wired: email only, on two types
   (`access_request.created`, `booking.created`). A role's `notify_owner` switch feeds it.
-- im-bridge speaks Telegram only, and only in one direction: a visitor chats from inside the IM. It
-  cannot send the owner a message.
+- im-bridge speaks Telegram and Discord (v0.1.104), and only in one direction: a visitor chats from
+  inside the IM. It cannot send the owner a message.
 - The owner reads a conversation with a plain GET (`conversations.get`, admin conversations page).
   Nothing streams to the owner; the only SSE stream is the visitor's own turn.
 

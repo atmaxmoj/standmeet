@@ -25,11 +25,14 @@ func specLessKind(kind string) bool {
 // classification, and the owner still sees "TLS handshake failed…" rather than a generic sentence.
 // A fault is recognized by method, not type (fault.go), so blockadmin needn't import hostop.
 func verifyReason(err error) string {
-	var fc interface{ FaultCode() string }
-	if errors.As(err, &fc) {
-		if msg := err.Error(); msg != "" {
-			return msg
-		}
+	// The fault's own sentence, not err.Error(): that carries the wrapping chain
+	// ("verify block \"discord\": …") in front of the words meant for the owner.
+	var fault interface {
+		FaultCode() string
+		Error() string
+	}
+	if errors.As(err, &fault) && fault.Error() != "" {
+		return fault.Error()
 	}
 	return "the connection test failed — check the host, port, and credentials"
 }

@@ -15,6 +15,7 @@ import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 
 import { AdminSectionHead } from '@/components/admin/AdminSectionHead';
+import { SecretInput } from '@/components/atoms/SecretInput';
 import { useGCal } from '@/lib/admin/use-gcal';
 import { PolicyEditor } from '@/components/admin/sections/suppliers/CalendarBookingPolicy';
 import { useAction } from '@/lib/ui/use-action';
@@ -89,7 +90,7 @@ function CredentialsForm({ hook }: { hook: ReturnType<typeof useGCal> }) {
       <CredentialsRow
         label="client_id"
         testid="gcal-client-id"
-        type="text"
+        secret={false}
         value={clientID}
         onChange={setClientID}
         placeholder="123456789-abc.apps.googleusercontent.com"
@@ -97,7 +98,7 @@ function CredentialsForm({ hook }: { hook: ReturnType<typeof useGCal> }) {
       <CredentialsRow
         label="client_secret"
         testid="gcal-client-secret"
-        type="password"
+        secret
         value={clientSecret}
         onChange={setClientSecret}
         placeholder="GOCSPX-..."
@@ -117,11 +118,11 @@ function CredentialsHint() {
 }
 
 function CredentialsRow({
-  label, testid, type, value, onChange, placeholder,
+  label, testid, secret, value, onChange, placeholder,
 }: {
   label: string;
   testid: string;
-  type: 'text' | 'password';
+  secret: boolean;
   value: string;
   onChange: (v: string) => void;
   placeholder: string;
@@ -131,14 +132,21 @@ function CredentialsRow({
       <span className="mono text-[10.5px] tracking-[0.14em] uppercase text-(--color-muted) block mb-1">
         {label}
       </span>
-      <input
-        type={type}
-        data-testid={testid}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="sm-field-input sm-mono"
-      />
+      {secret ? (
+        <SecretInput
+          testid={testid} value={value} onChange={onChange} placeholder={placeholder}
+          className="sm-field-input sm-mono"
+        />
+      ) : (
+        <input
+          type="text"
+          data-testid={testid}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className="sm-field-input sm-mono"
+        />
+      )}
     </label>
   );
 }

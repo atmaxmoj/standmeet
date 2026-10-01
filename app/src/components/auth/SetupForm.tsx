@@ -10,6 +10,7 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { useCallback } from 'react';
 
+import { SecretInput } from '@/components/atoms/SecretInput';
 import { Field } from '@/components/auth/Field';
 import { TerminalBox } from '@/components/auth/TerminalBox';
 
@@ -152,19 +153,16 @@ function StepCredentials({ form }: { form: SetupFormHook }) {
       </Field>
       <div className="grid grid-cols-2 gap-5">
         <Field label="password">
-          <input
-            type="password" value={form.form.password}
-            onChange={(e) => form.setField('password', e.target.value)}
-            placeholder="8+ characters"
-            data-testid="password" autoComplete="new-password"
-            className="sm-field-input"
+          <SecretInput
+            testid="password" value={form.form.password}
+            onChange={(v) => form.setField('password', v)}
+            placeholder="8+ characters" className="sm-field-input"
           />
         </Field>
         <Field label="confirm">
-          <input
-            type="password" value={form.form.passwordConfirm}
-            onChange={(e) => form.setField('passwordConfirm', e.target.value)}
-            data-testid="password-confirm" autoComplete="new-password"
+          <SecretInput
+            testid="password-confirm" value={form.form.passwordConfirm}
+            onChange={(v) => form.setField('passwordConfirm', v)}
             className="sm-field-input"
           />
         </Field>
@@ -239,11 +237,10 @@ function ProviderKeyField({ form }: { form: SetupFormHook }) {
   const hint = p.needsKey ? `get one at ${p.issuer}` : 'no key — runs locally';
   return (
     <Field label={`${p.label} api key`} hint={hint}>
-      <input
-        type="password" value={form.form.aiKey}
-        onChange={(e) => form.setField('aiKey', e.target.value)}
+      <SecretInput
+        testid="setup-ai-key" value={form.form.aiKey}
+        onChange={(v) => form.setField('aiKey', v)}
         placeholder={p.prefix} disabled={!p.needsKey}
-        data-testid="setup-ai-key" autoComplete="new-password"
         className="sm-field-input sm-mono disabled:opacity-60"
       />
     </Field>

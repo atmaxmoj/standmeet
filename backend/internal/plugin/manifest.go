@@ -75,6 +75,9 @@ type Manifest struct {
 	ID      string `yaml:"id"`
 	Title   string `yaml:"title"`
 	Version string `yaml:"version"`
+	// Help — one setup line for the owner, shown on the block's supplier card: where its
+	// credential comes from. The owner reads it in the UI, not in chat or a doc.
+	Help string `yaml:"help"`
 
 	// Provides — the seam this block supplies, if any. Empty means it supplies
 	// nothing and is merely a consumer.

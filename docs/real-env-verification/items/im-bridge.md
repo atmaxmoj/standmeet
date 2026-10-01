@@ -6,9 +6,9 @@
 - **Exclusive:** none
 - **Backing e2e:** `im-bridge` unit suite (`make im-bridge-test`) — 34 tests over the code-recognition, conversation, chunking, config and wiring layers.
 
-> **Configuration is owner-facing, not environment-facing.** The bot token is a credential like any other connector's — it belongs in `/admin/connectors`, encrypted in `owner_connectors`, not in `.env`. The compose service therefore carries only wiring (the backend address and the visitor entry point) and the bridge asks the instance which token to use, the same shape as the builder polling `/internal/builds/claim`.
+> **Configuration is owner-facing, not environment-facing.** The bot token is a credential like any other supplier's: the owner pastes it on the Telegram or Discord card under `/admin/suppliers`. The compose service carries only wiring (the backend address and the visitor entry point). The bridge asks `GET /internal/im/config` for the tokens of the **connected** im suppliers, and restarts when that set changes.
 >
-> **Not built yet:** the Telegram connector entry in the admin UI and the `/internal/im/config` route behind it. The bridge already speaks that contract and waits gracefully until it answers, so this is a defined seam rather than an open question. It is not a ten-minute addition: every connector today has a *backend* consumer (smtp sends, calendar books), and a credential consumed only by a sidecar is a shape the connector axis does not have yet. Deciding it properly means reading the category-contract and manifest invariants, not guessing at them.
+> **Set up in the UI, not in a portal or a log** (the owner's rule). The Discord card says where its token comes from (manifest `help:`). Connect asks Discord whether it accepts the token (manifest `transport: url + headers`); a refused token is refused on the card and never reaches the bridge. The bridge reads the application id from Discord and turns the Message Content intent on by itself. A token Discord refuses at bridge start skips Discord and leaves Telegram running.
 
 ## Checks
 

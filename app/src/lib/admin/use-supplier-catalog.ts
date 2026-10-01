@@ -36,6 +36,8 @@ const CatalogEntrySchema = z.object({
   title: z.string().nullish(),
   auth_scheme: z.string().nullish(),
   owner_ops: z.array(OwnerOpSchema).nullish(),
+  // help —— the block's own setup line (where its credential comes from).
+  help: z.string().nullish(),
 });
 
 export type OwnerOp = z.infer<typeof OwnerOpSchema>;

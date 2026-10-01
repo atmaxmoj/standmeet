@@ -506,6 +506,32 @@
   color: var(--color-muted);
 }
 
+/* ── secret field (SecretInput) ──────────────────────────────────────────
+   A masked field with an eye at its right end, on the field's own underline. */
+.sm-secret {
+  position: relative;
+  display: block;
+}
+.sm-secret > input { width: 100%; padding-right: 2rem; }
+.sm-secret-eye {
+  position: absolute;
+  right: 0;
+  bottom: 0.45rem;
+  color: var(--color-muted);
+  transition: color 120ms;
+}
+.sm-secret-eye:hover { color: var(--color-ink); }
+
+/* a block's own setup line on its supplier card (manifest `help:`) */
+.sm-supplier-help {
+  margin-bottom: 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--color-muted);
+  overflow-wrap: anywhere;
+}
+
 /* ── select ────────────────────────────────────────────────────────────
    Dropdowns were previously the only control in the whole app that didn't follow this
    visual language (UX-47): 19 `<select>` elements, **five** mutually unaware styles —

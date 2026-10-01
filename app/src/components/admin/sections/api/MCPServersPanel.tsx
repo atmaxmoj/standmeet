@@ -17,6 +17,7 @@ import { useCallback, useState, type ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
 
 import { AdminSectionHead } from '@/components/admin/AdminSectionHead';
+import { SecretInput } from '@/components/atoms/SecretInput';
 import { APIError } from '@/lib/api/api-error';
 import { ListPane } from '@/components/admin/ListPane';
 import { useMCPServers, type CreateMCPServerInput, type MCPProbe, type MCPServersHook, type MCPServerView } from '@/lib/admin/use-mcp-servers';
@@ -314,7 +315,7 @@ function AddForm({ hook }: { hook: MCPServersHook }) {
         <Field label={t('fieldAuthName')} testid="mcp-server-auth-name" value={form.authName}
           onChange={set('authName')} placeholder="Authorization" />
         <Field label={t('fieldAuthValue')} testid="mcp-server-auth-value" value={form.authValue}
-          onChange={set('authValue')} placeholder="Bearer …" type="password" />
+          onChange={set('authValue')} placeholder="Bearer …" secret />
       </div>
       <AddButton disabled={addDisabled(form)} onAdd={onAdd} />
       <AddError error={error} />
@@ -371,24 +372,31 @@ function AddError({ error }: { error: string | null }) {
 }
 
 function Field({
-  label, testid, value, onChange, placeholder, type = 'text',
+  label, testid, value, onChange, placeholder, secret,
 }: {
   label: string; testid: string; value: string;
-  onChange: (v: string) => void; placeholder: string; type?: 'text' | 'password';
+  onChange: (v: string) => void; placeholder: string; secret?: boolean;
 }) {
   return (
     <label className="block">
       <span className="mono text-[10px] tracking-[0.14em] uppercase text-(--color-muted) block mb-1">
         {label}
       </span>
-      <input
-        type={type}
-        data-testid={testid}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="sm-field-input sm-mono"
-      />
+      {secret === true ? (
+        <SecretInput
+          testid={testid} value={value} onChange={onChange} placeholder={placeholder}
+          className="sm-field-input sm-mono"
+        />
+      ) : (
+        <input
+          type="text"
+          data-testid={testid}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className="sm-field-input sm-mono"
+        />
+      )}
     </label>
   );
 }

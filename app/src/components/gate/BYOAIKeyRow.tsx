@@ -1,4 +1,4 @@
-// BYOAIKeyRow — the "API KEY" field in the gate's BYOAI panel: input + reveal/hide
+// BYOAIKeyRow — the "API KEY" field in the gate's BYOAI panel: the shared SecretInput (its eye)
 // + shape hint.
 // Split out of BYOAIPanel to satisfy check-max-lines; that file keeps the assembly,
 // this file is this field's own behavior.
@@ -7,11 +7,12 @@
 
 import { useTranslations } from 'next-intl';
 
+import { SecretInput } from '@/components/atoms/SecretInput';
+
 export function KeyRow({
-  value, onChange, reveal, onToggleReveal, placeholder, keyPrefix,
+  value, onChange, placeholder, keyPrefix,
 }: {
   value: string; onChange: (v: string) => void;
-  reveal: boolean; onToggleReveal: () => void;
   placeholder: string;
   // keyPrefix — what this provider's key looks like (declared by the preset;
   // empty = self-hosted endpoint, don't check shape).
@@ -26,25 +27,10 @@ export function KeyRow({
           {t('keyNote')}
         </span>
       </div>
-      <div className="flex items-baseline gap-3 border-b border-(--color-rule) pb-1">
-        <input
-          type={reveal ? 'text' : 'password'}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          data-testid="byoai-key"
-          autoComplete="new-password"
-          spellCheck={false}
-          className="flex-1 bg-transparent mono py-2 reading text-(--color-ink) placeholder:text-(--color-faint) text-[15.5px] tracking-[0.02em]"
-        />
-        <button
-          type="button"
-          onClick={onToggleReveal}
-          className="mono text-[10px] tracking-[0.12em] uppercase text-(--color-faint) hover:text-(--color-ink) shrink-0"
-        >
-          {reveal ? t('hide') : t('reveal')}
-        </button>
-      </div>
+      <SecretInput
+        testid="byoai-key" value={value} onChange={onChange} placeholder={placeholder}
+        className="sm-field-input sm-mono"
+      />
       <KeyShapeHint value={value} prefix={keyPrefix} />
     </>
   );

@@ -9,6 +9,7 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 
+import { SecretInput } from '@/components/atoms/SecretInput';
 import { SelectField } from '@/components/atoms/SelectField';
 import type { SupplierEntry, SupplierField } from '@/lib/admin/supplier-registry';
 
@@ -114,24 +115,26 @@ function TextField({ field, value, onChange }: {
   value: string;
   onChange: (v: string) => void;
 }) {
-  const secret = field.secret === true;
   return (
     <label className="sm-field">
       <span className="sm-field-label">{field.label}</span>
-      <input
-        type={secret ? 'password' : 'text'}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        autoComplete={secret ? 'new-password' : 'off'}
-        className={textFieldCls(secret)}
-        data-testid={`supplier-field-${field.k}`}
-      />
+      {field.secret === true ? (
+        <SecretInput
+          testid={`supplier-field-${field.k}`} value={value} onChange={onChange}
+          className="sm-field-input sm-mono"
+        />
+      ) : (
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          autoComplete="off"
+          className="sm-field-input"
+          data-testid={`supplier-field-${field.k}`}
+        />
+      )}
     </label>
   );
-}
-
-function textFieldCls(secret: boolean): string {
-  return secret ? 'sm-field-input sm-mono' : 'sm-field-input';
 }
 
 function FormActions({ onCancel }: { onCancel: () => void }) {

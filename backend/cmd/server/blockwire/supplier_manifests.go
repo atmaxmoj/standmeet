@@ -67,6 +67,19 @@ func toSupplierManifest(m *plugin.Manifest) adapters.Manifest {
 		Spec: m.Transport.SpecBytes, Binding: m.Transport.BindingBytes,
 		Fields:   configFieldKeys(m.Config),
 		OwnerOps: declaredOwnerOps(m.OwnerTools),
+		Help:     m.Help,
+		Check:    credentialCheck(m),
+	}
+}
+
+// credentialCheck — a credential block's declared check (transport url + headers); none for any
+// other kind, whose transport url means something else.
+func credentialCheck(m *plugin.Manifest) adapters.CredentialCheck {
+	if m.Transport.Kind != "credential" {
+		return adapters.CredentialCheck{}
+	}
+	return adapters.CredentialCheck{
+		URL: m.Transport.URL, Headers: m.Transport.Headers, Title: m.Title,
 	}
 }
 

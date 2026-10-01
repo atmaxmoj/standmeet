@@ -23,9 +23,11 @@ const errSupplierWrap = "supplier %q: %w"
 // protocol runtime (P3). Built-in and uploaded share the same shape, only the data
 // source differs.
 type Manifest struct {
-	ID   string
-	Kind string // "openapi" | "protocol" | "credential" | "block"
-	Seam string
+	// Check — credential: where the token is accepted, asked on connect (credential_only.go).
+	Check CredentialCheck
+	ID    string
+	Kind  string // "openapi" | "protocol" | "credential" | "block"
+	Seam  string
 	// Title —— the supplier's own display name (the block's declared title). The admin card is
 	// named by it, so two suppliers of one seam (a Google calendar and a CalDAV one) are
 	// distinguishable rather than both reading "calendar".
@@ -37,6 +39,9 @@ type Manifest struct {
 	// AuthScheme — openapi: the securityScheme key the owner picked (empty = the
 	// sole one in the spec).
 	AuthScheme string
+	// Help — the block's own setup line for the owner (where its credential comes from), shown
+	// on its card.
+	Help string
 	// Fields — for a `block` supplier, the owner-connect field keys taken from the block's
 	// declared `config:` (e.g. a CalDAV block declares url/username/password). The credential
 	// form is derived from these, so the host names no block-specific form.

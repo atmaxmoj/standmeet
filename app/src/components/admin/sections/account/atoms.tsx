@@ -9,6 +9,8 @@
 
 import type { ReactNode } from 'react';
 
+import { SecretInput } from '@/components/atoms/SecretInput';
+
 // AcctBlock —— like the page Block but WITHOUT its section border-t. The account
 // fields already separate with their own input underlines, so the extra divider
 // (only the 2nd block in a card picked it up — e.g. above "email") read redundant.
@@ -46,13 +48,8 @@ export function PasswordField({ testid, value, onChange, label }: PasswordFieldP
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) block mb-1">
         {label}
       </span>
-      <input
-        type="password"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        autoComplete="off"
-        spellCheck={false}
-        data-testid={testid}
+      <SecretInput
+        testid={testid} value={value} onChange={onChange} autoComplete="off"
         className="sm-field-input sm-field-lg"
       />
     </label>
