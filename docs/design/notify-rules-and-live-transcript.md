@@ -112,6 +112,28 @@ rule {
 
 Each red on the code of 2026-10-01.
 
+## As built (2026-10-02)
+
+- Acceptance: `e2e/test/notify-rule-live-transcript.spec.ts`. The dev stack runs the real
+  im-bridge against a Bot API stand-in (`mock-stack/job-board/telegram.go`).
+- Rules: `notify_rules` + `notify_rule_marks` + `im_links` (migration 2026-10-02). The
+  `notify.fanout` subscription matches rules and claims the first-only marker **in the fan-out's
+  transaction**, together with queuing `notify.deliver` — one transaction, so a retried fan-out
+  neither sends twice nor loses the marker. The first-time mark is the filter value (this code),
+  else the event's subject.
+- Filters: the subject, or a data key the type declares in `events.Type.Filterable`
+  (`conversation.started` declares `code_id`).
+- Channels: webhook → that endpoint's own `webhook.deliver` job; email → the mail port; im → the
+  bridge's internal `POST :8090/internal/notify`. Owner pairing: `notify.link_im` issues a code,
+  the owner sends `/pair CODE` to the bot, the bridge calls `POST /internal/im/pair`.
+- Live transcript: `/live/<token>` (app) → `GET /api/v1/live/{token}` and `/stream`. The visitor's
+  `/agent/turn` writer is teed onto Redis `standmeet:live:<conversation>` (a `turn` frame with the
+  question, then the visitor's own frames); the SDK's `LiveTranscript` replays them through the
+  chat's reducer.
+- Not folded: existing webhook subscriptions and `owner.notify` keep working as they were; a rule
+  is an additional object. `microsite.store.doc_updated` is not declared: no store update path
+  exists. `doc_deleted` is recorded by the owner's delete.
+
 ## Not in this change
 
 - Stories 1 (any eiab block embedded in a microsite — a general capability, GitHub is one example)
