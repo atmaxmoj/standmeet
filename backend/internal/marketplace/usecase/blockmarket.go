@@ -67,6 +67,9 @@ func NewBlockMarket(base string) *BlockMarket {
 	return &BlockMarket{http: httpx.NewClient(httpx.Options{Timeout: npmHTTPTimeout}), base: b}
 }
 
+// Registry — the npm registry this instance reads, for an `npm install --registry`.
+func (b *BlockMarket) Registry() string { return b.base }
+
 // Search — npm search, keeping only dsh/koishi-ecosystem plugin packages.
 func (b *BlockMarket) Search(ctx context.Context, query string) ([]BlockHit, error) {
 	text := strings.TrimSpace(query)

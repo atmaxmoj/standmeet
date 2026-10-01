@@ -64,6 +64,10 @@ func npmQueryMatchesDemo(q string) bool {
 }
 
 func (s *server) serveNpmPackage(w http.ResponseWriter, r *http.Request) {
+	if _, ok := npmFixtures[r.PathValue("id")]; ok {
+		s.serveNpmFixtureDoc(w, r, r.PathValue("id"))
+		return
+	}
 	if r.PathValue("id") != npmDemoPkg {
 		http.Error(w, "no such package", http.StatusNotFound)
 		return
@@ -80,6 +84,13 @@ func (s *server) serveNpmPackage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) serveNpmTarball(w http.ResponseWriter, r *http.Request) {
+	if _, ok := npmFixtures[r.PathValue("id")]; ok {
+		w.Header().Set("Content-Type", "application/gzip")
+		if _, err := w.Write(s.npmFixtureTarball(r.PathValue("id"))); err != nil {
+			s.log.Error("write npm fixture tarball", "err", err)
+		}
+		return
+	}
 	if r.PathValue("id") != npmDemoPkg {
 		http.Error(w, "no such tarball", http.StatusNotFound)
 		return

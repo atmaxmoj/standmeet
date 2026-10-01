@@ -42,6 +42,8 @@ type blockOps struct {
 	assembly  *assembly.Repo
 	store     *blockstore.Store
 	warn      *blockwarn.Store
+	// buildsRoot — the microsites volume; a block's wrapped package lives under it.
+	buildsRoot string
 }
 
 func newBlockOps(d *deps.Runtime) blockOps {
@@ -50,6 +52,7 @@ func newBlockOps(d *deps.Runtime) blockOps {
 		registry: d.AgentSkills, settings: d.BlockEnableRepo,
 		skills: d.SkillRepo, suppliers: d.Credentials,
 		assembly: d.Assembly, store: store, warn: blockwarn.New(store),
+		buildsRoot: d.BuildsRoot,
 	}
 }
 

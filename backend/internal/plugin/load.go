@@ -15,6 +15,8 @@ import (
 	"fmt"
 	"io/fs"
 	"path"
+	"regexp"
+	"strings"
 
 	yaml "go.yaml.in/yaml/v3"
 
@@ -23,6 +25,37 @@ import (
 
 // manifestFile — the name every block's declaration goes by.
 const manifestFile = "manifest.yaml"
+
+var (
+	// packageSpec — a registry package, optionally scoped and versioned. Refuses `file:`,
+	// `git+`, URLs and paths: the package reaches npm's command line.
+	packageSpec = regexp.MustCompile(
+		`^(@[a-z0-9][a-z0-9._~-]*/)?[a-z0-9][a-z0-9._~-]*(@[A-Za-z0-9.^~<>=*+-]+)?$`)
+	// dirSafeID — a block carrying a package names a directory on the shared volume.
+	dirSafeID = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]*$`)
+)
+
+// validateDecls — the declarations a manifest's text alone can be checked for.
+func validateDecls(m *Manifest) error {
+	if err := validateSchemas(m); err != nil {
+		return err
+	}
+	return validatePackage(m)
+}
+
+// validatePackage — `package:` names a registry package, and the block id is a safe dir name.
+func validatePackage(m *Manifest) error {
+	if m.Package == "" {
+		return nil
+	}
+	if !packageSpec.MatchString(m.Package) {
+		return fmt.Errorf("package %q must be a registry package, like name@1.2.3", m.Package)
+	}
+	if !dirSafeID.MatchString(m.ID) || strings.Contains(m.ID, "..") {
+		return errors.New("a block carrying a package needs an id of a-z, 0-9, . _ -")
+	}
+	return nil
+}
 
 // Load — every block in fsys, one per top-level directory.
 //
@@ -70,7 +103,7 @@ func ParseManifest(raw []byte) (Manifest, error) {
 	if m.Version != SupportedVersion {
 		return Manifest{}, fmt.Errorf("unsupported manifest version %q", m.Version)
 	}
-	if verr := validateSchemas(&m); verr != nil {
+	if verr := validateDecls(&m); verr != nil {
 		return Manifest{}, verr
 	}
 	// No transport check, deliberately. A block that declares no way to start is

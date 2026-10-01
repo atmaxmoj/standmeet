@@ -17,7 +17,7 @@
 // The child processes run async, never execFileSync: a sync child blocks the event loop, and a
 // blocked loop sends no lease renewals — a long build would then look like a dead builder.
 
-import { mkdirSync, writeFileSync, readFileSync, cpSync, existsSync, rmSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, readdirSync, cpSync, existsSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -72,7 +72,7 @@ async function claimJob() {
 }
 
 async function processJob(job) {
-  const { build_id, page_id, source_files, entry, lease_ms } = job;
+  const { build_id, page_id, source_files, entry, lease_ms, packages } = job;
   console.log(`[builder] build ${build_id} (page ${page_id})`);
   const workDir = `/tmp/work/${build_id}`;
   // ms —— per-step wall time, logged with the outcome: a build that took 3 minutes instead of 25s
@@ -86,7 +86,7 @@ async function processJob(job) {
   // is taken for dead.
   const renewal = setInterval(() => { void renewLease(build_id); }, lease_ms / 4);
   try {
-    await timed('setup', () => setupViteProject(workDir, source_files, entry));
+    await timed('setup', () => setupViteProject(workDir, source_files, entry, packages ?? []));
     await timed('vite', () => runViteBuild(workDir));
     await timed('prerender', () => prerender(workDir));
     const outDir = `${SHARED_ROOT}/${page_id}/${build_id}/dist`;
@@ -115,11 +115,12 @@ async function renewLease(buildID) {
   }
 }
 
-function setupViteProject(workDir, files, entry) {
+function setupViteProject(workDir, files, entry, packages) {
   rmSync(workDir, { recursive: true, force: true });
   mkdirSync(workDir, { recursive: true });
   cpSync(TEMPLATE, workDir, { recursive: true });
   cpSync(NODE_MODULES, join(workDir, 'node_modules'), { recursive: true, dereference: false });
+  for (const id of packages) addWrappedPackage(join(workDir, 'node_modules'), id);
 
   const ownerDir = join(workDir, 'src', 'owner');
   mkdirSync(ownerDir, { recursive: true });
@@ -139,6 +140,23 @@ function setupViteProject(workDir, files, entry) {
     `export { default } from './owner/${entryBase}';\n`,
     'utf8',
   );
+}
+
+// addWrappedPackage —— a block that carries an npm package was installed once, scripts off, into
+// <shared>/_blocks/<id>/node_modules (backend blockwire/npm_wrap.go). Using it is a file copy, as
+// the SDK in the Dockerfile is. What we ship wins: an entry already present (react, vite,
+// @standmeet/*) is never replaced, so a package cannot bring a second React.
+function addWrappedPackage(nodeModules, id) {
+  if (!/^[a-z0-9][a-z0-9._-]*$/.test(id) || id.includes('..')) return;
+  const from = join(SHARED_ROOT, '_blocks', id, 'node_modules');
+  if (!existsSync(from)) return;
+  for (const name of readdirSync(from)) {
+    if (name.startsWith('.')) continue;
+    const names = name.startsWith('@') ? readdirSync(join(from, name)).map((n) => join(name, n)) : [name];
+    for (const n of names) {
+      if (!existsSync(join(nodeModules, n))) cpSync(join(from, n), join(nodeModules, n), { recursive: true });
+    }
+  }
 }
 
 // runViteBuild — run one build. **The compiler's own words must be captured**: `stdio: 'inherit'`

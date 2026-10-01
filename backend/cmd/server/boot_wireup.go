@@ -54,6 +54,7 @@ func buildServerDeps(d *deps.Runtime) *Deps {
 		},
 		Builds: sysroutes.BuilderDeps{
 			Log: d.Log, Builds: d.MicrositeBuildRepo, Version: port.AppVersion(),
+			Packages: blockwire.WrappedPackages(d),
 			Settle: owner.BuildSettleDeps{
 				Builds: d.MicrositeBuildRepo, Pages: d.MicrositeRepo, Events: d.Events.Recorder(),
 			},

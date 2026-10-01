@@ -96,6 +96,7 @@ func (a blockOps) uninstall(ctx context.Context, ownerID, id string) error {
 	if err := a.assembly.Uninstall(ctx, ownerID, id); err != nil {
 		return fmt.Errorf("uninstall block: %w", err)
 	}
+	removeQuietly(WrappedDir(a.buildsRoot, id))
 	if held > 0 {
 		a.raiseDataLoss(ctx, ownerID, id, held)
 	}

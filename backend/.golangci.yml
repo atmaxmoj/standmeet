@@ -419,6 +419,13 @@ linters:
       - path: internal/infra/sandbox/
         linters: [gosec]
         text: G204
+      # The block-install wrapper runs `npm install <package>` with an argv, never a shell. The
+      # package is the manifest's `package:`, which ParseManifest refuses unless it is a plain
+      # registry name@version (no file:, git+, URL or path); --ignore-scripts keeps the package's
+      # own code from running.
+      - path: cmd/server/blockwire/npm_wrap\.go$
+        linters: [gosec]
+        text: G204
       # internal/plugin/effect is the port of arXiv:2608.25512 (docs/design/plugin/effects.md).
       # It is currently a CONTRACT: every method panics, and 119 properties behind the
       # Two rules do not apply to it, each for a reason that is a design decision rather than an

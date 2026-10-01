@@ -78,6 +78,10 @@ type Manifest struct {
 	// Help — one setup line for the owner, shown on the block's supplier card: where its
 	// credential comes from. The owner reads it in the UI, not in chat or a doc.
 	Help string `yaml:"help"`
+	// Package — an npm package this block carries for microsites (`name@version`, registry only).
+	// Installing the block installs it once, with lifecycle scripts off; a microsite build then
+	// finds it in node_modules (docs/design/plugin/microsite-build.md).
+	Package string `yaml:"package"`
 
 	// Provides — the seam this block supplies, if any. Empty means it supplies
 	// nothing and is merely a consumer.

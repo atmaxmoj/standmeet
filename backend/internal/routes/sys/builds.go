@@ -25,6 +25,7 @@
 package sys
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -43,6 +44,9 @@ type BuilderDeps struct {
 	Builds *owner.MicrositeBuildRepo
 	// Settle —— what a report writes: the build row, its event, the owner's wake-up.
 	Settle owner.BuildSettleDeps
+	// Packages —— the page owner's blocks carrying an npm package; the builder copies their
+	// wrapped trees into the build's node_modules.
+	Packages func(ctx context.Context, pageID string) []string
 	// Version —— this backend's release version; a builder of any other version gets no work.
 	// Last: its length word is the only non-pointer data here (govet fieldalignment).
 	Version string
@@ -71,6 +75,7 @@ type claimResponse struct {
 	BuildID     string            `json:"build_id"`
 	PageID      string            `json:"page_id"`
 	Entry       string            `json:"entry"`
+	Packages    []string          `json:"packages"`
 	LeaseMS     int64             `json:"lease_ms"`
 }
 
@@ -91,6 +96,7 @@ func claimBuild(deps BuilderDeps) http.HandlerFunc {
 			PageID:      build.PageID,
 			Entry:       entry,
 			SourceFiles: build.SourceFiles,
+			Packages:    deps.Packages(r.Context(), build.PageID),
 			LeaseMS:     buildLease.Milliseconds(),
 		}
 		if encErr := json.NewEncoder(w).Encode(resp); encErr != nil {

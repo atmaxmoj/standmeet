@@ -299,16 +299,24 @@ func parseInstallArgs(raw json.RawMessage) (*parsedInstall, error) {
 	return &parsedInstall{m: m, text: in.Manifest}, nil
 }
 
+// beforePersist — what must hold before the block is stored. A cyclic composition is refused:
+// a block whose requires close a loop with the already-installed set has no load order. A package
+// the block carries is installed now, so a package that cannot be installed leaves no block behind.
+func beforePersist(ctx context.Context, d *deps.Runtime, ownerID string, p *parsedInstall) error {
+	if cerr := refuseIfCycle(ctx, d, ownerID, &p.m); cerr != nil {
+		return cerr
+	}
+	return wrapPackage(ctx, d, p.m.ID, p.m.Package)
+}
+
 // persistAndMount — persist before mounting, so a block that mounts today is still installed
 // after a restart. The alternative is a block that works until the process dies, which is
 // worse than one that never worked.
 func persistAndMount(
 	ctx context.Context, d *deps.Runtime, ownerID string, p *parsedInstall,
 ) error {
-	// Refuse a cyclic composition BEFORE persisting: a block whose requires close a loop with the
-	// already-installed set has no load order and must not be stored or mounted.
-	if cerr := refuseIfCycle(ctx, d, ownerID, &p.m); cerr != nil {
-		return cerr
+	if perr := beforePersist(ctx, d, ownerID, p); perr != nil {
+		return perr
 	}
 	rec := assembly.InstalledBlock{BlockID: p.m.ID, Title: p.m.Title, Manifest: p.text}
 	serr := pgstore.InTx(ctx, d.Assembly.Pool(), func(tx pgstore.Tx) error {
