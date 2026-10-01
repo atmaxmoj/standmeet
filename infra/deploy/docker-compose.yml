@@ -193,18 +193,6 @@ services:
       retries: 12
       start_period: 5s
 
-  # stt —— voice input: speech-to-text on this server (SenseVoice, CPU, ~400 MB RAM). Audio never
-  # leaves the instance. Internal only. Optional: without it the chat simply offers no mic.
-  stt:
-    image: ghcr.io/atmaxmoj/standmeet-stt:${STANDMEET_IMAGE_TAG:-latest}
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=3)"]
-      interval: 10s
-      timeout: 5s
-      retries: 12
-      start_period: 30s
-
   # minio —— bundled S3 storage, internal only (the backend serves uploads). Do not give it a
   # public domain. Silo is the maintained drop-in fork of MinIO.
   minio:

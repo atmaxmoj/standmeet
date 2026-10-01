@@ -38,10 +38,21 @@
 # But Go cross-compiles natively: let the compiler run native and just set `GOARCH`
 # to the target arch (see the builder stage). Emulation emulates **execution**;
 # cross-compilation swaps the **output** — the latter has none of that cost.
-FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS deps
+#
+# cgo is on (voice input: internal/infra/stt calls sherpa-onnx, a native library — voice-input.md),
+# so the toolchain is Debian (glibc, what the prebuilt libraries are linked against), and the arch
+# that is not the build machine's own gets a cross C compiler: still native compilation, no QEMU.
+FROM --platform=$BUILDPLATFORM golang:1.26-bookworm AS deps
+ARG BUILDARCH
 WORKDIR /app
 
-RUN apk add --no-cache git bash make
+RUN apt-get update \
+    && case "$BUILDARCH" in \
+         amd64) cross="gcc-aarch64-linux-gnu libc6-dev-arm64-cross libstdc++6-arm64-cross" ;; \
+         arm64) cross="gcc-x86-64-linux-gnu libc6-dev-amd64-cross libstdc++6-amd64-cross" ;; \
+       esac \
+    && apt-get install -y --no-install-recommends git make $cross \
+    && rm -rf /var/lib/apt/lists/*
 
 # Fetch deps first (a separate cache layer). The backend no longer imports any
 # mcp-servers module, so only backend's own deps are needed.
@@ -56,9 +67,10 @@ WORKDIR /app/backend
 
 # Stage 2: Build
 FROM deps AS builder
-# TARGETARCH is injected by buildx per the path currently being built (amd64 / arm64).
-# CGO is off, so this is pure cross-compilation — no target-arch toolchain needed.
+# TARGETARCH is injected by buildx per the path currently being built (amd64 / arm64). The C
+# compiler follows it: the native gcc for the build machine's own arch, the cross gcc otherwise.
 ARG TARGETARCH
+ARG BUILDARCH
 # STANDMEET_VERSION — burns the release tag into the binary. `port.appVersion` was a
 # `var` precisely for this line, and this line was never written: so the instance
 # reported the literal from source, unrelated to the image actually running.
@@ -66,13 +78,26 @@ ARG TARGETARCH
 # If unset it stays that literal — which is why it now reads "dev", so it's obvious
 # at a glance that "this build was never stamped".
 ARG STANDMEET_VERSION=dev
-ENV CGO_ENABLED=0 GOOS=linux
+ENV CGO_ENABLED=1 GOOS=linux
 RUN --mount=type=cache,target=/root/.cache/go-build \
-    GOARCH=$TARGETARCH go build \
+    case "$TARGETARCH" in \
+      "$BUILDARCH") cc=gcc ;; \
+      amd64) cc=x86_64-linux-gnu-gcc ;; \
+      arm64) cc=aarch64-linux-gnu-gcc ;; \
+    esac \
+    && CC=$cc GOARCH=$TARGETARCH go build \
     -trimpath \
     -ldflags="-s -w -X github.com/atmaxmoj/standmeet/cmd/server/port.appVersion=${STANDMEET_VERSION}" \
     -o /out/standmeet \
     ./cmd/server
+# The two shared libraries the binary links (sherpa-onnx's C API + onnxruntime), for the target arch.
+RUN case "$TARGETARCH" in \
+      amd64) d=x86_64-unknown-linux-gnu ;; \
+      arm64) d=aarch64-unknown-linux-gnu ;; \
+    esac \
+    && mkdir -p /out/lib \
+    && cp "$(go list -m -f '{{.Dir}}' github.com/k2-fsa/sherpa-onnx-go-linux)/lib/$d/libsherpa-onnx-c-api.so" \
+          "$(go list -m -f '{{.Dir}}' github.com/k2-fsa/sherpa-onnx-go-linux)/lib/$d/libonnxruntime.so" /out/lib/
 
 # Stage 2a: block plugins (node MCP servers) → /srv/plugins.
 # These are PRODUCT artifacts — the visitor-facing blocks (ask_visitor / calendar.book /
@@ -112,6 +137,17 @@ RUN mkdir -p /srv/geoip && \
     done && \
     test -s /srv/geoip/dbip-city-lite.mmdb
 
+# Stage 2b': the speech model for voice input (SenseVoice-Small int8: zh/en/ja/ko/yue, ~240 MB).
+# Baked in so the instance transcribes offline and an upgrade brings it with the binary.
+FROM alpine:3.21 AS stt
+RUN apk add --no-cache curl bzip2
+ARG SENSEVOICE_URL=https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17.tar.bz2
+RUN mkdir -p /srv/stt /tmp/sv \
+    && curl -fsSL --connect-timeout 20 --max-time 600 --retry 3 --retry-all-errors "$SENSEVOICE_URL" -o /tmp/sv.tar.bz2 \
+    && tar -xjf /tmp/sv.tar.bz2 -C /tmp/sv --strip-components=1 \
+    && cp /tmp/sv/model.int8.onnx /tmp/sv/tokens.txt /srv/stt/ \
+    && rm -rf /tmp/sv /tmp/sv.tar.bz2
+
 # Stage 2c: the owner MCP client tarball (@standmeet/mcp-client) → /srv/mcp-client.tgz.
 # The client is a SEPARATE artifact the owner installs on their own machine; it does NOT ride the
 # instance's upgrade. Its update_self tool pulls the pinned tarball from GET /api/mcp-package, which
@@ -137,7 +173,9 @@ RUN pnpm -F @standmeet/sdk-core build \
     && mv /srv/*.tgz /srv/mcp-client.tgz
 
 # Stage 3: Production
-FROM alpine:3.21 AS production
+# Debian (glibc), not alpine: the speech engine's prebuilt libraries need glibc. node:22-bookworm-slim
+# carries the node 22 + npm the plugin sandbox runs.
+FROM node:22-bookworm-slim AS production
 # ghcr → repo linkage: GitHub reads this to list the pushed image under the repo's Packages.
 LABEL org.opencontainers.image.source="https://github.com/atmaxmoj/standmeet"
 WORKDIR /app
@@ -147,14 +185,22 @@ WORKDIR /app
 # third-party MCP servers via `bwrap` (an isolation env, no image) — the server
 # code rides a mounted dir, but the interpreters live here in the host image and
 # bwrap bind-mounts them read-only into the sandbox.
-RUN apk add --no-cache ca-certificates docker-cli bubblewrap nodejs npm python3
+# wget: the healthcheck every deployed compose already runs against this container (busybox had it
+# on alpine) — an upgraded instance keeps its old healthcheck line, so the tool must stay.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates bubblewrap python3 wget \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=docker:27-cli /usr/local/bin/docker /usr/local/bin/docker
+# The speech engine's shared libraries (voice-input.md), on the loader path.
+COPY --from=builder /out/lib/ /usr/local/lib/
+RUN ldconfig
 
 # The résumé PDF is rendered by the SAME Puck config as the editor (one renderer, A3): gotenberg's
 # Chromium loads the app's print route and prints it — so this image no longer bundles the typst
 # binary or CJK fonts (CJK comes from the gotenberg sidecar's Chromium fonts).
 
-RUN addgroup --system --gid 1001 standmeet && \
-    adduser --system --uid 1001 --ingroup standmeet standmeet
+RUN groupadd --system --gid 1001 standmeet && \
+    useradd --system --uid 1001 --gid standmeet --no-create-home standmeet
 
 COPY --from=builder --chown=standmeet:standmeet /out/standmeet /app/standmeet
 COPY --from=builder --chown=standmeet:standmeet /app/backend/entrypoint.sh /app/entrypoint.sh
@@ -164,6 +210,8 @@ COPY --from=plugins --chown=standmeet:standmeet /srv/plugins /srv/plugins
 # Bundle the geoip database (default path matches monitor_geoip.go's geoDefaultPath), so the monitor
 # resolves visitor country/city from the IP even when no CDN header carried one.
 COPY --from=geoip --chown=standmeet:standmeet /srv/geoip /srv/geoip
+# Bake the speech model (internal/infra/stt reads /srv/stt).
+COPY --from=stt --chown=standmeet:standmeet /srv/stt /srv/stt
 # Bake the owner MCP client tarball so GET /api/mcp-package (update_self) can serve it.
 COPY --from=mcpclient --chown=standmeet:standmeet /srv/mcp-client.tgz /srv/mcp-client.tgz
 

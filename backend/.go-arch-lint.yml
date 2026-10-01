@@ -94,7 +94,7 @@ components:
   gotenberg:
     in: internal/infra/gotenberg                # HTTP client for the Gotenberg PDF render sidecar
   stt:
-    in: internal/infra/stt                      # HTTP client for the instance's speech-to-text service
+    in: internal/infra/stt                      # speech-to-text in the backend process (sherpa-onnx)
   printsess:
     in: internal/owner/jobs/printsess                # Redis 60s stash for gotenberg-bound resume payload
   jobcues:
@@ -941,11 +941,10 @@ deps:
       - httpx
     anyVendorDeps: true
 
-  # stt — thin HTTP client for the bundled speech-to-text service (docs/design/voice-input.md): the
-  # OpenAI transcription shape, so any compatible engine sits behind it. No domain dependency.
+  # stt — speech-to-text in the backend process (docs/design/voice-input.md): SenseVoice on
+  # sherpa-onnx (cgo), the model baked into the image. No domain dependency.
   stt:
     mayDependOn:
-      - httpx
       - apierr
     anyVendorDeps: true
 

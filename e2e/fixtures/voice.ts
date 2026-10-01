@@ -2,10 +2,8 @@
 //
 // The browser half is driven for real: Chromium's fake microphone plays a recorded sentence
 // (fakeMicArgs). These helpers cover what a browser cannot set up: a recording sent straight to
-// the transcribe route (a second language without a second browser, an over-cap upload), and the
-// speech service taken away and brought back through the Makefile.
+// the transcribe route (a second language without a second browser, an over-cap upload).
 
-import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -36,9 +34,4 @@ export async function transcribeFile(
 
 export function audioFile(name: string): Buffer {
   return readFileSync(path.join(AUDIO_DIR, name));
-}
-
-// setSpeechService —— stop or start the bundled stt service (the Makefile is the one docker entry).
-export function setSpeechService(up: boolean): void {
-  execSync(`make -C .. ${up ? 'dev-start-svc' : 'dev-stop-svc'} SVC=stt`, { stdio: 'inherit' });
 }

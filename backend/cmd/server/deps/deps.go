@@ -55,8 +55,8 @@ type Runtime struct {
 	MCPProber         marketplace.MCPServerProber
 	SeamNeeds         marketplace.SeamNeeds
 	ReportPDFRenderer publicroutes.ReportPDFRenderer
-	// Speech —— the speech-to-text service (voice-input.md); never nil, maybe never available.
-	Speech           *stt.Client
+	// Speech —— speech-to-text in this process (voice-input.md); never nil, maybe no model.
+	Speech           *stt.Engine
 	PdfRenderer      jobsuc.PDFRenderer
 	CaptchaVerifier  security.Verifier
 	ProviderResolver inference.Resolver

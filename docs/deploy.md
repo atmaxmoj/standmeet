@@ -70,13 +70,12 @@ fine exposing that way.
 - **minio is internal only.** The backend serves uploads (`GET /api/v1/assets/{id}`, a signed
   link), so storage needs no domain. Silo replaced `minio/minio` after MinIO deleted it from Docker
   Hub (2026-09-11).
-- **stt ships with the stack, and is optional.** Voice input turns a visitor's recording into text
-  on this server (SenseVoice on sherpa-onnx, CPU only, ~400 MB RAM); audio never leaves the
-  instance and is not stored. The backend reaches it at `http://stt:8080`, its built-in default.
-  Without the service the chat offers no microphone and works as before. **An instance installed
-  before voice input has no `stt` service**: the upgrade button recreates existing services only, so
-  add the `stt` block from `infra/deploy/docker-compose.yml` to your compose (Coolify: edit the
-  stack) and redeploy once. (docs/design/voice-input.md)
+- **Voice input needs nothing in this file.** The backend transcribes in its own process (SenseVoice
+  on sherpa-onnx, the model baked into the image); audio never leaves the instance and is not
+  stored. The upgrade button brings it like any other backend change. (docs/design/voice-input.md)
+- **The backend keeps `wget`.** Its image moved from alpine to Debian (the speech engine needs
+  glibc), and every deployed compose still health-checks it with `wget`; the image installs it so an
+  upgraded instance keeps passing its old healthcheck.
 - **The updater has docker.sock; nothing else does.** On the upgrade button it reads its own
   compose project label, lists its siblings and recreates each in place on the new image — same
   volumes, networks and env. An earlier version ran `docker compose up` on a fetched file and built

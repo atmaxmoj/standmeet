@@ -1,11 +1,11 @@
-# CircleCI release pipeline — build the seven release images and push them to ghcr.io.
+# CircleCI release pipeline — build the six release images and push them to ghcr.io.
 #
 # Why this exists: the Mac dev box builds linux/amd64 under QEMU and runs Docker in a
 # memory-boxed VM, so `make release-push` there is slow and OOM-crashes the multi-arch
 # buildx. CircleCI runs native Linux, so the amd64 half is native and there is no VM
 # memory ceiling.
 #
-# Shape (owner's call): ONE parallel job per image (matrix over the seven), so a slow image
+# Shape (owner's call): ONE parallel job per image (matrix over the six), so a slow image
 # never blocks the others and any single image can be re-run alone. Each job just calls
 # `make release-push-one SVC=<image>` — the build args live in the Makefile, never here, so
 # the two cannot drift.
@@ -64,7 +64,7 @@ workflows:
           name: build-<< matrix.image >>
           matrix:
             parameters:
-              image: [backend, app, builder, im-bridge, db, updater, stt]
+              image: [backend, app, builder, im-bridge, db, updater]
           filters:
             tags:
               only: /^v.*/

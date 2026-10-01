@@ -147,6 +147,10 @@ type deferredWiring struct {
 // answers at its timeout.
 const maxPreviewWaiters = 64
 
+// sttModelDir —— where the backend image bakes the speech model (backend/Dockerfile, the stt
+// stage). Fixed by the image, not a knob; a build without it simply offers no mic.
+const sttModelDir = "/srv/stt"
+
 func assembleRuntimeDeps(
 	log *slog.Logger, cfg *config.Config, c *conns, repos *repoSet, dw *deferredWiring,
 ) deps.Runtime {
@@ -184,7 +188,7 @@ func assembleRuntimeDeps(
 		PrintStore:         printStore,
 		PdfRenderer:        buildPDFRenderer(log, cfg, printStore),
 		ReportPDFRenderer:  buildReportPDFRenderer(cfg),
-		Speech:             stt.New(cfg.STTURL),
+		Speech:             stt.New(sttModelDir),
 		MarketplaceClient: marketplace.NewFromEnv(
 			dw.live.SkillCatalogue, cfg.MarketplaceSkillsMPBaseURL,
 		),

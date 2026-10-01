@@ -1,11 +1,10 @@
 // voice-input.spec.ts —— a visitor speaks a question instead of typing it
 // (docs/design/voice-input.md; owner 2026-09-30 "服务器端转写吧", 2026-10-01 "语音输入，你就做吧").
 //
-// Real stack, real speech service: the stt container runs SenseVoice on the instance. Chromium's
+// Real stack, real model: the backend runs SenseVoice in process (internal/infra/stt). Chromium's
 // fake microphone plays a recorded English sentence; the visitor presses the mic, stops, and the
 // words land in the input box — not sent: the visitor reads and sends. A Chinese recording goes
-// through the same route. The caps and the session check refuse with a sentence. With the speech
-// service gone, the composer offers no mic and the chat still works.
+// through the same route. The caps and the session check refuse with a sentence.
 //
 // RED on the code of 2026-10-01: there is no mic, no /transcribe and no /voice.
 
@@ -17,7 +16,7 @@ import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { scriptMockReplyText } from '@/fixtures/mock-llm-script';
 import { enterCodeSession } from '@/fixtures/navigate';
-import { audioFile, fakeMicArgs, setSpeechService, transcribeFile } from '@/fixtures/voice';
+import { audioFile, fakeMicArgs, transcribeFile } from '@/fixtures/voice';
 
 const OWNER = {
   email: 'voice-input@example.com', password: 'correct-horse-battery-staple',
@@ -37,11 +36,8 @@ test.describe.serial('voice input · speak a question, read it, send it', () => 
   test('the mic turns a spoken English sentence into text in the input box, then it sends', async (
     { page, playwright },
   ) => {
-    test.setTimeout(180_000);
-    // The instance re-checks the speech service once a minute; a run right after the "service gone"
-    // case waits for it to see the service back.
-    await expect.poll(async () => voiceAvailable(page),
-      { timeout: 90_000, message: 'the instance sees the speech service' }).toBe(true);
+    test.setTimeout(120_000);
+    expect(await voiceAvailable(page), 'the backend carries the speech model').toBe(true);
     await page.context().grantPermissions(['microphone']);
     await enterCodeSession(page, CODE);
     await speakIntoMic(page);
@@ -71,25 +67,10 @@ test.describe.serial('voice input · speak a question, read it, send it', () => 
     await stranger.dispose();
   });
 
-  test('with the speech service gone there is no mic, and the chat still answers', async ({ page, playwright }) => {
-    test.setTimeout(150_000);
-    setSpeechService(false);
-    try {
-      await expect.poll(async () => voiceAvailable(page),
-        { timeout: 90_000, message: 'the instance notices the service is gone' }).toBe(false);
-      await enterCodeSession(page, CODE);
-      await sendAndExpect(page, playwright, 'TYPED_7', 'typed question');
-      await expect(page.getByTestId('chat-input'), 'the composer is there').toBeVisible();
-      await expect(page.getByTestId('chat-mic'), 'and offers no mic').toHaveCount(0);
-    } finally {
-      setSpeechService(true);
-    }
-  });
 });
 
 async function initOwner(playwright: Playwright): Promise<void> {
   resetInstance();
-  setSpeechService(true);
   const request = await playwright.request.newContext();
   await claim(request, findSetupToken(), OWNER);
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
@@ -108,13 +89,13 @@ async function speakIntoMic(page: Page): Promise<void> {
   await mic.click();
 }
 
-// sendAndExpect —— send what is in the input (or the given text) and wait for the scripted answer.
-async function sendAndExpect(page: Page, playwright: Playwright, marker: string, typed?: string): Promise<void> {
+// sendAndExpect —— send what is in the input and wait for the scripted answer.
+async function sendAndExpect(page: Page, playwright: Playwright, marker: string): Promise<void> {
   const request = await playwright.request.newContext();
   const reply = await scriptMockReplyText(request, `Answer ${marker}.`);
   await request.dispose();
   const input = page.getByTestId('chat-input-field');
-  await input.fill(`${typed ?? await input.inputValue()}${reply}`);
+  await input.fill(`${await input.inputValue()}${reply}`);
   await input.press('Enter');
   await expect(page.getByTestId('answer-body').last(), 'the question got an answer')
     .toContainText(marker, { timeout: 30_000 });

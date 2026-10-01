@@ -251,7 +251,7 @@ export type TranscribeResult = { ok: true; text: string } | { ok: false; code: s
 // own origin; the bearer token for a host on another origin).
 export async function transcribeRecording(audio: Blob, sessionToken: string): Promise<TranscribeResult> {
   const form = new FormData();
-  form.append('audio', audio, audio.type.includes('mp4') ? 'speech.mp4' : 'speech.webm');
+  form.append('audio', audio, 'speech.wav');
   try {
     const res = await fetch(`${chatBaseURL()}/api/v1/transcribe`, {
       method: 'POST', credentials: 'include', body: form,

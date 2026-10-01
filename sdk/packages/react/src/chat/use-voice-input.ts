@@ -1,7 +1,7 @@
 // use-voice-input —— the composer's microphone (docs/design/voice-input.md). Press to record, press
-// again to stop; the recording goes to the instance's own speech service and the text comes back
-// for the input box. Never sends: the visitor reads the words first. The browser records whatever
-// it can (webm/opus, or mp4/aac on Safari); the instance decodes it.
+// again to stop; the recording goes to the instance and the text comes back for the input box.
+// Never sends: the visitor reads the words first. The browser records whatever it can (webm/opus, or
+// mp4/aac on Safari) and turns it into the 16 kHz WAV the instance reads (toWav16k).
 
 import { useEffect, useRef, useState } from 'react';
 
@@ -54,7 +54,9 @@ export function useVoiceInput(onText: (text: string) => void): VoiceInput {
 
   const finish = async (audio: Blob): Promise<void> => {
     setState('transcribing');
-    const res = await transcribeRecording(audio, loadStoredSession()?.session_token ?? '');
+    const wav = await toWav16k(audio).catch(() => null);
+    if (wav === null) { setState('idle'); setProblem('failed'); return; }
+    const res = await transcribeRecording(wav, loadStoredSession()?.session_token ?? '');
     setState('idle');
     if (!res.ok) { setProblem(PROBLEM_OF[res.code] ?? 'failed'); return; }
     if (res.text === '') { setProblem('nothing'); return; }
@@ -83,6 +85,32 @@ export function useVoiceInput(onText: (text: string) => void): VoiceInput {
     if (state === 'idle') void start();
   };
   return { available, state, seconds, problem, toggle };
+}
+
+// toWav16k —— the one shape the instance reads: 16 kHz mono 16-bit PCM WAV. The browser decodes its
+// own recording (webm/opus, mp4/aac) and resamples it, so the server needs no audio decoder.
+const RATE = 16000;
+
+async function toWav16k(recording: Blob): Promise<Blob> {
+  const ctx = new AudioContext();
+  const decoded = await ctx.decodeAudioData(await recording.arrayBuffer()).finally(() => { void ctx.close(); });
+  const offline = new OfflineAudioContext(1, Math.max(1, Math.ceil(decoded.duration * RATE)), RATE);
+  const src = offline.createBufferSource();
+  src.buffer = decoded;
+  src.connect(offline.destination);
+  src.start();
+  return wavBlob((await offline.startRendering()).getChannelData(0));
+}
+
+function wavBlob(samples: Float32Array): Blob {
+  const view = new DataView(new ArrayBuffer(44 + samples.length * 2));
+  const text = (at: number, s: string) => { for (let i = 0; i < s.length; i++) view.setUint8(at + i, s.charCodeAt(i)); };
+  text(0, 'RIFF'); view.setUint32(4, 36 + samples.length * 2, true); text(8, 'WAVE');
+  text(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+  view.setUint32(24, RATE, true); view.setUint32(28, RATE * 2, true); view.setUint16(32, 2, true); view.setUint16(34, 16, true);
+  text(36, 'data'); view.setUint32(40, samples.length * 2, true);
+  samples.forEach((s, i) => { view.setInt16(44 + i * 2, Math.max(-1, Math.min(1, s)) * 0x7fff, true); });
+  return new Blob([view], { type: 'audio/wav' });
 }
 
 function canRecord(): boolean {
