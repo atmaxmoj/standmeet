@@ -278,6 +278,9 @@ const GOLDEN_TOOLSET: readonly string[] = [
   'webhooks.list', 'webhooks.create', 'webhooks.update', 'webhooks.delete',
   'webhooks.rotate_secret', 'webhooks.send_test', 'webhooks.deliveries', 'webhooks.redeliver',
   'webhooks.event_types',
+  // Notification rules and linked IM chats (docs/design/notify-rules-and-live-transcript.md).
+  'notify.rules', 'notify.event_types', 'notify.create_rule', 'notify.set_rule_enabled',
+  'notify.delete_rule', 'notify.im_links', 'notify.link_im', 'notify.unlink_im',
   // monitoring.set -- the owner's traffic-collection master switch (off collects nothing). It is
   // an owner setting (returns the settings envelope), but its home is the monitor panel.
   'monitoring.set',

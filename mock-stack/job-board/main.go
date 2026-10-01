@@ -206,6 +206,7 @@ func (s *server) run(port string) error {
 
 func (s *server) routes(mux *http.ServeMux) {
 	webhookSinkRoutes(mux)
+	telegramRoutes(mux)
 	mux.HandleFunc("GET /greenhouse/v1/boards/{company}/jobs", s.serveGreenhouse)
 	mux.HandleFunc("GET /lever/v0/postings/{company}", s.serveLever)
 	mux.HandleFunc("GET /ashby/posting-api/job-board/{slug}", s.serveAshby)

@@ -16,6 +16,18 @@ import type { AgentTurnEvent, TurnStopReason } from '@standmeet/agent-core';
 export async function* parseAgentTurnSSE(
   body: ReadableStream<Uint8Array>,
 ): AsyncIterable<AgentTurnEvent> {
+  for await (const frame of parseSSEFrames(body)) {
+    const ev = agentTurnEventOf(frame);
+    if (ev !== null) yield ev;
+  }
+}
+
+// SSEFrame —— one `event:` / `data:` pair off the wire.
+export interface SSEFrame { event: string; data: string }
+
+// parseSSEFrames —— the raw frames of an SSE body, for a reader that also handles frames the turn
+// does not (the owner's live transcript reads `turn`).
+export async function* parseSSEFrames(body: ReadableStream<Uint8Array>): AsyncIterable<SSEFrame> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let buf = '';
@@ -25,11 +37,13 @@ export async function* parseAgentTurnSSE(
     buf += decoder.decode(value, { stream: true });
     const split = splitFrames(buf);
     buf = split.tail;
-    for (const frame of split.frames) {
-      const ev = dispatchFrame(frame);
-      if (ev !== null) yield ev;
-    }
+    yield* split.frames;
   }
+}
+
+// agentTurnEventOf —— one frame as a turn event (null for a frame the turn does not carry).
+export function agentTurnEventOf(frame: SSEFrame): AgentTurnEvent | null {
+  return dispatchFrame(frame);
 }
 
 function splitFrames(

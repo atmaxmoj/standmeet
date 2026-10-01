@@ -27,7 +27,7 @@ var inventoryWebhookTypes = []string{
 	"application.committed", "jobs.fetched",
 	"writing.published", "writing.unpublished", "corpus.note.changed", "vault.imported",
 	"microsite.build.settled", "page.promoted_live", "page.rolled_back", "page.unpublished",
-	"microsite.store.doc_inserted",
+	"microsite.store.doc_inserted", "microsite.store.doc_deleted",
 	"api_key.issued", "api_key.revoked",
 	"supplier.connected", "supplier.disconnected", "supplier.activated",
 	"block.installed", "block.failed",

@@ -121,6 +121,7 @@ func collectSubscriptions(
 ) []events.Subscription {
 	out := corpus.EventSubscriptions(d.CorpusIndexer)
 	out = append(out, owner.WebhookSubscriptions(hooks, types)...)
+	out = append(out, owner.NotifySubscriptions(notifyDeliveryDeps(d), types)...)
 	out = append(out, owner.MailSubscriptions(mailDeps(d))...)
 	out = append(out, owner.BuildSettledSubscriptions(buildSettledDeps(d))...)
 	return out
@@ -143,6 +144,7 @@ func buildSettledDeps(d *deps.Runtime) *owner.BuildSettledDeps {
 func collectJobKinds(d *deps.Runtime, hooks *owner.WebhookDeliveryDeps) []jobs.Kind {
 	out := corpus.JobKinds(d.CorpusIndexer)
 	out = append(out, owner.WebhookJobKinds(hooks)...)
+	out = append(out, owner.NotifyJobKinds(notifyDeliveryDeps(d))...)
 	out = append(out, owner.MailJobKinds(mailDeps(d))...)
 	out = append(out, supplierjob.Kinds(d.BlockDispatch)...)
 	out = append(out, d.JobsModule.JobKinds()...)

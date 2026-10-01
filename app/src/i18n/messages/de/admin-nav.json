@@ -41,6 +41,7 @@
     "monitor": "Zugriffe",
     "tasks": "Aufgaben",
     "webhooks": "Webhooks",
+    "notify": "Benachrichtigungen",
     "ip-bans": "IP-Sperren",
     "account": "Konto",
     "system": "System"

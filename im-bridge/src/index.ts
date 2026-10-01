@@ -13,6 +13,7 @@ import { createClient } from '@standmeet/sdk-core';
 import { shouldAnswer, toInbound, type IncomingLike } from './bot.js';
 import { chunkForChat } from './chunk.js';
 import { handleDirectMessage, type Deps } from './conversation.js';
+import { NOT_PAIRED, PAIRED, pairingCode, type Pairer } from './notify.js';
 import { memorySessions } from './sessions.js';
 
 /** env —— 少一个必需的配置就**当场停**，不要带着半个配置跑起来然后在第一条消息上炸。 */
@@ -32,6 +33,8 @@ export interface BridgeOptions {
   baseURL?: string;
   /** userName —— 这个 bot 在平台上的名字。 */
   userName?: string;
+  /** pair —— links the chat a `/pair CODE` came from to the instance (notify.ts). */
+  pair?: Pairer;
 }
 
 /**
@@ -74,13 +77,14 @@ export function startBridge(opts: BridgeOptions): Chat {
     state: createMemoryState(),
   });
 
-  chat.onDirectMessage(directMessageHandler(deps));
+  chat.onDirectMessage(directMessageHandler(deps, opts.pair));
 
   return chat;
 }
 
-/** ThreadLike —— 处理器回话时用到的那一点点。留窄是为了这一层能脱离 SDK 被测。 */
+/** ThreadLike —— 处理器回话时用到的那一点点。留窄是为了这一层能脱离 SDK 被测。id = `<platform>:<chat>`. */
 export interface ThreadLike {
+  id?: string;
   post(message: { markdown: string }): Promise<unknown>;
 }
 
@@ -89,11 +93,18 @@ export interface ThreadLike {
  * 「处理器挂在哪个事件上」和「处理器做得对不对」是两件会各自独立坏掉的事，
  * 而后者如果只能通过起一个真 Chat 实例来验，就只会被验得很浅。
  */
-export function directMessageHandler(deps: Deps) {
+export function directMessageHandler(deps: Deps, pair?: Pairer) {
   return async (thread: ThreadLike, message: unknown): Promise<void> => {
     // 两道门在核心之前：我们自己的回声、别的机器人。见 bot.ts 里为什么两个都要挡。
     const incoming = message as IncomingLike;
     if (!shouldAnswer(incoming)) return;
+    // The owner linking their own chat (`/pair CODE`) is not a visitor's question.
+    const code = pairingCode(incoming.text);
+    if (code !== null && pair !== undefined) {
+      const linked = await pair(thread.id ?? '', code);
+      await thread.post({ markdown: linked ? PAIRED : NOT_PAIRED });
+      return;
+    }
     const reply = await handleDirectMessage(deps, toInbound(incoming));
     // **两件事都不能省**：
     //   · `{ markdown }` —— 传裸字符串的话 SDK 明说「不做任何格式转换」，

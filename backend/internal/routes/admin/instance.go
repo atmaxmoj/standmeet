@@ -42,4 +42,5 @@ func (h *Handlers) MountInstance(r chi.Router) {
 	h.mountTasks(r, face)
 	// Webhook endpoints: the same machinery, carrying changes to other sites.
 	h.mountWebhooks(r, face)
+	h.mountNotify(r, face)
 }

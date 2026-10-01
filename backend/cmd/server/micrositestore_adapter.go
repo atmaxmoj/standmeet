@@ -93,9 +93,10 @@ func recordsAfter(c *paging.Cursor) blockstore.RecordsAfter {
 }
 
 func (p *micrositeDocStore) DeleteByID(
-	ctx context.Context, pageID, collection, recordID string,
+	ctx context.Context, tx pgstore.Tx, pageID, collection, recordID string,
 ) error {
-	_, err := p.store.DeleteByID(ctx, blockstore.KindMicrosite, pageID, collection, recordID)
+	_, err := p.store.WithTx(tx).DeleteByID(
+		ctx, blockstore.KindMicrosite, pageID, collection, recordID)
 	return err
 }
 

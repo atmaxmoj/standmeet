@@ -112,6 +112,7 @@ func BuildDispatcher(d *deps.Runtime) *dispatcher.Dispatcher {
 		},
 		Tasks:    stats.TasksDeps{Jobs: d.Jobs, Events: d.Events},
 		Webhooks: *webhooksDepsOf(d),
+		Notify:   owner.NotifyDeps{Repo: d.OwnerRepo, Bus: d.Events},
 		Upgrade: stats.UpgradeDeps{
 			System: port.NewSysInfoProvider(d), UpgradeSources: d.Upgrade, Events: d.Recorder(),
 		},

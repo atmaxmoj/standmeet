@@ -11,7 +11,9 @@
 package public
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -105,6 +107,18 @@ func writeConversation(
 	if eerr := json.NewEncoder(w).Encode(toViewResp(&view)); eerr != nil {
 		h.Log.Error("encode conversation", "err", eerr)
 	}
+}
+
+// conversationByID —— one conversation of the owner's, by id, in the visitor's wire shape (the
+// owner's live transcript, live.go).
+func (h *Handlers) conversationByID(
+	ctx context.Context, ownerID, conversationID string,
+) (conversationResp, error) {
+	c, err := conversation.ForChat(ctx, h.Visitor.History(), ownerID, conversationID)
+	if err != nil {
+		return conversationResp{}, fmt.Errorf("live conversation: %w", err)
+	}
+	return toConversationResp(&c), nil
 }
 
 func toViewResp(v *conversation.VisitorView) viewResp {

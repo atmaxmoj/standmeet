@@ -76,7 +76,8 @@ type MicrositeDocStore interface {
 	RecordsPage(
 		ctx context.Context, pageID string, after *paging.Cursor, limit int32,
 	) ([]entity.MicrositeDocument, error)
-	DeleteByID(ctx context.Context, pageID, collection, recordID string) error
+	// DeleteByID runs on tx: the removal and its microsite.store.doc_deleted commit together.
+	DeleteByID(ctx context.Context, tx pgstore.Tx, pageID, collection, recordID string) error
 }
 
 // PublicInsertDoc — the visitor-facing write from the public route: resolve the sole owner (v1
@@ -247,7 +248,16 @@ func OwnerDeleteDoc(ctx context.Context, deps MicrositeDeps, ownerID string, ref
 	if err != nil {
 		return err
 	}
-	if derr := deps.Docs.DeleteByID(ctx, page.ID, ref.Collection, ref.RecordID); derr != nil {
+	derr := pgstore.InTx(ctx, deps.Pages.Pool(), func(tx pgstore.Tx) error {
+		xerr := deps.Docs.DeleteByID(ctx, tx, page.ID, ref.Collection, ref.RecordID)
+		if xerr != nil {
+			return xerr
+		}
+		data := map[string]string{"collection": ref.Collection, "doc_id": ref.RecordID}
+		return deps.Events().With(tx).Record(ctx, ownerID, MicrositeStoreDocDeleted,
+			"microsite/"+page.Slug, data)
+	})
+	if derr != nil {
 		return fmt.Errorf("delete page doc: %w", derr)
 	}
 	return nil

@@ -41,6 +41,7 @@
     "monitor": "트래픽",
     "tasks": "작업",
     "webhooks": "웹훅",
+    "notify": "알림",
     "ip-bans": "IP 차단",
     "account": "계정",
     "system": "시스템"

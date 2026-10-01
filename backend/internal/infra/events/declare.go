@@ -22,7 +22,11 @@ type Type struct {
 	Type        string
 	Description string
 	Subject     string // what the subject names, for the docs and the panel
-	Exposure    Exposure
+	// Filterable —— the data keys a notification rule may filter on, besides the subject
+	// (docs/design/notify-rules-and-live-transcript.md). Nothing else is filterable: the bus
+	// stays thin, and a rule cannot reach into data a type never promised.
+	Filterable []string
+	Exposure   Exposure
 }
 
 // Match — whether a dotted glob matches a type. "*" matches one or more trailing segments when it

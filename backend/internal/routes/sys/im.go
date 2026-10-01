@@ -30,14 +30,39 @@ import (
 // block id → bot token (empty map when nothing is connected — normal; the bridge polls until one
 // appears). The host names no platform: which block is which chat platform is the bridge's
 // knowledge, not the kernel's (check-host-blind-to-blocks).
+//
+// Pair —— the owner sent the bot a pairing code from a chat (notify-rules-and-live-transcript.md,
+// *IM as a channel*): link that chat; false when the code is unknown, used or stale.
 type IMDeps struct {
 	Log    *slog.Logger
 	Tokens func(ctx context.Context) map[string]string
+	Pair   func(ctx context.Context, in PairRequest) bool
 }
 
-// MountIM — mounts /im/config; the caller has already added the /internal prefix.
+// PairRequest —— what the bridge saw: the code, and the chat it came from.
+type PairRequest struct {
+	Code     string `json:"code"`
+	Platform string `json:"platform"`
+	ChatID   string `json:"chat_id"`
+}
+
+// MountIM — mounts /im/config and /im/pair; the caller has already added the /internal prefix.
 func MountIM(r chi.Router, deps IMDeps) {
 	r.Get("/im/config", imConfig(deps))
+	r.Post("/im/pair", imPair(deps))
+}
+
+// imPair —— {code, platform, chat_id} → {"linked": true|false}. "Not linked" is an answer the
+// bridge relays to the person, not a fault; an unreadable body reads as not linked.
+func imPair(deps IMDeps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var in PairRequest
+		linked := json.NewDecoder(r.Body).Decode(&in) == nil && deps.Pair(r.Context(), in)
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(map[string]bool{"linked": linked}); err != nil {
+			deps.Log.Error("encode im pair", "err", err)
+		}
+	}
 }
 
 // imConfig — responds {"tokens": {"<block id>": "<bot token>", …}} — empty when nothing is

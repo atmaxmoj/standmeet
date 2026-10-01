@@ -74,6 +74,9 @@ const en = {
   'voice.tooLong': 'That was too long — keep it under a minute.',
   'voice.busy': 'Voice input isn’t answering right now — type your question instead.',
   'voice.failed': 'That recording couldn’t be read — try again.',
+  'live.heading': 'live · this conversation as it happens',
+  'live.invalid': 'This link is not valid or has expired.',
+  'live.waiting': 'waiting for the next question',
 } as const;
 
 export type MessageKey = keyof typeof en;
@@ -138,6 +141,9 @@ const zh: Catalog = {
   'voice.tooLong': '说得太长了——请控制在一分钟以内。',
   'voice.busy': '语音输入暂时没有响应——请直接打字提问。',
   'voice.failed': '这段录音读不出来——再试一次。',
+  'live.heading': '实时 · 这场对话正在进行',
+  'live.invalid': '这个链接无效或已过期。',
+  'live.waiting': '等待下一个问题',
   'tools.searched': '已搜索 {count}',
   'tools.read': '已读 {count}',
 };
@@ -204,6 +210,9 @@ const zhHK: Catalog = {
   'voice.tooLong': '講得太長了——請控制在一分鐘以內。',
   'voice.busy': '語音輸入暫時沒有回應——請直接打字提問。',
   'voice.failed': '這段錄音讀不出來——再試一次。',
+  'live.heading': '即時 · 這場對話正在進行',
+  'live.invalid': '這個連結無效或已過期。',
+  'live.waiting': '等待下一個問題',
   'tools.searched': '已搜尋 {count}',
   'tools.read': '已讀 {count}',
 };
@@ -267,6 +276,9 @@ const fr: Catalog = {
   'voice.tooLong': 'C’était trop long — restez sous une minute.',
   'voice.busy': 'La saisie vocale ne répond pas pour l’instant — tapez votre question.',
   'voice.failed': 'Cet enregistrement n’a pas pu être lu — réessayez.',
+  'live.heading': 'en direct · cette conversation en cours',
+  'live.invalid': 'Ce lien n’est pas valide ou a expiré.',
+  'live.waiting': 'en attente de la prochaine question',
   'tools.searched': 'recherche {count}',
   'tools.read': 'lire {count}',
 };
@@ -332,6 +344,9 @@ const hi: Catalog = {
   'voice.tooLong': 'यह बहुत लंबा था — एक मिनट से कम रखें।',
   'voice.busy': 'वॉइस इनपुट अभी जवाब नहीं दे रहा — अपना सवाल टाइप करें।',
   'voice.failed': 'यह रिकॉर्डिंग पढ़ी नहीं जा सकी — फिर कोशिश करें।',
+  'live.heading': 'लाइव · यह बातचीत अभी चल रही है',
+  'live.invalid': 'यह लिंक मान्य नहीं है या इसकी अवधि समाप्त हो गई है।',
+  'live.waiting': 'अगले सवाल की प्रतीक्षा',
 };
 
 const de: Catalog = {
@@ -393,6 +408,9 @@ const de: Catalog = {
   'voice.tooLong': 'Das war zu lang — bleib unter einer Minute.',
   'voice.busy': 'Die Spracheingabe antwortet gerade nicht — tippe deine Frage.',
   'voice.failed': 'Die Aufnahme konnte nicht gelesen werden — versuch es noch einmal.',
+  'live.heading': 'live · dieses Gespräch, während es läuft',
+  'live.invalid': 'Dieser Link ist ungültig oder abgelaufen.',
+  'live.waiting': 'wartet auf die nächste Frage',
   'tools.searched': 'durchsucht {count}',
   'tools.read': 'liest {count}',
 };
@@ -458,6 +476,9 @@ const ja: Catalog = {
   'voice.tooLong': '長すぎます。1分以内にしてください。',
   'voice.busy': '音声入力が今は応答していません。質問を入力してください。',
   'voice.failed': 'この録音は読み取れませんでした。もう一度どうぞ。',
+  'live.heading': 'ライブ · 進行中のこの会話',
+  'live.invalid': 'このリンクは無効か、期限が切れています。',
+  'live.waiting': '次の質問を待っています',
 };
 
 const ko: Catalog = {
@@ -521,6 +542,9 @@ const ko: Catalog = {
   'voice.tooLong': '너무 길어요. 1분 이내로 해 주세요.',
   'voice.busy': '음성 입력이 지금 응답하지 않아요. 질문을 입력해 주세요.',
   'voice.failed': '이 녹음을 읽을 수 없었어요. 다시 해 보세요.',
+  'live.heading': '실시간 · 진행 중인 이 대화',
+  'live.invalid': '이 링크는 유효하지 않거나 만료되었어요.',
+  'live.waiting': '다음 질문을 기다리는 중',
 };
 
 const es: Catalog = {
@@ -582,6 +606,9 @@ const es: Catalog = {
   'voice.tooLong': 'Fue demasiado largo: mantenlo por debajo de un minuto.',
   'voice.busy': 'La entrada por voz no responde ahora: escribe tu pregunta.',
   'voice.failed': 'No se pudo leer esa grabación: inténtalo de nuevo.',
+  'live.heading': 'en vivo · esta conversación mientras ocurre',
+  'live.invalid': 'Este enlace no es válido o ha caducado.',
+  'live.waiting': 'esperando la siguiente pregunta',
   'tools.searched': 'buscado {count}',
   'tools.read': 'leer {count}',
 };
@@ -662,7 +689,7 @@ export function useT(): T {
 // useChatT —— t() for one chat view's keys (`<ns>.<key>` in the catalogs). The chat views came from
 // the app, whose next-intl calls read `useTranslations(ns)` then `t(key, vars)`; this keeps that call
 // shape, and the KeyIn type still rejects a key the catalog does not have.
-type ChatNs = 'transcript' | 'attachments' | 'dock' | 'composer' | 'tools' | 'voice';
+type ChatNs = 'transcript' | 'attachments' | 'dock' | 'composer' | 'tools' | 'voice' | 'live';
 type KeyIn<N extends string> = MessageKey extends infer M
   ? M extends `${N}.${infer K}` ? K : never
   : never;

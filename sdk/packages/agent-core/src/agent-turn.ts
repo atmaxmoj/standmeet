@@ -148,56 +148,13 @@ export class VisitorTurnAgent {
   }
 
   private consumeEvent(ev: AgentTurnEvent, ctx: TurnCtx): void {
-    switch (ev.type) {
-      case 'text':
-        ctx.text += ev.delta;
-        this.emit({ type: 'llm_chunk', text: ev.delta });
-        return;
-      case 'tool_started':
-        this.emit({
-          type: 'tool_started', name: ev.name, args: ev.args,
-          progressLabel: ev.progressLabel,
-        });
-        return;
-      case 'tool_completed':
-        this.emitToolCompleted(ev);
-        return;
-      case 'ghost':
-        this.emit({
-          type: 'ghost_received', text: ev.text,
-          targetWaypoint: ev.target_waypoint, ghostId: ev.ghost_id,
-        });
-        return;
-      case 'retrying':
-        this.emit({ type: 'retrying', attempt: ev.attempt });
-        return;
-      case 'done':
-        // The trailing frame itself renders nothing, but **whether it
-        // arrived** is the only reliable evidence this turn "finished".
-        ctx.sawDone = true;
-        // And **how** it ended matters too: stop_reason=max_tokens means
-        // "ran out of budget", not "finished speaking". This used to only
-        // set sawDone and discard stopReason — that's where this
-        // information got lost (F-A-34).
-        this.emit({ type: 'turn_finished', stopReason: ev.stopReason });
-        return;
-      case 'error':
-        ctx.errored = true;
-        this.emit({ type: 'error', message: ev.message, code: ev.code });
-    }
-  }
-
-  private emitToolCompleted(
-    ev: { name: string; result: string } & { type: 'tool_completed' },
-  ): void {
-    const parsed = safeParseToolResult(ev.result);
-    this.emit({
-      type: 'tool_completed',
-      result: {
-        id: '', name: ev.name,
-        ok: parsed.ok, result: parsed.result, reason: parsed.reason,
-      },
-    });
+    // The trailing `done` frame renders nothing, but **whether it arrived**
+    // is the only reliable evidence this turn "finished" — and **how** it
+    // ended (stop_reason) travels on as turn_finished (F-A-34).
+    if (ev.type === 'text') ctx.text += ev.delta;
+    if (ev.type === 'done') ctx.sawDone = true;
+    if (ev.type === 'error') ctx.errored = true;
+    this.emit(agentEventOf(ev));
   }
 
   // composeSystemPrompt —— fixed fragments (visitor-header + one section
@@ -216,6 +173,36 @@ export class VisitorTurnAgent {
 
   private emit(event: AgentEvent): void {
     this.ports.observer?.onEvent(event);
+  }
+}
+
+// agentEventOf —— one wire frame as the observer event it means. Shared by
+// the visitor's own turn and by anyone else watching the same frames (the
+// owner's live transcript), so both render a turn the same way.
+export function agentEventOf(ev: AgentTurnEvent): AgentEvent {
+  switch (ev.type) {
+    case 'text':
+      return { type: 'llm_chunk', text: ev.delta };
+    case 'tool_started':
+      return { type: 'tool_started', name: ev.name, args: ev.args, progressLabel: ev.progressLabel };
+    case 'tool_completed': {
+      const parsed = safeParseToolResult(ev.result);
+      return {
+        type: 'tool_completed',
+        result: { id: '', name: ev.name, ok: parsed.ok, result: parsed.result, reason: parsed.reason },
+      };
+    }
+    case 'ghost':
+      return {
+        type: 'ghost_received', text: ev.text,
+        targetWaypoint: ev.target_waypoint, ghostId: ev.ghost_id,
+      };
+    case 'retrying':
+      return { type: 'retrying', attempt: ev.attempt };
+    case 'done':
+      return { type: 'turn_finished', stopReason: ev.stopReason };
+    case 'error':
+      return { type: 'error', message: ev.message, code: ev.code };
   }
 }
 

@@ -60,7 +60,7 @@ func buildServerDeps(d *deps.Runtime) *Deps {
 			},
 		},
 		AwaitBuild:   awaitBuildSettled(d),
-		IM:           sysroutes.IMDeps{Log: d.Log, Tokens: imTokensReader(d)},
+		IM:           sysroutes.IMDeps{Log: d.Log, Tokens: imTokensReader(d), Pair: imPairer(d)},
 		TLSAsk:       sysroutes.TLSAskDeps{Log: d.Log, Domains: d.InstanceRepo},
 		PrintSession: sysroutes.PrintSessionDeps{Log: d.Log, Store: d.PrintStore},
 		DiagRegistry: sysroutes.DiagRegistryDeps{Registry: d.AgentSkills, Log: d.Log},

@@ -41,6 +41,7 @@
     "monitor": "trafic",
     "tasks": "tâches",
     "webhooks": "webhooks",
+    "notify": "notifications",
     "ip-bans": "blocages IP",
     "account": "compte",
     "system": "système"

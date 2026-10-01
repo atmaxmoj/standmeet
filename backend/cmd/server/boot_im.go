@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	"github.com/atmaxmoj/standmeet/internal/plugin/credentials"
+	sysroutes "github.com/atmaxmoj/standmeet/internal/routes/sys"
 )
 
 // imTokensReader — the function /internal/im/config uses to read the sole owner's connected im
@@ -27,6 +29,18 @@ func imTokensReader(d *deps.Runtime) func(context.Context) map[string]string {
 			return map[string]string{}
 		}
 		return imTokens(d.Log, conns)
+	}
+}
+
+// imPairer — what /internal/im/pair does with a pairing code the bridge saw: link the chat it came
+// from. A code nobody issued (or a stale one) is a plain "no"; anything else is logged too.
+func imPairer(d *deps.Runtime) func(context.Context, sysroutes.PairRequest) bool {
+	return func(ctx context.Context, in sysroutes.PairRequest) bool {
+		_, err := owner.PairIMLink(ctx, d.OwnerRepo, in.Code, in.Platform, in.ChatID)
+		if err != nil && !errors.Is(err, owner.ErrIMLinkNotFound) {
+			d.Log.Error("im pair", "err", err)
+		}
+		return err == nil
 	}
 }
 

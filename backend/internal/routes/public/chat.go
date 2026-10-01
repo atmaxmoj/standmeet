@@ -70,6 +70,7 @@ type Handlers struct {
 	// Transcribe / VoiceAvailable —— the speech service (voice-input.md); nil → no mic offered.
 	Transcribe     Transcriber
 	VoiceAvailable func(ctx context.Context) bool
+	Live           LiveDeps // the owner's live transcript (live.go)
 	Log            *slog.Logger
 	SecureCookie   bool
 }
@@ -122,11 +123,8 @@ func (h *Handlers) Mount(r chi.Router) {
 	r.Delete("/sessions/{id}/app-state/{tool}/{key}", h.withVisitorSession(h.deleteAppState()))
 	// #122/#123: once a booking is confirmed, a card button (send confirmation email /
 	// cancel) dispatches straight to the sandboxed booker's own tool via mcp-ui:tool
-	// (send_confirmation / calendar_cancel) — no matching REST route on the host anymore.
-	// The old cancel route had two host-side implementations (owner + visitor) plus the
-	// sandbox's own copy, three ways of writing the same thing; both are retired.
-	// #123: a visitor cancels a meeting they booked — isolated in a usecase (resolves
-	// event_id via owner+code+member); not this member's → 404. No AI involved.
+	// (send_confirmation / calendar_cancel) — no matching REST route on the host.
+	h.mountLive(r) // the owner's live transcript: a signed link, no session (live.go)
 	// I.3: /report/{id} fetches one chat_reports row (visitor browser via the standalone
 	// /report/[id] route; owner side gets its own admin route later).
 	r.Get("/report/{id}", h.withVisitorSession(h.getReport()))

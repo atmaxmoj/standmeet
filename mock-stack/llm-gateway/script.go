@@ -74,11 +74,15 @@ type ScriptedToolCall struct {
 // mock answers instantly, so "a turn is in flight" is a window that does not exist in e2e
 // and any guard about it passes on broken code ([[stand-in-is-politer-than-reality]]).
 // F-A-42 needs that window: the composer must accept typing WHILE an answer is being written.
+// DripMS —— send the reply one word per text delta, this many ms apart. A real model streams; the
+// mock sends the whole answer in one delta, so "the answer grows while you watch" (the owner's live
+// transcript) has no window to be seen in. 0 = one delta.
 type ScriptedReply struct {
 	Text    string `json:"text"`
 	Key     string `json:"key"`
 	Stop    string `json:"stop,omitempty"`
 	DelayMS int    `json:"delay_ms"`
+	DripMS  int    `json:"drip_ms"`
 }
 
 // scriptedReplyValue —— what the queue stores per key: the text, how it ends, how slow it is.
@@ -86,6 +90,7 @@ type scriptedReplyValue struct {
 	text    string
 	stop    string
 	delayMS int
+	dripMS  int
 }
 
 // ScriptedGhost —— the GhostPolicy call's JSON body to return, consumed by a
@@ -248,13 +253,12 @@ type keyedReply struct {
 
 // setReply —— register the reply for key (append preserves registration order; re-registering
 // the same key updates in place).
-func (q *scriptQueue) setReply(key, text, stop string, delayMS int) {
+func (q *scriptQueue) setReply(key string, v scriptedReplyValue) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	if stop == "" {
-		stop = stopEndTurn
+	if v.stop == "" {
+		v.stop = stopEndTurn
 	}
-	v := scriptedReplyValue{text: text, stop: stop, delayMS: delayMS}
 	delete(q.fails, key)
 	for i := range q.replies {
 		if q.replies[i].key == key {
@@ -268,14 +272,20 @@ func (q *scriptQueue) setReply(key, text, stop string, delayMS int) {
 // takeReplyFor —— (text, stop reason, found). If registered with a delay, sleeps
 // it out before returning (sleeps outside the lock).
 func (q *scriptQueue) takeReplyFor(text string) (string, string, bool) {
+	r, ok := q.takeReply(text)
+	return r.text, r.stop, ok
+}
+
+// takeReply —— the whole registration (text, stop, drip), after its delay.
+func (q *scriptQueue) takeReply(text string) (scriptedReplyValue, bool) {
 	r, ok := q.popReply(text)
 	if !ok {
-		return "", "", false
+		return r, false
 	}
 	if r.delayMS > 0 {
 		time.Sleep(time.Duration(r.delayMS) * time.Millisecond)
 	}
-	return r.text, r.stop, true
+	return r, true
 }
 
 func (q *scriptQueue) popReply(text string) (scriptedReplyValue, bool) {
@@ -415,7 +425,9 @@ func (s *server) serveSetNextReply(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad json", http.StatusBadRequest)
 		return
 	}
-	s.queue.setReply(p.Key, p.Text, p.Stop, p.DelayMS)
+	s.queue.setReply(p.Key, scriptedReplyValue{
+		text: p.Text, stop: p.Stop, delayMS: p.DelayMS, dripMS: p.DripMS,
+	})
 	writeJSON(s.log, w, map[string]bool{"ok": true})
 }
 

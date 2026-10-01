@@ -93,9 +93,13 @@ export async function scriptMockParallelToolCalls(
  *  katex / mermaid render through ConversationDeck → AnswerParas → ChatMarkdown).
  *  Returns the `[[s:key]]` tag to embed in the turn message. */
 export async function scriptMockReplyText(
-  request: APIRequestContext, text: string, opts?: { delayMs?: number },
+  request: APIRequestContext, text: string, opts?: { delayMs?: number; dripMs?: number },
 ): Promise<string> {
-  return postScript(request, 'next_reply', { text, delay_ms: opts?.delayMs ?? 0 });
+  // dripMs —— send the reply one word at a time, this many ms apart, so a watcher can see the
+  // answer grow before the turn ends (0 = the whole text in one delta).
+  return postScript(request, 'next_reply', {
+    text, delay_ms: opts?.delayMs ?? 0, drip_ms: opts?.dripMs ?? 0,
+  });
 }
 
 /** Register a reply that ends because the model's OUTPUT BUDGET ran out — the other

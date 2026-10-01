@@ -13,6 +13,7 @@ export { StandMeetProvider, useStandMeet } from './provider.js';
 export { Agent } from './chat/Agent.js';
 export type { AgentProps, AgentLayout } from './chat/Agent.js';
 export { ChatTranscript, ChatProgress } from './chat/ChatTranscript.js';
+export { LiveTranscript } from './chat/LiveTranscript.js';
 export { Composer, tryVisible } from './chat/Composer.js';
 export { FloatingChatDock } from './chat/FloatingChatDock.js';
 export { ChatMarkdown, CORPUS_REMARK_PLUGINS } from './chat/markdown.js';

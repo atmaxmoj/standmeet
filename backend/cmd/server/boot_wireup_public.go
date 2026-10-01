@@ -10,9 +10,11 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
 	"github.com/atmaxmoj/standmeet/cmd/server/port"
+	"github.com/atmaxmoj/standmeet/cmd/server/wire"
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
@@ -45,7 +47,23 @@ func buildPublicDeps(d *deps.Runtime) publicroutes.Handlers {
 		// voice input: the speech service behind the OpenAI transcription shape (voice-input.md).
 		Transcribe:     d.Speech.Transcribe,
 		VoiceAvailable: d.Speech.Available,
+		Live:           liveDeps(d),
 		Log:            d.Log,
+	}
+}
+
+// liveDeps —— the owner's live transcript: the instance key verifies the link, Redis carries the
+// frames (notify-rules-and-live-transcript.md).
+func liveDeps(d *deps.Runtime) publicroutes.LiveDeps {
+	feed := wire.NewLiveFeed(d.RDB)
+	return publicroutes.LiveDeps{
+		Verify: func(token string) (publicroutes.LiveTarget, error) {
+			t, err := owner.VerifyLiveToken(d.SessionKey, token, time.Now())
+			out := publicroutes.LiveTarget{OwnerID: t.OwnerID, ConversationID: t.ConversationID}
+			return out, err
+		},
+		Publish:   feed.Publish,
+		Subscribe: feed.Subscribe,
 	}
 }
 
