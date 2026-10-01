@@ -106,9 +106,9 @@ func emitTextBlock(s *sseWriter, index int, text string) error {
 
 // emitTextBlockDrip —— emitTextBlock, but one word per delta with `every` between them (0 = one
 // delta). See ScriptedReply.DripMS.
-func emitTextBlockDrip(s *sseWriter, index int, text string, every time.Duration) error {
+func emitTextBlockDrip(s *sseWriter, index int, head, text string, every time.Duration) error {
 	if every <= 0 {
-		return emitTextBlock(s, index, text)
+		return emitTextBlock(s, index, head+text)
 	}
 	if err := s.send("content_block_start", map[string]any{
 		"type": "content_block_start", "index": index,
@@ -116,7 +116,13 @@ func emitTextBlockDrip(s *sseWriter, index int, text string, every time.Duration
 	}); err != nil {
 		return err
 	}
-	for _, word := range strings.SplitAfter(text, " ") {
+	// head (the [system:…] echo) goes in one delta: only the scripted words drip, so the first
+	// of them arrives at once instead of after a thousand words of echo.
+	words := strings.SplitAfter(text, " ")
+	if head != "" {
+		words = append([]string{head}, words...)
+	}
+	for _, word := range words {
 		if err := s.send("content_block_delta", map[string]any{
 			"type": "content_block_delta", "index": index,
 			"delta": map[string]any{"type": "text_delta", "text": word},

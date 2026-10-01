@@ -274,8 +274,8 @@ func (s *server) emitFinalReply(sse *sseWriter, req *MessagesReq) {
 		s.emitEmptyBudgetStop(sse)
 		return
 	}
-	text = composeFinalReply(req, text)
-	if err := emitTextBlockDrip(sse, 0, text, time.Duration(drip)*time.Millisecond); err != nil {
+	head := composeFinalReply(req, "")
+	if err := emitTextBlockDrip(sse, 0, head, text, time.Duration(drip)*time.Millisecond); err != nil {
 		s.log.Warn("emit text", "err", err)
 		return
 	}

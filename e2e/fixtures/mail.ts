@@ -318,7 +318,10 @@ export async function latestMailHeader(request: APIRequestContext, name: string)
   if (!newest) return '';
   const headers = await (await request.get(`${MAILPIT}/api/v1/message/${newest.ID}/headers`))
     .json() as Record<string, string[]>;
-  return headers[name]?.[0] ?? '';
+  // Mailpit canonicalises header names (X-Mailapi-Client-UA comes back as X-Mailapi-Client-Ua),
+  // so the lookup ignores case.
+  const key = Object.keys(headers).find((k) => k.toLowerCase() === name.toLowerCase());
+  return key === undefined ? '' : headers[key]?.[0] ?? '';
 }
 
 // followMailedLink —— open the link inside the mail.

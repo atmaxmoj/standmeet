@@ -64,6 +64,13 @@ func (t *tgState) serveBotAPI(w http.ResponseWriter, r *http.Request) {
 		tgOK(w, t.awaitUpdates(r, body))
 	case "sendMessage":
 		tgOK(w, t.record(body))
+	case "sendRichMessage", "sendRichMessageDraft":
+		// Not part of the Bot API this stand-in speaks: answer as Telegram answers a method it
+		// does not have, so the adapter falls back to sendMessage (answering ok:true with no
+		// message made it read result.chat.id off `true` and drop every reply).
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"ok":false,"error_code":404,"description":"Not Found"}`))
 	default:
 		tgOK(w, true)
 	}
