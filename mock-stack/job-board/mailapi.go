@@ -19,6 +19,10 @@ type mailAPIRequest struct {
 	To      string `json:"to"`
 	Subject string `json:"subject"`
 	Text    string `json:"text"`
+	// ClientUA —— the caller's User-Agent, written into the delivered mail as X-Mailapi-Client-UA.
+	// It says which process made the HTTP call: Go's client in the host, or node in a block sandbox
+	// (docs/design/plans/openapi-suppliers-to-block.md).
+	ClientUA string `json:"-"`
 }
 
 // serveMailAPISend —— receives an HTTP send request → relays over SMTP to mail-mock
@@ -34,6 +38,7 @@ func (s *server) serveMailAPISend(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad json", http.StatusBadRequest)
 		return
 	}
+	req.ClientUA = r.Header.Get("User-Agent")
 	if serr := relayToMailpit(&req); serr != nil {
 		s.log.Warn("mailapi relay", logErrKey, serr)
 		http.Error(w, `{"error":"relay failed"}`, http.StatusBadGateway)
@@ -78,6 +83,7 @@ func (s *server) serveMailAPISendForm(w http.ResponseWriter, r *http.Request) {
 	}
 	req := mailAPIRequest{
 		To: r.FormValue("to"), Subject: r.FormValue("subject"), Text: r.FormValue("text"),
+		ClientUA: r.Header.Get("User-Agent"),
 	}
 	if serr := relayToMailpit(&req); serr != nil {
 		s.log.Warn("mailapi form relay", logErrKey, serr)
@@ -100,8 +106,8 @@ func relayToMailpit(req *mailAPIRequest) error {
 		addr = "mail-mock:1025"
 	}
 	from := "noreply@standmeet.test"
-	msg := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\n\r\n%s\r\n",
-		from, req.To, req.Subject, req.Text)
+	msg := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\nX-Mailapi-Client-UA: %s\r\n\r\n%s\r\n",
+		from, req.To, req.Subject, req.ClientUA, req.Text)
 	if err := smtp.SendMail(addr, nil, from, []string{req.To}, []byte(msg)); err != nil {
 		return fmt.Errorf("smtp relay to %s: %w", addr, err)
 	}
