@@ -149,6 +149,9 @@ export interface MonitorRow {
   id: string;
   time: string;
   surface: string;
+  // kind —— the event's name; '' is the server-recorded page view. Shown in its own column: a read
+  // records a view and a read_complete about the same entry, which looked like a double count.
+  kind: string;
   what: string;
   from: string;
   who: string;
@@ -218,6 +221,7 @@ export function toRow(event: MonitorEvent): MonitorRow {
     id: event.event_id,
     time: shortTime(event.created_at),
     surface: event.surface,
+    kind: event.event_name,
     what: what(event),
     from: event.referrer_domain === '' ? DASH : event.referrer_domain,
     who: who(event),
@@ -227,7 +231,7 @@ export function toRow(event: MonitorEvent): MonitorRow {
 // what —— the entry's title when the event is about one, then the event's name, then the path.
 // The title wins because a path is an address and a title is what the owner actually wrote.
 function what(event: MonitorEvent): string {
-  return firstNonEmpty([event.entity_title, event.event_name, event.url_path]);
+  return firstNonEmpty([event.entity_title, event.url_path]);
 }
 
 // who —— a crawler is named; a person is described by their device. Neither is an identity: the

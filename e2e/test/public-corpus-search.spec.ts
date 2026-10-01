@@ -66,6 +66,23 @@ async function setPublicSearch(
   expect(res.status(), 'set corpus.retrieval public_search').toBe(200);
 }
 
+// switchPublicSearch —— sign in as the owner and flip public_search.
+async function switchPublicSearch(playwright: Playwright, on: boolean): Promise<void> {
+  const request = await playwright.request.newContext();
+  const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+  await setPublicSearch(request, csrf, on);
+  await request.dispose();
+}
+
+// expectPreviewOffersSearch —— with public_search on, the owner's editor preview shows the search.
+async function expectPreviewOffersSearch(adminPage: Page, playwright: Playwright): Promise<void> {
+  await switchPublicSearch(playwright, true);
+  await openReader(adminPage, `/admin/edit/${SLUG}`);
+  const frame = adminPage.frameLocator('[data-testid="microsite-staging-frame"]');
+  await expect(frame.getByTestId('block-widget-run'), 'the preview offers the search')
+    .toBeVisible({ timeout: 30_000 });
+}
+
 async function initOwner(playwright: Playwright): Promise<void> {
   resetInstance();
   const request: APIRequestContext = await playwright.request.newContext();
@@ -120,6 +137,7 @@ async function callToolRaw(
 }
 
 test.describe.configure({ timeout: 420_000 });
+test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
 test.describe('corpus.retrieval · public_search opens codeless published-corpus search', () => {
   test.beforeAll(async ({ playwright }) => {
@@ -129,11 +147,7 @@ test.describe('corpus.retrieval · public_search opens codeless published-corpus
 
   test('off → a codeless visitor is told to open with a code, the search does not run',
     async ({ page, playwright }: { page: Page; playwright: Playwright }) => {
-      const request = await playwright.request.newContext();
-      const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-      await setPublicSearch(request, csrf, false);
-      await request.dispose();
-
+      await switchPublicSearch(playwright, false);
       const pageErrors: string[] = [];
       page.on('pageerror', (e) => pageErrors.push(e.message));
 
@@ -151,13 +165,13 @@ test.describe('corpus.retrieval · public_search opens codeless published-corpus
         'no dead run button when the search is not offered').toHaveCount(0);
     });
 
+  // 2026-09-22: the preview served the build without public_search — no search box in staging.
+  test('on → the owner\'s editor preview offers the same search a visitor gets',
+    async ({ adminPage, playwright }) => { await expectPreviewOffersSearch(adminPage, playwright); });
+
   test('on → a codeless visitor searches, sees the published note, never the unpublished one',
     async ({ page, playwright }: { page: Page; playwright: Playwright }) => {
-      const request = await playwright.request.newContext();
-      const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
-      await setPublicSearch(request, csrf, true);
-      await request.dispose();
-
+      await switchPublicSearch(playwright, true);
       const pageErrors: string[] = [];
       page.on('pageerror', (e) => pageErrors.push(e.message));
 

@@ -91,6 +91,39 @@ func PublicInsertDoc(
 	return VisitorInsert(ctx, deps, soleOwner.ID, w)
 }
 
+// PublicStoreOpens — the page's own access rule, applied to its store: a page closed to visitors
+// without a code keeps its data closed to them too (sijie 2026-10-01: a code-only page's store
+// answered anyone). Needs only the page row, not a live build — a store can be read and written
+// before its page is published. granted says whether the request carries a grant for the page.
+func PublicStoreOpens(
+	ctx context.Context, deps MicrositeDeps, owners SoleOwnerLookup, slug string,
+	granted func(pageID string) bool,
+) error {
+	soleOwner, err := resolveSoleOwner(ctx, owners)
+	if err != nil {
+		return err
+	}
+	page, lerr := lookupPage(ctx, deps, soleOwner.ID, slug)
+	if lerr != nil {
+		return lerr
+	}
+	return pageOpens(ctx, deps, page.ID, granted)
+}
+
+// pageOpens —— open without a code, or the request holds a grant for this page.
+func pageOpens(
+	ctx context.Context, deps MicrositeDeps, pageID string, granted func(pageID string) bool,
+) error {
+	open, err := deps.Pages.OpensWithoutCode(ctx, pageID)
+	if err != nil {
+		return fmt.Errorf("page access: %w", err)
+	}
+	if !open && !granted(pageID) {
+		return entity.ErrMicrositeNeedsCode
+	}
+	return nil
+}
+
 // PublicQueryDocs — the visitor-facing read from the public route (ungated by store_writable).
 func PublicQueryDocs(
 	ctx context.Context, deps MicrositeDeps, owners SoleOwnerLookup, q DocQuery,

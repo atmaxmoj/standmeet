@@ -19,7 +19,7 @@ import (
 )
 
 // credentialTokenField —— the single field a credential-only supplier asks for: one opaque
-// secret. Read back by its consumer (im-bridge reads `credentials_enc.token`, boot_im.go).
+// secret. Read back through the credentials repo by its consumer (the im config, boot_im.go).
 const credentialTokenField = "token"
 
 // errNoUsableScheme —— the chosen securityScheme has no usable form (no such name / multiple

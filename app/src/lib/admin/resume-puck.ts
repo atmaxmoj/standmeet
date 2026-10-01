@@ -7,7 +7,6 @@
 import type {
   ResumeContent, ResumeWork, ResumeEducation, ResumeSkillSet, ResumeSocial, ResumeCustom,
 } from '@/lib/admin/resume-content';
-import { DEFAULT_LEFT_WIDTH, LEFT_SECTIONS } from '@/lib/admin/draft-model';
 import { paperOf, type PaperSize } from '@/lib/admin/resume-pages';
 
 // PuckComponent —— one placed component: a fixed section type + its fields. (A structural subset of
@@ -28,8 +27,6 @@ interface ResumeRootProps {
   accent: string;
   fontScale: number;
   paperSize: PaperSize;
-  leftWidth: number;
-  leftOrder: string[];
   coverLetter: string;
 }
 
@@ -71,8 +68,6 @@ export function toPuckData(rc: ResumeContent): PuckData {
         accent: rc.accent ?? '',
         fontScale: rc.fontScale ?? 1,
         paperSize: rc.paperSize ?? 'letter',
-        leftWidth: rc.leftWidth ?? DEFAULT_LEFT_WIDTH,
-        leftOrder: [...(rc.leftOrder ?? LEFT_SECTIONS)],
         coverLetter: rc.coverLetter ?? '',
       },
     },
@@ -104,8 +99,6 @@ export function fromPuckData(pd: PuckData): ResumeContent {
     accent: r.accent,
     fontScale: r.fontScale,
     paperSize: paperOf(r.paperSize),
-    leftWidth: r.leftWidth,
-    leftOrder: [...r.leftOrder],
   };
 }
 

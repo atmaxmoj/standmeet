@@ -231,6 +231,47 @@ export async function callVisitorTool(
   }
 }
 
+// voiceAvailable —— whether this instance turns recordings into text (GET /voice). Any failure → no
+// (the composer simply offers no mic).
+export async function voiceAvailable(): Promise<boolean> {
+  try {
+    const res = await fetch(`${chatBaseURL()}/api/v1/voice`);
+    const body: unknown = res.ok ? await res.json() : null;
+    return isRecordValue(body) && body['available'] === true;
+  } catch {
+    return false;
+  }
+}
+
+// TranscribeResult —— the text, or the server's machine code for why not (voice_busy,
+// recording_too_long, bad_recording…; 'network' when nothing came back).
+export type TranscribeResult = { ok: true; text: string } | { ok: false; code: string };
+
+// transcribeRecording —— POST /transcribe with the visitor's session (the cookie on the instance's
+// own origin; the bearer token for a host on another origin).
+export async function transcribeRecording(audio: Blob, sessionToken: string): Promise<TranscribeResult> {
+  const form = new FormData();
+  form.append('audio', audio, audio.type.includes('mp4') ? 'speech.mp4' : 'speech.webm');
+  try {
+    const res = await fetch(`${chatBaseURL()}/api/v1/transcribe`, {
+      method: 'POST', credentials: 'include', body: form,
+      headers: sessionToken === '' ? {} : { Authorization: `Bearer ${sessionToken}` },
+    });
+    const body: unknown = await res.json().catch(() => null);
+    return transcribeResult(res.ok, body);
+  } catch {
+    return { ok: false, code: 'network' };
+  }
+}
+
+function transcribeResult(ok: boolean, body: unknown): TranscribeResult {
+  const record = isRecordValue(body) ? body : {};
+  const err = isRecordValue(record['error']) ? record['error'] : {};
+  return ok && typeof record['text'] === 'string'
+    ? { ok: true, text: record['text'] }
+    : { ok: false, code: typeof err['code'] === 'string' ? err['code'] : 'network' };
+}
+
 // isRecordValue —— narrows res.json()'s unknown down to a Record (avoids an
 // `as` assertion, satisfies eslint consistent-type-assertions).
 function isRecordValue(v: unknown): v is Record<string, unknown> {

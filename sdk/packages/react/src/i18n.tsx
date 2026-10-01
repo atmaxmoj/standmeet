@@ -66,6 +66,14 @@ const en = {
   'composer.placeholder': 'ask…',
   'tools.searched': 'searched {count}',
   'tools.read': 'read {count}',
+  'voice.speak': 'speak your question',
+  'voice.stop': 'stop and transcribe',
+  'voice.transcribing': 'transcribing…',
+  'voice.denied': 'The microphone is blocked — allow it in your browser, or type your question.',
+  'voice.nothing': 'Didn’t catch anything — try again a little closer to the mic.',
+  'voice.tooLong': 'That was too long — keep it under a minute.',
+  'voice.busy': 'Voice input isn’t answering right now — type your question instead.',
+  'voice.failed': 'That recording couldn’t be read — try again.',
 } as const;
 
 export type MessageKey = keyof typeof en;
@@ -122,6 +130,14 @@ const zh: Catalog = {
   'composer.limitReached': '你已达到此会话的{reason}上限——联系 {handle} 以获得更多。',
   'composer.try': '试试',
   'composer.placeholder': '提问…',
+  'voice.speak': '说出你的问题',
+  'voice.stop': '停止并转写',
+  'voice.transcribing': '正在转写…',
+  'voice.denied': '麦克风被禁用了——请在浏览器里允许，或者直接打字。',
+  'voice.nothing': '没听到声音——靠近麦克风再试一次。',
+  'voice.tooLong': '说得太长了——请控制在一分钟以内。',
+  'voice.busy': '语音输入暂时没有响应——请直接打字提问。',
+  'voice.failed': '这段录音读不出来——再试一次。',
   'tools.searched': '已搜索 {count}',
   'tools.read': '已读 {count}',
 };
@@ -180,6 +196,14 @@ const zhHK: Catalog = {
   'composer.limitReached': '你已達到此會話的{reason}上限——聯絡 {handle} 以獲得更多。',
   'composer.try': '試試',
   'composer.placeholder': '提問…',
+  'voice.speak': '講出你的問題',
+  'voice.stop': '停止並轉寫',
+  'voice.transcribing': '正在轉寫…',
+  'voice.denied': '咪高峰被封鎖了——請在瀏覽器允許，或者直接打字。',
+  'voice.nothing': '聽不到聲音——靠近咪高峰再試一次。',
+  'voice.tooLong': '講得太長了——請控制在一分鐘以內。',
+  'voice.busy': '語音輸入暫時沒有回應——請直接打字提問。',
+  'voice.failed': '這段錄音讀不出來——再試一次。',
   'tools.searched': '已搜尋 {count}',
   'tools.read': '已讀 {count}',
 };
@@ -235,6 +259,14 @@ const fr: Catalog = {
   'composer.limitReached': 'Vous avez atteint la limite {reason} de cette session — contactez {handle} pour que vous soyez accordé plus.',
   'composer.try': 'essayer',
   'composer.placeholder': 'demander…',
+  'voice.speak': 'posez votre question à voix haute',
+  'voice.stop': 'arrêter et transcrire',
+  'voice.transcribing': 'transcription…',
+  'voice.denied': 'Le micro est bloqué — autorisez-le dans votre navigateur, ou tapez votre question.',
+  'voice.nothing': 'Rien entendu — réessayez un peu plus près du micro.',
+  'voice.tooLong': 'C’était trop long — restez sous une minute.',
+  'voice.busy': 'La saisie vocale ne répond pas pour l’instant — tapez votre question.',
+  'voice.failed': 'Cet enregistrement n’a pas pu être lu — réessayez.',
   'tools.searched': 'recherche {count}',
   'tools.read': 'lire {count}',
 };
@@ -292,6 +324,14 @@ const hi: Catalog = {
   'composer.placeholder': 'ask…',
   'tools.searched': 'searched {count}',
   'tools.read': 'read {count}',
+  'voice.speak': 'अपना सवाल बोलें',
+  'voice.stop': 'रोकें और लिखें',
+  'voice.transcribing': 'लिखा जा रहा है…',
+  'voice.denied': 'माइक्रोफ़ोन बंद है — ब्राउज़र में इसकी अनुमति दें, या सवाल टाइप करें।',
+  'voice.nothing': 'कुछ सुनाई नहीं दिया — माइक के थोड़ा पास आकर फिर कोशिश करें।',
+  'voice.tooLong': 'यह बहुत लंबा था — एक मिनट से कम रखें।',
+  'voice.busy': 'वॉइस इनपुट अभी जवाब नहीं दे रहा — अपना सवाल टाइप करें।',
+  'voice.failed': 'यह रिकॉर्डिंग पढ़ी नहीं जा सकी — फिर कोशिश करें।',
 };
 
 const de: Catalog = {
@@ -345,6 +385,14 @@ const de: Catalog = {
   'composer.limitReached': 'Sie haben diesen Sessions {reason}-Limit erreicht — kontaktieren Sie {handle} um mehr gewährt zu bekommen.',
   'composer.try': 'versuchen',
   'composer.placeholder': 'fragen…',
+  'voice.speak': 'Frage einsprechen',
+  'voice.stop': 'stoppen und umwandeln',
+  'voice.transcribing': 'wird umgewandelt…',
+  'voice.denied': 'Das Mikrofon ist blockiert — erlaube es im Browser oder tippe deine Frage.',
+  'voice.nothing': 'Nichts gehört — versuch es etwas näher am Mikrofon.',
+  'voice.tooLong': 'Das war zu lang — bleib unter einer Minute.',
+  'voice.busy': 'Die Spracheingabe antwortet gerade nicht — tippe deine Frage.',
+  'voice.failed': 'Die Aufnahme konnte nicht gelesen werden — versuch es noch einmal.',
   'tools.searched': 'durchsucht {count}',
   'tools.read': 'liest {count}',
 };
@@ -402,6 +450,14 @@ const ja: Catalog = {
   'composer.placeholder': 'ask…',
   'tools.searched': 'searched {count}',
   'tools.read': 'read {count}',
+  'voice.speak': '質問を話す',
+  'voice.stop': '止めて文字にする',
+  'voice.transcribing': '文字に起こしています…',
+  'voice.denied': 'マイクがブロックされています。ブラウザで許可するか、質問を入力してください。',
+  'voice.nothing': '何も聞き取れませんでした。マイクに少し近づいてもう一度どうぞ。',
+  'voice.tooLong': '長すぎます。1分以内にしてください。',
+  'voice.busy': '音声入力が今は応答していません。質問を入力してください。',
+  'voice.failed': 'この録音は読み取れませんでした。もう一度どうぞ。',
 };
 
 const ko: Catalog = {
@@ -457,6 +513,14 @@ const ko: Catalog = {
   'composer.placeholder': 'ask…',
   'tools.searched': 'searched {count}',
   'tools.read': 'read {count}',
+  'voice.speak': '질문을 말하기',
+  'voice.stop': '멈추고 받아쓰기',
+  'voice.transcribing': '받아쓰는 중…',
+  'voice.denied': '마이크가 차단되어 있어요. 브라우저에서 허용하거나 질문을 입력해 주세요.',
+  'voice.nothing': '아무것도 들리지 않았어요. 마이크에 조금 더 가까이에서 다시 해 보세요.',
+  'voice.tooLong': '너무 길어요. 1분 이내로 해 주세요.',
+  'voice.busy': '음성 입력이 지금 응답하지 않아요. 질문을 입력해 주세요.',
+  'voice.failed': '이 녹음을 읽을 수 없었어요. 다시 해 보세요.',
 };
 
 const es: Catalog = {
@@ -510,6 +574,14 @@ const es: Catalog = {
   'composer.limitReached': 'Ha alcanzado el límite {reason} de esta sesión — comuníquese con {handle} para que se le otorgue más.',
   'composer.try': 'intentar',
   'composer.placeholder': 'preguntar…',
+  'voice.speak': 'dicta tu pregunta',
+  'voice.stop': 'parar y transcribir',
+  'voice.transcribing': 'transcribiendo…',
+  'voice.denied': 'El micrófono está bloqueado: permítelo en tu navegador o escribe tu pregunta.',
+  'voice.nothing': 'No se oyó nada: inténtalo de nuevo un poco más cerca del micrófono.',
+  'voice.tooLong': 'Fue demasiado largo: mantenlo por debajo de un minuto.',
+  'voice.busy': 'La entrada por voz no responde ahora: escribe tu pregunta.',
+  'voice.failed': 'No se pudo leer esa grabación: inténtalo de nuevo.',
   'tools.searched': 'buscado {count}',
   'tools.read': 'leer {count}',
 };
@@ -590,7 +662,7 @@ export function useT(): T {
 // useChatT —— t() for one chat view's keys (`<ns>.<key>` in the catalogs). The chat views came from
 // the app, whose next-intl calls read `useTranslations(ns)` then `t(key, vars)`; this keeps that call
 // shape, and the KeyIn type still rejects a key the catalog does not have.
-type ChatNs = 'transcript' | 'attachments' | 'dock' | 'composer' | 'tools';
+type ChatNs = 'transcript' | 'attachments' | 'dock' | 'composer' | 'tools' | 'voice';
 type KeyIn<N extends string> = MessageKey extends infer M
   ? M extends `${N}.${infer K}` ? K : never
   : never;

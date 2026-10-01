@@ -8,9 +8,7 @@
 
 import { z } from 'zod';
 
-import {
-  DEFAULT_LEFT_WIDTH, draftToResumeContent, normalizeLeftOrder, type DraftModel,
-} from '@/lib/admin/draft-model';
+import { draftToResumeContent, type DraftModel } from '@/lib/admin/draft-model';
 import type { ResumeContent } from '@/lib/admin/resume-content';
 import { paperOf } from '@/lib/admin/resume-pages';
 
@@ -43,10 +41,6 @@ export const ResumeContentSchema = z.object({
   // paper_size — 'letter' | 'a4'; absent/unknown → Letter (normalised by paperOf, not rejected: one
   // odd value must not make the whole draft unreadable).
   paper_size: z.string().optional().default('letter'),
-  // left_order — order of the left-rail sections; empty/old drafts → normalizeLeftOrder fills it.
-  left_order: z.array(z.string()).optional().default([]),
-  // left_width — left-column width in fr; absent/old → the classic default.
-  left_width: z.number().optional().default(DEFAULT_LEFT_WIDTH),
 });
 export type ResumeContentWire = z.infer<typeof ResumeContentSchema>;
 
@@ -94,8 +88,6 @@ export function toDraftModel(
     accent: rc.accent,
     fontScale: rc.font_scale,
     paperSize: paperOf(rc.paper_size),
-    leftOrder: normalizeLeftOrder(rc.left_order),
-    leftWidth: rc.left_width,
   };
 }
 

@@ -34,7 +34,11 @@ func (c *jobsFiber) fetchNewBinding() *registry.MCPBinding {
 			"since_hours narrows the window; the pool's own TTL is 24h, so a larger " +
 			"value returns the same board. Each source is fetched in the background; " +
 			"if they are not all done within 20 seconds this returns {job_ids, pending: true} " +
-			"instead — pass job_ids to jobs.fetch_result for the same answer once done.",
+			"instead — pass job_ids to jobs.fetch_result for the same answer once done. " +
+			"Reading the tallies: sources[].duplicate counts postings that source already " +
+			"returned in an earlier fetch (they are in jobs only while still inside the pool's " +
+			"24h, so a long-running thread's old comments are not); cross_source_dropped counts " +
+			"pool rows hidden because another source posted the same job first.",
 		InputSchema: json.RawMessage(`{
 			"type":"object",
 			"properties":{

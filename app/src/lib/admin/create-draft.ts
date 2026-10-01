@@ -6,20 +6,22 @@
 import { z } from 'zod';
 
 import { adminAPI } from '@/lib/api/admin';
-import { BLANK } from '@/lib/admin/use-resume-masters';
+import { BLANK, DEFAULT } from '@/lib/admin/use-resume-masters';
 
 export interface NewDraftInput {
   company: string;
   role: string;
-  // start —— a master id, or BLANK.
+  // start —— a master id, BLANK, or DEFAULT (the server picks the default master).
   start: string;
 }
 
 const CreatedDraftSchema = z.object({ id: z.string() });
 export type CreatedDraft = z.infer<typeof CreatedDraftSchema>;
 
+const STARTS: Record<string, object> = { [BLANK]: { blank: true }, [DEFAULT]: {} };
+
 export function createManualDraft(input: NewDraftInput): Promise<CreatedDraft> {
-  const from = input.start === BLANK ? { blank: true } : { master_id: input.start };
+  const from = STARTS[input.start] ?? { master_id: input.start };
   return adminAPI.post(
     '/drafts',
     { company: input.company.trim(), role: input.role.trim(), ...from },

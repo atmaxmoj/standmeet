@@ -123,6 +123,9 @@ func (s *server) serveOpenAIStream(w http.ResponseWriter, req *oaiChatReq, marke
 		if t.Reasoning != "" {
 			s.emitOpenAIReasoning(sse, req.Model, t.Reasoning)
 		}
+		if t.Narration != "" {
+			s.emitOpenAIContent(sse, req.Model, t.Narration)
+		}
 		s.emitOpenAIToolCalls(sse, req.Model, scriptedCallsOf(t))
 		return
 	}
@@ -266,6 +269,16 @@ func (s *server) emitOpenAIText(sse *sseWriter, model, text, finish string) {
 		return
 	}
 	s.emitOpenAIFinish(sse, model, finish)
+}
+
+// emitOpenAIContent —— a plain content delta with no finish: text the model streams before it
+// turns to a tool call in the same message.
+func (s *server) emitOpenAIContent(sse *sseWriter, model, text string) {
+	if err := sse.sendData(newChunk(model, oaiStreamChoice{
+		Delta: oaiDelta{Role: "assistant", Content: text},
+	})); err != nil {
+		s.log.Warn("emit openai content delta", "err", err)
+	}
 }
 
 // emitOpenAIReasoning —— a reasoning_content delta, the way a reasoning model (Groq gpt-oss-*)

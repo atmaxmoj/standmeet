@@ -1121,6 +1121,12 @@ dev-restart-svc:
 	@docker compose -f docker-compose.dev.yml -p $(DEV_PROJECT) restart $(SVC)
 	@docker compose -f docker-compose.dev.yml -p $(DEV_PROJECT) up -d --wait $(SVC)
 
+# dev-start-svc —— bring back one service dev-stop-svc took away, waiting for its health (a spec
+# showing what the product does without an optional service, e.g. voice input with no stt).
+dev-start-svc:
+	@test -n "$(SVC)" || (echo "usage: make dev-start-svc SVC=<service>"; exit 2)
+	@docker compose -f docker-compose.dev.yml -p $(DEV_PROJECT) up -d --wait $(SVC)
+
 # dev-logs —— tail a service's logs (for diagnosis). Usage: make dev-logs SVC=backend N=80
 dev-logs:
 	@test -n "$(SVC)" || (echo "usage: make dev-logs SVC=<service> [N=<lines>]"; exit 2)
@@ -1537,7 +1543,7 @@ TAG ?= $(shell git describe --tags --always --dirty)
 # mount like `./backend/db/schema.sql` inevitably points at nothing — and postgres's behavior
 # when its mount is empty is to **silently start an empty database**. Baking the schema into the
 # image means a registry deploy needs zero mounts (infra/db/Dockerfile).
-IMAGES := backend app builder im-bridge db updater
+IMAGES := backend app builder im-bridge db updater stt
 
 # release-build —— builds the four images by REGISTRY/TAG (without pushing).
 # app's .next is built on the host and COPYd into the image, so that step has to run first.
@@ -1598,6 +1604,7 @@ release-build: sdk-build builder-vendor
 	    im-bridge) docker build -t $$img -f im-bridge/Dockerfile . ;; \
 	    db)        docker build -t $$img -f infra/db/Dockerfile . ;; \
 	    updater)   docker build -t $$img -f infra/updater/Dockerfile . ;; \
+	    stt)       docker build -t $$img ./stt ;; \
 	  esac || exit 1; \
 	  docker tag $$img $(REGISTRY)/standmeet-$$svc:latest || exit 1; \
 	done
@@ -1804,6 +1811,7 @@ release-push: secrets secrets-image
 	    im-bridge) ctx="-f im-bridge/Dockerfile ." ;; \
 	    db)        ctx="-f infra/db/Dockerfile ." ;; \
 	    updater)   ctx="-f infra/updater/Dockerfile ." ;; \
+	    stt)       ctx="./stt" ;; \
 	  esac; \
 	  docker buildx build --builder standmeet-release \
 	    --platform $(RELEASE_PLATFORMS) \
@@ -1823,7 +1831,7 @@ release-push: secrets secrets-image
 # Secret-scan of the image (secrets-image) is not run here: buildx --push keeps no local image to
 # `docker export`, and the source-level gitleaks gate already runs at commit/push.
 release-push-one:
-	@test -n "$(SVC)" || { echo "usage: make release-push-one SVC=<backend|app|builder|im-bridge|db|updater>"; exit 2; }
+	@test -n "$(SVC)" || { echo "usage: make release-push-one SVC=<backend|app|builder|im-bridge|db|updater|stt>"; exit 2; }
 	@docker buildx inspect standmeet-release >/dev/null 2>&1 \
 	  || docker buildx create --name standmeet-release --driver docker-container >/dev/null
 	@if [ "$(SVC)" = "app" ]; then \
@@ -1845,6 +1853,7 @@ release-push-one:
 	    im-bridge) ctx="-f im-bridge/Dockerfile ." ;; \
 	    db)        ctx="-f infra/db/Dockerfile ." ;; \
 	    updater)   ctx="-f infra/updater/Dockerfile ." ;; \
+	    stt)       ctx="./stt" ;; \
 	    *) echo "release-push-one: unknown SVC '$(SVC)'"; exit 2 ;; \
 	  esac; \
 	  echo "[release] buildx --push $$img ($(RELEASE_PLATFORMS))"; \

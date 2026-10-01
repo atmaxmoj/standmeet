@@ -115,6 +115,18 @@ test.describe('monitor panel · settings → monitor shows real traffic', () => 
     await expect(row.first()).toContainText('Chrome');
   });
 
+  // Found 2026-09-10 on sijie: one read records a page view (server) and a read_complete (beacon)
+  // about the same entry. The feed had no header and never showed the event's name, so the two
+  // rows were identical and the owner read them as a double count.
+  test('the feed names its columns, and a view and a read_complete read as two different events', async (
+    { adminPage, playwright },
+  ) => {
+    await readAsVisitor(playwright, ENTRY.path);
+    await sendReadComplete(playwright, ENTRY.path);
+    await openPanel(adminPage);
+    await expectFeedNamesEvents(adminPage);
+  });
+
   test('a crawler shows in the feed but stays out of the four human numbers', async (
     { adminPage, playwright },
   ) => {
@@ -188,6 +200,30 @@ async function openPanel(page: Page): Promise<void> {
 }
 
 // readerRowCount —— how many reader events the panel is showing.
+// sendReadComplete —— the reader's own beacon for reaching the end of an entry, from a stranger.
+async function sendReadComplete(playwright: Playwright, path: string): Promise<void> {
+  const ctx = await playwright.request.newContext({
+    baseURL: process.env['BASE_URL'] ?? 'http://localhost:38127',
+    extraHTTPHeaders: { 'User-Agent': HUMAN_UA },
+  });
+  const sent = await ctx.post('/api/v1/t', {
+    data: { surface: 'reader', name: 'read_complete', url: `/wiki/${path}` },
+  });
+  expect(sent.status(), 'the beacon was taken').toBe(204);
+  await ctx.dispose();
+}
+
+// expectFeedNamesEvents —— the feed has a header, and the view and the read_complete differ.
+async function expectFeedNamesEvents(page: Page): Promise<void> {
+  const feed = page.getByTestId('monitor-feed');
+  await expect(feed.getByRole('columnheader', { name: 'event' }), 'the event column is named').toBeVisible();
+  await expect(feed.getByRole('columnheader', { name: 'came from' }), 'the referrer column is named').toBeVisible();
+  await expect(feed.getByTestId('monitor-row-kind').filter({ hasText: /^view$/ }).first(),
+    'the page view says it is a view').toBeVisible({ timeout: 15_000 });
+  await expect(feed.getByTestId('monitor-row-kind').filter({ hasText: /^read_complete$/ }).first(),
+    'the beacon says what it was').toBeVisible({ timeout: 15_000 });
+}
+
 async function readerRowCount(page: Page): Promise<number> {
   await openPanel(page);
   return page.getByTestId('monitor-row').filter({ hasText: 'reader' }).count();

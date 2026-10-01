@@ -67,6 +67,9 @@ type Handlers struct {
 	// PubSearchGuard —— per-IP cap on codeless (public-tier) tool dispatch, the server-side bound
 	// on anonymous corpus search. impl = middleware.PubSearchGuard, injected in. nil → no cap.
 	PubSearchGuard PubSearchGuard
+	// Transcribe / VoiceAvailable —— the speech service (voice-input.md); nil → no mic offered.
+	Transcribe     Transcriber
+	VoiceAvailable func(ctx context.Context) bool
 	Log            *slog.Logger
 	SecureCookie   bool
 }
@@ -90,6 +93,7 @@ func (h *Handlers) Mount(r chi.Router) {
 	// embeds/{kid} —— the embed's sync mode, for the site behind it (embed_sync.go).
 	r.Get("/embeds/{kid}", h.getEmbedSync())
 	r.Post("/inference/models", h.listInferenceModels())
+	r.Get("/voice", h.voiceStatus()) // can this instance turn a recording into text (transcribe.go)
 
 	// ── requires a visitor session (validated uniformly by the decorator) ──
 	// F-L-11 liveness probe on reader/chat mount: checks whether the stored token is
@@ -131,6 +135,7 @@ func (h *Handlers) Mount(r chi.Router) {
 	// H.9: new agent-turn entry point, runs through eino ADK ChatModelAgent. SDK cuts
 	// over in H.10; /llm/chat/stream retires once H.10 lands.
 	r.Post("/agent/turn", h.withVisitorSession(h.agentTurn()))
+	r.Post("/transcribe", h.withVisitorSession(h.transcribe())) // voice input (transcribe.go)
 	// H.13.e: ghost-text logging write path. shown writes one row the moment the browser
 	// renders a ghost; accept fires on Tab; owner admin detail page reads these.
 	r.Post("/sessions/{id}/ghosts/shown", h.withVisitorSession(h.postGhostShown()))

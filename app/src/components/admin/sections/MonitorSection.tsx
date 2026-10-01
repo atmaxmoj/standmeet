@@ -308,8 +308,14 @@ function FeedTable({ rows }: { rows: readonly MonitorRow[] }) {
       </h3>
       <div className="overflow-x-auto">
         <table className="w-full text-[13px] border-collapse">
+          <thead>
+            <tr className="mono text-[9.5px] tracking-[0.14em] uppercase text-(--color-faint) text-left">
+              <Th>{t('colTime')}</Th><Th>{t('colSurface')}</Th><Th>{t('colEvent')}</Th>
+              <Th>{t('colWhat')}</Th><Th>{t('colFrom')}</Th><Th>{t('colWho')}</Th>
+            </tr>
+          </thead>
           <tbody>
-            {rows.map((r) => <Row key={r.id} row={r} />)}
+            {rows.map((r) => <Row key={r.id} row={r} viewLabel={t('eventView')} />)}
           </tbody>
         </table>
       </div>
@@ -317,7 +323,7 @@ function FeedTable({ rows }: { rows: readonly MonitorRow[] }) {
   );
 }
 
-function Row({ row }: { row: MonitorRow }) {
+function Row({ row, viewLabel }: { row: MonitorRow; viewLabel: string }) {
   return (
     <tr
       data-testid="monitor-row" data-row-id={row.id}
@@ -328,6 +334,9 @@ function Row({ row }: { row: MonitorRow }) {
       </td>
       <td className="mono text-[11px] py-2 pr-4 whitespace-nowrap text-(--color-accent)">
         {row.surface}
+      </td>
+      <td data-testid="monitor-row-kind" className="mono text-[11px] text-(--color-muted) py-2 pr-4 whitespace-nowrap">
+        {row.kind === '' ? viewLabel : row.kind}
       </td>
       <td className="py-2 pr-4">
         <span data-testid="monitor-row-what" className="text-(--color-ink)">{row.what}</span>

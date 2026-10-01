@@ -66,20 +66,6 @@ func patchDraft(deps Deps) http.HandlerFunc {
 	}
 }
 
-func listTemplates(deps Deps) http.HandlerFunc {
-	return func(w http.ResponseWriter, _ *http.Request) {
-		tpls := deps.Templates
-		if tpls == nil {
-			tpls = []string{}
-		}
-		w.Header().Set(ctHeader, ctJSON)
-		w.WriteHeader(http.StatusOK)
-		if err := json.NewEncoder(w).Encode(tpls); err != nil {
-			deps.Log.Error("encode templates", logErrKey, err)
-		}
-	}
-}
-
 // previewQR — the QR the preview render encodes: the REAL selected code (built from the owner's
 // public URL) so the owner sees what commit will send (owner: "不要假的"), or the non-leaking
 // placeholder marker when there's no code / no public URL.
@@ -141,7 +127,7 @@ func writePreviewPDF(
 
 // logRenderShape —— one success trace per render: the content shape + output size, the dimensions
 // that decide whether a PDF looks right (empty identity → near-blank; big font_scale → too many
-// pages; a wide left_width → a squeezed main column). Makes a wrong-looking PDF diagnosable from
+// pages). Makes a wrong-looking PDF diagnosable from
 // prod logs instead of by re-rendering to guess ([[no-diagnosis-by-experiment]]).
 func logRenderShape(log *slog.Logger, id string, d *jobsmodel.Application, pdfBytes int) {
 	rc := &d.ResumeContent
@@ -155,8 +141,6 @@ func logRenderShape(log *slog.Logger, id string, d *jobsmodel.Application, pdfBy
 		"name_empty", rc.Identity.Name == "",
 		"summary_empty", rc.Summary == "",
 		"font_scale", rc.FontScale,
-		"left_width", rc.LeftWidth,
-		"left_order", rc.LeftOrder,
 		"pdf_bytes", pdfBytes,
 	)
 }

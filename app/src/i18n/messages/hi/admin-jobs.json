@@ -70,6 +70,7 @@
     "newFrom": "कहाँ से शुरू करें",
     "newFromMaster": "मास्टर · {name}",
     "newFromBlank": "खाली",
+    "newFromDefault": "डिफ़ॉल्ट मास्टर",
     "newFromHint": "ड्राफ़्ट मास्टर की एक प्रति है: ड्राफ़्ट बदलने से मास्टर नहीं बदलता।",
     "defaultBadge": "डिफ़ॉल्ट",
     "created": "ड्राफ़्ट बनाया गया"

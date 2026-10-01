@@ -70,6 +70,7 @@
     "newFrom": "어디서 시작할지",
     "newFromMaster": "마스터 · {name}",
     "newFromBlank": "빈 문서",
+    "newFromDefault": "기본 마스터",
     "newFromHint": "초안은 마스터의 사본입니다. 초안을 고쳐도 마스터는 바뀌지 않습니다.",
     "defaultBadge": "기본",
     "created": "초안을 만들었습니다"

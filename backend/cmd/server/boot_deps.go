@@ -22,6 +22,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/sandbox"
 	"github.com/atmaxmoj/standmeet/internal/infra/session"
 	"github.com/atmaxmoj/standmeet/internal/infra/storage"
+	"github.com/atmaxmoj/standmeet/internal/infra/stt"
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 	monitor "github.com/atmaxmoj/standmeet/internal/monitor/facade"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
@@ -183,6 +184,7 @@ func assembleRuntimeDeps(
 		PrintStore:         printStore,
 		PdfRenderer:        buildPDFRenderer(log, cfg, printStore),
 		ReportPDFRenderer:  buildReportPDFRenderer(cfg),
+		Speech:             stt.New(cfg.STTURL),
 		MarketplaceClient: marketplace.NewFromEnv(
 			dw.live.SkillCatalogue, cfg.MarketplaceSkillsMPBaseURL,
 		),
@@ -265,10 +267,7 @@ func buildJobsModule(d *deps.Runtime) *pluginjobs.Plugin {
 		DraftsRepo:   d.ResumeDraftRepo,
 		AppsRepo:     d.ApplicationRepo,
 		SourcesRepo:  d.JobSourceRepo,
-		// Templates — retired with typst: the résumé's layout is now the Puck config itself (one
-		// renderer for editor + PDF), so there is no separate template list to pick from.
-		Templates: nil,
-		Cues:      cues.New(d.RDB),
+		Cues:         cues.New(d.RDB),
 		// The two builtins this plugin itself seeds (hiring prompt + role) go
 		// through OwnerSeeder.
 		Seed: jobsuc.SeedDeps{

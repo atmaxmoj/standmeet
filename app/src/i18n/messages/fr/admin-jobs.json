@@ -70,6 +70,7 @@
     "newFrom": "partir de",
     "newFromMaster": "modèle · {name}",
     "newFromBlank": "vierge",
+    "newFromDefault": "le modèle par défaut",
     "newFromHint": "Un brouillon est une copie du modèle : le modifier ne touche jamais le modèle.",
     "defaultBadge": "par défaut",
     "created": "Brouillon créé"

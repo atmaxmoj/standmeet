@@ -72,6 +72,9 @@ type Config struct {
 	//                    (gotenberg fetches <base>/print/application/<id>?token=…)
 	GotenbergURL string
 	PrintBaseURL string
+	// STTURL —— the speech-to-text service's base URL (compose service "stt"; voice-input.md).
+	// Deployment wiring, not an owner setting. Unreachable → the composer offers no mic.
+	STTURL string
 	// MarketplaceSkillsMPBaseURL —— SkillsMP upstream override. Empty = the real SkillsMP; dev/e2e
 	// point it at the external-mock service. (The GitHub catalogue is an instance setting.)
 	MarketplaceSkillsMPBaseURL string
@@ -140,6 +143,7 @@ var (
 const (
 	defaultGotenbergHost = "gotenberg:3000"
 	defaultPrintHost     = "app:3000"
+	defaultSTTHost       = "stt:8080"
 )
 
 // defaultReleaseRegistry / defaultReleaseRepo — the official image registry;
@@ -198,6 +202,7 @@ func Load() (*Config, error) {
 		// field-by-field filling.
 		GotenbergURL:               envOr("GOTENBERG_URL", internalURL(defaultGotenbergHost)),
 		PrintBaseURL:               envOr("PRINT_BASE_URL", internalURL(defaultPrintHost)),
+		STTURL:                     envOr("STT_URL", internalURL(defaultSTTHost)),
 		MarketplaceSkillsMPBaseURL: os.Getenv("MARKETPLACE_SKILLSMP_BASE_URL"),
 		BlockMarketNpmBaseURL:      os.Getenv("BLOCK_MARKET_NPM_BASE_URL"),
 		UpgradeSignalPath:          os.Getenv("STANDMEET_UPGRADE_SIGNAL"),

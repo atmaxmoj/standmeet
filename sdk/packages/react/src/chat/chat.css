@@ -150,6 +150,26 @@
 .smc-composer-send:disabled { color: var(--color-faint); }
 .smc-composer-send-key { font-size: 14px; }
 .smc-composer-full { font-size: 10.5px; letter-spacing: .16em; color: var(--color-accent); }
+/* The mic: a ring at rest, the accent live-dot pulsing while it listens, with its timer. */
+.smc-mic {
+  display: inline-flex; align-items: center; gap: .4rem; flex-shrink: 0; align-self: flex-end;
+  background: none; border: 0; padding: 0 .25rem .3rem; cursor: pointer;
+  font-family: var(--smc-mono); font-size: 11px; letter-spacing: .08em; color: var(--color-muted);
+}
+.smc-mic-dot {
+  width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid currentColor;
+  transition: background-color var(--smc-ease), border-color var(--smc-ease);
+}
+.smc-mic:hover { color: var(--color-accent); }
+.smc-mic.is-recording { color: var(--color-accent); }
+.smc-mic.is-recording .smc-mic-dot { background: var(--color-accent); animation: smc-mic-pulse 1.2s ease-in-out infinite; }
+.smc-mic.is-transcribing { color: var(--color-faint); cursor: progress; }
+.smc-voice-line {
+  font-family: var(--smc-mono); font-size: 10.5px; letter-spacing: .06em; color: var(--color-muted);
+  margin: .5rem 0 0;
+}
+@keyframes smc-mic-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .smc-mic.is-recording .smc-mic-dot { animation: none; } }
 .smc-limit {
   font-family: var(--smc-mono); font-size: 10.5px; letter-spacing: .06em; color: var(--color-muted);
   margin: .5rem 0 0;

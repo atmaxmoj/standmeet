@@ -15,6 +15,7 @@ import { dispatchComposerKey, useAutoGrowTextarea } from './composer-keys.js';
 import { composeMessage, useComposerAttachments } from './composer-attachments.js';
 import { AttachmentChips } from './ComposerAttachments.js';
 import { GhostText } from './GhostText.js';
+import { appendSpoken, clock, useVoiceInput, type VoiceInput } from './use-voice-input.js';
 
 // ComposerProps —— the input's state lives in the caller (useChatController), so a layout can
 // put the progress line, the transcript and this input wherever it wants.
@@ -78,6 +79,8 @@ function ComposerForm(p: ComposerProps) {
     locked: p.exhausted, lockedText: t('sessionFull'), ghost, fallback: p.placeholder ?? t('placeholder'),
   });
   const att = useComposerAttachments();
+  // voice —— the spoken question lands in the input; the visitor reads it and sends it.
+  const voice = useVoiceInput((spoken) => p.setInput(appendSpoken(p.input, spoken)));
   const taRef = useRef<HTMLTextAreaElement>(null);
   useAutoGrowTextarea(taRef, p.input);
   // sendComposed —— send it off + clear attachments (clearing the input
@@ -128,8 +131,10 @@ function ComposerForm(p: ComposerProps) {
           />
           <GhostText text={ghost} />
         </div>
+        <MicButton voice={voice} />
         <ComposerAction exhausted={p.exhausted} />
       </div>
+      <VoiceLine voice={voice} />
       <LimitLine exhausted={p.exhausted} handle={p.handle} />
     </form>
   );
@@ -148,6 +153,30 @@ function LimitLine({ exhausted, handle }: { exhausted: boolean; handle: string }
       {t('limitReached', { reason: 'turn', handle })}
     </p>
   ) : null;
+}
+
+// MicButton —— offered only when the instance has a speech service and the browser can record.
+// Press to record, press again to stop; while the recording is turned into text it waits.
+function MicButton({ voice }: { voice: VoiceInput }) {
+  const t = useChatT('voice');
+  const recording = voice.state === 'recording';
+  return voice.available ? (
+    <button
+      type="button" onClick={voice.toggle} disabled={voice.state === 'transcribing'}
+      className={`smc-mic is-${voice.state}`} data-testid="chat-mic" data-state={voice.state}
+      aria-label={recording ? t('stop') : t('speak')} title={recording ? t('stop') : t('speak')}
+    >
+      <span className="smc-mic-dot" aria-hidden="true" />
+      {recording && <span className="smc-mic-timer" data-testid="chat-mic-timer">{clock(voice.seconds)}</span>}
+    </button>
+  ) : null;
+}
+
+// VoiceLine —— what the mic is doing, or the one sentence on why it didn't work.
+function VoiceLine({ voice }: { voice: VoiceInput }) {
+  const t = useChatT('voice');
+  const line = voice.state === 'transcribing' ? t('transcribing') : voice.problem === '' ? '' : t(voice.problem);
+  return line === '' ? null : <p className="smc-voice-line" data-testid="chat-voice-line">{line}</p>;
 }
 
 // is-over-ghost —— while a ghost is present, the textarea is absolutely positioned over GhostText

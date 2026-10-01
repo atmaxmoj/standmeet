@@ -64,6 +64,4 @@ export interface ResumeContent {
   accent?: string; // owner-chosen accent colour (#RRGGBB); empty/absent → template default
   fontScale?: number; // owner-chosen font-size multiplier (1 = default); scales the whole résumé
   paperSize?: PaperSize; // Letter (default) or A4 — the PDF's page and the editor's sheets
-  leftOrder?: readonly string[]; // order of the left-rail sections (skills/education/custom)
-  leftWidth?: number; // left-column width in fr (main = 2fr); absent → template default
 }

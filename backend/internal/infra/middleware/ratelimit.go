@@ -32,8 +32,10 @@ var publicRatePolicy = map[string]int64{
 	// minutes, see request_guard.go) — **the 30 here is effectively
 	// unreachable**, it's only a backstop at this "per-minute window"
 	// layer, don't read it as this endpoint's real cap.
-	"POST /api/v1/access-requests":        30,
-	"POST /api/v1/agent/turn":             120,
+	"POST /api/v1/access-requests": 30,
+	"POST /api/v1/agent/turn":      120,
+	// transcribe —— each call runs the speech model on the instance's CPU (voice-input.md).
+	"POST /api/v1/transcribe":             20,
 	"POST /api/v1/account/reset-password": 20,
 }
 

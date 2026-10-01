@@ -21,6 +21,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/sandboxws"
 	"github.com/atmaxmoj/standmeet/internal/infra/session"
 	"github.com/atmaxmoj/standmeet/internal/infra/storage"
+	"github.com/atmaxmoj/standmeet/internal/infra/stt"
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 	monitor "github.com/atmaxmoj/standmeet/internal/monitor/facade"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
@@ -54,11 +55,13 @@ type Runtime struct {
 	MCPProber         marketplace.MCPServerProber
 	SeamNeeds         marketplace.SeamNeeds
 	ReportPDFRenderer publicroutes.ReportPDFRenderer
-	PdfRenderer       jobsuc.PDFRenderer
-	CaptchaVerifier   security.Verifier
-	ProviderResolver  inference.Resolver
-	CodeDenialRepo    *access.CodeDenialRepo
-	Credentials       *credentials.Repo
+	// Speech —— the speech-to-text service (voice-input.md); never nil, maybe never available.
+	Speech           *stt.Client
+	PdfRenderer      jobsuc.PDFRenderer
+	CaptchaVerifier  security.Verifier
+	ProviderResolver inference.Resolver
+	CodeDenialRepo   *access.CodeDenialRepo
+	Credentials      *credentials.Repo
 	// Assembly —— what the owner installed, grouped into bundles, plus the blocks that
 	// failed to start. The grant source for any code that carries a bundle.
 	Assembly     *assembly.Repo

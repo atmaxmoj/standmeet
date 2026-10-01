@@ -93,6 +93,8 @@ components:
     in: internal/owner/jobs/dedup       # J.6c: cross-source dedup (canonical URL + composite key)
   gotenberg:
     in: internal/infra/gotenberg                # HTTP client for the Gotenberg PDF render sidecar
+  stt:
+    in: internal/infra/stt                      # HTTP client for the instance's speech-to-text service
   printsess:
     in: internal/owner/jobs/printsess                # Redis 60s stash for gotenberg-bound resume payload
   jobcues:
@@ -939,6 +941,14 @@ deps:
       - httpx
     anyVendorDeps: true
 
+  # stt — thin HTTP client for the bundled speech-to-text service (docs/design/voice-input.md): the
+  # OpenAI transcription shape, so any compatible engine sits behind it. No domain dependency.
+  stt:
+    mayDependOn:
+      - httpx
+      - apierr
+    anyVendorDeps: true
+
   # printsess — a Redis 60s one-shot stash holding the resume render payload (application + qrURL) that
   # gotenberg fetches.
   # sys routes read it (/internal/print-session/{token}), the gotenberg adapter in the wireup writes it.
@@ -1535,6 +1545,7 @@ deps:
       - jobfetch
       - jobsuc
       - gotenberg
+      - stt
       # the built-in **declarations** are read from their own top-level directory; the composition
       # root only assembles.
       - builtinblocks
@@ -1619,6 +1630,7 @@ deps:
       - jobfetch
       - jobsuc
       - gotenberg
+      - stt
       # the built-in **declarations** are read from their own top-level directory; the composition
       # root only assembles.
       - builtinblocks
@@ -1709,6 +1721,7 @@ deps:
       - jobfetch
       - jobsuc
       - gotenberg
+      - stt
       # the built-in **declarations** are read from their own top-level directory; the composition
       # root only assembles.
       - builtinblocks
@@ -1786,6 +1799,7 @@ deps:
       - jobfetch
       - jobsuc
       - gotenberg
+      - stt
       # the built-in **declarations** are read from their own top-level directory; the composition
       # root only assembles.
       - builtinblocks
@@ -1866,6 +1880,7 @@ deps:
       - jobfetch
       - jobsuc
       - gotenberg
+      - stt
       # the built-in **declarations** are read from their own top-level directory; the composition
       # root only assembles.
       - builtinblocks

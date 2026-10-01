@@ -6,7 +6,7 @@
 //   - GET /drafts/{id}/preview.pdf renders a REAL PDF whose text layer carries the résumé content
 //     — i.e. the preview the owner clicks is the same render the recruiter receives, not a blank
 //     page or an error. (Before A3 this was a typst render for a picked template; the composer no
-//     longer picks templates, so the `/drafts/templates` list is empty by design.)
+//     longer picks templates, and the `/drafts/templates` route is gone.)
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Playwright } from '@playwright/test';

@@ -28,6 +28,9 @@ const micrositeStoreMaxBody = 16 * 1024
 // MicrositeStoreHandlers — deps for the visitor page-store route. The two closures are wired at the
 // composition root (closing over the domain + sole-owner lookup) and already return display errors.
 type MicrositeStoreHandlers struct {
+	// Opens —— the page's own access rule, the one /p/<slug> applies: a page closed to visitors
+	// without a code keeps its store closed to them too (a display error when it refuses).
+	Opens  func(r *http.Request, visitor, slug string) error
 	Insert func(ctx context.Context, slug, collection string, doc json.RawMessage) (string, error)
 	Query  func(
 		ctx context.Context, slug, collection string, filter json.RawMessage,
@@ -37,8 +40,20 @@ type MicrositeStoreHandlers struct {
 
 // Mount wires GET/POST /pages/{slug}/store onto /api/v1.
 func (h *MicrositeStoreHandlers) Mount(r chi.Router) {
-	r.Get("/pages/{slug}/store", h.query())
-	r.Post("/pages/{slug}/store", h.insert())
+	gated := r.With(h.opensGate)
+	gated.Get("/pages/{slug}/store", h.query())
+	gated.Post("/pages/{slug}/store", h.insert())
+}
+
+// opensGate —— the page's own access rule in front of its store (Opens): refused → no such page.
+func (h *MicrositeStoreHandlers) opensGate(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := h.opens(r); err != nil {
+			h.writeStoreErr(w, "page store access", err)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 type insertMicrositeDocRequest struct {
@@ -84,6 +99,15 @@ func (h *MicrositeStoreHandlers) writeStoreErr(w http.ResponseWriter, what strin
 		h.Log.Error(what, "err", err)
 	}
 	writeError(h.Log, w, env)
+}
+
+// opens —— the page's access rule for this request; no rule wired = closed (fail closed).
+func (h *MicrositeStoreHandlers) opens(r *http.Request) error {
+	if h.Opens == nil {
+		return apierr.DisplayWrap(http.StatusNotFound, "not_found", "no such page", nil)
+	}
+	visitor, _ := visitorToken(r)
+	return h.Opens(r, visitor, chi.URLParam(r, "slug"))
 }
 
 // micrositeStoreBody — a marker so the encoder takes a named type, not `any` (banned in domain).

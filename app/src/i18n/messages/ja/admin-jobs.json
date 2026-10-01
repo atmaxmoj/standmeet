@@ -70,6 +70,7 @@
     "newFrom": "どれから始めるか",
     "newFromMaster": "マスター · {name}",
     "newFromBlank": "白紙",
+    "newFromDefault": "既定のマスター",
     "newFromHint": "下書きはマスターのコピーです。下書きを編集してもマスターは変わりません。",
     "defaultBadge": "既定",
     "created": "下書きを作成しました"

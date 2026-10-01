@@ -34,8 +34,6 @@ function fullContent(): ResumeContent {
     accent: '#2E5AAC',
     fontScale: 1.1,
     paperSize: 'a4',
-    leftWidth: 0.9,
-    leftOrder: ['skills', 'education', 'custom'],
   };
 }
 
@@ -93,8 +91,7 @@ describe('toPuckData gives every component a unique Puck id (U5)', () => {
         { school: 'ca dca d', degree: 'v sad', period: { start: '', end: null } },
       ],
       skills: [{ category: '', items: ['x'] }],
-      social: [], custom: [], accent: '', fontScale: 1, paperSize: 'letter', leftWidth: 0.9,
-      leftOrder: ['skills', 'education', 'custom'],
+      social: [], custom: [], accent: '', fontScale: 1, paperSize: 'letter',
     };
     const content = toPuckData(rc).content;
     expect(content.map((c) => c.type)).toEqual([
@@ -141,8 +138,7 @@ describe('an empty résumé still projects cleanly (U8)', () => {
     identity: { name: '', email: '', phone: '', locationLine: '', site: '' },
     summary: '', coverLetter: '',
     works: [], educations: [], skills: [{ category: '', items: [] }],
-    social: [], custom: [], accent: '', fontScale: 1, paperSize: 'letter', leftWidth: 0.9,
-    leftOrder: ['skills', 'education', 'custom'],
+    social: [], custom: [], accent: '', fontScale: 1, paperSize: 'letter',
   };
   it('projects to header + summary + one skillset, all with unique ids', () => {
     const content = toPuckData(empty).content;
@@ -157,7 +153,7 @@ describe('an empty résumé still projects cleanly (U8)', () => {
 describe('fromPuckData grouping (U3)', () => {
   it('groups by type in content order; keeps repeatable order; ignores unknown types', () => {
     const pd: PuckData = {
-      root: { props: { accent: '', fontScale: 1, leftWidth: 0.9, leftOrder: ['skills'], coverLetter: '' } },
+      root: { props: { accent: '', fontScale: 1, paperSize: 'letter', coverLetter: '' } },
       content: [
         { type: 'Nonsense', props: { x: 1 } }, // unknown → ignored
         { type: SECTION.experience, props: { title: 'B', company: 'B', location: '', start: '', end: '', bullets: [] } },
@@ -173,8 +169,7 @@ describe('fromPuckData grouping (U3)', () => {
   });
 });
 
-// U4 — MOVING sections must change the canonical output, per repeatable type AND for the left-rail
-// order. These are the "reorder actually reorders" guards: they feed a NON-DEFAULT arrangement and
+// U4 — MOVING sections must change the canonical output, per repeatable type. These are the "reorder actually reorders" guards: they feed a NON-DEFAULT arrangement and
 // assert the output follows it, so a future change that stopped honouring arrangement goes RED here
 // (an identity round-trip would stay green because it never moves anything).
 describe('reorder is honoured — moving sections reaches resume_content (U4)', () => {
@@ -183,7 +178,7 @@ describe('reorder is honoured — moving sections reaches resume_content (U4)', 
   it('reordering repeatable entries (works, educations) flips their canonical order', () => {
     // Default seed order is [Alpha, Beta] / [Old U, New U]; here they are dragged into the reverse.
     const pd: PuckData = {
-      root: { props: { accent: '', fontScale: 1, leftWidth: 0.9, leftOrder: ['skills', 'education', 'custom'], coverLetter: '' } },
+      root: { props: { accent: '', fontScale: 1, paperSize: 'letter', coverLetter: '' } },
       content: [
         item(SECTION.experience, { title: 'Beta', company: 'Beta', location: '', start: '', end: '', bullets: [] }),
         item(SECTION.experience, { title: 'Alpha', company: 'Alpha', location: '', start: '', end: '', bullets: [] }),
@@ -195,15 +190,5 @@ describe('reorder is honoured — moving sections reaches resume_content (U4)', 
     const rc = fromPuckData(pd);
     expect(rc.works.map((w) => w.company), 'works follow the dragged order').toEqual(['Beta', 'Alpha']);
     expect(rc.educations.map((e) => e.school), 'educations follow the dragged order').toEqual(['New U', 'Old U']);
-  });
-
-  it('a non-default left-rail order is carried through verbatim (leftOrder)', () => {
-    const reordered = ['custom', 'skills', 'education']; // moved from the ['skills','education','custom'] default
-    const pd: PuckData = {
-      root: { props: { accent: '', fontScale: 1, leftWidth: 0.9, leftOrder: reordered, coverLetter: '' } },
-      content: [item(SECTION.header, { name: 'N', email: '', locationLine: '' })],
-      zones: {},
-    };
-    expect(fromPuckData(pd).leftOrder, 'the left-rail arrangement reaches resume_content').toEqual(reordered);
   });
 });

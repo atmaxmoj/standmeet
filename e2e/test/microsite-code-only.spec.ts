@@ -79,6 +79,23 @@ test.describe.serial('microsites · open without an access code', () => {
     await visitor.close();
   });
 
+  // Found 2026-10-01 (design review of S2): the page itself was closed, but its store answered
+  // anyone — a visitor without the code read every document the code holders had written.
+  test('the closed page\'s store answers the code holder and no one else', async ({ browser }) => {
+    const stranger = await browser.newContext();
+    const denied = await stranger.request.get(`/api/v1/pages/${SLUG}/store?collection=notes`);
+    expect(denied.status(), 'no code → the store is not there').toBe(404);
+    await stranger.close();
+
+    const holder = await browser.newContext();
+    const page = await holder.newPage();
+    await enterCodeSession(page, CODE, 'Recruiter');
+    await page.waitForURL(`**/p/${SLUG}**`, { timeout: 15_000 });
+    const allowed = await page.request.get(`/api/v1/pages/${SLUG}/store?collection=notes`);
+    expect(allowed.status(), 'the code holder reads the store').toBe(200);
+    await holder.close();
+  });
+
   // Found on prod 2026-09-28: every promote receipt said open_without_code:false and
   // bound_codes:[] — even for public pages, and for a page with a code bound. A single-page
   // receipt never loaded either field and printed their zero values. A receipt that does not know

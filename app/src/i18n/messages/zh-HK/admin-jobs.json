@@ -70,6 +70,7 @@
     "newFrom": "從哪份開始",
     "newFromMaster": "母版 · {name}",
     "newFromBlank": "空白",
+    "newFromDefault": "預設母版",
     "newFromHint": "草稿是母版的一份副本：在草稿裏改，不會動到母版。",
     "defaultBadge": "預設",
     "created": "草稿已建立"

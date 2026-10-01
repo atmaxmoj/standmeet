@@ -1,0 +1,101 @@
+// use-voice-input —— the composer's microphone (docs/design/voice-input.md). Press to record, press
+// again to stop; the recording goes to the instance's own speech service and the text comes back
+// for the input box. Never sends: the visitor reads the words first. The browser records whatever
+// it can (webm/opus, or mp4/aac on Safari); the instance decodes it.
+
+import { useEffect, useRef, useState } from 'react';
+
+import { transcribeRecording, voiceAvailable } from './api.js';
+import { loadStoredSession } from './stored-session.js';
+
+// MAX_SECONDS —— a spoken question, not a dictation; the server refuses anything past 90 s anyway.
+const MAX_SECONDS = 60;
+
+export type VoiceState = 'idle' | 'recording' | 'transcribing';
+
+// VoiceProblem —— which sentence to show (voice.<key> in the chat catalog), '' = none.
+export type VoiceProblem = '' | 'denied' | 'nothing' | 'tooLong' | 'busy' | 'failed';
+
+const PROBLEM_OF: Record<string, VoiceProblem> = {
+  recording_too_long: 'tooLong',
+  voice_busy: 'busy',
+  voice_unavailable: 'busy',
+  network: 'busy',
+};
+
+export interface VoiceInput {
+  available: boolean;
+  state: VoiceState;
+  seconds: number;
+  problem: VoiceProblem;
+  toggle: () => void;
+}
+
+// useVoiceInput —— onText receives the transcript (the caller appends it to the input).
+export function useVoiceInput(onText: (text: string) => void): VoiceInput {
+  const [available, setAvailable] = useState(false);
+  const [state, setState] = useState<VoiceState>('idle');
+  const [seconds, setSeconds] = useState(0);
+  const [problem, setProblem] = useState<VoiceProblem>('');
+  const rec = useRef<MediaRecorder | null>(null);
+  useEffect(() => {
+    let live = true;
+    void voiceAvailable().then((on) => { if (live) setAvailable(on && canRecord()); });
+    return () => { live = false; };
+  }, []);
+  useEffect(() => {
+    if (state !== 'recording') return undefined;
+    const tick = setInterval(() => setSeconds((s) => s + 1), 1000);
+    return () => clearInterval(tick);
+  }, [state]);
+  useEffect(() => {
+    if (state === 'recording' && seconds >= MAX_SECONDS) rec.current?.stop();
+  }, [state, seconds]);
+
+  const finish = async (audio: Blob): Promise<void> => {
+    setState('transcribing');
+    const res = await transcribeRecording(audio, loadStoredSession()?.session_token ?? '');
+    setState('idle');
+    if (!res.ok) { setProblem(PROBLEM_OF[res.code] ?? 'failed'); return; }
+    if (res.text === '') { setProblem('nothing'); return; }
+    onText(res.text);
+  };
+
+  const start = async (): Promise<void> => {
+    setProblem('');
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true }).catch(() => null);
+    if (stream === null) { setProblem('denied'); return; }
+    const recorder = new MediaRecorder(stream);
+    const chunks: Blob[] = [];
+    recorder.ondataavailable = (e) => { chunks.push(e.data); };
+    recorder.onstop = () => {
+      stream.getTracks().forEach((t) => t.stop());
+      void finish(new Blob(chunks, { type: recorder.mimeType }));
+    };
+    rec.current = recorder;
+    setSeconds(0);
+    recorder.start();
+    setState('recording');
+  };
+
+  const toggle = (): void => {
+    if (state === 'recording') { rec.current?.stop(); return; }
+    if (state === 'idle') void start();
+  };
+  return { available, state, seconds, problem, toggle };
+}
+
+function canRecord(): boolean {
+  return typeof window !== 'undefined' && typeof window.MediaRecorder === 'function'
+    && typeof navigator.mediaDevices?.getUserMedia === 'function';
+}
+
+// clock —— 0:07 for the recording timer.
+export function clock(seconds: number): string {
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+}
+
+// appendSpoken —— the transcript joins what the visitor already typed.
+export function appendSpoken(current: string, spoken: string): string {
+  return current.trim() === '' ? spoken : `${current.trimEnd()} ${spoken}`;
+}

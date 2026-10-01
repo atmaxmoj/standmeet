@@ -529,6 +529,20 @@ services:
       retries: 12
       start_period: 5s
 
+  # stt —— the instance's own speech-to-text (docs/design/voice-input.md): SenseVoice on
+  # sherpa-onnx, CPU only. The backend reaches it at http://stt:8080 (its default STT_URL); no host
+  # port. Optional: with it down the composer offers no mic and chat works as before.
+  stt:
+    build: ./stt
+    image: standmeet-stt:dev
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=3)"]
+      interval: 5s
+      timeout: 3s
+      retries: 24
+      start_period: 20s
+
   # minio —— S3-compatible object storage for owner-uploaded images +
   # attachments (post covers, raw entry attachments, microsite assets).
   # Self-hostable single-node. Console on :9201; S3 API on :9200.

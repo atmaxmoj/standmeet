@@ -105,6 +105,7 @@ var (
 	MicrositeStoreQuery       = usecase.VisitorQuery
 	PublicInsertMicrositeDoc  = usecase.PublicInsertDoc
 	PublicQueryMicrositeDocs  = usecase.PublicQueryDocs
+	PublicMicrositeStoreOpens = usecase.PublicStoreOpens
 	MicrositeStoreListAll     = usecase.OwnerListDocs
 	MicrositeStoreDeleteDoc   = usecase.OwnerDeleteDoc
 	MicrositeStoreClear       = usecase.OwnerClear

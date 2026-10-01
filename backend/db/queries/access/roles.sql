@@ -16,12 +16,14 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: UpsertBuiltinRole :one
--- Seed public role: idempotent by (owner_id, name).
+-- Seed a builtin role: idempotent by (owner_id, name). Which prompt the role uses is the owner's
+-- choice: a re-seed fills prompt_id only when it is empty (a new role, or the chosen prompt was
+-- deleted), never over the owner's pick (sijie 2026-10-01: every boot reset the public role).
 INSERT INTO roles (owner_id, name, description, prompt_id, is_builtin)
 VALUES ($1, $2, $3, $4, true)
 ON CONFLICT (owner_id, name) DO UPDATE SET
     description = EXCLUDED.description,
-    prompt_id   = EXCLUDED.prompt_id,
+    prompt_id   = COALESCE(roles.prompt_id, EXCLUDED.prompt_id),
     updated_at  = now()
 RETURNING *;
 

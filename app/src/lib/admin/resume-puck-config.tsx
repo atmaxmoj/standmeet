@@ -78,7 +78,7 @@ interface ResumeComponents {
   Custom: CustomProps;
 }
 
-interface ResumeRootProps { accent: string; fontScale: number; paperSize: PaperSize; leftWidth: number; coverLetter: string }
+interface ResumeRootProps { accent: string; fontScale: number; paperSize: PaperSize; coverLetter: string }
 
 // period —— "start – end" / "start – present" for a display line.
 function period(start: string, end: string): string {
@@ -159,10 +159,9 @@ export const resumePuckConfig: Config<ResumeComponents, ResumeRootProps> = {
           { label: 'A4', value: 'a4' },
         ],
       },
-      leftWidth: { type: 'number', label: 'Left column width (fr)' },
       coverLetter: { type: 'textarea', label: 'Cover letter' },
     },
-    defaultProps: { accent: '', fontScale: 1, paperSize: 'letter', leftWidth: 0.9, coverLetter: '' },
+    defaultProps: { accent: '', fontScale: 1, paperSize: 'letter', coverLetter: '' },
     // The canvas is a DOCUMENT preview in the résumé's own fixed paper palette (ink-on-cream, like the
     // PDF) regardless of the editor's day/night — see .sm-resume-paper.
     // Editor: PagedPaper draws one sheet per page in the owner's paper (Letter or A4, aspect-locked so

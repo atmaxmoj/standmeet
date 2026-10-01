@@ -71,12 +71,24 @@ export function saveDraftAsMaster(draftId: string, c: SaveAsMasterChoice): Promi
 
 // BLANK —— the new-draft picker's "start from nothing" choice.
 export const BLANK = 'blank';
+// DEFAULT —— "the default master, wherever it is": sent as neither master_id nor blank, so the
+// server starts the draft from the default master (or blank when there is none). Chosen when the
+// default is not among the loaded pages, which a client-side search could never see.
+export const DEFAULT = 'default';
 
 // startChoice —— which "start from" radio is checked: the owner's pick, else the master the modal
-// was opened on, else the default master among the loaded ones, else blank.
-// ponytail: a default master past the first loaded page is not pre-selected until loaded.
-export function startChoice(picked: string | null, preselect: string, items: readonly MasterView[]): string {
-  return picked ?? (preselect || (items.find((m) => m.is_default)?.id ?? BLANK));
+// was opened on, else the default master when loaded, else the server's default while more pages
+// remain, else blank (every master is loaded and none is the default).
+export function startChoice(
+  picked: string | null, preselect: string, items: readonly MasterView[], hasMore: boolean,
+): string {
+  const fallback = offerDefault(items, hasMore) ? DEFAULT : BLANK;
+  return picked ?? (preselect || (items.find((m) => m.is_default)?.id ?? fallback));
+}
+
+// offerDefault —— the default master may exist on a page not loaded yet: offer it by name.
+export function offerDefault(items: readonly MasterView[], hasMore: boolean): boolean {
+  return hasMore && !items.some((m) => m.is_default);
 }
 
 // masterPreviewURL —— the master's PDF (the `v` cache-buster forces a fresh render after a save).

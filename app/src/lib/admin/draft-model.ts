@@ -92,27 +92,10 @@ export interface DraftModel {
   fontScale: number;
   /** Letter (default) or A4 — the PDF's page size and the editor's sheets. */
   paperSize: PaperSize;
-  /** Order of the left-rail sections (drag-to-reorder on the canvas). Keys: skills/education/custom. */
-  leftOrder: readonly string[];
-  /** Left-column width in `fr` (main column is fixed 2fr); drag the divider to rebalance. */
-  leftWidth: number;
 }
 
-// LEFT_SECTIONS —— the reorderable left-rail sections, in default order. The owner drags to permute
-// them; any missing/extra key is reconciled against this list so the render always has all three.
-export const LEFT_SECTIONS: readonly string[] = ['skills', 'education', 'custom'];
-
-// DEFAULT_LEFT_WIDTH —— the classic template's historical left-column width (fr), so an old draft with
-// no stored width renders exactly as before.
-export const DEFAULT_LEFT_WIDTH = 0.9;
-
-// normalizeLeftOrder —— a stored order may be empty (old draft), partial, or carry junk. Keep the
-// stored keys that are real, in their stored order, then append any LEFT_SECTIONS the owner hasn't
-// placed — so the result is always a permutation of all three, never dropping or inventing a section.
-export function normalizeLeftOrder(stored: readonly string[]): readonly string[] {
-  const kept = stored.filter((k) => LEFT_SECTIONS.includes(k));
-  return [...kept, ...LEFT_SECTIONS.filter((k) => !kept.includes(k))];
-}
+// (The typst template's left rail — leftOrder / leftWidth, a draggable column divider — went with
+// typst: the Puck résumé is one ATS-friendly column, and the knobs had stopped doing anything.)
 
 // **There used to be a `mockDraft()` here** — a design-time placeholder
 // resume, sitting under the owner's real name, claiming a Stanford PhD and a
@@ -132,40 +115,6 @@ export function normalizeLeftOrder(stored: readonly string[]): readonly string[]
 // the role+company string, dressed up as a percentage. A number that looks like a measurement but
 // isn't is worse than no number ([[names-that-lie]]); real ML scoring already happens in job-loop's
 // resume.draft. `confidenceScore`/`useMatchPct` and their stopword list went with it.
-
-// moveTo —— move item `from` to slot `to`, immutably. Direction-agnostic: dropping a row's grip onto
-// another row's grip puts the dragged row in that row's slot (splice out, splice back in at `to`).
-function moveTo<T>(list: readonly T[], from: number, to: number): T[] {
-  const arr = [...list];
-  const [item] = arr.splice(from, 1);
-  if (item === undefined) return arr;
-  arr.splice(to, 0, item);
-  return arr;
-}
-
-function inRange(list: readonly unknown[], from: number, to: number): boolean {
-  return from !== to && from >= 0 && from < list.length && to >= 0 && to < list.length;
-}
-
-// reorderLeftSection —— on-canvas drag of a whole left-rail section block (skills / education /
-// custom) to a new slot. Works in indices into leftOrder (the `<sm-section kind="left">` anchors);
-// out-of-range or same → unchanged. The template renders the left rail in leftOrder, so this reorders
-// the résumé.
-export function reorderLeftSection(m: DraftModel, from: number, to: number): DraftModel {
-  return inRange(m.leftOrder, from, to)
-    ? { ...m, leftOrder: moveTo(m.leftOrder, from, to) }
-    : m;
-}
-
-// setLeftWidth —— clamp + set the left-column width (fr). Bounded so a drag can't collapse a column to
-// nothing or swallow the other; the main column stays 2fr.
-export function setLeftWidth(m: DraftModel, fr: number): DraftModel {
-  const clamped = Math.max(minLeftWidth, Math.min(maxLeftWidth, fr));
-  return { ...m, leftWidth: clamped };
-}
-
-const minLeftWidth = 0.4;
-const maxLeftWidth = 2.4;
 
 // applyResumeContentToDraft —— merge a ResumeContent (e.g. the output of the Puck editor's
 // fromPuckData) back into a DraftModel, preserving the base's non-résumé fields (id / company / role
@@ -196,8 +145,6 @@ export function applyResumeContentToDraft(base: DraftModel, rc: ResumeContent): 
     accent: rc.accent ?? '',
     fontScale: rc.fontScale ?? 1,
     paperSize: rc.paperSize ?? 'letter',
-    leftWidth: rc.leftWidth ?? DEFAULT_LEFT_WIDTH,
-    leftOrder: rc.leftOrder ? [...rc.leftOrder] : base.leftOrder,
   };
 }
 
@@ -241,8 +188,6 @@ export function draftToResumeContent(m: DraftModel): ResumeContent {
     accent: m.accent,
     fontScale: m.fontScale,
     paperSize: m.paperSize,
-    leftOrder: m.leftOrder,
-    leftWidth: m.leftWidth,
   };
 }
 
@@ -272,8 +217,6 @@ export function draftToAPIContent(m: DraftModel): Record<string, unknown> {
     accent: m.accent,
     font_scale: m.fontScale,
     paper_size: m.paperSize,
-    left_order: [...m.leftOrder],
-    left_width: m.leftWidth,
   };
 }
 

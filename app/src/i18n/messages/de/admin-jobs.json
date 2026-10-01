@@ -70,6 +70,7 @@
     "newFrom": "ausgehend von",
     "newFromMaster": "Vorlage · {name}",
     "newFromBlank": "leer",
+    "newFromDefault": "die Standardvorlage",
     "newFromHint": "Ein Entwurf ist eine Kopie der Vorlage: Änderungen am Entwurf berühren die Vorlage nie.",
     "defaultBadge": "Standard",
     "created": "Entwurf erstellt"

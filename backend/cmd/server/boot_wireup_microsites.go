@@ -198,8 +198,19 @@ func buildPublicMicrositeStoreDeps(d *deps.Runtime) publicroutes.MicrositeStoreH
 		Pages: d.MicrositeRepo, Builds: d.MicrositeBuildRepo, Docs: d.MicrositeDocs,
 		Events: d.Recorder,
 	}
+	grant := micrositeGrant(d)
 	return publicroutes.MicrositeStoreHandlers{
 		Log: d.Log,
+		// The page's own rule (sijie 2026-10-01: a code-only page's store answered anyone). A
+		// refusal reads as no such page, like the closed page's sub-assets.
+		Opens: func(r *http.Request, visitor, slug string) error {
+			err := owner.PublicMicrositeStoreOpens(r.Context(), pageDeps, d.OwnerRepo, slug,
+				func(pageID string) bool { return grant(r, visitor, pageID) })
+			if errors.Is(err, owner.ErrMicrositeNeedsCode) {
+				return apierr.DisplayWrap(http.StatusNotFound, "not_found", "no such page", err)
+			}
+			return mapMicrositeStoreErr(err)
+		},
 		Insert: func(
 			ctx context.Context, slug, collection string, doc json.RawMessage,
 		) (string, error) {
@@ -270,9 +281,22 @@ func buildPublicMicrositePreviewDeps(d *deps.Runtime) publicroutes.MicrositePrev
 			if err != nil {
 				return publicroutes.BuiltAsset{}, fmt.Errorf("resolve preview build: %w", err)
 			}
+			// The preview shows the page as visitors get it: the same public_search / public_chat
+			// switches the live serve injects (a staging page without them hid its search box).
+			search, serr := blockwire.BoolConfigByKey(ctx, d, ownerID, "public_search")
+			if serr != nil {
+				d.Log.Warn("preview: resolve public_search", "err", serr)
+			}
+			chat, cerr := publicChatState(ctx, d, ownerID)
+			if cerr != nil {
+				d.Log.Warn("preview: resolve public_chat", "err", cerr)
+				chat = publicroutes.PublicChatOff
+			}
 			return publicroutes.BuiltAsset{
-				PageID: page.Build.PageID, BuildID: page.Build.ID,
-				AllowBYOAI: page.AllowBYOAI,
+				PageID: page.Build.PageID, BuildID: page.Build.ID, Slug: slug,
+				AllowBYOAI:   page.AllowBYOAI,
+				PublicSearch: serr == nil && search,
+				PublicChat:   chat,
 			}, nil
 		},
 	}

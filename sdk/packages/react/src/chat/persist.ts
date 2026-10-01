@@ -5,7 +5,7 @@
 
 import type { Message } from '@standmeet/agent-core';
 
-import type { Dialog } from './dialog-stream.js';
+import { splitParas, type Dialog } from './dialog-stream.js';
 
 const DIALOGS = 'sm-chat-dialogs:';
 const HISTORY = 'sm-chat-history:';
@@ -14,7 +14,14 @@ const HISTORY = 'sm-chat-history:';
 const MAX_KEEP = 40;
 
 export function loadPersisted(key: string): { dialogs: Dialog[]; history: Message[] } {
-  return { dialogs: read<Dialog>(DIALOGS + key), history: read<Message>(HISTORY + key) };
+  return { dialogs: read<Dialog>(DIALOGS + key).map(resplit), history: read<Message>(HISTORY + key) };
+}
+
+// resplit —— a stored answer is split again with today's rule. A thread kept by an SDK before
+// v0.1.100 cut a fenced block at its inner blank line, so a diagram drew only its first half.
+function resplit(d: Dialog): Dialog {
+  const { paras } = d.answer;
+  return paras.length < 2 ? d : { ...d, answer: { ...d.answer, paras: splitParas(paras.join('\n\n')) } };
 }
 
 export function saveDialogs(key: string, dialogs: readonly Dialog[]): void {

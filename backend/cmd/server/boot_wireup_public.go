@@ -42,7 +42,10 @@ func buildPublicDeps(d *deps.Runtime) publicroutes.Handlers {
 		PDFRenderer:   d.ReportPDFRenderer,
 		AppState:      d.AppStateRepo,
 		Usage:         d.InferenceUsageRepo,
-		Log:           d.Log,
+		// voice input: the speech service behind the OpenAI transcription shape (voice-input.md).
+		Transcribe:     d.Speech.Transcribe,
+		VoiceAvailable: d.Speech.Available,
+		Log:            d.Log,
 	}
 }
 

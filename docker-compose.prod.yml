@@ -273,6 +273,18 @@ services:
       retries: 12
       start_period: 5s
 
+  # stt —— voice input on this server (docs/design/voice-input.md). Optional: without it the chat
+  # offers no mic. The backend reaches it at http://stt:8080, its default STT_URL.
+  stt:
+    build: ./stt
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
   # meilisearch —— the lexical index for corpus search. In the stack because the alternative
   # (Postgres FTS) cannot segment Chinese; see the MEILI_URL comment on the backend.
   #

@@ -70,6 +70,7 @@
     "newFrom": "empezar desde",
     "newFromMaster": "plantilla · {name}",
     "newFromBlank": "en blanco",
+    "newFromDefault": "la plantilla predeterminada",
     "newFromHint": "Un borrador es una copia de la plantilla: editar el borrador nunca toca la plantilla.",
     "defaultBadge": "predeterminada",
     "created": "Borrador creado"

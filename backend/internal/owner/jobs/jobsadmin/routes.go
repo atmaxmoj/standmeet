@@ -62,9 +62,6 @@ type Deps struct {
 	// two surfaces cannot diverge on what happens for the same commit.
 	Commit *jobsuc.ApplicationsDeps
 	Log    *slog.Logger
-	// Templates — the Typst layout names the owner may pick (from resumepdf.Templates()).
-	// Passed in from the composition root: jobsadmin can't import resumepdf under the arch rules.
-	Templates []string
 }
 
 // Mount hangs /drafts + /applications + /job-sources off the given router.
@@ -74,9 +71,6 @@ func Mount(r chi.Router, deps Deps) {
 	r.Route("/drafts", func(r chi.Router) {
 		r.Get("/", listDrafts(deps))
 		r.Post("/", createDraft(deps))
-		// templates — the Typst layouts on offer. Static path before /{id} so chi doesn't
-		// treat "templates" as a draft id.
-		r.Get("/templates", listTemplates(deps))
 		r.Get("/{id}", getDraft(deps))
 		r.Patch("/{id}", patchDraft(deps))
 		r.Delete("/{id}", discardDraft(deps))

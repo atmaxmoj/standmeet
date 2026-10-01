@@ -1,6 +1,8 @@
 # Notification rules and the live transcript
 
-Status: DRAFT 2026-09-30, for the owner's review. Decisions the owner makes are marked **Decide**.
+Status: APPROVED 2026-10-01. The owner chose Telegram as the first IM channel. The two open
+choices take the recommended answers: webhook endpoints stay as the channel object that rules
+point at, and a live-transcript link is valid for 24 hours.
 
 ## What the owner asked
 
@@ -56,9 +58,8 @@ rule {
 ```
 
 - The existing webhook subscription becomes a rule whose channel is webhook, so there is one
-  concept, not two (**Decide**: migrate existing endpoints into rules, or keep endpoints as the
-  channel object that rules point at — recommended, so an endpoint's secret and delivery log stay
-  where they are).
+  concept, not two. Endpoints stay as the channel object that rules point at, so an endpoint's
+  secret and delivery log stay where they are.
 - `owner.notify` becomes the default rules an owner starts with (access request → email,
   booking → email), editable instead of hard-wired.
 - `first_only` is evaluated by the rule's own delivery job with a per-(rule, subject) marker row,
@@ -79,10 +80,10 @@ rule {
   endpoint with (connection, card); the bridge posts it to the owner's chat.
 - The owner links their own IM account once (the bridge already knows its bot; the owner sends the
   bot a pairing code from the admin page, and the bridge records the owner's chat id).
-- **Channel order (owner, 2026-09-30: "我想至少能用discord").** The bridge is built on Vercel's
-  Chat SDK (`chat` + `@chat-adapter/telegram`); `@chat-adapter/discord` exists at the same version
-  (4.41.1) and renders embeds, which is the card. Discord comes first, then Telegram (already
-  wired for visitor chat). WhatsApp needs the WhatsApp Business Cloud API — a Meta business
+- **Channel order (owner, 2026-10-01: "Telegram").** The bridge is built on Vercel's Chat SDK
+  (`chat` + `@chat-adapter/telegram` + `@chat-adapter/discord`). Telegram comes first: the card is
+  a message with an inline-keyboard button that opens the transcript link. Discord follows with
+  the same card as an embed. WhatsApp needs the WhatsApp Business Cloud API — a Meta business
   account, a verified phone number, pre-approved templates for messages outside 24 hours — and
   waits until the owner has that account; the mechanism does not change.
 
@@ -91,7 +92,7 @@ rule {
 - A signed, expiring link (like the preview link: HMAC with the instance key, owner-only) opens a
   read-only transcript page for one conversation. It works without an admin sign-in, because it is
   opened from a phone's IM app; the signature is the credential, scoped to that one conversation,
-  valid for 24 hours (**Decide** the window).
+  valid for 24 hours.
 - The page streams: the backend publishes each turn's deltas for a conversation on a per-conversation
   channel (Redis pub/sub, already in the stack), and a new SSE endpoint relays them to the owner's
   page. The visitor's stream is untouched; the owner's view is a second listener.
@@ -109,7 +110,7 @@ rule {
 6. A second conversation on the same code sends no second card (first_only).
 7. The link with a tampered signature, or after expiry, shows nothing of the conversation.
 
-Each red on the code of 2026-09-30.
+Each red on the code of 2026-10-01.
 
 ## Not in this change
 

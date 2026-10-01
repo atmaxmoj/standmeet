@@ -96,6 +96,16 @@ export async function setRoleCorpus(
   if (res.status() !== 200) throw new Error(`update role failed: ${res.status()} ${await res.text()}`);
 }
 
+// setRolePrompt —— point a role at another prompt, as the owner does on /admin/roles.
+export async function setRolePrompt(
+  request: APIRequestContext, csrf: string, role: RoleView, promptID: string,
+): Promise<void> {
+  const res = await request.put(`${BACKEND}/api/admin/roles/${role.id}`, {
+    headers: { 'X-Csrftoken': csrf }, data: { name: role.name, prompt_id: promptID },
+  });
+  if (res.status() !== 200) throw new Error(`update role failed: ${res.status()} ${await res.text()}`);
+}
+
 export async function getRoleByName(
   request: APIRequestContext,
   name: string,

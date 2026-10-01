@@ -12,7 +12,9 @@ import { ModalShell } from '@/components/admin/modals/ModalShell';
 import { LoadMore } from '@/components/admin/LoadMore';
 import { resolveBtnClass } from '@/lib/admin/btn-styles';
 import { createManualDraft, type CreatedDraft } from '@/lib/admin/create-draft';
-import { BLANK, mastersPage, startChoice, type MasterView } from '@/lib/admin/use-resume-masters';
+import {
+  BLANK, DEFAULT, mastersPage, offerDefault, startChoice, type MasterView,
+} from '@/lib/admin/use-resume-masters';
 import { usePaged } from '@/lib/state/create-paged-store';
 import { useAction } from '@/lib/ui/use-action';
 
@@ -24,7 +26,7 @@ export function NewDraftModal({ onClose, onCreated, preselect = '' }: Props) {
   const [role, setRole] = useState('');
   const [picked, setPicked] = useState<string | null>(null);
   const masters = usePaged(mastersPage);
-  const start = startChoice(picked, preselect, masters.items);
+  const start = startChoice(picked, preselect, masters.items, masters.hasMore);
   const run = useAction();
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,7 +46,10 @@ export function NewDraftModal({ onClose, onCreated, preselect = '' }: Props) {
           label={t('drafts.newRole')} testid="new-draft-role"
           value={role} onChange={setRole}
         />
-        <StartPicker masters={masters.items} start={start} onPick={setPicked} />
+        <StartPicker
+          masters={masters.items} withDefault={offerDefault(masters.items, masters.hasMore)}
+          start={start} onPick={setPicked}
+        />
         <LoadMore page={masters} testid="new-draft-masters-more" />
         <Footer disabled={company.trim() === ''} onClose={onClose} label={t('drafts.newCreate')} />
       </form>
@@ -53,13 +58,16 @@ export function NewDraftModal({ onClose, onCreated, preselect = '' }: Props) {
 }
 
 // StartPicker —— one radio per master, then blank.
-function StartPicker({ masters, start, onPick }: {
-  masters: readonly MasterView[]; start: string; onPick: (id: string) => void;
+function StartPicker({ masters, withDefault, start, onPick }: {
+  masters: readonly MasterView[]; withDefault: boolean; start: string; onPick: (id: string) => void;
 }) {
   const t = useTranslations('adminJobs.drafts');
   return (
     <fieldset className="space-y-2">
       <legend className="mono text-[10px] tracking-[0.2em] uppercase text-(--color-muted) mb-1.5">{t('newFrom')}</legend>
+      {withDefault && (
+        <StartOption id={DEFAULT} checked={start === DEFAULT} onPick={onPick}>{t('newFromDefault')}</StartOption>
+      )}
       {masters.map((m) => (
         <StartOption key={m.id} id={m.id} checked={start === m.id} onPick={onPick}>
           {t('newFromMaster', { name: m.name })}

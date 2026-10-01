@@ -70,6 +70,7 @@
     "newFrom": "start from",
     "newFromMaster": "master · {name}",
     "newFromBlank": "blank",
+    "newFromDefault": "the default master",
     "newFromHint": "A draft is a copy of the master: editing the draft never touches the master.",
     "defaultBadge": "default",
     "created": "Draft created"

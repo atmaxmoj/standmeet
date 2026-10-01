@@ -33,6 +33,10 @@ type ScriptedTool struct {
 	// tool-call assistant message (how Groq gpt-oss-* stream their thinking). It then rides in the
 	// history, and a guard can assert the backend does NOT echo it back on the next turn.
 	Reasoning string `json:"reasoning,omitempty"`
+	// Narration —— when set, the openai-compat wire streams this as ordinary content BEFORE the tool
+	// call, the way a model says "let me check my notes" and then calls a tool. The answer must not
+	// carry it: it was the model narrating its plan, not answering (F-A-4).
+	Narration string `json:"narration,omitempty"`
 	// Also —— other calls dispatched together with the Name/Args one, **in the same
 	// message**. Empty = the old behavior (one call per turn).
 	//
