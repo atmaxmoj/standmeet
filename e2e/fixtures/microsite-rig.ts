@@ -167,6 +167,29 @@ export async function queueBuild(
   return started.body['build_id'] as string;
 }
 
+// buildSettled —— queue a build of this source and wait for built or failed; never asserts which,
+// for a spec whose subject is that a build fails (and says why) as much as that it succeeds.
+export async function buildSettled(
+  request: APIRequestContext, csrf: string, slug: string, source: string,
+): Promise<{ id: string; status: string; error: string }> {
+  const id = await queueBuild(request, csrf, slug, source);
+  let row: Record<string, unknown> = {};
+  await expect.poll(async () => {
+    row = (await pageAPI(request, csrf, 'get', `/builds/${id}`)).body;
+    return (row['status'] as string | undefined) ?? 'pending';
+  }, { timeout: 300_000, intervals: [2000], message: 'the build never settled' }).toMatch(/^(built|failed)$/);
+  const why = row['error_message'];
+  return { id, status: String(row['status']), error: typeof why === 'string' ? why : '' };
+}
+
+// promoteBuild —— put a built build live.
+export async function promoteBuild(
+  request: APIRequestContext, csrf: string, slug: string, buildID: string,
+): Promise<void> {
+  const live = await pageAPI(request, csrf, 'post', `/${slug}/live`, { build_id: buildID });
+  expect(live.status, 'promote to live').toBe(200);
+}
+
 // SHIPPED_HOMEPAGE —— the default homepage source, read from the very file the backend embeds
 // (`//go:embed defaulthomepage/App.tsx`, owner/usecase/default_homepage.go). Never re-typed here:
 // a spec whose subject is "the homepage the product ships" would silently stop testing that the

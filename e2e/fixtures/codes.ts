@@ -64,6 +64,8 @@ export interface CreateCodeInput {
   // provider_id —— this code's inference provider. Unset = inherit (role, then the owner's
   // default). The code wins over the role: it is the ticket that was handed out.
   provider_id?: string | null;
+  // slug —— the landing path (/c/<slug>). Unset = a generated one.
+  slug?: string;
 }
 
 export interface CodeView {
@@ -93,6 +95,7 @@ export async function createCode(
       assumed_role_id: input.assumed_role_id ?? null,
       prompt_id: input.prompt_id ?? null,
       provider_id: input.provider_id ?? null,
+      slug: input.slug ?? '',
     },
   });
   if (res.status() !== 201) throw new Error(`create code failed: ${res.status()}`);

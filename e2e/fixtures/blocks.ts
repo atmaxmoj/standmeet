@@ -54,6 +54,16 @@ export async function setBlockEnabled(
   return res.status();
 }
 
+/** Install a block from its manifest text (the admin panel's paste). Returns the HTTP status. */
+export async function installBlockManifest(
+  request: APIRequestContext, csrf: string, manifest: string,
+): Promise<number> {
+  const res = await request.post(`${BACKEND}/api/admin/blocks`, {
+    headers: { 'X-Csrftoken': csrf }, data: { manifest },
+  });
+  return res.status();
+}
+
 /** Delete a block. Only owner-origin should succeed; builtin/managed
  *  must be rejected. Returns the HTTP status. */
 export async function deleteBlock(
