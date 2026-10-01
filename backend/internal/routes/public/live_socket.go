@@ -11,7 +11,9 @@ import "net/http"
 // relayLive —— copies the feed to the owner's SSE stream until either ends.
 func relayLive(w http.ResponseWriter, r *http.Request, frames <-chan []byte) {
 	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
+	// no-transform: the app's response compression would hold small frames in its gzip buffer
+	// (measured 2026-10-01: zero bytes in 6 s through the app with Accept-Encoding: gzip).
+	w.Header().Set("Cache-Control", "no-cache, no-transform")
 	w.Header().Set("X-Accel-Buffering", "no")
 	writeAndFlush(w, []byte(": live\n\n"))
 	for liveStep(w, frames, r.Context().Done()) {

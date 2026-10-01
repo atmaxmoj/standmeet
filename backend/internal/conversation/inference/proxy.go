@@ -150,7 +150,9 @@ func attachTools(
 
 func setStreamSSEHeaders(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
+	// no-transform: a compressing proxy (the app's own included) would otherwise hold small frames
+	// in its gzip buffer, and the visitor sees progress only in bursts.
+	w.Header().Set("Cache-Control", "no-cache, no-transform")
 	w.Header().Set("X-Accel-Buffering", "no")
 }
 
