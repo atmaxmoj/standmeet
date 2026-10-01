@@ -41,6 +41,7 @@
     "monitor": "流量",
     "tasks": "後台任務",
     "webhooks": "Webhook",
+    "notify": "通知",
     "ip-bans": "IP 封禁",
     "account": "帳户",
     "system": "系統"

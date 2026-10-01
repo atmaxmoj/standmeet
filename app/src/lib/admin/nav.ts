@@ -13,7 +13,8 @@ export type AdminSlug =
   | 'skills' | 'writings' | 'drafts' | 'applications' | 'screen-assistant'
   | 'dashboard' | 'sources' | 'listings' | 'system'
   | 'preview' | 'obsidian' | 'embeds' | 'assets' | 'data'
-  | 'roles' | 'prompts' | 'ip-bans' | 'monitor' | 'tasks' | 'webhooks' | 'blocks' | 'blockMap';
+  | 'roles' | 'prompts' | 'ip-bans' | 'monitor' | 'tasks' | 'webhooks' | 'notify' | 'blocks'
+  | 'blockMap';
 
 export type NavGroupID =
   | 'overview' | 'corpus' | 'access' | 'resources' | 'jobs' | 'plugins' | 'integrations' | 'settings';
@@ -84,8 +85,10 @@ export const NAV_GROUPS: readonly NavGroup[] = [
   {
     id: 'integrations',
     // webhooks —— the outbound twin of api·mcp: other sites hear about changes without asking.
+    // notify —— the same events, as a card to the owner (email, a webhook, their own chat).
     items: [
-      { slug: 'providers' }, { slug: 'suppliers' }, { slug: 'api-mcp' }, { slug: 'webhooks' }, { slug: 'obsidian' },
+      { slug: 'providers' }, { slug: 'suppliers' }, { slug: 'api-mcp' }, { slug: 'webhooks' },
+      { slug: 'notify' }, { slug: 'obsidian' },
     ],
   },
   {

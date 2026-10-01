@@ -11,6 +11,16 @@
   --smc-ease: .15s cubic-bezier(.4, 0, .2, 1);
 }
 
+/* ── live transcript (LiveTranscript): the owner's read-only view of one conversation ── */
+.smc-live { max-width: 46rem; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+.smc-live-heading, .smc-live-waiting, .smc-live-invalid {
+  font-family: var(--smc-mono); font-size: 11px; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--color-muted);
+}
+.smc-live-heading { color: var(--color-accent); }
+.smc-live-waiting { margin-top: 1.5rem; }
+.smc-live-invalid { max-width: 46rem; margin: 4rem auto; padding: 0 1.5rem; color: var(--color-ink); }
+
 /* ── transcript (ChatTranscript) ──────────────────────────────────── */
 .smc-transcript { flex: 1; }
 .smc-dialog { padding-top: 2.5rem; padding-bottom: 2.5rem; border-bottom: 1px solid var(--color-rule); }

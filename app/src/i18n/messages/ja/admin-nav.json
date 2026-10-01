@@ -41,6 +41,7 @@
     "monitor": "トラフィック",
     "tasks": "タスク",
     "webhooks": "Webhook",
+    "notify": "通知",
     "ip-bans": "IP ブロック",
     "account": "アカウント",
     "system": "システム"

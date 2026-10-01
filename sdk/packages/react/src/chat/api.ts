@@ -187,6 +187,31 @@ export async function fetchConversation(
   }
 }
 
+// fetchLiveConversation —— the conversation a live-transcript link opens (GET /live/<token>), its
+// dialogs so far; null for a link that is not valid (tampered, expired) or a failed read.
+export async function fetchLiveConversation(token: string): Promise<AggDialog[] | null> {
+  try {
+    const res = await fetch(`${chatBaseURL()}/api/v1/live/${encodeURIComponent(token)}`);
+    if (!res.ok) return null;
+    const parsed = z.object({ conversation: ViewSchema.shape.conversation }).safeParse(await res.json());
+    return parsed.success ? parsed.data.conversation.dialogs : null;
+  } catch {
+    return null;
+  }
+}
+
+// openLiveStream —— the live link's SSE body (null when it cannot be opened).
+export async function openLiveStream(
+  token: string, signal: AbortSignal,
+): Promise<ReadableStream<Uint8Array> | null> {
+  try {
+    const res = await fetch(`${chatBaseURL()}/api/v1/live/${encodeURIComponent(token)}/stream`, { signal });
+    return res.ok ? res.body : null;
+  } catch {
+    return null;
+  }
+}
+
 function toView(d: z.infer<typeof ViewSchema>): VisitorView {
   return {
     visitorName: d.session.visitor_name,

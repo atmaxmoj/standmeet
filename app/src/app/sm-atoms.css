@@ -1466,3 +1466,28 @@
 .sm-resume-paper :has([data-sec="skillset"]) + :has([data-sec="skillset"]) [data-sec-lead] {
   display: none;
 }
+
+/* ── /admin/notify (NotifySection): notification rules and linked chats ── */
+.sm-notify-intro, .sm-notify-empty {
+  color: var(--color-muted); font-size: 15px; line-height: 1.5; max-width: 54em; margin-bottom: 1.75rem;
+}
+.sm-notify-head { margin: 2.25rem 0 .75rem; }
+.sm-notify-box {
+  border: 1px solid var(--color-rule); border-radius: 3px; padding: 1rem; margin-bottom: 1rem;
+  display: flex; flex-direction: column; gap: 1rem; max-width: 54em;
+}
+.sm-notify-list { border: 1px solid var(--color-rule); border-radius: 3px; }
+.sm-notify-list > li + li { border-top: 1px solid var(--color-rule); }
+.sm-notify-row { padding: .75rem; display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem 1rem; }
+.sm-notify-field { display: flex; flex-direction: column; gap: .25rem; }
+.sm-notify-check { display: flex; align-items: baseline; gap: .75rem; font-size: 13.5px; }
+.sm-notify-label {
+  font-family: var(--font-mono, monospace); font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--color-muted);
+}
+.sm-notify-mono { font-family: var(--font-mono, monospace); font-size: 12px; color: var(--color-ink); }
+.sm-notify-status { font-family: var(--font-mono, monospace); font-size: 11px; color: var(--color-accent); }
+.sm-notify-template { font-style: italic; font-size: 13.5px; color: var(--color-ink); flex: 1; min-width: 12em; }
+.sm-notify-help { font-size: 13px; color: var(--color-muted); line-height: 1.5; }
+.sm-notify-pairing { border-left: 2px solid var(--color-accent); padding-left: .75rem; }
+.sm-notify-code { font-family: var(--font-mono, monospace); font-size: 18px; letter-spacing: .2em; color: var(--color-ink); }

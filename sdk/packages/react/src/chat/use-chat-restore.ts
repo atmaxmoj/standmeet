@@ -179,7 +179,12 @@ function mergeView(cur: VisitorSession, v: VisitorView): VisitorSession {
 }
 
 function toDialogs(v: VisitorView): Dialog[] {
-  return v.dialogs.map((d, i): Dialog => ({
+  return dialogsOf(v.dialogs);
+}
+
+// dialogsOf —— persisted exchanges as finished transcript dialogs (restore, the live transcript).
+export function dialogsOf(dialogs: readonly AggDialog[]): Dialog[] {
+  return dialogs.map((d, i): Dialog => ({
     id: `h${i}`, q: d.question, time: '', pending: false,
     currentTool: null, retrying: false, failed: false,
     answer: {

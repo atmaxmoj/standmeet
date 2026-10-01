@@ -41,6 +41,7 @@
     "monitor": "tráfico",
     "tasks": "tareas",
     "webhooks": "webhooks",
+    "notify": "notificaciones",
     "ip-bans": "bloqueos IP",
     "account": "cuenta",
     "system": "sistema"

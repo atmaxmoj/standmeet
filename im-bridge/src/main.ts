@@ -12,6 +12,7 @@ import { createTelegramAdapter } from '@chat-adapter/telegram';
 import { platformsFor, waitForChange, waitForConfig } from './config.js';
 import { listenForever, prepareDiscord } from './discord.js';
 import { startBridge } from './index.js';
+import { backendPairer, startNotifyServer } from './notify.js';
 
 function wiring(key: string, fallback: string): string {
   const v = process.env[key];
@@ -35,7 +36,8 @@ async function main(): Promise<void> {
   const telegram = platforms.includes('telegram')
     ? createTelegramAdapter({ botToken: cfg.telegramToken, mode: 'polling' }) : undefined;
   const discord = platforms.includes('discord') ? await prepareDiscord(cfg.discordToken, say) : undefined;
-  const chat = startBridge({ adapters: { ...(telegram && { telegram }), ...(discord && { discord }) }, baseURL });
+  const adapters = { ...(telegram && { telegram }), ...(discord && { discord }) };
+  const chat = startBridge({ adapters, baseURL, pair: backendPairer(internalURL) });
 
   // **先 initialize 再开始收消息** —— 适配器是被 Chat 实例初始化的，
   // 顺序反了会抛 `Cannot start polling before initialize()`。
@@ -44,6 +46,13 @@ async function main(): Promise<void> {
   say(`im-bridge: ${platforms.join(' + ')}; standmeet=${baseURL}`);
   void telegram?.startPolling();
   if (discord) void listenForever(discord, say);
+  // The instance's notification cards (notify.ts): posted through whichever adapter owns the chat.
+  startNotifyServer(async (threadID, card) => {
+    const platform = threadID.split(':')[0] ?? '';
+    const adapter = (adapters as Record<string, { postMessage: (t: string, m: unknown) => Promise<unknown> }>)[platform];
+    if (adapter === undefined) throw new Error(`${platform} is not connected`);
+    await adapter.postMessage(threadID, card);
+  }, say);
 
   // The owner connected another platform, disconnected one, or rotated a token: restart on the
   // new configuration (compose restarts the bridge; restart: unless-stopped).
