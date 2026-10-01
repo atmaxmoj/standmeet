@@ -20,8 +20,10 @@ import (
 
 // CanPerform — the spec declares no scope for this op → true (this step needs no extra
 // permission).
-func (c *openapiCore) CanPerform(ctx context.Context, ownerID, operationID string) (bool, error) {
-	need := c.runtime.ScopesFor(operationID)
+func (c *OpenAPIBehavior) CanPerform(
+	ctx context.Context, ownerID, operationID string,
+) (bool, error) {
+	need := c.spec.ScopesFor(operationID)
 	if len(need) == 0 {
 		return true, nil
 	}

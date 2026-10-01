@@ -21,7 +21,7 @@ func NewService(d *deps.Runtime) *blockadmin.Service {
 		Repo: d.Credentials, Owners: d.OwnerRepo, Redis: d.RDB,
 		HTTP: supplierEgressClient(), Verifier: d.BlockSuppliers,
 		Installer: uploadedInstaller{
-			sups: d.BlockSuppliers, deps: newAssembleDeps(d.Credentials),
+			sups: d.BlockSuppliers, deps: newAssembleDeps(d),
 		},
 		Manifests: loadBuiltinSupplierManifests(d),
 		Events:    d.Recorder(),

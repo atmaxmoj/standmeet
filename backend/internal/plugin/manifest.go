@@ -42,7 +42,8 @@ const (
 	TransportInProcess = "in_process"
 	// TransportSandboxStdio —— a stdio server the host spawns under bwrap.
 	TransportSandboxStdio = "sandbox_stdio"
-	// TransportOpenAPI —— an OpenAPI spec plus a binding, executed by the host.
+	// TransportOpenAPI —— an OpenAPI spec plus a binding, run by the shared openapi engine
+	// (OpenAPIRuntime).
 	TransportOpenAPI = "openapi"
 	// TransportProtocol —— a wire protocol the host speaks directly (SMTP, CalDAV).
 	TransportProtocol = "protocol"

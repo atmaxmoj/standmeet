@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/atmaxmoj/standmeet/cmd/server/deps"
 )
 
 // TestShippedSuppliersAssemble —— every block we ship that declares a seam must actually
@@ -32,7 +34,7 @@ func TestShippedSuppliersAssemble(t *testing.T) {
 	t.Parallel()
 
 	manifests := BuiltinManifests()
-	adeps := newAssembleDeps(nil)
+	adeps := newAssembleDeps(&deps.Runtime{})
 	supplying := 0
 	for i := range manifests {
 		if manifests[i].Provides == "" {

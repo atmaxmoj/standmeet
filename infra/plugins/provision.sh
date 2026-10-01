@@ -137,12 +137,13 @@ install_project_into mail-sender
 # old in-host protocol(smtp) supplier: SMTP is an app on a protocol, so it is a block like caldav.
 install_project_into smtp
 # google-calendar —— Google Calendar AS a block: data (spec.yaml + binding.yaml) + the generic
-# openapi-runtime engine vendored in-block (engine.js / engine_call.js, copied from the canonical
-# infra/plugins/openapi/ the way socket blocks vendor gateway.js — self-contained for the sandbox
-# and dsh pack). Replaces the in-host calendarAdapter. (infra/plugins/openapi/ is the engine's
-# source of truth, a template copied into each openapi supplier block; it is not itself a runnable
-# block, so it is not provisioned/baked.)
+# openapi-runtime engine vendored in-block (engine.js / engine_call.js, copied verbatim from the
+# canonical infra/plugins/openapi/ — the sandbox binds only a block's own dir; engine.test.js fails
+# if the copies differ).
 install_project_into google-calendar
+# openapi —— the shared openapi block: every owner-uploaded openapi supplier (and bearer-api) runs
+# its HTTP here, the spec + binding merged into each call by the host. No in-host runtime remains.
+install_project_into openapi
 # caldav —— CalDAV as a Koishi plugin (caldav-plugin.js) wrapped as a stdio-MCP block: injects
 # Koishi's http hand for the WebDAV requests, parses iCalendar with ical.js. CalDAV is an app on
 # HTTP → a block (pluggable into Koishi), not a base protocol, and carries no Go. Deps in

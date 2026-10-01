@@ -1,9 +1,8 @@
-// assemble.go — manifest → assembled supplier. A unified assembly entry point:
-// built-in (spec+binding files in the repo) and uploaded (pasted by the owner in the
-// UI) both go through the **same** Assemble, the only difference is where the
-// manifest data comes from. Assembly = parse spec + binding → validate self-
-// consistency → pick an auth strategy → build the runtime → wrap it into the matching
-// contract adapter for its seam.
+// assemble.go — manifest → the host-side half of an openapi supplier. Built-in (spec+binding
+// files in the repo) and uploaded (pasted by the owner in the UI) both go through the **same**
+// AssembleOpenAPIBehavior; the only difference is where the manifest data comes from. Assembly
+// = parse spec + binding → validate self-consistency → pick an auth strategy. The calls run in
+// the openapi block.
 
 package adapters
 
@@ -62,37 +61,6 @@ type Manifest struct {
 type parsed struct {
 	spec    *openapi.Spec
 	binding *openapi.Binding
-}
-
-// AssembleOpenAPI — assemble an openapi manifest into a Supplier. Any failure in
-// parse/validate/pick-strategy → error (rejected on the spot at assembly time, with a
-// friendly message back to admin). The concrete type returned is calendarAdapter or
-// mailAdapter, depending on the bound seam.
-func AssembleOpenAPI(
-	m *Manifest, doer openapi.Doer, store ConnectionStore, allow egress.Allow,
-) (Supplier, error) {
-	p, err := parseAndValidate(m, allow)
-	if err != nil {
-		return nil, err
-	}
-	auth, aerr := resolveAuth(p.spec, m.AuthScheme)
-	if aerr != nil {
-		return nil, fmt.Errorf(errSupplierWrap, m.ID, aerr)
-	}
-	rt, rerr := openapi.NewRuntime(p.spec, p.binding, doer)
-	if rerr != nil {
-		return nil, fmt.Errorf(errSupplierWrap, m.ID, rerr)
-	}
-	core := &openapiCore{
-		runtime: rt, store: store, auth: auth, id: m.ID, expose: m.ExposeAsAgentTools,
-		refresher: buildRefresher(p.spec, m.AuthScheme, doer, store),
-	}
-	if p.binding == nil {
-		// agent-only (§3): no seam binding → doesn't occupy a seam slot, the
-		// bare core is both a Supplier and an AgentToolSupplier.
-		return core, nil
-	}
-	return adaptBySeam(p.binding.Seam, core)
 }
 
 // checkEgress — assembly-time static SSRF check: servers[].url + oauth token URL
@@ -204,17 +172,4 @@ func soleScheme(schemes map[string]openapi.SecurityScheme) (openapi.SecuritySche
 		return s, nil
 	}
 	return openapi.SecurityScheme{}, errNoAuthScheme
-}
-
-// adaptBySeam — wrap the execution core into the matching contract adapter by
-// seam. Unknown seam → error.
-func adaptBySeam(seam string, core *openapiCore) (Supplier, error) {
-	switch seam {
-	case "calendar":
-		return calendarAdapter{core}, nil
-	case "mail":
-		return mailAdapter{core}, nil
-	default:
-		return nil, fmt.Errorf("%w: %q", openapi.ErrBindingUnknownSeam, seam)
-	}
 }

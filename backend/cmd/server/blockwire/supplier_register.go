@@ -15,7 +15,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/egress"
 	"github.com/atmaxmoj/standmeet/internal/plugin"
 	"github.com/atmaxmoj/standmeet/internal/plugin/adapters"
-	"github.com/atmaxmoj/standmeet/internal/plugin/credentials"
 	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
 	"github.com/atmaxmoj/standmeet/internal/routes/blockload"
 )
@@ -66,7 +65,7 @@ func DiscoverSeamProviders(
 	ctx context.Context, d *deps.Runtime,
 ) ([]registry.DepProvider, error) {
 	EnsureBlockDispatch(d)
-	adeps := newAssembleDeps(d.Credentials)
+	adeps := newAssembleDeps(d)
 	// Iterate the FULL manifests (not the thin supplier shape): a sandbox_stdio block that serves a
 	// seam needs its transport (command/sandbox) to be dialable, which the thin adapters.Manifest
 	// drops. Each supplying manifest yields one Supplier + one thin manifest for seam declaration.
@@ -131,7 +130,7 @@ func blockCalendarSupplier(m *plugin.Manifest, adeps *assembleDeps) (adapters.Su
 	if err != nil {
 		return nil, fmt.Errorf("assemble openapi behavior for %q: %w", m.ID, err)
 	}
-	return newOpenAPIBlockCalendarProxy(m, beh), nil
+	return newOpenAPIBlockCalendarProxy(m, openapiVault{beh: beh, hosts: adeps.hosts}), nil
 }
 
 // seamProviders —— one DepProvider per supplied seam, from the manifests and nothing else.
@@ -259,15 +258,24 @@ type assembleDeps struct {
 	store     connectionStoreAdapter
 	credVault credVaultAdapter
 	allow     egress.Allow
+	// hosts —— the internal hosts the owner allows, read live: an openapi block refuses every
+	// other internal address on its own.
+	hosts func() []string
 }
 
-func newAssembleDeps(repo *credentials.Repo) *assembleDeps {
+func newAssembleDeps(d *deps.Runtime) *assembleDeps {
 	allow := supplierEgressAllow()
 	return &assembleDeps{
 		doer:      allow.GuardedHTTPClient(),
-		store:     connectionStoreAdapter{repo: repo},
-		credVault: credVaultAdapter{repo: repo},
+		store:     connectionStoreAdapter{repo: d.Credentials},
+		credVault: credVaultAdapter{repo: d.Credentials},
 		allow:     allow,
+		hosts: func() []string {
+			if d.LiveSettings == nil {
+				return []string{}
+			}
+			return d.LiveSettings.InternalHosts()
+		},
 	}
 }
 
@@ -298,12 +306,16 @@ func assembleSupplier(m *adapters.Manifest, d *assembleDeps) (adapters.Supplier,
 	}
 }
 
-// assembleOpenAPISupplier —— the openapi arm of assembleSupplier, split out so the dispatch
-// switch stays under the complexity limit.
+// assembleOpenAPISupplier —— the openapi arm of assembleSupplier: the host-side behavior, with
+// the calls run by the shared openapi block (openapi_suppliers.go).
 func assembleOpenAPISupplier(m *adapters.Manifest, d *assembleDeps) (adapters.Supplier, error) {
-	c, err := adapters.AssembleOpenAPI(m, d.doer, d.store, d.allow)
+	beh, err := adapters.AssembleOpenAPIBehavior(m, d.doer, d.store, d.allow)
 	if err != nil {
 		return nil, fmt.Errorf("assemble openapi supplier: %w", err)
 	}
-	return c, nil
+	sup, serr := sharedBlockSupplier(beh, d.hosts)
+	if serr != nil {
+		return nil, fmt.Errorf("assemble openapi supplier: %w", serr)
+	}
+	return sup, nil
 }

@@ -46,8 +46,8 @@ var SeamContractOps = map[string][]string{
 	"mail":     {"send"},
 }
 
-// opBinding — one mapping from a contract method to a SaaS operation, plus three (compiled)
-// JSONata segments.
+// opBinding — one mapping from a contract method to a SaaS operation, plus three JSONata
+// segments.
 //
 // Why Query exists: **some SaaS APIs put half of the action in query parameters, not in the
 // request body.** Google Calendar's "notify attendees" is exactly `?sendUpdates=all` — both
@@ -58,12 +58,9 @@ var SeamContractOps = map[string][]string{
 // the binding language cannot express doesn't error out on migration — it just vanishes
 // (F-B-7 / [[externalize-is-not-relocate]]).
 type opBinding struct {
-	reqExpr   *jsonata.Expr
-	respExpr  *jsonata.Expr
-	queryExpr *jsonata.Expr
-	Op        string     `yaml:"op"`
-	Request   jsonataSrc `yaml:"request"`
-	Response  jsonataSrc `yaml:"response"`
+	Op       string     `yaml:"op"`
+	Request  jsonataSrc `yaml:"request"`
+	Response jsonataSrc `yaml:"response"`
 	// Query — evaluates to an object: keys are query parameter names, values are scalars.
 	// Keys whose value is null / an empty string are dropped, so "include this parameter
 	// only conditionally" can just be written as a JSONata ternary.
@@ -93,25 +90,24 @@ func ParseBinding(raw []byte) (*Binding, error) {
 	return &b, nil
 }
 
+// compileOpBinding — compile each JSONata segment only to refuse a syntax error at upload; the
+// openapi block evaluates them at call time.
 func compileOpBinding(ob *opBinding) error {
 	slots := []struct {
-		dst  **jsonata.Expr
 		name string
 		src  jsonataSrc
 	}{
-		{&ob.reqExpr, "request", ob.Request},
-		{&ob.respExpr, "response", ob.Response},
-		{&ob.queryExpr, "query", ob.Query},
+		{"request", ob.Request},
+		{"response", ob.Response},
+		{"query", ob.Query},
 	}
 	for _, s := range slots {
 		if s.src == "" {
 			continue
 		}
-		e, err := jsonata.Compile(string(s.src))
-		if err != nil {
+		if _, err := jsonata.Compile(string(s.src)); err != nil {
 			return fmt.Errorf("%s: %w", s.name, err)
 		}
-		*s.dst = e
 	}
 	return nil
 }
@@ -146,47 +142,4 @@ func (b *Binding) checkComplete(required []string) error {
 		}
 	}
 	return nil
-}
-
-// evalRequest — renders the request body from contract input (already in JSON shape).
-// No request JSONata → nil (no body).
-func (ob *opBinding) evalRequest(input any) (any, error) {
-	if ob.reqExpr == nil {
-		return nil, nil
-	}
-	out, err := ob.reqExpr.Eval(input)
-	if err != nil {
-		return nil, fmt.Errorf("eval request jsonata: %w", err)
-	}
-	return out, nil
-}
-
-// evalQuery — renders query parameters from contract input. No query JSONata → empty
-// (no parameters attached).
-func (ob *opBinding) evalQuery(input any) (map[string]any, error) {
-	if ob.queryExpr == nil {
-		return map[string]any{}, nil
-	}
-	out, err := ob.queryExpr.Eval(input)
-	if err != nil {
-		return nil, fmt.Errorf("eval query jsonata: %w", err)
-	}
-	m, ok := out.(map[string]any)
-	if !ok {
-		return nil, fmt.Errorf("%w: query must evaluate to an object", ErrBindingBadJSONata)
-	}
-	return m, nil
-}
-
-// evalResponse — extracts contract output from the SaaS response. No response JSONata →
-// unchanged.
-func (ob *opBinding) evalResponse(resp any) (any, error) {
-	if ob.respExpr == nil {
-		return resp, nil
-	}
-	out, err := ob.respExpr.Eval(resp)
-	if err != nil {
-		return nil, fmt.Errorf("eval response jsonata: %w", err)
-	}
-	return out, nil
 }

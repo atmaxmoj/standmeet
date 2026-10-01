@@ -18,7 +18,7 @@ type ConnectionVerifier interface {
 
 // Installer — validate (assemble) an uploaded manifest + register it into the live
 // supplier table, returning the seam it declares. The composition root wires this to
-// AssembleOpenAPI + Suppliers.Register.
+// AssembleOpenAPIBehavior + Suppliers.Put.
 type Installer interface {
 	Install(m *adapters.Manifest) (seam string, err error)
 }

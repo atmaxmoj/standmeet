@@ -1,16 +1,17 @@
-// Package openapi — the execution core of the generic openapi supplier (spec parsing +
-// JSONata binding + HTTP relay).
+// Package openapi — the host's side of the generic openapi supplier: spec parsing, binding
+// validation, credential-form derivation and ingest. The calls themselves run in the openapi
+// block (infra/plugins/openapi/engine.js), never in this process.
 //
-// This is the heart of "supplier normalization": any openapi supplier — the built-in gcal,
-// an uploaded SendGrid — is "one OpenAPI 3.0/3.1 spec + one JSONata binding" run through this
-// same Runtime. This package is the schemaless-JSON boundary (any SaaS's request/response is
-// arbitrary JSON), so here — and only here — `any` is legitimate (golangci exempts forbidigo
-// on this path, the same boundary as MCP/postgres). Contract adapters outside this package
-// use **typed** input/output throughout (Call does the JSON round-trip internally); `any`
-// never leaks out.
+// This package is a schemaless-JSON boundary (a binding's JSONata segments are arbitrary
+// JSON), so here — and only here — `any` is legitimate (golangci exempts forbidigo on this
+// path, the same boundary as MCP/postgres).
 package openapi
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+	"net/http"
+)
 
 // Assembly-time (POST /suppliers validation) sentinels: returned to admin as a friendly
 // 4xx message.
@@ -21,8 +22,23 @@ var (
 	ErrBindingUnknownSeam = errors.New("binding declares an unknown seam")
 	ErrBindingIncomplete  = errors.New("binding does not map all required contract operations")
 	ErrBindingBadJSONata  = errors.New("binding has an invalid JSONata expression")
-	// ErrMissingRequired — runtime pre-flight: the body the request JSONata evaluated to is
-	// missing a field the spec declares required (e.g. events.insert missing summary) →
-	// reject, never send a malformed request.
-	ErrMissingRequired = errors.New("required request field missing")
 )
+
+// Doer — the HTTP hand the host still uses for itself: the OAuth token exchange and refresh.
+type Doer interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
+// AuthInjector — puts one connection's credentials onto a request. The host runs it against a
+// probe request and hands the resulting headers and query to the openapi block.
+type AuthInjector func(req *http.Request) error
+
+// StatusError — an upstream HTTP error status from a host-side call (the token endpoint).
+type StatusError struct {
+	Code      int
+	Transient bool
+}
+
+func (e *StatusError) Error() string {
+	return fmt.Sprintf("supplier upstream returned status %d", e.Code)
+}

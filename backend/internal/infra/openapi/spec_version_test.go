@@ -57,18 +57,11 @@ func TestParseSpec_Accepts31Operations(t *testing.T) {
 	}
 }
 
-// TestParseSpec_31ExtractsSubset —— the requestBody.required list and securitySchemes the runtime
-// reads survive a 3.1 spec (the array `type` on `start` must not derail required-name extraction).
+// TestParseSpec_31ExtractsSubset —— the securitySchemes the host reads survive a 3.1 spec (the
+// array `type` on `start` must not derail parsing).
 func TestParseSpec_31ExtractsSubset(t *testing.T) {
 	t.Parallel()
 	s := mustParse31(t)
-	op, ok := s.lookup("booking.create")
-	if !ok {
-		t.Fatal("booking.create not resolvable in 3.1 spec")
-	}
-	if strings.Join(op.Required, ",") != "start,attendee" {
-		t.Fatalf("requestBody.required not extracted from 3.1 spec: %v", op.Required)
-	}
 	if _, has := s.SecuritySchemes()["bearer"]; !has {
 		t.Fatalf("securitySchemes not extracted from 3.1 spec: %v", s.SecuritySchemes())
 	}

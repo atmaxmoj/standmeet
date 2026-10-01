@@ -15,7 +15,6 @@ package blockwire
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
@@ -53,47 +52,16 @@ func newBlockCalendarProxy(m *plugin.Manifest, vault blockCredVault) *blockCalen
 
 // newOpenAPIBlockCalendarProxy — a calendar block that executes an openapi supplier's calls
 // (google-calendar): host keeps the openapi behavior (connect/scope/refresh), the block runs
-// the HTTP. Its credentials are the refreshed bearer + resolved base url, merged into each
-// verb call for the block's openapi engine to bear and target.
-func newOpenAPIBlockCalendarProxy(
-	m *plugin.Manifest, beh *adapters.OpenAPIBehavior,
-) *blockCalendarProxy {
-	vault := oauthBlockVault{beh: beh}
+// the HTTP. Its credentials are the resolved auth + base url (openapiVault), merged into each
+// verb call for the block's openapi engine to apply and target.
+func newOpenAPIBlockCalendarProxy(m *plugin.Manifest, vault openapiVault) *blockCalendarProxy {
 	return &blockCalendarProxy{
-		vault: vault, seam: blockseam.New(m, vault, dialBlock), behavior: beh, id: m.ID,
+		vault: vault, seam: blockseam.New(m, vault, dialBlock), behavior: vault.beh, id: m.ID,
 	}
 }
 
 func dialBlock(ctx context.Context, mm *plugin.Manifest) (blockseam.Session, error) {
 	return mount.DialBlock(ctx, mm)
-}
-
-// oauthBlockVault — the block-cred view for a spec+oauth calendar block: it hands the block
-// the host-refreshed access token + the host-resolved base url (the block's own baked spec
-// cannot env-expand ${GOOGLE_CALENDAR_BASE}, so the host supplies the target). Connected
-// reads the openapi connection state.
-type oauthBlockVault struct{ beh *adapters.OpenAPIBehavior }
-
-func (v oauthBlockVault) Connected(ctx context.Context, _, ownerID string) (bool, error) {
-	return v.beh.Connected(ctx, ownerID)
-}
-
-func (v oauthBlockVault) Credentials(
-	ctx context.Context, _, ownerID string,
-) (json.RawMessage, error) {
-	b, err := v.beh.BearerFor(ctx, ownerID)
-	if err != nil {
-		// A host-side refresh that came back invalid_grant means the owner revoked the grant on
-		// the provider — the signal the in-host openapi adapter maps via mapCalendarErr. Surface
-		// it as the calendar-revoked sentinel so the owner is told to reconnect (and the card
-		// drops "connected"), not "try again later". OAuth refresh is host-side, so this mapping
-		// is too. (The API-side 401, token still valid, is [fault:revoked] in the block engine.)
-		if errors.Is(err, adapters.ErrInvalidGrant) {
-			return nil, fmt.Errorf("%w: %w", adapters.ErrCalendarRevoked, err)
-		}
-		return nil, err
-	}
-	return json.Marshal(map[string]string{"access_token": b.Token, "base_url": b.BaseURL})
 }
 
 // freeBusyArgs / insertArgs / deleteArgs — the SEAM operation's own fields (the owner's credentials
@@ -120,7 +88,7 @@ type deleteArgs struct {
 }
 
 // rfc3339Millis — event times with explicit milliseconds (Go's RFC3339 strips a trailing
-// .000); matches the in-host openapi path so a booking time round-trips faithfully.
+// .000) so a booking time round-trips faithfully.
 const rfc3339Millis = "2006-01-02T15:04:05.000Z07:00"
 
 // busyReply / busyPeriod / insertReply — the tool result shapes (named, not nested literals).
@@ -196,7 +164,7 @@ func insertEventArgs(req *adapters.InsertEventReq) insertArgs {
 		Summary:     req.Summary,
 		Description: req.Description,
 		// Explicit milliseconds (not time.RFC3339, which strips trailing .000): a booking time
-		// round-trips faithfully into the calendar, matching the in-host openapi path.
+		// round-trips faithfully into the calendar.
 		Start:        req.Start.UTC().Format(rfc3339Millis),
 		End:          req.End.UTC().Format(rfc3339Millis),
 		TimeZone:     req.TimeZone,
