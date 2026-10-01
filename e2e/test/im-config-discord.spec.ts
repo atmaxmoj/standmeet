@@ -3,8 +3,9 @@
 //
 // Owner, 2026-09-30: "im-bridge…我想至少能用discord". The bridge is built on the Chat SDK, which ships
 // a Discord adapter; what was missing is the owner's side: a Discord card under /admin/suppliers,
-// and /internal/im/config handing the bridge a Discord token (it only knew telegram_token). With
-// both connected, each platform gets its own token — never the other's.
+// and /internal/im/config handing the bridge the Discord block's token (it only knew one Telegram
+// token). The instance hands over block id → token and names no platform (the kernel is blind to
+// blocks); with both connected, each block's token stays its own.
 //
 // Driven the way the owner does it: the suppliers page, the Discord card, its token field, Connect.
 
@@ -57,6 +58,7 @@ async function connectCard(page: Page, block: string, token: string): Promise<vo
 async function imConfig(request: APIRequestContext): Promise<Record<string, unknown>> {
   const res = await request.get(`${BACKEND}/internal/im/config`);
   expect(res.status(), '/internal/im/config is served').toBe(200);
-  const body = await res.json() as Record<string, unknown>;
-  return { telegram_token: body['telegram_token'] ?? '<missing>', discord_token: body['discord_token'] ?? '<missing>' };
+  const body = await res.json() as { tokens?: Record<string, unknown> };
+  if (body.tokens === undefined) return { telegram_token: '<missing>', discord_token: '<missing>' };
+  return { telegram_token: body.tokens['telegram'] ?? '', discord_token: body.tokens['discord'] ?? '' };
 }

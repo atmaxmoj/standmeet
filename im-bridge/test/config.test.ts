@@ -22,7 +22,7 @@ function respondWith(bodies: unknown[]) {
 
 describe('bot token 从实例取', () => {
   it('后端给了 token 就用它', async () => {
-    vi.stubGlobal('fetch', respondWith([{ telegram_token: 'T-1' }]));
+    vi.stubGlobal('fetch', respondWith([{ tokens: { telegram: 'T-1' } }]));
     expect((await fetchIMConfig('http://backend:8000')).telegramToken).toBe('T-1');
   });
 
@@ -41,7 +41,7 @@ describe('bot token 从实例取', () => {
   });
 
   it('**等到配好为止**：先空后有，拿到就返回', async () => {
-    const fetchMock = respondWith([{ telegram_token: '' }, { telegram_token: 'T-2' }]);
+    const fetchMock = respondWith([{ tokens: {} }, { tokens: { telegram: 'T-2' } }]);
     vi.stubGlobal('fetch', fetchMock);
     const logs: string[] = [];
     const cfg = await waitForConfig('http://backend:8000',
@@ -57,14 +57,22 @@ describe('bot token 从实例取', () => {
   });
 
   it('Discord 的 token 也从实例取', async () => {
-    vi.stubGlobal('fetch', respondWith([{ telegram_token: '', discord_token: 'D-1' }]));
+    vi.stubGlobal('fetch', respondWith([{ tokens: { discord: 'D-1' } }]));
     const cfg = await fetchIMConfig('http://backend:8000');
     expect(cfg.discordToken).toBe('D-1');
     expect(cfg.telegramToken).toBe('');
   });
 
+  it('早年用 API 建的 IM 供应商（up-… id）照旧是 Telegram', async () => {
+    // Before blocks had names, a Telegram bot was connected as a credential supplier with a random
+    // id. The instance names no platform, so the bridge must still read that token as Telegram.
+    vi.stubGlobal('fetch', respondWith([{ tokens: { 'up-3f2a': 'T-old', discord: 'D' } }]));
+    expect(await fetchIMConfig('http://backend:8000'))
+      .toEqual({ telegramToken: 'T-old', discordToken: 'D' });
+  });
+
   it('只配了 Discord 也算配好了：等待结束，交回整份配置', async () => {
-    vi.stubGlobal('fetch', respondWith([{}, { discord_token: 'D-2' }]));
+    vi.stubGlobal('fetch', respondWith([{}, { tokens: { discord: 'D-2' } }]));
     const cfg = await waitForConfig('http://backend:8000', { everyMs: 1 });
     expect(cfg).toEqual({ telegramToken: '', discordToken: 'D-2' });
   });
@@ -80,7 +88,7 @@ describe('bot token 从实例取', () => {
     // pressed Connect and would see nothing happen. It notices, and the caller restarts on it.
     const running = { telegramToken: 'T', discordToken: '' };
     vi.stubGlobal('fetch', respondWith([
-      { telegram_token: 'T' }, { telegram_token: 'T', discord_token: 'D' },
+      { tokens: { telegram: 'T' } }, { tokens: { telegram: 'T', discord: 'D' } },
     ]));
     const next = await waitForChange('http://backend:8000', running, { everyMs: 1 });
     expect(next).toEqual({ telegramToken: 'T', discordToken: 'D' });
@@ -92,7 +100,7 @@ describe('bot token 从实例取', () => {
       n += 1;
       if (n === 1) return Promise.reject(new Error('ECONNREFUSED'));
       return Promise.resolve({
-        ok: true, json: () => Promise.resolve({ telegram_token: 'T2' }),
+        ok: true, json: () => Promise.resolve({ tokens: { telegram: 'T2' } }),
       } as Response);
     }));
     const next = await waitForChange('http://backend:8000',
@@ -106,7 +114,7 @@ describe('bot token 从实例取', () => {
       n += 1;
       if (n === 1) return Promise.reject(new Error('ECONNREFUSED'));
       return Promise.resolve({
-        ok: true, json: () => Promise.resolve({ telegram_token: 'T-3' }),
+        ok: true, json: () => Promise.resolve({ tokens: { telegram: 'T-3' } }),
       } as Response);
     }));
     // It's normal for the backend to come up after the bridge (compose starts both

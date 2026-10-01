@@ -8,48 +8,39 @@ import (
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	"github.com/atmaxmoj/standmeet/internal/plugin/credentials"
-	sysroutes "github.com/atmaxmoj/standmeet/internal/routes/sys"
 )
 
-// discordBlockID —— the discord block (backend/blocks/discord). Every other im supplier is a
-// Telegram bot: the telegram block, and the credential suppliers created before discord existed.
-const discordBlockID = "discord"
-
-// imTokensReader — the function /internal/im/config uses to read the sole owner's current bot
-// token per platform. Lives here (composition root), not in the route layer, so the route stays
-// off the supplier implementation (go-arch-lint). An empty token means the owner has not
-// connected that platform — the im-bridge treats that as "not yet", polling.
-func imTokensReader(d *deps.Runtime) func(context.Context) sysroutes.IMTokens {
+// imTokensReader — the function /internal/im/config uses to read the sole owner's connected im
+// suppliers: block id → bot token. Lives here (composition root), not in the route layer, so the
+// route stays off the supplier implementation (go-arch-lint). Names no block: the im-bridge knows
+// which block is which chat platform. Empty map when nothing is connected — the bridge polls.
+func imTokensReader(d *deps.Runtime) func(context.Context) map[string]string {
 	seo := owner.SEODeps{Owners: d.OwnerRepo}
-	return func(ctx context.Context) sysroutes.IMTokens {
+	return func(ctx context.Context) map[string]string {
 		soleOwner, ok := owner.FirstOwner(ctx, seo)
 		if !ok {
-			return sysroutes.IMTokens{}
+			return map[string]string{}
 		}
 		conns, err := d.Credentials.ListBySeam(ctx, soleOwner.ID, "im")
 		if err != nil {
 			d.Log.Error("list im suppliers", "err", err)
-			return sysroutes.IMTokens{}
+			return map[string]string{}
 		}
 		return imTokens(d.Log, conns)
 	}
 }
 
-// imTokens — the first usable token per platform. Disconnecting a supplier clears its
-// credentials (ClearTokens), so an empty credential already means "not usable".
-func imTokens(log *slog.Logger, conns []credentials.Connection) sysroutes.IMTokens {
-	var t sysroutes.IMTokens
+// imTokens — block id → the token it stores, for every im supplier that carries one.
+// Disconnecting a supplier clears its credentials (ClearTokens), so an empty credential already
+// means "not usable".
+func imTokens(log *slog.Logger, conns []credentials.Connection) map[string]string {
+	out := make(map[string]string, len(conns))
 	for i := range conns {
-		token := connToken(log, &conns[i])
-		switch {
-		case token == "":
-		case conns[i].BlockID == discordBlockID:
-			t.Discord = firstNonEmpty(t.Discord, token)
-		default:
-			t.Telegram = firstNonEmpty(t.Telegram, token)
+		if token := connToken(log, &conns[i]); token != "" {
+			out[conns[i].BlockID] = token
 		}
 	}
-	return t
+	return out
 }
 
 // connToken — the token a credential-only im supplier stores ("" when none or unreadable).
@@ -65,11 +56,4 @@ func connToken(log *slog.Logger, c *credentials.Connection) string {
 		return ""
 	}
 	return cred.Token
-}
-
-func firstNonEmpty(have, next string) string {
-	if have != "" {
-		return have
-	}
-	return next
 }

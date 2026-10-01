@@ -57,8 +57,11 @@ test.describe('telegram supplier → /internal/im/config', () => {
 async function imToken(request: APIRequestContext): Promise<string> {
   const res = await request.get(`${BACKEND}/internal/im/config`);
   expect(res.status(), '/internal/im/config is served').toBe(200);
-  const body = await res.json() as { telegram_token?: unknown };
-  return typeof body.telegram_token === 'string' ? body.telegram_token : '<missing>';
+  // {tokens: {<block id>: token}} — the instance names no platform; this supplier is the only one.
+  const body = await res.json() as { tokens?: Record<string, unknown> };
+  if (body.tokens === undefined) return '<missing>';
+  const only = Object.values(body.tokens)[0];
+  return typeof only === 'string' ? only : '';
 }
 
 async function api(

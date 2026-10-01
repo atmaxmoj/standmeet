@@ -37,9 +37,24 @@ export function platformsFor(cfg: IMConfig): Platform[] {
 export async function fetchIMConfig(internalURL: string): Promise<IMConfig> {
   const res = await fetch(`${internalURL}/internal/im/config`);
   if (!res.ok) throw new Error(`im config: ${res.status}`);
-  const body = (await res.json()) as { telegram_token?: unknown; discord_token?: unknown };
+  const body = (await res.json()) as { tokens?: unknown };
+  return fromTokens(body.tokens);
+}
+
+/**
+ * fromTokens —— the instance hands over its connected im suppliers as block id → token, naming no
+ * platform (the kernel stays blind to blocks). Knowing which block is which chat platform is this
+ * bridge's job: the `discord` block is Discord; the `telegram` block — and any credential supplier
+ * created before blocks had names (an `up-…` id) — is Telegram.
+ */
+function fromTokens(raw: unknown): IMConfig {
+  const tokens = typeof raw === 'object' && raw !== null ? raw as Record<string, unknown> : {};
   const str = (v: unknown): string => (typeof v === 'string' ? v : '');
-  return { telegramToken: str(body.telegram_token), discordToken: str(body.discord_token) };
+  const others = Object.entries(tokens).filter(([id]) => id !== 'discord' && id !== 'telegram');
+  return {
+    telegramToken: str(tokens['telegram']) || str(others[0]?.[1]),
+    discordToken: str(tokens['discord']),
+  };
 }
 
 const NONE: IMConfig = { telegramToken: '', discordToken: '' };
