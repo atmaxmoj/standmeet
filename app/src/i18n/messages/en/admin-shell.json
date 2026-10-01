@@ -464,5 +464,19 @@
     "sweepNothing": "Nothing to sweep — there are no workspaces",
     "ageSecs": "{n}s",
     "sweepDone": "Swept expired sandbox workspaces"
+  },
+  "instanceSettings": {
+    "title": "Instance settings",
+    "internalHosts": "Internal hosts",
+    "internalHostsHint": "Host names on your own network this instance may reach (your CalDAV, mail server, a model on the LAN), one per line. Every outbound check honours this list, including the address a visitor's own AI key points at — list only hosts you're fine exposing that way.",
+    "catalogue": "Skill catalogue",
+    "catalogueHint": "The GitHub contents API address the skill marketplace reads. Empty = the public anthropics/skills.",
+    "captcha": "Login check (Cloudflare Turnstile)",
+    "captchaHint": "Fill both to turn the check on for sign-in and for repeated wrong codes; leave either empty to turn it off. Keys: dash.cloudflare.com → Turnstile.",
+    "siteKey": "Site key",
+    "secret": "Secret key",
+    "secretStored": "A secret is stored. It is not shown again — leave the field empty to keep it, or type a new one to replace it.",
+    "save": "Save",
+    "saved": "Saved — in effect now."
   }
 }

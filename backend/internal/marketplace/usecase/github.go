@@ -56,11 +56,13 @@ func (c *Client) searchGitHub(ctx context.Context, query string) []entity.Market
 }
 
 func (c *Client) fetchGitHubDirectory(ctx context.Context) []ghContentItem {
-	cacheKey := "github:directory"
+	// Keyed by the catalogue: when the owner names another one, the old listing is not served.
+	base := c.githubBase()
+	cacheKey := "github:directory:" + base
 	if cached, ok := c.cache.get(cacheKey); ok {
 		return cached
 	}
-	url := c.githubBase + "/contents/skills"
+	url := base + "/contents/skills"
 	items, err := getGHContents(ctx, c.http, url)
 	if err != nil {
 		// Partial-result pattern — return empty so the union still
@@ -226,4 +228,9 @@ func (c *directoryCache) set(key string, items []ghContentItem) {
 		items:     items,
 		expiresAt: time.Now().Add(directoryCacheTTL),
 	}
+}
+
+// githubBase —— the GitHub contents API base to read now: the owner's catalogue, else the default.
+func (c *Client) githubBase() string {
+	return firstNonEmpty(c.catalogue(), defaultGitHubBase)
 }

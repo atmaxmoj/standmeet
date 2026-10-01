@@ -18,8 +18,8 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -31,25 +31,26 @@ const internalDialTimeout = 10 * time.Second
 // lookupIPAddr —— swappable resolver hook (tests inject a fake to exercise the rebind/pin logic).
 var lookupIPAddr = net.DefaultResolver.LookupIPAddr
 
-// egressAllowHosts —— hostnames explicitly permitted despite resolving to an internal address
-// (EGRESS_ALLOW_HOSTS, comma-separated). EMPTY in prod (block everything internal); e2e/dev lists
-// the mock service names (e.g. llm-gateway) so a BYOAI endpoint pointed at the in-cluster mock is
-// allowed while real loopback/link-local targets stay blocked. Mirrors supplier egress allow-list.
-var egressAllowHosts = parseEgressAllow(os.Getenv("EGRESS_ALLOW_HOSTS"))
+// internalHosts —— host names explicitly permitted despite resolving to an internal address: the
+// owner's instance setting "internal hosts" (/admin/system), set by the composition root at boot
+// and after every write. Empty = block everything internal. Every outbound guard reads it — this
+// one and the supplier guard (infra/egress). It used to be two env lists (EGRESS_ALLOW_HOSTS,
+// SUPPLIER_EGRESS_ALLOW); the owner moved settings out of the deployment (2026-10-01).
+var internalHosts atomic.Pointer[func(host string) bool]
 
-func parseEgressAllow(s string) map[string]bool {
-	m := map[string]bool{}
-	for h := range strings.SplitSeq(s, ",") {
-		if h = strings.ToLower(strings.TrimSpace(h)); h != "" {
-			m[h] = true
-		}
-	}
-	return m
+// SetInternalHostSource —— where the permitted internal host names are asked: the composition
+// root's live copy of the owner's settings.
+func SetInternalHostSource(allows func(host string) bool) {
+	internalHosts.Store(&allows)
 }
 
-func isAllowedHost(host string) bool {
-	return egressAllowHosts[strings.ToLower(host)]
+// IsAllowedInternalHost —— whether the owner listed this host name.
+func IsAllowedInternalHost(host string) bool {
+	allows := internalHosts.Load()
+	return allows != nil && (*allows)(strings.ToLower(host))
 }
+
+func isAllowedHost(host string) bool { return IsAllowedInternalHost(host) }
 
 // isInternalIP —— loopback / RFC1918 private / link-local / unspecified. (Same predicate as the
 // supplier egress guard.)

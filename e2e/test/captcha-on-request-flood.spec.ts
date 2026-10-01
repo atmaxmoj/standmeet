@@ -14,13 +14,14 @@
 // check appears -> solving it still lets the note through (not locking a
 // person out forever, but making a script pay a cost).
 //
-// Run via `make test-captcha` (Cloudflare's always-pass test key).
+// The spec turns captcha on for its own instance (fixtures/captcha.ts, Cloudflare's always-pass
+// test keys).
 
 import { test, expect } from '@/fixtures/test';
 import type { Page } from '@playwright/test';
 
 import { claim } from '@/fixtures/admin';
-import { skipUnlessCaptchaOn } from '@/fixtures/captcha';
+import { turnCaptchaOn } from '@/fixtures/captcha';
 import { findSetupToken, resetInstance } from '@/fixtures/instance';
 import { configureMailSupplier } from '@/fixtures/mail';
 import { openGate } from '@/fixtures/navigate';
@@ -38,15 +39,13 @@ const FLOOD = 6;
 
 test.describe('gate · the request-access door has a lock, and the captcha is its key', () => {
   test.beforeAll(async ({ playwright }) => {
-    // Skip the whole group when this instance has captcha off (instead of
-    // leaving a permanently red test) -- see fixtures/captcha.ts.
-    await skipUnlessCaptchaOn(await playwright.request.newContext());
     resetInstance();
     const request = await playwright.request.newContext();
     await claim(request, findSetupToken(), {
       email: OWNER.email, password: OWNER.password,
       handle: OWNER.handle, fullName: OWNER.fullName,
     });
+    await turnCaptchaOn(request, OWNER);
     // Accepting a note presupposes this instance **can deliver codes** --
     // `gate-client.tsx:38` only renders that panel when `canDeliverCodes` is
     // true. An owner who would actually receive notes would already have

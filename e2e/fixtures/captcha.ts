@@ -1,33 +1,28 @@
-// captcha.ts —— captcha-related cases only make sense when the **instance
-// actually has captcha turned on**.
+// captcha.ts —— turn the instance's login check on, the way the owner does: the system page's
+// settings (PUT /api/admin/captcha), with Cloudflare's published always-pass test keys.
 //
-// Why this gate is needed: these specs' own comments say "only run via `make
-// test-captcha`", yet **nothing stops them from running in the default `make
-// test`** —— so the default suite has a constant 5 reds. That voids the
-// "whole-suite green" criterion: a report that's always red just teaches its
-// reader to ignore red ([[green-means-the-real-suite-ran]]). Relying on a
-// filename convention or on someone remembering to switch targets is a check
-// that needs a human to maintain ([[structure-means-no-responsibility-class]]).
-//
-// So ask the instance itself: an empty `captcha_site_key` on `GET /api/v1/instance`
-// = this instance has captcha off. If empty, skip and print the reason —— a
-// skip must say what it skipped, otherwise it looks the same as "tested" in the report.
+// These specs used to run only on a stack started with the Turnstile keys in env (`make
+// test-captcha`) and skipped everywhere else. The owner moved that setting out of the deployment
+// (2026-10-01): it is an owner setting now, so each spec turns it on for its own fresh instance and
+// runs in the default suite.
 
-import { test } from '@playwright/test';
 import type { APIRequestContext } from '@playwright/test';
+
+import { login } from '@/fixtures/admin';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
-async function captchaIsOn(request: APIRequestContext): Promise<boolean> {
-  const res = await request.get(`${BACKEND}/api/v1/instance`);
-  if (!res.ok()) return false;
-  const body = await res.json() as { captcha_site_key?: string };
-  return (body.captcha_site_key ?? '') !== '';
-}
+// Cloudflare's published always-pass Turnstile test keys.
+const TEST_TURNSTILE_SITE_KEY = '1x00000000000000000000AA';
+const TEST_TURNSTILE_SECRET = '1x0000000000000000000000000000000AA';
 
-/** Call in beforeAll: if this instance has captcha off, skip the whole group,
- *  and spell out how to actually run it. */
-export async function skipUnlessCaptchaOn(request: APIRequestContext): Promise<void> {
-  const on = await captchaIsOn(request);
-  test.skip(!on, 'captcha 没开（instance 不发 site key）—— 这组要走 `make test-captcha`');
+export async function turnCaptchaOn(
+  request: APIRequestContext, owner: { email: string; password: string },
+): Promise<void> {
+  const { csrf } = await login(request, owner.email, owner.password);
+  const res = await request.put(`${BACKEND}/api/admin/captcha`, {
+    headers: { 'X-Csrftoken': csrf },
+    data: { site_key: TEST_TURNSTILE_SITE_KEY, secret_change: 'set', secret: TEST_TURNSTILE_SECRET },
+  });
+  if (res.status() !== 200) throw new Error(`turn captcha on failed: ${res.status()} ${await res.text()}`);
 }

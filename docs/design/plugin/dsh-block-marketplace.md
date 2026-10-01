@@ -27,8 +27,9 @@ So **"蹭 dsh 的市场" = npm search on `@deepseek-ai/cordis-plugin` / `koishi-
 ## Model it on the skills marketplace (the working precedent)
 
 `backend/internal/marketplace/` already does exactly this shape for SKILLS — copy it:
-- `usecase/client.go` — a `Client` with **env-overridable base URLs** (`MARKETPLACE_GITHUB_BASE_URL`,
-  `MARKETPLACE_SKILLSMP_BASE_URL`): default = real upstream; e2e points at an in-cluster mock.
+- `usecase/client.go` — a `Client` with **overridable base URLs** (the GitHub catalogue is the
+  owner's instance setting; `MARKETPLACE_SKILLSMP_BASE_URL` an env override): default = real
+  upstream; e2e points both at an in-cluster mock.
   Parallel sources, partial-result tolerance, TTL cache.
 - `usecase/github.go` / `skillsmp.go` — one file per source: fetch upstream → map to `entity.MarketSkill`.
 - `usecase/marketplace.go` ops — `marketplace.search` / `marketplace.install`, real network fetch.

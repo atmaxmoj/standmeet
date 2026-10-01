@@ -47,8 +47,11 @@ type Deps struct {
 	// FaviconHandler —— GET /favicon.ico (built in buildServerDeps from the owner favicon + asset
 	// repos + storage). nil in tests that don't wire it; then the route is simply not mounted.
 	FaviconHandler http.HandlerFunc
-	// CaptchaVerifier —— login captcha verifier; composition root assembles it from env.
-	CaptchaVerifier      security.Verifier
+	// CaptchaVerifier —— login captcha verifier, over the owner's live Turnstile setting.
+	CaptchaVerifier security.Verifier
+	// CaptchaEnabled —— whether the check is on right now (both halves of the owner's Turnstile
+	// setting set); the captcha-escape for the #169 code guard.
+	CaptchaEnabled       func() bool
 	Public               publicroutes.Handlers
 	PublicPage           publicroutes.PageHandlers
 	PublicSEO            publicroutes.SEOHandlers
@@ -87,9 +90,6 @@ type Deps struct {
 	PubAPI *pubapi.Handlers
 	MCP    mcphandle.Deps
 	Admin  AdminDeps
-	// CaptchaEnabled —— whether captcha is actually enabled (not noop); the captcha-escape
-	// for the #169 code guard.
-	CaptchaEnabled bool
 }
 
 // AdminDeps packages up, on its own, the business deps the admin sub-router needs.

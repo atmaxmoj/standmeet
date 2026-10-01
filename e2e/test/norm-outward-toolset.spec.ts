@@ -263,6 +263,9 @@ const GOLDEN_TOOLSET: readonly string[] = [
   // owed it after moving into the convergence point.
   'instance.corpus_graph',
   'instance.activity', 'instance.jobs',
+  // The owner's instance settings (internal hosts, skill catalogue), which moved out of the
+  // deployment file. captcha.set is panel-only (it carries a raw secret), so it is not here.
+  'instance.settings', 'instance.settings_set',
   // monitor -- visitor traffic. This branch's own tools: the raw event feed, the
   // summary (viewers / visits / views / events / bots are five different counts),
   // and the per-viewer session panel. They belong in this golden the day they ship.

@@ -56,7 +56,7 @@ const (
 // bug). When captcha is off, just pass
 // security.NewFromConfig(Config{Provider: ProviderNone}, nil).
 func LoginGuard(
-	rdb *redis.Client, verifier CaptchaVerifier, captchaOn bool,
+	rdb *redis.Client, verifier CaptchaVerifier, captchaOn func() bool,
 ) func(http.Handler) http.Handler {
 	if rdb == nil {
 		panic("LoginGuard: redis client is nil")
@@ -84,7 +84,7 @@ type loginGuardCtx struct {
 	// deployment fact). It decides which message is shown when the limit
 	// is hit, and whether that way out even exists. The two messages are
 	// `tooManyAttemptsWait/Captcha`.
-	captchaOn bool
+	captchaOn func() bool
 }
 
 // tooManyAttemptsWait / tooManyAttemptsCaptcha — the two over-limit
@@ -153,14 +153,14 @@ func liftOrRefuse(
 	// `ipTally.captchaFails` already gets this right; this spot nearly
 	// missed the same rule (the same family: one lesson fixed in only one
 	// place).
-	if c.captchaOn && c.verifier.Verify(r.Context(), token, ip) == nil {
+	if c.captchaOn() && c.verifier.Verify(r.Context(), token, ip) == nil {
 		slog.Default().Info("login rate lifted by a solved check", "ip", ip)
 		c.rdb.Del(r.Context(), loginRateLimitKeyPfx+ip)
 		return true
 	}
 	slog.Default().Warn("login rate-limited", "ip", ip)
 	refusal := tooManyAttemptsWait
-	if c.captchaOn {
+	if c.captchaOn() {
 		refusal = tooManyAttemptsCaptcha
 	}
 	writeRateError(w, http.StatusTooManyRequests, "rate_limited", refusal)

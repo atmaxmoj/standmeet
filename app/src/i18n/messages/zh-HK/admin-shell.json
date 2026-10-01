@@ -464,5 +464,19 @@
     "sweepNothing": "無可清理——沒有工作區",
     "ageSecs": "{n}秒",
     "sweepDone": "已清理過期的沙箱工作區"
+  },
+  "instanceSettings": {
+    "title": "實例設定",
+    "internalHosts": "內網主機",
+    "internalHostsHint": "本實例可以存取的你自己網絡裏的主機名稱（你的 CalDAV、郵件伺服器、區域網絡裏的模型），每行一個。所有出站檢查都按這份名單放行，包括訪客自帶 AI 密鑰所指的地址——只填你願意這樣開放的主機。",
+    "catalogue": "技能目錄",
+    "catalogueHint": "技能市場讀取的 GitHub contents API 地址。留空 = 公開的 anthropics/skills。",
+    "captcha": "登入驗證（Cloudflare Turnstile）",
+    "captchaHint": "兩項都填才開啟：登入及反覆輸錯存取碼時要求驗證；任一項留空即關閉。密鑰在 dash.cloudflare.com → Turnstile。",
+    "siteKey": "網站密鑰（Site key）",
+    "secret": "私密密鑰（Secret key）",
+    "secretStored": "已儲存一個私密密鑰，不會再顯示——留空即保留，填入新的即取代。",
+    "save": "儲存",
+    "saved": "已儲存，即時生效。"
   }
 }

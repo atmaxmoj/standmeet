@@ -24,3 +24,26 @@ RETURNING *;
 UPDATE instance_settings
 SET allowed_domains = $1::jsonb
 WHERE id = 1;
+
+-- The owner's instance settings (internal hosts / skill catalogue). The captcha pair has its own
+-- write: its secret is sealed and kept unless the owner replaces or clears it.
+-- name: SetInstanceOwnerSettings :exec
+UPDATE instance_settings
+SET internal_hosts = $1::jsonb,
+    skill_catalogue_url = $2
+WHERE id = 1;
+
+-- name: SetCaptchaSiteKey :exec
+UPDATE instance_settings
+SET captcha_site_key = $1
+WHERE id = 1;
+
+-- name: SetCaptchaSecret :exec
+UPDATE instance_settings
+SET captcha_secret_enc = $1
+WHERE id = 1;
+
+-- name: MarkLegacyEnvImported :exec
+UPDATE instance_settings
+SET legacy_env_imported = true
+WHERE id = 1;

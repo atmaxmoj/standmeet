@@ -8,11 +8,9 @@ import { z } from 'zod';
 import { adminAPI } from '@/lib/api/admin';
 
 // This file **no longer judges size itself**. It used to copy a
-// `2 * 1024 * 1024` value "to match the backend" — and the backend's number
-// is now an owner-adjustable knob (`SUPPLIER_SPEC_MAX_BYTES`). The moment
-// the two diverge, the symptom is: the owner raises the limit to 12 MiB to
-// fit GitHub's docs, the browser still rejects at its own 2 MiB, and the
-// knob they just turned appears to do nothing (one fact, two homes).
+// `2 * 1024 * 1024` value "to match the backend" — and when the backend's cap
+// moved (it is 16 MiB now, to fit GitHub's 12 MB docs), the browser kept
+// rejecting at its own 2 MiB (one fact, two homes).
 // Only the server knows the limit, and only it should answer — its message already says it clearly ("spec is too large…").
 
 const AuthFieldSchema = z.object({

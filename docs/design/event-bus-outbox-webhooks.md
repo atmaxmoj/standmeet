@@ -322,7 +322,7 @@ routes on the external mock (`mock-stack/job-board/webhook_sink.go`):
 - It records every request with its headers and body.
 - It can be told to return a status for the next N requests, or to delay (`/__mock/set_delay`).
 - It exposes what it received.
-- It sits in `EGRESS_ALLOW_HOSTS` for e2e only.
+- It is an internal host the e2e claim fixture lists in the instance settings, for e2e only.
 
 ### Phase 0: decisions and spike
 - [x] Adopt River v0.47 (see *Decided*). River's tables are created by River's own migrator

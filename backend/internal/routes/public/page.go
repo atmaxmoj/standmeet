@@ -31,10 +31,9 @@ type PageHandlers struct {
 	// can't be sent out).
 	Outbound owner.OutboundStatusDeps
 	// CaptchaSiteKey —— /api/v1/instance echoes this to the frontend; the frontend
-	// renders the Turnstile widget whenever it's non-empty. The composition root
-	// has already decided on/off from env, this just reads the result. An empty
-	// string means captcha is off.
-	CaptchaSiteKey string
+	// renders the Turnstile widget whenever it's non-empty. Read per request: the pair is the
+	// owner's setting on /admin/system and changes while the process runs. "" = captcha off.
+	CaptchaSiteKey func() string
 	// AppVersion —— which version this running process is. The /login and admin
 	// top-bar badges read it, **rather than each carrying their own constant**:
 	// the frontend used to hand-type "v1.0.0" while the backend hand-typed
@@ -96,7 +95,7 @@ func (h *PageHandlers) getInstance() http.HandlerFunc {
 		writeInstanceInfo(h.Log, w, &instanceWriteInput{
 			owner:          &soleOwner,
 			setupToken:     h.unclaimedSetupToken(r.Context(), &soleOwner),
-			captchaSiteKey: h.CaptchaSiteKey,
+			captchaSiteKey: h.CaptchaSiteKey(),
 			appVersion:     h.AppVersion,
 			canEmailCodes:  owner.CanDeliverCodes(r.Context(), h.Outbound, soleOwner.ID),
 		})

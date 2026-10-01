@@ -39,7 +39,9 @@ type SettingsDeps struct {
 	BYOAI      usecase.BYOAIDeps
 	AI         usecase.AIProviderDeps
 	Monitoring usecase.MonitoringDeps
-	Presets    []AIPreset
+	// Instance —— the instance settings on /admin/system (instance_config.go).
+	Instance usecase.InstanceConfigDeps
+	Presets  []AIPreset
 }
 
 // AIPreset —— one built-in provider preset.
@@ -51,7 +53,11 @@ type AIPreset struct {
 }
 
 // Settings —— byoai.set / ai_provider.set / ai_provider.presets。
-func Settings(deps SettingsDeps) []fp.Op {
+func Settings(deps *SettingsDeps) []fp.Op {
+	return append(inferenceSettingsOps(deps), instanceConfigOps(deps.Instance)...)
+}
+
+func inferenceSettingsOps(deps *SettingsDeps) []fp.Op {
 	return []fp.Op{
 		{
 			ID: "byoai.set",

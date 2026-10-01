@@ -19,6 +19,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/cmd/server/blockwire"
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
+	"github.com/atmaxmoj/standmeet/cmd/server/livesettings"
 	"github.com/atmaxmoj/standmeet/cmd/server/port"
 	"github.com/atmaxmoj/standmeet/cmd/server/wire"
 
@@ -127,15 +128,13 @@ func wireAndServe(
 	if terr := ensureSetupToken(ctx, log, repos.instance, setupTokenHolder); terr != nil {
 		return terr
 	}
-	storageClient, serr := initStorage(ctx, log, cfg)
+	dw, serr := bootState(ctx, log, cfg, repos)
 	if serr != nil {
 		return serr
 	}
-	rt := assembleRuntimeDeps(log, cfg, c, repos, &deferredWiring{
-		providerResolver: providerResolver,
-		setupTokenHolder: setupTokenHolder,
-		storageClient:    storageClient,
-	})
+	dw.providerResolver = providerResolver
+	dw.setupTokenHolder = setupTokenHolder
+	rt := assembleRuntimeDeps(log, cfg, c, repos, dw)
 	// Implements marketplace-search's "which seams is this card still missing":
 	// holds &rt, fetches the block + dependency registries only when invoked,
 	// since neither is complete until registerAgentSkills runs (F-F-4).
@@ -186,6 +185,22 @@ func initStorage(
 	return client, nil
 }
 
+// bootState —— the storage client, and the owner's instance settings: an upgraded instance's old
+// env is imported once (after the migrations added the columns), then the running copy is loaded.
+func bootState(
+	ctx context.Context, log *slog.Logger, cfg *config.Config, repos *repoSet,
+) (*deferredWiring, error) {
+	storageClient, serr := initStorage(ctx, log, cfg)
+	if serr != nil {
+		return nil, serr
+	}
+	live := livesettings.New(log, repos.instance)
+	if lerr := live.Start(ctx); lerr != nil {
+		return nil, fmt.Errorf("instance settings: %w", lerr)
+	}
+	return &deferredWiring{storageClient: storageClient, live: live}, nil
+}
+
 // ensureSetupToken runs once before the server starts: an unclaimed instance gets a
 // new setup token (stdout + /srv/first-run.txt); a claimed instance skips this.
 func ensureSetupToken(
@@ -206,15 +221,6 @@ func ensureSetupToken(
 		return fmt.Errorf("issue setup token: %w", terr)
 	}
 	return nil
-}
-
-// captchaSiteKeyFor —— site_key goes to the frontend only when TURNSTILE_SECRET is
-// also set; either empty returns "" (feature off), matching NewFromConfig's noop.
-func captchaSiteKeyFor(cfg *config.Config) string {
-	if cfg.TurnstileSiteKey == "" || cfg.TurnstileSecret == "" {
-		return ""
-	}
-	return cfg.TurnstileSiteKey
 }
 
 // ownerLookupAdapter —— wraps owner.Repo into an inference.OwnerLookup. The resolver

@@ -66,14 +66,28 @@ func NewFromConfig(cfg Config, httpClient *http.Client) Verifier {
 	return noopVerifier{}
 }
 
-// FromEnvLike — sugar for the composition root to turn env vars into a
-// Config. Only recognizes turnstile when both are non-empty; either one
-// empty → ProviderNone.
-func FromEnvLike(siteKey, secret string) Config {
-	if siteKey == "" || secret == "" {
-		return Config{Provider: ProviderNone}
-	}
-	return Config{Provider: ProviderTurnstile, SiteKey: siteKey, Secret: secret}
+// NewLive —— a verifier over the owner's current Turnstile pair, read on every check: the pair is
+// an owner setting (/admin/system) that changes while the process runs. Either half empty → passes
+// (the check is off), like the noop.
+func NewLive(pair func() Pair, httpClient *http.Client) Verifier {
+	return liveVerifier{pair: pair, client: httpClient}
+}
+
+// Pair —— a Turnstile site key and its secret.
+type Pair struct {
+	SiteKey string
+	Secret  string
+}
+
+type liveVerifier struct {
+	pair   func() Pair
+	client *http.Client
+}
+
+func (v liveVerifier) Verify(ctx context.Context, token, remoteIP string) error {
+	p := v.pair()
+	cfg := Config{Provider: ProviderTurnstile, SiteKey: p.SiteKey, Secret: p.Secret}
+	return NewFromConfig(cfg, v.client).Verify(ctx, token, remoteIP)
 }
 
 // noopVerifier — implementation used when captcha is off. Verify always

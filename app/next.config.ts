@@ -36,7 +36,13 @@ const nextConfig: NextConfig = {
   // already-prefetched loading skeleton INSTANTLY on click, then stream the section behind it. Only the
   // skeleton shell is cached (real data is fetched client-side on mount), so there's no stale-data risk.
   // ponytail: 180s is a tuning knob; lower it if a route's shell ever embeds must-be-fresh server data.
-  experimental: { proxyTimeout: 15 * 60 * 1000, staleTimes: { dynamic: 180 } },
+  // middlewareClientMaxBodySize —— the request body the /api proxy passes through whole. Next's
+  // default (10 MB) silently truncated a pasted OpenAPI spec over 10 MB, so the backend's 16 MiB
+  // spec cap (GitHub's own spec is 12 MB) was unreachable by paste. 40 MB matches the backend's
+  // own body cap for that route (maxSpecBodyBytes); the backend still enforces every real limit.
+  experimental: {
+    proxyTimeout: 15 * 60 * 1000, staleTimes: { dynamic: 180 }, middlewareClientMaxBodySize: '40mb',
+  },
   // node-tikzjax(/render-tikz 用):(1) 保持 external 不被 Next 打进 route bundle —— 否则
   // __dirname 变、它读的 ../tex/*.gz 找不着;(2) 显式 trace-include 那 3 个运行时 TeX 资产
   // (core.dump.gz / tex.wasm.gz / tex_files.tar.gz 是 fs.read 的,不走 import,tracing 抓不到)。

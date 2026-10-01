@@ -8,7 +8,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net"
 	"net/http"
+	"net/url"
 	"runtime"
 	"sync"
 	"time"
@@ -25,6 +27,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/httpx"
 	"github.com/atmaxmoj/standmeet/internal/infra/selfstat"
 	"github.com/atmaxmoj/standmeet/internal/infra/storage"
+	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	stats "github.com/atmaxmoj/standmeet/internal/stats/facade"
 )
 
@@ -64,15 +67,15 @@ const hostDiskPath = "/"
 // SysInfoProvider — the runtime info shown at /admin/system (real pings, not
 // self-reported).
 type SysInfoProvider struct {
-	started  time.Time
-	db       *pgxpool.Pool
-	rdb      *redis.Client
-	storage  *storage.Client
-	search   *search.Client
-	self     *selfstat.Reader
-	httpc    *http.Client
-	publicIP string
-	peers    []string
+	started time.Time
+	db      *pgxpool.Pool
+	rdb     *redis.Client
+	storage *storage.Client
+	search  *search.Client
+	self    *selfstat.Reader
+	httpc   *http.Client
+	owners  owner.SEODeps
+	peers   []string
 }
 
 // NewSysInfoProvider — provider of the runtime info shown at /admin/system (real
@@ -80,10 +83,10 @@ type SysInfoProvider struct {
 func NewSysInfoProvider(d *deps.Runtime) *SysInfoProvider {
 	return &SysInfoProvider{
 		started: time.Now(), db: d.DB, rdb: d.RDB, storage: d.StorageClient, search: d.SearchClient,
-		self:     selfstat.New("", ""),
-		peers:    d.SelfStatPeers,
-		httpc:    httpx.NewClient(httpx.Options{Timeout: containerBudget, NoRetry: true}),
-		publicIP: d.PublicIP,
+		self:   selfstat.New("", ""),
+		peers:  d.SelfStatPeers,
+		httpc:  httpx.NewClient(httpx.Options{Timeout: containerBudget, NoRetry: true}),
+		owners: owner.SEODeps{Owners: d.OwnerRepo},
 	}
 }
 
@@ -95,7 +98,7 @@ func (p *SysInfoProvider) SystemInfo(ctx context.Context) stats.SystemInfo {
 	host := readHostMetrics(ctx)
 	return stats.SystemInfo{
 		Version:       appVersion,
-		PublicIP:      p.publicIP,
+		PublicIP:      p.publicIP(ctx),
 		UptimeSeconds: int64(time.Since(p.started).Seconds()),
 		Goroutines:    runtime.NumGoroutine(),
 		MemAllocMB:    int64(goMem.Alloc / bytesPerMB),
@@ -108,6 +111,45 @@ func (p *SysInfoProvider) SystemInfo(ctx context.Context) stats.SystemInfo {
 		Health:        p.healthChecks(ctx),
 		Containers:    p.containers(ctx),
 	}
+}
+
+// publicIP — where the owner's public URL resolves (its first IPv4, else its first address); ""
+// when there is no owner or URL yet, or the name does not resolve. Not a deploy setting: the
+// owner already said where the instance lives when they gave its public URL.
+func (p *SysInfoProvider) publicIP(ctx context.Context) string {
+	host := p.ownerHost(ctx)
+	if host == "" {
+		return ""
+	}
+	ctx, cancel := context.WithTimeout(ctx, containerBudget)
+	defer cancel()
+	ips, err := net.DefaultResolver.LookupIP(ctx, "ip", host)
+	if err != nil || len(ips) == 0 {
+		return ""
+	}
+	return firstIPv4(ips).String()
+}
+
+// ownerHost — the host name in the owner's public URL ("" when there is none).
+func (p *SysInfoProvider) ownerHost(ctx context.Context) string {
+	o, ok := owner.FirstOwner(ctx, p.owners)
+	if !ok {
+		return ""
+	}
+	u, err := url.Parse(o.PublicURL)
+	if err != nil {
+		return ""
+	}
+	return u.Hostname()
+}
+
+func firstIPv4(ips []net.IP) net.IP {
+	for _, ip := range ips {
+		if ip.To4() != nil {
+			return ip
+		}
+	}
+	return ips[0]
 }
 
 // containerBudget — the most /admin/system waits on the per-service self-stat gather (own cgroup
@@ -142,8 +184,8 @@ func ownStat(ctx context.Context, r *selfstat.Reader) stats.Container {
 
 // peerStat — GET a sibling's /selfstat (it reads its own cgroup and returns selfstat.Stat JSON).
 // Best-effort: any failure yields a zero row, dropped by present.
-func peerStat(ctx context.Context, c *http.Client, url string) stats.Container {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
+func peerStat(ctx context.Context, c *http.Client, addr string) stats.Container {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, addr, http.NoBody)
 	if err != nil {
 		return stats.Container{}
 	}

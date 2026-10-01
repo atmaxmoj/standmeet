@@ -30,10 +30,10 @@ import (
 type ipTally struct {
 	rdb       *redis.Client
 	verifier  CaptchaVerifier
+	captchaOn func() bool
 	keyPrefix string
 	max       int
 	window    time.Duration
-	captchaOn bool
 }
 
 // enabled — only counts when redis is actually wired up. nil → no-op
@@ -80,7 +80,7 @@ func (t *ipTally) reset(ctx context.Context, ip string) {
 // you're through" when there's no check on screen, and saying "try again
 // later" when it actually clears in a second, are the same lie pointed in
 // two directions ([[names-that-lie]]).
-func (t *ipTally) hasLift() bool { return t != nil && t.captchaOn }
+func (t *ipTally) hasLift() bool { return t != nil && t.captchaOn() }
 
 // blocked — whether this IP should currently be blocked: redis is wired
 // up, and it's over threshold, and captcha hasn't lifted it.
@@ -105,5 +105,5 @@ func (t *ipTally) overThreshold(ctx context.Context, ip string) bool {
 // pure hard lock, since there's no check to solve); captcha on → only lets
 // through when a valid token is presented.
 func (t *ipTally) captchaFails(ctx context.Context, captchaToken, ip string) bool {
-	return !t.captchaOn || t.verifier.Verify(ctx, captchaToken, ip) != nil
+	return !t.captchaOn() || t.verifier.Verify(ctx, captchaToken, ip) != nil
 }

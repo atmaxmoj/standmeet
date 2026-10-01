@@ -1,95 +1,32 @@
-# docker-compose.yml —— runs one StandMeet instance from **prebuilt images**, on any Docker
-# host or PaaS (Coolify, Portainer, Dokploy, or plain `docker compose up`).
+# docker-compose.yml —— one StandMeet instance from prebuilt images, on any Docker host or PaaS
+# (Coolify, Portainer, Dokploy, or plain `docker compose up`).
 #
-# No git source or host mount needed: the schema is baked into the db image, and every image
-# is pulled from ghcr. Download this one file (or paste it into a PaaS that takes a raw compose,
-# e.g. Coolify's "Docker Compose Empty"), set the variables below, and bring it up.
+# This file carries wiring and the secrets the platform generates — never the owner's settings.
+# Captcha, internal hosts, the skill catalogue, suppliers, providers: all set in the app, at
+# /admin. Why each line is what it is, and the incidents behind them: docs/deploy.md.
 #
-# How it differs from docker-compose.prod.yml: that one **builds from source** (for developing
-# and cutting releases); this one only **pulls released images** and is the file a self-hoster
-# actually runs. It publishes no host ports itself — the platform's proxy, or one of the two
-# overlays below, puts it on the network.
-#
-# ── Variables ─────────────────────────────────────────────────────────────────────────────
-# Two kinds of `${...}` appear below:
-#   * `${SERVICE_FQDN_*}` / `${SERVICE_PASSWORD_*}` / `${SERVICE_URL_*}` — **Coolify's magic
-#     variables**: it generates the secrets and assigns the domains, so you type nothing. On
-#     Coolify these Just Work; the comments below explain each.
-#   * On any other host, `infra/scripts/install.sh` writes a `.env` with the same names (fresh
-#     secrets, the app URL) and layers compose.caddy.yml (bundled TLS for one domain) or
-#     compose.port.yml (the app on a host port, for your own proxy) on top of this file.
-# The comments that say "Coolify does X" describe that platform's behavior — substitute your
-# own reverse proxy / secret store on another one.
-#
-# The plain-host path is proved by `make install-e2e`: a clean docker-in-docker host runs the
-# installer with --domain, then claim, sign-in and the public page are checked over HTTPS.
+# Variables: `${SERVICE_FQDN_*}` / `${SERVICE_PASSWORD_*}` / `${SERVICE_URL_*}` are Coolify's
+# magic variables (it generates the secrets and assigns the domain). On any other host,
+# `infra/scripts/install.sh` writes a `.env` with the same names and layers compose.caddy.yml
+# (bundled TLS) or compose.port.yml (a host port for your own proxy) on top.
 
 name: standmeet
 
 services:
   app:
-    # Every service pulls ${STANDMEET_IMAGE_TAG:-latest}. The default `latest` moves on every
-    # `make release-push` (it pushes vX.Y.Z **and** latest), so a plain redeploy lands on the
-    # newest release — that's what the product-owned upgrade path relies on. Set
-    # STANDMEET_IMAGE_TAG=vX.Y.Z to pin a specific version instead.
-    #
-    # (Before, every image was hardcoded `v0.1.3`; a redeploy then pulled that stale version no
-    # matter what had been released — the reason an instance could sit on an old build while a
-    # newer one was out.)
+    # `latest` moves on every release; pin STANDMEET_IMAGE_TAG=vX.Y.Z to stay on one version.
     image: ghcr.io/atmaxmoj/standmeet-app:${STANDMEET_IMAGE_TAG:-latest}
     restart: unless-stopped
     environment:
-      # Coolify sees this name and assigns a domain to app's port 3000, wiring up the reverse
-      # proxy. The generated value (https://…) gets referenced elsewhere besides
-      # STORAGE_PUBLIC_URL.
-      - SERVICE_FQDN_APP_3000
+      - SERVICE_FQDN_APP_3000 # Coolify: assigns the domain and routes it to port 3000
       - BACKEND_URL=http://backend:8000
       - NODE_ENV=production
       - STANDMEET_SERVICE_NAME=app
-    # Warning: **do not declare `networks` here again.** That is the cause of a 504 that kept
-    # recurring.
-    #
-    # Coolify injects a project network into every service (`<serviceUuid>`, external). This
-    # file originally also had a `default:` block (only to give app a dotted alias,
-    # `app.standmeet.local`), which made **app the only container in the whole stack attached
-    # to two networks**. When a container is on multiple networks, traefik has to pick one to
-    # resolve its IP from, and this compose file has no `traefik.docker.network` label ——
-    # it picked `default` (traefik isn't even on that network), the SYN goes out unanswered,
-    # and after hanging for 30 seconds it becomes a **504** (a refused connection would come
-    # back as a 502 within seconds instead).
-    #
-    # Every deploy rebuilds the container and reassigns its IP = rolling the dice again. So it
-    # showed up as "sometimes broken after a deploy, redeploying fixes it" — but **redeploying
-    # isn't a fix, it's just another roll**. Every observation lines up: only this one project
-    # was broken (only it had the second network), 6/6 checks failed with no flicker, and the
-    # app container itself reported `running:healthy` (127.0.0.1:3000 inside the container
-    # stayed reachable the whole time).
-    #
-    # That alias **was never actually working** to begin with: it was registered on `default`,
-    # while gotenberg is only on the project network, so it could never be resolved anyway ——
-    # meaning PDF printing in prod had been broken all along, and the alias only contributed
-    # the extra network that made traefik pick wrong. (In `docker-compose.prod.yml` it's
-    # correct: every service there shares the same implicit default network.)
-    #
-    # The trade-off, spelled out: the single-label hostname `app` triggers Chromium's HTTPS
-    # upgrade heuristic, and gotenberg fetching the print page may get ERR_SSL_PROTOCOL_ERROR.
-    # If you actually hit that, the fix is to add an alias on the **project network** and set
-    # `traefik.docker.network=<project-network-name>` —— both need the generated name that's
-    # different per instance, so the template can't supply it; fill it in on your own instance.
-    # Reachability of the whole site takes priority over the PDF path.
+    # Do not declare `networks` here: a second network makes the proxy pick the wrong one (504).
     depends_on:
       backend:
         condition: service_healthy
     healthcheck:
-      # Hits app's **own** route, not the one proxied through to backend's
-      # `/api/v1/instance` —— that would measure two hops, and a slow backend would then get
-      # an otherwise-healthy app marked unhealthy, and the orchestrator would restart it. Bad
-      # news propagates; good news doesn't propagate back.
-      #
-      # Warning: this route (app/src/app/api/app-health/route.ts) was **written but not yet
-      # verified** in this round: it needs the app image rebuilt to take effect, and the
-      # machine's load was at 50 and couldn't run it at the time. Confirm it's in the image
-      # before relying on it.
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/app-health"]
       interval: 5s
       timeout: 5s
@@ -100,150 +37,35 @@ services:
     image: ghcr.io/atmaxmoj/standmeet-backend:${STANDMEET_IMAGE_TAG:-latest}
     restart: unless-stopped
     environment:
-      - HOST=0.0.0.0
-      - PORT=8000
       - STANDMEET_SERVICE_NAME=backend
       - STANDMEET_SELFSTAT_PEERS=http://app:3000/api/selfstat
       - DATABASE_URL=postgres://standmeet:${SERVICE_PASSWORD_POSTGRES}@db:5432/standmeet?sslmode=disable
       - REDIS_URL=redis://redis:6379/0
       - SESSION_KEY=${SERVICE_PASSWORD_64_SESSION}
-      # INSTANCE_SECRET —— the static encryption key for connector credentials/tokens (≥32
-      # characters, or cryptobox refuses to start).
-      #
-      # Warning: **changing it makes every existing credential undecryptable**. This was
-      # actually rotated once in prod: the backend started up fine, but /admin/connectors
-      # rendered every card as "not connected" with a row of empty boxes —— the ciphertext and
-      # connected_at were both still in the DB, but nothing showed on screen (F-C-41). Use the
-      # one Coolify generates, and **don't touch it once generated**.
+      # Encrypts stored credentials. Never change it once generated: every stored credential
+      # becomes unreadable.
       - INSTANCE_SECRET=${SERVICE_PASSWORD_64_INSTANCE}
-      # Coolify terminates TLS, so the cookie must carry Secure.
-      - SECURE_COOKIE=true
-      - MICROSITES_ROOT=/srv/microsites
-      # PUBLIC_IP —— the instance's public IP, shown on the admin System panel. Owner sets it
-      # in Coolify's env; empty → "—". (The cluster panel stays empty here: docker.sock is
-      # deliberately not mounted on this target, so per-container stats aren't available.)
-      - PUBLIC_IP=${PUBLIC_IP:-}
-      - GOTENBERG_URL=http://gotenberg:3000
-      # The address gotenberg loads to render the print page. It is the instance's own PUBLIC
-      # https URL, NOT the internal `http://app:3000`. Two prod bugs came from the internal
-      # single-label host: (1) a dotted internal alias needs a second docker network, which
-      # caused a recurring 504; (2) worse, the app runs behind TLS with SECURE_COOKIE, so a
-      # plain http://app:3000 hit gets redirected toward https on a single-label host that has
-      # no cert — gotenberg's Chromium (and the owner's preview tab) then die on
-      # ERR_SSL_PROTOCOL_ERROR naming bare `app`. Fetching the real public FQDN (valid Let's
-      # Encrypt cert, dotted, terminated by the proxy) sidesteps both. The print route is
-      # one-shot-token gated, so serving it over the public origin leaks nothing. On Coolify
-      # SERVICE_URL_APP is generated as https://<the app domain>; on plain compose set it in .env.
+      # Where gotenberg loads the print page: the instance's own public https URL.
       - PRINT_BASE_URL=${SERVICE_URL_APP}
-      # ── Storage ──────────────────────────────────────────────────────────────────
       - STORAGE_ENDPOINT=minio:9000
       - STORAGE_ACCESS_KEY=standmeet
       - STORAGE_SECRET_KEY=${SERVICE_PASSWORD_64_MINIO}
       - STORAGE_BUCKET=standmeet
       - STORAGE_USE_SSL=false
-      # STORAGE_PUBLIC_URL —— leave EMPTY. It is not needed to display images. Owner-uploaded
-      # images are served to the browser by the backend's thin forwarder (GET /api/v1/assets/{id}),
-      # which reads the bytes from minio over the INTERNAL network — so minio never has to be
-      # reachable from the browser and needs no public domain (see the minio block below). This
-      # value only feeds a presign helper that nothing in the serving path uses.
-      - STORAGE_PUBLIC_URL=
-      # ── everything below is left empty as the default posture; fill in as needed ──────
-      # CAPTCHA: only turns on once both are filled in.
-      - TURNSTILE_SITE_KEY=${TURNSTILE_SITE_KEY:-}
-      - TURNSTILE_SECRET=${TURNSTILE_SECRET:-}
-      # Meilisearch: the lexical index for corpus search, now **shipped with the stack**
-      # (service is below).
-      #
-      # It wasn't there before, and the fallback was Postgres full-text search. Measured in
-      # prod: that fallback **can't handle Chinese** —— `to_tsvector('english', …)` never
-      # tokenizes Chinese, so a query only hits when it's byte-for-byte equal to a contiguous
-      # run of Chinese in the body. "无限衍义" (unlimited derivation) could be found, "限衍"
-      # and "三个序列" (three sequences) both got 0 hits, and "三张资格证" (three
-      # certificates) couldn't even find the post that had those exact five characters in the
-      # title (the body had "与三张资格证" — "and three certificates" — instead). English
-      # was unaffected —— so from one side the bilingual corpus looked completely normal, and
-      # that's exactly how this hole stayed hidden.
-      #
-      # An empty index is worse than the fallback, so this only holds because the backend
-      # **auto-backfills on boot** (wire.SearchIndex → ReindexOwner), with a periodic
-      # reconcile to fill in the rest. Just mount it and restart — that's the whole migration.
-      # To use a Meili outside the stack, fill in the two variables below and the service
-      # further down can be deleted.
+      # The bundled search index; point both elsewhere to use your own Meilisearch.
       - MEILI_URL=${MEILI_URL:-http://meilisearch:7700}
       - MEILI_KEY=${MEILI_KEY:-${SERVICE_PASSWORD_MEILI}}
-      # SSRF allowlist: **empty is the production posture**, it blocks every internal-network
-      # address.
-      - EGRESS_ALLOW_HOSTS=${EGRESS_ALLOW_HOSTS:-}
-      # The supplier outbound allowlist (two separate policies from the one above: that one
-      # governs what the backend itself dials out to, this one governs what the assembled
-      # suppliers can reach). Fill this in when the owner needs to reach their own internal
-      # CalDAV / mail server.
-      - SUPPLIER_EGRESS_ALLOW=${SUPPLIER_EGRESS_ALLOW:-}
-      # The byte cap for one OpenAPI spec (default 2 MiB). GitHub's REST description is a
-      # 12 MB file, so connecting to that kind of vendor needs this raised.
-      - SUPPLIER_SPEC_MAX_BYTES=${SUPPLIER_SPEC_MAX_BYTES:-}
-      # Which repo the skill marketplace reads from; empty = the public anthropics/skills.
-      - MARKETPLACE_GITHUB_BASE_URL=${MARKETPLACE_GITHUB_BASE_URL:-}
-      # ── The upgrade button on /admin/system ──────────────────────────────────────────────
-      # This instance has no host-level control (docker.sock is deliberately NOT mounted on the
-      # backend below), so it never pulls images itself. The button writes a substrate-blind
-      # signal file on a volume it shares with the bundled `updater` sidecar (see that service),
-      # and stops there. The backend does not know or pick how it is deployed: the updater — the
-      # only container with docker access — consumes the signal and pulls + recreates the stack.
-      # A different substrate (a Coolify-managed stack) would run a different sidecar reading the
-      # same signal and calling Coolify's API; the backend is identical either way. Zero owner
-      # setup — this is the path the ${STANDMEET_IMAGE_TAG:-latest} channel tag above exists for.
-      - STANDMEET_UPGRADE_SIGNAL=${STANDMEET_UPGRADE_SIGNAL:-/run/standmeet/upgrade.signal}
-      # Where to ask "is there a new version." Empty = the official image registry.
-      - STANDMEET_RELEASE_REGISTRY=${STANDMEET_RELEASE_REGISTRY:-}
-      - STANDMEET_RELEASE_REPO=${STANDMEET_RELEASE_REPO:-}
-      # Seed the built-in job aggregators on a fresh claim (default true).
-      - STANDMEET_SEED_DEFAULT_SOURCES=${STANDMEET_SEED_DEFAULT_SOURCES:-true}
-      # ── Third-party sandboxed plugins (origin=managed): off by default, needs the host's
-      # manifest + docker.sock mounted. The five built-in ones (retrieval / ask_visitor /
-      # summarize / booker / mail-sender) **do not go through here** —— they're baked into
-      # the image's /srv/plugins and run via the bwrap permissions granted below. Two
-      # different things — don't conflate them.
-      # - STANDMEET_PLUGINS=/etc/standmeet/plugins.json
-      # - SANDBOX_DRIVER=docker
-    # ── The bwrap sandbox for the built-in capabilities needs these lines; skip even one
-    # and visitors get no answer at all ──────────────────────
-    #
-    # This used to be empty, and that wasn't "one setting short" — it **turned the product
-    # off**: all five built-in capabilities go through `sandbox_stdio`, where the main process
-    # starts an isolated environment with bwrap before spawning the plugin. The container's
-    # default seccomp/apparmor profile blocks unshare(CLONE_NEW*), and the default cap set
-    # has no SYS_ADMIN either, so bwrap can't start a single one —— and the failure is a
-    # **silent degradation**: the failed dial folds into ErrHidden, chat isn't blocked, and
-    # the turn just goes to the model with 0 tools (F-A-1).
-    #
-    # What it actually looked like in prod (sijie.xyz, 2026-08-27): the prompt fragments for
-    # all three capabilities came back 0 bytes each (the same endpoints in dev return
-    # 2002 / 1280 / 1558), the model had no tool schema at all, and so it followed the system
-    # prompt's prose and **wrote the tool call as plain-text XML instead**:
-    #   `<tool_calls><invoke name="search">…` —— even the tool name was made up (the real one
-    # is corpus_search) —— and the backend returned `stop_reason=end_turn`, so the product
-    # published that raw protocol text to the visitor as if it were the finished answer.
-    #
-    # I had originally made these lines an "optional, off by default" comment block. That
-    # default was one I invented myself, and it left an instance that was **installed, running,
-    # every health check green** unable to answer a single visitor
-    # ([[invented-default-grants-privilege]]).
-    #
-    # Warning: the trade-off, stated plainly: seccomp/apparmor loosened + SYS_ADMIN — this
-    # container's isolation is much weaker than the default.
-    #    **But docker.sock is not mounted** —— that's the half that turns a container into
-    #    the host's administrator, and the built-in capabilities don't need it (the plugin
-    #    binaries are baked into the image). On a shared host this is the line that must hold.
+      # The upgrade button writes here; the updater sidecar reads it.
+      - STANDMEET_UPGRADE_SIGNAL=/run/standmeet/upgrade.signal
+    # The built-in capabilities run in a bwrap sandbox, which needs these. Without them visitors
+    # get no answers at all. docker.sock is NOT mounted — the line that must hold on a shared host.
     user: "0:0"
     security_opt:
       - seccomp:unconfined
       - apparmor:unconfined
     cap_add:
-      # SYS_ADMIN: creates the user/mount/pid namespaces. NET_ADMIN: bwrap --unshare-net needs
-      # this to bring up loopback inside the sandbox (otherwise "loopback: Failed RTM_NEWADDR").
-      - SYS_ADMIN
-      - NET_ADMIN
+      - SYS_ADMIN # user/mount/pid namespaces
+      - NET_ADMIN # loopback inside the sandbox
     depends_on:
       db:
         condition: service_healthy
@@ -253,16 +75,10 @@ services:
         condition: service_healthy
       gotenberg:
         condition: service_healthy
-      # meilisearch —— deliberately **not** service_healthy: the backend starts fine without
-      # it (search falls back to Postgres full-text, and honestly says it's degraded on
-      # /admin/system). Waiting on it would turn an optional index into a reason the instance
-      # can't come up.
       meilisearch:
-        condition: service_started
+        condition: service_started # optional: search falls back to Postgres without it
     volumes:
       - microsites_data:/srv/microsites
-      # The upgrade-signal volume, shared with the `updater` sidecar. The backend only ever
-      # WRITES here (one timestamp line on a button press); it never gets docker.sock.
       - upgrade_signal:/run/standmeet
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8000/internal/healthz"]
@@ -271,29 +87,20 @@ services:
       retries: 12
       start_period: 15s
 
-  # builder —— builds the React pages the owner writes themselves; output lands in
-  # microsites_data.
+  # builder —— builds the React pages the owner writes; output lands in microsites_data.
   builder:
     image: ghcr.io/atmaxmoj/standmeet-builder:${STANDMEET_IMAGE_TAG:-latest}
     restart: unless-stopped
     environment:
       - BACKEND_INTERNAL_URL=http://backend:8000
-      - MICROSITES_ROOT=/srv/microsites
     depends_on:
       backend:
         condition: service_healthy
     volumes:
       - microsites_data:/srv/microsites
 
-  # im-bridge —— lets someone holding an access code DM the owner's AI from a chat app.
-  #
-  # **This is wiring only, no settings**: the bot token is a credential the owner configures
-  # in /admin/connectors (same category as mail / calendar), and the bridge fetches it from an
-  # internal endpoint once it starts. The credential never goes into env, or into this file.
-  # With no IM connector configured it just idles, without spamming errors.
-  #
-  # Uses long polling: listens on no port, needs no public inbound callback —— in a
-  # self-hosted setup, most people can't do the webhook path.
+  # im-bridge —— visitors with an access code chat from Telegram / Discord. Bot tokens are set on
+  # /admin/suppliers; with none connected it idles.
   im-bridge:
     image: ghcr.io/atmaxmoj/standmeet-im-bridge:${STANDMEET_IMAGE_TAG:-latest}
     restart: unless-stopped
@@ -304,47 +111,22 @@ services:
       app:
         condition: service_started
 
-  # updater —— the product-owned upgrade adapter ([[product-owned-upgrade]]). Watchtower's
-  # mechanism, narrowed to a button press and to THIS stack.
-  #
-  # The backend never touches docker; on an /admin/system "upgrade" press it writes one
-  # substrate-blind pulse to the shared signal file. THIS worker is the **one** container with
-  # docker access — the line that keeps a compromised internet-facing app from becoming host
-  # control.
-  #
-  # It knows NOTHING about how the stack was deployed. On the pulse it reads its OWN container's
-  # `com.docker.compose.project` label to learn the real project name (never hardcoded), lists
-  # the siblings, and recreates each of ours IN PLACE from its own inspected config with the image
-  # tag bumped to the channel. So volumes, networks, env (the secrets!), names and labels are
-  # exactly what they already were — no compose fetched, no .env needed, no parallel stack. Works
-  # identically on bare `docker compose`, Coolify, or anything: it only ever acts on the containers
-  # that already exist. (An earlier version ran `docker compose -p standmeet up` against a fetched
-  # compose, which hardcoded the project name → built a parallel EMPTY stack on any deployment
-  # whose real project name differed. Deleted.)
+  # updater —— the one container with docker access: on the upgrade button it recreates this
+  # stack's containers in place on the new images (same config, volumes, env).
   updater:
     image: ghcr.io/atmaxmoj/standmeet-updater:${STANDMEET_IMAGE_TAG:-latest}
     restart: unless-stopped
     environment:
       - STANDMEET_UPGRADE_SIGNAL=/run/standmeet/upgrade.signal
-      # Which images are ours to bump, and to which channel tag. Defaults match the official
-      # release; a fork publishing its own images overrides the prefix.
+      # A fork publishing its own images overrides the prefix.
       - STANDMEET_IMAGE_PREFIX=${STANDMEET_IMAGE_PREFIX:-ghcr.io/atmaxmoj/standmeet-}
       - STANDMEET_CHANNEL=${STANDMEET_CHANNEL:-latest}
     volumes:
-      # The docker socket (its privilege) + the shared signal volume. Nothing else — no compose,
-      # no .env, no host paths.
       - /var/run/docker.sock:/var/run/docker.sock
       - upgrade_signal:/run/standmeet
 
-  # db —— pgvector, with the schema already baked into the image (infra/db/Dockerfile).
-  #
-  # No need to mount `./backend/db/schema.sql`: a paste-in compose file has no repo, so that
-  # mount would resolve empty, and postgres mounting something empty behaves as **silently
-  # starting an empty database**, with no error —— and then every backend query blows up.
-  #
-  # Warning: the schema only runs **the first time the data volume is created**. Upgrades
-  # don't go through here, they go through `backend/db/migrations/`: swapping in a newer db
-  # image **will not** modify an existing database.
+  # db —— pgvector with the schema baked in. It runs once, on a new volume; upgrades go through
+  # the backend's migrations at boot.
   db:
     image: ghcr.io/atmaxmoj/standmeet-db:${STANDMEET_IMAGE_TAG:-latest}
     restart: unless-stopped
@@ -360,18 +142,10 @@ services:
       timeout: 3s
       retries: 10
 
+  # redis —— capped, evicts the oldest when full (sessions and rate-limit buckets regenerate).
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    # Capped + evicts the oldest once full. This holds visitor sessions, rate-limit buckets,
-    # and the job pool (1-day TTL). Uncapped, it keeps growing until the host can't take it ——
-    # and at that point it's not "the oldest session is gone," it's **the whole container
-    # getting OOM-killed, every session gone at once**, and all the owner hears is "visitors
-    # can't open the page."
-    #
-    # `allkeys-lru`, not `noeviction`: once full, something has to be dropped. `noeviction`
-    # would make **writes fail** instead, and the visitor gets an error while the owner sees
-    # nothing at all. Sessions and rate-limit buckets are both fine to lose and regenerate.
     command:
       - redis-server
       - --maxmemory
@@ -386,12 +160,7 @@ services:
       timeout: 3s
       retries: 10
 
-  # meilisearch —— the lexical index for corpus search. It's in the stack because the
-  # fallback (Postgres full-text) can't tokenize Chinese, see the MEILI_URL note above.
-  #
-  # No host port mapped: backend reaches it over the compose network, and the healthcheck runs
-  # inside the container —— so it won't collide with another project's Meili already running
-  # on the host (there is one on this machine).
+  # meilisearch —— the corpus search index (Postgres full text cannot tokenize Chinese).
   meilisearch:
     image: getmeili/meilisearch:v1.10
     restart: unless-stopped
@@ -407,13 +176,10 @@ services:
       timeout: 3s
       retries: 12
 
-  # gotenberg —— the headless Chromium rendering sidecar for resume PDFs.
+  # gotenberg —— renders résumé PDFs. Its default deny-list blocks the docker network.
   gotenberg:
     image: gotenberg/gotenberg:8
     restart: unless-stopped
-    # Gotenberg 8's default deny-list blocks private / docker network ranges (172.x, 10.x) →
-    # internal rendering would all 403. Clear the deny list and open up the allow list (this
-    # port only exists on the container network).
     command:
       - gotenberg
       - --chromium-disable-javascript=false
@@ -427,20 +193,9 @@ services:
       retries: 12
       start_period: 5s
 
-  # minio —— the bundled S3-compatible object storage. The "standmeet" bucket is auto-created
-  # by the backend on first boot.
-  #
-  # **Internal only — do NOT give it a public domain.** Owner-uploaded images are served to the
-  # browser by the backend's thin forwarder (GET /api/v1/assets/{id}), which reads the bytes from
-  # minio over the internal network. So minio never has to be reachable from the browser — no
-  # subdomain, no cert, no exposed port. (Reaching minio directly over HTTPS would otherwise need
-  # its own domain + cert on a shared host; the forwarder avoids all of that.)
+  # minio —— bundled S3 storage, internal only (the backend serves uploads). Do not give it a
+  # public domain. Silo is the maintained drop-in fork of MinIO.
   minio:
-    # Silo (github.com/pgsty/silo): the maintained community fork of MinIO, drop-in — same S3 API,
-    # MINIO_* env, on-disk format; `server …` argv translated by its entrypoint; curl included.
-    # MinIO deleted minio/minio from Docker Hub on 2026-09-11 (quay no longer anonymous), so the
-    # old pin no longer pulls. A stopgap: the default store is to become our own, with an
-    # owner-configured S3 as the alternative.
     image: pgsty/silo:RELEASE.2026-09-16T00-00-00Z
     restart: unless-stopped
     command: server /data --console-address ":9201"
@@ -461,26 +216,7 @@ volumes:
   miniodata: {}
   meilidata: {}
   microsites_data: {}
-  # Shared backend↔updater: the backend writes the upgrade signal here, the updater reads it.
-  upgrade_signal: {}
+  upgrade_signal: {} # backend writes the upgrade signal, the updater reads it
 
-# ── Third-party sandboxed plugins (origin=managed) —— optional, off by default ──────────────
-#
-# **This section is not about the built-in capabilities.** The five built-in ones
-# (retrieval / ask_visitor / summarize / booker / mail-sender) are baked into the image and
-# run on the bwrap permissions granted to backend above; without them visitors can't get an
-# answer at all —— that's not optional. This section is about third-party MCP servers the
-# owner installs themselves.
-#
-# Add to backend:
-#
-#     environment:
-#       - STANDMEET_PLUGINS=/etc/standmeet/plugins.json
-#       - SANDBOX_DRIVER=docker
-#     volumes:
-#       - /var/run/docker.sock:/var/run/docker.sock
-#       - ./infra/prod-plugins.json:/etc/standmeet/plugins.json:ro
-#
-# Warning: `docker.sock` makes this container **the host's administrator**, not just "a bit
-#    more permission." Only mount it on a dedicated host. The reasoning, and the real incident
-#    behind it, is written up in the README.
+# Third-party sandboxed MCP servers (optional): see docs/deploy.md. They need docker.sock on the
+# backend, which makes it the host's administrator — only on a dedicated host.

@@ -175,7 +175,15 @@ CREATE TABLE instance_settings (
     setup_token_hash  text,
     multi_tenant      boolean      NOT NULL DEFAULT false,
     deployed_at       timestamptz  NOT NULL DEFAULT now(),
-    allowed_domains   jsonb        NOT NULL DEFAULT '[]'::jsonb
+    allowed_domains   jsonb        NOT NULL DEFAULT '[]'::jsonb,
+    -- The owner's instance settings (migrations/2026-10-01-instance-owner-settings.sql): internal
+    -- hosts every outbound guard may reach, the Turnstile login check (secret sealed), the skill
+    -- catalogue the marketplace reads.
+    internal_hosts      jsonb NOT NULL DEFAULT '[]'::jsonb,
+    captcha_site_key    text  NOT NULL DEFAULT '',
+    captcha_secret_enc  bytea,
+    skill_catalogue_url text  NOT NULL DEFAULT '',
+    legacy_env_imported boolean NOT NULL DEFAULT false
 );
 
 INSERT INTO instance_settings (id) VALUES (1) ON CONFLICT DO NOTHING;

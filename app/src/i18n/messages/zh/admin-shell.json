@@ -464,5 +464,19 @@
     "sweepNothing": "无可清理——没有工作区",
     "ageSecs": "{n}秒",
     "sweepDone": "已清理过期的沙箱工作区"
+  },
+  "instanceSettings": {
+    "title": "实例设置",
+    "internalHosts": "内网主机",
+    "internalHostsHint": "本实例可以访问的你自己网络里的主机名（你的 CalDAV、邮件服务器、局域网里的模型），每行一个。所有出站检查都按这份名单放行，包括访客自带 AI 密钥所指的地址——只填你愿意这样开放的主机。",
+    "catalogue": "技能目录",
+    "catalogueHint": "技能市场读取的 GitHub contents API 地址。留空 = 公开的 anthropics/skills。",
+    "captcha": "登录验证（Cloudflare Turnstile）",
+    "captchaHint": "两项都填才开启：登录和反复输错访问码时要求验证；任一项留空即关闭。密钥在 dash.cloudflare.com → Turnstile。",
+    "siteKey": "站点密钥（Site key）",
+    "secret": "私密密钥（Secret key）",
+    "secretStored": "已保存一个私密密钥，不会再显示——留空即保留，填入新的即替换。",
+    "save": "保存",
+    "saved": "已保存，立即生效。"
   }
 }

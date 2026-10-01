@@ -464,5 +464,19 @@
     "sweepNothing": "Nothing to sweep — there are no workspaces",
     "ageSecs": "{n}s",
     "sweepDone": "만료된 샌드박스 작업 공간을 정리했습니다"
+  },
+  "instanceSettings": {
+    "title": "인스턴스 설정",
+    "internalHosts": "내부 호스트",
+    "internalHostsHint": "이 인스턴스가 접근해도 되는 내 네트워크의 호스트 이름(CalDAV, 메일 서버, LAN의 모델 등)을 한 줄에 하나씩. 모든 외부 연결 검사가 이 목록을 따릅니다. 방문자가 자기 AI 키로 지정한 주소도 포함되니, 그렇게 열어도 되는 호스트만 넣으세요.",
+    "catalogue": "스킬 카탈로그",
+    "catalogueHint": "스킬 마켓이 읽는 GitHub contents API 주소. 비우면 공개 anthropics/skills.",
+    "captcha": "로그인 확인 (Cloudflare Turnstile)",
+    "captchaHint": "둘 다 채우면 로그인할 때와 코드를 계속 틀릴 때 확인을 요구합니다. 하나라도 비우면 꺼집니다. 키: dash.cloudflare.com → Turnstile.",
+    "siteKey": "사이트 키",
+    "secret": "시크릿 키",
+    "secretStored": "시크릿 키가 저장되어 있습니다. 다시 표시되지 않습니다. 비워 두면 유지되고, 새 값을 넣으면 교체됩니다.",
+    "save": "저장",
+    "saved": "저장했습니다. 바로 적용됩니다."
   }
 }

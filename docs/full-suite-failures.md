@@ -758,7 +758,8 @@ Every one of the 21 is a load artifact, in two shapes:
 → 21 passed. So the committed code is effectively green; the 21 are load, not defects.
 
 **6 did not run** = the intentional conditional skips (`agent-turn-deadline-notice` needs
-`BOUNDARY_TIGHT=1`; the five `captcha-*` need `make test-captcha`'s captcha-on stack) plus the
+`BOUNDARY_TIGHT=1`; the five `captcha-*` then needed a captcha-on stack — since 2026-10-01 each
+turns captcha on for its own instance and runs in the default suite) plus the
 cascade-orphaned siblings of the 0ms failures. Expected.
 
 **Status: DONE (load, not fixable in code; the real fix is a quieter host — re-run on low load for a

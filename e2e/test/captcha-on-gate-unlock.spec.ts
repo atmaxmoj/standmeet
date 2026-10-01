@@ -12,7 +12,7 @@
 // **This can only be driven with captcha genuinely turned on**: the widget only renders
 // when the instance has published a site key, while every other spec runs against the
 // default shape with captcha off (which is also how the product ships). So this spec
-// runs via `make test-captcha` — it brings up the stack with Cloudflare's official
+// turns captcha on for its own fresh instance (fixtures/captcha.ts) with Cloudflare's official
 // **always-passes** test keys. That keypair issues its own token; there's no puzzle to
 // solve.
 //
@@ -27,7 +27,7 @@ import { test, expect } from '@/fixtures/test';
 import type { Page } from '@playwright/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
-import { skipUnlessCaptchaOn } from '@/fixtures/captcha';
+import { turnCaptchaOn } from '@/fixtures/captcha';
 import { createCode } from '@/fixtures/codes';
 import { findSetupToken, resetInstance } from '@/fixtures/instance';
 import { openGate } from '@/fixtures/navigate';
@@ -45,15 +45,13 @@ const WRONG_TRIES = 12;
 
 test.describe('gate · a locked visitor is offered the way out the backend already accepts', () => {
   test.beforeAll(async ({ playwright }) => {
-    // Skip the whole group when this instance doesn't have captcha on (rather than
-    // leaving a permanently red test) — see fixtures/captcha.ts.
-    await skipUnlessCaptchaOn(await playwright.request.newContext());
     resetInstance();
     const request = await playwright.request.newContext();
     await claim(request, findSetupToken(), {
       email: OWNER.email, password: OWNER.password,
       handle: OWNER.handle, fullName: OWNER.fullName,
     });
+    await turnCaptchaOn(request, OWNER);
     const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
     await createCode(request, csrf, { code: GOOD_CODE, label: 'letmein' });
     await request.dispose();
@@ -67,7 +65,7 @@ test.describe('gate · a locked visitor is offered the way out the backend alrea
       // the environment rather than on the defect ([[red-in-the-wrong-place]]).
       await expect(
         page.getByTestId('gate-captcha'),
-        'captcha must be configured for this spec — run it via `make test-captcha`',
+        'captcha must be on for this spec — beforeAll turns it on (fixtures/captcha.ts)',
       ).toHaveCount(0, { timeout: 5_000 });
 
       // Keep submitting wrong codes **until the gate actually falls**. Not a fixed

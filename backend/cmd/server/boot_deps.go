@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
+	"github.com/atmaxmoj/standmeet/cmd/server/livesettings"
 
 	"github.com/atmaxmoj/standmeet/cmd/server/config"
 	"github.com/atmaxmoj/standmeet/cmd/server/port"
@@ -136,6 +137,9 @@ type deferredWiring struct {
 	providerResolver inference.Resolver
 	setupTokenHolder *session.SetupTokenHolder
 	storageClient    *storage.Client
+	// live —— the running copy of the owner's instance settings (captcha, internal hosts, skill
+	// catalogue); loaded at boot after migrations.
+	live *livesettings.Settings
 }
 
 // maxPreviewWaiters —— preview long-polls held at once; past it a poll holds without a wake-up and
@@ -145,9 +149,7 @@ const maxPreviewWaiters = 64
 func assembleRuntimeDeps(
 	log *slog.Logger, cfg *config.Config, c *conns, repos *repoSet, dw *deferredWiring,
 ) deps.Runtime {
-	captchaVerifier := security.NewFromConfig(
-		security.FromEnvLike(cfg.TurnstileSiteKey, cfg.TurnstileSecret), nil,
-	)
+	captchaVerifier := security.NewLive(dw.live.Captcha, nil)
 	printStore := printsess.New(c.rdb, 0)
 	searchClient := search.New(cfg.MeiliURL, cfg.MeiliKey)
 	corpusIndexer := corpus.NewCorpusIndexer(searchClient, repos.vaultSync)
@@ -170,19 +172,19 @@ func assembleRuntimeDeps(
 		ProviderResolver:   dw.providerResolver,
 		SetupTokenHolder:   dw.setupTokenHolder,
 		CaptchaVerifier:    captchaVerifier,
-		CaptchaEnabled:     cfg.TurnstileSiteKey != "" && cfg.TurnstileSecret != "",
-		CaptchaSiteKey:     captchaSiteKeyFor(cfg),
+		CaptchaEnabled:     dw.live.CaptchaOn,
+		CaptchaSiteKey:     dw.live.CaptchaSiteKey,
+		LiveSettings:       dw.live,
 		SecureCookie:       cfg.SecureCookie,
 		SeedDefaultSources: cfg.SeedDefaultSources,
 		BuildsRoot:         cfg.MicrositesRoot,
 		SessionKey:         cfg.SessionKey,
-		PublicIP:           cfg.PublicIP,
 		SandboxRunner:      sandbox.FromEnv(cfg.SandboxDriver),
 		PrintStore:         printStore,
 		PdfRenderer:        buildPDFRenderer(log, cfg, printStore),
 		ReportPDFRenderer:  buildReportPDFRenderer(cfg),
 		MarketplaceClient: marketplace.NewFromEnv(
-			cfg.MarketplaceGitHubBaseURL, cfg.MarketplaceSkillsMPBaseURL,
+			dw.live.SkillCatalogue, cfg.MarketplaceSkillsMPBaseURL,
 		),
 		AgentSkills: registry.NewRegistry(),
 		Upgrade:     upgradeSources(cfg),

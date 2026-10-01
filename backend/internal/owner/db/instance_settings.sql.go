@@ -10,7 +10,7 @@ import (
 )
 
 const getInstanceSettings = `-- name: GetInstanceSettings :one
-SELECT id, is_claimed, setup_token_hash, multi_tenant, deployed_at, allowed_domains FROM instance_settings WHERE id = 1
+SELECT id, is_claimed, setup_token_hash, multi_tenant, deployed_at, allowed_domains, internal_hosts, captcha_site_key, captcha_secret_enc, skill_catalogue_url, legacy_env_imported FROM instance_settings WHERE id = 1
 `
 
 func (q *Queries) GetInstanceSettings(ctx context.Context) (InstanceSetting, error) {
@@ -23,8 +23,24 @@ func (q *Queries) GetInstanceSettings(ctx context.Context) (InstanceSetting, err
 		&i.MultiTenant,
 		&i.DeployedAt,
 		&i.AllowedDomains,
+		&i.InternalHosts,
+		&i.CaptchaSiteKey,
+		&i.CaptchaSecretEnc,
+		&i.SkillCatalogueUrl,
+		&i.LegacyEnvImported,
 	)
 	return i, err
+}
+
+const markLegacyEnvImported = `-- name: MarkLegacyEnvImported :exec
+UPDATE instance_settings
+SET legacy_env_imported = true
+WHERE id = 1
+`
+
+func (q *Queries) MarkLegacyEnvImported(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, markLegacyEnvImported)
+	return err
 }
 
 const setAllowedDomains = `-- name: SetAllowedDomains :exec
@@ -35,6 +51,47 @@ WHERE id = 1
 
 func (q *Queries) SetAllowedDomains(ctx context.Context, dollar_1 []byte) error {
 	_, err := q.db.Exec(ctx, setAllowedDomains, dollar_1)
+	return err
+}
+
+const setCaptchaSecret = `-- name: SetCaptchaSecret :exec
+UPDATE instance_settings
+SET captcha_secret_enc = $1
+WHERE id = 1
+`
+
+func (q *Queries) SetCaptchaSecret(ctx context.Context, captchaSecretEnc []byte) error {
+	_, err := q.db.Exec(ctx, setCaptchaSecret, captchaSecretEnc)
+	return err
+}
+
+const setCaptchaSiteKey = `-- name: SetCaptchaSiteKey :exec
+UPDATE instance_settings
+SET captcha_site_key = $1
+WHERE id = 1
+`
+
+func (q *Queries) SetCaptchaSiteKey(ctx context.Context, captchaSiteKey string) error {
+	_, err := q.db.Exec(ctx, setCaptchaSiteKey, captchaSiteKey)
+	return err
+}
+
+const setInstanceOwnerSettings = `-- name: SetInstanceOwnerSettings :exec
+UPDATE instance_settings
+SET internal_hosts = $1::jsonb,
+    skill_catalogue_url = $2
+WHERE id = 1
+`
+
+type SetInstanceOwnerSettingsParams struct {
+	Column1           []byte
+	SkillCatalogueUrl string
+}
+
+// The owner's instance settings (internal hosts / skill catalogue). The captcha pair has its own
+// write: its secret is sealed and kept unless the owner replaces or clears it.
+func (q *Queries) SetInstanceOwnerSettings(ctx context.Context, arg SetInstanceOwnerSettingsParams) error {
+	_, err := q.db.Exec(ctx, setInstanceOwnerSettings, arg.Column1, arg.SkillCatalogueUrl)
 	return err
 }
 
@@ -58,7 +115,7 @@ SET is_claimed = true,
 WHERE id = 1
   AND is_claimed = false
   AND setup_token_hash = $1
-RETURNING id, is_claimed, setup_token_hash, multi_tenant, deployed_at, allowed_domains
+RETURNING id, is_claimed, setup_token_hash, multi_tenant, deployed_at, allowed_domains, internal_hosts, captcha_site_key, captcha_secret_enc, skill_catalogue_url, legacy_env_imported
 `
 
 // Atomic claim: mark claimed + clear the token if and only if is_claimed=false and setup_token_hash
@@ -74,6 +131,11 @@ func (q *Queries) TryClaimInstance(ctx context.Context, setupTokenHash *string) 
 		&i.MultiTenant,
 		&i.DeployedAt,
 		&i.AllowedDomains,
+		&i.InternalHosts,
+		&i.CaptchaSiteKey,
+		&i.CaptchaSecretEnc,
+		&i.SkillCatalogueUrl,
+		&i.LegacyEnvImported,
 	)
 	return i, err
 }

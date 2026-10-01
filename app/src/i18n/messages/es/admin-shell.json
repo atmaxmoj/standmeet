@@ -464,5 +464,19 @@
     "sweepNothing": "Nada que barrer — no hay espacios de trabajo",
     "ageSecs": "{n}s",
     "sweepDone": "Espacios de trabajo del sandbox caducados barridos"
+  },
+  "instanceSettings": {
+    "title": "Ajustes de la instancia",
+    "internalHosts": "Hosts internos",
+    "internalHostsHint": "Nombres de host de tu propia red a los que esta instancia puede llegar (tu CalDAV, servidor de correo, un modelo en la LAN), uno por línea. Toda comprobación de salida respeta esta lista, incluida la dirección a la que apunta la clave de IA propia de un visitante: incluye solo hosts que te parezca bien exponer así.",
+    "catalogue": "Catálogo de habilidades",
+    "catalogueHint": "La dirección de la API de contenidos de GitHub que lee el mercado de habilidades. Vacío = el público anthropics/skills.",
+    "captcha": "Verificación de inicio de sesión (Cloudflare Turnstile)",
+    "captchaHint": "Rellena ambos para activar la verificación al iniciar sesión y ante códigos erróneos repetidos; deja cualquiera vacío para desactivarla. Claves: dash.cloudflare.com → Turnstile.",
+    "siteKey": "Clave del sitio",
+    "secret": "Clave secreta",
+    "secretStored": "Hay una clave secreta guardada. No se vuelve a mostrar: deja el campo vacío para conservarla o escribe una nueva para reemplazarla.",
+    "save": "Guardar",
+    "saved": "Guardado: ya está en vigor."
   }
 }

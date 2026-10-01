@@ -14,6 +14,8 @@ type (
 	CSSStore                   = usecase.CSSStore
 	FaviconStore               = usecase.FaviconStore
 	MonitoringDeps             = usecase.MonitoringDeps
+	InstanceConfigDeps         = usecase.InstanceConfigDeps
+	LegacyEnv                  = usecase.LegacyEnv
 	VaultImportStore           = usecase.VaultImportStore
 	ClaimDeps                  = usecase.ClaimDeps
 	ClaimInput                 = usecase.ClaimInput
@@ -133,6 +135,8 @@ var (
 	SetOwnerFavicon           = usecase.SetOwnerFavicon
 	UpdateBYOAI               = usecase.UpdateBYOAI
 	UpdateMonitoring          = usecase.UpdateMonitoring
+	GetInstanceConfig         = usecase.GetInstanceConfig
+	ImportLegacyEnv           = usecase.ImportLegacyEnv
 	UpdateOwnerAIProvider     = usecase.UpdateOwnerAIProvider
 	UpdateOwnerEmail          = usecase.UpdateOwnerEmail
 	UpdateOwnerFullName       = usecase.UpdateOwnerFullName
@@ -150,9 +154,10 @@ var (
 
 // Constants (impl: usecase).
 const (
-	KeyClear = usecase.KeyClear
-	KeyKeep  = usecase.KeyKeep
-	KeySet   = usecase.KeySet
+	CaptchaSecretAAD = usecase.CaptchaSecretAAD
+	KeyClear         = usecase.KeyClear
+	KeyKeep          = usecase.KeyKeep
+	KeySet           = usecase.KeySet
 
 	// HomepageSlug — the reserved slug the public homepage route serves at `/`.
 	HomepageSlug = usecase.HomepageSlug

@@ -14,13 +14,14 @@
 // captcha off: there's no check to solve then, so the hard lock is the only defense
 // (that's the half `security-login-guard` covers).
 //
-// Run via `make test-captcha` (Cloudflare's always-pass test key).
+// The spec turns captcha on for its own instance (fixtures/captcha.ts, Cloudflare's always-pass
+// test keys).
 
 import { test, expect } from '@/fixtures/test';
 import type { Page } from '@playwright/test';
 
 import { claim } from '@/fixtures/admin';
-import { skipUnlessCaptchaOn } from '@/fixtures/captcha';
+import { turnCaptchaOn } from '@/fixtures/captcha';
 import { findSetupToken, resetInstance } from '@/fixtures/instance';
 import { openReader } from '@/fixtures/navigate';
 
@@ -36,15 +37,13 @@ const ATTEMPTS = 34;
 
 test.describe('login · a rate-limited owner can still clear the check and get in', () => {
   test.beforeAll(async ({ playwright }) => {
-    // Skip the whole group if this instance doesn't have captcha on (instead of
-    // leaving a permanently red test) — see fixtures/captcha.ts.
-    await skipUnlessCaptchaOn(await playwright.request.newContext());
     resetInstance();
     const request = await playwright.request.newContext();
     await claim(request, findSetupToken(), {
       email: OWNER.email, password: OWNER.password,
       handle: OWNER.handle, fullName: OWNER.fullName,
     });
+    await turnCaptchaOn(request, OWNER);
     await request.dispose();
   });
 
@@ -56,7 +55,7 @@ test.describe('login · a rate-limited owner can still clear the check and get i
       // going red for a reason nobody can point to ([[red-in-the-wrong-place]]).
       await expect(
         page.getByTestId('turnstile-host'),
-        'captcha must be configured for this spec — run it via `make test-captcha`',
+        'captcha must be on for this spec — beforeAll turns it on (fixtures/captcha.ts)',
       ).toBeVisible({ timeout: 15_000 });
 
       // Only requests fired from **the browser itself** land in the same bucket: the

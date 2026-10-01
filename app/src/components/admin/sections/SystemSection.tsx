@@ -12,6 +12,7 @@ import { AdminSectionHead } from '@/components/admin/AdminSectionHead';
 import { ListPane } from '@/components/admin/ListPane';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { InferenceUsagePanel } from '@/components/admin/sections/system/InferenceUsagePanel';
+import { InstanceSettingsPanel } from '@/components/admin/sections/system/InstanceSettingsPanel';
 import { SandboxPanel } from '@/components/admin/sections/system/SandboxPanel';
 import { SessionsPanel } from '@/components/admin/sections/system/SessionsPanel';
 import { UpgradePanel } from '@/components/admin/sections/system/UpgradePanel';
@@ -33,6 +34,7 @@ export function SystemSection() {
       <SectionHeader kicker={t('kickerRuntime')} slug="system" />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <UpgradePanel />
+        <InstanceSettingsPanel />
         <DeploymentBlock info={info} />
         <ResourcesBlock info={info} />
         <ClusterBlock info={info} status={status} />

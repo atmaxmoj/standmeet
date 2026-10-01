@@ -22,6 +22,8 @@ export interface ClaimOptions {
   handle?: string;
   fullName?: string;
   publicUrl?: string;
+  // bare —— apply only the model stand-in, not the other stand-in settings (see applyStandInSettings).
+  bare?: boolean;
 }
 
 // Default public_url for specs: the app, since recruiters land on the Next.js app.
@@ -48,7 +50,40 @@ export async function claim(
   await postClaimWithRetry(request, setupToken, {
     email, password, handle, full_name: fullName, public_url: publicUrl,
   });
+  await applyStandInSettings(request, { email, password }, opts.bare === true);
   await seedDevAIProvider(request, { email, password });
+}
+
+// Stand-in settings —— the in-stack services a dev/e2e instance talks to, set the way an owner
+// sets them (the system page's settings, PUT /api/admin/instance-settings). They used to be env vars
+// in docker-compose.dev.yml (EGRESS_ALLOW_HOSTS / SUPPLIER_EGRESS_ALLOW / MARKETPLACE_GITHUB_BASE_URL);
+// the owner moved those settings out of the deployment (2026-10-01). `bare` keeps only the model
+// stand-in the claim's own AI-provider seed needs, for a spec that sets the rest itself.
+const MODEL_STAND_IN = 'llm-gateway';
+const STAND_IN_SETTINGS = {
+  internal_hosts: [MODEL_STAND_IN, 'external-mock'],
+  skill_catalogue_url: 'http://external-mock:9000/marketplace/github',
+};
+
+async function applyStandInSettings(
+  request: APIRequestContext, creds: { email: string; password: string }, bare: boolean,
+): Promise<void> {
+  const data = bare ? { internal_hosts: [MODEL_STAND_IN] } : STAND_IN_SETTINGS;
+  await putInstanceSettings(request, creds, data);
+}
+
+// putInstanceSettings —— write the instance settings (internal hosts / skill catalogue) as the owner.
+export async function putInstanceSettings(
+  request: APIRequestContext, creds: { email: string; password: string },
+  data: { internal_hosts?: string[]; skill_catalogue_url?: string },
+): Promise<void> {
+  const { csrf } = await login(request, creds.email, creds.password);
+  const res = await request.put(`${BACKEND}/api/admin/instance-settings`, {
+    headers: { 'X-Csrftoken': csrf }, data,
+  });
+  if (res.status() !== 200) {
+    throw new Error(`instance settings failed: ${res.status()} ${await res.text()}`);
+  }
 }
 
 interface ClaimBody {
@@ -116,8 +151,8 @@ async function claimStatus(
 }
 
 // DUMMY_CAPTCHA_TOKEN —— Cloudflare's test sitekey issues exactly this token
-// (`XXXX.DUMMY.TOKEN.XXXX`), and the matching test secret accepts it. `make
-// test-captcha` brings up the stack using exactly that key pair.
+// (`XXXX.DUMMY.TOKEN.XXXX`), and the matching test secret accepts it. `turnCaptchaOn`
+// (fixtures/captcha.ts) sets exactly that key pair.
 //
 // Why carry it on every login: once captcha is on, `LoginGuard` requires an
 // `X-Captcha-Token` on **every** owner login (not just after a lockout). When

@@ -20,7 +20,7 @@
 // captcha human verification (before login/code send; Cloudflare Turnstile or noop=off):
 //   - NewFromConfig(cfg, httpClient) Verifier —— assembles a verifier per cfg
 //   - Verifier.Verify(ctx, token, remoteIP) error —— nil=allow, error=reject
-//   - Config / Provider(ProviderNone|ProviderTurnstile) · FromEnvLike(siteKey, secret) Config
+//   - Config / Provider(ProviderNone|ProviderTurnstile) · NewLive(pair, httpClient) Verifier
 //   - ErrCaptchaFailed —— sentinel for verification failure
 //
 // New protection capability (e.g. replay defense): implement in a sibling subpackage,

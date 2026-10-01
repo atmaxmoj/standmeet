@@ -43,7 +43,9 @@ type RequestGuard struct{ t ipTally }
 
 // NewRequestGuard — composition-root wiring; captchaOn says whether
 // captcha is really enabled (not the noop).
-func NewRequestGuard(rdb *redis.Client, verifier CaptchaVerifier, captchaOn bool) *RequestGuard {
+func NewRequestGuard(
+	rdb *redis.Client, verifier CaptchaVerifier, captchaOn func() bool,
+) *RequestGuard {
 	return &RequestGuard{t: ipTally{
 		rdb: rdb, verifier: verifier, captchaOn: captchaOn,
 		keyPrefix: "requestflood:ip:", max: requestMax, window: requestWindow,

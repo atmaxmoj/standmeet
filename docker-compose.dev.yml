@@ -90,16 +90,18 @@ services:
       # e2e/fixtures/admin.ts or hand-set via admin UI) to point at the
       # llm-gateway service below; prod points at real api.anthropic.com.
       - MICROSITES_ROOT=/srv/microsites
-      # PUBLIC_IP —— the instance's public IP, shown on the admin System panel. A fixed
-      # TEST-NET value (RFC 5737) in dev/e2e so the panel is deterministic; prod injects the real one.
-      - PUBLIC_IP=203.0.113.42
       - SANDBOX_DRIVER=docker
-      # Turnstile —— empty by default, so captcha is OFF for every ordinary spec. `make test-captcha`
-      # brings the stack up with Cloudflare's always-pass TEST keys, which is the only way to drive
-      # the captcha surfaces against the real verification endpoint (F-G-3). Plumbed here for the
-      # same reason as in prod: a knob nobody can set is not a feature (F-G-2).
+      # Legacy setting names (docs/deploy.md). These are owner settings on /admin/system now; an
+      # old deployment still carries them as env, and the backend imports them once at its first
+      # boot on the new schema. Passed through, empty in every normal run, so the upgrade spec
+      # (upgrade-instance-owner-settings) can deploy the backend the way an old instance runs.
+      # The e2e stand-ins (llm-gateway / external-mock as internal hosts, the mock skill
+      # catalogue) are set the owner's way by the claim fixture (e2e/fixtures/admin.ts).
       - TURNSTILE_SITE_KEY=${TURNSTILE_SITE_KEY:-}
       - TURNSTILE_SECRET=${TURNSTILE_SECRET:-}
+      - EGRESS_ALLOW_HOSTS=${EGRESS_ALLOW_HOSTS:-}
+      - SUPPLIER_EGRESS_ALLOW=${SUPPLIER_EGRESS_ALLOW:-}
+      - MARKETPLACE_GITHUB_BASE_URL=${MARKETPLACE_GITHUB_BASE_URL:-}
       # turn 的时间墙和它后面那次救场的预算。默认 300s / 60s，`make test-boundary` 调成
       # 5s / 3s 去驱「撞墙之后产品说什么」那一格（F-A-44）。**必须在这儿声明**：shell 的
       # 环境变量只到 docker compose 为止，compose 不转发的话容器里读到的还是默认值 ——
@@ -139,11 +141,8 @@ services:
       - HIMALAYAS_BASE_URL=http://external-mock:9000/himalayas
       - WORKING_NOMADS_BASE_URL=http://external-mock:9000/working_nomads
       - RECRUITEE_BASE_URL=http://external-mock:9000/recruitee
-      # Skill-marketplace search proxy upstreams. Both point at the
-      # external-mock service in dev/e2e so the search never touches
-      # public internet (rate limits / determinism). Production leaves
-      # these unset → real api.github.com / api.skillsmp.com.
-      - MARKETPLACE_GITHUB_BASE_URL=http://external-mock:9000/marketplace/github
+      # SkillsMP search upstream → the external-mock (no public internet in e2e). The GitHub
+      # skill catalogue is an instance setting, set by the claim fixture.
       # 升级检查问的那个镜像库。指到 mock —— 一条打公网才成立的用例，
       # 在没网的机器上红得跟产品坏了一模一样。
       - STANDMEET_RELEASE_REGISTRY=http://external-mock:9000/registry
@@ -176,13 +175,6 @@ services:
       - GOOGLE_AUTH_URL=http://localhost:${DEV_PORT_EXTERNAL_MOCK:-9000}/google-oauth/auth
       - GOOGLE_TOKEN_URL=http://external-mock:9000/google-oauth/token
       - GOOGLE_CALENDAR_BASE=http://external-mock:9000/google-calendar
-      # Supplier SSRF egress allow-list (hostname). The mock resolves to a private
-      # docker IP, so it must be explicitly allowed; prod leaves this unset → all
-      # loopback/link-local/private targets are blocked.
-      - SUPPLIER_EGRESS_ALLOW=external-mock
-      # httpx SSRF guard allow-list (BYOAI endpoint / writings inline-fetch): the in-cluster mock
-      # gateway is an internal IP, so allow it here; prod leaves this unset → all internal blocked.
-      - EGRESS_ALLOW_HOSTS=llm-gateway,external-mock
       # Plugin discovery (Phase A): declares the in-stack mcp-server-mock as a
       # third-party MCP-app plugin 'echoer'. Prod leaves this unset → no
       # third-party plugins. (Bundled builtins like ask_visitor are NOT here —

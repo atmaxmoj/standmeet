@@ -464,5 +464,19 @@
     "sweepNothing": "Nichts zu kehren — es gibt keine Arbeitsbereiche",
     "ageSecs": "{n}s",
     "sweepDone": "Abgelaufene Sandbox-Workspaces bereinigt"
+  },
+  "instanceSettings": {
+    "title": "Instanz-Einstellungen",
+    "internalHosts": "Interne Hosts",
+    "internalHostsHint": "Hostnamen in deinem eigenen Netz, die diese Instanz erreichen darf (dein CalDAV, Mailserver, ein Modell im LAN), einer pro Zeile. Jede ausgehende Prüfung beachtet diese Liste, auch die Adresse, auf die der eigene KI-Schlüssel eines Besuchers zeigt — trag nur Hosts ein, die du so freigeben willst.",
+    "catalogue": "Skill-Katalog",
+    "catalogueHint": "Die GitHub-Contents-API-Adresse, die der Skill-Marktplatz liest. Leer = das öffentliche anthropics/skills.",
+    "captcha": "Anmeldeprüfung (Cloudflare Turnstile)",
+    "captchaHint": "Beide ausfüllen, um die Prüfung bei der Anmeldung und bei wiederholt falschen Codes einzuschalten; eines leer lassen schaltet sie aus. Schlüssel: dash.cloudflare.com → Turnstile.",
+    "siteKey": "Site-Key",
+    "secret": "Geheimer Schlüssel",
+    "secretStored": "Ein geheimer Schlüssel ist gespeichert. Er wird nicht wieder angezeigt — Feld leer lassen behält ihn, ein neuer ersetzt ihn.",
+    "save": "Speichern",
+    "saved": "Gespeichert — gilt ab sofort."
   }
 }

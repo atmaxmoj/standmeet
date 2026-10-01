@@ -51,7 +51,7 @@ type CodeGuard struct{ t ipTally }
 
 // NewCodeGuard — composition-root wiring; captchaOn says whether captcha is
 // really enabled (not the noop).
-func NewCodeGuard(rdb *redis.Client, verifier CaptchaVerifier, captchaOn bool) *CodeGuard {
+func NewCodeGuard(rdb *redis.Client, verifier CaptchaVerifier, captchaOn func() bool) *CodeGuard {
 	return &CodeGuard{t: ipTally{
 		rdb: rdb, verifier: verifier, captchaOn: captchaOn,
 		keyPrefix: "codefail:ip:", max: codeFailMax, window: codeFailWindow,

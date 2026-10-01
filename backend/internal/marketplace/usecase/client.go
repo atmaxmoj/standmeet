@@ -34,22 +34,23 @@ const (
 
 // Client —— aggregate search over GitHub + SkillsMP.
 type Client struct {
-	http         *http.Client
-	cache        *directoryCache
-	githubBase   string
+	http  *http.Client
+	cache *directoryCache
+	// catalogue —— the owner's skill catalogue (instance setting), read per call; "" = default.
+	catalogue    func() string
 	skillsmpBase string
 }
 
-// NewFromEnv builds a Client from the given base URL overrides (use the
-// MARKETPLACE_GITHUB_BASE_URL / MARKETPLACE_SKILLSMP_BASE_URL env vars at
-// the wireup layer). Empty string → built-in real-upstream default.
-func NewFromEnv(githubBase, skillsmpBase string) *Client {
+// NewFromEnv builds a Client. catalogue is the owner's skill catalogue setting (/admin/system),
+// read on every call; skillsmpBase is the MARKETPLACE_SKILLSMP_BASE_URL override (dev/e2e point it
+// at a mock). Empty → the built-in real upstream.
+func NewFromEnv(catalogue func() string, skillsmpBase string) *Client {
 	return &Client{
 		http: httpx.NewClient(httpx.Options{Timeout: httpTimeout}),
 		cache: &directoryCache{
 			entries: map[string]cacheEntry{},
 		},
-		githubBase:   firstNonEmpty(githubBase, defaultGitHubBase),
+		catalogue:    catalogue,
 		skillsmpBase: firstNonEmpty(skillsmpBase, defaultSkillsMPBase),
 	}
 }

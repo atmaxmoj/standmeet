@@ -6,10 +6,9 @@ package integration
 
 import "github.com/atmaxmoj/standmeet/internal/infra/openapi"
 
-// MaxSpecBytes — how large a spec this instance accepts. **No longer a compile-time constant**:
-// the owner can configure it via `SUPPLIER_SPEC_MAX_BYTES` (default 2 MiB, see
-// openapi/ingest.go). This is still a thin forward — the value is produced in one place only.
-var MaxSpecBytes = openapi.MaxSpecBytes
+// MaxSpecBytes — how large a spec this instance accepts (a thin forward of openapi's; the
+// value lives in one place only).
+const MaxSpecBytes = openapi.MaxSpecBytes
 
 // AuthForms / AuthSchemeForm / AuthFieldForm — derived credential-form descriptions (aliases
 // passing through the openapi types, so supplier routes can use them via integration

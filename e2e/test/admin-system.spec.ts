@@ -40,9 +40,10 @@ interface SystemInfo {
   containers: Container[];
 }
 
-// PUBLIC_IP is set to this fixed TEST-NET value in docker-compose.dev.yml, so the panel's
-// IP is deterministic to assert.
-const DEV_PUBLIC_IP = '203.0.113.42';
+// The panel's public IP is where the owner's public URL resolves — not a value the deployment
+// types in (owner, 2026-10-01: a deployment carries wiring, not settings). The claim fixture's
+// public URL is this checkout's app on localhost, which resolves to the loopback address.
+const OWNER_HOST_IP = '127.0.0.1';
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 test.describe('admin system section', () => {
@@ -175,7 +176,7 @@ async function clusterLivePolls({ adminPage }: { adminPage: Page }): Promise<voi
     .toBeGreaterThanOrEqual(2);
 }
 
-// Public IP is deploy-provided (deterministic in dev). Container rows now come from each service
+// Public IP is resolved from the owner's public URL. Container rows now come from each service
 // reading its OWN cgroup — NO docker socket: the backend reads its own directly, and each peer
 // (STANDMEET_SELFSTAT_PEERS → app's /api/selfstat) reports its own. So the panel proves the whole
 // mechanism only if BOTH the own row (backend) and a peer row (app) show up with real cgroup memory.
@@ -184,7 +185,7 @@ async function publicIPAndCluster({ adminPage }: { adminPage: Page }): Promise<v
   expect(res.status(), 'system endpoint 200').toBe(200);
   const body = await res.json() as SystemInfo;
 
-  expect(body.public_ip, 'public IP is the deploy-provided value').toBe(DEV_PUBLIC_IP);
+  expect(body.public_ip, 'public IP is where the owner\'s public URL resolves').toBe(OWNER_HOST_IP);
 
   expect(Array.isArray(body.containers), 'containers is a list').toBe(true);
   // Own row: the backend read its OWN cgroup. mem_bytes MUST be > 0 — a real cgroup read, which is
@@ -206,7 +207,7 @@ async function publicIPAndCluster({ adminPage }: { adminPage: Page }): Promise<v
 async function clusterPanelRenders({ adminPage }: { adminPage: Page }): Promise<void> {
   await gotoAdminSection(adminPage, 'system');
   await adminPage.waitForURL('**/admin/system', { timeout: 5_000 });
-  await expect(adminPage.getByTestId('system-public-ip')).toHaveText(DEV_PUBLIC_IP);
+  await expect(adminPage.getByTestId('system-public-ip')).toHaveText(OWNER_HOST_IP);
   await expect(adminPage.getByTestId('system-cluster')).toBeVisible();
 }
 

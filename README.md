@@ -42,6 +42,12 @@ cannot read them.
 The install path is tested end to end: `make install-e2e` runs the installer on a clean
 docker-in-docker host and then claims, signs in and loads the page over HTTPS.
 
+**Settings live in the app, not in `.env`.** The compose file carries wiring and generated
+secrets only. The login check (Cloudflare Turnstile), the internal hosts your instance may reach
+(your own CalDAV or mail server), and the skill catalogue are set at `/admin/system` → Instance
+settings; suppliers and AI providers under `/admin`. An instance that set any of these as env vars
+before keeps them: the first boot after the upgrade copies them in. Details: [`docs/deploy.md`](docs/deploy.md).
+
 ### On Coolify
 
 New Resource → Docker Based → Docker Compose Empty, then paste
@@ -90,7 +96,7 @@ shared Coolify host broke logging for every container that was not subsequently 
 including another tenant's production. On a shared host the blast radius of anything
 destructive is the whole machine, not your slice of it.
 
-The exact block to add is in the compose file's closing section.
+The exact block to add is in [`docs/deploy.md`](docs/deploy.md).
 
 ### Prove it actually came up
 

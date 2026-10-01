@@ -7,7 +7,7 @@
 # incremental development.
 
 .PHONY: lint secrets secrets-image release-build release-assert-stripped release-assert-multiarch release-assert-version release-push release-gc release-repro release-repro-logs release-repro-down backend-lint backend-test ut-db ut-db-down backend-no-mock app-lint sdk-lint e2e-lint env-lint updater-e2e im-bridge-lint im-bridge-test im-bridge-up im-bridge-logs
-.PHONY: deps stack stack-init stack-ready stack-test stack-retire dev dev-up dev-rebuild dev-down prod-up prod-down prod-logs build clean test test-fresh test-only test-asis dsh-plugin-test test-red test-captcha test-boundary test-dsh-live mobile-shots mobile-shots-asis archive-failures sdk-build builder-vendor dev-rebuild-builder dev-restart-gotenberg app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-blocks eval-owner-mcp verify-round schema-drift i18n-keys
+.PHONY: deps stack stack-init stack-ready stack-test stack-retire dev dev-up dev-rebuild dev-down prod-up prod-down prod-logs build clean test test-fresh test-only test-asis dsh-plugin-test test-red test-boundary test-dsh-live mobile-shots mobile-shots-asis archive-failures sdk-build builder-vendor dev-rebuild-builder dev-restart-gotenberg app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-blocks eval-owner-mcp verify-round schema-drift i18n-keys
 
 # ── per-checkout dev stack ──────────────────────────────────────
 # One machine, N checkouts, N stacks. Without this every worktree drives the SAME
@@ -440,9 +440,11 @@ dev-restart-gotenberg:
 
 # dev-recreate-backend —— recreate the backend container on the EXISTING image, no rebuild. For when
 # the image is already built (a manual build, or a container-name conflict left the service down)
-# and dev-rebuild-backend's --no-cache rebuild would be wasted minutes.
+# and dev-rebuild-backend's --no-cache rebuild would be wasted minutes. An upgrade spec also uses it to
+# deploy the backend carrying an old deployment's environment (recreateBackendWithEnv); --wait so it
+# returns once the backend is healthy.
 dev-recreate-backend:
-	@docker compose -p $(DEV_PROJECT) -f docker-compose.dev.yml up -d --no-deps --no-build backend
+	@docker compose -p $(DEV_PROJECT) -f docker-compose.dev.yml up -d --no-deps --no-build --wait backend
 
 # dev-restart-backend —— restart the backend PROCESS on the existing container. `up` won't recreate
 # when only a MOUNTED file changed (dev-plugins.json, mounted plugin code) because the container spec
@@ -572,14 +574,11 @@ prod-recreate-svc:
 # back when done driving**, or once the proxy stops, this instance has no model to use.
 #
 # ⚠️ **One more step is needed, or the above will fail** (hit this on 2026-08-19): the SSRF
-# gate carries an allowlist (`httpx/ssrf.go`'s `EGRESS_ALLOW_HOSTS`), and **prod's is empty by
-# design** ("EMPTY in prod (block everything internal)"). So pointing at it gets you back
-# *"That endpoint resolves to an internal/private address and is not allowed."*,
-# which reads like the product refused you, not like something is under-configured.
-# To use this path, that instance's `EGRESS_ALLOW_HOSTS` needs to include `llm-fault` (dev's
-# already includes `llm-gateway,external-mock`, so dev works out of the box).
-# **Don't hard-code it into the prod compose file** — prod's default should stay "nothing
-# internal may egress."
+# guard blocks internal hosts unless the owner lists them, and a fresh instance lists none. So
+# pointing at it gets you back *"That endpoint resolves to an internal/private address and is not
+# allowed."*, which reads like the product refused you, not like something is under-configured.
+# Add `llm-fault` under /admin/system → Instance settings → Internal hosts for the drive, and take
+# it out afterwards.
 verify-proxy-up:
 	@test -n "$(UPSTREAM)" || { echo "usage: make verify-proxy-up UPSTREAM=https://api.provider.com"; exit 2; }
 	@UPSTREAM_BASE_URL=$(UPSTREAM) docker compose -p standmeet-verify \
@@ -1264,35 +1263,6 @@ test-asis:
 # PLUGIN=<name> [<name>...] runs only those. Kept out of `make test`/`lint` (it boots DSH; heavy).
 dsh-plugin-test:
 	@cd infra/dsh-acceptance && npm install --no-audit --no-fund && node run.mjs $(PLUGIN)
-
-# test-captcha —— bring the dev stack up WITH captcha on, using Cloudflare's published test keys,
-# and run the captcha specs against it.
-#
-# Every other spec runs with captcha off (the vars are empty by default), which is the shipped
-# default and what the rest of the suite should exercise. But "off everywhere" is why the visitor
-# captcha surfaces were never driven at all: the widget only renders when the instance publishes a
-# site key (F-G-3).
-#
-# The keys below are Cloudflare's own always-pass pair, published for exactly this. The widget
-# self-issues a token — there is no challenge being defeated, which is the whole point of a vendor
-# test mode. Real challenges stay off limits.
-#
-#   1x00000000000000000000AA          sitekey, always passes
-#   1x0000000000000000000000000000000AA  secret, always validates
-#
-# Only the `captcha-on-*` specs run here, and the prefix is load-bearing: with the always-pass
-# secret the provider validates ANY token, so `security-captcha-bypass` — which asserts a forged
-# token is refused — fails on this stack for a reason that is not a defect. That spec belongs to
-# the captcha-OFF default suite. A greedy `captcha` glob pulled it in once and produced exactly
-# that false red.
-#
-# The stack is left running with captcha ON — `make dev-up` puts it back.
-test-captcha:
-	@TURNSTILE_SITE_KEY=1x00000000000000000000AA \
-	 TURNSTILE_SECRET=1x0000000000000000000000000000000AA \
-	 $(MAKE) dev-up
-	@cd e2e && pnpm exec playwright test $(if $(SPEC),$(SPEC),captcha-on-); \
-		st=$$?; cd .. && $(MAKE) archive-failures; exit $$st
 
 # test-boundary —— shortens the turn's time wall **and the rescue attempt right after it**, to
 # drive the boundary-case use cases.

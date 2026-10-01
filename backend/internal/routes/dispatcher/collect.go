@@ -78,7 +78,7 @@ func Collect(d *Deps) []Resource {
 		{Name: "domains", Ops: owner.DomainOps(d.AllowedDomains)},
 		{Name: "appearance", Ops: owner.AppearanceOps(d.OwnerCSS, d.OwnerFavicon)},
 		{Name: "prompts", Ops: owner.PromptOps(d.Prompts)},
-		{Name: "settings", Ops: owner.SettingsOps(d.Settings)},
+		{Name: "settings", Ops: owner.SettingsOps(&d.Settings)},
 		{Name: "providers", Ops: owner.ProviderOps(d.Providers)},
 		{Name: "account", Ops: owner.AccountOps(&d.Account)},
 		{Name: "microsites", Ops: owner.MicrositeOps(d.Microsites)},

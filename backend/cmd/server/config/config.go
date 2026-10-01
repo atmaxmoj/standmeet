@@ -28,9 +28,6 @@ type Config struct {
 	SessionKey  string
 	// root dir for microsite build artifacts: builder writes, backend reads
 	MicrositesRoot string
-	// PublicIP — the instance's public IP, shown on the admin System panel. Deploy-provided
-	// (the owner's server knows its own public address); empty → the panel shows "—".
-	PublicIP string
 	// JobFetch*BaseURL — base URL overrides for each job-board adapter. Left
 	// empty in production to hit the real URL; e2e/dev point at the
 	// external-mock started by docker-compose. See
@@ -51,12 +48,6 @@ type Config struct {
 	JobFetchHimalayasBaseURL       string
 	JobFetchWorkingNomadsBaseURL   string
 	JobFetchRecruiteeBaseURL       string
-	// Turnstile* — Cloudflare Turnstile captcha config. Both must be set to
-	// enable it; either being empty disables captcha. Not a fallback: env is
-	// the sole entry point for this opt-in feature. If this later moves to
-	// UI-driven (DB-stored) config, delete this whole group.
-	TurnstileSiteKey string
-	TurnstileSecret  string
 	// SandboxDriver — the skill-script execution backend: 'docker' or
 	// 'disabled'. docker requires the backend container to mount
 	// /var/run/docker.sock and have the docker CLI available. Not explicitly
@@ -81,11 +72,8 @@ type Config struct {
 	//                    (gotenberg fetches <base>/print/application/<id>?token=…)
 	GotenbergURL string
 	PrintBaseURL string
-	// MarketplaceGitHubBaseURL / MarketplaceSkillsMPBaseURL —— skill
-	// marketplace upstream overrides. Empty = use real GitHub / SkillsMP.
-	// dev/e2e point both at the external-mock service so the search
-	// proxy never touches the public internet.
-	MarketplaceGitHubBaseURL   string
+	// MarketplaceSkillsMPBaseURL —— SkillsMP upstream override. Empty = the real SkillsMP; dev/e2e
+	// point it at the external-mock service. (The GitHub catalogue is an instance setting.)
 	MarketplaceSkillsMPBaseURL string
 	// BlockMarketNpmBaseURL —— the dsh block marketplace upstream (npm registry).
 	// Empty = real registry.npmjs.org. dev/e2e point it at the in-cluster npm mock
@@ -180,7 +168,6 @@ func Load() (*Config, error) {
 		RedisURL:                       os.Getenv("REDIS_URL"),
 		SessionKey:                     os.Getenv("SESSION_KEY"),
 		MicrositesRoot:                 envOr("MICROSITES_ROOT", "/srv/microsites"),
-		PublicIP:                       os.Getenv("PUBLIC_IP"),
 		JobFetchGreenhouseBaseURL:      os.Getenv("GREENHOUSE_BASE_URL"),
 		JobFetchLeverBaseURL:           os.Getenv("LEVER_BASE_URL"),
 		JobFetchAshbyBaseURL:           os.Getenv("ASHBY_BASE_URL"),
@@ -197,8 +184,6 @@ func Load() (*Config, error) {
 		JobFetchHimalayasBaseURL:       os.Getenv("HIMALAYAS_BASE_URL"),
 		JobFetchWorkingNomadsBaseURL:   os.Getenv("WORKING_NOMADS_BASE_URL"),
 		JobFetchRecruiteeBaseURL:       os.Getenv("RECRUITEE_BASE_URL"),
-		TurnstileSiteKey:               os.Getenv("TURNSTILE_SITE_KEY"),
-		TurnstileSecret:                os.Getenv("TURNSTILE_SECRET"),
 		QueryQueueMaxConcurrent:        envInt("QUERY_QUEUE_MAX_CONCURRENT", 0),
 		MeiliURL:                       os.Getenv("MEILI_URL"),
 		MeiliKey:                       os.Getenv("MEILI_KEY"),
@@ -213,7 +198,6 @@ func Load() (*Config, error) {
 		// field-by-field filling.
 		GotenbergURL:               envOr("GOTENBERG_URL", internalURL(defaultGotenbergHost)),
 		PrintBaseURL:               envOr("PRINT_BASE_URL", internalURL(defaultPrintHost)),
-		MarketplaceGitHubBaseURL:   os.Getenv("MARKETPLACE_GITHUB_BASE_URL"),
 		MarketplaceSkillsMPBaseURL: os.Getenv("MARKETPLACE_SKILLSMP_BASE_URL"),
 		BlockMarketNpmBaseURL:      os.Getenv("BLOCK_MARKET_NPM_BASE_URL"),
 		UpgradeSignalPath:          os.Getenv("STANDMEET_UPGRADE_SIGNAL"),

@@ -44,10 +44,20 @@ EXAMPLE="$ROOT/.env.example"
 #                           source-build docker-compose.prod.yml upgrades by git-pull + rebuild,
 #                           ships no updater, so leaving this unset there is CORRECT (the button
 #                           honestly reports it can't act, and tells the owner to rebuild).
+#   TURNSTILE_SITE_KEY      legacy names of owner settings, read once at boot only to import an
+#   TURNSTILE_SECRET        upgraded instance's old values into its instance settings
+#   EGRESS_ALLOW_HOSTS      (cmd/server/livesettings). They are set on /admin/system now; offering
+#   SUPPLIER_EGRESS_ALLOW   them to a new deployment would bring the settings back into the file.
+#   STANDMEET_RELEASE_REGISTRY / _REPO  where "is there a newer version" is asked; dev/e2e point it
+#                           at a mock, production's default is the official images.
+#   STANDMEET_SEED_DEFAULT_SOURCES  dev/e2e start with no job sources for the empty-state specs;
+#                           production's default (seed them) is right.
 is_exempt() {
 	case "$1" in
 	*_BASE_URL | AGENT_TURN_TIMEOUT | FORCE_FINAL_TIMEOUT | SANDBOX_WORKSPACE_ROOT) return 0 ;;
 	STANDMEET_UPGRADE_SIGNAL) return 0 ;;
+	TURNSTILE_SITE_KEY | TURNSTILE_SECRET | EGRESS_ALLOW_HOSTS | SUPPLIER_EGRESS_ALLOW) return 0 ;;
+	STANDMEET_RELEASE_REGISTRY | STANDMEET_RELEASE_REPO | STANDMEET_SEED_DEFAULT_SOURCES) return 0 ;;
 	esac
 	return 1
 }

@@ -3,8 +3,8 @@
 // through the hook; this component is pure presentation.
 //
 // For an owner self-hosting from mainland China, the Turnstile script may be
-// slow or unreachable; that deployment should leave TURNSTILE_SITE_KEY unset
-// on the backend (feature off), so LoginForm doesn't render this component.
+// slow or unreachable; that owner should leave the login check off
+// (/admin/system → Instance settings), so LoginForm doesn't render this component.
 
 'use client';
 

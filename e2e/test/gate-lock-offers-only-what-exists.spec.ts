@@ -63,7 +63,7 @@ test.describe('gate · a refusal names a way out only when there is one', () => 
     expect(
       siteKey ?? '',
       'this spec is about an instance with NO captcha — run it on the default stack '
-        + '(no TURNSTILE_* in the shell and none in .env), not through make test-captcha',
+        + '(nothing in it turns captcha on)',
     ).toBe('');
   });
 

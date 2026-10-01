@@ -9,8 +9,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
-	"strings"
 
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
 
@@ -22,10 +20,10 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/routes/blockload"
 )
 
-// supplierEgressAllow —— outbound SSRF allowlist (SUPPLIER_EGRESS_ALLOW: comma-separated
-// hostnames; e2e allows external-mock through, prod leaves it empty = blocks internal network).
+// supplierEgressAllow —— the supplier's outbound SSRF guard. It admits only the internal hosts the
+// owner lists on /admin/system (read live through httpx); nothing else internal.
 func supplierEgressAllow() egress.Allow {
-	return egress.NewAllow(strings.Split(os.Getenv("SUPPLIER_EGRESS_ALLOW"), ","))
+	return egress.NewAllow(nil)
 }
 
 // supplierEgressClient —— SSRF-guarded outbound client (allowed host passes, else blocked).

@@ -5,7 +5,6 @@
 // resolving inside the private network, and pins the validated IP into the dial so DNS cannot be
 // rebound between the check and the connect.
 //
-// It also carries the owner's hostname allow-list (SUPPLIER_EGRESS_ALLOW), which is the half that
-// distinguishes it from the guard in infra/httpx: that one is for a URL nobody declared in
-// advance, this one for a supplier whose reachable hosts the owner stated up front.
+// It admits the host names the owner lists as internal hosts (/admin/system; the live list is held
+// in infra/httpx, which the other outbound guard reads too).
 package egress

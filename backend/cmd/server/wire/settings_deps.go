@@ -21,6 +21,7 @@ func settingsDepsOf(d *deps.Runtime) owner.SettingsDeps {
 		AI: owner.AIProviderDeps{
 			Owners: d.OwnerRepo, Providers: port.InferenceProviders{},
 		},
-		Presets: port.AiPresets(),
+		Instance: d.LiveSettings.Deps(),
+		Presets:  port.AiPresets(),
 	}
 }

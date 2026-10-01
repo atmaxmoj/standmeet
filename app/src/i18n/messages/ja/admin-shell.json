@@ -464,5 +464,19 @@
     "sweepNothing": "Nothing to sweep — there are no workspaces",
     "ageSecs": "{n}s",
     "sweepDone": "期限切れのサンドボックスワークスペースを一掃しました"
+  },
+  "instanceSettings": {
+    "title": "インスタンス設定",
+    "internalHosts": "内部ホスト",
+    "internalHostsHint": "このインスタンスがアクセスしてよい、自分のネットワーク内のホスト名（CalDAV、メールサーバー、LAN 上のモデルなど）を 1 行に 1 つ。すべての送信チェックがこの一覧に従います。訪問者が自分の AI キーで指定したアドレスも含むので、そう公開してよいホストだけを入れてください。",
+    "catalogue": "スキルカタログ",
+    "catalogueHint": "スキルマーケットが読む GitHub contents API のアドレス。空欄 = 公開の anthropics/skills。",
+    "captcha": "ログイン確認（Cloudflare Turnstile）",
+    "captchaHint": "両方入れるとログイン時とコードの誤入力が続いたときに確認を求めます。どちらかを空にすると無効です。キーは dash.cloudflare.com → Turnstile。",
+    "siteKey": "サイトキー",
+    "secret": "シークレットキー",
+    "secretStored": "シークレットキーが保存されています。再表示はしません。空欄のままなら保持、新しい値を入れると置き換えます。",
+    "save": "保存",
+    "saved": "保存しました。すぐに反映されます。"
   }
 }

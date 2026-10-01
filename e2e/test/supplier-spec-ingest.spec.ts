@@ -375,7 +375,8 @@ function specMissingOperations(): string {
 // Uses one oversized string field to inflate the size, avoiding a hand-written
 // multi-MB literal.
 function oversizedSpec(): string {
-  const huge = 'x'.repeat(8 * 1024 * 1024); // ~8 MB padding, well over any sane cap
+  // 17 MiB: over the 16 MiB cap (raised from 2 MiB so GitHub's 12 MB spec fits).
+  const huge = 'x'.repeat(17 * 1024 * 1024);
   return JSON.stringify({
     openapi: '3.0.0',
     info: { title: 'Huge API', version: '1.0.0', description: huge },

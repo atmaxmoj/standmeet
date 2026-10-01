@@ -63,8 +63,6 @@ services:
       target: production
     restart: unless-stopped
     environment:
-      - HOST=0.0.0.0
-      - PORT=8000
       - STANDMEET_SERVICE_NAME=backend
       - STANDMEET_SELFSTAT_PEERS=http://app:3000/api/selfstat
       - DATABASE_URL=postgres://standmeet:${POSTGRES_PASSWORD}@db:5432/standmeet?sslmode=disable
@@ -79,18 +77,9 @@ services:
       - STANDMEET_PLUGINS=/etc/standmeet/plugins.json
       # true behind https; set false only for a plain-http localhost bring-up.
       - SECURE_COOKIE=${SECURE_COOKIE:-true}
-      # "What's the outward-facing address" is filled by the owner in the claim form, written into owners.public_url; the LLM
-      # provider is also configured by the owner in admin/MCP (ai_endpoint). Neither goes through env.
-      - MICROSITES_ROOT=/srv/microsites
-      # PUBLIC_IP —— the instance's public IP, shown on the admin System panel. The owner
-      # sets it in .env (their server's public address); empty → the panel shows "—".
-      - PUBLIC_IP=${PUBLIC_IP:-}
+      # The owner's settings (public URL, AI provider, captcha, internal hosts, skill catalogue)
+      # are set in the app, never here (docs/deploy.md).
       - SANDBOX_DRIVER=docker
-      # Turnstile captcha —— OFF unless the owner sets both in .env. The backend reads these
-      # two; before F-G-2 neither compose file passed them, so "captcha is opt-in" was true of
-      # the code and false of the product: there was no way for an owner to opt in.
-      - TURNSTILE_SITE_KEY=${TURNSTILE_SITE_KEY:-}
-      - TURNSTILE_SECRET=${TURNSTILE_SECRET:-}
       # Meilisearch —— the lexical index corpus search runs on. It ships IN this stack now.
       #
       # It used to be absent, with these two empty, and the fallback (Postgres FTS) was called
@@ -117,54 +106,10 @@ services:
       - STORAGE_USE_SSL=false
       # Browser-facing base for presigned object URLs (your public storage origin).
       - STORAGE_PUBLIC_URL=${STORAGE_PUBLIC_URL}
-      - GOTENBERG_URL=http://gotenberg:3000
       # Dotted alias avoids Chromium's single-word-host HTTPS-upgrade heuristic.
       - PRINT_BASE_URL=http://app.standmeet.local:3000
-      # EGRESS_ALLOW_HOSTS —— internal hosts the SSRF guard may dial (httpx/ssrf.go).
-      # **Empty is the prod posture and stays the default**: block everything internal.
-      # It is passed through so a verification run can name one host for the length of a
-      # drive (the fault proxy in docker-compose.verify.yml) without editing this file —
-      # resilience check 3 needs a provider endpoint that fails on demand, and the product's
-      # own provider form is the only legal way to point at one.
-      - EGRESS_ALLOW_HOSTS=${EGRESS_ALLOW_HOSTS:-}
-      # SUPPLIER_EGRESS_ALLOW —— the same posture for the supplier guard
-      # (the egress allowlist an assembled supplier runs behind), which is a separate policy
-      # from the one above: that one covers everything the backend dials, this one covers what
-      # an assembled supplier may reach. Empty stays the default here too.
-      #
-      # It was read by the backend and passed by the DEV compose only, so on a shipped stack an
-      # owner could never point a supplier at a self-hosted service — a CalDAV server or a mailer
-      # on their own LAN is exactly what the protocol suppliers are for (F-C-49). The connect just
-      # failed, and the card blamed their credentials.
-      - SUPPLIER_EGRESS_ALLOW=${SUPPLIER_EGRESS_ALLOW:-}
-      # SUPPLIER_SPEC_MAX_BYTES —— how large an OpenAPI spec this instance accepts
-      # (default 2 MiB). It is a knob because real vendor documents outgrow any number we
-      # would pick: GitHub publishes its REST description as one 12 MB file, so an owner
-      # who wants that supplier has nothing to turn (F-C-53). The ceiling still exists —
-      # a runaway document must not take the instance down — but how high it sits is a
-      # deployment decision, not a compile-time one.
-      - SUPPLIER_SPEC_MAX_BYTES=${SUPPLIER_SPEC_MAX_BYTES:-}
-      # MARKETPLACE_GITHUB_BASE_URL —— which skill catalogue this instance reads.
-      # Empty = the public anthropics/skills repo (the backend default).
-      #
-      # It is here because an owner can legitimately run their own catalogue — their team's
-      # skills, or a fork with the ones they actually use — and the backend has always read
-      # this variable; only prod had no way to set it. Same shape as SUPPLIER_EGRESS_ALLOW
-      # above (F-C-49): a knob that exists in code and is unreachable from a deployment is
-      # not a knob. `check-knobs-reachable` cannot see this one — its `*_BASE_URL` exemption
-      # was written for dev-only mock pointers and swallows this too.
-      - MARKETPLACE_GITHUB_BASE_URL=${MARKETPLACE_GITHUB_BASE_URL:-}
-      # No in-app upgrade knob here: this is the SOURCE-BUILD stack (git pull + rebuild is how
-      # it upgrades), so it ships no updater sidecar and sets no STANDMEET_UPGRADE_SIGNAL. The
-      # /admin/system button honestly reports it can't act and tells the owner to rebuild. The
-      # image-based deploy (infra/deploy/docker-compose.yml) is where the updater + signal live.
-      # STANDMEET_RELEASE_REGISTRY / _REPO —— where "is there a newer version" is asked.
-      # Empty = the official images. A fork that publishes its own points these at itself.
-      - STANDMEET_RELEASE_REGISTRY=${STANDMEET_RELEASE_REGISTRY:-}
-      - STANDMEET_RELEASE_REPO=${STANDMEET_RELEASE_REPO:-}
-      # On a fresh claim, seed the built-in job aggregators so /admin/sources opens to a working
-      # set. Default true; set false to start empty.
-      - STANDMEET_SEED_DEFAULT_SOURCES=${STANDMEET_SEED_DEFAULT_SOURCES:-true}
+      # No in-app upgrade knob here: this is the SOURCE-BUILD stack (git pull + rebuild), so it
+      # ships no updater sidecar and sets no STANDMEET_UPGRADE_SIGNAL.
       # NOTE: no other *_BASE_URL / GOOGLE_* overrides here — prod talks to the real
       # Greenhouse / Lever / Ashby / Google endpoints (backend defaults). dev adds the
       # mock overrides; that's the only env difference.
@@ -227,7 +172,6 @@ services:
     restart: unless-stopped
     environment:
       - BACKEND_INTERNAL_URL=http://backend:8000
-      - MICROSITES_ROOT=/srv/microsites
     depends_on:
       backend:
         condition: service_healthy

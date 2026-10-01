@@ -33,5 +33,11 @@ func NewFromConfig(cfg Config, httpClient *http.Client) Verifier {
 	return captcha.NewFromConfig(cfg, httpClient)
 }
 
-// FromEnvLike —— (siteKey, secret) → Config; either empty → ProviderNone.
-func FromEnvLike(siteKey, secret string) Config { return captcha.FromEnvLike(siteKey, secret) }
+// NewLive —— a verifier over the owner's current Turnstile pair, read on every check (either half
+// empty → passes: the check is off).
+func NewLive(pair func() CaptchaPair, httpClient *http.Client) Verifier {
+	return captcha.NewLive(pair, httpClient)
+}
+
+// CaptchaPair —— a Turnstile site key and its secret.
+type CaptchaPair = captcha.Pair

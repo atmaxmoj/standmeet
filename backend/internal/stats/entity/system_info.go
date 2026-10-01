@@ -5,7 +5,7 @@ package entity
 // first-glance ops data).
 type SystemInfo struct {
 	Version       string
-	PublicIP      string // the instance's public IP (deploy-provided), for the panel
+	PublicIP      string // where the owner's public URL resolves, for the panel
 	Health        []HealthCheck
 	Containers    []Container // this compose project's per-service CPU/memory (own cluster)
 	UptimeSeconds int64

@@ -94,6 +94,7 @@ func (h *Handlers) MountAuthed(r chi.Router, credGuard func(http.Handler) http.H
 	h.MountCorpusCRUD(r)
 	h.MountConversations(r)
 	h.MountBYOAI(r)
+	h.MountInstanceSettings(r)
 	h.MountDomains(r)
 	h.MountSEO(r)
 	h.MountAppearance(r)

@@ -6,8 +6,8 @@
 //     refuse assembly (the supplier is never built).
 //  2. Runtime dialer guard (GuardedHTTPClient): DNS resolves, or a redirect lands, internal →
 //     refuse the outbound call.
-// The allow-list admits by hostname (the e2e external-mock is a private IP but explicitly
-// allowed; prod leaves it empty and blocks everything).
+// A host name the owner lists under "internal hosts" (/admin/system) is admitted; nothing else
+// internal is.
 
 package egress
 
@@ -108,7 +108,7 @@ func (a Allow) GuardedHTTPClient() *http.Client {
 // staticBlocked — DNS-free block decision: allow-list first; a literal IP is checked against
 // internal ranges; otherwise checked against internal hostnames.
 func (a Allow) staticBlocked(host string) bool {
-	if a[strings.ToLower(host)] {
+	if a.allowed(host) {
 		return false
 	}
 	if ip := net.ParseIP(host); ip != nil {
@@ -126,13 +126,18 @@ func (a Allow) safeDialAddr(ctx context.Context, addr string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("%w: bad dial addr %q: %w", ErrBlockedEgress, addr, err)
 	}
-	if a[strings.ToLower(host)] {
+	if a.allowed(host) {
 		return addr, nil // allow-listed host, trusted, dial as-is
 	}
 	if a.staticBlocked(host) {
 		return "", fmt.Errorf("%w: %q", ErrBlockedEgress, host)
 	}
 	return pinnedDialAddr(ctx, host, port, addr)
+}
+
+// allowed — this list, or the owner's instance setting "internal hosts" (httpx), names the host.
+func (a Allow) allowed(host string) bool {
+	return a[strings.ToLower(host)] || httpx.IsAllowedInternalHost(host)
 }
 
 // pinnedDialAddr — a literal public IP is returned unchanged; a hostname is resolved,

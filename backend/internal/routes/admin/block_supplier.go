@@ -23,9 +23,10 @@ import (
 
 const (
 	maxCredBytes = 64 << 10 // 64 KiB
-	// maxSpecBodyBytes — request body cap for creating/editing a block from a pasted spec
-	// (spec text + JSON envelope headroom).
-	maxSpecBodyBytes = 4 << 20 // 4 MiB
+	// maxSpecBodyBytes — request body cap for creating/editing a block from a pasted spec: a
+	// 16 MiB spec (openapi.MaxSpecBytes) as an escaped JSON string, plus envelope headroom. At
+	// 4 MiB the body cap refused specs the spec cap accepted.
+	maxSpecBodyBytes = 40 << 20 // 40 MiB
 	paramID          = "id"
 )
 

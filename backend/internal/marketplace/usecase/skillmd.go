@@ -58,7 +58,7 @@ func (c *Client) fetchSkillMD(
 }
 
 func (c *Client) fetchGitHubSkillMD(ctx context.Context, id string) (string, error) {
-	u := c.githubBase + "/contents/skills/" + url.PathEscape(id) + "/SKILL.md"
+	u := c.githubBase() + "/contents/skills/" + url.PathEscape(id) + "/SKILL.md"
 	resp, err := c.getURL(ctx, u, "application/vnd.github.v3+json")
 	if err != nil {
 		return "", err

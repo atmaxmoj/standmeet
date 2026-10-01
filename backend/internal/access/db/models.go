@@ -347,12 +347,17 @@ type InstalledBlock struct {
 }
 
 type InstanceSetting struct {
-	ID             int32
-	IsClaimed      bool
-	SetupTokenHash *string
-	MultiTenant    bool
-	DeployedAt     pgtype.Timestamptz
-	AllowedDomains []byte
+	ID                int32
+	IsClaimed         bool
+	SetupTokenHash    *string
+	MultiTenant       bool
+	DeployedAt        pgtype.Timestamptz
+	AllowedDomains    []byte
+	InternalHosts     []byte
+	CaptchaSiteKey    string
+	CaptchaSecretEnc  []byte
+	SkillCatalogueUrl string
+	LegacyEnvImported bool
 }
 
 type JobFingerprint struct {

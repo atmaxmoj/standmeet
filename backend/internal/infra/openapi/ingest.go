@@ -10,52 +10,18 @@ package openapi
 import (
 	"errors"
 	"fmt"
-	"log/slog"
-	"os"
 	"slices"
-	"strconv"
 	"strings"
 
 	yaml "go.yaml.in/yaml/v3"
 )
 
-// defaultMaxSpecBytes — the default size cap for an ingested spec (guards against an
-// oversized/runaway spec).
-const defaultMaxSpecBytes = 2 << 20 // 2 MiB
-
-// MaxSpecBytes — how large a spec this instance actually accepts. **The owner can configure
-// it** (`SUPPLIER_SPEC_MAX_BYTES`).
-//
-// Why it can't be a constant: this section's copy invites the owner to "upload your own
-// OpenAPI supplier", and real-world vendor docs often run far past 2 MiB — GitHub's own
-// published `api.github.com.json` is **12 MB** — so this product would flatly say "can't
-// install it" for one of its most common APIs, with no knob for the owner to turn (F-C-53).
-// The cap itself is correct (a runaway document shouldn't be able to bring down the
-// instance); **"how large" is a deployment concern, not a compile-time one.**
-// **The name must appear as a literal in `os.Getenv("…")`**: `check-knobs-reachable` finds
-// knobs exactly that way. The first version wrote `envBytesOr("SUPPLIER_SPEC_MAX_BYTES", …)`
-// (the name went into the helper's parameter), and the gate went blind to it on the spot —
-// that gate had only just been widened that same morning from "scan only config.go". **A
-// hardened gate gets routed around by the next new way of writing it**, so the value-reading
-// helper takes only the **value**, never the key.
-var MaxSpecBytes = bytesOr(os.Getenv("SUPPLIER_SPEC_MAX_BYTES"), defaultMaxSpecBytes)
-
-// bytesOr — reads a byte-count env var's value as a positive integer; empty/invalid/non-
-// positive → falls back to the default. An invalid value is never swallowed silently: it
-// logs once, then falls back (a typo'd knob shouldn't lock the instance at 0).
-func bytesOr(raw string, def int) int {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return def
-	}
-	n, err := strconv.Atoi(raw)
-	if err != nil || n <= 0 {
-		slog.Default().Warn("ignoring unusable SUPPLIER_SPEC_MAX_BYTES, using the default",
-			"value", raw, "default", def)
-		return def
-	}
-	return n
-}
+// MaxSpecBytes — how large a spec this instance accepts: a guard against a runaway document, set
+// above the real vendor specs owners connect. GitHub's published `api.github.com.json` is 12 MB;
+// at the old 2 MiB the product refused one of its most common APIs (F-C-53). This was an env knob
+// for a while; the owner's rule is that a deployment carries wiring, not settings, and a cap
+// that fits the real specs needs no knob.
+const MaxSpecBytes = 16 << 20 // 16 MiB
 
 // ValidateIngest — validates a spec pending ingest. OK → returns the candidate title
 // (info.title); otherwise → a human-readable error.

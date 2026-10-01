@@ -195,8 +195,14 @@ function truncateTables(): void {
 // setup_token_hash alone (the claim flow already cleared it to NULL; the backend's
 // next /api/v1/instance self-heals and re-issues a token, syncing holder + DB hash
 // to a new plaintext).
+// The owner's instance settings (captcha, internal hosts, skill catalogue) go back to empty too:
+// they belong to the previous spec's owner. Left in place, one spec's captcha (with Cloudflare's
+// always-pass test secret) made the next spec's forged token "pass".
 function unclaim(): void {
-  runPsql(`UPDATE instance_settings SET is_claimed = false WHERE id = 1`);
+  runPsql(
+    `UPDATE instance_settings SET is_claimed = false, internal_hosts = '[]'::jsonb, ` +
+    `captcha_site_key = '', captcha_secret_enc = NULL, skill_catalogue_url = '' WHERE id = 1`,
+  );
 }
 
 function flushRedis(): void {
@@ -274,6 +280,13 @@ export function setSearchDegraded(on: boolean): void {
 // via a restart. Goes through the Makefile (the single entry point for all docker ops).
 export function restartBackend(): void {
   execSync('make -C .. dev-restart-svc SVC=backend', { stdio: 'inherit' });
+}
+
+// recreateBackendWithEnv —— deploy the backend again carrying these environment variables, the way an
+// old deployment's compose still carries them (an upgrade spec plays that deployment). Passing `{}`
+// deploys it again without them. Only the variables docker-compose.dev.yml passes through reach it.
+export function recreateBackendWithEnv(env: Record<string, string>): void {
+  execSync('make -C .. dev-recreate-backend', { stdio: 'inherit', env: { ...process.env, ...env } });
 }
 
 // findSetupToken —— get the plaintext setup token the backend currently holds.

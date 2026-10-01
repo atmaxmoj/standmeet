@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
+	"github.com/atmaxmoj/standmeet/cmd/server/livesettings"
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	"github.com/atmaxmoj/standmeet/internal/conversation/inference"
@@ -148,16 +149,18 @@ type Runtime struct {
 	// per microsite.
 	MicrositeDocs  owner.MicrositeDocStore
 	SearchClient   *search.Client
-	CaptchaSiteKey string
-	BuildsRoot     string
-	PublicIP       string
-	SessionKey     string
+	CaptchaSiteKey func() string
+	CaptchaEnabled func() bool
+	// LiveSettings —— the running copy of the owner's instance settings; the settings ops
+	// reload it.
+	LiveSettings *livesettings.Settings
+	BuildsRoot   string
+	SessionKey   string
 	// StorageSecretKey — carried so the composition root can derive the monitor domain's
 	// viewer salt from it (one-way; see monitor_wireup.go). Never used as a credential here.
 	StorageSecretKey string
 	SelfStatPeers    []string
 	SecureCookie     bool
-	CaptchaEnabled   bool
 	// SeedDefaultSources — seed the built-in job aggregators on a fresh claim (config knob).
 	SeedDefaultSources bool
 }

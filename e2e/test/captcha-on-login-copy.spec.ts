@@ -13,14 +13,14 @@
 // rate-limit branch in this same file already tells the truth
 // ("too many login attempts, try again later") — the contrast sits right there.
 //
-// Only drivable while captcha is actually on — run via `make test-captcha`
-// (Cloudflare test keys).
+// Only drivable while captcha is actually on — the spec turns it on for its own instance
+// (fixtures/captcha.ts, Cloudflare test keys).
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
 
 import { claim } from '@/fixtures/admin';
-import { skipUnlessCaptchaOn } from '@/fixtures/captcha';
+import { turnCaptchaOn } from '@/fixtures/captcha';
 import { findSetupToken, resetInstance } from '@/fixtures/instance';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
@@ -36,15 +36,13 @@ test.describe('login · a failed human check must not be reported as a wrong pas
   let request: APIRequestContext;
 
   test.beforeAll(async ({ playwright }) => {
-    // If this instance doesn't have captcha on, skip the whole group (rather than
-    // leaving a permanently-red case) — see fixtures/captcha.ts.
-    await skipUnlessCaptchaOn(await playwright.request.newContext());
     resetInstance();
     request = await playwright.request.newContext();
     await claim(request, findSetupToken(), {
       email: OWNER.email, password: OWNER.password,
       handle: OWNER.handle, fullName: OWNER.fullName,
     });
+    await turnCaptchaOn(request, OWNER);
   });
   // `?.` isn't defensive style here, it's **the actual shape of the skip path**:
   // when the whole group is skipped, `beforeAll` is aborted before the

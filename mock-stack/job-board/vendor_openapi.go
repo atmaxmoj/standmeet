@@ -61,7 +61,7 @@ func (s *server) serveVendorSpecNoServers(w http.ResponseWriter, _ *http.Request
 // the cap, everything else is correct. "Too big" and "malformed" must be distinguishable,
 // and being able to distinguish them requires a stand-in that can produce the former.
 func (s *server) serveVendorSpecTooBig(w http.ResponseWriter, _ *http.Request) {
-	const padBytes = 3 << 20 // 3 MiB > the backend's 2 MiB cap
+	const padBytes = 17 << 20 // 17 MiB > the backend's 16 MiB cap (openapi.MaxSpecBytes)
 	pad := make([]byte, padBytes)
 	for i := range pad {
 		pad[i] = 'x'
