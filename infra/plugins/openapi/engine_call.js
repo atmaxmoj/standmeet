@@ -95,7 +95,7 @@ async function withRetry(method, attempt) {
     try {
       return await attempt()
     } catch (e) {
-      const httpStatus = /openapi call \d/.test(String((e && e.message) || e))
+      const httpStatus = Boolean(e && e.httpStatus)
       const retryable = read ? isTransient(e) : (isTransient(e) && !httpStatus)
       if (i >= max || !retryable) throw e
       await new Promise((resolve) => { setTimeout(resolve, waitMs) })
@@ -202,7 +202,13 @@ function statusFault(status, text, noun) {
     return new Error(`[fault:revoked] the ${noun} access was revoked — reconnect it to continue`)
   }
   const permanent = status < 500 && status !== 429
-  return new Error(`${permanent ? '[fault:rejected] ' : ''}openapi call ${status}: ${text.slice(0, 200)}`)
+  // A transient answer (429 / 5xx) is the block's own sentence, not the provider's status and body:
+  // the host shows it to the owner as it stands.
+  const err = permanent
+    ? new Error(`[fault:rejected] openapi call ${status}: ${text.slice(0, 200)}`)
+    : new Error(`the ${noun} provider is busy right now — try again in a moment`)
+  err.httpStatus = status
+  return err
 }
 
 // ── the egress guard. The sandbox has the host's network, so the block itself refuses internal
