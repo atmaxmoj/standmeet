@@ -43,7 +43,7 @@ func dispatchTurn(
 	// indistinguishable.
 	h.Log.Info("agent turn prepared", "slot_wait_ms", slot.waited.Milliseconds(),
 		"assemble_ms", time.Since(assembling).Milliseconds(), "tools", len(ts.Tools))
-	inference.RunAgentTurn(r.Context(), h.Log, w, &inference.AgentTurnInput{
+	inference.RunAgentTurn(r.Context(), h.Log, teeTurn(h, r, w, req), &inference.AgentTurnInput{
 		Cred: cred, Req: req,
 		Tools:            ts.Tools,
 		ClaimGates:       ts.ClaimGates,

@@ -187,6 +187,11 @@ const ROWS: Row[] = [
     await mcp('microsite.set_store_writable', { slug: PAGE, store_writable: true });
     await insertPageDoc(visitor, PAGE, 'notes', { n: 1 });
   } },
+  { type: 'microsite.store.doc_deleted', subject: () => `microsite/${PAGE}`, act: async () => {
+    const { items } = await mcp<{ items: { id: string }[] }>('microsite.store_docs', { slug: PAGE });
+    const id = items[0]?.id ?? '';
+    await mcp('microsite.store_delete_doc', { slug: PAGE, collection: 'notes', record_id: id });
+  } },
   { type: 'page.unpublished', subject: () => `microsite/${PAGE}`,
     act: async () => { await mcp('microsite.unpublish', { slug: PAGE }); } },
   { type: 'supplier.disconnected', subject: mail,

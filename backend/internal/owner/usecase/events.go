@@ -24,6 +24,7 @@ const (
 	PageRolledBack            = "page.rolled_back"
 	PageUnpublished           = "page.unpublished"
 	MicrositeStoreDocInserted = "microsite.store.doc_inserted"
+	MicrositeStoreDocDeleted  = "microsite.store.doc_deleted"
 )
 
 // OwnerEventTypes —— the owner-domain event types.
@@ -51,6 +52,9 @@ func OwnerEventTypes() []events.Type {
 		t(MicrositeStoreDocInserted,
 			"A visitor added a document to a microsite's store (data.collection, data.doc_id).",
 			page),
+		t(MicrositeStoreDocDeleted,
+			"The owner removed a document from a microsite's store (data.collection, "+
+				"data.doc_id).", page),
 	}
 }
 

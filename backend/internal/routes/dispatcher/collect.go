@@ -27,7 +27,9 @@ type Deps struct {
 	// Tasks —— the job runtime and the event bus (the Tasks panel).
 	Tasks stats.TasksDeps
 	// Webhooks —— the endpoint store, the bus and the job rows (webhooks.*).
-	Webhooks       owner.WebhooksDeps
+	Webhooks owner.WebhooksDeps
+	// Notify —— the rule and linked-chat store, and the bus (notify.*).
+	Notify         owner.NotifyDeps
 	AccessRequests owner.OpsAccessRequests
 	Codes          access.OpsCodes
 	Embeds         access.OpsEmbeds
@@ -75,6 +77,7 @@ func Collect(d *Deps) []Resource {
 		{Name: "tasks", Ops: stats.TasksOps(d.Tasks)},
 		{Name: "events", Ops: stats.EventOps(d.Tasks)},
 		{Name: "webhooks", Ops: owner.WebhookOps(d.Webhooks)},
+		{Name: "notify", Ops: owner.NotifyOps(d.Notify)},
 		{Name: "domains", Ops: owner.DomainOps(d.AllowedDomains)},
 		{Name: "appearance", Ops: owner.AppearanceOps(d.OwnerCSS, d.OwnerFavicon)},
 		{Name: "prompts", Ops: owner.PromptOps(d.Prompts)},

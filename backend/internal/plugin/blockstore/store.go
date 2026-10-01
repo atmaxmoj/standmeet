@@ -278,7 +278,11 @@ func (s *Store) DeleteByID(
 		return 0, err
 	}
 	sql := fmt.Sprintf("DELETE FROM %s.records WHERE collection = $1 AND id = $2", schema)
-	tag, derr := s.pool.Exec(ctx, sql, collection, recordID)
+	exec := s.pool.Exec
+	if s.tx != nil {
+		exec = s.tx.Exec
+	}
+	tag, derr := exec(ctx, sql, collection, recordID)
 	if derr != nil {
 		return 0, fmt.Errorf("blockstore delete-by-id %q/%s: %w", schema, collection, derr)
 	}

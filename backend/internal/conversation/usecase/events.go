@@ -29,9 +29,12 @@ func EventTypes() []events.Type {
 		return events.Type{Type: typ, Description: desc, Subject: subject, Exposure: events.Webhook}
 	}
 	conv := "conversation/<conversation id>"
+	started := t(ConversationStarted,
+		"A visitor conversation began (data.conversation_id, data.mode, data.code_id — empty "+
+			"without a code).", conv)
+	started.Filterable = []string{"code_id"}
 	return []events.Type{
-		t(ConversationStarted,
-			"A visitor conversation began (data.conversation_id, data.mode).", conv),
+		started,
 		t(ConversationMessage,
 			"A turn was added to a conversation: data.role is visitor or assistant "+
 				"(data.conversation_id). Never the text.", conv),
@@ -58,7 +61,13 @@ func PrunePeriodicJobs(
 
 // recordStarted ——conversation.started for chat, on rec (joined to the insert's transaction).
 func recordStarted(ctx context.Context, rec events.Recorder, chat *entity.Chat) error {
-	data := map[string]string{"conversation_id": chat.ID, "mode": string(chat.Mode)}
+	code := ""
+	if chat.CodeID != nil {
+		code = *chat.CodeID
+	}
+	data := map[string]string{
+		"conversation_id": chat.ID, "mode": string(chat.Mode), "code_id": code,
+	}
 	return rec.Record(ctx, chat.OwnerID, ConversationStarted, "conversation/"+chat.ID, data)
 }
 
