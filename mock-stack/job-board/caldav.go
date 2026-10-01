@@ -29,7 +29,7 @@ type caldavColl struct {
 	// busyStyle —— which shape free-busy-query replies with (see busyStyleComponent).
 	// Empty = the FREEBUSY property.
 	busyStyle string
-	fails     map[string]int // op("create_event"/"list_busy"/"cancel_event") → the status to return (one-shot)
+	fails     map[string]int // op("create_event"/"list_busy"/"cancel_event"/"verify") → the status to return (one-shot)
 }
 
 // busyStyleComponent —— **the other way a real server answers**: one `VFREEBUSY`
@@ -204,8 +204,15 @@ func (s *server) serveCalDAVDelete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// serveCalDAVPropfind —— connectivity probe: always 207 (the CalDAV multistatus convention).
-func (s *server) serveCalDAVPropfind(w http.ResponseWriter, _ *http.Request) {
+// serveCalDAVPropfind —— connectivity probe: 207 (the CalDAV multistatus convention), unless a
+// "verify" failure is armed — a server that once accepted the credentials and now refuses them.
+func (s *server) serveCalDAVPropfind(w http.ResponseWriter, r *http.Request) {
+	var fail int
+	s.withCalDAV(r.PathValue("coll"), func(c *caldavColl) { fail = c.takeFail("verify") })
+	if fail != 0 {
+		http.Error(w, "injected", fail)
+		return
+	}
 	w.WriteHeader(http.StatusMultiStatus)
 }
 

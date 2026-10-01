@@ -4,7 +4,9 @@
 package blockadmin
 
 import (
+	"context"
 	"errors"
+	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/plugin/credentials"
 )
@@ -45,4 +47,30 @@ func hasActive(conns []credentials.Connection) bool {
 		}
 	}
 	return false
+}
+
+// verify —— the supplier's connection check, if it has one.
+func (s *Service) verify(ctx context.Context, ownerID, id string) error {
+	if s.d.Verifier == nil {
+		return nil
+	}
+	return s.d.Verifier.VerifySupplier(ctx, id, ownerID)
+}
+
+// failedCheck —— a supplier that was connected and now fails its check is not connected any more:
+// stored, not only shown (sijie 2026-10-01: the card said "not connected", a reload said
+// "connected", and the im-bridge kept being handed a token Discord refused).
+func (s *Service) failedCheck(
+	ctx context.Context, ownerID, id string, verr error,
+) (ConnectResult, error) {
+	conn, err := s.d.Repo.Get(ctx, ownerID, id) // no row reads as not connected
+	if err != nil {
+		return ConnectResult{}, fmt.Errorf("read supplier after a failed check: %w", err)
+	}
+	if conn.Connected {
+		if derr := s.Disconnect(ctx, ownerID, id); derr != nil {
+			return ConnectResult{}, derr
+		}
+	}
+	return ConnectResult{Connected: false, Error: verifyReason(verr)}, nil
 }

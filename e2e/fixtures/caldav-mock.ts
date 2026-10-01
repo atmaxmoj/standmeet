@@ -87,3 +87,14 @@ export async function setCalDAVBusy(
   });
   if (res.status() !== 200) throw new Error(`set_busy: ${res.status()}`);
 }
+
+/** failCalDAVVerify —— the next connectivity check (PROPFIND) on this collection is refused with
+ *  `status`: a CalDAV server that accepted the credentials once and now does not. */
+export async function failCalDAVVerify(
+  request: APIRequestContext, mockBase: string, coll: string, status: number,
+): Promise<void> {
+  const res = await request.post(`${mockBase}/__mock/caldav/${coll}/fail`, {
+    data: { op: 'verify', status },
+  });
+  if (res.status() !== 200) throw new Error(`arm caldav verify failure: ${res.status()}`);
+}

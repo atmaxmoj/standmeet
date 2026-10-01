@@ -249,10 +249,8 @@ func (s *Service) connectOpenAPI(
 }
 
 func (s *Service) verifyAndConnect(ctx context.Context, ownerID, id string) (ConnectResult, error) {
-	if s.d.Verifier != nil {
-		if verr := s.d.Verifier.VerifySupplier(ctx, id, ownerID); verr != nil {
-			return ConnectResult{Connected: false, Error: verifyReason(verr)}, nil
-		}
+	if verr := s.verify(ctx, ownerID, id); verr != nil {
+		return s.failedCheck(ctx, ownerID, id, verr)
 	}
 	return s.markConnected(ctx, ownerID, id)
 }
