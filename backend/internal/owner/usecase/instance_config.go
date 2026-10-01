@@ -17,14 +17,13 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/atmaxmoj/standmeet/internal/infra/cryptobox"
 	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 	"github.com/atmaxmoj/standmeet/internal/owner/repo"
 )
 
-// CaptchaSecretAAD —— the AAD the Turnstile secret is sealed with; the composition root unseals it
-// with the same.
-const CaptchaSecretAAD = "instance-captcha"
+// CaptchaSecretAAD —— the AAD the Turnstile secret is sealed with (the repo seals, the composition
+// root unseals with the same).
+const CaptchaSecretAAD = repo.CaptchaSecretAAD
 
 // ErrInvalidSetting —— a setting the owner typed cannot be used; the message says which.
 var ErrInvalidSetting = errors.New("invalid setting")
@@ -175,7 +174,7 @@ func writeCaptchaSecret(ctx context.Context, instances *repo.InstanceRepo, in *C
 	case KeyKeep:
 		return nil
 	case KeyClear:
-		return instances.SetCaptchaSecretEnc(ctx, nil)
+		return instances.ClearCaptchaSecret(ctx)
 	case KeySet:
 		return setCaptchaSecret(ctx, instances, in.Secret)
 	}
@@ -187,11 +186,7 @@ func setCaptchaSecret(ctx context.Context, instances *repo.InstanceRepo, raw str
 	if secret == "" {
 		return fmt.Errorf("%w: the Turnstile secret is empty", ErrInvalidSetting)
 	}
-	enc, err := cryptobox.Encrypt([]byte(secret), []byte(CaptchaSecretAAD))
-	if err != nil {
-		return fmt.Errorf("seal captcha secret: %w", err)
-	}
-	return instances.SetCaptchaSecretEnc(ctx, enc)
+	return instances.SealCaptchaSecret(ctx, secret)
 }
 
 // hostName —— a bare host name: letters, digits, dots, hyphens (no scheme, port or path).

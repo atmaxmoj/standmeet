@@ -285,6 +285,8 @@ components:
     in: cmd/server/config                 # environment-derived settings, parsed once (leaf)
   cmdwire:
     in: cmd/server/wire                   # wires up a mechanism (the two convergence points / periodic tasks / search index)
+  cmdlivesettings:
+    in: cmd/server/livesettings           # the running copy of the owner's instance settings (captcha / internal hosts / catalogue)
 
   corpusdb:
     in: internal/corpus/db                # #135: corpus's own sqlc DAO (each domain owns its repository); pure leaf, only pgx
@@ -1484,6 +1486,7 @@ deps:
       - cmdport
       - cmdblockwire
       - cmdwire
+      - cmdlivesettings   # boot imports the old env once and loads the running copy of the instance settings
       - credmgr           # the credential-manager; the root adapts it to the credentials repo's SecretStore port (credsecrets.go)
       - nativekey         # the root mints the per-mount native-key issuer (boot_deps.go) that authenticates fiber reach-back
       # clientaddr — the composition root mounts it right after chi.RealIP: "is the source address the visitor's own" is decided exactly once there.
@@ -1570,6 +1573,7 @@ deps:
   # leaf **inside the composition root**: none of the four packages below import it, so the direction holds.
   cmddeps:
     mayDependOn:
+      - cmdlivesettings    # deps.Runtime holds the running copy of the instance settings
       - jobs               # deps.Runtime holds the job runtime
       - events             # and the event bus
       - nativekey         # deps.Runtime holds the native-key issuer the root mints
@@ -1642,6 +1646,13 @@ deps:
       - selfstat        # Runtime carries the peer /selfstat URLs; SysInfoProvider builds the reader (System panel)
       - monitor         # Runtime holds the traffic repo, the way it holds every other domain's
     anyVendorDeps: true
+
+  cmdlivesettings:
+    mayDependOn:
+      - owner      # reads and imports the settings through the owner facade
+      - security   # hands the captcha verifier its live Turnstile pair
+      - httpx      # gives the outbound guards their internal-host source
+      - cryptobox  # unseals the Turnstile secret (the owner domain only seals)
 
   cmdport:
     mayDependOn:

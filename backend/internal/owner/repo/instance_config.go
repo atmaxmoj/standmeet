@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/atmaxmoj/standmeet/internal/infra/cryptobox"
 	"github.com/atmaxmoj/standmeet/internal/owner/db"
 	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 )
@@ -54,8 +55,26 @@ func (r *InstanceRepo) SetCaptchaSiteKey(ctx context.Context, siteKey string) er
 	return nil
 }
 
-// SetCaptchaSecretEnc —— write the sealed Turnstile secret (nil clears it).
-func (r *InstanceRepo) SetCaptchaSecretEnc(ctx context.Context, enc []byte) error {
+// CaptchaSecretAAD —— the AAD the Turnstile secret is sealed with; the composition root unseals it
+// with the same.
+const CaptchaSecretAAD = "instance-captcha"
+
+// SealCaptchaSecret —— seal the Turnstile secret and store it. Sealing happens here, like the AI
+// provider key's: this domain seals, only the composition root unseals.
+func (r *InstanceRepo) SealCaptchaSecret(ctx context.Context, secret string) error {
+	enc, err := cryptobox.Encrypt([]byte(secret), []byte(CaptchaSecretAAD))
+	if err != nil {
+		return fmt.Errorf("seal captcha secret: %w", err)
+	}
+	return r.setCaptchaSecretEnc(ctx, enc)
+}
+
+// ClearCaptchaSecret —— remove the stored Turnstile secret (the check turns off).
+func (r *InstanceRepo) ClearCaptchaSecret(ctx context.Context) error {
+	return r.setCaptchaSecretEnc(ctx, nil)
+}
+
+func (r *InstanceRepo) setCaptchaSecretEnc(ctx context.Context, enc []byte) error {
 	if err := db.New(r.pool).SetCaptchaSecret(ctx, enc); err != nil {
 		return fmt.Errorf("set captcha secret: %w", err)
 	}
