@@ -14,6 +14,7 @@ import (
 	"context"
 	"log/slog"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -90,6 +91,18 @@ func (s *Settings) Reload(ctx context.Context) {
 
 // AllowsHost —— the owner lists this (lower-cased) host name as an internal host.
 func (s *Settings) AllowsHost(host string) bool { return s.snap().hosts[host] }
+
+// InternalHosts —— every internal host name the owner allows, for an outbound guard that runs
+// outside this process (the openapi block refuses every other internal address itself).
+func (s *Settings) InternalHosts() []string {
+	hosts := s.snap().hosts
+	out := make([]string, 0, len(hosts))
+	for h := range hosts {
+		out = append(out, h)
+	}
+	slices.Sort(out)
+	return out
+}
 
 // Captcha —— the Turnstile pair; "" halves when unset.
 func (s *Settings) Captcha() security.CaptchaPair {

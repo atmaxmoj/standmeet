@@ -1,14 +1,14 @@
-// spec.go — minimal parsing of an OpenAPI 3.0.x / 3.1.x spec. The runtime needs only three
-// things: server base URL, operationId → {method,path}, securitySchemes (to derive the
-// credential form + inject auth). Parsing this subset ourselves = zero heavyweight
-// dependencies, cleanest. JSON is also valid YAML 1.2, so whether the owner pastes a JSON or
-// YAML spec, both go through this one parser; accepts 3.0.x / 3.1.x.
+// spec.go — minimal parsing of an OpenAPI 3.0.x / 3.1.x spec. The host needs only three
+// things: server base URLs (the SSRF check), operationIds (binding validation, agent tools,
+// per-op scopes), securitySchemes (to derive the credential form + resolve auth). Parsing this
+// subset ourselves = zero heavyweight dependencies, cleanest. JSON is also valid YAML 1.2, so
+// whether the owner pastes a JSON or YAML spec, both go through this one parser; accepts 3.0.x /
+// 3.1.x.
 
 package openapi
 
 import (
 	"fmt"
-	"slices"
 	"strings"
 
 	yaml "go.yaml.in/yaml/v3"
@@ -37,10 +37,9 @@ type server struct {
 }
 
 type operation struct {
-	RequestBody requestBody `yaml:"requestBody"`
-	OperationID string      `yaml:"operationId"`
-	Summary     string      `yaml:"summary"`
-	Description string      `yaml:"description"`
+	OperationID string `yaml:"operationId"`
+	Summary     string `yaml:"summary"`
+	Description string `yaml:"description"`
 	// Security — which scopes **this one action** needs. OpenAPI's standard location.
 	//
 	// Not the same thing as the scope table under components.securitySchemes: that one says
@@ -49,21 +48,6 @@ type operation struct {
 	// it against, so a read-only-scoped connection would still offer write operations to a
 	// visitor — every single one 403ing (F-B-8).
 	Security []map[string][]string `yaml:"security"`
-}
-
-// requestBody/mediaType/bodySchema — only pulls application/json's schema.required (runtime
-// pre-flight validation: the body the request JSONata evaluated to is missing a required
-// field → reject, never send a malformed request).
-type requestBody struct {
-	Content map[string]mediaType `yaml:"content"`
-}
-
-type mediaType struct {
-	Schema bodySchema `yaml:"schema"`
-}
-
-type bodySchema struct {
-	Required []string `yaml:"required"`
 }
 
 type components struct {
@@ -94,25 +78,10 @@ type OAuthFlow struct {
 	TokenURL         string            `yaml:"tokenUrl"`
 }
 
-// resolvedOp — the concrete HTTP operation an operationId resolves to.
-type resolvedOp struct {
-	Method string
-	Path   string
-	// BodyMedia — the media type requestBody declares. **Read from the spec, never assumed**
-	// (F-C-54): this used to only look for `application/json`, and the runtime was hardcoded
-	// to send JSON, so any form-encoded vendor couldn't be reached at all — the real
-	// Mailgun's response to a JSON body is `400 from parameter is missing`; it simply never
-	// saw those fields. Mailgun / Twilio / Stripe are all in this category. Empty = no
-	// request body declared.
-	BodyMedia string
-	Required  []string // schema.required for the selected media type (pre-flight validation)
-}
-
 // ParseSpec — parses spec source (JSON or YAML). Not 3.0.x / 3.1.x → error (the version gate
-// lives here). The runtime only reads paths/operations, requestBody.required,
-// securitySchemes, servers — these are structurally identical across 3.0 and 3.1
-// (bodySchema only takes the `required` list; 3.1's `type: [..]` array falls on an
-// undeclared field and is ignored), so 3.1 is safe to let through.
+// lives here). The host only reads paths/operations, securitySchemes, servers — these are
+// structurally identical across 3.0 and 3.1, so 3.1 is safe to let through. (The request
+// body's media type and required list are read by the openapi block, which runs the calls.)
 func ParseSpec(raw []byte) (*Spec, error) {
 	var s Spec
 	if err := yaml.Unmarshal(raw, &s); err != nil {
@@ -189,49 +158,6 @@ func (s *Spec) Operations() []OpInfo {
 		}
 	}
 	return out
-}
-
-// serverURL — the first server's base URL (trailing slash removed). None → empty string.
-func (s *Spec) serverURL() string {
-	if len(s.Servers) == 0 {
-		return ""
-	}
-	return strings.TrimRight(s.Servers[0].URL, "/")
-}
-
-// operation — finds the concrete HTTP operation by operationId. Not found → ok=false.
-func (s *Spec) lookup(operationID string) (resolvedOp, bool) {
-	for path, methods := range s.Paths {
-		for method, op := range methods {
-			if op.OperationID == operationID {
-				media, schema := pickBodyMedia(op.RequestBody.Content)
-				return resolvedOp{
-					Method: strings.ToUpper(method), Path: path,
-					BodyMedia: media, Required: schema.Required,
-				}, true
-			}
-		}
-	}
-	return resolvedOp{}, false
-}
-
-// pickBodyMedia — which media type requestBody declares. **JSON takes priority** (existing
-// suppliers don't change a single byte), and without JSON it takes the lexicographically
-// smallest one declared — what's wanted is **determinism**, and map iteration order isn't
-// that. None declared = this operation has no request body.
-func pickBodyMedia(content map[string]mediaType) (string, bodySchema) {
-	if m, ok := content["application/json"]; ok {
-		return "application/json", m.Schema
-	}
-	names := make([]string, 0, len(content))
-	for name := range content {
-		names = append(names, name)
-	}
-	if len(names) == 0 {
-		return "", bodySchema{}
-	}
-	slices.Sort(names)
-	return names[0], content[names[0]].Schema
 }
 
 // flattenSecurity — OpenAPI's security is "a set of alternatives, each alternative a
