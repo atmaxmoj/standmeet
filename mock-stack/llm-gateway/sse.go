@@ -12,6 +12,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
+	"time"
 )
 
 type sseWriter struct {
@@ -96,6 +98,32 @@ func emitTextBlock(s *sseWriter, index int, text string) error {
 		"delta": map[string]any{"type": "text_delta", "text": text},
 	}); err != nil {
 		return err
+	}
+	return s.send("content_block_stop", map[string]any{
+		"type": "content_block_stop", "index": index,
+	})
+}
+
+// emitTextBlockDrip —— emitTextBlock, but one word per delta with `every` between them (0 = one
+// delta). See ScriptedReply.DripMS.
+func emitTextBlockDrip(s *sseWriter, index int, text string, every time.Duration) error {
+	if every <= 0 {
+		return emitTextBlock(s, index, text)
+	}
+	if err := s.send("content_block_start", map[string]any{
+		"type": "content_block_start", "index": index,
+		"content_block": map[string]any{"type": "text", "text": ""},
+	}); err != nil {
+		return err
+	}
+	for _, word := range strings.SplitAfter(text, " ") {
+		if err := s.send("content_block_delta", map[string]any{
+			"type": "content_block_delta", "index": index,
+			"delta": map[string]any{"type": "text_delta", "text": word},
+		}); err != nil {
+			return err
+		}
+		time.Sleep(every)
 	}
 	return s.send("content_block_stop", map[string]any{
 		"type": "content_block_stop", "index": index,

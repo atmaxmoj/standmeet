@@ -411,6 +411,24 @@ services:
     volumes:
       - microsites_data:/srv/microsites
 
+  # im-bridge —— the same bridge as production, its Telegram adapter pointed at the Bot API stand-in
+  # (mock-stack/job-board/telegram.go): the notification-rule e2e plays the owner's chat through it.
+  # Idles until a spec connects a Telegram supplier.
+  im-bridge:
+    build:
+      context: .
+      dockerfile: im-bridge/Dockerfile
+    restart: unless-stopped
+    environment:
+      - STANDMEET_BASE_URL=http://app:3000
+      - BACKEND_INTERNAL_URL=http://backend:8000
+      - TELEGRAM_API_BASE_URL=http://external-mock:9000/tg
+    depends_on:
+      app:
+        condition: service_started
+      external-mock:
+        condition: service_started
+
   db:
     image: pgvector/pgvector:pg16
     restart: unless-stopped

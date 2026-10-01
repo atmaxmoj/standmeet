@@ -256,9 +256,9 @@ func (s *server) slowFinalHold(req *MessagesReq) {
 
 func (s *server) emitFinalReply(sse *sseWriter, req *MessagesReq) {
 	s.slowFinalHold(req)
-	text, stop := s.reply, stopEndTurn
-	if scripted, scriptedStop, ok := s.queue.takeReplyFor(req.markerText()); ok {
-		text, stop = scripted, scriptedStop
+	text, stop, drip := s.reply, stopEndTurn, 0
+	if scripted, ok := s.queue.takeReply(req.markerText()); ok {
+		text, stop, drip = scripted.text, scripted.stop, scripted.dripMS
 	}
 	// **An empty body + max_tokens is something a real vendor actually does**: when the
 	// budget is spent entirely on tool calls, Anthropic closes the stream without emitting
@@ -275,7 +275,7 @@ func (s *server) emitFinalReply(sse *sseWriter, req *MessagesReq) {
 		return
 	}
 	text = composeFinalReply(req, text)
-	if err := emitTextBlock(sse, 0, text); err != nil {
+	if err := emitTextBlockDrip(sse, 0, text, time.Duration(drip)*time.Millisecond); err != nil {
 		s.log.Warn("emit text", "err", err)
 		return
 	}
