@@ -39,7 +39,7 @@ import type { APIRequestContext, Playwright } from '@playwright/test';
 import { claim, login } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { findBlock } from '@/fixtures/blocks';
-import { clearMailpit, countMailpitMessages } from '@/fixtures/mail';
+import { clearMailpit, countMailpitMessages, latestMailHeader } from '@/fixtures/mail';
 import { FORM_MAIL_SPEC, FORM_MAIL_BINDING } from '@/fixtures/openapi-mail-specs';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
@@ -369,6 +369,14 @@ async function runFormEncodedSend(request: APIRequestContext, csrf: string): Pro
   await expect.poll(
     async () => countMailpitMessages(request), { timeout: 15_000 },
   ).toBeGreaterThan(0);
+
+  // Who made the HTTP call: the fake vendor writes its caller's User-Agent into the mail it relays.
+  // The call runs in the openapi block (node), never in the host process (Go's client says
+  // "Go-http-client/1.1") — docs/design/plans/openapi-suppliers-to-block.md.
+  expect(
+    await latestMailHeader(request, 'X-Mailapi-Client-UA'),
+    'the SaaS call came from the sandboxed openapi block, not the host process',
+  ).toMatch(/^node/);
 }
 
 // runRequestConstruct -- asserts the raw body the mock recorded is the SendGrid nested

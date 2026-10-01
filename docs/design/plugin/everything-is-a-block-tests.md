@@ -215,10 +215,15 @@ never "the code looks folded."
      host keeps the OAuth dance / per-op scope shortfall / token refresh (`adapters.OpenAPIBehavior`) —
      admin-kind is decoupled from transport (`supplierKind` on spec-presence), so gcal reuses the whole
      openapi connect/credform/CanPerform machinery with no ripple. ~40 gcal/booking e2e green.
-   - **Remaining:** owner-**uploaded** openapi suppliers (the owner pastes a spec for an arbitrary SaaS)
-     still run in-host through `calendarAdapter`/`internal/infra/openapi`. Collapsing the typed contracts
-     is possible only once those are blocks too (a generic openapi block loading the uploaded
-     spec+binding). That is the last fold, a north-star arc — not this change.
+   - **✅ Done (2026-10-01):** owner-**uploaded** openapi suppliers (and the built-in bearer-api) run
+     on the shared openapi block (`infra/plugins/openapi`, dialed via `plugin.OpenAPIRuntime`): the
+     host merges the supplier's spec + binding, the auth it resolved (`OpenAPIBehavior.AuthFor`) and
+     the owner's allowed internal hosts into each call; the engine refuses every other internal
+     address at dial time and on every redirect. The in-host runtime (`calendarAdapter`/
+     `mailAdapter`, `internal/infra/openapi/runtime*.go`) is deleted. Proof marker: the mail mock
+     writes its caller's User-Agent into the relayed mail; `supplier-openapi-mail` asserts `node`.
+   - **Remaining:** collapsing the typed `CalendarProxy`/`MailProxy` proxies into a bare
+     `blockseam.Provider` — the next fold.
 2. **Host-blind to zero.** The `smtp` block literal is gone (SMTP externalization). What remains is the
    `case "calendar"` / `case "mail"` **seam** literals (seam names, not block names — a seam is a
    swappable capability), plus the dead protocol-create path retired in §2.

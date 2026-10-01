@@ -309,6 +309,18 @@ export async function countMailpitMessages(request: APIRequestContext): Promise<
   return (body.messages ?? []).length;
 }
 
+// latestMailHeader —— one header of the newest captured mail ('' when there is no mail or no such
+// header). Mailpit lists newest first.
+export async function latestMailHeader(request: APIRequestContext, name: string): Promise<string> {
+  const res = await request.get(`${MAILPIT}/api/v1/messages`);
+  const body = res.status() === 200 ? await res.json() as { messages?: MailpitMessage[] } : {};
+  const newest = body.messages?.[0];
+  if (!newest) return '';
+  const headers = await (await request.get(`${MAILPIT}/api/v1/message/${newest.ID}/headers`))
+    .json() as Record<string, string[]>;
+  return headers[name]?.[0] ?? '';
+}
+
 // followMailedLink —— open the link inside the mail.
 //
 // This is not `goto`: the address isn't assembled by the test, it's **what the
