@@ -11,8 +11,8 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-// MountInstanceSettings mounts GET/PUT /instance-settings and PUT /captcha.
-func (h *Handlers) MountInstanceSettings(r chi.Router) {
+// mountInstanceSettings mounts GET/PUT /instance-settings and PUT /captcha.
+func (h *Handlers) mountInstanceSettings(r chi.Router) {
 	face := h.BYOAI.Face
 	r.Get("/instance-settings", h.dispatchOp(face, "instance.settings", emptyArgs, jsonOK))
 	r.Put("/instance-settings", h.dispatchOp(face, "instance.settings_set", bodyArgs, jsonOK))

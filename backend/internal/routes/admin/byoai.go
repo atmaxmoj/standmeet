@@ -20,7 +20,9 @@ type BYOAIDeps struct {
 	Face *dispatcher.Face
 }
 
-// MountBYOAI mounts PUT /byoai.
-func (h *Handlers) MountBYOAI(r chi.Router) {
+// MountSettings mounts the owner settings routes: PUT /byoai, and the instance settings
+// (instance_settings.go).
+func (h *Handlers) MountSettings(r chi.Router) {
 	r.Put("/byoai", h.dispatchOp(h.BYOAI.Face, "byoai.set", bodyArgs, jsonOK))
+	h.mountInstanceSettings(r)
 }
