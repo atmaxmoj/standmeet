@@ -45,6 +45,19 @@ type recording struct {
 	audio                 []byte
 }
 
+// drained —— reads what is left of the (capped) upload after next answers. A refusal sent before
+// the recording was read (no session: 401) otherwise leaves most of the body unread; Go then
+// closes the connection mid-upload and the app's proxy turns that reset into a bare 500.
+func drained(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, maxRequestBytes)
+		next(w, r)
+		if _, err := io.Copy(io.Discard, r.Body); err != nil {
+			return // over the cap or cut off: the connection closes, nothing more to save
+		}
+	}
+}
+
 func (h *Handlers) transcribe() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		rec, rerr := readRecording(w, r)

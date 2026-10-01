@@ -133,7 +133,7 @@ func (h *Handlers) Mount(r chi.Router) {
 	// H.9: new agent-turn entry point, runs through eino ADK ChatModelAgent. SDK cuts
 	// over in H.10; /llm/chat/stream retires once H.10 lands.
 	r.Post("/agent/turn", h.withVisitorSession(h.agentTurn()))
-	r.Post("/transcribe", h.withVisitorSession(h.transcribe())) // voice input (transcribe.go)
+	r.Post("/transcribe", drained(h.withVisitorSession(h.transcribe()))) // voice (transcribe.go)
 	// H.13.e: ghost-text logging write path. shown writes one row the moment the browser
 	// renders a ghost; accept fires on Tab; owner admin detail page reads these.
 	r.Post("/sessions/{id}/ghosts/shown", h.withVisitorSession(h.postGhostShown()))
