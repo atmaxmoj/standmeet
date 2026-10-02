@@ -26,10 +26,15 @@ export function pairingCode(text: string): string | null {
   return PAIR.exec(text.trim())?.[1]?.toUpperCase() ?? null;
 }
 
-/** chatOf —— a thread id (`telegram:123`, `discord:…`) as platform + chat id. */
+/** chatOf —— a thread id as platform + chat id. The chat id is everything after the platform:
+ *  `telegram:123` has one part, but a Discord thread is `discord:<guild>:<channel>` (a DM's guild is
+ *  `@me`), and keeping only the guild part posted every card to `discord:@me`, which reaches nobody. */
 export function chatOf(threadID: string): { platform: string; chatID: string } | null {
-  const [platform, chatID] = threadID.split(':');
-  return platform && chatID ? { platform, chatID } : null;
+  const cut = threadID.indexOf(':');
+  if (cut <= 0) return null;
+  const platform = threadID.slice(0, cut);
+  const chatID = threadID.slice(cut + 1);
+  return chatID ? { platform, chatID } : null;
 }
 
 /** Pairer —— asks the instance to link this chat; true when it did. */

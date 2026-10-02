@@ -24,6 +24,9 @@ describe('pairing', () => {
     expect(pairingCode('pair AB12CD34')).toBeNull();
     expect(pairingCode('hello')).toBeNull();
     expect(chatOf('telegram:42')).toEqual({ platform: 'telegram', chatID: '42' });
+    // A Discord DM thread is discord:@me:<channel>; the chat is everything after the platform, or
+    // the card is posted to "discord:@me" and never arrives.
+    expect(chatOf('discord:@me:1234567890')).toEqual({ platform: 'discord', chatID: '@me:1234567890' });
   });
 
   it('asks the instance with the chat it came from, and says how it went', async () => {
