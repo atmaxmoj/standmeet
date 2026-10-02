@@ -1,12 +1,14 @@
-// use-voice-input —— the composer's microphone (docs/design/voice-input.md). Press to record, press
-// again to stop; the recording goes to the instance and the text comes back for the input box.
-// Never sends: the visitor reads the words first. The browser records whatever it can (webm/opus, or
-// mp4/aac on Safari) and turns it into the 16 kHz WAV the instance reads (toWav16k).
+// use-voice-input —— the composer's microphone (docs/design/voice-input.md). Press and speak; a
+// pause ends the recording on its own (voice-endpoint.ts), or press again. The recording goes to
+// the instance and the text comes back to onText, which sends it. The browser records whatever it
+// can (webm/opus, or mp4/aac on Safari) and turns it into the 16 kHz WAV the instance reads
+// (toWav16k).
 
 import { useEffect, useRef, useState } from 'react';
 
 import { transcribeRecording, voiceAvailable } from './api.js';
 import { loadStoredSession } from './stored-session.js';
+import { watchForPause } from './voice-endpoint.js';
 
 // MAX_SECONDS —— a spoken question, not a dictation; the server refuses anything past 90 s anyway.
 const MAX_SECONDS = 60;
@@ -38,6 +40,10 @@ export function useVoiceInput(onText: (text: string) => void): VoiceInput {
   const [seconds, setSeconds] = useState(0);
   const [problem, setProblem] = useState<VoiceProblem>('');
   const rec = useRef<MediaRecorder | null>(null);
+  // onTextRef —— the recording ends seconds after it started; it must hand its words to this
+  // render's onText (the input as it is now), not the one captured when the mic was pressed.
+  const onTextRef = useRef(onText);
+  onTextRef.current = onText;
   useEffect(() => {
     let live = true;
     void voiceAvailable().then((on) => { if (live) setAvailable(on && canRecord()); });
@@ -60,7 +66,7 @@ export function useVoiceInput(onText: (text: string) => void): VoiceInput {
     setState('idle');
     if (!res.ok) { setProblem(PROBLEM_OF[res.code] ?? 'failed'); return; }
     if (res.text === '') { setProblem('nothing'); return; }
-    onText(res.text);
+    onTextRef.current(res.text);
   };
 
   const start = async (): Promise<void> => {
@@ -69,8 +75,10 @@ export function useVoiceInput(onText: (text: string) => void): VoiceInput {
     if (stream === null) { setProblem('denied'); return; }
     const recorder = new MediaRecorder(stream);
     const chunks: Blob[] = [];
+    const unwatch = watchForPause(stream, () => { if (recorder.state === 'recording') recorder.stop(); });
     recorder.ondataavailable = (e) => { chunks.push(e.data); };
     recorder.onstop = () => {
+      unwatch();
       stream.getTracks().forEach((t) => t.stop());
       void finish(new Blob(chunks, { type: recorder.mimeType }));
     };

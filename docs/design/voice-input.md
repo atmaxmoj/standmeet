@@ -24,8 +24,10 @@ then, on a first version that ran the engine as a separate service: "是后端�
 3. **The browser sends 16 kHz mono 16-bit WAV.** The SDK decodes its own recording (whatever the
    browser recorded: webm/opus, mp4/aac) with the Web Audio API and resamples it, so the backend
    needs no ffmpeg. Anything else is refused with a sentence.
-4. **The text goes into the input box, not into the conversation.** The visitor reads it, fixes it,
-   and sends it.
+4. **A pause sends it.** Owner 2026-10-02: "自动识别断句自行发送". The browser watches the mic's
+   level; once speech has been heard, a 1.2 s pause ends the recording, and the transcript is sent
+   as the question (joined to anything already typed). Pressing the mic again ends it early. A
+   recording that hears nothing for 8 s stops with "nothing heard".
 
 Cost, stated plainly: the backend image moved from alpine to Debian (`node:22-bookworm-slim`), since
 the engine's prebuilt libraries need glibc, and grew by the model and onnxruntime (~270 MB). The
@@ -39,16 +41,18 @@ backend with it.
 browser (SDK Composer)                       backend
  mic → MediaRecorder → Web Audio decode   POST /api/v1/transcribe (visitor session, multipart "audio")
  → 16 kHz mono PCM16 WAV                  → caps (2 MiB, 90 s) + rate limit → internal/infra/stt
- text lands in the input  ◀── {"text"} ──  → SenseVoice in process
+ a pause → stop → text is sent ◀─ {"text"} ─ → SenseVoice in process
 ```
 
 - **Route.** `POST /api/v1/transcribe` under the visitor's own session; 20 calls per minute per IP in
   the central public rate table; refusals are display errors with a sentence.
 - **Availability.** `GET /api/v1/voice` → `{available}`: true when the model is in the image. The
   composer offers the mic only then (and only where the browser can record).
-- **SDK.** The composer's mic: press to record, press again to stop (no hold-to-talk — a phone's
+- **SDK.** The composer's mic: a microphone glyph and a word ("speak"), in ASK's type and on its
+  centre line. Press to record; a pause or a second press stops it (no hold-to-talk — a phone's
   long-press opens menus); a timer while recording, a line while transcribing; one sentence per
   failure (microphone blocked, nothing heard, too long, busy, unreadable), in all nine locales.
+  The pause is a level threshold (voice-endpoint.ts), not a voice-activity model.
 
 ## Acceptance
 

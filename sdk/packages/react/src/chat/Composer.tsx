@@ -79,8 +79,6 @@ function ComposerForm(p: ComposerProps) {
     locked: p.exhausted, lockedText: t('sessionFull'), ghost, fallback: p.placeholder ?? t('placeholder'),
   });
   const att = useComposerAttachments();
-  // voice —— the spoken question lands in the input; the visitor reads it and sends it.
-  const voice = useVoiceInput((spoken) => p.setInput(appendSpoken(p.input, spoken)));
   const taRef = useRef<HTMLTextAreaElement>(null);
   useAutoGrowTextarea(taRef, p.input);
   // sendComposed —— send it off + clear attachments (clearing the input
@@ -89,6 +87,14 @@ function ComposerForm(p: ComposerProps) {
     p.onSubmit(msg);
     att.clear();
   };
+  // voice —— a spoken question is sent the moment it is transcribed (owner 2026-10-02: "自动识别
+  // 断句自行发送"), joined to anything already typed. A locked session keeps it in the box.
+  const voice = useVoiceInput((spoken) => {
+    const text = appendSpoken(p.input, spoken);
+    return isComposerReady(text, p.exhausted)
+      ? sendComposed(composeMessage(text, att.attachments))
+      : p.setInput(text);
+  });
   // submit —— assemble the final message from the input text + any attached
   // raw text, then send it. Enter and clicking the button go through the
   // same path; the ready guard uses && rather than if (presentation code
@@ -166,8 +172,13 @@ function MicButton({ voice }: { voice: VoiceInput }) {
       className={`smc-mic is-${voice.state}`} data-testid="chat-mic" data-state={voice.state}
       aria-label={recording ? t('stop') : t('speak')} title={recording ? t('stop') : t('speak')}
     >
-      <span className="smc-mic-dot" aria-hidden="true" />
-      {recording && <span className="smc-mic-timer" data-testid="chat-mic-timer">{clock(voice.seconds)}</span>}
+      <svg className="smc-mic-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="9" y="3" width="6" height="11" rx="3" />
+        <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+      </svg>
+      {recording
+        ? <span className="smc-mic-timer" data-testid="chat-mic-timer">{clock(voice.seconds)}</span>
+        : <span className="smc-mic-label">{t('label')}</span>}
     </button>
   ) : null;
 }
