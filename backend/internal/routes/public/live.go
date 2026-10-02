@@ -2,8 +2,9 @@
 // live transcript*).
 //
 //   - GET /api/v1/live/{token}: the conversation so far ({conversation}, the visitor's shape)
-//   - GET /api/v1/live/{token}/stream: SSE, every frame of the visitor's turns as they stream —
-//     a `turn` frame with the question, then the very frames the visitor's own stream carries
+//   - POST /api/v1/live/{token}/stream: SSE, every frame of the visitor's turns as they stream —
+//     a `turn` frame with the question, then the very frames the visitor's own stream carries.
+//     A POST because Cloudflare holds a GET stream until it ends (microsite_store_socket.go).
 //
 // The token is the credential (signed, one conversation, 24 h): the owner opens it from a phone's
 // IM app, with no admin session. A tampered or expired token answers 404 and nothing else.
@@ -44,7 +45,7 @@ type LiveDeps struct {
 
 func (h *Handlers) mountLive(r chi.Router) {
 	r.Get("/live/{token}", h.getLive())
-	r.Get("/live/{token}/stream", h.streamLive())
+	r.Post("/live/{token}/stream", h.streamLive())
 }
 
 func liveInvalid() apierr.Envelope {
@@ -93,7 +94,7 @@ func (h *Handlers) streamLive() http.HandlerFunc {
 		if !ok {
 			return
 		}
-		relayLive(w, r, h.Live.Subscribe(r.Context(), t.ConversationID))
+		relayLive(w, r, h.Live.Subscribe(r.Context(), t.ConversationID), h.Log)
 	}
 }
 

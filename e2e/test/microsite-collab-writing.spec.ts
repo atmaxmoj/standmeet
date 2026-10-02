@@ -24,8 +24,11 @@ import { bindCodeToPage, publishPage } from '@/fixtures/microsite-rig';
 import {
   approveStoreDoc, deleteStoreDoc, listStoreDocs, setStorePolicy, setStoreWritable,
 } from '@/fixtures/microsite-store';
-import { lastGatewayRequest, scriptMockReplyText, scriptMockToolCall } from '@/fixtures/mock-llm-script';
+import {
+  lastGatewayRequest, resetGatewayRequests, scriptMockReplyText, scriptMockToolCall,
+} from '@/fixtures/mock-llm-script';
 import { enterCodeSession } from '@/fixtures/navigate';
+import { holdGetStreams } from '@/fixtures/proxy';
 
 const OWNER = {
   email: 'novel@example.com', password: 'correct-horse-battery-staple',
@@ -36,6 +39,12 @@ const P1 = 'The master kept a ledger of everything he never wanted.';
 const P2 = 'Every morning the servant added one more line to it.';
 const P3 = 'Nobody had ever read the ledger aloud.';
 const P4 = 'One day the ledger was full.';
+const P5 = 'The servant burned the ledger and wanted nothing for a week.';
+// What only a tool result carries. The page's own text reaches the agent with every turn, and the
+// tools' descriptions name review and a full page, so plainer words would match before any call.
+const SEARCH_HIT = '"name":"Ana"';
+const REVIEW_RECEIPT = 'It waits for the owner\'s review before others see it.';
+const FULL_RECEIPT = 'The page is full';
 
 const APP = `import { useState } from 'react';
 import { AgentWidget, useMicrositeStore } from '@standmeet/sdk';
@@ -72,11 +81,13 @@ test.beforeAll(async ({ playwright, browser }) => {
   test.setTimeout(420_000); // one microsite build + two code sessions
   resetInstance();
   admin = await playwright.request.newContext();
+  // The script tags repeat run to run; a record left by the last run would answer 2, 4 and 5.
+  await resetGatewayRequests(admin);
   await claim(admin, findSetupToken(), OWNER);
   ({ csrf } = await loginAPI(admin, OWNER.email, OWNER.password));
   await publishPage(admin, csrf, SLUG, APP);
   await setStoreWritable(admin, csrf, SLUG, true);
-  for (const code of ['WRITER-A', 'WRITER-B']) {
+  for (const code of ['WRITER-A', 'WRITER-B', 'WRITER-C', 'WRITER-D']) {
     const c = await createCode(admin, csrf, { code, label: code });
     await bindCodeToPage(admin, csrf, c.id, SLUG);
   }
@@ -100,9 +111,8 @@ test('2 the agent reads the manuscript: a search hands it the passage and its au
   const tag = await scriptMockToolCall(admin, { name: 'store_search', args: { query: 'ledger' } });
   const reply = await scriptMockReplyText(admin, 'Ana wrote about the ledger.');
   await ask(ben, `Who wrote about the master's ledger? ${tag}${reply}`);
-  await expect.poll(async () => (await lastGatewayRequest(admin, tag, P1)).contains,
-    { timeout: 30_000, message: 'the passage reaches the agent' }).toBe(true);
-  expect((await lastGatewayRequest(admin, tag, 'Ana')).contains, 'with its author').toBe(true);
+  await expect.poll(async () => (await lastGatewayRequest(admin, tag, SEARCH_HIT)).contains,
+    { timeout: 30_000, message: 'the search result hands the agent the passage\'s author' }).toBe(true);
 });
 
 test('3 a passage a visitor writes by hand appears live on the other page', async () => {
@@ -116,7 +126,7 @@ test('4 with review on, a new passage waits for the owner, then appears when app
   await setStorePolicy(admin, csrf, SLUG, { review: true });
   const tag = await scriptMockToolCall(admin, { name: 'store_append', args: { text: P3 } });
   await ask(ana, `Add: ${P3} ${tag}`);
-  await expect.poll(async () => (await lastGatewayRequest(admin, tag, 'review')).contains,
+  await expect.poll(async () => (await lastGatewayRequest(admin, tag, REVIEW_RECEIPT)).contains,
     { timeout: 30_000, message: 'the agent is told the passage waits for review' }).toBe(true);
   const pending = (await listStoreDocs(admin, csrf, SLUG)).find((d) => d.doc['text'] === P3);
   expect(pending, 'the owner sees the waiting passage').toBeDefined();
@@ -132,7 +142,7 @@ test('5 the owner\'s limit: a full page refuses the next passage, and the agent 
   await setStorePolicy(admin, csrf, SLUG, { max_docs: held });
   const tag = await scriptMockToolCall(admin, { name: 'store_append', args: { text: P4 } });
   await ask(ana, `Add: ${P4} ${tag}`);
-  await expect.poll(async () => (await lastGatewayRequest(admin, tag, 'full')).contains,
+  await expect.poll(async () => (await lastGatewayRequest(admin, tag, FULL_RECEIPT)).contains,
     { timeout: 30_000, message: 'the agent is told the page is full' }).toBe(true);
   await setStorePolicy(admin, csrf, SLUG, { max_docs: 500 });
 });
@@ -145,8 +155,42 @@ test('6 the owner deletes a passage and it leaves every open page', async () => 
   await expect(passage(ben, P1), 'gone from Ben\'s page').toHaveCount(0, { timeout: 15_000 });
 });
 
-async function openAs(browser: Browser, code: string, name: string): Promise<Page> {
+// On sijie.xyz a passage reached the other page only when the stream's 20s life ran out: the
+// proxy there holds a GET stream to its end (fixtures/proxy.ts).
+test('7 behind a proxy that holds GET streams to their end, a passage still appears in seconds',
+  async ({ browser }) => {
+    const cal = await openAs(browser, 'WRITER-C', 'Cal', holdGetStreams);
+    await ben.locator('[data-sm="draft"]').fill(P4);
+    await ben.locator('[data-sm="add"]').click();
+    await expect(passage(cal, P4), 'Cal sees it well inside a stream\'s life').toBeVisible({ timeout: 5_000 });
+    await cal.context().close();
+  });
+
+// A stream the network drops must come back at once, as EventSource did: the fetch-based watcher
+// once waited 15s after a dropped stream, and a passage written meanwhile showed up 15s late.
+test('8 after the network drops the stream, a passage still appears in seconds', async ({ browser }) => {
+  const dan = await openAs(browser, 'WRITER-D', 'Dan', resetFirstStream);
+  await ben.locator('[data-sm="draft"]').fill(P5);
+  await ben.locator('[data-sm="add"]').click();
+  await expect(passage(dan, P5), 'Dan sees it, well inside the 15s pause').toBeVisible({ timeout: 5_000 });
+  await dan.context().close();
+});
+
+// resetFirstStream —— the page's first store stream is cut by the network; later ones go through.
+async function resetFirstStream(page: Page): Promise<void> {
+  let cut = false;
+  await page.route('**/store/stream', async (route) => {
+    if (cut) return route.fallback();
+    cut = true;
+    return route.abort('connectionreset');
+  });
+}
+
+async function openAs(
+  browser: Browser, code: string, name: string, before?: (p: Page) => Promise<void>,
+): Promise<Page> {
   const page = await (await browser.newContext()).newPage();
+  await before?.(page);
   await enterCodeSession(page, code, name);
   await page.waitForURL(`**/p/${SLUG}**`, { timeout: 20_000 });
   await expect(page.getByRole('heading', { name: 'Desire is labor' })).toBeVisible({ timeout: 20_000 });

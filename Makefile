@@ -432,6 +432,13 @@ dev-rebuild-backend-cached:
 	@docker compose -p $(DEV_PROJECT) -f docker-compose.dev.yml build backend
 	@docker compose -p $(DEV_PROJECT) -f docker-compose.dev.yml up -d --no-deps backend
 
+# dev-recover-backend —— a recreate that the daemon left half done: the old backend container
+# "Dead", the new one "Created" under a <id>_ name, and every later `up` failing on a name
+# conflict (seen 2026-10-02 at load 60+). Removes the service's containers, then starts it again.
+dev-recover-backend:
+	@docker compose -p $(DEV_PROJECT) -f docker-compose.dev.yml rm -f -s backend
+	@docker compose -p $(DEV_PROJECT) -f docker-compose.dev.yml up -d --no-deps backend
+
 # dev-restart-gotenberg —— recycle the gotenberg PDF sidecar. Its headless-Chromium "pinning proxy"
 # can wedge after a long uptime ("pinning proxy already started" → every convert 500s); a normal
 # dev-up leaves the unchanged sidecar as-is, so restart it explicitly.

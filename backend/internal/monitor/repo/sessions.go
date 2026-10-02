@@ -34,25 +34,28 @@ type SessionRow struct {
 	IsBot    bool      `json:"is_bot"`
 }
 
-// latestNonEmpty —— the most recent non-empty value of a column across a viewer's events. A viewer
-// spans many rows; the newest one that actually carried the fact is the truthful answer.
-func latestNonEmpty(col string) string {
-	return "coalesce((array_agg(" + col + " ORDER BY created_at DESC) FILTER (WHERE " + col +
-		" <> ''))[1], '')"
-}
-
-var sessionsSQL = `
+// sessionsSQL —— each place field is the most recent non-empty value across a viewer's events. A
+// viewer spans many rows; the newest one that actually carried the fact is the truthful answer.
+const sessionsSQL = `
 SELECT coalesce(viewer_id,'')                    AS viewer_id,
        count(DISTINCT visit_id)                  AS visits,
        count(*) FILTER (WHERE event_name = '')   AS views,
        max(created_at)                           AS last_seen,
-       ` + latestNonEmpty("country") + ` AS country,
-       ` + latestNonEmpty("region") + ` AS region,
-       ` + latestNonEmpty("city") + ` AS city,
-       ` + latestNonEmpty("browser") + ` AS browser,
-       ` + latestNonEmpty("os") + ` AS os,
-       ` + latestNonEmpty("device") + ` AS device,
-       ` + latestNonEmpty("props->>'bot'") + ` AS bot_name,
+       coalesce((array_agg(country ORDER BY created_at DESC) FILTER (WHERE country <> ''))[1], '')
+         AS country,
+       coalesce((array_agg(region ORDER BY created_at DESC) FILTER (WHERE region <> ''))[1], '')
+         AS region,
+       coalesce((array_agg(city ORDER BY created_at DESC) FILTER (WHERE city <> ''))[1], '')
+         AS city,
+       coalesce((array_agg(browser ORDER BY created_at DESC) FILTER (WHERE browser <> ''))[1], '')
+         AS browser,
+       coalesce((array_agg(os ORDER BY created_at DESC) FILTER (WHERE os <> ''))[1], '')
+         AS os,
+       coalesce((array_agg(device ORDER BY created_at DESC) FILTER (WHERE device <> ''))[1], '')
+         AS device,
+       coalesce((array_agg(props->>'bot' ORDER BY created_at DESC)
+                 FILTER (WHERE props->>'bot' <> ''))[1], '')
+         AS bot_name,
        bool_or(is_bot)                           AS is_bot
 FROM visit_event
 WHERE owner_id = $1 AND created_at >= $2

@@ -7,6 +7,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
+	"github.com/atmaxmoj/standmeet/internal/infra/sqltext"
 )
 
 // RecordPatch —— which record of a collection, and the keys to merge into it.
@@ -23,7 +25,7 @@ func (s *Store) Patch(ctx context.Context, kind Kind, id string, p RecordPatch) 
 	if err != nil {
 		return 0, err
 	}
-	sql := fmt.Sprintf(
+	sql := sqltext.Format(
 		"UPDATE %s.records SET doc = doc || $3::jsonb WHERE collection = $1 AND id = $2", schema)
 	exec := s.pool.Exec
 	if s.tx != nil {

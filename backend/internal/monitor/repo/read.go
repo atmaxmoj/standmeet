@@ -10,11 +10,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
-	"strings"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
@@ -113,13 +109,23 @@ type EventRow struct {
 	IsBot       bool              `json:"is_bot"`
 }
 
-const eventSelect = `
+// eventsSQL —— one page of the feed. Every filter is a parameter: an empty one ($3 true for bots,
+// a NULL cursor) leaves its clause true, so the text never changes with the query.
+const eventsSQL = `
 SELECT event_id, coalesce(viewer_id,''), visit_id, created_at, surface, event_name, is_bot,
        url_path, page_title, referrer_domain, src,
        entity_kind, entity_id, entity_title,
        coalesce(code_id::text,''), code_label,
        browser, os, device, country, props
-FROM visit_event`
+FROM visit_event
+WHERE owner_id = $1 AND created_at >= $2
+  AND ($3 OR NOT is_bot)
+  AND ($4 = '' OR surface = $4)
+  AND ($5 = '' OR event_name = $5)
+  AND ($6 = '' OR entity_id = $6)
+  AND ($7::timestamptz IS NULL OR (created_at, event_id) < ($7::timestamptz, $8::uuid))
+ORDER BY created_at DESC, event_id DESC
+LIMIT $9`
 
 // Events —— one page of the raw feed, newest first.
 func (r *Repo) Events(ctx context.Context, q *EventQuery) (paging.Page[EventRow], error) {
@@ -127,11 +133,9 @@ func (r *Repo) Events(ctx context.Context, q *EventQuery) (paging.Page[EventRow]
 	if perr != nil {
 		return paging.Page[EventRow]{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, perr)
 	}
-	where, args := eventFilters(q, owner)
-	where, args = afterCursor(where, args, q.Page.After)
-	sql := eventSelect + " WHERE " + strings.Join(where, " AND ") +
-		" ORDER BY created_at DESC, event_id DESC LIMIT " + strconv.Itoa(int(q.Page.Fetch()))
-	rows, err := r.pool.Query(ctx, sql, args...)
+	afterAt, afterID := sessionCursor(q.Page.After)
+	rows, err := r.pool.Query(ctx, eventsSQL, owner, q.Since, q.IncludeBots,
+		q.Surface, q.EventName, q.EntityID, afterAt, afterID, q.Page.Fetch())
 	if err != nil {
 		return paging.Page[EventRow]{}, fmt.Errorf("query visit events: %w", err)
 	}
@@ -143,17 +147,6 @@ func (r *Repo) Events(ctx context.Context, q *EventQuery) (paging.Page[EventRow]
 	return paging.Cut(out, q.Page, func(e *EventRow) paging.Cursor {
 		return paging.Cursor{At: e.CreatedAt, ID: e.EventID}
 	}), nil
-}
-
-// afterCursor —— the keyset clause for a page after the first, as bind parameters.
-func afterCursor(where []string, args []any, after *paging.Cursor) ([]string, []any) {
-	if after == nil {
-		return where, args
-	}
-	args = append(args, after.At, after.ID)
-	n := len(args)
-	return append(where, "(created_at, event_id) < ($"+strconv.Itoa(n-1)+", $"+
-		strconv.Itoa(n)+"::uuid)"), args
 }
 
 // collectEvents —— drains the cursor. Split out so Events stays within the branch budget; the
@@ -177,28 +170,6 @@ func collectEvents(rows interface {
 		return nil, fmt.Errorf("iterate visit events: %w", rerr)
 	}
 	return out, nil
-}
-
-// eventFilters —— the WHERE clauses and their bind values. Bots are excluded unless asked for,
-// which is the default every number on the panel is computed under.
-func eventFilters(q *EventQuery, owner pgtype.UUID) ([]string, []any) {
-	where := []string{"owner_id = $1", "created_at >= $2"}
-	args := []any{owner, q.Since}
-	if !q.IncludeBots {
-		where = append(where, "NOT is_bot")
-	}
-	for _, f := range []struct{ col, val string }{
-		{"surface", q.Surface},
-		{"event_name", q.EventName},
-		{"entity_id", q.EntityID},
-	} {
-		if f.val == "" {
-			continue
-		}
-		args = append(args, f.val)
-		where = append(where, f.col+" = $"+strconv.Itoa(len(args)))
-	}
-	return where, args
 }
 
 // rowScanner —— just enough of pgx.Rows to keep scanEvent testable and short.

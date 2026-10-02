@@ -247,25 +247,75 @@ async function queryMicrositeDocs(
   }
 }
 
-// storePollMs —— when the instance cannot hold one more stream ('poll'), or there is no EventSource.
+// storePollMs —— when the instance cannot hold one more stream ('poll'), or the stream fails.
 const storePollMs = 15_000;
+// storeReconnectMs —— the pause after the server ends a stream (it does every 20s).
+const storeReconnectMs = 1_000;
+
+type StreamEnd = 'ended' | 'failed' | 'poll';
 
 // watchMicrositeStore —— the page's store stream (SSE, the visitor's cookie rides along). The
-// server closes it now and then (its write timeout); EventSource reconnects by itself, and every
-// (re)connect is a change too, so nothing written in the gap is missed.
+// server ends it now and then (under its write timeout) and the watcher opens the next one; every
+// open is a change too, so nothing written in the gap is missed.
+//
+// A POST read with fetch, not EventSource (GET only): Cloudflare holds a GET event stream until
+// it ends, so behind it every change arrived up to 20s late (measured on sijie.xyz, 2026-10-02).
 function watchMicrositeStore(baseURL: string, slug: string, onChange: () => void): () => void {
-  const Source = (globalThis as { EventSource?: typeof EventSource }).EventSource;
-  if (!Source) return pollEvery(onChange);
-  const es = new Source(`${baseURL}${micrositeStoreBase}/${encodeURIComponent(slug)}/store/stream`,
-    { withCredentials: true });
+  const url = `${baseURL}${micrositeStoreBase}/${encodeURIComponent(slug)}/store/stream`;
+  const stop = new AbortController();
   let stopPoll: (() => void) | null = null;
-  es.addEventListener('open', onChange);
-  es.addEventListener('changed', onChange);
-  es.addEventListener('poll', () => {
-    es.close();
-    stopPoll = pollEvery(onChange);
+  void (async () => {
+    while (!stop.signal.aborted) {
+      const end = await followStoreStream(url, stop.signal, onChange);
+      if (end === 'poll') {
+        stopPoll = pollEvery(onChange);
+        return;
+      }
+      await pause(end === 'ended' ? storeReconnectMs : storePollMs, stop.signal);
+    }
+  })();
+  return () => { stop.abort(); stopPoll?.(); };
+}
+
+// followStoreStream —— one stream: onChange on open and on each `changed`, until it ends. As
+// EventSource did: a network error, at open or mid-stream, reconnects at once; only the server
+// refusing the stream (an HTTP error) waits storePollMs. A dropped stream once left the page 15s
+// behind (measured 2026-10-02).
+async function followStoreStream(
+  url: string, signal: AbortSignal, onChange: () => void,
+): Promise<StreamEnd> {
+  let res: Response;
+  try {
+    res = await fetch(url, { method: 'POST', credentials: 'include', signal });
+  } catch {
+    return 'ended';
+  }
+  if (!res.ok || !res.body) return 'failed';
+  onChange();
+  return readStoreFrames(res.body, onChange).catch((): StreamEnd => 'ended');
+}
+
+async function readStoreFrames(
+  body: ReadableStream<Uint8Array>, onChange: () => void,
+): Promise<StreamEnd> {
+  const reader = body.getReader();
+  const text = new TextDecoder();
+  let buf = '';
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) return 'ended';
+    const frames = (buf + text.decode(value, { stream: true })).split('\n\n');
+    buf = frames.pop() ?? '';
+    if (frames.some((f) => /^event: poll$/m.test(f))) return 'poll';
+    if (frames.some((f) => /^event: changed$/m.test(f))) onChange();
+  }
+}
+
+function pause(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    const t = setTimeout(resolve, ms);
+    signal.addEventListener('abort', () => { clearTimeout(t); resolve(); }, { once: true });
   });
-  return () => { es.close(); stopPoll?.(); };
 }
 
 function pollEvery(onChange: () => void): () => void {

@@ -58,6 +58,9 @@ test.describe('microsite lifecycle: staging → live → list → delete', () =>
 
   test('staging then live shows in list + visitor URL; delete removes both',
     async ({ request, adminPage: page }) => {
+      // One microsite build: the poll below allows 60s, which the default 30s test budget cut
+      // short whenever a build took over ~25s (vite alone took 25–58s on a loaded host).
+      test.setTimeout(120_000);
       const sid = await initMCP(request, apiToken);
       const build = await prepareBuiltPage(request, apiToken, sid);
 

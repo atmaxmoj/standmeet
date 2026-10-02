@@ -7,7 +7,7 @@
 # (no `wire-check` / `wire` targets). schema lives in db/schema.sql
 # applied at db volume init—no goose migration runner.
 
-.PHONY: lint build test arch fmt-check max-lines routes-cyclo boundary-thin no-nil-container build-check secrets golangci-config escape-lint supplier-boundary core-agnostic core-seals-only internal-dirs domain-acyclic infra-not-domain routes-not-imported domain-facade-boundary domain-layering hostops-via-desk periodic-via-scheduler blocks-declare-in-data host-blind-to-blocks register-via-door native-key-confined event-bus-gates
+.PHONY: lint build test arch fmt-check max-lines routes-cyclo boundary-thin no-nil-container sql-constant build-check secrets golangci-config escape-lint supplier-boundary core-agnostic core-seals-only internal-dirs domain-acyclic infra-not-domain routes-not-imported domain-facade-boundary domain-layering hostops-via-desk periodic-via-scheduler blocks-declare-in-data host-blind-to-blocks register-via-door native-key-confined event-bus-gates
 
 # sqlc generation lives in the root Makefile (`make sqlc-gen`) so it works
 # the same way for app/sdk/backend devs. Don't duplicate it here.
@@ -17,7 +17,7 @@
 # typo dies before the slow arch scan.  Everything that gates a
 # commit lives here — there are no "also run X" steps anywhere else,
 # so the lefthook pre-commit and CI both just call `make lint`.
-lint: fmt-check golangci-config max-lines routes-cyclo routes-via-dispatcher hostops-via-desk periodic-via-scheduler event-bus-gates blocks-declare-in-data boundary-thin no-nil-container no-raw-http arch supplier-boundary core-agnostic host-blind-to-blocks register-via-door native-key-confined core-seals-only internal-dirs domain-acyclic infra-not-domain routes-not-imported domain-facade-boundary domain-layering build-check golangci escape-lint
+lint: fmt-check golangci-config max-lines routes-cyclo routes-via-dispatcher hostops-via-desk periodic-via-scheduler event-bus-gates blocks-declare-in-data boundary-thin no-nil-container sql-constant no-raw-http arch supplier-boundary core-agnostic host-blind-to-blocks register-via-door native-key-confined core-seals-only internal-dirs domain-acyclic infra-not-domain routes-not-imported domain-facade-boundary domain-layering build-check golangci escape-lint
 
 # gofmt diff is instant — anything malformed fails here first.
 fmt-check:
@@ -42,6 +42,12 @@ routes-cyclo:
 # Optional uses *T; collections always return empty container.
 no-nil-container:
 	@tool=$$(mktemp) && ( cd ../infra/scripts/check-no-nil-container && go build -o "$$tool" . ) && "$$tool"; rc=$$?; rm -f "$$tool"; exit $$rc
+
+# SQL text is source text: values as $n, a runtime name only through sqltext.Format (SQL injection).
+# gosec's SQL rules watch database/sql only; this code talks to Postgres through pgx.
+sql-constant:
+	@tool=$$(mktemp) && ( cd ../infra/scripts/check-sql-constant && go build -o "$$tool" . ) && "$$tool"; rc=$$?; rm -f "$$tool"; exit $$rc
+	@bash ../infra/scripts/check-sql-constant-test.sh
 
 # Faces may reach operations only through the outbound convergence point
 # (internal/routes/dispatcher) — a handler that imports a domain facade directly

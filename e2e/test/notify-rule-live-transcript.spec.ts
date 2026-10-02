@@ -18,6 +18,7 @@ import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { scriptMockReplyText } from '@/fixtures/mock-llm-script';
 import { enterCodeSession, gotoAdminSection, openReader } from '@/fixtures/navigate';
+import { holdGetStreams } from '@/fixtures/proxy';
 import { connectTelegram, ownerTypes, resetTelegram, sentTo, type SentMessage } from '@/fixtures/telegram';
 
 const OWNER = {
@@ -65,7 +66,7 @@ test.describe.serial('notification rules · a code conversation reaches the owne
   });
 
   test('the link opens the transcript without signing in, and the next answer streams in', async ({ browser, request }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(180_000);
     await watchLive(browser, request);
   });
 
@@ -136,15 +137,21 @@ async function watchLive(browser: Browser, request: APIRequestContext): Promise<
   if (visitor === null) throw new Error('the first visitor is gone');
   const owner = await browser.newContext();
   const live = await owner.newPage();
+  // The owner opens the link through the proxy a real deployment has (sijie.xyz: Cloudflare).
+  await holdGetStreams(live);
   await openReader(live, new URL(liveLink).pathname);
   await expect(live.getByTestId('live-transcript'), 'the page opens without a sign-in').toBeVisible();
   await expect(live.getByTestId('live-transcript'), 'with the conversation so far')
     .toContainText(FIRST_QUESTION);
-
+  // The answer starts 35s after the question: the owner's stream must outlive the server's 30s
+  // write timeout before its first word arrives.
   const words = 'ALPHA one two three four five six seven eight OMEGA';
-  await ask(visitor.page, 'And what came next?', await scriptMockReplyText(request, words, { dripMs: 400 }));
+  // dripMs 1500: ALPHA→OMEGA takes ~13s, so the "still streaming" look lands inside it even when
+  // the expect poll has slowed to 1s steps after the long wait (at 400ms it once missed).
+  const reply = await scriptMockReplyText(request, words, { delayMs: 35_000, dripMs: 1_500 });
+  await ask(visitor.page, 'And what came next?', reply);
   const growing = live.getByTestId('answer-body').last();
-  await expect(growing, 'the answer starts arriving').toContainText('ALPHA', { timeout: 30_000 });
+  await expect(growing, 'the answer starts arriving').toContainText('ALPHA', { timeout: 75_000 });
   expect(await growing.textContent(), 'it is still streaming: the last word is not there yet')
     .not.toContain('OMEGA');
   await expect(growing, 'and it finishes').toContainText('OMEGA', { timeout: 30_000 });

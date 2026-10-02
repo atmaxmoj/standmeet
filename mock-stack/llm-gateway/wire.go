@@ -119,10 +119,25 @@ func seenBlocks(blocks []Block) string {
 	out := joinTextBlocks(blocks)
 	for i := range blocks {
 		if blocks[i].Type == "tool_result" {
-			out += " " + string(blocks[i].Content)
+			out += " " + resultText(blocks[i].Content)
 		}
 	}
 	return out
+}
+
+// resultText —— a tool result as the model reads it. Its content is a JSON string or a list of
+// text blocks on the wire; kept raw, every quote in it was escaped and a spec's plain needle
+// (`"name":"Ana"`) never matched.
+func resultText(content json.RawMessage) string {
+	var s string
+	if json.Unmarshal(content, &s) == nil {
+		return s
+	}
+	var blocks []Block
+	if json.Unmarshal(content, &blocks) == nil {
+		return joinTextBlocks(blocks)
+	}
+	return string(content)
 }
 
 func joinTextBlocks(blocks []Block) string {

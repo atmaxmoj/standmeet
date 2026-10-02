@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/atmaxmoj/standmeet/internal/infra/sqltext"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -108,7 +109,7 @@ func (l *Listener) listenOnce(ctx context.Context) error {
 		return fmt.Errorf("acquire: %w", err)
 	}
 	defer conn.Release()
-	if _, err = conn.Exec(ctx, "LISTEN "+l.channel); err != nil {
+	if _, err = conn.Exec(ctx, sqltext.Format("LISTEN %s", l.channel)); err != nil {
 		return fmt.Errorf("listen: %w", err)
 	}
 	return l.dispatch(ctx, conn)

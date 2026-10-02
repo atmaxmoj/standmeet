@@ -43,6 +43,8 @@ components:
     in: internal/infra/depcheck                  # checks at startup whether a hand-copied dependency table has a missing row; domain-less leaf
   textcut:
     in: internal/infra/textcut                   # safe char/byte-bounded text truncation (single implementation); domain-less leaf
+  sqltext:
+    in: internal/infra/sqltext                   # the one way a runtime name enters SQL text (quoted identifier); domain-less leaf
   paging:
     in: internal/infra/paging                    # the one keyset paginator every owner list uses (docs/design/paging.md); domain-less leaf
   snowflake:
@@ -690,6 +692,8 @@ deps:
       # dbfiles — the migration .sql compiled into the binary (upgrades happen at backend startup).
       # Only this can reach it: if anyone could import it, "who owns the schema" would scatter across several places.
       - dbfiles
+      # sqltext — the LISTEN channel goes into the statement as a quoted identifier.
+      - sqltext
     anyVendorDeps: true
 
   # Session manages the setup token, login session, API token.
@@ -1384,7 +1388,9 @@ deps:
   # pgx, doesn't route back through any internal business module. The schema name derives from the
   # host-trusted (kind,id); the DROP guard lives inside the package.
   blockstore:
-    mayDependOn: []   # #135: socket.go (the blockstore.* host op) moved to internal/routes/blockstore; this package is back to a pure leaf
+    # #135: socket.go (the blockstore.* host op) moved to internal/routes/blockstore; this package is a leaf
+    mayDependOn:
+      - sqltext   # the block's schema name goes into each statement as a quoted identifier
     anyVendorDeps: true
 
 

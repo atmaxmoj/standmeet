@@ -20,6 +20,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/atmaxmoj/standmeet/internal/infra/sqltext"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -49,7 +50,7 @@ func (s *Store) Claim(ctx context.Context, c ClaimKey, ttl time.Duration) (bool,
 	if err != nil {
 		return false, err
 	}
-	sql := fmt.Sprintf(
+	sql := sqltext.Format(
 		`INSERT INTO %s.claims (collection, key, expires_at) VALUES ($1, $2, now() + $3::interval)
 		 ON CONFLICT (collection, key) DO UPDATE SET expires_at = excluded.expires_at
 		 WHERE %[1]s.claims.expires_at < now()
@@ -76,7 +77,7 @@ func (s *Store) Release(ctx context.Context, c ClaimKey) error {
 	if err != nil {
 		return err
 	}
-	sql := fmt.Sprintf("DELETE FROM %s.claims WHERE collection = $1 AND key = $2", schema)
+	sql := sqltext.Format("DELETE FROM %s.claims WHERE collection = $1 AND key = $2", schema)
 	if _, derr := s.pool.Exec(ctx, sql, collection, key); derr != nil {
 		return fmt.Errorf("blockstore release %q/%s: %w", schema, collection, derr)
 	}

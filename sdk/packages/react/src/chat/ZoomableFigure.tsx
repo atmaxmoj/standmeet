@@ -26,7 +26,7 @@ export function ZoomableFigure({ svg, className, testid }: {
   const bodyRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   return (
-    <div className={`smc-figure ${className}`} data-testid={testid}>
+    <div className={`smc-figure ${className}`} data-figure-kind={className} data-testid={testid}>
       <button
         type="button" className="smc-figure-zoom" data-testid="figure-zoom"
         aria-label={t('enlargeDiagram')} title={t('enlargeDiagram')}
@@ -35,13 +35,13 @@ export function ZoomableFigure({ svg, className, testid }: {
         <span aria-hidden="true">⤢</span>
       </button>
       <div ref={bodyRef} className="smc-figure-body" dangerouslySetInnerHTML={{ __html: svg }} />
-      {open && <ZoomOverlay svg={svg} from={bodyRef} onClosed={() => setOpen(false)} />}
+      {open && <ZoomOverlay svg={svg} kind={className} from={bodyRef} onClosed={() => setOpen(false)} />}
     </div>
   );
 }
 
-function ZoomOverlay({ svg, from, onClosed }: {
-  svg: string; from: React.RefObject<HTMLDivElement | null>; onClosed: () => void;
+function ZoomOverlay({ svg, kind, from, onClosed }: {
+  svg: string; kind: string; from: React.RefObject<HTMLDivElement | null>; onClosed: () => void;
 }): React.ReactPortal {
   const t = useChatT('transcript');
   const backdropRef = useRef<HTMLDivElement>(null);
@@ -75,7 +75,7 @@ function ZoomOverlay({ svg, from, onClosed }: {
         <span aria-hidden="true">×</span>
       </button>
       <div
-        ref={stageRef} className="smc-zoom-stage"
+        ref={stageRef} className="smc-zoom-stage" data-figure-kind={kind}
         onClick={(e) => { e.stopPropagation(); }}
         dangerouslySetInnerHTML={{ __html: svg }}
       />

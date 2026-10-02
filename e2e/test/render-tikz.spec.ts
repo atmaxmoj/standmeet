@@ -72,6 +72,28 @@ test.describe('render · TikZ diagrams on the reader', () => {
       await expect(doc, '不许把 LaTeX 源码印给读者').not.toContainText('\\begin{tikzpicture}');
     });
 
+  // TikZ draws in black by default: tikzjax writes stroke="#000" on lines and leaves text and
+  // filled shapes to SVG's default black fill. On a dark page that was black on near-black (owner
+  // report 2026-10-02, open-sourcing-the-judge). The default ink must follow the page's mode.
+  test('in dark mode the diagram draws in the page ink, not black',
+    async ({ request, page }) => {
+      const labelled = TIKZ.replace('\\end{tikzpicture}', '\\node at (1,0.5) {opaque};\n\\end{tikzpicture}');
+      await uploadVault(request, OWNER, [
+        { rel: 'wiki/tikz-dark.md', body: makeVaultMD({ publish: true }, `## Diagram\n\nSome text.\n\n${labelled}`) },
+      ]);
+      await page.emulateMedia({ colorScheme: 'dark' });
+      await openReader(page, '/wiki/tikz-dark');
+      const svg = page.getByTestId('wiki-body').locator('[data-testid="tikz-svg"] svg');
+      await expect(svg).toBeVisible({ timeout: 20_000 });
+      const ink = await page.getByTestId('wiki-body').getByText('Some text.')
+        .evaluate((el) => getComputedStyle(el).color);
+      const line = await svg.locator('[stroke="#000"]').first()
+        .evaluate((el) => getComputedStyle(el).stroke);
+      const label = await svg.locator('text').first().evaluate((el) => getComputedStyle(el).fill);
+      expect(line, 'the lines take the page ink').toBe(ink);
+      expect(label, 'the labels take the page ink').toBe(ink);
+    });
+
   // Multiple diagrams on one page — the normal case in a real vault
   // (`chomsky-hierarchy/context-free-languages` has 4). The two cases above each
   // have only one diagram, and **this defect never shows up with just one**: the

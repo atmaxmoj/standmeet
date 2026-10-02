@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/atmaxmoj/standmeet/internal/infra/sqltext"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -95,7 +96,7 @@ func (s *Store) MoveRecords(
 // move —— the one statement that moves the records. Both names passed schemaName's droppableRe,
 // so they are safe to interpolate.
 func (s *Store) move(ctx context.Context, from, to, keepPrefix string) (int64, error) {
-	tag, xerr := s.pool.Exec(ctx, fmt.Sprintf(
+	tag, xerr := s.pool.Exec(ctx, sqltext.Format(
 		`WITH moved AS (DELETE FROM %s.records WHERE collection NOT LIKE $1 || '%%' RETURNING *)
 		 INSERT INTO %s.records (id, collection, doc, created_at)
 		 SELECT id, collection, doc, created_at FROM moved`, from, to), keepPrefix)
@@ -108,7 +109,7 @@ func (s *Store) move(ctx context.Context, from, to, keepPrefix string) (int64, e
 // movable —— how many records of schema MoveRecords would move.
 func (s *Store) movable(ctx context.Context, schema, keepPrefix string) (int64, error) {
 	var n int64
-	if err := s.pool.QueryRow(ctx, fmt.Sprintf(
+	if err := s.pool.QueryRow(ctx, sqltext.Format(
 		`SELECT count(*) FROM %s.records WHERE collection NOT LIKE $1 || '%%'`, schema),
 		keepPrefix).Scan(&n); err != nil {
 		return 0, fmt.Errorf("blockstore move count %s: %w", schema, err)

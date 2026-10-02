@@ -1,4 +1,4 @@
-// Streaming pass-through for GET /api/v1/live/{token}/stream — the owner's live transcript.
+// Streaming pass-through for POST /api/v1/live/{token}/stream — the owner's live transcript.
 //
 // Same reason as /api/v1/agent/turn/route.ts: next.config's rewrites() buffer an SSE body until it
 // ends, and this stream never ends while the owner watches, so the page would see nothing at all.
@@ -8,11 +8,11 @@ const BACKEND = process.env['BACKEND_URL'] ?? 'http://backend:8000';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(req: Request, ctx: { params: Promise<{ token: string }> }): Promise<Response> {
+export async function POST(req: Request, ctx: { params: Promise<{ token: string }> }): Promise<Response> {
   const { token } = await ctx.params;
   try {
     const upstream = await fetch(`${BACKEND}/api/v1/live/${encodeURIComponent(token)}/stream`, {
-      signal: req.signal,
+      method: 'POST', signal: req.signal,
     });
     return new Response(upstream.body, { status: upstream.status, headers: upstream.headers });
   } catch {

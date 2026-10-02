@@ -252,6 +252,16 @@
 
 .smc-tikz { margin: 1.5rem 0; display: flex; justify-content: center; overflow-x: auto; }
 .smc-tikz svg { max-width: 100%; height: auto; }
+/* TikZ draws in black by default: tikzjax writes stroke="#000" on lines and leaves text and filled
+   shapes to SVG's default black fill — black on near-black in a dark theme. The diagram draws in
+   the text colour around it instead (the page's ink, light or dark); a colour the author chose
+   (red, blue) stays. The zoom stage sits on paper, so its ink is set with it. */
+.smc-zoom-stage { color: var(--color-ink, #1B1814); }
+[data-figure-kind="smc-tikz"] svg { fill: currentColor; }
+[data-figure-kind="smc-tikz"] svg [stroke="#000"],
+[data-figure-kind="smc-tikz"] svg [stroke="black"] { stroke: currentColor; }
+[data-figure-kind="smc-tikz"] svg [fill="#000"],
+[data-figure-kind="smc-tikz"] svg [fill="black"] { fill: currentColor; }
 .smc-tikz-source { color: var(--color-muted); }
 .smc-tikz-loading {
   margin: 1.5rem 0; height: 6rem;

@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/atmaxmoj/standmeet/internal/infra/sqltext"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -74,7 +75,7 @@ func (s *Store) Provision(ctx context.Context, kind Kind, id string) error {
 	}
 	// already passed droppableRe (^(supplier|mcp|microsite)_[a-z0-9_]+$), so safe to interpolate
 	q := schema
-	ddl := fmt.Sprintf(
+	ddl := sqltext.Format(
 		`CREATE SCHEMA IF NOT EXISTS %[1]s;
 		 CREATE TABLE IF NOT EXISTS %[1]s.records (
 		   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -115,7 +116,7 @@ func (s *Store) Drop(ctx context.Context, kind Kind, id string) error {
 	if aerr := assertDroppable(schema); aerr != nil {
 		return aerr // belt-and-suspenders: re-guard core before delete even if schemaName changes
 	}
-	dropSQL := fmt.Sprintf("DROP SCHEMA IF EXISTS %s CASCADE", schema)
+	dropSQL := sqltext.Format("DROP SCHEMA IF EXISTS %s CASCADE", schema)
 	if _, eerr := s.pool.Exec(ctx, dropSQL); eerr != nil {
 		return fmt.Errorf("blockstore drop %q: %w", schema, eerr)
 	}
@@ -132,7 +133,7 @@ func (s *Store) Insert(
 		return "", err
 	}
 	var recID string
-	sql := fmt.Sprintf(
+	sql := sqltext.Format(
 		"INSERT INTO %s.records (collection, doc) VALUES ($1, $2) RETURNING id", schema,
 	)
 	queryRow := s.pool.QueryRow
@@ -154,7 +155,7 @@ func (s *Store) Query(
 	if err != nil {
 		return nil, err
 	}
-	sql := fmt.Sprintf(
+	sql := sqltext.Format(
 		"SELECT doc FROM %s.records WHERE collection = $1 AND doc @> $2 ORDER BY created_at",
 		schema,
 	)
@@ -174,7 +175,7 @@ func (s *Store) Count(
 	if err != nil {
 		return 0, err
 	}
-	sql := fmt.Sprintf(
+	sql := sqltext.Format(
 		"SELECT count(*) FROM %s.records WHERE collection = $1 AND doc @> $2", schema,
 	)
 	var n int64
@@ -200,7 +201,7 @@ func (s *Store) Delete(
 	if err != nil {
 		return 0, err
 	}
-	sql := fmt.Sprintf("DELETE FROM %s.records WHERE collection = $1 AND doc @> $2", schema)
+	sql := sqltext.Format("DELETE FROM %s.records WHERE collection = $1 AND doc @> $2", schema)
 	tag, derr := s.pool.Exec(ctx, sql, collection, filter)
 	if derr != nil {
 		return 0, fmt.Errorf("blockstore delete %q/%s: %w", schema, collection, derr)
@@ -216,7 +217,7 @@ func (s *Store) CountAll(ctx context.Context, kind Kind, id string) (int64, erro
 		return 0, err
 	}
 	var n int64
-	sql := fmt.Sprintf("SELECT count(*) FROM %s.records", schema)
+	sql := sqltext.Format("SELECT count(*) FROM %s.records", schema)
 	if cerr := s.pool.QueryRow(ctx, sql).Scan(&n); cerr != nil {
 		return 0, fmt.Errorf("blockstore count-all %q: %w", schema, cerr)
 	}
@@ -263,7 +264,7 @@ func (s *Store) QueryWithIDs(
 	if err != nil {
 		return nil, err
 	}
-	sql := fmt.Sprintf(
+	sql := sqltext.Format(
 		"SELECT id, doc FROM %s.records WHERE collection = $1 AND doc @> $2 ORDER BY created_at",
 		schema,
 	)
@@ -283,7 +284,7 @@ func (s *Store) DeleteByID(
 	if err != nil {
 		return 0, err
 	}
-	sql := fmt.Sprintf("DELETE FROM %s.records WHERE collection = $1 AND id = $2", schema)
+	sql := sqltext.Format("DELETE FROM %s.records WHERE collection = $1 AND id = $2", schema)
 	exec := s.pool.Exec
 	if s.tx != nil {
 		exec = s.tx.Exec

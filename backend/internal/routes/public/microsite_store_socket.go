@@ -10,6 +10,10 @@
 // EventSource on a dead connection — no events, and no reconnect (measured 2026-10-02: a page never
 // saw another visitor's passage). A clean end makes EventSource reconnect within seconds, and the
 // SDK reads the store again on every (re)connect, so nothing written in the gap is missed.
+//
+// The SDK opens it with a POST. Cloudflare (in front of sijie.xyz) holds a GET event stream until
+// the response ends and passes a POST stream through as it comes (measured 2026-10-02: through
+// Cloudflare a GET's first byte came at 20.3s, the stream's end; from the origin at 0.4s).
 
 package public
 
