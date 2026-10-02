@@ -146,6 +146,7 @@ func (h *idem) compose(t *testing.T) {
 		t.Fatal(err)
 	}
 	all := append(bus.Kinds(), owner.WebhookJobKinds(hooks)...)
+	all = append(all, owner.NotifyJobKinds(notifyDeliveryDeps(h.d))...)
 	if h.d.Jobs, err = jobsriver.New(h.d.DB, all, nil, jobsriver.Options{}); err != nil {
 		t.Fatal(err)
 	}

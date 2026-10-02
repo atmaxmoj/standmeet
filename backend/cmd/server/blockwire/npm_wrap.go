@@ -101,7 +101,7 @@ func WrappedPackages(d *deps.Runtime) func(ctx context.Context, pageID string) [
 		rows, err := ownerBlocksOfPage(ctx, d, pageID)
 		if err != nil {
 			d.Log.Warn("wrapped packages", "page_id", pageID, "err", err)
-			return nil
+			return []string{}
 		}
 		return packageBlockIDs(rows)
 	}

@@ -48,6 +48,7 @@ var drivers = map[string]driver{
 	corpussub.IndexSubscriber:            driveIndex,
 	entity.WebhookFanout:                 driveWebhookFanout,
 	entity.OwnerNotify:                   driveOwnerNotify,
+	entity.NotifyFanout:                  driveNotifyFanout,
 	subscriber.HomepagePublishSubscriber: driveHomepagePublish,
 	subscriber.AssetRefsSubscriber:       driveAssetRefs,
 }
@@ -141,6 +142,43 @@ func (h *idem) deliveries(t *testing.T, endpointID, eventID string) int {
 	}
 	got, err := h.d.Jobs.List(context.Background(),
 		jobs.Filter{Kind: entity.WebhookDeliverKind, Args: args})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return len(got)
+}
+
+// driveNotifyFanout —— the effect is the notify.deliver jobs queued per rule: one every-time rule
+// and one first-only rule, both matching the note's event. A second delivery of the same event
+// queues nothing more for either.
+func driveNotifyFanout(t *testing.T, h *idem) []idemCase {
+	t.Helper()
+	rule := func(firstOnly bool) string {
+		r, err := h.d.OwnerRepo.CreateNotifyRule(context.Background(), &entity.NotifyRule{
+			OwnerID: h.owner, EventType: corpussub.NoteChanged, Channel: entity.ChannelEmail,
+			Template: "note changed", FirstOnly: firstOnly,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return r.ID
+	}
+	every, first := rule(false), rule(true)
+	ev := h.note(t, "notified").event
+	return []idemCase{{label: "note changed, two rules", eventID: ev, observe: func() string {
+		return strconv.Itoa(h.cards(t, every, ev)) + "/" + strconv.Itoa(h.cards(t, first, ev))
+	}}}
+}
+
+// cards —— notify.deliver jobs queued for (rule, event).
+func (h *idem) cards(t *testing.T, ruleID, eventID string) int {
+	t.Helper()
+	args, err := json.Marshal(entity.NotifyDeliverArgs{RuleID: ruleID, EventID: eventID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := h.d.Jobs.List(context.Background(),
+		jobs.Filter{Kind: entity.NotifyDeliverKind, Args: args})
 	if err != nil {
 		t.Fatal(err)
 	}
