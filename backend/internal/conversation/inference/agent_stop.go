@@ -42,10 +42,11 @@ const StopDeadline = "deadline"
 //   - not rescued, body is empty → **there's genuinely nothing in hand** → `no_answer`
 //   - everything else → passed through unchanged (there's a body, it just didn't finish)
 //
-// The criterion is `product == ""`, not any specific stop reason: any outcome of "ended
-// normally but produced nothing" is the same situation, and shouldn't need patching again the
-// next time a new finish_reason shows up ([[lesson-not-swept-to-neighbours]]; same root cause
-// as the condition in ensureProduct).
+// The criterion is hasProduct, not any specific stop reason: any outcome of "ended normally
+// but produced nothing" is the same situation, and shouldn't need patching again the next time
+// a new finish_reason shows up ([[lesson-not-swept-to-neighbours]]; same root cause as the
+// condition in ensureProduct). A return-directly card (ask_visitor's question) is a product:
+// judging by answer text alone hung "no answer this turn" under that card (prod 2026-10-02).
 //
 // The logs still record the real stop + recovered as they are — the two readers want different
 // things.
@@ -56,7 +57,7 @@ func doneStop(state *turnState) string {
 	if state.recovered {
 		return "end_turn"
 	}
-	if state.product == "" {
+	if !hasProduct(state) {
 		return StopNoAnswer
 	}
 	return state.stop
