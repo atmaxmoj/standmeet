@@ -15,6 +15,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/infra/detach"
 	"github.com/atmaxmoj/standmeet/internal/infra/mcpclient"
+	"github.com/atmaxmoj/standmeet/internal/plugin"
 	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
 )
 
@@ -192,11 +193,25 @@ func cacheOneToolUI(
 // come from the cache.
 func (c *mcpAppFiber) cachedToolSpecs(dialed []mcpclient.Tool) []mcpclient.Tool {
 	c.toolsOnce.Do(func() {
-		*c.tools = dialed
-		reportToolDrift(&c.m, dialed)
+		*c.tools = visitorFacing(&c.m, dialed)
+		reportToolDrift(&c.m, *c.tools)
 		atomic.StoreInt32(c.toolsReady, 1) // publish after the fill
 	})
 	return *c.tools
+}
+
+// visitorFacing —— the dialed tools minus the block's owner-only ones (plugin.OwnerOnlyTools). The
+// owner reaches those through OwnerMCPBindings, which calls the sandbox by name and never reads
+// this list.
+func visitorFacing(m *plugin.Manifest, dialed []mcpclient.Tool) []mcpclient.Tool {
+	ownerOnly := m.OwnerOnlyTools()
+	out := make([]mcpclient.Tool, 0, len(dialed))
+	for i := range dialed {
+		if !ownerOnly[dialed[i].Name] {
+			out = append(out, dialed[i])
+		}
+	}
+	return out
 }
 
 // knownToolSpecs —— returns (specs, true) if cached. Read-only, does not trigger Once — that would

@@ -34,10 +34,10 @@ visitor_tools:
   - name: calendar_reschedule
     # 改期 = 先删旧的再插新的，两个都要。
     requires: [calendar:events.insert, calendar:events.delete]
-  - name: calendar_cancel_booking
-    requires: [calendar:events.delete]
-  - bookings_list
   - send_confirmation
+# Not here, on purpose: bookings_list and calendar_cancel_booking. They list every booking and
+# cancel any by id — the owner's tools (owner_tools below). Listed here they reached visitors, who
+# could read other visitors' names and emails and cancel their meetings (2026-10-02).
 
 transport:
   kind: sandbox_stdio

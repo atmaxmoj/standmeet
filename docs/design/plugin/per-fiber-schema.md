@@ -167,3 +167,76 @@ what fails before the code exists.
   bundle uuid (globally unique) incidentally makes storage per-owner too. The `_root` default must
   therefore key on owner as well (`root_<owner>__<block>`) to preserve per-owner isolation for
   no-bundle blocks — confirm in B1.
+
+## Execution plan (2026-10-02) — decided, supersedes the batch lists above
+
+Owner 2026-10-02: "do it, but first settle which tests must be written and run, and which code
+structure marks each checkpoint". Ground truth re-read the same day (it corrects this doc and the
+ledger):
+
+- The booker is `infra/plugins/booker/booker-mcp.js` (JS), not Go. It forwards no `fiber_id`.
+- Native keys are **already minted** per fiber at dial (`mount/mounted_dial.go:45`) and for owner
+  tools (`mount/owner_tools.go:60`, fiber `root_<owner>`), and verified at the host socket — but
+  `hostsocket/server.go checkKey` **discards the fiber the key resolves to**. The store still trusts
+  the forwarded plaintext.
+- The owner-tool key and a no-bundle visitor's key both resolve to `root_<owner>`: the host cannot
+  tell "owner, fan out" from "root visitor".
+- Slot holds (F-B-15) live in the claims table of whatever schema the call lands in. Per-fiber claims
+  would let two bundles' visitors take the same slot.
+- Block config (`blockconfig`) lives in the legacy `mcp_<block>` schema and stays there.
+- Found while planning, fixed first (checkpoint 0): `bookings_list` and `calendar_cancel_booking` were
+  visitor tools — a granted visitor read every booking's name and email and could cancel any.
+
+### Decisions
+
+1. **The key is the identity.** The host socket passes the fiber its key resolves to into the
+   handler; the store ignores any `fiber_id` the block sends. The booker needs no change for routing.
+2. **Owner calls get their own fiber**, `owner_<owner>`, minted for owner tools only. A store call on
+   an owner fiber **fans out** across the owner's fibers (root + every bundle that holds the block):
+   reads union the schemas; delete-by-id finds the schema holding the id.
+3. **Claims stay owner-scoped**: claim/release always use the owner's root schema, whatever fiber
+   calls, so F-B-15 holds across bundles.
+4. **Quota counts the calling fiber's schema** (`max_bookings` is per code; a code has one fiber).
+5. **Rebinding a code to another bundle** starts a new fiber for new bookings. Old bookings stay
+   visible and cancellable to the owner (fan-out); a visitor's conversation-scoped cancel of a booking
+   made under the old bundle no longer finds it. Accepted and documented; rebinding mid-conversation
+   is rare.
+6. **Schema names are length-guarded**: a name over Postgres's 63 bytes is an error, never silently
+   truncated.
+
+### Checkpoints (each green, committed, before the next)
+
+| # | Code structure that marks it done | Proven by |
+|---|---|---|
+| 0 | `Manifest.OwnerOnlyTools()`; the visitor binding drops them; booker refuses list/cancel-by-id on a visitor `_meta` | e2e `booking-owner-tools-not-for-visitors` (red before) |
+| 1 | `hostsocket` hands the key's fiber to the handler; `blockdesk` store/claim handlers read only that; owner tools mint `owner_<id>` | UT: a forged `fiber_id` in the request is replaced by the key's; e2e item 8 adversary |
+| 2 | `boundBlockStore` routes by the key's fiber; claim/release pinned to the owner root; schema-name length guard | e2e T1 (two bundles → two schemas), T5 (slot race across bundles) |
+| 3 | `blockstore` gains a schema-listing op (leaf, pgx only); owner-fiber reads fan out; delete-by-id across fibers | e2e T3 (owner lists and cancels both bundles' bookings) |
+| 4 | `blockquota` counts the calling fiber | e2e T4 (max_bookings in a bundle) |
+| 5 | bundle delete drops `mcp_b_<bundle>_*` with the data-loss warning; uninstall drops every fiber schema of the block | e2e T6 |
+| 6 | SQL migration moves the sole owner's bookings/confirmations from `mcp_<block>` to `mcp_root_<owner>_<block>` (config collections stay), `to_regclass`-guarded | e2e T7 upgrade spec with real old rows |
+| 7 | `resetInstance` drops fiber schemas so specs start clean | the T-specs pass twice in a row |
+
+### Tests to write (red on the code before their checkpoint)
+
+- **T1** two bundles, each with calendar.book; a visitor on each books → exactly
+  `mcp_b_<A>_calendar_book` and `mcp_b_<B>_calendar_book` hold one booking each.
+- **T2** visitor A's conversation-scoped cancel / send_confirmation never touch B's booking.
+- **T3** the owner (API token) lists both bookings and cancels B's by id.
+- **T4** `max_bookings=1` on a bundle code hides the tool after one booking.
+- **T5** two bundles' visitors ask for the same slot at once → one booking.
+- **T6** deleting bundle A drops its schema and raises the warning naming the dropped records.
+- **T7** upgrade: a booking stored on the old shape survives; the owner lists it; its visitor cancels it.
+- **T8** adversary block sends another fiber's id → it reaches only its own schema.
+
+### Existing specs to re-run after the last checkpoint
+
+All booking specs (`chat-book-*`, `visitor-cancel-booking`, `visitor-reschedule-booking`,
+`tool-calendar-cancel-booking`, `booking-*`, `api-key-booking-*`, `quota-not-consumed-on-failure`,
+`chat-quota-exhausted-tells-the-model`, `tool-endpoint-calendar-book`, `mcp-skill-grant-booking`,
+`supplier-err-confirmation-fail-booking-kept`), bundles (`acl-bundle-additive`, `session-block-bundle`,
+`b3-bundle-blocks`), lifecycle (`block-uninstall-drops-schema`, `uninstall-data-loss-warning`,
+`block-delete-relied-refused`), `security-block-isolation-adversarial`, `upgrade-block-vocabulary`,
+`upgrade-bundle-includes`, `norm-outward-toolset`, `owner-mcp-parity-reads`, the dsh specs; Go UT
+(`nativekey`, `hostsocket`, `blockstore`, `blockwire`, `registry`, eval-harness booker assembly);
+`make lint`; then the full suite once, since the change crosses every storing call.

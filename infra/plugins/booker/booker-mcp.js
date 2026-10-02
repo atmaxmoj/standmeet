@@ -574,7 +574,14 @@ async function doReschedule(s, args) {
 
 // ── owner-face cancel by id + list (cancel_owner.go / list_bookings.go) ──
 
+// visitorCall —— the host plants a subject or a conversation on every visitor session's _meta and
+// neither on an owner call. Listing every booking and cancelling any by id are the owner's: a
+// visitor reaching them would read other visitors' names and emails (2026-10-02).
+function visitorCall(s) { return s.subjectID !== '' || s.conversationID !== '' }
+const ownerOnly = () => bookErr('owner_only', 'this tool is for the owner, not a visitor session')
+
 async function doCancelByID(s, args) {
+  if (visitorCall(s)) return ownerOnly()
   if (!args.booking_id) return bookErr('invalid_args', 'booking_id is required')
   let rec
   try {
@@ -595,6 +602,7 @@ async function doCancelByID(s, args) {
 }
 function clampListLimit(n) { return (!n || n <= 0) ? listBookingsDefaultLimit : Math.min(n, listBookingsMaxLimit) }
 async function doListBookings(s, args) {
+  if (visitorCall(s)) return ownerOnly()
   const limit = clampListLimit(args && args.limit)
   let recs
   try { recs = await gwBlockstoreQueryRecords(bookingsColl, { owner_id: s.ownerID }) } catch (e) { return bookErr('list_failed', e.message) }

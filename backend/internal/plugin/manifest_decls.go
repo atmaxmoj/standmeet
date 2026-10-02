@@ -39,6 +39,25 @@ func VisitorToolNames(ts []VisitorTool) []string {
 	return out
 }
 
+// OwnerOnlyTools —— the sandbox tools a block serves its owner and not its visitors: named by an
+// owner_tools entry and absent from visitor_tools. A visitor session never binds one, whatever the
+// sandbox lists (2026-10-02: calendar.book's bookings_list and calendar_cancel_booking reached
+// visitors, who could read other visitors' names and emails and cancel their meetings). A tool in
+// both lists (calendar_list_slots) stays a visitor tool.
+func (m *Manifest) OwnerOnlyTools() map[string]bool {
+	visitor := map[string]bool{}
+	for _, n := range VisitorToolNames(m.VisitorTools) {
+		visitor[n] = true
+	}
+	out := map[string]bool{}
+	for i := range m.OwnerTools {
+		if t := m.OwnerTools[i].Tool; !visitor[t] {
+			out[t] = true
+		}
+	}
+	return out
+}
+
 // UnmarshalYAML — both spellings are accepted, and most entries use the short one:
 //
 //	visitor_tools:
