@@ -7,7 +7,7 @@
 # incremental development.
 
 .PHONY: lint secrets secrets-image release-build release-assert-stripped release-assert-multiarch release-assert-version release-push release-gc release-repro release-repro-logs release-repro-down backend-lint backend-test ut-db ut-db-down backend-no-mock app-lint sdk-lint e2e-lint env-lint updater-e2e im-bridge-lint im-bridge-test im-bridge-up im-bridge-logs
-.PHONY: deps stack stack-init stack-ready stack-test stack-retire dev dev-up dev-rebuild dev-down prod-up prod-down prod-logs build clean test test-fresh test-only test-asis dsh-plugin-test test-red test-boundary test-dsh-live mobile-shots mobile-shots-asis archive-failures sdk-build builder-vendor dev-rebuild-builder dev-restart-gotenberg app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-blocks eval-owner-mcp verify-round schema-drift i18n-keys
+.PHONY: deps stack stack-init stack-ready stack-test stack-retire dev dev-up dev-rebuild dev-down dev-remove-orphans prod-up prod-down prod-logs build clean test test-fresh test-only test-asis dsh-plugin-test test-red test-boundary test-dsh-live mobile-shots mobile-shots-asis archive-failures sdk-build builder-vendor dev-rebuild-builder dev-restart-gotenberg app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-blocks eval-owner-mcp verify-round schema-drift i18n-keys
 
 # ── per-checkout dev stack ──────────────────────────────────────
 # One machine, N checkouts, N stacks. Without this every worktree drives the SAME
@@ -1053,6 +1053,11 @@ dev-rebuild: app-build
 
 dev-down:
 	@docker compose -f docker-compose.dev.yml down --remove-orphans
+
+# dev-remove-orphans —— drop containers whose service left the compose file (the stt service after
+# voice moved into the backend), leaving every running service as it is.
+dev-remove-orphans:
+	@docker compose -p $(DEV_PROJECT) -f docker-compose.dev.yml up -d --no-recreate --no-build --remove-orphans
 
 # dev-fresh —— down + drop dev's pg volume + start fresh. **Use only when you need a truly clean slate.**
 #
