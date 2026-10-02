@@ -1,0 +1,72 @@
+/* site-wiki.css —— SiteWiki's rules, shipped in @standmeet/sdk/styles.css. The page's own tokens
+   (--color-ink, --color-paper, --color-rule, --color-accent, --color-muted) when it defines them,
+   else the design palette: warm paper, ink, vermillion. Fonts come from chat.css (--smc-*). */
+
+.smw {
+  display: grid; grid-template-columns: 15rem minmax(0, 1fr); gap: 3rem;
+  max-width: 72rem; margin: 0 auto; padding: 3rem 1.5rem;
+  color: var(--color-ink, #1B1814); font-family: var(--smc-serif);
+}
+@media (max-width: 760px) {
+  .smw { grid-template-columns: minmax(0, 1fr); gap: 1.5rem; padding: 1.5rem 1rem; }
+}
+
+.smw-label {
+  font-family: var(--smc-mono); font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--color-muted, #6b5d4f); margin: 0 0 .75rem;
+}
+
+/* the tree */
+.smw-aside { border-right: 1px solid var(--color-rule, rgba(27, 24, 20, 0.14)); padding-right: 1.5rem; }
+@media (max-width: 760px) {
+  .smw-aside { border-right: none; border-bottom: 1px solid var(--color-rule, rgba(27, 24, 20, 0.14)); padding: 0 0 1rem; }
+}
+.smw-tree-level { list-style: none; margin: 0 0 1rem; padding: 0; }
+.smw-tree-level .smw-tree-level { padding-left: .9rem; margin: .25rem 0 .25rem; }
+.smw-tree-level li { margin: .2rem 0; }
+.smw-folder { font-family: var(--smc-mono); font-size: 11px; color: var(--color-muted, #6b5d4f); }
+.smw-tree-page { color: var(--color-ink, #1B1814); text-decoration: none; font-size: 16px; }
+.smw-tree-page:hover { color: var(--color-accent, #B5391C); }
+.smw-tree-page[aria-current='page'] { color: var(--color-accent, #B5391C); }
+
+/* buttons */
+.smw-action {
+  font-family: var(--smc-mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+  background: transparent; color: var(--color-ink, #1B1814); cursor: pointer;
+  border: 1px solid var(--color-ink, #1B1814); padding: .45rem .8rem;
+}
+.smw-action:hover, .smw-action:focus-visible { background: var(--color-ink, #1B1814); color: var(--color-paper, #F3EFE6); }
+.smw-action-primary { border-color: var(--color-accent, #B5391C); color: var(--color-accent, #B5391C); }
+
+/* a page */
+.smw-main { min-width: 0; }
+.smw-page-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
+.smw-page-title { font-size: 40px; line-height: 1.1; font-weight: 400; margin: 0; }
+/* a page not written yet: muted and dashed, so a working link (accent) stands out from it */
+.smw-link[data-missing='true'] {
+  color: var(--color-muted, #6b5d4f); text-decoration-style: dashed; text-decoration-color: currentColor;
+}
+.smw-backlinks, .smw-history { margin-top: 2.5rem; border-top: 1px solid var(--color-rule, rgba(27, 24, 20, 0.14)); padding-top: 1rem; }
+.smw-backlinks ul { list-style: none; margin: 0; padding: 0; }
+.smw-backlinks a { color: var(--color-ink, #1B1814); }
+.smw-history-toggle { background: none; border: none; padding: 0; cursor: pointer; }
+.smw-versions { list-style: none; margin: .5rem 0 0; padding: 0; font-family: var(--smc-mono); font-size: 12px; }
+.smw-version { display: flex; gap: 1rem; padding: .3rem 0; color: var(--color-muted, #6b5d4f); }
+
+/* the editor */
+.smw-editor { display: grid; gap: 1rem; }
+.smw-field { display: grid; gap: .35rem; }
+.smw-field input, .smw-field textarea {
+  font: inherit; font-size: 17px; color: var(--color-ink, #1B1814); background: transparent;
+  border: 1px solid var(--color-rule, rgba(27, 24, 20, 0.14)); border-radius: 2px; padding: .55rem .7rem;
+}
+.smw-field input[readonly] { color: var(--color-muted, #6b5d4f); }
+.smw-field input:focus, .smw-field textarea:focus { outline: none; border-color: var(--color-ink, #1B1814); }
+.smw-field textarea { font-family: var(--smc-mono); font-size: 14px; line-height: 1.6; }
+.smw-editor-actions { display: flex; gap: .75rem; }
+
+/* messages */
+.smw-empty { font-style: italic; color: var(--color-muted, #6b5d4f); }
+.smw-notice, .smw-error { font-family: var(--smc-mono); font-size: 12px; padding: .6rem .8rem; border: 1px solid; }
+.smw-notice { border-color: var(--color-rule, rgba(27, 24, 20, 0.14)); color: var(--color-muted, #6b5d4f); }
+.smw-error { border-color: var(--color-accent, #B5391C); color: var(--color-accent, #B5391C); }

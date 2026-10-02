@@ -148,8 +148,13 @@ function CorpusAnchor(props: React.ComponentPropsWithoutRef<'a'>): React.ReactEl
   return <a href={withLang(href ?? '')} {...rest} />;
 }
 
+// anchor —— how a link renders (default: a corpus link in the reader's language). SiteWiki passes its own,
+// so a [[link]] to a page that is not written yet can say so.
 export function ChatMarkdown(
-  { source, variant = 'chat' }: { source: string; variant?: MarkdownVariant },
+  { source, variant = 'chat', anchor = CorpusAnchor }: {
+    source: string; variant?: MarkdownVariant;
+    anchor?: (props: React.ComponentPropsWithoutRef<'a'>) => React.ReactElement;
+  },
 ): React.ReactElement {
   // smc-md scope —— chat-markdown.css fits table / pre / code / blockquote / a / ul with the
   // design palette (warm cream + ink + vermillion); smc-md-article adds the long-form layout.
@@ -165,7 +170,7 @@ export function ChatMarkdown(
         // still stripping any <script> the LLM/skill output carried. This is katex's own
         // recommended sanitize order — do not swap it back.
         rehypePlugins={[[rehypeSanitize, SAFE_SCHEMA], rehypeKatex]}
-        components={{ code: MarkdownCode, a: CorpusAnchor }}
+        components={{ code: MarkdownCode, a: anchor }}
       >
         {escapeCurrencyDollars(promoteDisplayMath(source))}
       </ReactMarkdown>

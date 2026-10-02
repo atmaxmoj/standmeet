@@ -119,6 +119,16 @@ call names another, so a shared manuscript is `useMicrositeStore('passages')` wi
 `{ text }`. Make the agent the main way to write: put the chat next to the manuscript, and keep a
 plain "add" box as the second way. What the agent adds appears live on every open page.
 
+### A wiki kept in the page: `SiteWiki`
+
+`import { SiteWiki } from '@standmeet/sdk'` and render `<SiteWiki />` for a page that reads like a
+wiki: a tree of pages (paths with `/` make folders), `[[links]]` between pages (a link to a page not
+written yet shows as missing and opens the editor), backlinks, each page's history, and an editor
+for visitors the page lets write. The pages live in this page's own store (collection `wiki`;
+`collection` prop to change it), not in the owner's corpus. Each save is a new version, so the
+store's document limit counts versions: raise it for a busy wiki. Review, live updates and authors
+work as for any store. `useSiteWiki()` gives the same pages without the UI.
+
 For deeper context (the current page, the owner, the active session), `import { useStandMeet } from
 '@standmeet/sdk'` exposes the provider's context; most pages need only the widgets + the store above.
 

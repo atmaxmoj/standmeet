@@ -8,6 +8,7 @@ export type {
   BYOAIHeaders,
   CallToolResult,
   ClientOptions,
+  InsertedDoc,
   IssueSessionInput,
   MicrositeDoc,
   StandMeetClient,

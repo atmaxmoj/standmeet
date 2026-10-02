@@ -123,7 +123,8 @@ export interface StandMeetClient {
   queryMicrositeDocs(slug: string, collection: string): Promise<StoredDoc[]>;
   // insertMicrositeDoc —— append one document to this page's store. Throws MicrositeStoreError on a
   // refusal (the store is closed, full, the doc is invalid) so the page can tell the visitor.
-  insertMicrositeDoc(slug: string, collection: string, doc: MicrositeDoc): Promise<string>;
+  // The receipt says whether the document waits for the owner's review (pending) before others see it.
+  insertMicrositeDoc(slug: string, collection: string, doc: MicrositeDoc): Promise<InsertedDoc>;
   // watchMicrositeStore —— call onChange whenever this page's store changes (anyone's write, the
   // owner's approval or delete), and once on each (re)connect. Returns the stop function.
   watchMicrositeStore(slug: string, onChange: () => void): () => void;
@@ -155,6 +156,12 @@ export interface StoredDoc extends MicrositeDoc {
   // _author —— who wrote it: a visitor by hand ('member'), the agent for a visitor ('agent'), the owner.
   _author?: { kind: 'member' | 'agent' | 'owner'; name: string };
   _created_at?: string;
+}
+
+// InsertedDoc —— a write's receipt: the document's id, and whether it waits for the owner's review.
+export interface InsertedDoc {
+  id: string;
+  pending: boolean;
 }
 
 // MicrositeStoreError —— a write refusal, carrying the HTTP status + the server's code so the page can
@@ -324,7 +331,7 @@ function pollEvery(onChange: () => void): () => void {
 
 async function insertMicrositeDoc(
   f: typeof fetch, baseURL: string, slug: string, collection: string, doc: MicrositeDoc,
-): Promise<string> {
+): Promise<InsertedDoc> {
   const res = await f(`${baseURL}${micrositeStoreBase}/${slug}/store`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -336,8 +343,8 @@ async function insertMicrositeDoc(
       res.status, body.error?.code ?? 'error', body.error?.message ?? 'could not save',
     );
   }
-  const body = (await res.json()) as { id: string };
-  return body.id;
+  const body = (await res.json()) as { id: string; pending?: boolean };
+  return { id: body.id, pending: body.pending === true };
 }
 
 // rememberTurn —— after a turn finishes, append "question + answer" to this

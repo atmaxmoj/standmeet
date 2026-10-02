@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { widgetClient } from './widgets/client.js';
-import type { MicrositeDoc, StoredDoc } from '@standmeet/sdk-core';
+import type { InsertedDoc, MicrositeDoc, StoredDoc } from '@standmeet/sdk-core';
 
 // currentPageSlug —— the <slug> in /p/<slug>/…. Empty off a microsite (e.g. the site root).
 function currentPageSlug(): string {
@@ -24,7 +24,8 @@ function currentPageSlug(): string {
 export interface MicrositeStore {
   // docs —— the published documents, oldest first, each with the host's `_id` and `_author`.
   docs: StoredDoc[];
-  save: (doc: MicrositeDoc) => Promise<void>;
+  // save —— the receipt (pending: it waits for the owner's review), or null when refused (see error).
+  save: (doc: MicrositeDoc) => Promise<InsertedDoc | null>;
   error: string | null;
 }
 
@@ -43,13 +44,15 @@ export function useMicrositeStore(collection: string, slugOverride?: string): Mi
     return widgetClient.watchMicrositeStore(slug, () => { void refresh(); });
   }, [slug, refresh]);
 
-  const save = useCallback(async (doc: MicrositeDoc) => {
+  const save = useCallback(async (doc: MicrositeDoc): Promise<InsertedDoc | null> => {
     setError(null);
     try {
-      await widgetClient.insertMicrositeDoc(slug, collection, doc);
+      const got = await widgetClient.insertMicrositeDoc(slug, collection, doc);
       await refresh();
+      return got;
     } catch (e) {
       setError(e instanceof Error ? e.message : 'could not save');
+      return null;
     }
   }, [slug, collection, refresh]);
 
