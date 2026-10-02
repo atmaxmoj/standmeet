@@ -233,7 +233,7 @@ over another span's rows, with nothing on screen saying so.
 `ponytail: delete-only retention, no rollup tables; add hourly rollups if a self-hosted instance
 ever outgrows a raw-row scan.`
 
-## 4. Instrumentation points (踩点)
+## 4. Instrumentation points
 
 Two mechanisms. Both write to the same table. **Neither one is a call inside another domain.**
 

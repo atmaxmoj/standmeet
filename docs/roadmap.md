@@ -1,115 +1,115 @@
-# StandMeet Roadmap —— 大块级
+# StandMeet Roadmap — major blocks
 
-> **视角:** 这份文档只写**大块(major blocks)**——"要建的下一件大事"。颗粒度小的具体项在 task tracker 里,不重复。
-> **来源:** 综合 `~/Develop/writing/notes/wiki/software/project/standmeet/`(owner 的设计 vault)+ 现有代码实况。vault 里很多 seed **本身没落地设计**(有的打了 🚧,有的没打),所以每个大块要动手前,都得像 connector 那样**先出一版 design + tests**,再写。
-> **状态图例:** ✅ 建好 · 🟡 部分建 · ⬜ 没建 · 🚧 = vault 里标"设计在飞、未落地"。
-
----
-
-## 块一 · corpus = Obsidian vault(产品核心承诺,最大且最散)
-
-一句话:**owner 在 Obsidian 写 → StandMeet 同步 → StandMeet 是这套 portable markdown 的另一个 renderer,把 curated 的图服务给访客。** 这直接兑现 product hub 的"author in Obsidian, sync to StandMeet"、thesis(AI 对话→curated corpus)、differentiation("a personal site, but conversational" + owner 亲手织的图 = relevance signal)。
-
-corpus 数据形态**已经就是 vault**:三级 promotion(raw→wiki→output)、derived-path(parent_id 树,reparent 免费,无 path 列)、backlinks 声明式重建边表(`wiki_refs`/`writing_refs`)。所以大块一不是"重建 corpus",是"**把 vault 的三个面(喂图/爬图/渲染)补齐**"。
-
-### 1a · 同步侧(喂图) ✅ 机制建齐(2026-09 重写为多 genre sync,取代原 writings-only 最简版)
-- ✅ **多 genre `SyncVault`**:vault 顶层文件夹按 genre 路由进 `corpus_notes` 节点树(`backend/internal/corpus/obsidian/sync.go`,`corpGenres = {wiki, subjectivity}` + raw)。writings 一层另有 export(zip)/import 手动批量。**output 无对应文件夹**——它是 promote-derived,不从 vault 喂,是设计如此不是缺口。
-- ✅ **folder-note 折叠已实现**:`basename(file)==basename(dir)` → 该文件是 folder note,node path = 目录路径(`sync_tree.go` `nodePathFor`);中间段缺 folder-note 自动补空占位。
-- ✅ **open question 已答**:wiki 的 `parent_id` 从 vault 文件夹树推(folder tree → node path,同 `nodePathFor`)。
-- 覆盖:sync-a…sync-k / sync-authoritative-prune / sync-e-links / note-refs-unified 等 e2e;唯一自认缺口 = importer 与 vault 自带脚本对齐(`#107` 拿真实本地 vault 手动验证)。
-- 相关具体项:`#151`(raw 分级/层级)、`#113`(`seo_indexed`→`published`,跟 vault `publish` 闸对齐)、`#114`(landing/reader 拆出)。
-
-### 1b · 检索侧(爬这张图) ✅
-- ✅ `corpus_search`/`_read`/`_list` over Postgres 全文检索;`corpus_map` 导航**只爬树**(parent_id)。
-- ✅ **爬网(graph retrieval)= agent 驱动,设计如此**:`corpus_links` 给一个节点的 1-hop 出边 + 入边(backlinks),每邻居过 ACL(`corpus/usecase/corpus_lister_pg_links.go` `Links()`);agent 顺 `[[links]]` 自己一跳跳深入(block instructions `retrieval-mcp.js:27-31` 明写)。多跳遍历是交给 agent 的 reasoning,不是缺口。
-- **决策(2026-09-18):不建 server 端单次 walk/rank**。相关性排序 = reasoning 归 agent,跟 1b"不用 vector、相关性=owner 写的链接"同源;server 替 agent 排 = 走回头路。详见决策记录 [`docs/design/corpus-graph-retrieval.md`](corpus-graph-retrieval.md)(只有访客 chat 往返延迟真咬人时,才考虑纯确定性 walk = 方案②,仍不排序)。
-- **决策已定**:**故意不用 vector/pgvector**——相关性 = owner 写的 `[[链接]]`,不是模型猜的语义距离。
-- 落地设计要补:BFS 深度/排序上限、ACL 怎么进 query(别爬到 role 不可见的 entry)、跟全文检索怎么合。
-- 相关:`#150`(output backlinks——output/writings 得跟 wiki 一样有边表,图才连得起来)。
-
-### 1c · 渲染对称(两侧同源) 🟡
-- ✅ KaTeX + Mermaid(D-6)。
-- ✅ **Callout `> [!theorem]`**:`markdown-callouts.ts`(手写 mdast walk,不引 unist-util-visit)把 `> [!type] Title` blockquote 转成 `blockquote.callout[data-callout=type]` + `.callout-title`(DOM 对齐 Obsidian);接进 ChatMarkdown pipeline(wiki/output/restricted),`data-callout` 进 rehype-sanitize 白名单,`.callout` base 样式走 design palette、owner 可按 type 覆盖。**截图验证过**(theorem / warning 两个 callout 框正常渲)。
-- ✅ **TikZ 精确数学图**:` ```tikz ` → node-tikzjax(= obsidian-tikzjax 同引擎,两侧一致)server 端渲 SVG,client lazy fetch(重 WASM 不进客户端 bundle)。serverExternalPackages + outputFileTracingIncludes 把 TeX 运行时资产(core.dump.gz 等)带进 standalone;25s fail-fast 降级。**RED→GREEN**(render-tikz)。
-- ✅ **`standmeet-widget` 沙箱 iframe 块(v1)**:fenced block 内 JSON descriptor(src/height/sandbox)→ sandboxed `<iframe>`;sandbox 默认最小 `allow-scripts`(不给 allow-same-origin);mount-guard → `seo:false`(客户端才挂,不进 SSR/索引);畸形降级。**RED→GREEN**(render-widget)。**postMessage 协议(render-data/resize/requestCapability)+ per-block ACL 后置**——留作独立设计一轮(跟 MCP Apps `ui://` 渲染器统一)。
-- ✅ **同步 owner 的 Obsidian CSS snippet**(2026-07 owner 决策,**改了原"never import CSS"设计**):`.obsidian/snippets/<enabled>.css` 同步进来当 StandMeet 页面 CSS,"两侧长得一模一样"。三点全落地:(a) vault-ingestion 给 `.obsidian/snippets/*.css` + `appearance.json` 开 harvest 白名单(不再"点前缀全忽略");(b) **sanitize**——剥 `@import`/外部+js `url()`/`expression()`/`-moz-binding`、scope 每条选择器到 `.corpus-content`;(c) 三面(vault-sync / admin PUT `/appearance/css` / MCP `set_owner_css`)写同一 `owners.custom_css`;**外加 per-note `cssclasses` frontmatter 呈现钩子**(三面写、corpus_read 返回)。owner-css-* / cssclasses-surfaces / sync-g-hidden 全绿。
-  **真渲染已接(这才算完,不是只后端绿)**:公开 `GET /api/v1/appearance.css`(text/css) 由 reader `<link>` 引(真 stylesheet 资源,非 inline `<style>`);`CorpusContent` 两层——`.corpus-content` 作 scope 锚点、per-note cssclasses 放内层 div(这样 owner 的 `.theorem{…}` 被 scope 成 `.corpus-content .theorem` 能命中)。wiki/output/writings/restricted 四个 reader 面全接。**截图逐个看过**(owner snippet 改 h2/blockquote/code、`.boxed` 画框、callout)。之前那个 ✅ 是只做了后端存/读没接前端渲染时早标的,现已补齐渲染。
-
-### 1d · Obsidian 生态借力(不 host 插件,借它的 output/code/信号) ⬜
-**不能在 StandMeet 里跑 Obsidian 插件**(闭源 Electron host = 那道墙;连 Obsidian 自己的 Publish 都跑不了插件)。但生态的价值三条路进来:
-- **authoring helpers**(Templater/QuickAdd)→ 无需——它们只在写作时跑,留下的是 plain markdown,直接 ingest。
-- **rendering**(KaTeX/Mermaid/TikZ)→ **别用插件,直接用底层库**(见 1c)。
-- **Dataview 类(query)→ 原生做,而且更强**:corpus 本就是真 DB(Postgres)+ frontmatter + `wiki_refs`,可以跑 Dataview 式查询,比 Dataview-over-files 强。✅ **已建"corpus 查询"**:note body 里 ` ```standmeet-query ` fenced block(genre/tag/children-of/sort/limit DSL)在 corpus_read 时服务端解析成活的 `[[Title]]` 列表,ACL by construction(走 reader 自带的 grantedGlobs,owner-only genre 不泄漏)。query-render / query-acl / query-errors 全绿。
-- **真需要插件时 → owner 侧 export 预渲染**(Dataview Publisher / Digital Garden 那套,把动态烤成 static markdown),StandMeet ingest 烤好的结果。这也正是 Obsidian Publish 自己的解法(浏览器 app,只活 core 渲染 + `publish.css`)。
-- **Execute Code(Jupyter 式)**:owner 侧照跑;显示 code+output → 把 output 存进 note 再 ingest;**若要在服务页上 live 执行 → 复用 StandMeet 自己的硬化 sandbox**(`skill_run_script`/`internal/sandbox`:bwrap + `--network=none` + 白名单),别抄 Execute Code 的"本机无沙箱"模型(#5 isolation)。
-
-### 1e · 同步的形态(现状 vs 设计) 🟡
-- 🟡 现在是 **bespoke endpoint**(`routes/admin/obsidian.go` 两个按钮 export/import),独立于 connector。
-- 设计(决策点 **P.9**)说:**connector 分 action / sync 两模式,同一抽象,「Obsidian = sync」**。→ 未来可把 vault 同步**归一成一个 sync-mode connector**(跟 calendar/mail 同一套 connector 底座,ingest 而非 action)。归一与否是块一/块二的**接缝**。
-- 相关:`#107`(拿你**真实本地 vault** 手动验证)、`#108`(真实外部服务验证方案——没法 e2e 的那类)。
-
-> **块一小结**:数据(树+边)全现成,决策(非 vector / portable / per-host 但可选同步 owner CSS / 不 host 插件而借 output)全 settle,**风险局部,不牵一发动全身**。
+> **Perspective:** This document covers only **major blocks** — "the next big thing to build". Fine-grained items live in the task tracker and are not repeated here.
+> **Sources:** Combines `~/Develop/writing/notes/wiki/software/project/standmeet/` (the owner's design vault) + the actual state of the code. Many seeds in the vault **have no landed design themselves** (some are marked 🚧, some are not), so before starting each major block we must, as we did for connectors, **first produce a design + tests**, then write code.
+> **Status legend:** ✅ built · 🟡 partly built · ⬜ not built · 🚧 = marked in the vault as "design in flight, not landed".
 
 ---
 
-## 块二 · 平台架构 #135(三层:A–H 机制 / "替换"迁移 / driver)
+## Block 1 · corpus = Obsidian vault (the core product promise; the largest and most scattered)
 
-终点态(设计文档):**core = corpus + visitor chat + AccessCode + PDF + AI provider + 一个插件装载器,零能力**;`MustRegister` + 进程内 registry **全删**;每个能力迁成独立标准 MCP server。这块要拆成**三层**看,别混:
+In one sentence: **the owner writes in Obsidian → StandMeet syncs → StandMeet is another renderer of this portable markdown, serving the curated graph to visitors.** This directly delivers the product hub's "author in Obsidian, sync to StandMeet", the thesis (AI conversation → curated corpus), and the differentiation ("a personal site, but conversational" + the graph the owner wove by hand = relevance signal).
 
-### 层① · Phase A–H(机制) —— 基本 ✅,只剩 Phase D
-> 注意:A–H 是**实现分期**(在 task/tests 里),设计文档本身用决策点 P.1–P.13。
+The corpus data shape **already is a vault**: three-level promotion (raw→wiki→output), derived-path (parent_id tree, reparenting is free, no path column), backlinks as a declaratively rebuilt edge table (`wiki_refs`/`writing_refs`). So Block 1 is not "rebuild the corpus"; it is "**complete the vault's three faces (feeding the graph / crawling the graph / rendering)**".
 
-| Phase | 是什么 | 状态 |
+### 1a · Sync side (feeding the graph) ✅ mechanism complete (rewritten in 2026-09 as multi-genre sync, replacing the original writings-only minimal version)
+- ✅ **Multi-genre `SyncVault`**: the vault's top-level folders route by genre into the `corpus_notes` node tree (`backend/internal/corpus/obsidian/sync.go`, `corpGenres = {wiki, subjectivity}` + raw). The writings layer additionally has manual bulk export (zip)/import. **output has no matching folder** — it is promote-derived, not fed from the vault; that is by design, not a gap.
+- ✅ **Folder-note collapsing is implemented**: `basename(file)==basename(dir)` → that file is a folder note, node path = the directory path (`sync_tree.go` `nodePathFor`); missing folder notes in intermediate segments get an empty placeholder automatically.
+- ✅ **Open question answered**: wiki `parent_id` is derived from the vault folder tree (folder tree → node path, same `nodePathFor`).
+- Coverage: sync-a…sync-k / sync-authoritative-prune / sync-e-links / note-refs-unified and other e2e; the only self-acknowledged gap = aligning the importer with the vault's own scripts (`#107` manual verification against the real local vault).
+- Related specific items: `#151` (raw grading/hierarchy), `#113` (`seo_indexed`→`published`, aligned with the vault's `publish` gate), `#114` (split out landing/reader).
+
+### 1b · Retrieval side (crawling this graph) ✅
+- ✅ `corpus_search`/`_read`/`_list` over Postgres full-text search; `corpus_map` navigation **crawls only the tree** (parent_id).
+- ✅ **Graph crawling (graph retrieval) = agent-driven, by design**: `corpus_links` gives a node's 1-hop outgoing edges + incoming edges (backlinks), each neighbor passes through ACL (`corpus/usecase/corpus_lister_pg_links.go` `Links()`); the agent follows `[[links]]` deeper one hop at a time on its own (stated explicitly in the block instructions `retrieval-mcp.js:27-31`). Multi-hop traversal is left to the agent's reasoning; it is not a gap.
+- **Decision (2026-09-18): do not build a server-side single-pass walk/rank**. Relevance ranking = reasoning, which belongs to the agent; same origin as 1b's "no vectors, relevance = links the owner wrote"; the server ranking for the agent = going backwards. See the decision record [`docs/design/corpus-graph-retrieval.md`](corpus-graph-retrieval.md) (only if visitor chat round-trip latency really bites would we consider a purely deterministic walk = option ②, still without ranking).
+- **Decision made**: **deliberately no vector/pgvector** — relevance = the `[[links]]` the owner wrote, not a semantic distance guessed by a model.
+- Landing design still to add: BFS depth/ranking caps, how ACL enters the query (don't crawl into entries the role cannot see), how to merge with full-text search.
+- Related: `#150` (output backlinks — output/writings need an edge table like wiki, so the graph can connect).
+
+### 1c · Rendering symmetry (both sides from the same source) 🟡
+- ✅ KaTeX + Mermaid (D-6).
+- ✅ **Callout `> [!theorem]`**: `markdown-callouts.ts` (a hand-written mdast walk, without pulling in unist-util-visit) turns a `> [!type] Title` blockquote into `blockquote.callout[data-callout=type]` + `.callout-title` (DOM aligned with Obsidian); wired into the ChatMarkdown pipeline (wiki/output/restricted); `data-callout` is on the rehype-sanitize allowlist; the `.callout` base style uses the design palette and the owner can override it per type. **Verified by screenshot** (theorem / warning callout boxes render correctly).
+- ✅ **TikZ precise math diagrams**: ` ```tikz ` → node-tikzjax (= the same engine as obsidian-tikzjax, consistent on both sides) renders SVG on the server, the client fetches lazily (the heavy WASM stays out of the client bundle). serverExternalPackages + outputFileTracingIncludes bring the TeX runtime assets (core.dump.gz etc.) into standalone; 25s fail-fast degradation. **RED→GREEN** (render-tikz).
+- ✅ **`standmeet-widget` sandboxed iframe block (v1)**: a JSON descriptor (src/height/sandbox) inside a fenced block → sandboxed `<iframe>`; sandbox defaults to the minimal `allow-scripts` (no allow-same-origin); mount-guard → `seo:false` (mounted on the client only, not in SSR/indexing); malformed input degrades. **RED→GREEN** (render-widget). **postMessage protocol (render-data/resize/requestCapability) + per-block ACL are deferred** — left for a separate design round (unified with the MCP Apps `ui://` renderer).
+- ✅ **Sync the owner's Obsidian CSS snippets** (owner decision 2026-07, **changing the original "never import CSS" design**): `.obsidian/snippets/<enabled>.css` is synced in as StandMeet page CSS, so "both sides look exactly the same". All three points landed: (a) vault-ingestion opens a harvest allowlist for `.obsidian/snippets/*.css` + `appearance.json` (no longer "ignore every dot prefix"); (b) **sanitize** — strip `@import`/external+js `url()`/`expression()`/`-moz-binding`, and scope every selector to `.corpus-content`; (c) three surfaces (vault-sync / admin PUT `/appearance/css` / MCP `set_owner_css`) write the same `owners.custom_css`; **plus a per-note `cssclasses` frontmatter presentation hook** (written by the three surfaces, returned by corpus_read). owner-css-* / cssclasses-surfaces / sync-g-hidden all green.
+  **Real rendering is wired (only this counts as done, not just a green backend)**: the public `GET /api/v1/appearance.css` (text/css) is referenced by the reader's `<link>` (a real stylesheet resource, not an inline `<style>`); `CorpusContent` has two layers — `.corpus-content` as the scope anchor, per-note cssclasses on an inner div (so the owner's `.theorem{…}`, scoped to `.corpus-content .theorem`, can match). All four reader surfaces wiki/output/writings/restricted are wired. **Each one checked by screenshot** (owner snippet changing h2/blockquote/code, `.boxed` drawing a box, callout). The earlier ✅ was marked early when only backend store/read existed and frontend rendering was not wired; rendering is now complete.
+
+### 1d · Leveraging the Obsidian ecosystem (don't host plugins; borrow their output/code/signals) ⬜
+**Obsidian plugins cannot run inside StandMeet** (the closed-source Electron host = that wall; even Obsidian's own Publish cannot run plugins). But the ecosystem's value comes in by three routes:
+- **Authoring helpers** (Templater/QuickAdd) → not needed — they only run while writing and leave plain markdown behind, which we ingest directly.
+- **Rendering** (KaTeX/Mermaid/TikZ) → **don't use the plugins; use the underlying libraries directly** (see 1c).
+- **Dataview-like (query) → build it natively, and stronger**: the corpus already is a real DB (Postgres) + frontmatter + `wiki_refs`, so it can run Dataview-style queries, stronger than Dataview-over-files. ✅ **"Corpus query" is built**: a ` ```standmeet-query ` fenced block in the note body (genre/tag/children-of/sort/limit DSL) is resolved server-side at corpus_read time into a live `[[Title]]` list, ACL by construction (uses the reader's own grantedGlobs; owner-only genres do not leak). query-render / query-acl / query-errors all green.
+- **When a plugin is truly needed → owner-side export pre-rendering** (the Dataview Publisher / Digital Garden approach, baking the dynamic parts into static markdown); StandMeet ingests the baked result. This is also exactly Obsidian Publish's own solution (a browser app that only runs core rendering + `publish.css`).
+- **Execute Code (Jupyter-style)**: runs as usual on the owner side; to show code+output → store the output in the note, then ingest; **for live execution on the served page → reuse StandMeet's own hardened sandbox** (`skill_run_script`/`internal/sandbox`: bwrap + `--network=none` + allowlist); don't copy Execute Code's "local machine, no sandbox" model (#5 isolation).
+
+### 1e · The shape of sync (current state vs design) 🟡
+- 🟡 Today it is a **bespoke endpoint** (`routes/admin/obsidian.go`, two buttons export/import), independent of connectors.
+- The design (decision point **P.9**) says: **connectors have two modes, action / sync, under one abstraction; "Obsidian = sync"**. → In future the vault sync can be **unified into a sync-mode connector** (the same connector substrate as calendar/mail, ingest instead of action). Whether to unify is the **seam** between Block 1 and Block 2.
+- Related: `#107` (manual verification against your **real local vault**), `#108` (verification plan for real external services — the kind that cannot be e2e).
+
+> **Block 1 summary**: the data (tree + edges) is all in place, and the decisions (non-vector / portable / per-host but optional owner CSS sync / don't host plugins, borrow their output) are all settled; **the risk is local and does not ripple through everything**.
+
+---
+
+## Block 2 · Platform architecture #135 (three layers: A–H mechanism / "replacement" migration / driver)
+
+End state (design doc): **core = corpus + visitor chat + AccessCode + PDF + AI provider + one plugin loader, zero capabilities**; `MustRegister` + the in-process registry are **all deleted**; every capability migrates into an independent standard MCP server. View this block as **three layers**, and don't mix them:
+
+### Layer ① · Phase A–H (mechanism) — basically ✅, only Phase D remains
+> Note: A–H are **implementation phases** (in tasks/tests); the design doc itself uses decision points P.1–P.13.
+
+| Phase | What it is | Status |
 |---|---|---|
-| **A**(C0+C1–C4) | 先写全红测试 → PluginManifest / mcpclient stdio+transport / pluginCapability 泛化 / boot 发现接 composition root | ✅ `#146/#136-139` |
-| **B** | connector 层(Nango-proxy) | ✅ `#140`(本 session 审干净、146/146) |
-| **C** | skill = Agent Skills(SKILL.md + 渐进加载) | ✅ `#141`(~90%,最轻) |
-| **D · 解散** | ACL 已成(session 建立时发现过滤);观察器 = 设备/系统可观测面(小 Zabbix);secret-scan 并进 connector(B) | ✅ `#101` 观测面已真实(gopsutil host disk/mem/load + cgroup CPU/mem + 真 db/redis/storage/search ping,`cmd/server/port/sysinfo.go`);ACL/secret-scan 已归位 |
-| **E** | as-MCP-server facade(聚合插件 owner 工具成单端点) | ✅ `#143` |
-| **F** | MCP Apps UI(`ui://` 卡片在 chat 渲染) | ✅ `#134` |
-| **(G)** | (task 里无 G,跳过/未编号) | — |
-| **H** | 管理面(origin + enable/disable + admin 能力面板) | ✅ `#145` |
+| **A** (C0+C1–C4) | Write all-red tests first → PluginManifest / mcpclient stdio+transport / generalize pluginCapability / boot discovery wired into the composition root | ✅ `#146/#136-139` |
+| **B** | Connector layer (Nango-proxy) | ✅ `#140` (audited clean this session, 146/146) |
+| **C** | skill = Agent Skills (SKILL.md + progressive loading) | ✅ `#141` (~90%, the lightest) |
+| **D · Dissolve** | ACL done (discovery filtering at session setup); observer = device/system observability surface (a small Zabbix); secret-scan merged into connectors (B) | ✅ `#101` observability surface is real (gopsutil host disk/mem/load + cgroup CPU/mem + real db/redis/storage/search ping, `cmd/server/port/sysinfo.go`); ACL/secret-scan are in place |
+| **E** | as-MCP-server facade (aggregates plugin owner tools into one endpoint) | ✅ `#143` |
+| **F** | MCP Apps UI (`ui://` cards rendered in chat) | ✅ `#134` |
+| **(G)** | (no G in the tasks; skipped/unnumbered) | — |
+| **H** | Management surface (origin + enable/disable + admin capability panel) | ✅ `#145` |
 
-→ **层① 已齐**(Phase D 的 `#101` 观测面已真实,见上表)。
+→ **Layer ① is complete** (Phase D's `#101` observability surface is real; see the table above).
 
-### 层② · "替换"迁移 —— **决策点 P.2 明写"迁移留到后期,先并存"** 🟡(eiab 2026-09 做了大半)
-机制(层①)搭好后,**everything-is-a-block(2026-09-13→18)把 visitor/leaf 能力 + connector 全外置成沙箱 JS block**:`ask_visitor`/`summarize_conversation`/`calendar.book`/`corpus.retrieval`/`mail.send` + `caldav`/`smtp`/`google-calendar`/`telegram` 现在都是 `backend/blocks/*/manifest.yaml` + JS server,无 per-capability Go;`me`/`seo`/`codes` 也不再是 registry fiber,而是域 `fp.Op` 经 convergence/dispatcher 投影。`backend/internal/connector/` 已清零(0 Go 文件)。
-**仍在核心(未外置)**:`jobs`/`resume`/`applications`(`owner/jobs` 的 `OwnerFibers`,仍 `MustRegister`)+ 几个 loader fiber。因此 `MustRegister`(`plugin/registry/registry.go`)+ 进程内 registry **仍在**,builtin 计数未到零(`ListByOrigin` 符号已删,origin 过滤走 `shipped.go` `Shipped()`/`OriginOf`)。feature floor(P.1c:横切 gating/state 全留 core)不得削减,每条有 spec 看守。**剩下的外置是收尾,不再牵一发动全身。**
-- → **设计 + 红先行测试计划已出**:[`docs/design/layer2-externalize-jobs.md`](layer2-externalize-jobs.md)。决策 = **拆**:`jobs`/`resume` → block(`blockstore` 撑);`applications.commit` → dispatcher `fp.Op`(留 host,像 me/seo/codes 那样脱离 `MustRegister`,因为它 issue AccessCode+role 是 deterministic state holder,不进沙箱)。目标 = **核内零 Go capability fiber**(`RegisterOwnerFibers` 清空,只剩 3 个 loader)。
+### Layer ② · "Replacement" migration — **decision point P.2 states explicitly "migration comes later; coexist first"** 🟡 (eiab did most of it in 2026-09)
+Once the mechanism (layer ①) was built, **everything-is-a-block (2026-09-13→18) externalized the visitor/leaf capabilities + all connectors into sandboxed JS blocks**: `ask_visitor`/`summarize_conversation`/`calendar.book`/`corpus.retrieval`/`mail.send` + `caldav`/`smtp`/`google-calendar`/`telegram` are now all `backend/blocks/*/manifest.yaml` + a JS server, with no per-capability Go; `me`/`seo`/`codes` are no longer registry fibers either, but domain `fp.Op`s projected through convergence/dispatcher. `backend/internal/connector/` is cleared out (0 Go files).
+**Still in core (not externalized)**: `jobs`/`resume`/`applications` (`OwnerFibers` in `owner/jobs`, still `MustRegister`) + a few loader fibers. So `MustRegister` (`plugin/registry/registry.go`) + the in-process registry **still exist**, and the builtin count has not reached zero (the `ListByOrigin` symbol is deleted; origin filtering goes through `shipped.go` `Shipped()`/`OriginOf`). The feature floor (P.1c: cross-cutting gating/state all stay in core) must not shrink; every item has a spec guarding it. **The remaining externalization is cleanup and no longer ripples through everything.**
+- → **Design + red-first test plan are out**: [`docs/design/layer2-externalize-jobs.md`](layer2-externalize-jobs.md). Decision = **split**: `jobs`/`resume` → blocks (backed by `blockstore`); `applications.commit` → dispatcher `fp.Op` (stays in the host and leaves `MustRegister` like me/seo/codes, because issuing AccessCode+role makes it a deterministic state holder and it does not go into the sandbox). Goal = **zero Go capability fibers in core** (`RegisterOwnerFibers` emptied, only the 3 loaders remain).
 
-### 层③ · agent-as-injectable-driver —— Bridge 抽象 ✅,runtime 形态 🚧
-- ✅ **Driver/Bridge 接口已抽**(`#153` agentcore 抽 Driver、`#154` eval 做成忠实 mini-host)——决策点 P.13 的结构实现落地了。
-- 🚧 **还差**:把"inject-and-launch"从 test-only 提成**一等 runtime 形态** → 并行跑很多 prompt、实验出好 prompt("eval 是类型系统";prompt 被验证而非设计)。这也是 eight-controls 里缺的**"质量半"**(selection/shaping)。
-
----
-
-## ~~块三 · prod 单机可部署~~ —— **砍掉**(2026-07 owner 决策)
-
-- server + 域名 + 证书那套是 **owner 在域名/服务器供应商那边自己绑**(不是我们出 Caddy/LE 自动签证书——CLAUDE.md 里"one command + 自动 LE"愿景**作废**)。
-- 我们只需**知道自己的域名**,而填写机制**已有**(owner profile `public_url` + `allowed-domains`,`routes/admin/public_url.go`+`domains.go`)。→ 等于已完成,不再是大块。
-- **2026-09-28 owner 改判(部分恢复)**:"学成熟自托管产品的做法"(PostHog hobby / Plausible CE)。新用户一条命令装:`infra/scripts/install.sh --domain D` 下载 compose、生成全部密钥写 `.env`(只写一次)、叠加 `infra/deploy/compose.caddy.yml`(Caddy `reverse-proxy`,单域名自动 LE),打印认领链接;不带 `--domain` 叠加 `compose.port.yml` 自带代理。**只做单个固定域名**,不是当初砍掉的多域名按需签发。验证:`make install-e2e`(docker-in-docker 干净主机 → HTTPS 认领/登录/主页 → 重跑保留 `.env`)。
+### Layer ③ · agent-as-injectable-driver — Bridge abstraction ✅, runtime shape 🚧
+- ✅ **The Driver/Bridge interface is extracted** (`#153` agentcore extracts Driver, `#154` eval made into a faithful mini-host) — the structural implementation of decision point P.13 has landed.
+- 🚧 **Still missing**: promote "inject-and-launch" from test-only to a **first-class runtime shape** → run many prompts in parallel and find good prompts experimentally ("eval is the type system"; prompts are verified, not designed). This is also the missing **"quality half"** (selection/shaping) of eight-controls.
 
 ---
 
-## 非大块(杂活清理,一轮 pass 搞定)
+## ~~Block 3 · prod single-machine deployable~~ — **cut** (owner decision 2026-07)
 
-真独立、跟两大块无关、可穿插做:`#103`(role 卡编辑 prompt)、`#104`(per-code prompt)、`#106`(inference 计费)、`#117`(URL env prod fallback)、`#152`(mock 正名)、`#100`+`#115`(recovery phrase + 测)、`#111`(TOTP,以后)、`#126`(interview→application,job-loop)、`#116`(今天改动走查)、`#133`(Gmail 真域名自测——connector 已完 + 部署侧手动验证)。
-
-**轻耦合(能独立,但会被大块碰到,注意顺序)**:`#105`(MCP key 下载+README——碰块二 MCP 端点,建议块二后定稿)、`#132`(通用重试 HTTP infra + 禁 raw http——给块二插件铺路,先做不冲突)、`#109`/`#110`(chat summarize/booking 按钮——只调端点,externalize 在端点背后,可独立)、`#129`(summary revise——能力内逻辑,可独立)。
-
-> 归位说明:`#101`(观察器=小 Zabbix)→ 块二 Phase D;`#102`(/admin/seo 真后端)→ **块一**(seo 是 misnomer = 公开 corpus landing/reader,见 1a/1c);`#118`(MCP vs HTTP admin parity)→ **块二 层②**(as-MCP-server,externalize 时校验)。这三个本是大块的一部分,曾被误列成杂活。
-
-## 已 deferred
-
-- **multi-vault ingestion** 🚧:把 vault 从 sync-unit 降为 named source(git-monorepo 当传输,namespace 子树,per-source snapshot diff)。明确**单 vault 先行**,以后再说。
+- The server + domain + certificate setup is something **the owner binds on their own at the domain/server provider** (we do not ship Caddy/LE automatic certificates — the "one command + automatic LE" vision in CLAUDE.md is **void**).
+- We only need to **know our own domain**, and the mechanism to fill it in **already exists** (owner profile `public_url` + `allowed-domains`, `routes/admin/public_url.go`+`domains.go`). → Effectively done; no longer a major block.
+- **2026-09-28 owner reversal (partial restore)**: "learn from how mature self-hosted products do it" (PostHog hobby / Plausible CE). A new user installs with one command: `infra/scripts/install.sh --domain D` downloads compose, generates all secrets into `.env` (written once only), layers `infra/deploy/compose.caddy.yml` (Caddy `reverse-proxy`, automatic LE for a single domain), and prints the claim link; without `--domain` it layers `compose.port.yml` and you bring your own proxy. **Only a single fixed domain**, not the on-demand multi-domain issuance that was cut originally. Verification: `make install-e2e` (docker-in-docker clean host → HTTPS claim/login/home page → rerun keeps `.env`).
 
 ---
 
-## 我的推荐顺序(理由)
+## Not major blocks (odd-job cleanup, done in one pass)
 
-1. **块一先做,且从 1b 爬网检索起步**——边表已建、非 vector 已定、直接让检索质量跃升(dialogic retrieval over owner 的图 = 差异化本身),且**不依赖同步侧先补全**。
-2. 然后 **1a**(folder-note + wiki/output 同步,把更多喂进图)。
-3. 再 **1c**(callout / tikz / widget iframe / owner-CSS 同步)。
-4. **块二**(平台替换 + driver)——结构性,想清楚再动,可与块一错开。
+Truly independent, unrelated to the two major blocks, can be interleaved: `#103` (role card prompt editing), `#104` (per-code prompt), `#106` (inference billing), `#117` (URL env prod fallback), `#152` (rename mocks properly), `#100`+`#115` (recovery phrase + tests), `#111` (TOTP, later), `#126` (interview→application, job-loop), `#116` (walk through today's changes), `#133` (Gmail real-domain self-test — connector done + manual verification on the deploy side).
 
-**每个 🚧/⬜ 要动手前先出 design + tests**(块一各片的落地设计:1b 的 BFS 深度/排序/ACL 进 query;1a 的 parent_id 从文件夹推;1c widget 的 postMessage schema + CSS sanitize 规则)。
+**Lightly coupled (can be done independently, but the major blocks will touch them; mind the order)**: `#105` (MCP key download + README — touches the Block 2 MCP endpoint; suggest finalizing after Block 2), `#132` (generic retry HTTP infra + ban raw http — paves the way for Block 2 plugins; no conflict doing it first), `#109`/`#110` (chat summarize/booking buttons — only call endpoints; externalization sits behind the endpoints, so independent), `#129` (summary revise — logic inside a capability, independent).
+
+> Reassignment note: `#101` (observer = small Zabbix) → Block 2 Phase D; `#102` (/admin/seo real backend) → **Block 1** (seo is a misnomer = public corpus landing/reader, see 1a/1c); `#118` (MCP vs HTTP admin parity) → **Block 2 layer ②** (as-MCP-server, verified during externalization). These three were originally part of the major blocks and had been mislisted as odd jobs.
+
+## Deferred
+
+- **multi-vault ingestion** 🚧: demote the vault from sync-unit to named source (git-monorepo as transport, namespaced subtrees, per-source snapshot diff). Explicitly **single vault first**; later.
+
+---
+
+## My recommended order (with reasons)
+
+1. **Block 1 first, starting with 1b graph-crawling retrieval** — the edge table is built and non-vector is decided, so retrieval quality jumps directly (dialogic retrieval over the owner's graph = the differentiation itself), and it **does not depend on finishing the sync side first**.
+2. Then **1a** (folder-note + wiki/output sync, feeding more into the graph).
+3. Then **1c** (callout / tikz / widget iframe / owner-CSS sync).
+4. **Block 2** (platform replacement + driver) — structural; think it through before moving; can be staggered with Block 1.
+
+**Before starting each 🚧/⬜, produce a design + tests first** (landing designs for each slice of Block 1: 1b's BFS depth/ranking/ACL in the query; 1a's parent_id derived from folders; 1c widget's postMessage schema + CSS sanitize rules).

@@ -1,19 +1,19 @@
-// product-page.App.tsx —— **这一页存在的理由是证明天花板在哪里。**
+// product-page.App.tsx — **this page exists to prove where the ceiling is.**
 //
-// 托管页跑的是一次真的 vite 构建，产物由实例自己服务，**没有任何 CSP**。所以页面能放的
-// 东西跟一张普通网页完全一样：远端图片、远端视频、远端音频、iframe、远端字体、CSS 动画、
-// 自己的布局。媒体全部走 **URL**，一个字节都不进构建产物 —— 换一张图不用重新构建。
+// A hosted page runs a real vite build, and the instance serves the output itself, with **no CSP at all**. So a page can hold
+// exactly what an ordinary web page can: remote images, remote video, remote audio, iframes, remote fonts, CSS animation,
+// its own layout. All media goes by **URL**; not one byte enters the build output — swapping an image needs no rebuild.
 //
-// 同时它还是一张**活的**页：语料从实例读（`fetchPage` / `fetchWikiLanding`），
-// 问答走这张码自己的 agent（`useChatSession` 接手已颁发的 session）。
-// 一张既是商品页又能回答问题的页 —— 这是 WordPress 那一侧做不到的那半。
+// It is also a **live** page: the corpus is read from the instance (`fetchPage` / `fetchWikiLanding`),
+// and questions go to this code's own agent (`useChatSession` takes over the already-issued session).
+// A page that is both a product page and answers questions — that is the half the WordPress side cannot do.
 
 import { useEffect, useRef, useState } from "react";
 import { StandMeetProvider, useStandMeet, useChatSession, AnswerText } from "@standmeet/sdk";
 import { byoaiOffered, hasVisitorGrant } from "@standmeet/sdk-core";
 
 type Card = { wiki_id: string; title: string; excerpt: string; path: string };
-// Landing —— 取回一条语料时拿到的东西。`assets` 是挂在它上面的文件（签名地址，一小时有效）。
+// Landing — what you get back when you fetch one corpus entry. `assets` are the files attached to it (signed addresses, valid for one hour).
 type Asset = {
   asset_id: string; kind: string; content_type: string;
   original_filename: string; url: string; size_bytes: number;
@@ -24,7 +24,7 @@ type Page = {
   content: { hero_prose: string; insights: readonly Card[]; projects: readonly Card[] };
 };
 
-// 远端素材。**全是 URL** —— 构建产物里没有一个字节的媒体。
+// Remote media. **All URLs** — not one byte of media in the build output.
 const MEDIA = {
   video: "https://mdn.github.io/shared-assets/videos/flower.mp4",
   poster: "https://picsum.photos/id/1043/1600/900",
@@ -36,10 +36,10 @@ const MEDIA = {
     { src: "https://picsum.photos/id/1062/900/1200", alt: "audiobook karaoke" },
   ],
   portrait: "https://picsum.photos/id/1005/400/400",
-  // 这里**没有**那张海报的地址 —— 它已经不是远端素材了。
-  // 它经 `assets.upload` 被拉进实例自己的存储，页面运行时从语料上取（见 <Hosted/>）。
-  // 顺便记下那次踩的坑：owner 递过来的是 `zh.wikipedia.org/wiki/File:…`，那是**说明页**
-  // 不是图；真文件在 `upload.wikimedia.org/…`，要问一次 API 才拿得到。
+  // The poster's address is **not** here — it is no longer remote media.
+  // `assets.upload` pulled it into the instance's own storage; the page takes it from the corpus at runtime (see <Hosted/>).
+  // A note on the pitfall we hit: the owner handed over `zh.wikipedia.org/wiki/File:…`, which is a **description page**,
+  // not the image; the real file is at `upload.wikimedia.org/…`, and getting it takes one API call.
   map:
     "https://www.openstreetmap.org/export/embed.html" +
     "?bbox=2.2241%2C48.8156%2C2.4699%2C48.9022&layer=mapnik",
@@ -60,7 +60,7 @@ body{margin:0;background:var(--paper);color:var(--ink);
   font-size:.63rem;letter-spacing:.2em;text-transform:uppercase}
 .wrap{max-width:82rem;margin:0 auto;padding:0 clamp(1.25rem,4vw,3.5rem)}
 
-/* ── hero：整幅视频，标题压在上面 ─────────────────────────── */
+/* ── hero: full-bleed video, title laid over it ──────────────── */
 .hero{position:relative;min-height:min(86vh,52rem);overflow:hidden;background:var(--night)}
 .hero video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.5}
 .hero .veil{position:absolute;inset:0;
@@ -91,7 +91,7 @@ a.ghost:hover{border-bottom-color:var(--red)}
 .ticker span{display:inline-block;animation:slide 34s linear infinite;padding-left:100%}
 @keyframes slide{to{transform:translateX(-100%)}}
 
-/* ── 规格表 ───────────────────────────────────────────────── */
+/* ── spec table ───────────────────────────────────────────── */
 .specs{display:grid;grid-template-columns:1fr;gap:0;margin:clamp(3rem,7vw,6rem) 0 0;
   border-top:2px solid var(--ink)}
 @media(min-width:52rem){.specs{grid-template-columns:repeat(4,1fr)}}
@@ -101,7 +101,7 @@ a.ghost:hover{border-bottom-color:var(--red)}
 .spec .k{color:var(--muted)}
 .spec .v{font-size:1.6rem;letter-spacing:-.02em;margin-top:.45rem;font-variant-numeric:tabular-nums}
 
-/* ── 图廊：不等大 ─────────────────────────────────────────── */
+/* ── gallery: uneven sizes ────────────────────────────────── */
 .gallery{display:grid;grid-template-columns:repeat(2,1fr);gap:clamp(.6rem,1.5vw,1.2rem);
   margin-top:clamp(3rem,7vw,5.5rem)}
 @media(min-width:52rem){.gallery{grid-template-columns:repeat(6,1fr);
@@ -119,26 +119,26 @@ figure figcaption{position:absolute;left:0;bottom:0;padding:.5rem .7rem;color:#F
   .g3{grid-column:span 3}
 }
 
-/* ── 分栏 ─────────────────────────────────────────────────── */
+/* ── columns ──────────────────────────────────────────────── */
 .cols{display:grid;grid-template-columns:1fr;gap:clamp(2rem,5vw,4rem);
   margin-top:clamp(3.5rem,8vw,6rem)}
 @media(min-width:62rem){.cols{grid-template-columns:1.55fr 1fr;align-items:start}}
 h2{font-size:clamp(1.8rem,3.4vw,2.9rem);letter-spacing:-.025em;line-height:1.05;margin:0 0 1rem}
 .lede{font-size:1.18rem;line-height:1.6;max-width:36em;color:#3A342C}
 
-/* ── 随手贴进来的一张图 ───────────────────────────────────── */
+/* ── an image pasted in on the fly ────────────────────────── */
 .pasted{display:flex;gap:clamp(1.2rem,3vw,2.2rem);align-items:center;
   margin-top:clamp(2.5rem,6vw,4rem);padding-top:clamp(2rem,4vw,2.5rem);
   border-top:1px solid var(--rule);flex-wrap:wrap}
 .pasted img{width:clamp(9rem,14vw,13rem);height:auto;display:block;
   box-shadow:0 18px 40px -18px rgba(27,24,20,.55)}
 
-/* ── 音频 ─────────────────────────────────────────────────── */
+/* ── audio ────────────────────────────────────────────────── */
 .audio{display:flex;gap:1.1rem;align-items:center;flex-wrap:wrap;
   border-left:2px solid var(--red);padding:1rem 0 1rem 1.2rem;margin-top:2.2rem}
 .audio audio{height:2.2rem}
 
-/* ── 语料 ─────────────────────────────────────────────────── */
+/* ── corpus ───────────────────────────────────────────────── */
 ol.notes{list-style:none;margin:1.2rem 0 0;padding:0;border-top:1px solid var(--rule)}
 li.note{border-bottom:1px solid var(--rule);opacity:0;transform:translateY(8px);
   animation:rise .55s cubic-bezier(.22,1,.36,1) forwards}
@@ -151,7 +151,7 @@ button.row:hover .t{color:var(--red)}
 .ex{margin:0 0 .9rem;color:var(--muted);font-size:.95rem;line-height:1.5;max-width:44em}
 .open{border-left:2px solid var(--red);padding:.2rem 0 .2rem 1.1rem;margin:1.4rem 0 0}
 
-/* ── 问答 ─────────────────────────────────────────────────── */
+/* ── Q&A ──────────────────────────────────────────────────── */
 .rail{position:sticky;top:2rem}
 .ask{border-top:2px solid var(--ink);padding-top:.9rem;margin-top:.5rem}
 .ask input{width:100%;background:none;border:0;border-bottom:1px solid var(--rule);
@@ -164,7 +164,7 @@ button.row:hover .t{color:var(--red)}
 .seller{display:flex;gap:.9rem;align-items:center;margin-top:2rem}
 .seller img{width:44px;height:44px;border-radius:50%;object-fit:cover}
 
-/* ── 地图 + 页脚 ──────────────────────────────────────────── */
+/* ── map + footer ─────────────────────────────────────────── */
 .map{margin-top:clamp(3rem,7vw,5rem);border:1px solid var(--rule)}
 .map iframe{display:block;width:100%;height:clamp(16rem,32vw,24rem);border:0}
 footer{background:var(--night);color:#9A9081;margin-top:clamp(3rem,7vw,5rem);
@@ -175,7 +175,7 @@ footer a{color:#DCD3C4}
 function Hero({ page }: { page: Page | null }) {
   return (
     <header className="hero">
-      {/* 远端 mp4。autoplay 要 muted + playsInline，否则浏览器不给放。 */}
+      {/* Remote mp4. autoplay needs muted + playsInline, or the browser refuses to play it. */}
       <video src={MEDIA.video} poster={MEDIA.poster} autoPlay muted loop playsInline
              data-sm="hero-video" />
       <div className="veil" />
@@ -191,8 +191,8 @@ function Hero({ page }: { page: Page | null }) {
           <a className="buy mono" href="#buy">add to cart</a>
           <a className="ghost mono" href="#notes">read the thinking ↓</a>
         </div>
-        {/* 分隔符只在**两边都有东西**时才出现。上一版无条件拼「名字 · 地点」，
-            而这个实例没填地点 —— 屏幕上就是 `SIJIE WANG ·`，一个指向空处的点。 */}
+        {/* The separator appears only when **both sides have something**. The previous version always joined "name · location",
+            and this instance has no location set — the screen showed `SIJIE WANG ·`, a dot pointing at nothing. */}
         <p className="mono" style={{ marginTop: "2rem", color: "#9A9081" }} data-sm="byline">
           {page ? [page.owner.full_name, page.owner.location].filter(Boolean).join(" · ") : " "}
         </p>
@@ -234,15 +234,15 @@ function Gallery() {
   );
 }
 
-// Hosted —— **这一张是我们自己在服务的**。
+// Hosted — **this image is one we serve ourselves**.
 //
-// 上一版直接热链维基百科；那能用，但没必要：`assets.upload` 收一个地址、**服务端自己去取**、
-// 字节落进实例的对象存储，从此这张图跟第三方站点再无关系（它挂了、改了、防了盗链，都不影响）。
+// The previous version hotlinked Wikipedia directly; that worked, but was unnecessary: `assets.upload` takes an address, **the server fetches it itself**,
+// and the bytes land in the instance's object storage. From then on the image has nothing to do with the third-party site (if it goes down, changes, or blocks hotlinking, nothing breaks).
 //
-// 两件事因此必须在**运行时**做，不能写死在源码里：
-//   · 地址是**签名 URL，一小时过期** —— 粘进构建产物的话，页面上线一小时后就是一片碎图。
-//   · 素材挂在**语料条目**上（asset 必须有 holder），所以取它的路径是「取那条笔记，读它的 assets」。
-// 也就是说：这一块每次打开都是新拿的，跟撤下语料立刻生效是同一件事。
+// So two things must happen at **runtime** and cannot be hard-coded in the source:
+//   · The address is a **signed URL that expires in one hour** — pasted into the build output, the page would be all broken images an hour after going live.
+//   · The asset hangs on a **corpus entry** (an asset must have a holder), so the path to it is "fetch that note, read its assets".
+// In other words: this block is fetched fresh on every view, which is the same thing as withdrawing a corpus entry taking effect at once.
 function Hosted({ note }: { note: Landing | null }) {
   const shot = (note?.assets ?? []).find((a) => a.content_type.startsWith("image/"));
   if (!shot) return null;
@@ -278,7 +278,7 @@ function Sound() {
   );
 }
 
-// Notes —— 语料。**这一段是活的**：条目是实例里真的笔记，点开取回正文摘要。
+// Notes — the corpus. **This section is live**: the entries are real notes in the instance; opening one fetches its excerpt.
 function Notes({ cards, onOpen, open }: {
   cards: readonly Card[]; onOpen: (c: Card) => void;
   open: { title: string; excerpt: string; path: string } | null;
@@ -372,8 +372,8 @@ function Body() {
   const sm = useStandMeet();
   const [page, setPage] = useState<Page | null>(null);
   const [open, setOpen] = useState<Landing | null>(null);
-  // shot —— 实例自己在服务的那张图。跟着**第一条语料**取回来：素材挂在语料上，
-  // 所以拿它的路径就是「取那条笔记，读它的 assets」。每次打开都是新签的地址。
+  // shot — the image the instance serves itself. It comes back with the **first corpus entry**: assets hang on corpus entries,
+  // so the path to it is "fetch that note, read its assets". Every view gets a freshly signed address.
   const [shot, setShot] = useState<Landing | null>(null);
   const seen = useRef(false);
   useEffect(() => {
@@ -411,19 +411,19 @@ function Body() {
           <Ask />
         </div>
         <div className="map">
-          {/* 远端 iframe —— 第三方页面整块嵌进来。
-              **不加 loading="lazy"**：加了它只在读者滚到这里才去取（网络日志里根本没有
-              那次请求），而这一页存在的意义就是当证据，不该有一块要靠滚动才出现的东西。
-              注：整页截图里这块仍然是空的 —— Playwright 的 fullPage 拼接不等跨源 iframe
-              画完，跟 lazy 无关。真相在 `cpcb-93-map.png`（正常视口那张）。 */}
+          {/* Remote iframe — a whole third-party page embedded.
+              **No loading="lazy"**: with it, the frame is fetched only when the reader scrolls here (the network log has no
+              such request at all), and this page exists to serve as evidence, so nothing on it should appear only after scrolling.
+              Note: this block is still blank in the full-page screenshot — Playwright's fullPage stitching does not wait for a cross-origin iframe
+              to finish painting; that has nothing to do with lazy. The truth is in `cpcb-93-map.png` (the normal-viewport one). */}
           <iframe src={MEDIA.map} title="where this was built" data-sm="map" />
         </div>
       </div>
       <footer>
         <div className="wrap">
           <div className="mono">© {page ? page.owner.handle : " "} · built on standmeet</div>
-          {/* 这句话必须跟着页面走。上一版写「全部来自远端 URL」，而海报已经改成
-              实例自己在服务了 —— 屏幕上一句过期的断言，跟一个坏掉的功能一样是缺陷。 */}
+          {/* This sentence must track the page. The previous version said "all from remote URLs", but the poster had already moved to
+              being served by the instance itself — a stale claim on screen is as much a defect as a broken feature. */}
           <p style={{ marginTop: ".8rem", maxWidth: "44em" }}>
             Two ways in, both by URL and neither in the build: the gallery, video, audio and map
             come straight from <em>remote hosts</em>; the poster was pulled into this

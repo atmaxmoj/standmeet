@@ -19,7 +19,7 @@ a stale line-number in a comment is LOW.
 
 ## Coverage ledger — every finding accounted for (re-checked 2026-07-17)
 
-"별漏" pass: each finding maps to a **built test** (behavioral, gets RED→GREEN), a **no-test fix**
+"don't miss anything" pass: each finding maps to a **built test** (behavioral, gets RED→GREEN), a **no-test fix**
 (comments/cleanup — a comment can't be e2e-tested), or **deferred** (needs a data source that doesn't
 exist yet). Nothing is left un-tracked.
 
@@ -95,10 +95,10 @@ comment — it tells the next reader an area isn't built.
   phase; this surface is search-only." `InstallSkill`/`InstallManualSkill` are **in the same file**.
 - **B2 HIGH** `backend/internal/domain/marketplace.go:5` — "the frontend simulates install in client
   state." It POSTs to the real `/marketplace/install`; the backend fetches + parses SKILL.md.
-- **B3 HIGH** `applications-model.ts:7` — "data 还是 mock fixture, 等后端补 GET /applications." Real
+- **B3 HIGH** `applications-model.ts:7` — "data is still a mock fixture, waiting for the backend to add GET /applications." Real
   fetch exists, endpoint mounted, no fixture in the file. `ApplicationsSection.tsx:3` says the opposite.
-- **B4 HIGH** `DraftsSection.tsx:6` — "Composer 仍走 mockDraft 占位." It calls the real
-  `useDraftDetail` → `GET /drafts/{id}`; backend comment even says "替代 mockDraft 占位".
+- **B4 HIGH** `DraftsSection.tsx:6` — "Composer still uses the mockDraft placeholder." It calls the real
+  `useDraftDetail` → `GET /drafts/{id}`; backend comment even says "replaces the mockDraft placeholder".
 - **B5 LOW** `DraftThumb.tsx:7` — "Until /drafts/<id> exposes resume_content, we use mockDraft()." The
   "until" premise is false (it does now), though the thumb genuinely still calls mockDraft().
 - **B6** `AgentSkillsSection.tsx:5-9` — the "updates available banner when installed_version diverges
@@ -112,7 +112,7 @@ comment — it tells the next reader an area isn't built.
 ### C1 · MEDIUM — application status control looks like it persists; it's local `useState`
 `ApplicationDetailModal.tsx` StatusSegmented `onChange → setStatus` is `useState` (lines 26,208,213).
 Nothing is persisted; there is no status PATCH (backend `/applications` is GET-only, writes go through
-MCP `applications.commit`). Comment claims "status PATCH 走后端." The owner changes the status, it
+MCP `applications.commit`). Comment claims "status PATCH goes to the backend." The owner changes the status, it
 looks saved, a reload loses it. **Fix:** either wire a real PATCH or make it visibly read-only.
 
 ### C2 · HIGH — "edit on domain" link 404s
@@ -164,7 +164,7 @@ setting. So the instruction points at a nonexistent field editing a value that w
 - **E3 LOW/MED** `visitor-chat-citation-expand.spec.ts:79` + `visitor-chat-citation-multi.spec.ts:89` —
   `[data-testid=citation-body].toHaveCount(0)` on a testid that no longer exists = tautology. The specs
   carry other real assertions; only these lines are dead. Header docs describe removed expand-body UI.
-- **E4 HIGH — the parallel E-sweep MISSED this one; found on the "别漏" re-check.**
+- **E4 HIGH — the parallel E-sweep MISSED this one; found on the "don't miss anything" re-check.**
   `admin-raw-crud.spec.ts:42` test `"filter toggle → unprocessed vs all"` — its **entire body** is
   guarded by `if (rawFilterAll.isVisible().catch(()=>false))` on `raw-filter-all`, a testid that no
   longer exists in `app/src` (raw has no unprocessed/all filter control anymore — only the view
@@ -176,7 +176,7 @@ setting. So the instruction points at a nonexistent field editing a value that w
 
 ## G · Dead controls — a button that looks actionable and does nothing (NEW class, re-check)
 
-The five parallel sweep agents did not cover this shape. The "别漏" re-check found it.
+The five parallel sweep agents did not cover this shape. The "don't miss anything" re-check found it.
 
 - **G1 MEDIUM** `SkillsSection.tsx:42` — `<Btn kind="outline">{t('rebuild')}</Btn>` has **no `onClick`**.
   A "rebuild" button the owner can click that does nothing (there is no rebuild action/endpoint). Same
@@ -198,7 +198,7 @@ The five parallel sweep agents did not cover this shape. The "别漏" re-check f
   2889; etc.). Line numbers rot the instant the design file is edited and nothing checks them.
   **Fix:** cite the component name, drop the line span.
 - **F2 LOW — surplus exports** consumed only in their own file (`toast.tsx:80 useToastList` — its own
-  comment says "其他人不该用" yet it's exported; `use-ghost-telemetry.ts:46`). Live code, unnecessary
+  comment says "nobody else should use this" yet it's exported; `use-ghost-telemetry.ts:46`). Live code, unnecessary
   `export`.
 - **Cleared:** i18n `ignoreAttribute` dead-config does NOT exist here (the config documents why it'd be
   inert and omits it). Backend `Config` fields all consumed. `HeatBar`/`HeatBarFill` fully removed.

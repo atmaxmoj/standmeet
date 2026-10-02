@@ -1,549 +1,559 @@
-# 行为蒸馏系统设计
+# Behavior Distillation System Design
 
 ## Abstract
 
-从 OS 级行为监控到 agent 可用的人格模型。核心类比：**系统是一个学徒，通过观察师傅的行为来学习师傅是谁**。好学徒不是记录一切，而是知道看什么、怎么看、什么时候承认自己不懂。
+From OS-level behavior monitoring to a persona model an agent can use. The core analogy: **the system is an apprentice that learns who the master is by watching how the master works**. A good apprentice does not record everything; it knows what to look at, how to look at it, and when to admit it does not understand.
 
-记忆的目的不是描述师傅，是**在新场景中像师傅一样做**。
+The purpose of memory is not to describe the master; it is to **act like the master in new situations**.
 
 ---
 
-## 设计原则：好学徒怎么学
+## Design principles: how a good apprentice learns
 
-| 好学徒会… | 差学徒会… | 系统对应 |
+| A good apprentice… | A bad apprentice… | System counterpart |
 |-----------|----------|---------|
-| 看完整件事再总结 | 老师做一步就记一步 | 按任务边界切 chunk，不按固定时间 |
-| 注意老师没做什么 | 只记老师做了什么 | 回避模式检测 |
-| 观察压力下的变化 | 只看常态表现 | 压力状态标记 |
-| 跨场景归纳"为什么" | 只记录"是什么" | 向量搜索 + 跨领域联想 |
-| 模仿后对比差异 | 只观察不实践 | 主动学习回路 |
-| 不确定时说"我不知道" | 瞎编答案 | confidence 门槛 + 未答问题反馈 |
+| Watches the whole job before summarising | Writes down each step as the teacher makes it | Cut chunks at task boundaries, not at fixed time intervals |
+| Notices what the teacher did not do | Records only what the teacher did | Avoidance pattern detection |
+| Watches how behavior changes under pressure | Watches only normal performance | Pressure state marking |
+| Generalises "why" across situations | Records only "what" | Vector search + cross-domain association |
+| Imitates, then compares the difference | Only watches, never practises | Active learning loop |
+| Says "I don't know" when unsure | Makes up an answer | Confidence threshold + unanswered-question feedback |
 
-### 理论基础
+### Theoretical foundations
 
-| 学科 | 核心洞察 | 对应设计 |
+| Discipline | Core insight | Corresponding design |
 |------|---------|---------|
-| 认知任务分析 / RPD（Klein） | 专家靠情境-行动的模式匹配决策，不是决策树 | Playbook 用情境-行动对，不是 if-else |
-| 行为克隆 / DAgger | 边界纠正数据价值最高 | 主动学习时故意让 agent 在不确定场景回答 |
-| 隐性知识（Polanyi） | 大部分能力"说不出来" | 原始摘要池是隐性知识的唯一容器 |
-| 情境学习（Lave & Wenger） | 同一能力在不同情境下表现不同 | 所有 playbook 条目必须带情境标签 |
-| 遗忘曲线（Ebbinghaus） | 遗忘是功能，每次回忆强化记忆 | 记忆固化：被检索的保留，未检索的衰减 |
-| 必要多样性定律（Ashby） | 控制器的多样性必须 ≥ 被控系统的多样性 | Playbook 覆盖率指标：情境覆盖 / 实际情境种类 |
-| 二阶控制论（von Foerster） | 观察者改变被观察系统；控制器也会漂移 | 全自动条目定期强制降回建议模式，防止执行漂移 |
-| 正反馈放大（Wiener） | 不只纠偏（负反馈），也要放大好的变化 | 检测到效率提升时，识别并固化新模式 |
+| Cognitive task analysis / RPD (Klein) | Experts decide by situation-action pattern matching, not decision trees | Playbook uses situation-action pairs, not if-else |
+| Behavior cloning / DAgger | Corrections at the boundary are the most valuable data | During active learning, deliberately let the agent answer in uncertain situations |
+| Tacit knowledge (Polanyi) | Most ability "cannot be put into words" | The raw summary pool is the only container for tacit knowledge |
+| Situated learning (Lave & Wenger) | The same ability shows differently in different situations | Every playbook entry must carry a situation tag |
+| Forgetting curve (Ebbinghaus) | Forgetting is a feature; every recall strengthens the memory | Memory consolidation: retrieved items stay, unretrieved items decay |
+| Law of requisite variety (Ashby) | The controller's variety must be ≥ the variety of the controlled system | Playbook coverage metric: situations covered / kinds of situations actually met |
+| Second-order cybernetics (von Foerster) | The observer changes the observed system; the controller also drifts | Periodically force fully automatic entries back to suggest mode to prevent execution drift |
+| Positive feedback amplification (Wiener) | Do not only correct deviation (negative feedback); also amplify good changes | When an efficiency gain is detected, identify and lock in the new pattern |
 
 ---
 
-## 整体架构
+## Overall architecture
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│  采集层                                                    │
+│  Capture layer                                             │
 │                                                            │
-│  Screenpipe（广度采样，MIT 协议）                            │
-│  屏幕 accessibility tree / OCR / 音频 Whisper               │
-│  事件驱动捕获，5-10% CPU                                    │
+│  Screenpipe (breadth sampling, MIT license)                 │
+│  Screen accessibility tree / OCR / audio Whisper            │
+│  Event-driven capture, 5-10% CPU                            │
 │                                                            │
-│  本地工具日志（深度精确，按需查询）                            │
+│  Local tool logs (deep and precise, queried on demand)      │
 │  git log / shell history / browser history /                │
 │  file timestamps / docker logs / app usage                  │
 └──────────────────┬───────────────────────────────────────┘
-                   │ 原始事件流 ~100MB/天
+                   │ Raw event stream ~100MB/day
                    ▼
 ┌──────────────────────────────────────────────────────────┐
-│  信号过滤层                                                │
-│  ├── 转折点检测：修正 / 选择 / 顺序 / 停顿 / 放弃          │
-│  ├── 回避模式检测：可用但未使用的工具和路径                   │
-│  ├── 压力状态标记：频率突变、跳过常规步骤                     │
-│  └── 任务边界检测：识别完整任务的开始和结束                   │
-│  过滤掉 90% 噪音                                          │
+│  Signal filter layer                                       │
+│  ├── Turning-point detection: correct / choose / order /   │
+│  │   pause / abandon                                       │
+│  ├── Avoidance detection: tools and paths available but    │
+│  │   unused                                                │
+│  ├── Pressure state marking: frequency spikes, skipped     │
+│  │   routine steps                                         │
+│  └── Task boundary detection: find where a whole task      │
+│      starts and ends                                       │
+│  Filters out 90% of the noise                              │
 └──────────────────┬───────────────────────────────────────┘
-                   │ 高信号事件 ~5MB/天
+                   │ High-signal events ~5MB/day
                    ▼
 ┌──────────────────────────────────────────────────────────┐
-│  多层蒸馏管线                                               │
+│  Multi-layer distillation pipeline                          │
 │                                                            │
-│  秒级 ──规则──→ 微操特征库                                   │
-│  任务级 ─Haiku─→ 方法论库（按任务边界切）                     │
-│  小时级 ─统计──→ 节奏模式库                                   │
-│  天级 ──Sonnet─→ 决策风格库（agent loop）                    │
-│  周级 ──Opus──→ Playbook + Identity（agent loop）            │
+│  Second ──rules──→ micro-operation trait store              │
+│  Task ───Haiku──→ methodology store (cut at task bounds)    │
+│  Hour ───stats──→ rhythm pattern store                      │
+│  Day ───Sonnet─→ decision style store (agent loop)          │
+│  Week ───Opus──→ Playbook + Identity (agent loop)           │
 │        │                                                    │
-│        ├── Playbook 感知（启动时注入索引，agent 自主读写）     │
-│        ├── 下钻验证（索引链 → Screenpipe → 本地工具）         │
-│        └── 联想发现（find_similar 跨领域搜索）                │
+│        ├── Playbook awareness (index injected at start,     │
+│        │   agent reads/writes on its own)                   │
+│        ├── Drill-down check (index chain → Screenpipe →     │
+│        │   local tools)                                     │
+│        └── Association discovery (find_similar cross-domain │
+│            search)                                          │
 └──────────────────┬───────────────────────────────────────┘
                    │
        ┌───────────┼───────────┐
        ▼           ▼           ▼
    Playbook    Episodes     Meta
-  （复现用）  （向量DB）   （自知）
+  (to repro)  (vector DB) (self-know)
        │           │           │
        └───────────┼───────────┘
                    ▼
 ┌──────────────────────────────────────────────────────────┐
 │  StandMeet Agent                                          │
-│  ├── 复现行为：查 Playbook 的情境-行动对                     │
-│  ├── 价值观兜底：查 Identity 推理未见场景                     │
-│  ├── 临场应答：向量 DB retrieve 原始摘要                     │
-│  ├── confidence 门槛：不确定就说不知道                       │
-│  └── 主动学习回路：agent 草稿 vs 用户实际回复                 │
+│  ├── Reproduce behavior: look up Playbook situation-action │
+│  │   pairs                                                 │
+│  ├── Values fallback: use Identity to reason about unseen  │
+│  │   situations                                            │
+│  ├── Answer on the spot: vector DB retrieves raw summaries │
+│  ├── Confidence threshold: say "I don't know" when unsure  │
+│  └── Active learning loop: agent draft vs user's actual    │
+│      reply                                                 │
 └──────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 一、采集层：广度采样 + 深度精确
+## 1. Capture layer: breadth sampling + deep precision
 
-### 1.1 Screenpipe（广度采样层）
+### 1.1 Screenpipe (breadth sampling layer)
 
-什么都看一眼，事件驱动，CPU 5-10%。
-
-```
-捕获：屏幕文本（accessibility tree / OCR fallback）、音频转录（Whisper）
-频率：有事件时捕获，空闲时低频兜底
-输出：时间戳 + app 名 + 窗口标题 + 文本内容
-局限：采样，高频行为会有缝隙
-```
-
-### 1.2 本地工具日志（深度精确层）
-
-Screenpipe 有缝隙时，高阶 model 按需查询本地工具的原生日志。**这些日志已经在本地了，零存储成本，只在需要时才访问。**
-
-工具不预设——系统根据用户的工作环境**自动发现**可用的日志源：
+Glance at everything, event-driven, 5-10% CPU.
 
 ```
-自动发现逻辑：
-  检测 ~/.gitconfig 存在？       → 注册 git_log(repo, since, until)
-  检测 ~/.zsh_history 存在？     → 注册 shell_history(since, until)
-  检测 ~/Library/Safari/ 存在？  → 注册 browser_history(since, until)
-  检测 Figma 本地缓存？         → 注册 figma_history(since, until)
-  检测 Outlook/Calendar DB？     → 注册 calendar_events(since, until)
-  检测 Notion 本地缓存？         → 注册 notion_changes(since, until)
+Captures: screen text (accessibility tree / OCR fallback), audio transcription (Whisper)
+Frequency: capture on events, low-frequency fallback when idle
+Output: timestamp + app name + window title + text content
+Limit: it samples, so high-frequency behavior leaves gaps
+```
+
+### 1.2 Local tool logs (deep precision layer)
+
+When Screenpipe has gaps, the higher-tier model queries the native logs of local tools on demand. **These logs are already on the machine: zero storage cost, accessed only when needed.**
+
+The tools are not preset — the system **auto-discovers** the log sources available in the user's work environment:
+
+```
+Auto-discovery logic:
+  ~/.gitconfig exists?         → register git_log(repo, since, until)
+  ~/.zsh_history exists?       → register shell_history(since, until)
+  ~/Library/Safari/ exists?    → register browser_history(since, until)
+  Figma local cache found?     → register figma_history(since, until)
+  Outlook/Calendar DB found?   → register calendar_events(since, until)
+  Notion local cache found?    → register notion_changes(since, until)
   ...
 
-通用工具（所有用户都有）：
-  file_changes(directory, since, until)  → 文件修改记录（来自 fs 时间戳）
-  app_usage(since, until)                → 应用使用时长（macOS 原生 API）
-  clipboard_history(since, until)        → 剪贴板历史（如果启用）
+Universal tools (every user has them):
+  file_changes(directory, since, until)  → file modification records (from fs timestamps)
+  app_usage(since, until)                → app usage time (native macOS API)
+  clipboard_history(since, until)        → clipboard history (if enabled)
 
-本质：不是"给工程师配 git log"，是"看用户装了什么，就把什么的日志接进来"。
+The essence: not "give engineers git log", but "see what the user has installed, and wire in the logs of whatever is there".
 ```
 
-### 1.3 两层配合
+### 1.3 How the two layers work together
 
 ```
-场景 A（工程师）：Opus 下钻验证"他在 10:32-10:35 做了什么"
-  Screenpipe："10:32 VS Code commit 1857" → "10:35 commit 1845"（中间 12 个漏了）
-  → git_log 补全 → 8 个 refactor + 3 个 test → "重构冲刺"
+Scenario A (engineer): Opus drills down to check "what did he do between 10:32 and 10:35"
+  Screenpipe: "10:32 VS Code commit 1857" → "10:35 commit 1845" (12 in between were missed)
+  → git_log fills the gap → 8 refactors + 3 tests → "refactoring sprint"
 
-场景 B（律师）：Opus 下钻验证"她在 14:00-14:30 看了什么"
-  Screenpipe："14:00 打开 Westlaw" → "14:30 打开 Word 开始写"（中间查了什么？）
-  → browser_history 补全 → 5 个判例页面 + 2 个法条页面 → "她先查判例再查法条"
+Scenario B (lawyer): Opus drills down to check "what did she read between 14:00 and 14:30"
+  Screenpipe: "14:00 opened Westlaw" → "14:30 opened Word and started writing" (what did she look up in between?)
+  → browser_history fills the gap → 5 case-law pages + 2 statute pages → "she checks case law first, then statutes"
 
-场景 C（设计师）：Opus 下钻验证"他在 16:00-16:20 改了什么"
-  Screenpipe："16:00 Figma 打开" → "16:20 导出 PNG"（中间改了多少版？）
-  → file_changes 补全 → 7 次 autosave → "反复调整间距和颜色"
+Scenario C (designer): Opus drills down to check "what did he change between 16:00 and 16:20"
+  Screenpipe: "16:00 Figma opened" → "16:20 exported PNG" (how many versions in between?)
+  → file_changes fills the gap → 7 autosaves → "repeatedly adjusting spacing and color"
 ```
 
-原则：**不要预先把所有工具日志灌进数据库。给 agent 工具访问权限，让它需要时自己去拿。**（Peter 的语音 moment 同理）
+Principle: **do not pour every tool log into the database up front. Give the agent access to the tools and let it fetch what it needs when it needs it.** (Peter's voice-message moment follows the same idea.)
 
 ---
 
-## 二、信号过滤层
+## 2. Signal filter layer
 
-### 2.1 转折点检测（做了什么）
+### 2.1 Turning-point detection (what was done)
 
-| 转折点 | 暴露什么 | 捕获方式 | 信号强度 |
+| Turning point | What it reveals | How it is captured | Signal strength |
 |-------|---------|---------|---------|
-| **修正**：写了→删掉→重写 | 质量标准 | 输入框 diff | ★★★★★ |
-| **选择**：多个选项→选了一个 | 偏好排序 | 搜索 query + 点击 | ★★★★ |
-| **顺序**：做事的先后路径 | 方法论 | app 切换序列 + 时间戳 | ★★★★ |
-| **停顿**：长时间无操作→突然大动作 | 思考深度 | 事件间隔分析 | ★★★ |
-| **放弃**：开始→中途放弃→换方向 | 判断力 | 短开即关的文件、被删的大段输入 | ★★★ |
+| **Correct**: wrote → deleted → rewrote | Quality standards | Input-box diff | ★★★★★ |
+| **Choose**: several options → picked one | Preference ranking | Search query + click | ★★★★ |
+| **Order**: the path taken through the work | Methodology | App switch sequence + timestamps | ★★★★ |
+| **Pause**: long inactivity → sudden big action | Depth of thought | Event interval analysis | ★★★ |
+| **Abandon**: start → give up midway → change direction | Judgement | Files opened and closed quickly, large deleted inputs | ★★★ |
 
-### 2.2 回避模式检测（没做什么）
+### 2.2 Avoidance pattern detection (what was not done)
 
-"从不"比"总是"更暴露本质。
-
-```
-检测"可用但未使用"的模式：
-  工程师：装了 Docker 但总用 native 环境；有 Copilot 但经常 dismiss
-  律师：有 Westlaw 但总先去 Google Scholar；判例库会员但从不用高级搜索
-  设计师：装了 Figma 插件但全手动画；有 Design System 但总自己画组件
-  市场：有自动化工具但总手动发邮件；团队用 CRM 但他只看 Excel 导出
-  通用：开了 Slack 但从不主动发消息，只回复（所有职业都可能出现）
-```
-
-实现：维护一个"已知可用工具/功能"清单，定期统计使用频率。使用频率接近零的 → 标记为回避行为。
-
-### 2.3 压力状态标记
-
-压力下丢掉的习惯 = 后天学的。压力下保留的习惯 = 内化的。
+"Never" reveals more about a person than "always".
 
 ```
-压力信号检测：
-  - 同一时段 保存/提交/发送 频率突然翻倍
-  - app 切换频率突然上升（焦虑信号）
-  - 开始跳过平时会做的步骤
-  - 连续工作时间显著延长（凌晨还在干，但平时不会）
-
-蒸馏影响：
-  常态行为 → Playbook 的主要来源
-  压力下的行为 → 单独标记，区分"真性格"vs"后天纪律"
-
-例子：
-  工程师：常态跑测试，压力下跳过 → 测试是后天纪律
-  律师：常态每份合同查三遍判例，deadline 前只查一遍 → 尽调深度是纪律
-  设计师：常态做 3 版方案给客户选，急稿只做 1 版 → 多方案策略是纪律
-  通用推断：压力下丢掉的 = 后天学的；压力下保留的 = 内化的
+Detect "available but unused" patterns:
+  Engineer: has Docker installed but always uses the native environment; has Copilot but often dismisses it
+  Lawyer: has Westlaw but always goes to Google Scholar first; has a case-law database membership but never uses advanced search
+  Designer: has Figma plugins installed but draws everything by hand; has a Design System but always draws own components
+  Marketing: has automation tools but always sends email by hand; the team uses a CRM but he only looks at Excel exports
+  Universal: has Slack open but never starts a message, only replies (can appear in any profession)
 ```
 
-### 2.4 任务边界检测
+Implementation: maintain a list of "known available tools/features" and count usage frequency periodically. Usage frequency near zero → mark as avoidance behavior.
 
-好学徒看完整件事再总结，不是做一步记一步。
+### 2.3 Pressure state marking
+
+Habits dropped under pressure = learned. Habits kept under pressure = internalised.
 
 ```
-边界信号：
-  - 上下文大切换（从项目 A 切到项目 B → 新任务）
-  - git commit（通常标志一个原子任务完成）
-  - 长停顿后换了工作方向
-  - 关闭了一批 tab/文件，打开另一批
+Pressure signal detection:
+  - Save/commit/send frequency suddenly doubles within the same period
+  - App switching frequency suddenly rises (an anxiety signal)
+  - Starts skipping steps normally taken
+  - Continuous working time grows significantly (still working at 2am, which is not normal)
 
-实现：
-  主切分仍按时间（30 分钟兜底）
-  但如果检测到任务边界，在边界处切
-  如果一个任务跨了 2 小时也没中断，就让它成为一个长 chunk
+Effect on distillation:
+  Normal behavior → the main source for the Playbook
+  Behavior under pressure → marked separately, to tell "true character" from "learned discipline"
+
+Examples:
+  Engineer: runs tests normally, skips them under pressure → testing is learned discipline
+  Lawyer: checks case law three times per contract normally, only once before a deadline → due-diligence depth is discipline
+  Designer: normally makes 3 options for the client to choose from, makes only 1 for a rush job → the multi-option strategy is discipline
+  General inference: dropped under pressure = learned; kept under pressure = internalised
 ```
 
-### 2.5 低信号行为（直接丢弃）
+### 2.4 Task boundary detection
 
-常规打字速度、页面滚动、鼠标移动轨迹、系统通知弹窗、app 之间 < 3 秒的来回切。
+A good apprentice watches the whole job before summarising, not one note per step.
+
+```
+Boundary signals:
+  - Large context switch (from project A to project B → new task)
+  - git commit (usually marks the completion of an atomic task)
+  - A change of work direction after a long pause
+  - Closing one batch of tabs/files and opening another
+
+Implementation:
+  The main cut is still by time (30-minute fallback)
+  But if a task boundary is detected, cut at the boundary
+  If a task runs 2 hours without interruption, let it become one long chunk
+```
+
+### 2.5 Low-signal behavior (discarded)
+
+Routine typing speed, page scrolling, mouse movement paths, system notification pop-ups, back-and-forth switches between apps of < 3 seconds.
 
 ---
 
-## 三、多层蒸馏管线
+## 3. Multi-layer distillation pipeline
 
-### 秒级（微操层）
-
-```
-观察：击键、删改、自动补全后的调整、格式修正
-蒸馏物：工作风格、命名/措辞偏好、工具熟练度
-方法：纯规则提取（正则 + diff），$0
-例子：
-  工程师："他总是把 AI 补全的 data 改成语义化命名"
-  律师："他总是把'应当'改成'须'"
-  设计师："他总是把自动对齐的间距手动调成 8 的倍数"
-  通用："他在 email 里从不用感叹号" ← 回避模式
-```
-
-### 任务级（方法论层）
+### Second level (micro-operation layer)
 
 ```
-观察：一个完整任务的执行过程（由任务边界检测器切分）
-蒸馏物：问题解决方法论、信息搜集策略
-方法：Haiku 做序列摘要，~50 次/天 ≈ $0.05/天
-例子：
-  工程师："遇到报错 → Google → Stack Overflow → 不满意 → 读源码"
-  律师："接到案子 → 先读合同全文 → 标红不利条款 → 查判例 → 再读一遍"
-  市场："看到数据下降 → 先看竞品 → 再看渠道 → 最后看内容"
-  压力下："跳过中间步骤直接问 ChatGPT" ← 压力标记
+Observes: keystrokes, edits, adjustments after autocomplete, format fixes
+Distils: work style, naming/wording preferences, tool fluency
+Method: pure rule extraction (regex + diff), $0
+Examples:
+  Engineer: "He always renames the AI-completed `data` to a semantic name"
+  Lawyer: "He always changes '应当' to '须'" (both mean "shall"; he prefers the terser legal form)
+  Designer: "He always manually adjusts auto-aligned spacing to multiples of 8"
+  Universal: "He never uses exclamation marks in email" ← avoidance pattern
 ```
 
-### 小时级（节奏层）
+### Task level (methodology layer)
 
 ```
-观察：半天的工作流
-蒸馏物：注意力模式、精力分配、上下文切换频率
-方法：统计分析为主，$0
-例子："上午 9-12 点几乎不切 app（深度工作时段）"
+Observes: how one complete task is carried out (cut by the task boundary detector)
+Distils: problem-solving methodology, information-gathering strategy
+Method: Haiku summarises the sequence, ~50 times/day ≈ $0.05/day
+Examples:
+  Engineer: "hits an error → Google → Stack Overflow → not satisfied → reads the source"
+  Lawyer: "takes a case → reads the full contract first → marks unfavourable clauses in red → checks case law → reads it again"
+  Marketing: "sees data drop → looks at competitors first → then channels → finally content"
+  Under pressure: "skips the middle steps and asks ChatGPT directly" ← pressure mark
 ```
 
-### 天级（决策层）
+### Hour level (rhythm layer)
 
 ```
-观察：一整天的行为（所有任务级摘要 + 节奏统计 + 压力标记）
-蒸馏物：优先级判断、时间管理、压力应对
-方法：Sonnet 做日报分析，1 次/天 ≈ $0.03/天
-例子："紧急需求来了，花 20 分钟收尾手头的事再切过去"
+Observes: half a day of workflow
+Distils: attention patterns, energy allocation, context-switch frequency
+Method: mainly statistical analysis, $0
+Example: "Between 9 and 12 in the morning he barely switches apps (deep work period)"
 ```
 
-### 周级（人格层）
+### Day level (decision layer)
 
 ```
-观察：7 个日报摘要 + 微操特征统计 + 回避模式汇总
-蒸馏物：Playbook 条目、价值观、性格特征
-方法：Opus 做周报分析，1 次/周 ≈ $0.02/天
-工具：
-  - read_summary(date) → 读某天的日报
-  - drill_down(chunk_id) → 下钻到任务级/秒级
-  - find_similar(behavior, time_range?) → 向量搜索相似行为
-  - git_log / shell_history / browser_history → 本地工具精确查询
+Observes: a full day of behavior (all task-level summaries + rhythm stats + pressure marks)
+Distils: priority judgement, time management, coping with pressure
+Method: Sonnet analyses a daily report, once/day ≈ $0.03/day
+Example: "When an urgent request comes in, he spends 20 minutes wrapping up the current work before switching"
 ```
 
-### 天级和周级：不是单次 LLM 调用，是 Agent Loop
+### Week level (persona layer)
 
-秒级和任务级可以单次调用搞定——输入明确、输出确定。但天级和周级是**探索性分析**：不知道今天的重点是什么，需要先扫一遍、形成假设、再深挖验证。单次 prompt 塞不下一天的所有 episode（可能几十上百个），塞下了注意力也会稀释。
+```
+Observes: 7 daily report summaries + micro-operation trait stats + avoidance pattern summary
+Distils: Playbook entries, values, character traits
+Method: Opus analyses a weekly report, once/week ≈ $0.02/day
+Tools:
+  - read_summary(date) → read one day's daily report
+  - drill_down(chunk_id) → drill down to task/second level
+  - find_similar(behavior, time_range?) → vector search for similar behavior
+  - git_log / shell_history / browser_history → precise queries against local tools
+```
 
-这和 OpenClaw 的 agent loop 是同一个 insight：**复杂任务需要 LLM → tool_use → execute → result → LLM → ... 的多轮循环**，不是 prompt → response 的单次调用。
+### Day and week levels: not a single LLM call, an Agent Loop
 
-#### 天级 Agent（Sonnet）
+The second and task levels can be done with a single call — the input is clear and the output is determined. But the day and week levels are **exploratory analysis**: we do not know what matters today, so the model must first scan, form a hypothesis, then dig in to verify. A single prompt cannot hold all of a day's episodes (possibly dozens to hundreds), and even if it could, attention would be diluted.
+
+This is the same insight as OpenClaw's agent loop: **complex tasks need a multi-turn LLM → tool_use → execute → result → LLM → ... loop**, not a single prompt → response call.
+
+#### Day agent (Sonnet)
 
 ```
 Day Distillation Agent (Sonnet)
   │
-  ├── 输入：今天的日期
+  ├── Input: today's date
   │
   ├── Tools:
-  │   ├── query_episodes(date, filters?)       ← 按条件查当天 episodes 列表
-  │   ├── read_episode(id)                      ← 读单个 episode 详情
-  │   ├── query_stats(date)                     ← 查当天统计（小时级节奏数据）
-  │   ├── read_playbook(path?)                  ← 读当前 Playbook（检查已有模式）
-  │   ├── query_history(pattern, date_range)    ← 查历史是否有类似模式
-  │   ├── write_day_report(content)             ← 写入日报
-  │   └── write_insight(content, confidence)    ← 写入发现到 episodes
+  │   ├── query_episodes(date, filters?)       ← list the day's episodes by filter
+  │   ├── read_episode(id)                      ← read one episode in detail
+  │   ├── query_stats(date)                     ← the day's stats (hour-level rhythm data)
+  │   ├── read_playbook(path?)                  ← read the current Playbook (check existing patterns)
+  │   ├── query_history(pattern, date_range)    ← check whether history has a similar pattern
+  │   ├── write_day_report(content)             ← write the daily report
+  │   └── write_insight(content, confidence)    ← write a finding into episodes
   │
-  ├── Agent Loop（多轮，典型 4-8 轮）：
+  ├── Agent Loop (multi-turn, typically 4-8 turns):
   │   Turn 1: query_episodes(today)
-  │           → 拿到 45 个 episodes 的摘要列表
+  │           → gets a summary list of 45 episodes
   │
-  │   Turn 2: "有 8 个跟日程相关的，集中在早上"
+  │   Turn 2: "8 are about the schedule, concentrated in the morning"
   │           → read_episode(id1, id2, id3)
-  │           → 看到详情：9:00 问日程、9:05 查天气、9:10 看邮件
+  │           → sees the details: 9:00 asks about the schedule, 9:05 checks weather, 9:10 reads email
   │
-  │   Turn 3: "这像是晨间例行流程，查一下历史"
-  │           → query_history("早上+日程", last_7_days)
-  │           → 发现连续 5 天都有这个模式
+  │   Turn 3: "This looks like a morning routine; check history"
+  │           → query_history("morning+schedule", last_7_days)
+  │           → finds the pattern on 5 consecutive days
   │
-  │   Turn 4: "确认是稳定模式，检查 Playbook 有没有记录"
+  │   Turn 4: "Confirmed as a stable pattern; check whether the Playbook records it"
   │           → read_playbook()
-  │           → 没有 → write_insight("晨间例行：日程→天气→邮件，已持续5天", 0.7)
+  │           → not there → write_insight("Morning routine: schedule→weather→email, for 5 days so far", 0.7)
   │
-  │   Turn 5: "还有 3 个语音消息 episode，之前没见过"
+  │   Turn 5: "There are also 3 voice-message episodes, not seen before"
   │           → read_episode(id7, id8, id9)
-  │           → 都是在走路时发的（context: 步行中）
+  │           → all sent while walking (context: walking)
   │
-  │   Turn 6: "首次使用语音，且都是在移动中"
-  │           → query_history("语音", last_30_days)
-  │           → 确认是首次
-  │           → write_insight("首次使用语音消息，触发条件：移动中", 0.5)
+  │   Turn 6: "First use of voice, and all while on the move"
+  │           → query_history("voice", last_30_days)
+  │           → confirmed as first time
+  │           → write_insight("First use of voice messages, trigger: on the move", 0.5)
   │
-  │   Turn 7: "今天有一个压力标记的 episode"
+  │   Turn 7: "Today there is one episode with a pressure mark"
   │           → read_episode(id12)
-  │           → 下午连续切换 app 15 次，最终跳过了测试直接提交
-  │           → write_insight("压力下跳过测试", 0.6)
+  │           → in the afternoon switched apps 15 times in a row, finally skipped tests and committed directly
+  │           → write_insight("Skips tests under pressure", 0.6)
   │
   │   Turn 8: write_day_report(...)
-  │           → 综合所有发现，生成日报
+  │           → combines all findings into the daily report
   │   Done.
   │
-  └── 输出：
-      ├── 日报（天级摘要，供周级 Opus 读）
-      ├── 新 insights（写入 episodes/，带 confidence）
-      └── Playbook 更新建议（不直接改，留给周级确认）
+  └── Output:
+      ├── Daily report (day-level summary, for the week-level Opus to read)
+      ├── New insights (written to episodes/, with confidence)
+      └── Playbook update suggestions (not applied directly; left for the week level to confirm)
 ```
 
-#### 周级 Agent（Opus）
+#### Week agent (Opus)
 
-周级更复杂——它要做跨日趋势分析、下钻验证、联想发现、Playbook 更新。工具集更丰富。
+The week level is more complex — it does cross-day trend analysis, drill-down checks, association discovery, and Playbook updates. Its tool set is richer.
 
 ```
 Week Distillation Agent (Opus)
   │
-  ├── 输入：本周日期范围
+  ├── Input: this week's date range
   │
   ├── Tools:
-  │   ├── read_day_report(date)                  ← 读某天的日报
-  │   ├── drill_down(episode_id)                 ← 下钻到任务级/秒级原始数据
-  │   ├── find_similar(behavior, time_range?)    ← 向量搜索相似行为（联想发现）
-  │   ├── read_playbook(path?)                   ← 读 Playbook
-  │   ├── update_playbook(path, content)         ← 更新 Playbook 条目
-  │   ├── create_playbook(name, content)         ← 创建新 Playbook 文件
-  │   ├── update_identity(section, content)      ← 更新 Identity
-  │   ├── read_meta(type)                        ← 读 confidence/gaps/staleness
-  │   ├── update_confidence(trait, value)        ← 更新 confidence
-  │   ├── mark_episode_absorbed(ids)             ← 标记已吸收的 episodes（固化）
+  │   ├── read_day_report(date)                  ← read one day's daily report
+  │   ├── drill_down(episode_id)                 ← drill down to task/second-level raw data
+  │   ├── find_similar(behavior, time_range?)    ← vector search for similar behavior (association discovery)
+  │   ├── read_playbook(path?)                   ← read the Playbook
+  │   ├── update_playbook(path, content)         ← update a Playbook entry
+  │   ├── create_playbook(name, content)         ← create a new Playbook file
+  │   ├── update_identity(section, content)      ← update Identity
+  │   ├── read_meta(type)                        ← read confidence/gaps/staleness
+  │   ├── update_confidence(trait, value)        ← update confidence
+  │   ├── mark_episode_absorbed(ids)             ← mark episodes as absorbed (consolidation)
   │   │
-  │   │ 本地工具（自动发现，下钻验证用）：
+  │   │ Local tools (auto-discovered, for drill-down checks):
   │   ├── git_log(repo, since, until)
   │   ├── shell_history(since, until)
   │   ├── browser_history(since, until)
   │   ├── file_changes(dir, since, until)
-  │   └── ...（因人而异）
+  │   └── ... (varies by person)
   │
-  ├── Agent Loop（多轮，典型 8-15 轮）：
-  │   Phase 1 — 全景扫描
-  │   Turn 1: 读 7 天日报 → read_day_report(mon..sun)
-  │   Turn 2: 读当前 Playbook + confidence → read_playbook(), read_meta("confidence")
+  ├── Agent Loop (multi-turn, typically 8-15 turns):
+  │   Phase 1 — Panoramic scan
+  │   Turn 1: read 7 days of daily reports → read_day_report(mon..sun)
+  │   Turn 2: read the current Playbook + confidence → read_playbook(), read_meta("confidence")
   │
-  │   Phase 2 — 假设形成
-  │   Turn 3: "周三和周四都出现了'跳过测试'的 insight"
-  │           → drill_down(episode_id) → 看原始上下文
-  │           → git_log(repo, wed, thu) → 确认：都是 hotfix commit
-  │           → 假设："紧急修复时跳过测试是稳定模式"
+  │   Phase 2 — Form hypotheses
+  │   Turn 3: "Both Wednesday and Thursday have a 'skipped tests' insight"
+  │           → drill_down(episode_id) → look at the raw context
+  │           → git_log(repo, wed, thu) → confirmed: both are hotfix commits
+  │           → hypothesis: "skipping tests during urgent fixes is a stable pattern"
   │
-  │   Phase 3 — 交叉验证
-  │   Turn 4: find_similar("跳过测试", last_30_days)
-  │           → 发现过去一个月有 4 次，全在 hotfix 场景
-  │           → 假设确认，confidence 0.85
+  │   Phase 3 — Cross-check
+  │   Turn 4: find_similar("skipped tests", last_30_days)
+  │           → finds 4 times in the past month, all in hotfix situations
+  │           → hypothesis confirmed, confidence 0.85
   │
-  │   Turn 5: "晨间例行流程已持续 5 天"
-  │           → find_similar("早上+日程", last_30_days)
-  │           → 过去 4 周有 3 周出现 → 很稳定
+  │   Turn 5: "The morning routine has lasted 5 days"
+  │           → find_similar("morning+schedule", last_30_days)
+  │           → appears in 3 of the past 4 weeks → very stable
   │
-  │   Phase 4 — Playbook 更新
+  │   Phase 4 — Playbook update
   │   Turn 6: read_playbook("debugging.md")
-  │           → 已有 debugging 文件但没有"hotfix 跳过测试"的条目
-  │           → update_playbook("debugging.md", 追加情境-行动对)
+  │           → a debugging file exists but has no "hotfix skips tests" entry
+  │           → update_playbook("debugging.md", append a situation-action pair)
   │
-  │   Turn 7: "晨间例行"是新发现的模式，Playbook 里没有
+  │   Turn 7: "Morning routine" is a newly found pattern, not in the Playbook
   │           → create_playbook("morning-routine.md", ...)
   │
-  │   Phase 5 — 联想发现
-  │   Turn 8: find_similar("选择了更有约束的方案")
-  │           → 跨 5 个技术选型场景都选了约束强的方案
-  │           → update_identity("values.md", "系统性偏好约束 > 灵活")
+  │   Phase 5 — Association discovery
+  │   Turn 8: find_similar("chose the more constrained option")
+  │           → across 5 technology-selection situations he chose the more constrained option
+  │           → update_identity("values.md", "systematically prefers constraint > flexibility")
   │
-  │   Phase 6 — 记忆固化
-  │   Turn 9: 已吸收进 Playbook 的 episodes → mark_episode_absorbed(ids)
-  │   Turn 10: 更新 confidence → update_confidence(...)
+  │   Phase 6 — Memory consolidation
+  │   Turn 9: episodes absorbed into the Playbook → mark_episode_absorbed(ids)
+  │   Turn 10: update confidence → update_confidence(...)
   │   Done.
   │
-  └── 输出：
-      ├── Playbook 更新（新条目 + 修改现有条目）
-      ├── Identity 更新（如果发现新的跨领域模式）
-      ├── 记忆固化标记（已吸收的 episodes 可清理）
-      └── confidence 刷新
+  └── Output:
+      ├── Playbook updates (new entries + changes to existing entries)
+      ├── Identity updates (if a new cross-domain pattern is found)
+      ├── Consolidation marks (absorbed episodes can be cleaned up)
+      └── Confidence refresh
 ```
 
-#### 为什么不能是单次调用
+#### Why it cannot be a single call
 
-| | 单次调用 | Agent Loop |
+| | Single call | Agent Loop |
 |--|---------|------------|
-| 输入量 | 必须一次塞完所有 episodes | 先查列表，按需深挖 |
-| 注意力 | 长 prompt → 注意力稀释 | 每轮只关注当前子问题 |
-| 策略调整 | 写死在 prompt 里 | 根据中间结果动态决定下一步 |
-| 验证 | 没有验证环节 | 假设 → 查证 → 确认/推翻 |
-| 下钻 | 不可能 | 需要时调用本地工具精确查 |
-| 联想 | 不可能 | find_similar 跨领域搜索 |
-| 成本 | 固定（可能更贵，因为 prompt 长） | 按需（简单的一天 4 轮，复杂的 15 轮） |
+| Input volume | Must stuff in all episodes at once | Query the list first, dig in as needed |
+| Attention | Long prompt → diluted attention | Each turn focuses only on the current sub-question |
+| Strategy changes | Hard-coded in the prompt | Decides the next step from intermediate results |
+| Verification | No verification step | Hypothesis → check → confirm/reject |
+| Drill-down | Impossible | Calls local tools for precise queries when needed |
+| Association | Impossible | find_similar cross-domain search |
+| Cost | Fixed (possibly higher, because the prompt is long) | On demand (4 turns for a simple day, 15 for a complex one) |
 
-这就是 OpenClaw "发语音"故事的启示：**让 agent 有工具、有多轮机会，它会自己找到解决方案。** 天级和周级蒸馏的本质是"分析"，分析就是探索，探索就需要 agent loop。
+This is the lesson of OpenClaw's "send a voice message" story: **give the agent tools and several turns, and it will find the solution itself.** Day- and week-level distillation is essentially "analysis"; analysis is exploration, and exploration needs an agent loop.
 
-#### 错误恢复
+#### Error recovery
 
-和 OpenClaw 的 model fallback 同理：
+Same idea as OpenClaw's model fallback:
 
 ```
-天级 Agent 运行失败：
-  attempt 1: Sonnet → 超时（episodes 太多）
-  attempt 2: Sonnet → 加 filter 缩小范围重试
-  attempt 3: 降级为 Haiku → 只做统计摘要，不做深度分析
-  → 保底产出日报（质量降级但不丢失）
+Day agent run fails:
+  attempt 1: Sonnet → timeout (too many episodes)
+  attempt 2: Sonnet → retry with a filter to narrow the scope
+  attempt 3: downgrade to Haiku → only a statistical summary, no deep analysis
+  → a daily report is always produced (lower quality, but nothing is lost)
 
-周级 Agent 运行失败：
-  attempt 1: Opus → API 限流
-  attempt 2: 等待 cooldown → 重试
-  attempt 3: 降级为 Sonnet → 做浅层周报，下钻验证留到下周
-  → 不影响日常使用，只是 Playbook 更新延迟一周
+Week agent run fails:
+  attempt 1: Opus → API rate limit
+  attempt 2: wait for cooldown → retry
+  attempt 3: downgrade to Sonnet → shallow weekly report, drill-down checks deferred to next week
+  → no effect on daily use; only the Playbook update is delayed by a week
 ```
 
-### Playbook 感知：不是独立流程，是 Agent 的自然行为
+### Playbook awareness: not a separate process, the agent's natural behavior
 
-不需要一个独立的"持久级审计 agent"。Playbook 文件本身有 description，高粒度 agent（天级 Sonnet、周级 Opus）在开始时就能看到所有 Playbook 文件的列表和描述。**Agent 自己决定要不要读、要不要改。**
+There is no need for a separate "persistent-level audit agent". Each Playbook file carries a description, and the coarse-grained agents (day-level Sonnet, week-level Opus) see the list of all Playbook files and their descriptions at start-up. **The agent decides for itself whether to read and whether to change.**
 
-这和 OpenClaw 的 memory 工具是同一个思路——OpenClaw 不会定时跑一个"记忆整理进程"。它给 agent `memory_search` / `memory_get` 工具，agent 在对话中觉得需要时自己去查。记忆的更新也是 agent 在对话过程中自然发生的（写文件到 memory 目录 → file watcher 检测到 → 自动 embedding）。
+This is the same approach as OpenClaw's memory tools — OpenClaw does not run a scheduled "memory tidying process". It gives the agent `memory_search` / `memory_get` tools, and the agent looks things up during the conversation when it thinks it needs to. Memory updates also happen naturally during the conversation (write a file into the memory directory → a file watcher notices → automatic embedding).
 
-#### Playbook 文件结构
+#### Playbook file structure
 
-每个 Playbook 文件头部带 description，用于让 agent 快速判断是否相关：
+Each Playbook file has a description in its header so the agent can quickly judge whether it is relevant:
 
 ```markdown
 ---
 name: debugging
-description: 遇到 bug 时的排查策略、工具选择、紧急/非紧急的不同处理方式
+description: Investigation strategy when hitting a bug, tool choice, different handling for urgent/non-urgent cases
 maturity: mature
 last_updated: 2026-03-10
 entry_count: 12
 ---
 
-## 情境：生产环境紧急 bug
-直觉反应：先看日志，不看代码
+## Situation: urgent production bug
+Gut reaction: check the logs first, not the code
 ...
 ```
 
-#### Agent 启动时的上下文注入
+#### Context injection when the agent starts
 
-天级或周级 agent 启动时，system prompt 里注入 Playbook 索引（只有文件名 + description，不是全文）：
-
-```
-你的 Playbook 技能库（共 7 个文件）：
-  debugging.md        — 排查策略、工具选择、紧急/非紧急处理 [mature, 12 条目]
-  tech-selection.md   — 技术选型偏好、约束 vs 灵活的权衡 [mature, 8 条目]
-  email-triage.md     — 邮件分类转发规则 [developing, 5 条目]
-  code-review.md      — review 顺序、关注点 [mature, 9 条目]
-  morning-routine.md  — 晨间例行流程 [nascent, 2 条目]
-  client-comm.md      — 客户沟通措辞 [developing, 3 条目]
-  vendor-selection.md — 供应商选择策略 [developing, 4 条目]
-
-用 read_playbook(path) 读取详情，update_playbook(path, content) 更新。
-觉得需要新建技能文件时用 create_playbook(name, content)。
-```
-
-Agent 看到今天的 episodes 里有大量 debugging 相关行为 → 自然会 `read_playbook("debugging.md")` → 发现新的模式 → `update_playbook("debugging.md", ...)` 追加条目。
-
-**不需要单独的审计流程。Agent 在做天级/周级分析时，顺手就把 Playbook 维护了。**
-
-#### 为什么这比独立审计更好
+When a day- or week-level agent starts, the system prompt includes the Playbook index (only file names + descriptions, not the full text):
 
 ```
-独立审计流程的问题：
-  ├── 过度工程：需要单独的触发条件、单独的 agent、单独的工具集
-  ├── 信息割裂：审计 agent 没有当前行为的上下文，只能看文件
-  ├── 成本浪费：专门跑一次 Opus 25 轮 loop 只为整理文件
-  └── 时机错误：每月一次 → 要么太早（还没积累够）要么太晚（已经碎片化了）
+Your Playbook skill library (7 files):
+  debugging.md        — investigation strategy, tool choice, urgent/non-urgent handling [mature, 12 entries]
+  tech-selection.md   — technology selection preferences, constraint vs flexibility trade-off [mature, 8 entries]
+  email-triage.md     — email classification and forwarding rules [developing, 5 entries]
+  code-review.md      — review order, focus points [mature, 9 entries]
+  morning-routine.md  — morning routine [nascent, 2 entries]
+  client-comm.md      — client communication wording [developing, 3 entries]
+  vendor-selection.md — vendor selection strategy [developing, 4 entries]
 
-Playbook 感知的优势：
-  ├── 自然发生：agent 分析行为时顺手更新，不需要额外流程
-  ├── 上下文丰富：agent 正在看今天/本周的 episodes，知道 Playbook 哪里需要改
-  ├── 持续维护：每天/每周都在维护，不会等到碎片化了才整理
-  └── 零额外成本：Playbook 维护是 agent loop 里的几个额外 turn，不是独立流程
+Use read_playbook(path) to read details, update_playbook(path, content) to update.
+When you think a new skill file is needed, use create_playbook(name, content).
 ```
 
-#### 跨月模式怎么办？
+The agent sees a lot of debugging-related behavior in today's episodes → naturally calls `read_playbook("debugging.md")` → finds a new pattern → `update_playbook("debugging.md", ...)` appends an entry.
 
-"他过去 3 个月的 5 次技术选型，4 次选了约束强的"——这种跨月模式，周级 Opus 不是看不到，而是需要工具支持：
+**No separate audit process is needed. While doing day/week analysis, the agent maintains the Playbook along the way.**
+
+#### Why this beats a separate audit
 
 ```
-周级 Opus 的分析过程：
-  Turn 3: "这周又一次技术选型选了约束强的方案"
+Problems with a separate audit process:
+  ├── Over-engineering: needs its own trigger, its own agent, its own tool set
+  ├── Fragmented information: the audit agent has no context on current behavior, only the files
+  ├── Wasted cost: a dedicated 25-turn Opus loop just to tidy files
+  └── Wrong timing: once a month → either too early (not enough accumulated) or too late (already fragmented)
+
+Advantages of Playbook awareness:
+  ├── Happens naturally: the agent updates while analysing behavior, no extra process
+  ├── Rich context: the agent is looking at today's/this week's episodes and knows where the Playbook needs changes
+  ├── Continuous maintenance: maintained every day/week, never left until it is fragmented
+  └── Zero extra cost: Playbook maintenance is a few extra turns in the agent loop, not a separate process
+```
+
+#### What about cross-month patterns?
+
+"Of his 5 technology selections over the past 3 months, he chose the more constrained option 4 times" — the week-level Opus can see this kind of cross-month pattern; it just needs tool support:
+
+```
+Week-level Opus analysis:
+  Turn 3: "This week he again chose the more constrained option in a technology selection"
           → read_playbook("tech-selection.md")
-          → 已有 7 个同类条目，跨 3 个月
-          → "这不是本周的新发现，是一个长期稳定模式"
-          → find_similar("选择约束强的方案")
-          → 跨技术选型 + 供应商 + 工具选择都有
-          → update_identity("values.md", "系统性偏好约束 > 灵活")
+          → already has 7 entries of the same kind, spanning 3 months
+          → "This is not a new finding this week; it is a long-term stable pattern"
+          → find_similar("chose the more constrained option")
+          → appears across technology selection + vendors + tool choice
+          → update_identity("values.md", "systematically prefers constraint > flexibility")
 ```
 
-关键：**Playbook 本身就是跨月记忆**。每个条目带日期和 evidence 引用。周级 Opus 读 Playbook 时，自然能看到这个文件从 3 个月前就开始积累了。不需要一个单独的"持久级"来做这件事——Playbook 文件就是持久层。
+Key point: **the Playbook itself is the cross-month memory**. Every entry carries a date and evidence references. When the week-level Opus reads the Playbook, it naturally sees that the file has been accumulating since 3 months ago. There is no need for a separate "persistent level" to do this — the Playbook files are the persistence layer.
 
-#### 技能成熟度：自然涌现，不需要单独评估
+#### Skill maturity: emerges naturally, no separate assessment
 
-Playbook 的 maturity 不需要专门的评估流程。每次 agent 更新 Playbook 时，根据当前状态自动标记：
+Playbook maturity needs no dedicated assessment process. Every time the agent updates the Playbook, it marks maturity automatically from the current state:
 
 ```
-maturity 规则（写在 agent 的 system prompt 里）：
+Maturity rules (written in the agent's system prompt):
 
-nascent:    条目 < 3 或 confidence 均 < 0.6
-developing: 条目 3-8，confidence 多数 0.6-0.8
-mature:     条目 > 8，confidence 多数 > 0.8
-mastered:   mature + 有反例 + 有压力变体
+nascent:    entries < 3 or average confidence < 0.6
+developing: 3-8 entries, most confidence 0.6-0.8
+mature:     entries > 8, most confidence > 0.8
+mastered:   mature + has counterexamples + has pressure variants
 
-agent 每次 update_playbook 后自动更新 frontmatter 里的 maturity 字段。
-不需要独立的评估流程。
+After each update_playbook, the agent updates the maturity field in the frontmatter.
+No separate assessment process is needed.
 ```
 
-技能成熟度地图也是自然产物——读 Playbook 文件列表时就能看到每个文件的 maturity：
+The skill maturity map is also a natural by-product — reading the Playbook file list shows each file's maturity:
 
 ```
   debugging:            ████████████░░ mature
@@ -554,830 +564,837 @@ agent 每次 update_playbook 后自动更新 frontmatter 里的 maturity 字段�
   code-review:          ██████████░░░░ mature
   vendor-selection:     ████████░░░░░░ developing
 
-  这不是审计产出，是 Playbook 文件列表的自然呈现。
+  This is not an audit output; it is how the Playbook file list naturally looks.
 ```
 
-### 成本
+### Cost
 
 ```
-秒级：  $0（纯规则）
-任务级：$0.07/天（Haiku）
-小时级：$0（统计）
-天级：  $0.03/天（Sonnet，4-8 轮 agent loop）
-周级：  $0.15-0.40/天（Opus 均摊，8-15 轮 agent loop + Playbook 维护）
+Second level: $0 (pure rules)
+Task level:   $0.07/day (Haiku)
+Hour level:   $0 (statistics)
+Day level:    $0.03/day (Sonnet, 4-8 turn agent loop)
+Week level:   $0.15-0.40/day (Opus amortised, 8-15 turn agent loop + Playbook maintenance)
 ────────────────
-总计：  ~$0.25-0.50/天/用户 ≈ $8-15/月/用户
+Total:  ~$0.25-0.50/day/user ≈ $8-15/month/user
 ```
 
 ---
 
-## 四、记忆系统：五种记忆，五种存储
+## 4. Memory system: five kinds of memory, five kinds of storage
 
-人脑不是一种记忆——是五种不同系统协作。Agent 的存储也应该是这样。
+The human brain does not have one memory — it has five different systems working together. Agent storage should be the same.
 
-| 人脑 | Agent 对应 | 存储特征 | 实现 |
+| Human brain | Agent counterpart | Storage characteristics | Implementation |
 |------|-----------|---------|------|
-| 工作记忆 | 当前对话 context | 小、快、会丢 | 内存 / session JSON |
-| 程序记忆 | Playbook | 可执行的、带情境 | Markdown 文件系统 |
-| 语义记忆 | Identity | 抽象的、稳定的 | Markdown 文件系统 |
-| 情景记忆 | Episodes | 具体的、按时间排 | 向量 DB + JSONL |
-| 元记忆 | Meta | 自知的、动态的 | JSON 文件 |
+| Working memory | Current conversation context | Small, fast, lossy | In memory / session JSON |
+| Procedural memory | Playbook | Executable, situated | Markdown file system |
+| Semantic memory | Identity | Abstract, stable | Markdown file system |
+| Episodic memory | Episodes | Concrete, ordered by time | Vector DB + JSONL |
+| Metamemory | Meta | Self-aware, dynamic | JSON files |
 
-### 存储结构
+### Storage structure
 
 ```
 standmeet-memory/
 │
-├── playbook/                     ← 程序记忆（核心：复现用的情境-行动对）
-│   └── （无预设目录——由蒸馏过程自动涌现）
-│       系统观察到足够多的同类行为后，自动创建新文件
-│       例：工程师可能涌现 debugging.md、tech-selection.md
-│           律师可能涌现 case-research.md、contract-review.md
-│           设计师可能涌现 layout-decision.md、client-feedback.md
-│           市场人员可能涌现 campaign-planning.md、competitor-analysis.md
+├── playbook/                     ← procedural memory (core: situation-action pairs for reproduction)
+│   └── (no preset directories — they emerge from the distillation process)
+│       Once the system has observed enough behavior of the same kind, it creates a new file
+│       e.g. an engineer may grow debugging.md, tech-selection.md
+│            a lawyer may grow case-research.md, contract-review.md
+│            a designer may grow layout-decision.md, client-feedback.md
+│            a marketer may grow campaign-planning.md, competitor-analysis.md
 │
-├── identity/                     ← 语义记忆（Playbook 的解释层）
-│   ├── values.md                  ← 底层价值观（约束>灵活、稳定>新潮...）
-│   ├── style.md                   ← 表层风格（命名、代码格式、语气）
-│   └── rhythm.md                  ← 节奏（深度工作时段、精力分配）
+├── identity/                     ← semantic memory (the explanation layer for the Playbook)
+│   ├── values.md                  ← underlying values (constraint > flexibility, stability > novelty...)
+│   ├── style.md                   ← surface style (naming, code format, tone)
+│   └── rhythm.md                  ← rhythm (deep work periods, energy allocation)
 │
-├── episodes/                     ← 情景记忆（向量 DB）
+├── episodes/                     ← episodic memory (vector DB)
 │   ├── raw/
-│   │   ├── 2026-03-05.jsonl       ← 按天，每条是一个任务级摘要
+│   │   ├── 2026-03-05.jsonl       ← one per day; each line is a task-level summary
 │   │   └── ...
 │   └── index/
-│       └── episodes.db            ← sqlite-vec 或 lancedb
+│       └── episodes.db            ← sqlite-vec or lancedb
 │
-├── meta/                         ← 元记忆（自知系统）
-│   ├── confidence.json            ← 每个 trait 的置信度
-│   ├── unanswered.json            ← 别人问了答不上来的问题
-│   ├── gaps.jsonl                 ← 观察到行为但推断不出原因的空白（主动提问源）
-│   ├── corrections.jsonl          ← agent 草稿 vs 用户实际回复
-│   └── staleness.json             ← 每个记忆最后被验证的时间
+├── meta/                         ← metamemory (self-knowledge system)
+│   ├── confidence.json            ← confidence for each trait
+│   ├── unanswered.json            ← questions others asked that could not be answered
+│   ├── gaps.jsonl                 ← behavior observed whose reason cannot be inferred (source for proactive questions)
+│   ├── corrections.jsonl          ← agent draft vs the user's actual reply
+│   └── staleness.json             ← when each memory was last verified
 │
-└── context/                      ← 工作记忆（当前对话）
+└── context/                      ← working memory (current conversation)
     └── sessions/
         └── {session_id}.json
 ```
 
-### 为什么 Playbook 是核心，不是 Identity
+### Why the Playbook is the core, not Identity
 
 ```
-描述性记忆："他偏好 PostgreSQL"
-  → 被问"你主人喜欢什么数据库" → "PostgreSQL" → 完了
+Descriptive memory: "He prefers PostgreSQL"
+  → asked "What database does your owner like?" → "PostgreSQL" → that's it
 
-复现性记忆："当面临数据库选型时..."
-  → 被问"新项目该用什么数据库" → 能像他一样推理出答案
+Reproductive memory: "When facing a database choice..."
+  → asked "What database should a new project use?" → can reason to an answer the way he would
 ```
 
-**记忆的目的是复现，不是描述。** Playbook（怎么做）是主角，Identity（他是谁）是注解。
+**The purpose of memory is reproduction, not description.** The Playbook (how to do it) is the lead; Identity (who he is) is the annotation.
 
-### Playbook 格式：情境-行动对（不是决策树）
+### Playbook format: situation-action pairs (not decision trees)
 
-来自认知任务分析（CTA）的洞察：专家靠模式匹配，不是 if-else。
+An insight from cognitive task analysis (CTA): experts rely on pattern matching, not if-else.
 
-Playbook 文件由系统自动创建——当周级 Opus 分析发现某类行为反复出现（≥3 次同类情境），就为它建一个 Playbook 文件。文件名和分类完全由 model 决定，不预设。
+Playbook files are created by the system — when week-level Opus analysis finds that a kind of behavior recurs (≥3 situations of the same kind), it creates a Playbook file for it. File names and categories are decided entirely by the model, not preset.
 
 ```markdown
-# [系统自动命名].md
-# 例：工程师 → tool-selection.md
-#     律师 → case-research-strategy.md
-#     设计师 → client-revision-handling.md
-#     市场人员 → channel-budget-allocation.md
+# [name chosen by the system].md
+# e.g. engineer → tool-selection.md
+#      lawyer → case-research-strategy.md
+#      designer → client-revision-handling.md
+#      marketer → channel-budget-allocation.md
 
-## 情境：[具体情境描述]
-直觉反应：[观察到的第一反应]
-为什么：[从行为推断的原因]
-置信度：0.9
+## Situation: [specific situation description]
+Gut reaction: [the observed first reaction]
+Why: [the reason inferred from behavior]
+Confidence: 0.9
 
-## 情境：[同类但不同条件]
-直觉反应：[不同的反应]
-为什么：[不同条件导致不同选择]
-置信度：0.8
+## Situation: [same kind, different conditions]
+Gut reaction: [a different reaction]
+Why: [different conditions lead to a different choice]
+Confidence: 0.8
 
-## 情境：[对方提出特定要求]
-反应：[行为描述]
-为什么：[推断的原因]
-置信度：0.7
+## Situation: [the other party makes a specific request]
+Reaction: [behavior description]
+Why: [the inferred reason]
+Confidence: 0.7
 
-## 底层价值观
-→ [跨情境归纳出的共性]
-→ [什么条件下灵活，什么条件下坚持]
+## Underlying values
+→ [the common thread generalised across situations]
+→ [under what conditions he is flexible, under what conditions he holds firm]
 
-## 反例
-[日期] [违反常规模式的行为]
-→ 边界条件：[为什么这次不同]
+## Counterexamples
+[date] [behavior that breaks the usual pattern]
+→ Boundary condition: [why this time was different]
 → evidence: task-XXXXXXXX-XXXX
 ```
 
-具体例子——这不是预设，是涌现后的样子：
+Concrete examples — these are not preset; this is what they look like after they emerge:
 
 ```
-一个律师用户的 playbook/ 可能长这样：
-├── case-research-strategy.md     ← 怎么查案例（先判例还是先法条）
-├── contract-red-flags.md          ← 看合同时注意什么
-├── client-communication.md        ← 怎么和客户说坏消息
-├── deadline-triage.md             ← 多个 deadline 冲突时怎么排
-└── opposing-counsel-style.md      ← 对方律师激进时怎么应对
+A lawyer user's playbook/ might look like this:
+├── case-research-strategy.md     ← how to research cases (case law first or statutes first)
+├── contract-red-flags.md          ← what to watch for when reading a contract
+├── client-communication.md        ← how to give a client bad news
+├── deadline-triage.md             ← how to order conflicting deadlines
+└── opposing-counsel-style.md      ← how to respond when opposing counsel is aggressive
 
-一个市场人员的 playbook/ 可能长这样：
-├── campaign-planning.md           ← 怎么规划一个新 campaign
-├── budget-allocation.md           ← 预算怎么分
-├── data-interpretation.md         ← 看到数据波动时怎么判断
-├── vendor-negotiation.md          ← 和供应商谈价
-└── crisis-response.md             ← 公关危机怎么处理
+A marketer's playbook/ might look like this:
+├── campaign-planning.md           ← how to plan a new campaign
+├── budget-allocation.md           ← how to split the budget
+├── data-interpretation.md         ← how to judge when the data fluctuates
+├── vendor-negotiation.md          ← negotiating prices with vendors
+└── crisis-response.md             ← how to handle a PR crisis
 ```
 
-### 为什么是 Markdown 文件系统
+### Why a Markdown file system
 
 ```
-数据库：
+Database:
   SELECT * FROM traits WHERE category = 'coding'
-  → 扁平，没有层级，加新维度要改 schema
+  → flat, no hierarchy, adding a dimension means changing the schema
 
-文件系统：
+File system:
   ls playbook/
   → tech-selection.md  debugging.md  communication.md
-  → 天然层级，加新维度就是加一个文件
-  → LLM 天然理解文件路径
+  → natural hierarchy; adding a dimension means adding a file
+  → LLMs understand file paths natively
 ```
 
-而且 StandMeet 已经有基于路径的内容系统（`/repo/<path>/`）。记忆系统直接复用——**记忆就是 content，content 就是记忆**。
+And StandMeet already has a path-based content system (`/repo/<path>/`). The memory system reuses it directly — **memory is content, content is memory**.
 
-### Agent 运行时的查找顺序
+### Lookup order when the agent runs
 
 ```
-对方问一个专业问题（工程师："这个 bug 怎么修？" / 律师："这个条款有风险吗？"）
+The other party asks a professional question (engineer: "How do I fix this bug?" / lawyer: "Is this clause risky?")
 
-1. playbook/ → 找到对应情境-行动对 → 按模式回答
-2. meta/confidence.json → 该领域置信度 0.8 → 可以自信回答
-3. 回答时引用情境和行动
+1. playbook/ → find the matching situation-action pair → answer by the pattern
+2. meta/confidence.json → confidence for this domain is 0.8 → can answer confidently
+3. Cite the situation and action in the answer
 
-对方问一个非专业问题："你主人喜欢什么音乐？"
+The other party asks a non-professional question: "What music does your owner like?"
 
-1. playbook/ → 没有音乐相关
-2. identity/ → 没有
-3. episodes/ 向量搜索 → 找到原始摘要：
-   "3/5 听了 12 首 post-rock"、"3/7 工作时听 lo-fi"
-4. meta/confidence.json → 没有这个维度
-5. 回答加"据我观察"前缀（隐性知识，从 episodes 涌现）
+1. playbook/ → nothing about music
+2. identity/ → nothing
+3. episodes/ vector search → finds raw summaries:
+   "3/5 listened to 12 post-rock tracks", "3/7 listened to lo-fi while working"
+4. meta/confidence.json → no such dimension
+5. Prefix the answer with "From what I've observed" (tacit knowledge, emerging from episodes)
 
-对方问一个超出观察范围的问题："你主人怎么看中美关系？"
+The other party asks a question outside the observed range: "What does your owner think of US-China relations?"
 
-1-3 都没有
-4. 回复："这个我不确定，你直接问他吧"
-5. 写入 meta/unanswered.json → 反馈为蒸馏优先级
+1-3 all have nothing
+4. Reply: "I'm not sure about that; ask him directly"
+5. Write to meta/unanswered.json → fed back as a distillation priority
 ```
 
 ---
 
-## 五、记忆固化与遗忘
+## 5. Memory consolidation and forgetting
 
-原始摘要池（episodes/）不能无限增长。搜索质量会随数据量退化。
+The raw summary pool (episodes/) cannot grow without limit. Search quality degrades as data volume grows.
 
-人脑的方案：**遗忘是功能，不是 bug。** 具体事件（情景记忆）在睡眠中固化为抽象模式（语义记忆），细节丢掉但规律留下。
+The human brain's solution: **forgetting is a feature, not a bug.** Specific events (episodic memory) are consolidated during sleep into abstract patterns (semantic memory); the details are lost but the regularities remain.
 
-### 固化策略
-
-```
-0-30 天：全保留（新鲜，随时可能被需要）
-
-30-90 天：
-  被检索过的 → 保留（被回忆 = 被强化，Ebbinghaus 效应）
-  从未被检索 → 检查是否已被 Playbook 吸收
-    已吸收 → 删原文，Playbook 保留 evidence 引用
-    未吸收 → 降级为压缩版（300字 → 50字摘要）
-
-90 天+：
-  被检索过 2 次以上 → 保留
-  压缩版也没被检索过 → 删除
-
-永久保留：
-  被 Playbook 引用为反例的（边界条件很珍贵）
-  主动学习回路的校准记录（每条都有价值）
-  高阶 model 标记为"有趣"的
-```
-
-### 稳态大小
+### Consolidation strategy
 
 ```
-每天 50 条摘要
-30 天后保留 ~30%（被检索过 or 未吸收）= 15 条
-90 天后保留 ~10% = 5 条
+0-30 days: keep everything (fresh, may be needed at any time)
 
-稳态 ≈ 30天×50 + 60天×15 + 长期×5×月数
-     ≈ 前几个月 ~2,400 条，之后每年增长 ~300 条
-向量 DB 稳态 ≈ 3,000-5,000 条 → 搜索质量不退化
+30-90 days:
+  Retrieved → keep (recalled = strengthened, the Ebbinghaus effect)
+  Never retrieved → check whether the Playbook has absorbed it
+    Absorbed → delete the original; the Playbook keeps the evidence reference
+    Not absorbed → downgrade to a compressed version (300 characters → 50-character summary)
+
+90 days+:
+  Retrieved 2 or more times → keep
+  Compressed version never retrieved either → delete
+
+Keep forever:
+  Items the Playbook cites as counterexamples (boundary conditions are precious)
+  Calibration records from the active learning loop (every one is valuable)
+  Items the higher-tier model marked as "interesting"
 ```
 
-### "睡眠" = 周级 Opus 分析
+### Steady-state size
 
-每周跑一次 Opus 分析，同时做三件事：
-1. 蒸馏新的 Playbook 条目 / 更新已有条目
-2. 把已吸收的 episodes 标记为可清理
-3. 刷新 staleness.json（超过 30 天未验证的记忆标记为 stale）
+```
+50 summaries per day
+After 30 days ~30% kept (retrieved or not absorbed) = 15
+After 90 days ~10% kept = 5
+
+Steady state ≈ 30 days×50 + 60 days×15 + long term×5×months
+     ≈ ~2,400 in the first few months, then ~300 more per year
+Vector DB steady state ≈ 3,000-5,000 entries → search quality does not degrade
+```
+
+### "Sleep" = week-level Opus analysis
+
+Run an Opus analysis once a week, doing three things at once:
+1. Distil new Playbook entries / update existing entries
+2. Mark absorbed episodes as eligible for cleanup
+3. Refresh staleness.json (memories not verified for over 30 days are marked stale)
 
 ---
 
-## 六、索引链 + 下钻到本地工具
+## 6. Index chain + drill-down to local tools
 
-每层摘要带源引用 ID。高层可以沿链路下钻，**最底层不是 Screenpipe 事件，是本地工具**。
-
-```
-例 1（工程师）：
-周报 trait: "条件性 TDD"  (confidence: 0.6)
-  ├─ evidence: day-20260305 → "3 个 fix，2 个先写测试"
-  │    └─ source: task-1032 → screenpipe + git_log 下钻
-  └─ evidence: day-20260307 → "直接改代码没写测试" (pressure: true)
-       └─ git_log 确认 → context: "紧急 hotfix，客户在等"
-  → 纠正："非紧急时 TDD，紧急时跳过 → 测试是纪律不是直觉"
-
-例 2（律师）：
-周报 trait: "习惯先查判例再查法条"  (confidence: 0.7)
-  ├─ evidence: day-20260305 → "合同纠纷，先 Westlaw 后法条"
-  │    └─ source: task-0930 → browser_history 下钻
-  │         → 3 个判例页面 → 2 个法条页面 → Word 写意见
-  └─ evidence: day-20260308 → "直接写意见没查判例" (pressure: true)
-       └─ browser_history → 只打开了 1 个法条页面
-       → context: "当天提交截止，来不及查判例"
-  → 纠正："判例优先是纪律，不是直觉——时间紧时跳过"
-
-通用结构：
-  周报 trait → 日报 evidence → 任务 source → screenpipe + 本地工具下钻
-  多条 evidence 交叉验证，尤其关注常态 vs 压力下的差异
-```
-
-### 高阶 model 的完整工具集
+Every summary layer carries source reference IDs. Higher layers can drill down along the chain, and **the bottom layer is not Screenpipe events but local tools**.
 
 ```
-蒸馏工具（固定）：
-  read_summary(date)                    → 读某天的日报
-  drill_down(chunk_id)                  → 下钻到任务级/秒级
-  find_similar(behavior, time_range?)   → 向量搜索相似行为
+Example 1 (engineer):
+Weekly trait: "conditional TDD"  (confidence: 0.6)
+  ├─ evidence: day-20260305 → "3 fixes, 2 wrote tests first"
+  │    └─ source: task-1032 → screenpipe + git_log drill-down
+  └─ evidence: day-20260307 → "changed code directly without tests" (pressure: true)
+       └─ git_log confirms → context: "urgent hotfix, client waiting"
+  → Correction: "TDD when not urgent, skipped when urgent → testing is discipline, not instinct"
 
-本地工具（自动发现，因人而异）：
-  通用：file_changes / app_usage / clipboard_history
-  工程师可能有：git_log / shell_history / docker_logs
-  律师可能有：browser_history（Westlaw/判例数据库）
-  设计师可能有：figma_history / file_changes（.fig/.psd 修改）
-  市场可能有：browser_history / calendar_events / email_folders
+Example 2 (lawyer):
+Weekly trait: "habitually checks case law before statutes"  (confidence: 0.7)
+  ├─ evidence: day-20260305 → "contract dispute, Westlaw first, then statutes"
+  │    └─ source: task-0930 → browser_history drill-down
+  │         → 3 case-law pages → 2 statute pages → wrote the opinion in Word
+  └─ evidence: day-20260308 → "wrote the opinion directly without checking case law" (pressure: true)
+       └─ browser_history → opened only 1 statute page
+       → context: "filing deadline that day, no time to check case law"
+  → Correction: "case law first is discipline, not instinct — skipped when time is short"
 
-  系统启动时自动扫描环境，注册可用工具。
-  高阶 model 不需要知道用户是什么职业——它有什么工具就用什么。
+General structure:
+  weekly trait → daily evidence → task source → screenpipe + local tool drill-down
+  Cross-check multiple pieces of evidence, paying special attention to the difference between normal and under pressure
 ```
 
-Screenpipe 是广度采样层（什么都看一眼），本地工具是深度精确层（需要时深挖）。两层配合，不需要预灌数据。
+### The higher-tier model's full tool set
+
+```
+Distillation tools (fixed):
+  read_summary(date)                    → read one day's daily report
+  drill_down(chunk_id)                  → drill down to task/second level
+  find_similar(behavior, time_range?)   → vector search for similar behavior
+
+Local tools (auto-discovered, vary by person):
+  Universal: file_changes / app_usage / clipboard_history
+  An engineer may have: git_log / shell_history / docker_logs
+  A lawyer may have: browser_history (Westlaw/case-law databases)
+  A designer may have: figma_history / file_changes (.fig/.psd edits)
+  A marketer may have: browser_history / calendar_events / email_folders
+
+  At start-up the system scans the environment and registers the available tools.
+  The higher-tier model does not need to know the user's profession — it uses whatever tools it has.
+```
+
+Screenpipe is the breadth sampling layer (glances at everything); local tools are the deep precision layer (dig in when needed). The two layers work together, with no need to preload data.
 
 ---
 
-## 七、联想发现
+## 7. Association discovery
 
-### 不需要设计好奇心，给工具就行
+### No need to design curiosity; just give it tools
 
-高阶 model 在做周报分析时，自然会需要更多例证。
+While analysing the weekly report, the higher-tier model naturally needs more examples.
 
 ```
-例 1（工程师）：Opus 归纳"技术选型偏好"
-  → find_similar("选择了更有约束的方案")
-  → 返回跨 5 个技术领域的相同模式
-  → WHY："系统性偏好约束——不是不知道灵活方案，是主动回避"
+Example 1 (engineer): Opus generalises "technology selection preference"
+  → find_similar("chose the more constrained option")
+  → returns the same pattern across 5 technical domains
+  → WHY: "systematically prefers constraint — it is not that he doesn't know the flexible options; he actively avoids them"
 
-例 2（律师）：Opus 归纳"案件策略偏好"
-  → find_similar("选择了更保守的法律论点")
-  → 返回：合同纠纷选违约不选侵权、劳动争议先调解后仲裁、知产案先发警告函...
-  → WHY："风险规避型——倾向可预测的路径，不赌大的"
+Example 2 (lawyer): Opus generalises "case strategy preference"
+  → find_similar("chose the more conservative legal argument")
+  → returns: in contract disputes chose breach of contract over tort, in labour disputes mediation before arbitration, in IP cases a warning letter first...
+  → WHY: "risk-averse — prefers predictable paths, does not make big bets"
 
-例 3（设计师）：Opus 归纳"排版决策偏好"
-  → find_similar("拒绝客户的修改建议")
-  → 返回：拒绝加大 logo、拒绝用更亮的颜色、拒绝加更多文字...
-  → WHY："守住负空间——宁可和客户争论，也不让页面变拥挤"
+Example 3 (designer): Opus generalises "layout decision preference"
+  → find_similar("rejected the client's change request")
+  → returns: refused to enlarge the logo, refused brighter colors, refused to add more text...
+  → WHY: "guards negative space — would rather argue with the client than let the page get crowded"
 ```
 
-这些 insight 没人写规则提取。它从多个 WHAT 中涌现出 WHY——**无论什么职业，人的决策模式都有跨情境的一致性**。
+Nobody wrote extraction rules for these insights. The WHY emerges from multiple WHATs — **whatever the profession, a person's decision patterns are consistent across situations**.
 
 ---
 
-## 八、主动学习回路
+## 8. Active learning loop
 
-### 8.1 Agent 草稿 vs 用户实际回复（DAgger 原理）
-
-```
-对方问了一个问题
-  → agent 生成草稿回复（但不发出）
-  → 用户偶尔自己上线，亲自回复
-  → 系统对比：
-      工程师场景：agent "可以考虑" vs 用户 "不行，latency 会炸"
-      律师场景：  agent "这个条款有风险" vs 用户 "这个必须删掉，没得谈"
-      设计场景：  agent "可以试试蓝色" vs 用户 "绝对不行，品牌色不能动"
-  → diff 暴露：agent 缺少专业判断力，只会给模糊建议
-  → 校准信号写回 Playbook + Identity
-```
-
-行为克隆的 DAgger 算法告诉我们：**边界纠正数据比正常数据有价值得多**。应该故意让 agent 在不确定的场景回答，等待用户纠正。
-
-### 8.2 未答问题反馈为蒸馏优先级
+### 8.1 Agent draft vs the user's actual reply (the DAgger principle)
 
 ```
-对方问："你主人怎么看 AI 安全？"
-  → 答不上来 → "你直接问他吧"
-  → 记录到 meta/unanswered.json
-  → 下次观察到用户读 AI 安全文章 → 优先蒸馏这个维度
+The other party asks a question
+  → the agent generates a draft reply (but does not send it)
+  → the user occasionally comes online and replies personally
+  → the system compares:
+      Engineering case: agent "could be considered" vs user "No, latency will blow up"
+      Legal case:       agent "this clause is risky" vs user "This must be deleted, non-negotiable"
+      Design case:      agent "could try blue" vs user "Absolutely not, the brand color stays"
+  → the diff shows: the agent lacks professional judgement and only gives vague suggestions
+  → the calibration signal is written back to the Playbook + Identity
 ```
 
-**被问到但答不上来的问题，是最好的蒸馏优先级信号。** 系统不需要蒸馏一切——只需要蒸馏会被问到的东西。
+The DAgger algorithm from behavior cloning tells us: **boundary correction data is far more valuable than normal data**. We should deliberately let the agent answer in uncertain situations and wait for the user to correct it.
 
-### 8.3 主动提问：补全观察盲区
-
-系统能看到行为结果，但有些决策过程完全发生在脑子里——屏幕上只有"做了"，没有"为什么"。系统检测到这类空白后，主动向用户提问。
-
-**和写日报的区别**：日报是开放式作文（用户自己想写什么写什么，通常是废话）。系统提问是精确采访——它知道哪里有信息缺口，问的是具体决策。
+### 8.2 Unanswered questions fed back as distillation priority
 
 ```
-日报："今天处理了财务相关工作"
-系统提问："你 10:30 给财务说'按方案二走'，方案一和方案二的区别是什么？你怎么选的？"
+The other party asks: "What does your owner think about AI safety?"
+  → cannot answer → "Ask him directly"
+  → recorded in meta/unanswered.json
+  → next time the user is seen reading an AI safety article → distil this dimension first
 ```
 
-#### 空白检测
+**Questions that were asked but could not be answered are the best distillation priority signal.** The system does not need to distil everything — only the things people will ask about.
+
+### 8.3 Proactive questions: filling observation blind spots
+
+The system can see the results of behavior, but some decision processes happen entirely in the head — the screen shows only "did it", not "why". When the system detects such a gap, it asks the user proactively.
+
+**How this differs from writing a daily report**: a daily report is an open-ended essay (the user writes whatever they want, usually filler). System questions are a precise interview — the system knows where the information gap is and asks about a specific decision.
 
 ```
-记录在 meta/gaps.jsonl：
+Daily report: "Handled finance-related work today"
+System question: "At 10:30 you told finance 'go with option two'. What is the difference between options one and two? How did you choose?"
+```
+
+#### Gap detection
+
+```
+Recorded in meta/gaps.jsonl:
   {
-    "observed": "关掉 Excel → 邮件说按方案二走",
-    "gap": "方案一二的区别？选择依据？",
+    "observed": "Closed Excel → emailed to go with option two",
+    "gap": "Difference between options one and two? Basis for the choice?",
     "context": "task-20260311-1030",
     "asked": false,
     "priority": 0.9
   }
 ```
 
-#### 什么值得问
+#### What is worth asking
 
 ```
-高优先（主动问）：
-  决策但看不到过程 → "你选了 A 不选 B，为什么？"
-  回避但不知道原因 → "你有 X 工具但没用，是故意的吗？"
-  压力下的异常行为 → "你今天跳过了通常会做的 Y，是来不及还是觉得没必要？"
-  反复修改 → "你改了四遍开头，最后选的这版和前面的区别在哪？"
+High priority (ask proactively):
+  A decision whose process cannot be seen → "You chose A over B; why?"
+  Avoidance whose reason is unknown → "You have tool X but don't use it; is that deliberate?"
+  Unusual behavior under pressure → "Today you skipped Y, which you usually do; was there no time, or did you think it unnecessary?"
+  Repeated revisions → "You rewrote the opening four times; how does the final version differ from the earlier ones?"
 
-低优先（先不问）：
-  纯执行细节 → 怎么调的公式不重要，选了什么方案才重要
-  节奏类空白 → 为什么上午不看邮件，可能就是习惯
-  已有足够同类样本的模式 → Playbook 已经有 5 个同类情境了，不缺这一个
+Low priority (do not ask yet):
+  Pure execution details → how a formula was tuned doesn't matter; which option was chosen does
+  Rhythm gaps → why he doesn't read email in the morning is probably just habit
+  Patterns that already have enough samples → the Playbook already has 5 situations of this kind, it doesn't need this one
 ```
 
-#### 提问频率
+#### Question frequency
 
-一天最多 2-3 个问题。多了就变成另一种日报。攒着问，挑最高优先级的。可以在用户一天工作结束后统一推送（"今天有 2 个问题想请教你"），也可以在检测到空闲时段时插入。
+At most 2-3 questions a day. More than that becomes another kind of daily report. Save them up and pick the highest priority. They can be pushed together after the user's workday ends ("There are 2 questions I'd like to ask you today"), or inserted when an idle period is detected.
 
-#### 回答如何整合进记忆
+#### How answers are integrated into memory
 
-用户的回答是**最高质量的蒸馏信号**——比任何行为观察都精确，因为是用户亲口说的 why。
+The user's answer is **the highest-quality distillation signal** — more precise than any behavioral observation, because it is the user stating the why in their own words.
 
-整合路径：
+Integration path:
 
 ```
-1. 立即写入 episodes/（作为特殊类型的摘要）
+1. Write immediately to episodes/ (as a special kind of summary)
    {
-     "type": "user_explanation",        ← 区别于 observation 类型
-     "question": "方案一二怎么选的？",
-     "answer": "方案一便宜但要换供应商，换供应商的隐性成本太高",
+     "type": "user_explanation",        ← distinct from the observation type
+     "question": "How did you choose between options one and two?",
+     "answer": "Option one is cheaper but means switching vendors, and the hidden cost of switching vendors is too high",
      "source_gap": "task-20260311-1030",
      "timestamp": "2026-03-11T18:30:00"
    }
-   → 进入向量 DB，可被 find_similar 检索
+   → goes into the vector DB, retrievable by find_similar
 
-2. 尝试直接更新 Playbook
-   系统检查：playbook/ 里有没有已存在的相关文件？
+2. Try to update the Playbook directly
+   The system checks: is there an existing related file in playbook/?
 
-   有 → 追加一个情境-行动对：
-     ## 情境：两个方案，一个便宜但要换供应商
-     直觉反应：选贵的，不换供应商
-     为什么：隐性成本（切换成本、磨合期、风险）> 价格差
-     置信度：0.7（只有一个样本，先低置信度）
-     来源：用户直接解释，task-20260311-1030
+   Yes → append a situation-action pair:
+     ## Situation: two options, one cheaper but requires switching vendors
+     Gut reaction: choose the expensive one, don't switch vendors
+     Why: hidden costs (switching cost, ramp-up period, risk) > price difference
+     Confidence: 0.7 (only one sample, so start low)
+     Source: user's direct explanation, task-20260311-1030
 
-   没有 → 先存在 episodes 里等积累
-     等同类情境出现 3+ 次后（可能部分来自观察、部分来自提问），
-     周级 Opus 自动创建新的 Playbook 文件
+   No → keep it in episodes and wait for more
+     Once situations of this kind appear 3+ times (some perhaps from observation, some from questions),
+     the week-level Opus creates a new Playbook file automatically
 
-3. 可能触发 Identity 更新
-   如果这个回答暴露了一个底层价值观：
-     "隐性成本 > 显性成本" → 写入 identity/values.md
-     "他系统性地高估切换成本" → 这是一个跨领域的偏好
+3. May trigger an Identity update
+   If the answer exposes an underlying value:
+     "hidden cost > visible cost" → write to identity/values.md
+     "he systematically overestimates switching costs" → this is a cross-domain preference
 
-   但 Identity 更新只在周级 Opus 分析时做，不立即做
-   → 避免单个回答过度影响人格模型
+   But Identity is only updated during the week-level Opus analysis, not immediately
+   → prevents a single answer from over-influencing the persona model
 
-4. 关联补全
-   这个回答同时解释了之前观察到但没理解的行为：
-     "2/20 选了贵 30% 的服务商"（之前在 episodes 里标记为 unexplained）
-     "3/5 否决了实习生找的便宜方案"（同上）
-   → find_similar("选了更贵的方案") → 找到这些
-   → 之前 unexplained 的 episodes 现在有了解释
-   → 下次周级分析时，Opus 看到 3 个同类 → 直接建 Playbook 文件
+4. Linked completion
+   This answer also explains behavior observed earlier but not understood:
+     "2/20 chose a provider 30% more expensive" (earlier marked unexplained in episodes)
+     "3/5 vetoed the cheap option the intern found" (same)
+   → find_similar("chose the more expensive option") → finds these
+   → episodes that were unexplained now have an explanation
+   → in the next week-level analysis, Opus sees 3 of the same kind → creates a Playbook file directly
 
-5. 更新 meta/gaps.jsonl
+5. Update meta/gaps.jsonl
    asked: true, answer_received: true
-   → 这个空白已补全
-   → confidence.json 中相关 trait 的置信度上调
+   → this gap is filled
+   → the confidence of related traits in confidence.json goes up
 ```
 
-#### 用户回答 vs 行为观察的权重
+#### Weight of user answers vs behavioral observation
 
 ```
-用户亲口说的 WHY：
-  ✅ 高精度（他说的就是他想的——大概率）
-  ❌ 可能是事后合理化（人会美化自己的决策过程）
-  → 置信度 0.7，需要后续行为验证
+WHY stated by the user:
+  ✅ High precision (what he says is what he thinks — most likely)
+  ❌ May be post-hoc rationalisation (people embellish their own decision processes)
+  → confidence 0.7, needs later behavioral confirmation
 
-行为观察推断的 WHY：
-  ✅ 不会自我美化（行为不说谎）
-  ❌ 推断可能错（行为相同但原因不同）
-  → 置信度 0.5-0.6
+WHY inferred from behavioral observation:
+  ✅ No self-embellishment (behavior does not lie)
+  ❌ The inference may be wrong (same behavior, different reasons)
+  → confidence 0.5-0.6
 
-两者一致时：
-  → 置信度直接拉到 0.9
-  → 这是最强的蒸馏信号
+When the two agree:
+  → confidence goes straight to 0.9
+  → this is the strongest distillation signal
 
-两者矛盾时：
-  → 标记为冲突，不急着下结论
-  → 可能他说的是理想状态，做的是真实状态
-  → 这本身就是一个有价值的 insight："他认为自己 X，实际行为 Y"
-  → 写入 identity/values.md 作为"自我认知偏差"
+When the two conflict:
+  → mark as a conflict, don't rush to a conclusion
+  → perhaps what he says is the ideal and what he does is the reality
+  → this is itself a valuable insight: "He thinks he is X; his actual behavior is Y"
+  → write to identity/values.md as a "self-perception bias"
 ```
 
-#### 为什么这比日报好
+#### Why this beats a daily report
 
 ```
-日报是员工写给老板的 → 信息方向：向上汇报 → 自然会美化、省略、注水
-系统提问是工具问用户的 → 信息方向：教学徒 → 用户没有动机撒谎
+A daily report is written by an employee for the boss → information flows upward as reporting → naturally embellished, trimmed, padded
+System questions are a tool asking the user → information flows as teaching an apprentice → the user has no motive to lie
 
-日报的问题是：写的人不知道读的人需要什么
-系统提问解决了这个问题：系统精确知道自己缺什么信息
+The problem with a daily report: the writer doesn't know what the reader needs
+System questions solve this: the system knows exactly what information it lacks
 ```
 
 ---
 
-## 九、Chunk 边界问题
+## 9. The chunk boundary problem
 
-不需要过度担心。**蒸馏的是模式，不是内容。模式是冗余的。**
+No need to worry too much. **What is distilled is patterns, not content. Patterns are redundant.**
 
-一个人的方法论会反复出现。漏掉一次跨 chunk 的实例，还有下次。
+A person's methodology recurs. Miss one instance that spans chunks, and there will be another.
 
-低频高价值决策（技术选型，一个月一两次）由任务边界检测（2.4）+ 本地工具下钻（六）覆盖——Screenpipe 漏了，git log 不会漏。
+Low-frequency, high-value decisions (technology selection, once or twice a month) are covered by task boundary detection (2.4) + local tool drill-down (6) — Screenpipe may miss them, but git log will not.
 
 ---
 
-## 十、完整数据流
+## 10. Complete data flow
 
 ```
-采集层
-├── Screenpipe 原始流（广度采样，~100MB/天）
-└── 本地工具日志（深度精确，按需查询，零预存储）
+Capture layer
+├── Screenpipe raw stream (breadth sampling, ~100MB/day)
+└── Local tool logs (deep precision, queried on demand, zero pre-storage)
          │
          ▼
-信号过滤层
-├── 转折点检测（做了什么）
-├── 回避模式检测（没做什么）
-├── 压力状态标记（状态变化）
-└── 任务边界检测（自然切分）
+Signal filter layer
+├── Turning-point detection (what was done)
+├── Avoidance pattern detection (what was not done)
+├── Pressure state marking (state changes)
+└── Task boundary detection (natural cuts)
          │
-         │ 高信号事件（~5MB/天）
+         │ High-signal events (~5MB/day)
          ▼
-多层蒸馏管线
-├── 秒级：规则 → 微操特征
-├── 任务级：Haiku → 方法论 ──→ 同时写入 Episodes 向量 DB
-├── 小时级：统计 → 节奏模式
-├── 天级：Sonnet agent loop → 决策风格 + 日报
-│        └── Playbook 感知（看到索引 → 觉得相关就读 → 顺手更新）
-└── 周级：Opus agent loop → Playbook + Identity + 记忆固化
-         ├── Playbook 感知（启动时注入索引，自主读写维护）
-         ├── 下钻验证（索引链 → Screenpipe → 本地工具）
-         ├── 联想发现（find_similar 跨领域搜索）
-         └── 记忆固化（已吸收的 episodes 标记清理）
+Multi-layer distillation pipeline
+├── Second level: rules → micro-operation traits
+├── Task level: Haiku → methodology ──→ also written to the Episodes vector DB
+├── Hour level: statistics → rhythm patterns
+├── Day level: Sonnet agent loop → decision style + daily report
+│        └── Playbook awareness (sees the index → reads if relevant → updates along the way)
+└── Week level: Opus agent loop → Playbook + Identity + memory consolidation
+         ├── Playbook awareness (index injected at start, reads/writes/maintains on its own)
+         ├── Drill-down check (index chain → Screenpipe → local tools)
+         ├── Association discovery (find_similar cross-domain search)
+         └── Memory consolidation (absorbed episodes marked for cleanup)
 
-记忆系统
-├── playbook/（情境-行动对，复现用，Markdown）
-├── identity/（价值观 + 风格，兜底用，Markdown）
-├── episodes/（原始摘要，向量 DB，涌现 + 隐性知识）
-│   └── 固化策略：0-30天全留，30-90天按检索频率，90天+清理
-│       稳态 ~3,000-5,000 条
-├── meta/（confidence + 未答问题 + 校准记录 + 新鲜度）
-└── context/（当前会话，不持久化）
+Memory system
+├── playbook/ (situation-action pairs, for reproduction, Markdown)
+├── identity/ (values + style, for fallback, Markdown)
+├── episodes/ (raw summaries, vector DB, emergence + tacit knowledge)
+│   └── Consolidation: keep all for 0-30 days, by retrieval frequency for 30-90 days, clean up after 90+ days
+│       Steady state ~3,000-5,000 entries
+├── meta/ (confidence + unanswered questions + calibration records + freshness)
+└── context/ (current session, not persisted)
 
-主动提问回路
-├── 检测空白 → meta/gaps.jsonl
-├── 每天 2-3 个高优先问题 → 推送给用户
-├── 用户回答 → 写入 episodes（user_explanation 类型）
-├── 尝试直接更新 Playbook（单样本低置信度）
-├── find_similar 关联之前 unexplained 的 episodes
-└── 行为观察 + 用户解释 一致 → confidence 拉到 0.9
+Proactive question loop
+├── Detect gaps → meta/gaps.jsonl
+├── 2-3 high-priority questions per day → pushed to the user
+├── User answers → written to episodes (user_explanation type)
+├── Try to update the Playbook directly (single sample, low confidence)
+├── find_similar links earlier unexplained episodes
+└── Behavioral observation + user explanation agree → confidence goes to 0.9
 
-输出到 Agent
-├── 查 Playbook → 情境匹配 → 复现行为
-├── 查 Identity → 价值观推理 → 未见场景兜底
-├── 查 Episodes → 向量搜索 → 临场涌现
-├── 查 Meta → confidence 门槛 → 不确定就说不知道
-└── 主动学习 → agent 草稿 vs 实际回复 → 持续校准
+Output to the Agent
+├── Query Playbook → situation match → reproduce behavior
+├── Query Identity → reason from values → fallback for unseen situations
+├── Query Episodes → vector search → on-the-spot emergence
+├── Query Meta → confidence threshold → say "I don't know" when unsure
+└── Active learning → agent draft vs actual reply → continuous calibration
 
-~$0.25-0.50/天 ≈ $8-15/月/用户（蒸馏成本，不含执行层）
+~$0.25-0.50/day ≈ $8-15/month/user (distillation cost, excluding the execution layer)
 ```
 
 ---
 
-## 十一、执行层
+## 11. Execution layer
 
-蒸馏和记忆解决"知道怎么做"，执行层解决"替他做"。
+Distillation and memory solve "knowing how to do it"; the execution layer solves "doing it for him".
 
-架构直接复用 OpenClaw 已验证的模式：**agent loop + MCP 工具调用**。唯一的区别是 OpenClaw 靠用户下指令触发，StandMeet 靠情境匹配自动触发。
+The architecture reuses OpenClaw's proven pattern directly: **agent loop + MCP tool calls**. The only difference is that OpenClaw is triggered by user commands, while StandMeet is triggered automatically by situation matching.
 
-### 架构
+### Architecture
 
 ```
                     ┌──────────────────────────────────┐
-                    │  情境检测（Screenpipe 实时流）      │
-                    │  "收到一封供应商报价邮件"           │
+                    │  Situation detection (Screenpipe  │
+                    │  live stream)                     │
+                    │  "A vendor quote email arrived"   │
                     └──────────────┬───────────────────┘
                                    │
                                    ▼
                     ┌──────────────────────────────────┐
-                    │  Playbook 匹配                     │
-                    │  查 playbook/ → 有匹配的情境-行动对？│
-                    │  confidence ≥ 0.95？               │
+                    │  Playbook match                    │
+                    │  Look up playbook/ → a matching    │
+                    │  situation-action pair?            │
+                    │  confidence ≥ 0.95?                │
                     └──────┬───────────────┬────────────┘
                            │               │
                      confidence ≥ 0.95   confidence < 0.95
                            │               │
                            ▼               ▼
                     ┌─────────────┐  ┌─────────────────┐
-                    │  自动执行     │  │  建议模式         │
-                    │  agent 直接做 │  │  草拟方案给用户看  │
-                    │  做完通知用户 │  │  用户确认后执行    │
+                    │  Auto run    │  │  Suggest mode     │
+                    │  agent does  │  │  drafts a plan    │
+                    │  it directly │  │  for the user     │
+                    │  notifies    │  │  runs after the   │
+                    │  user after  │  │  user confirms    │
                     └──────┬──────┘  └────────┬────────┘
                            │                  │
                            ▼                  ▼
                     ┌──────────────────────────────────┐
-                    │  Agent Loop（OpenClaw 模式）        │
+                    │  Agent Loop (OpenClaw pattern)     │
                     │                                    │
                     │  System Prompt:                     │
-                    │    Playbook 情境-行动对              │
-                    │    + Identity 风格/价值观            │
-                    │    + 相关 Episodes（向量检索）        │
+                    │    Playbook situation-action pairs  │
+                    │    + Identity style/values          │
+                    │    + related Episodes (vector       │
+                    │      retrieval)                     │
                     │                                    │
-                    │  Tools（MCP）:                      │
-                    │    用户电脑上已有的工具               │
+                    │  Tools (MCP):                       │
+                    │    tools already on the user's      │
+                    │    computer                         │
                     │                                    │
                     │  Loop:                              │
                     │    LLM → tool_use → call → result  │
                     │    → LLM → tool_use → ...          │
-                    │    → 直到任务完成                    │
+                    │    → until the task is done         │
                     └──────────────┬───────────────────┘
                                    │
                                    ▼
                     ┌──────────────────────────────────┐
-                    │  执行结果 → 反馈回蒸馏系统           │
-                    │  用户接受？修改？拒绝？              │
-                    │  → 校准 Playbook confidence         │
+                    │  Execution result → fed back to    │
+                    │  the distillation system           │
+                    │  User accepts? modifies? rejects?  │
+                    │  → calibrate Playbook confidence   │
                     └──────────────────────────────────┘
 ```
 
-### 触发模式：三档
+### Trigger modes: three tiers
 
 ```
-档位 1：全自动（confidence ≥ 0.95 + 用户已授权该类操作）
-  情境："收到供应商报价邮件"
-  Playbook："转发给财务 + 标记'待比价'"
-  → 直接做，做完在通知栏显示"已转发给财务"
-  适合：高频、低风险、模式极度稳定的操作
-  例：邮件分类转发、日程提醒、文档归档、固定格式报告生成
+Tier 1: fully automatic (confidence ≥ 0.95 + user has authorised this kind of operation)
+  Situation: "a vendor quote email arrived"
+  Playbook: "forward to finance + tag 'to compare prices'"
+  → just do it; afterwards show "Forwarded to finance" in the notification bar
+  Suits: high-frequency, low-risk, extremely stable operations
+  e.g. email classification and forwarding, schedule reminders, document filing, fixed-format report generation
 
-档位 2：建议确认（confidence 0.7-0.95 或操作有副作用）
-  情境："客户问能不能打折"
-  Playbook："通常不主动打折，但老客户可以给 5%"
-  → 草拟回复给用户看，用户点确认才发
-  适合：有判断空间的操作、对外沟通、涉及金额
-  例：邮件草稿、方案建议、排优先级建议
+Tier 2: suggest and confirm (confidence 0.7-0.95, or the operation has side effects)
+  Situation: "a client asks for a discount"
+  Playbook: "usually no proactive discount, but long-standing clients can get 5%"
+  → draft a reply for the user; it is sent only after the user clicks confirm
+  Suits: operations with room for judgement, external communication, anything involving money
+  e.g. email drafts, plan suggestions, prioritisation suggestions
 
-档位 3：纯观察（confidence < 0.7 或全新情境）
-  情境：从没见过的类型
-  → 不做任何事，只观察用户怎么处理
-  → 结果进入蒸馏管线，积累样本
-  适合：新场景、Playbook 还没覆盖的领域
+Tier 3: observe only (confidence < 0.7 or a completely new situation)
+  Situation: a type never seen before
+  → do nothing; just watch how the user handles it
+  → the result enters the distillation pipeline to build up samples
+  Suits: new situations, areas the Playbook does not yet cover
 ```
 
-### 工具层：MCP 复用用户环境
+### Tool layer: MCP reuses the user's environment
 
-不需要为 StandMeet 单独建工具体系。用户电脑上能做的事，agent 通过 MCP 都能做：
-
-```
-已有工具生态（直接接入）：
-  邮件：读/写/转发/标记（Apple Mail / Outlook MCP）
-  日历：创建/修改/查询事件（Calendar MCP）
-  文件：读/写/移动/重命名（File System MCP）
-  浏览器：打开页面/填表/搜索（Browser MCP）
-  消息：发送/回复（Slack / Teams / 微信 MCP）
-  文档：读/写/格式化（Google Docs / Office MCP）
-
-和 OpenClaw 的区别：
-  OpenClaw：54 个 bundled skills，通用能力
-  StandMeet：同样的 MCP 工具，但 agent 的"怎么用"来自 Playbook
-            → 不是通用助手，是"像你一样用这些工具"
-```
-
-### System Prompt 构造
-
-每次执行时，动态拼装 system prompt：
+There is no need to build a separate tool system for StandMeet. Anything the user can do on their computer, the agent can do through MCP:
 
 ```
-你是 {用户名} 的数字分身。按照以下方式处理当前情境。
+Existing tool ecosystem (plug in directly):
+  Email: read/write/forward/tag (Apple Mail / Outlook MCP)
+  Calendar: create/edit/query events (Calendar MCP)
+  Files: read/write/move/rename (File System MCP)
+  Browser: open pages/fill forms/search (Browser MCP)
+  Messaging: send/reply (Slack / Teams / WeChat MCP)
+  Documents: read/write/format (Google Docs / Office MCP)
 
-## 当前情境
-{Screenpipe 检测到的情境描述}
-
-## 相关 Playbook
-{从 playbook/ 检索到的匹配情境-行动对，含置信度}
-
-## 行为风格
-{identity/style.md 的相关段落}
-
-## 底层价值观
-{identity/values.md 的相关段落}
-
-## 类似历史
-{从 episodes/ 向量检索的 top-3 相似场景}
-
-## 约束
-- confidence < 0.7 的判断，说"我不确定"并建议用户自己决定
-- 涉及金额/对外沟通/权限操作，必须用户确认
-- 做完后简短通知用户做了什么
+Difference from OpenClaw:
+  OpenClaw: 54 bundled skills, general abilities
+  StandMeet: the same MCP tools, but the agent's "how to use them" comes from the Playbook
+            → not a general assistant, but "uses these tools the way you do"
 ```
 
-这个 prompt 结构和 OpenClaw 的 AGENTS.md 本质一样——都是给 agent 行为边界。区别是 OpenClaw 的规则是人写的，StandMeet 的规则是蒸馏出来的。
+### System prompt construction
 
-### 执行结果反馈回蒸馏
-
-执行层不是终点——执行结果是蒸馏系统的高质量输入：
+On each execution, the system prompt is assembled dynamically:
 
 ```
-自动执行后用户的反应：
+You are the digital twin of {user name}. Handle the current situation as follows.
 
-接受（没改）
-  → Playbook 该条目 confidence +0.02
-  → 这个模式更稳固了
+## Current situation
+{situation description detected by Screenpipe}
 
-修改后接受
-  → DAgger 信号：agent 做的 vs 用户改的 diff
-  → 写入 meta/corrections.jsonl
-  → Playbook 该条目追加一个情境分支
-  例："转发给财务"被用户改成"转发给财务 + CC 老板"
-  → 新增情境："金额超过 X 时，CC 老板"
+## Related Playbook
+{matching situation-action pairs retrieved from playbook/, with confidence}
 
-拒绝
-  → Playbook 该条目 confidence -0.05
-  → 标记为需要更多样本
-  → 如果连续被拒绝 3 次 → 该条目降级为"建议模式"
+## Behavior style
+{relevant passages of identity/style.md}
 
-用户自己做了（agent 没触发但用户手动做了）
-  → 说明情境检测漏了，或 Playbook 没覆盖
-  → 写入 meta/gaps.jsonl → 主动提问候选
+## Underlying values
+{relevant passages of identity/values.md}
+
+## Similar history
+{top-3 similar situations from vector retrieval over episodes/}
+
+## Constraints
+- For judgements with confidence < 0.7, say "I'm not sure" and suggest the user decide
+- Anything involving money / external communication / permission operations must be confirmed by the user
+- When done, briefly tell the user what was done
 ```
 
-### 安全边界
+This prompt structure is essentially the same as OpenClaw's AGENTS.md — both set behavior boundaries for the agent. The difference is that OpenClaw's rules are written by people, while StandMeet's rules are distilled.
+
+### Execution results fed back into distillation
+
+The execution layer is not the end — execution results are high-quality input for the distillation system:
 
 ```
-永远不自动做：
-  ❌ 删除文件/邮件（不可逆）
-  ❌ 发送金额相关内容（转账、报价、合同）
-  ❌ 修改权限/密码
-  ❌ 对外发布内容（社交媒体、公告）
-  ❌ Playbook 里没有的操作（不能"创造性执行"）
+The user's reaction after automatic execution:
 
-可以自动做（在用户授权后）：
-  ✅ 邮件分类、标记、转发（给内部人）
-  ✅ 日程创建、提醒设置
-  ✅ 文件归档、重命名
-  ✅ 信息查询（不修改任何东西）
-  ✅ 草稿生成（不发送）
+Accepted (unchanged)
+  → that Playbook entry's confidence +0.02
+  → the pattern is more solid
+
+Accepted after modification
+  → DAgger signal: diff between what the agent did and what the user changed
+  → written to meta/corrections.jsonl
+  → a situation branch is appended to that Playbook entry
+  e.g. "forward to finance" changed by the user to "forward to finance + CC the boss"
+  → new situation: "when the amount exceeds X, CC the boss"
+
+Rejected
+  → that Playbook entry's confidence -0.05
+  → marked as needing more samples
+  → if rejected 3 times in a row → the entry is downgraded to "suggest mode"
+
+User did it themselves (the agent did not trigger but the user did it manually)
+  → means situation detection missed it, or the Playbook does not cover it
+  → written to meta/gaps.jsonl → candidate for a proactive question
 ```
 
-### 和蒸馏层的关系
+### Safety boundaries
 
 ```
-蒸馏层：观察 → 学习 → 记住（Playbook + Identity + Episodes）
-执行层：识别情境 → 查记忆 → 执行 → 结果反馈回蒸馏层
+Never done automatically:
+  ❌ Deleting files/emails (irreversible)
+  ❌ Sending money-related content (transfers, quotes, contracts)
+  ❌ Changing permissions/passwords
+  ❌ Publishing content externally (social media, announcements)
+  ❌ Operations not in the Playbook (no "creative execution")
 
-蒸馏层让执行层越来越准：
-  第 1 月：几乎全是档位 3（纯观察），偶尔档位 2（建议）
-  第 3 月：大部分档位 2，少量档位 1（全自动）
-  第 6 月：高频操作全是档位 1，只有新场景才是档位 3
-  → 系统越用越像用户自己
-
-执行层让蒸馏层越来越快：
-  每次执行 = 一次主动实验
-  用户对执行结果的反应 = 最精确的校准信号
-  → 比纯观察学得快，因为有反馈
+Can be done automatically (after user authorisation):
+  ✅ Email classification, tagging, forwarding (to internal people)
+  ✅ Creating calendar events, setting reminders
+  ✅ Filing and renaming files
+  ✅ Information lookups (changing nothing)
+  ✅ Generating drafts (not sending)
 ```
 
-### 成本
+### Relationship to the distillation layer
 
 ```
-执行层成本取决于触发频率和任务复杂度：
+Distillation layer: observe → learn → remember (Playbook + Identity + Episodes)
+Execution layer: recognise situation → query memory → execute → result fed back to the distillation layer
 
-档位 1（全自动，简单操作）：
-  Haiku 做情境匹配 + 1-2 次工具调用
-  ~$0.001/次，一天 20 次 = $0.02/天
+The distillation layer makes the execution layer more and more accurate:
+  Month 1: almost all tier 3 (observe only), occasionally tier 2 (suggest)
+  Month 3: mostly tier 2, some tier 1 (fully automatic)
+  Month 6: high-frequency operations all tier 1, only new situations are tier 3
+  → the more it is used, the more the system acts like the user
 
-档位 2（建议确认，中等操作）：
-  Sonnet 生成草稿 + 用户确认 + 执行
-  ~$0.01/次，一天 5 次 = $0.05/天
+The execution layer makes the distillation layer learn faster and faster:
+  Each execution = one active experiment
+  The user's reaction to the result = the most precise calibration signal
+  → learns faster than pure observation, because there is feedback
+```
 
-执行层总计：~$0.07/天
+### Cost
 
-加上蒸馏层 $0.25-0.50/天
+```
+Execution layer cost depends on trigger frequency and task complexity:
+
+Tier 1 (fully automatic, simple operations):
+  Haiku does situation matching + 1-2 tool calls
+  ~$0.001/run, 20 runs a day = $0.02/day
+
+Tier 2 (suggest and confirm, medium operations):
+  Sonnet generates a draft + user confirms + executes
+  ~$0.01/run, 5 runs a day = $0.05/day
+
+Execution layer total: ~$0.07/day
+
+Plus the distillation layer at $0.25-0.50/day
 ────────────────
-全系统（个人）：~$0.32-0.57/天 ≈ $10-17/月/用户
+Whole system (personal): ~$0.32-0.57/day ≈ $10-17/month/user
 ```
 
 ---
 
-## 十二、Playbook 评级系统
+## 12. Playbook rating system
 
-### 核心定义
+### Core definition
 
-**学成 = 在该 Playbook 文件对应的情境子域内，bisimulation distance → 0。**
+**Learned = within the situation subdomain that a Playbook file covers, bisimulation distance → 0.**
 
-Bisimulation distance 不可直接测量——我们看不到用户的内部状态 S。用四个可观测的 proxy 逼近，每个恰好对应 bisimulation failure 的一个来源。
+Bisimulation distance cannot be measured directly — we cannot see the user's internal state S. We approximate it with four observable proxies, each corresponding to exactly one source of bisimulation failure.
 
-### 12.1 四个评级指标
+### 12.1 The four rating metrics
 
-#### 发现率衰减 d(t)（对应 failure type I — 情境空间收敛度）
+#### Discovery rate decay d(t) (failure type I — convergence of the situation space)
 
-最关键的指标。如果每周还在冒出从没见过的情境变体，说明情境空间 I 还没被充分探索，不可能学成。
-
-```
-d(t) = 本周新增情境变体数 / 本周该域总 episode 数
-
-d(t) → 0：情境空间已被充分探索
-d(t) 持续 > 0.3：该域情境还在扩张，不可能收敛
-
-本质：测 I 的熵。熵降到接近零 = prompt（商算子）已充分划分该域。
-```
-
-例子：
+The most critical metric. If never-before-seen situation variants still appear every week, the situation space I has not been explored enough, and learning cannot be complete.
 
 ```
-debugging.md 连续四周：
+d(t) = new situation variants this week / total episodes in this domain this week
+
+d(t) → 0: the situation space has been explored enough
+d(t) stays > 0.3: situations in this domain are still expanding; it cannot converge
+
+The essence: it measures the entropy of I. Entropy near zero = the prompt (quotient operator) has partitioned this domain enough.
+```
+
+Examples:
+
+```
+debugging.md over four consecutive weeks:
   d = 0.6 → 0.4 → 0.2 → 0.05
-  → 正在收敛，第 4 周几乎没有新变体
+  → converging; almost no new variants in week 4
 
-client-comm.md 连续四周：
+client-comm.md over four consecutive weeks:
   d = 0.5 → 0.5 → 0.4 → 0.3
-  → 没收敛，客户场景还在不断出新的
+  → not converged; client situations keep producing new ones
 ```
 
-#### 预测准确率 p（对应 failure type β — agent 模型准确度）
+#### Prediction accuracy p (failure type β — accuracy of the agent model)
 
 ```
 p = Σ(accepted × 1.0 + modified × 0.5 + rejected × 0.0) / total_executions
 
-带指数时间衰减：近期执行权重更高。
+With exponential time decay: recent executions weigh more.
 
-影子模式（shadow accuracy）：
-  agent 没真的执行，但后台生成了草稿
-  用户自己做了 → 比对 diff → shadow_accuracy
-  这个指标在 observe/suggest 模式下也能收集
+Shadow mode (shadow accuracy):
+  the agent did not actually execute, but generated a draft in the background
+  the user did it themselves → compare the diff → shadow_accuracy
+  this metric can be collected in observe/suggest mode too
 ```
 
-#### 修改率衰减 m(t)（对应 failure type α — 用户行为稳定度）
+#### Modification rate decay m(t) (failure type α — stability of user behavior)
 
 ```
-m(t) = 本周蒸馏系统修改该 Playbook 文件的次数
+m(t) = number of times the distillation system modified this Playbook file this week
 
-m(t) → 0：用户行为在该域已稳定，每周分析都没什么要改的
-m(t) 突然飙升：用户在变（换了工作方式/工具/团队），bisimulation 正在失效
+m(t) → 0: user behavior in this domain is stable; each weekly analysis has little to change
+m(t) suddenly spikes: the user is changing (new way of working/tools/team); bisimulation is breaking down
 
-注意：这里计的是蒸馏系统的修改，不是用户手动编辑。
-用户手动编辑 Playbook 是另一种高质量信号（类似主动提问的回答）。
+Note: this counts modifications by the distillation system, not manual edits by the user.
+The user manually editing the Playbook is a different high-quality signal (similar to answers to proactive questions).
 ```
 
-#### 边界完备度 b（对应 failure type F — 观测充分度）
+#### Boundary completeness b (failure type F — sufficiency of observation)
 
 ```
 b = (has_counterexamples ? 0.5 : 0) + (has_pressure_variants ? 0.5 : 0)
 
-没有反例 = 不知道边界在哪
-  → 可能在边界处 catastrophic failure
-  → "他总是选 PostgreSQL"——但什么条件下他不选？不知道。
+No counterexamples = we don't know where the boundary is
+  → possible catastrophic failure at the boundary
+  → "He always picks PostgreSQL" — but under what conditions does he not? Unknown.
 
-没有压力变体 = 分不清纪律和直觉
-  → "他总是跑测试"——是内化的还是后天纪律？不知道。
-  → 压力下丢掉的 = 纪律，保留的 = 直觉
-  → 分不清这个，bisimulation 的粒度不够细
+No pressure variants = we can't tell discipline from instinct
+  → "He always runs tests" — internalised or learned discipline? Unknown.
+  → dropped under pressure = discipline, kept = instinct
+  → without this distinction, bisimulation granularity is not fine enough
 ```
 
-### 12.2 评级存储格式
+### 12.2 Rating storage format
 
-每个 Playbook 文件一个评级记录，存在 `meta_ratings` 表：
+One rating record per Playbook file, stored in the `meta_ratings` table:
 
 ```json
 {
@@ -1401,291 +1418,298 @@ b = (has_counterexamples ? 0.5 : 0) + (has_pressure_variants ? 0.5 : 0)
 }
 ```
 
-`history` 记录每周的指标快照，用于观察收敛趋势。周级 Opus 每次分析时更新。
+`history` records a weekly snapshot of the metrics, used to watch the convergence trend. The week-level Opus updates it on every analysis.
 
-### 12.3 执行模式阈值
+### 12.3 Execution mode thresholds
 
-四个条件的组合决定执行模式，缺一个都不能升级：
+The combination of four conditions decides the execution mode; missing any one blocks an upgrade:
 
 ```
 auto:    d < 0.1  AND  p > 0.9  AND  m < 0.1  AND  b = 1.0  AND  sample ≥ 20
 suggest: d < 0.3  AND  p > 0.7  AND  sample ≥ 5
-observe: 其余
+observe: everything else
 ```
 
-为什么每个条件都不可缺：
+Why no condition can be dropped:
 
-| 条件不满足 | 含义 | 风险 |
+| Condition not met | Meaning | Risk |
 |-----------|------|------|
-| d ≥ 0.1 | 情境空间还在扩张 | 遇到新变体时 agent 会用错误的模式处理 |
-| p ≤ 0.9 | agent 模型还不够准 | 每 10 次执行有 1 次以上会出错 |
-| m ≥ 0.1 | 用户行为还在变 | Playbook 记录的可能已经过时 |
-| b < 1.0 | 边界不清楚 | 正常情况没问题，边界情况可能 catastrophic |
-| sample < 20 | 样本不够 | 统计意义不足 |
+| d ≥ 0.1 | The situation space is still expanding | On a new variant the agent handles it with the wrong pattern |
+| p ≤ 0.9 | The agent model is not accurate enough | More than 1 in 10 executions goes wrong |
+| m ≥ 0.1 | User behavior is still changing | What the Playbook records may already be out of date |
+| b < 1.0 | The boundary is unclear | Normal cases are fine; boundary cases may be catastrophic |
+| sample < 20 | Not enough samples | Not statistically meaningful |
 
-### 12.4 降级触发
+### 12.4 Downgrade triggers
 
-升级慢，降级快——保守策略，因为自动执行出错的代价远高于多确认一次。
-
-```
-立即降级（auto → suggest）：
-  - 任何一次 reject
-  - 理由：β 出了问题，模型在该情境的预测不准
-
-审查降级（auto → suggest，并标记需要 Opus 审查）：
-  - 连续 3 次 modify（即使没有 reject）
-  - 理由：β 有系统性偏差，不是偶然错误
-
-观察降级（任何模式 → observe）：
-  - m(t) 突然上升（定义：m(t) > 3 × 过去 4 周均值）
-  - 理由：α 在变，用户行为模式正在转变，之前的 bisimulation 失效
-
-主动扰动（auto 保持，但临时降为 suggest 验证一次）：
-  - 该条目 60 天未被验证（last_verified 超期）
-  - 理由：von Foerster 二阶控制论——控制器会漂移
-  - 频率：每天最多 1-2 次扰动，不影响体验
-  - 用户确认 → last_verified 刷新
-  - 用户修改 → 发现漂移，更新 Playbook，降回 suggest
-  - 用户拒绝 → 条目可能已过时，降回 observe
-```
-
-### 12.5 评级更新时机
+Upgrade slowly, downgrade fast — a conservative strategy, because a wrong automatic execution costs far more than one extra confirmation.
 
 ```
-实时更新：
-  - prediction_accuracy：每次执行后立即更新（接受/修改/拒绝）
-  - execution_mode：每次降级触发时立即变更
+Immediate downgrade (auto → suggest):
+  - any single reject
+  - reason: β has a problem; the model's prediction in this situation is wrong
 
-周级更新（Opus 分析时）：
-  - discovery_rate：需要看一周的 episode 才有意义
-  - modification_rate：按周统计
-  - boundary_completeness：Opus 检查是否新增了反例或压力变体
-  - sample_size：累加
-  - history：追加本周快照
+Review downgrade (auto → suggest, and mark for Opus review):
+  - 3 modifies in a row (even with no reject)
+  - reason: β has a systematic bias, not an accidental error
 
-升级检查（周级更新后）：
-  - observe → suggest：检查 d < 0.3 AND p > 0.7 AND sample ≥ 5
-  - suggest → auto：检查全部 5 个条件
-  - 升级需要连续 2 周满足条件（防止偶然波动）
+Observe downgrade (any mode → observe):
+  - m(t) rises suddenly (defined as: m(t) > 3 × the average of the past 4 weeks)
+  - reason: α is changing; the user's behavior pattern is shifting and the earlier bisimulation no longer holds
+
+Active perturbation (auto stays, but temporarily drops to suggest for one check):
+  - the entry has not been verified for 60 days (last_verified expired)
+  - reason: von Foerster's second-order cybernetics — the controller drifts
+  - frequency: at most 1-2 perturbations a day, no impact on experience
+  - user confirms → last_verified refreshed
+  - user modifies → drift found, Playbook updated, back to suggest
+  - user rejects → the entry may be out of date, back to observe
 ```
 
-### 12.6 与蒸馏管线的关系
+### 12.5 When ratings are updated
 
-评级系统不是独立模块——它是周级 Opus 分析的自然产物。Opus 每周更新 Playbook 时，顺手就把评级更新了：
+```
+Updated in real time:
+  - prediction_accuracy: updated immediately after each execution (accept/modify/reject)
+  - execution_mode: changed immediately whenever a downgrade triggers
+
+Updated weekly (during the Opus analysis):
+  - discovery_rate: only meaningful over a week of episodes
+  - modification_rate: counted per week
+  - boundary_completeness: Opus checks whether counterexamples or pressure variants were added
+  - sample_size: accumulated
+  - history: append this week's snapshot
+
+Upgrade check (after the weekly update):
+  - observe → suggest: check d < 0.3 AND p > 0.7 AND sample ≥ 5
+  - suggest → auto: check all 5 conditions
+  - an upgrade needs the conditions met for 2 consecutive weeks (guards against chance fluctuation)
+```
+
+### 12.6 Relationship to the distillation pipeline
+
+The rating system is not a separate module — it is a natural product of the week-level Opus analysis. When Opus updates the Playbook each week, it updates the ratings along the way:
 
 ```
 Week Distillation Agent (Opus)
   ...
-  Phase 6 — 评级更新
+  Phase 6 — Rating update
   Turn N: read_meta("rating")
-          → 计算本周各 Playbook 的 d(t) 和 m(t)
-          → 检查是否新增反例/压力变体 → 更新 b
-          → 检查升级条件
+          → compute d(t) and m(t) for each Playbook this week
+          → check whether counterexamples/pressure variants were added → update b
+          → check upgrade conditions
           → update_meta("rating", ...)
   ...
 ```
 
-执行层读取 `meta_ratings` 表决定三档触发模式，不需要自己做评估。
+The execution layer reads the `meta_ratings` table to decide the three-tier trigger mode; it does no assessment of its own.
 
 ---
 
-## 十三、控制论框架
+## 13. Cybernetic framework
 
-整个系统本质上是一个控制论系统——通过反馈回路在不确定环境中维持有效控制。显式使用控制论框架暴露了三个纯工程思维容易忽略的设计要素。
+The whole system is essentially a cybernetic system — it keeps effective control in an uncertain environment through feedback loops. Using the cybernetic framework explicitly exposes three design elements that pure engineering thinking tends to overlook.
 
-### 13.1 Ashby 必要多样性定律：Playbook 完备性指标
+### 13.1 Ashby's law of requisite variety: the Playbook completeness metric
 
-> "只有多样性才能消灭多样性。" —— W. Ross Ashby, 1956
+> "Only variety can destroy variety." — W. Ross Ashby, 1956
 
-控制器（Playbook）的情境覆盖必须 ≥ 被控系统（用户实际工作）的情境多样性。不够就失控——系统只能观察，不能执行。
-
-```
-量化：
-  本周用户遇到 40 种可识别情境
-  Playbook 覆盖了 28 种（confidence ≥ 0.7）
-  → 覆盖率 = 28/40 = 70%
-
-  覆盖率含义：
-  > 90%：系统接近"数字分身"，大部分事可以代做
-  70-90%：有用的助手，但常遇到不会的
-  < 70%：还在学习期，主要价值是观察和记录
-
-  这个数字本身就是产品价值的度量。
-  可以展示给用户："你的数字分身已经学会了你 78% 的工作模式。"
-```
-
-多样性还有第二层含义——**Playbook 内部的情境分支够不够细**：
+The controller's (Playbook's) situation coverage must be ≥ the situation variety of the controlled system (the user's actual work). If it falls short, control is lost — the system can only observe, not execute.
 
 ```
-粗粒度（多样性不足）：
-  playbook/email-response.md 只有 1 个情境-行动对
-  → 所有邮件都用同一种方式回 → 必然出错
+Quantified:
+  This week the user met 40 recognisable situations
+  The Playbook covers 28 of them (confidence ≥ 0.7)
+  → coverage = 28/40 = 70%
 
-细粒度（多样性充足）：
-  playbook/email-response.md 有 12 个情境-行动对
-  → 区分了：上级/平级/客户/供应商 × 紧急/常规/敏感
-  → 每种情境有不同的措辞和处理方式
-  → 多样性匹配了真实世界的复杂度
+  What coverage means:
+  > 90%: the system is close to a "digital twin"; it can do most things on your behalf
+  70-90%: a useful assistant, but often meets things it can't do
+  < 70%: still learning; its main value is observing and recording
+
+  This number is itself a measure of product value.
+  It can be shown to the user: "Your digital twin has learned 78% of your work patterns."
 ```
 
-### 13.2 二阶控制论：观察改变行为，控制器会漂移
-
-> "观察者不在系统之外——观察者就是系统的一部分。" —— Heinz von Foerster, 1974
-
-**第一个问题：观察改变被观察者。**
-
-用户知道系统在学习他的行为。这可能导致：
-- 正面：用户更自律（"系统在看，我认真点"）
-- 负面：用户表演性工作（"让系统学到我很勤奋"）
-- 实际影响可能很小——三个月后用户会忘记系统在运行，就像忘记手环在手上
-
-**第二个问题：执行漂移。** 这个更严重。
+Variety has a second meaning — **whether the situation branches inside a Playbook are fine-grained enough**:
 
 ```
-漂移过程：
-  1. Playbook 条目 A 达到 confidence 0.97 → 升级为全自动
-  2. 系统自动执行条目 A，用户不再亲自做
-  3. 3 个月过去，用户的实际偏好已经变了
-     （换了供应商、团队结构调整、市场环境变化...）
-  4. 但 Playbook 条目 A 的 confidence 还是 0.97
-     → 因为没有负反馈：用户不做了，就没有行为数据来纠偏
-     → 系统还在按旧模式执行
-  5. 直到某次执行结果出了问题，用户才发现
+Coarse-grained (not enough variety):
+  playbook/email-response.md has only 1 situation-action pair
+  → every email is answered the same way → bound to go wrong
 
-  这就是二阶控制论的核心警告：
-  控制器（Playbook）和被控系统（用户行为）会脱耦
+Fine-grained (enough variety):
+  playbook/email-response.md has 12 situation-action pairs
+  → distinguishes: superior/peer/client/vendor × urgent/routine/sensitive
+  → each situation has different wording and handling
+  → the variety matches the complexity of the real world
 ```
 
-**对策：主动扰动（perturbation）**
+### 13.2 Second-order cybernetics: observation changes behavior, the controller drifts
+
+> "The observer is not outside the system — the observer is part of the system." — Heinz von Foerster, 1974
+
+**First problem: observation changes the observed.**
+
+The user knows the system is learning their behavior. This can lead to:
+- Positive: the user becomes more disciplined ("the system is watching, I'll be careful")
+- Negative: the user performs work ("let the system learn that I'm diligent")
+- The real effect may be small — after three months the user forgets the system is running, like forgetting the fitness band on their wrist
+
+**Second problem: execution drift.** This one is more serious.
 
 ```
-全自动条目的防漂移机制：
-  每 30 天，随机选 10% 的全自动条目
-  → 强制降回"建议模式"一次
-  → 用户被迫看一眼："系统要帮你转发这封邮件给财务，确认吗？"
-  → 用户确认 → confidence 刷新（验证过了，不是惯性留下的）
-  → 用户修改 → 发现漂移，更新 Playbook
-  → 用户拒绝 → 条目可能已过时，降回观察模式
+How drift happens:
+  1. Playbook entry A reaches confidence 0.97 → upgraded to fully automatic
+  2. The system executes entry A automatically; the user no longer does it personally
+  3. 3 months pass, and the user's actual preference has changed
+     (new vendor, team restructure, market change...)
+  4. But Playbook entry A's confidence is still 0.97
+     → because there is no negative feedback: the user stopped doing it, so there is no behavior data to correct it
+     → the system keeps executing the old pattern
+  5. Only when some execution result goes wrong does the user notice
 
-  频率控制：
-  不是每个条目每次都问（那就不是自动化了）
-  而是采样式验证——像审计，不是像审批
-  用户每天最多被"扰动"1-2 次，不影响体验
+  This is the core warning of second-order cybernetics:
+  the controller (Playbook) and the controlled system (user behavior) decouple
 ```
 
-### 13.3 正反馈：不只纠偏，也放大好的变化
-
-传统控制论关注负反馈（纠偏）。但正反馈（放大）同样有价值。
+**Countermeasure: active perturbation**
 
 ```
-负反馈（已有）：
-  agent 做错了 → 用户纠正 → Playbook 更新
-  "你上次转发错了人" → 修正
+Anti-drift mechanism for fully automatic entries:
+  Every 30 days, randomly pick 10% of the fully automatic entries
+  → force them back to "suggest mode" once
+  → the user has to take a look: "The system wants to forward this email to finance for you; confirm?"
+  → user confirms → confidence refreshed (verified, not left over from inertia)
+  → user modifies → drift found, Playbook updated
+  → user rejects → the entry may be out of date, back to observe mode
 
-正反馈（新增）：
-  用户行为出现积极变化 → 系统检测并固化
-  "你这周处理报价比上周快了 40%"
-  → 系统分析 diff：跳过了供应商资质复核步骤
-  → 两种可能：
-     a. 用户发现这步没必要（效率提升）→ 固化为新模式
-     b. 用户偷懒了（质量下降）→ 不固化，标记观察
-  → 怎么区分：看后果。如果跳过后没出问题 × 3 次 → 大概率是 a
-
-  正反馈的价值：
-  不只是"学你现在怎么做"
-  也是"学你正在变成什么样"
-  → 系统能跟上用户的进化，不只是固化用户的过去
+  Frequency control:
+  Not every entry every time (that would no longer be automation)
+  But sampled verification — like an audit, not an approval
+  The user is "perturbed" at most 1-2 times a day, with no impact on experience
 ```
 
-### 13.4 控制论视角下的完整系统
+### 13.3 Positive feedback: not only correcting, but amplifying good changes
+
+Classical cybernetics focuses on negative feedback (correction). But positive feedback (amplification) is just as valuable.
+
+```
+Negative feedback (already present):
+  the agent got it wrong → the user corrects → Playbook updated
+  "Last time you forwarded it to the wrong person" → fixed
+
+Positive feedback (new):
+  a positive change in user behavior → the system detects it and locks it in
+  "This week you handled quotes 40% faster than last week"
+  → the system analyses the diff: the vendor qualification re-check step was skipped
+  → two possibilities:
+     a. the user found the step unnecessary (efficiency gain) → lock it in as a new pattern
+     b. the user cut corners (quality drop) → do not lock it in, mark for observation
+  → how to tell: look at the consequences. If nothing went wrong after skipping × 3 times → most likely a
+
+  The value of positive feedback:
+  not only "learn how you do things now"
+  but also "learn what you are becoming"
+  → the system can keep up with the user's evolution, not just freeze the user's past
+```
+
+### 13.4 The whole system from a cybernetic view
 
 ```
                     ┌─────────────────────────┐
-                    │  环境（用户的工作世界）    │
+                    │  Environment (the user's  │
+                    │  work world)              │
                     └────────┬────────────────┘
-                             │ 扰动（新任务、变化、压力）
+                             │ Disturbances (new tasks, changes, pressure)
                              ▼
 ┌─────────────────────────────────────────────────────┐
-│  传感器（Screenpipe + 本地工具）                       │
-│  → Ashby：传感器的多样性 ≥ 环境的多样性               │
-│    才能捕获足够信号                                    │
+│  Sensors (Screenpipe + local tools)                  │
+│  → Ashby: sensor variety ≥ environment variety        │
+│    is needed to capture enough signal                 │
 └────────────────────┬────────────────────────────────┘
-                     │ 观察
+                     │ Observation
                      ▼
 ┌─────────────────────────────────────────────────────┐
-│  控制器（蒸馏管线 + 记忆系统）                         │
-│  → Ashby：Playbook 的情境多样性 ≥ 用户行为多样性      │
-│  → von Foerster：控制器本身会漂移，需要主动扰动验证    │
+│  Controller (distillation pipeline + memory system)   │
+│  → Ashby: Playbook situation variety ≥ user behavior  │
+│    variety                                            │
+│  → von Foerster: the controller itself drifts and     │
+│    needs active perturbation checks                   │
 └────────────────────┬────────────────────────────────┘
-                     │ 执行
+                     │ Execution
                      ▼
 ┌─────────────────────────────────────────────────────┐
-│  执行器（Agent + MCP 工具）                           │
-│  → 负反馈：执行错误 → 纠正 Playbook                   │
-│  → 正反馈：执行改善 → 固化新模式                       │
-│  → 二阶效应：执行改变了用户的行为 → 回到传感器重新观察  │
+│  Actuator (Agent + MCP tools)                         │
+│  → Negative feedback: execution error → correct       │
+│    the Playbook                                       │
+│  → Positive feedback: execution improves → lock in    │
+│    the new pattern                                    │
+│  → Second-order effect: execution changes the user's  │
+│    behavior → back to the sensors to observe again    │
 └────────────────────┬────────────────────────────────┘
-                     │ 反馈
+                     │ Feedback
                      ▼
-              回到传感器（闭环）
+              Back to the sensors (closed loop)
 ```
 
 ---
 
-## 十四、组织级递归：从个人 Playbook 到组织 Playbook
+## 14. Organisation-level recursion: from personal Playbook to organisational Playbook
 
-个人蒸馏的逻辑是 **秒→任务→小时→天→周**，从原始行为涌现个人 Playbook。
+Personal distillation runs **second → task → hour → day → week**, with the personal Playbook emerging from raw behavior.
 
-同样的递归往上走一层：多个人的个人 Playbook 执行记录，是组织级蒸馏的"原始行为"。**个人蒸馏看一个人反复怎么做，组织蒸馏看一群人协作时反复怎么流转。**
+The same recursion goes up one more level: the execution records of several people's personal Playbooks are the "raw behavior" for organisation-level distillation. **Personal distillation watches how one person repeatedly does things; organisational distillation watches how work repeatedly flows when a group collaborates.**
 
-### 递归同构
+### Recursive isomorphism
 
 ```
-个人蒸馏                          组织蒸馏
+Personal distillation               Organisational distillation
 ──────────────────────────────────────────────────────
-原始输入：Screenpipe 屏幕事件      原始输入：各人 agent 的执行记录
-                                    "张三 agent 10:00 完成数据分析，产出物发给王五"
-                                    "王五 agent 14:00 完成方案草稿，发给李四审"
-                                    "李四 15:30 手动改了三处条款，退回王五"
+Raw input: Screenpipe screen events  Raw input: each person's agent execution records
+                                    "Zhang San's agent finished the data analysis at 10:00 and sent the output to Wang Wu"
+                                    "Wang Wu's agent finished the proposal draft at 14:00 and sent it to Li Si for review"
+                                    "Li Si manually changed three clauses at 15:30 and returned it to Wang Wu"
 
-信号过滤：转折点 / 回避 / 压力     信号过滤：流转异常 / 角色跳过 / 瓶颈
+Signal filter: turning points /      Signal filter: flow anomalies / skipped roles / bottlenecks
+avoidance / pressure
 
-秒级 → 微操特征                    （无对应，个人级已处理）
-任务级 → 方法论                    任务级 → 一个跨人任务的完整流转路径
-小时级 → 节奏                      （无对应）
-天级 → 决策风格                    周级 → 一周内所有跨人任务的模式聚合
-周级 → 个人 Playbook               月级 → 组织 Playbook
+Second level → micro-operation traits (no counterpart; handled at the personal level)
+Task level → methodology            Task level → the full flow path of one cross-person task
+Hour level → rhythm                 (no counterpart)
+Day level → decision style          Week level → pattern aggregation over all cross-person tasks in a week
+Week level → personal Playbook      Month level → organisational Playbook
 ```
 
-### 组织蒸馏的输入
+### Input to organisational distillation
 
-个人蒸馏从 Screenpipe 读原始事件。组织蒸馏从**执行层的流转记录**读事件：
+Personal distillation reads raw events from Screenpipe. Organisational distillation reads events from the **execution layer's flow records**:
 
 ```
-每次跨人协作产生一条流转记录：
+Each cross-person collaboration produces one flow record:
 
 {
-  "task": "新客户合作方案",
-  "initiated_by": "张三",
+  "task": "Partnership proposal for a new client",
+  "initiated_by": "Zhang San",
   "timestamp": "2026-03-11T09:00:00",
   "steps": [
     {
       "role": "data-analysis",
-      "assignee": "赵六",
+      "assignee": "Zhao Liu",
       "started": "09:15", "completed": "11:30",
-      "mode": "auto",          ← agent 全自动完成
+      "mode": "auto",          ← completed fully automatically by the agent
       "output": "client-data-report.xlsx"
     },
     {
       "role": "competitor-research",
-      "assignee": "王五",
-      "started": "09:15", "completed": "13:00",  ← 和上一步并行
-      "mode": "assisted",      ← agent 草拟，王五修改后确认
+      "assignee": "Wang Wu",
+      "started": "09:15", "completed": "13:00",  ← in parallel with the previous step
+      "mode": "assisted",      ← drafted by the agent, confirmed after Wang Wu's edits
       "output": "competitor-comparison.md"
     },
     {
       "role": "proposal-writing",
-      "assignee": "王五",
+      "assignee": "Wang Wu",
       "started": "14:00", "completed": "16:30",
       "mode": "assisted",
       "output": "proposal-v1.docx",
@@ -1693,17 +1717,17 @@ Week Distillation Agent (Opus)
     },
     {
       "role": "legal-review",
-      "assignee": "李四",
+      "assignee": "Li Si",
       "started": "16:45", "completed": "17:30",
-      "mode": "manual",        ← 李四完全手动做的
+      "mode": "manual",        ← done entirely by hand by Li Si
       "output": "proposal-v1-reviewed.docx",
-      "corrections": 3          ← 改了 3 处
+      "corrections": 3          ← 3 changes
     },
     {
       "role": "revision",
-      "assignee": "王五",
+      "assignee": "Wang Wu",
       "started": "17:30", "completed": "18:00",
-      "mode": "auto",           ← agent 按李四的批注自动改
+      "mode": "auto",           ← the agent revised automatically from Li Si's annotations
       "output": "proposal-v2.docx"
     }
   ],
@@ -1712,245 +1736,245 @@ Week Distillation Agent (Opus)
 }
 ```
 
-### 组织信号过滤
+### Organisational signal filtering
 
-和个人级的转折点 / 回避 / 压力检测递归对应：
+Recursively mirrors the personal-level turning point / avoidance / pressure detection:
 
 ```
-流转异常（对应个人"转折点"）：
-  这次方案没经过法务审查就发了 → 为什么跳过了？
-  这次数据分析不是赵六做的，是张三自己做的 → 为什么换人了？
-  王五的方案被退回了 2 次（通常只退 0-1 次）→ 质量问题还是需求变了？
+Flow anomalies (counterpart of personal "turning points"):
+  This proposal went out without legal review → why was it skipped?
+  This data analysis was done by Zhang San himself, not Zhao Liu → why the change of person?
+  Wang Wu's proposal was returned twice (usually 0-1 times) → a quality problem, or did the requirements change?
 
-角色跳过（对应个人"回避模式"）：
-  有法务角色但这类任务从来不走法务 → 团队习惯性跳过法务审查
-  有数据分析角色但张三总自己做 → 张三不信任赵六的分析？还是沟通成本太高？
+Skipped roles (counterpart of personal "avoidance patterns"):
+  There is a legal role, but this kind of task never goes through legal → the team habitually skips legal review
+  There is a data-analysis role, but Zhang San always does it himself → does Zhang San not trust Zhao Liu's analysis? Or is the communication cost too high?
 
-瓶颈检测（对应个人"压力标记"）：
-  李四的法务审查总是卡 1-2 天 → 所有任务的瓶颈都在同一个人
-  王五同时被分配了 3 个方案撰写 → 负载不均
-  某类任务的平均耗时越来越长 → 流程在退化
+Bottleneck detection (counterpart of personal "pressure marks"):
+  Li Si's legal review always takes 1-2 days → every task's bottleneck is the same person
+  Wang Wu was assigned 3 proposals to write at once → uneven load
+  The average duration of some kind of task keeps growing → the process is degrading
 ```
 
-### 组织 Playbook 格式
+### Organisational Playbook format
 
-和个人 Playbook 格式递归同构——情境-行动对。只是"行动"不是一个人做什么，而是**哪些角色按什么顺序做什么**：
+Recursively isomorphic to the personal Playbook format — situation-action pairs. Only the "action" is not what one person does but **which roles do what in what order**:
 
 ```markdown
-# org-playbook/client-proposal.md（涌现的，不是预设的）
+# org-playbook/client-proposal.md (emerged, not preset)
 
-## 情境：老客户续约方案
-角色：data-analysis(≥0.8) → proposal-writing(≥0.85) → pricing-approval(≥0.7)
-流转：数据分析(1天) → 方案撰写(1天) → 内部定价审批(0.5天) → 发送
-通常耗时：2.5 天
-置信度：0.9（做过 11 次）
+## Situation: renewal proposal for an existing client
+Roles: data-analysis(≥0.8) → proposal-writing(≥0.85) → pricing-approval(≥0.7)
+Flow: data analysis (1 day) → proposal writing (1 day) → internal pricing approval (0.5 day) → send
+Typical duration: 2.5 days
+Confidence: 0.9 (done 11 times)
 
-## 情境：新客户首次方案
-角色：+competitor-research(≥0.7) + legal-review(≥0.85)
-流转：竞品调研 ∥ 数据分析(各1天) → 方案撰写(2天) → 法务审查(1天) → 内部评审(0.5天) → 发送
-通常耗时：5.5 天
-置信度：0.85（做过 7 次）
-注意：比老客户多法务环节——新客户合同没有历史模板
+## Situation: first proposal for a new client
+Roles: +competitor-research(≥0.7) + legal-review(≥0.85)
+Flow: competitor research ∥ data analysis (1 day each) → proposal writing (2 days) → legal review (1 day) → internal review (0.5 day) → send
+Typical duration: 5.5 days
+Confidence: 0.85 (done 7 times)
+Note: one more legal step than for existing clients — new-client contracts have no historical template
 
-## 情境：紧急方案（≤3天）
-角色：同"新客户"但跳过 legal-review
-流转：数据分析 ∥ 竞品调研(1天) → 方案撰写(1天) → 跳过法务 → 发送
-置信度：0.7（做过 3 次）
-注意：压力下跳过法务审查 ← 和个人压力标记同一个逻辑
-风险标记：3 次中有 1 次事后被客户法务退回要求补条款
+## Situation: urgent proposal (≤3 days)
+Roles: same as "new client" but skips legal-review
+Flow: data analysis ∥ competitor research (1 day) → proposal writing (1 day) → skip legal → send
+Confidence: 0.7 (done 3 times)
+Note: legal review skipped under pressure ← same logic as the personal pressure mark
+Risk flag: in 1 of the 3 times, the client's legal team later returned it asking for added clauses
 
-## 底层组织价值观
-→ 续约流程精简（信任关系已建立）
-→ 新客户流程完整（防御性高）
-→ 紧急时牺牲法务环节（速度 > 合规，但有后果）
+## Underlying organisational values
+→ The renewal process is lean (the trust relationship is established)
+→ The new-client process is complete (highly defensive)
+→ Under urgency the legal step is sacrificed (speed > compliance, but with consequences)
 
-## 反例
-2026-02-28 老客户续约也走了法务审查
-→ 边界条件：合同金额比往常大 3 倍
+## Counterexamples
+2026-02-28 an existing-client renewal also went through legal review
+→ Boundary condition: the contract amount was 3 times larger than usual
 → evidence: org-task-20260228-001
 ```
 
-### 角色 ≠ 岗位，角色 = 能力标签
+### Role ≠ job title, role = capability tag
 
-角色从个人 Playbook 自动映射，不是 HR 录入的：
+Roles are mapped automatically from personal Playbooks, not entered by HR:
 
 ```
-张三有 playbook/data-analysis.md (0.95)
-  → 张三可以填 data-analysis 角色
+Zhang San has playbook/data-analysis.md (0.95)
+  → Zhang San can fill the data-analysis role
 
-王五有 playbook/competitor-research.md (0.88)
-  和 playbook/proposal-writing.md (0.91)
-  → 王五可以填两个角色
+Wang Wu has playbook/competitor-research.md (0.88)
+  and playbook/proposal-writing.md (0.91)
+  → Wang Wu can fill two roles
 
-李四有 playbook/contract-review.md (0.93)
-  → 映射到组织角色 legal-review
+Li Si has playbook/contract-review.md (0.93)
+  → maps to the organisational role legal-review
 
-capability-map.json（自动生成）：
+capability-map.json (generated automatically):
 {
-  "data-analysis":       [{"user": "赵六", "confidence": 0.95},
-                          {"user": "张三", "confidence": 0.82}],
-  "proposal-writing":    [{"user": "王五", "confidence": 0.91}],
-  "competitor-research": [{"user": "王五", "confidence": 0.88},
-                          {"user": "张三", "confidence": 0.65}],
-  "legal-review":        [{"user": "李四", "confidence": 0.93}],
-  "pricing-approval":    [{"user": "张三", "confidence": 0.91}]
+  "data-analysis":       [{"user": "Zhao Liu", "confidence": 0.95},
+                          {"user": "Zhang San", "confidence": 0.82}],
+  "proposal-writing":    [{"user": "Wang Wu", "confidence": 0.91}],
+  "competitor-research": [{"user": "Wang Wu", "confidence": 0.88},
+                          {"user": "Zhang San", "confidence": 0.65}],
+  "legal-review":        [{"user": "Li Si", "confidence": 0.93}],
+  "pricing-approval":    [{"user": "Zhang San", "confidence": 0.91}]
 }
 
-→ 一个人可以填多个角色
-→ 一个角色可以由多个人填
-→ 匹配时看 confidence 门槛 + 当前负载
-→ legal-review 只有李四一个人 → 组织能力缺口，自动标记（Ashby：该角色多样性不足）
+→ one person can fill several roles
+→ one role can be filled by several people
+→ matching looks at the confidence threshold + current load
+→ legal-review has only Li Si → an organisational capability gap, flagged automatically (Ashby: not enough variety for this role)
 ```
 
-### 组织记忆系统（递归同构）
+### Organisational memory system (recursively isomorphic)
 
 ```
 standmeet-memory/
 ├── users/
 │   ├── zhangsan/
-│   │   ├── playbook/           ← 个人 Playbook
+│   │   ├── playbook/           ← personal Playbook
 │   │   ├── identity/
 │   │   ├── episodes/
 │   │   └── meta/
 │   ├── lisi/ ...
 │   └── wangwu/ ...
 │
-└── org/                         ← 组织级（同构）
-    ├── playbook/                ← 组织 Playbook（协作流转模式，涌现）
+└── org/                         ← organisation level (isomorphic)
+    ├── playbook/                ← organisational Playbook (collaboration flow patterns, emergent)
     │   └── client-proposal.md, incident-response.md, ...
-    ├── identity/                ← 组织 Identity（团队文化/风格）
-    │   ├── values.md             ← "偏保守，多审查" / "偏快，先发再改"
-    │   └── rhythm.md             ← "周一规划，周五发布"
-    ├── episodes/                ← 组织级协作记录
+    ├── identity/                ← organisational Identity (team culture/style)
+    │   ├── values.md             ← "conservative, more review" / "fast, ship first and fix later"
+    │   └── rhythm.md             ← "plan on Monday, release on Friday"
+    ├── episodes/                ← organisation-level collaboration records
     │   └── raw/
-    │       └── 2026-03-11.jsonl  ← 每条是一次跨人任务的完整流转
+    │       └── 2026-03-11.jsonl  ← each line is the full flow of one cross-person task
     ├── meta/
-    │   ├── confidence.json       ← 每个协作模式的置信度
-    │   ├── gaps.jsonl            ← 流转异常（"这次为什么跳过了法务？"）
-    │   ├── capability-map.json   ← 角色 → 人员映射（从个人 Playbook 聚合）
-    │   └── staleness.json        ← 协作模式的新鲜度
+    │   ├── confidence.json       ← confidence for each collaboration pattern
+    │   ├── gaps.jsonl            ← flow anomalies ("why was legal skipped this time?")
+    │   ├── capability-map.json   ← role → people mapping (aggregated from personal Playbooks)
+    │   └── staleness.json        ← freshness of collaboration patterns
     └── context/
 ```
 
-### 组织记忆固化（递归同构）
+### Organisational memory consolidation (recursively isomorphic)
 
 ```
-组织 episodes 的固化策略和个人级相同：
-  0-30 天：全留
-  30-90 天：被检索过的保留，已吸收进 org-playbook 的清理
-  90 天+：压缩版也没被检索 → 删除
+Consolidation for organisational episodes is the same as at the personal level:
+  0-30 days: keep everything
+  30-90 days: keep the retrieved ones, clean up those absorbed into org-playbook
+  90 days+: compressed version never retrieved either → delete
 
-稳态 ≈ 500-1,000 条（组织级任务频率比个人低）
+Steady state ≈ 500-1,000 entries (organisation-level tasks are less frequent than personal ones)
 
-组织 Playbook 的 confidence 衰减：
-  "上次用这个流程是 3 个月前" → staleness 标记
-  → 人员可能变了、工具可能变了、流程实际已经变了
-  → 下次触发时降回"建议模式"重新验证
+Confidence decay for the organisational Playbook:
+  "This process was last used 3 months ago" → staleness mark
+  → people may have changed, tools may have changed, the process may actually have changed
+  → next time it triggers, drop back to "suggest mode" to re-verify
 ```
 
-### 组织级主动提问（递归同构）
+### Organisation-level proactive questions (recursively isomorphic)
 
-个人级问用户"你为什么这么做"。组织级问**"这次流转为什么和通常不一样"**：
+The personal level asks the user "why did you do it this way". The organisation level asks **"why was this flow different from usual"**:
 
 ```
-org/meta/gaps.jsonl：
+org/meta/gaps.jsonl:
 {
-  "observed": "新客户方案跳过了法务审查",
-  "usual_pattern": "新客户方案都经过 legal-review",
-  "gap": "是紧急跳过，还是流程变了？",
-  "ask_who": "张三",     ← 问发起人
+  "observed": "The new-client proposal skipped legal review",
+  "usual_pattern": "New-client proposals always go through legal-review",
+  "gap": "Skipped because of urgency, or has the process changed?",
+  "ask_who": "Zhang San",     ← ask the initiator
   "priority": 0.9
 }
 
 {
-  "observed": "数据分析由张三做了，不是赵六",
-  "usual_pattern": "data-analysis 角色通常由赵六(0.95)填充",
-  "gap": "赵六不在？还是这个任务有特殊要求？",
-  "ask_who": "张三",
+  "observed": "Data analysis was done by Zhang San, not Zhao Liu",
+  "usual_pattern": "The data-analysis role is usually filled by Zhao Liu (0.95)",
+  "gap": "Was Zhao Liu away? Or did this task have special requirements?",
+  "ask_who": "Zhang San",
   "priority": 0.6
 }
 
-回答整合路径和个人级相同：
-  → 写入 org/episodes
-  → 尝试更新 org-playbook（追加情境分支）
-  → 可能发现新的边界条件
+The answer integration path is the same as at the personal level:
+  → written to org/episodes
+  → try to update org-playbook (append a situation branch)
+  → may find a new boundary condition
 ```
 
-### 任务进来时的完整流程
+### The full flow when a task comes in
 
 ```
-1. 任务输入
-   "客户 ABC 要求下周一前出一版新的合作方案"
+1. Task input
+   "Client ABC wants a new partnership proposal before next Monday"
 
-2. 查组织 Playbook
+2. Look up the organisational Playbook
    org-playbook/client-proposal.md
-   → 匹配情境："新客户首次方案"
-   → 需要角色：data-analysis + competitor-research + proposal-writing
+   → matching situation: "first proposal for a new client"
+   → roles needed: data-analysis + competitor-research + proposal-writing
                + legal-review + pricing-approval
-   → 通常流转：竞品 ∥ 数据(1天) → 方案(2天) → 法务(1天) → 审批(0.5天)
-   → 但只有 4 个工作日 → 触发情境："紧急方案" → 并行更多步骤
+   → usual flow: competitors ∥ data (1 day) → proposal (2 days) → legal (1 day) → approval (0.5 day)
+   → but there are only 4 working days → triggers the situation "urgent proposal" → run more steps in parallel
 
-3. 查 capability-map.json → 匹配人
-   data-analysis → 赵六(0.95) 或 张三(0.82)
-   → 赵六当前负载：已有 2 个任务 → 分给张三
-   competitor-research → 王五(0.88)
-   proposal-writing → 王五(0.91)
-   legal-review → 李四(0.93) → 只有他一个人，不可替代
-   pricing-approval → 张三(0.91)
+3. Look up capability-map.json → match people
+   data-analysis → Zhao Liu (0.95) or Zhang San (0.82)
+   → Zhao Liu's current load: already has 2 tasks → assign to Zhang San
+   competitor-research → Wang Wu (0.88)
+   proposal-writing → Wang Wu (0.91)
+   legal-review → Li Si (0.93) → he is the only one, irreplaceable
+   pricing-approval → Zhang San (0.91)
 
-4. 生成流转计划（建议模式，因为是紧急情境 confidence 0.7）
-   Day 1: 张三(数据) ∥ 王五(竞品)     ← 并行
-   Day 2: 王五(方案)                    ← 依赖前两步
-   Day 3: 李四(法务) + 张三(定价审批)   ← 法务和定价可并行
-   Day 4: 修改 + 发送                   ← buffer
+4. Generate a flow plan (suggest mode, because the urgent situation has confidence 0.7)
+   Day 1: Zhang San (data) ∥ Wang Wu (competitors)   ← in parallel
+   Day 2: Wang Wu (proposal)                          ← depends on the first two steps
+   Day 3: Li Si (legal) + Zhang San (pricing approval) ← legal and pricing can run in parallel
+   Day 4: revise + send                               ← buffer
 
-5. 发起人（张三）确认计划
-   → 各人的 agent 收到子任务
-   → 按各自的个人 Playbook 执行
-   → 产出物自动流转到下一环节
+5. The initiator (Zhang San) confirms the plan
+   → each person's agent receives its subtask
+   → executes according to its own personal Playbook
+   → outputs flow automatically to the next step
 
-6. 流转完成 → 写入 org/episodes → 组织蒸馏输入
+6. Flow complete → written to org/episodes → input for organisational distillation
 ```
 
-### 组织级蒸馏管线
+### Organisation-level distillation pipeline
 
 ```
-任务级（每次跨人协作完成后）：
-  Haiku 做流转摘要
-  "新客户方案，4 天完成，走了数据+竞品+方案+法务+审批全流程"
-  ~$0.001/次，一天 2-3 次 ≈ $0.003/天
+Task level (after each cross-person collaboration completes):
+  Haiku summarises the flow
+  "New-client proposal, done in 4 days, went through the full data + competitors + proposal + legal + approval flow"
+  ~$0.001/run, 2-3 runs a day ≈ $0.003/day
 
-周级（每周）：
-  Sonnet 聚合本周所有跨人任务
-  对比 org-playbook → 发现偏差 → 更新或新建条目
-  ~$0.03/周 ≈ $0.004/天
+Week level (weekly):
+  Sonnet aggregates all cross-person tasks this week
+  compares with org-playbook → finds deviations → updates or creates entries
+  ~$0.03/week ≈ $0.004/day
 
-月级（每月）：
-  Opus 做组织深度分析
-  更新 org/identity/（团队文化是否在变？）
-  发现能力缺口趋势（哪些角色越来越紧张？）
-  ~$0.50/月 ≈ $0.02/天
+Month level (monthly):
+  Opus does a deep organisational analysis
+  updates org/identity/ (is the team culture changing?)
+  finds capability-gap trends (which roles are getting tighter?)
+  ~$0.50/month ≈ $0.02/day
 
-组织蒸馏总计：~$0.03/天/团队（不是每人）
+Organisational distillation total: ~$0.03/day/team (not per person)
 ```
 
-### 数据隔离
+### Data isolation
 
 ```
-个人 Playbook 的原始内容 → 永远在员工本地
-组织 Playbook 看到的 → 只有角色标签 + confidence 数值 + 流转时间
+The raw content of personal Playbooks → always stays on the employee's machine
+What the organisational Playbook sees → only role tags + confidence values + flow timing
 
-org-playbook 知道：
-  ✅ "data-analysis 角色通常需要 1 天"
-  ✅ "赵六的 data-analysis confidence 是 0.95"
-  ✅ "这次法务审查改了 3 处"
+org-playbook knows:
+  ✅ "The data-analysis role usually takes 1 day"
+  ✅ "Zhao Liu's data-analysis confidence is 0.95"
+  ✅ "This legal review changed 3 places"
 
-org-playbook 不知道：
-  ❌ 赵六具体查了什么数据
-  ❌ 李四改了哪三处条款
-  ❌ 王五的方案里写了什么
+org-playbook does not know:
+  ❌ What data Zhao Liu actually looked up
+  ❌ Which three clauses Li Si changed
+  ❌ What Wang Wu wrote in the proposal
 
-除非员工明确授权共享 Playbook 内容（如"最佳实践分享"场景）
+Unless an employee explicitly authorises sharing Playbook content (e.g. a "best practice sharing" scenario)
 ```
 
-（产品拆分和定价见 protocol-architecture.md）
+(For product split and pricing, see protocol-architecture.md)

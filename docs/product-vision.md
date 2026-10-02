@@ -1,372 +1,373 @@
-# 产品愿景
+# Product Vision
 
-## 设计目标
+## Design goal
 
-把 StandMeet 从一个整体系统拆成**通过协议交互的独立组件**。每个组件可以独立替换、独立开源或闭源。
+Split StandMeet from one monolithic system into **independent components that interact through protocols**. Each component can be replaced independently, and can be open-sourced or kept closed independently.
 
-核心原则：**协议全部开源，实现灵活授权。**
-
----
-
-## 工程哲学（从参考项目提炼）
-
-核心参考：Elastic Stack（平台 + 上层 Solution）、Grafana Labs（插件架构 + big tent + 等到对的抽象再统一）、HashiCorp（每个产品 self-contained + 通过网络协议集成）。
-
-### 1. 平台是万有引力中心，应用围绕平台生长
-
-Elasticsearch 是 Elastic Stack 唯一不可缺的产品。Beats、Logstash、Kibana 都可选，但都往 Elasticsearch 里读写。Elasticsearch 独立可用（REST API 直接查），加上 Kibana 更好用，加上 Beats 更方便采集。
-
-**对 StandMeet：蒸馏引擎（含记忆存储）是平台。所有应用都可选，但都往平台读写记忆。平台独立可用（CLI / API 查 Playbook），加上管理中心更好用，加上应用更有场景价值。**
-
-### 2. 每个产品 self-contained，集成是附加价值
-
-HashiCorp 的 Terraform、Vault、Consul 各自独立——自己的 CLI、自己的 API、自己的存储。你可以只用 Vault 不碰 Terraform。它们之间通过 HTTP API 集成，集成方式和第三方集成完全一样（Terraform 的 Vault Provider 走的是 Vault 的公开 API，没有后门）。
-
-**对 StandMeet：数字分身展示没有蒸馏引擎也能跑（手动填内容）。蒸馏引擎没有任何应用也能跑（只观察学习）。两者同时存在时，通过 Memory Protocol 互通——数字分身展示读蒸馏出的 Playbook，对话记录作为 Episode 流回蒸馏引擎。但这是附加价值，不是前提。**
-
-### 3. 自己的产品也走公开接口，不开后门
-
-Grafana 做 Loki/Mimir/Tempo 时，通过和第三方完全一样的 data source plugin 接口接入 Grafana，没有特殊待遇。这保证了：(a) Grafana 对自家后端没有隐性依赖，(b) 第三方后端和自家后端平等竞争。
-
-**对 StandMeet：数字分身展示读蒸馏引擎的记忆，和读自己本地存储的手动内容，走完全一样的接口（Memory Protocol）。不能给蒸馏引擎开后门。**
-
-### 4. 共享的是约定（Schema），不是基础设施
-
-Grafana 靠 label 体系让 metric/log/trace 可以关联。Elastic 靠 ECS（Elastic Common Schema）统一字段名。HashiCorp 靠 HCL 统一配置语法。它们共享的都是**数据格式约定**，不是共享数据库或共享代码。
-
-**对 StandMeet：产品间的共享约定是 Memory Protocol 的 JSON Schema——Playbook、Episode、Identity、Meta 的格式定义。任何产品只要读写符合 schema 的数据就能互通。**
-
-### 5. 采集层最开放，平台层可控
-
-Elastic 的 Beats（采集）是 Apache 2.0，Elasticsearch（存储）是 AGPL。Grafana 的 Alloy（采集）是 Apache 2.0，Mimir/Loki/Tempo（存储）是 AGPL。逻辑：让数据尽量多地流进来（开放采集），在存储和分析层变现。
-
-**对 StandMeet：采集适配器和协议规范最开放（AGPL / MIT），让社区贡献各种采集源。蒸馏引擎开源但 AGPL 保护。管理中心商业。**
-
-### 6. 先让产品独立跑起来，再从实践中提炼协议
-
-Grafana 有独立 agent 跑了好几年（Prometheus agent、Promtail），2024 年才出 Alloy 统一采集——等 OpenTelemetry 标准稳定了才动手。过早统一意味着选错抽象。
-
-**对 StandMeet：protocols.md 定义的四个协议是方向，但不急着冻结。先让每个产品跑起来，从实际数据流中验证协议设计，再逐步稳定。**
-
-### 7. 管理中心因复杂度而必须存在
-
-多个 self-contained 产品 = 多个独立管理界面 = 用户管理负担。Docker Desktop 存在的原因是没人想开十个终端管容器。Kibana 存在的原因是没人想用 curl 查 Elasticsearch。
-
-**对 StandMeet：蒸馏引擎是 headless daemon，各种应用各自独立。管理中心（Electron）把它们拉到一个界面里——管蒸馏引擎状态、管应用安装和配置、回答主动提问、审批执行建议。产品越多，管理中心越有价值。**
+Core principle: **all protocols are open source; implementations are licensed flexibly.**
 
 ---
 
-## 四层结构
+## Engineering philosophy (distilled from reference projects)
 
-蒸馏引擎不是产品，是**基础设施**。没人直接用数据库当产品，但所有产品都需要数据库。蒸馏引擎也一样——它产出 Playbook/Episodes/Identity/Meta，应用层通过协议各取所需。
+Core references: Elastic Stack (platform + Solutions on top), Grafana Labs (plugin architecture + big tent + wait for the right abstraction before unifying), HashiCorp (each product self-contained + integrated over network protocols).
+
+### 1. The platform is the center of gravity; applications grow around it
+
+Elasticsearch is the only indispensable product in the Elastic Stack. Beats, Logstash and Kibana are all optional, but they all read from and write to Elasticsearch. Elasticsearch is usable on its own (query it directly over the REST API), more usable with Kibana, and easier to feed with Beats.
+
+**For StandMeet: the distillation engine (including memory storage) is the platform. Every application is optional, but they all read and write memory on the platform. The platform is usable on its own (query Playbooks via CLI / API), more usable with the management center, and more valuable in real scenarios with applications.**
+
+### 2. Each product is self-contained; integration is added value
+
+HashiCorp's Terraform, Vault and Consul are each independent — their own CLI, their own API, their own storage. You can use only Vault and never touch Terraform. They integrate over HTTP APIs, and the integration works exactly like a third-party integration (Terraform's Vault Provider goes through Vault's public API; there is no back door).
+
+**For StandMeet: the digital-avatar showcase runs without the distillation engine (content is filled in by hand). The distillation engine runs without any application (it only observes and learns). When both exist, they talk through the Memory Protocol — the digital-avatar showcase reads distilled Playbooks, and conversation records flow back to the distillation engine as Episodes. But this is added value, not a precondition.**
+
+### 3. Our own products also use the public interface — no back doors
+
+When Grafana built Loki/Mimir/Tempo, they plugged into Grafana through exactly the same data source plugin interface as third parties, with no special treatment. This guarantees: (a) Grafana has no hidden dependency on its own backends, (b) third-party backends compete on equal terms with first-party ones.
+
+**For StandMeet: the digital-avatar showcase reads the distillation engine's memory through exactly the same interface (Memory Protocol) as it reads hand-written content from its own local storage. No back door for the distillation engine.**
+
+### 4. What is shared is a convention (schema), not infrastructure
+
+Grafana uses its label system to correlate metrics/logs/traces. Elastic uses ECS (Elastic Common Schema) to unify field names. HashiCorp uses HCL to unify configuration syntax. What they share is always a **data format convention**, not a shared database or shared code.
+
+**For StandMeet: the shared convention between products is the Memory Protocol's JSON Schema — the format definitions for Playbook, Episode, Identity and Meta. Any product that reads and writes schema-conformant data can interoperate.**
+
+### 5. The ingestion layer is the most open; the platform layer stays controlled
+
+Elastic's Beats (ingestion) is Apache 2.0; Elasticsearch (storage) is AGPL. Grafana's Alloy (ingestion) is Apache 2.0; Mimir/Loki/Tempo (storage) are AGPL. The logic: let as much data flow in as possible (open ingestion), and monetize at the storage and analysis layer.
+
+**For StandMeet: ingestion adapters and protocol specs are the most open (AGPL / MIT), so the community can contribute all kinds of ingestion sources. The distillation engine is open source but protected by AGPL. The management center is commercial.**
+
+### 6. Get products running independently first, then distill protocols from practice
+
+Grafana ran separate agents for years (Prometheus agent, Promtail) and only shipped Alloy for unified ingestion in 2024 — it waited for the OpenTelemetry standard to stabilize first. Unifying too early means picking the wrong abstraction.
+
+**For StandMeet: the four protocols defined in protocols.md are a direction, but there is no rush to freeze them. Get each product running first, validate the protocol design against real data flows, then stabilize gradually.**
+
+### 7. The management center must exist because of complexity
+
+Multiple self-contained products = multiple independent management UIs = management burden for the user. Docker Desktop exists because nobody wants to open ten terminals to manage containers. Kibana exists because nobody wants to query Elasticsearch with curl.
+
+**For StandMeet: the distillation engine is a headless daemon, and each application is independent. The management center (Electron) pulls them into one interface — managing distillation engine state, managing app installation and configuration, answering proactive questions, approving execution suggestions. The more products there are, the more valuable the management center becomes.**
+
+---
+
+## Four-layer structure
+
+The distillation engine is not a product; it is **infrastructure**. Nobody uses a database directly as a product, but every product needs a database. The distillation engine is the same — it produces Playbook/Episodes/Identity/Meta, and the application layer takes what it needs through protocols.
 
 ```
 ┌─────────────────────────────────────────────────┐
-│  应用层（各种产品，各自独立）                       │
+│  Application layer (products, each independent)   │
 │                                                   │
-│  个人助手        日记生成器      数字分身展示       │
-│  情绪陪伴        牛马监控(企业)   知识传承          │
-│  ...无限可能                                      │
+│  Personal assistant  Journal generator  Digital-avatar showcase │
+│  Emotional companion  Worker monitor (enterprise)  Knowledge transfer │
+│  ...endless possibilities                         │
 └──────────────────────┬──────────────────────────┘
                        │ Memory Protocol + Query Protocol
                        │
 ┌──────────────────────┴──────────────────────────┐
-│  Electron 客户端（管理中心）                        │
-│  管引擎 + 管应用 + 管权限 + 用户交互入口            │
+│  Electron client (management center)              │
+│  Manages engine + apps + permissions + user entry │
 └──────────────────────┬──────────────────────────┘
                        │
 ┌──────────────────────┴──────────────────────────┐
-│  蒸馏引擎                                         │
-│  采集 → 过滤 → 蒸馏 → 记忆存储                    │
-│  纯后台 daemon，headless                          │
+│  Distillation engine                              │
+│  Ingest → filter → distill → memory storage       │
+│  Pure background daemon, headless                 │
 └──────────────────────┬──────────────────────────┘
                        │ Observation Protocol (CloudEvents)
                        │
 ┌──────────────────────┴──────────────────────────┐
-│  采集适配器                                        │
-│  Screenpipe / IDE 插件 / 移动端 / 自定义           │
+│  Ingestion adapters                               │
+│  Screenpipe / IDE plugins / mobile / custom       │
 └─────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 产品定义
+## Product definitions
 
-### 产品 1：蒸馏引擎（平台）
+### Product 1: Distillation engine (platform)
 
-**独立价值**：观察用户行为 → 过滤信号 → 多层蒸馏 → 生成记忆（Playbook/Identity/Episodes/Meta）→ 执行层替用户操作。不需要任何应用也能跑。用户可以只用蒸馏引擎做个人复盘、看自己的 Playbook、让 agent 替自己处理日常操作。
+**Standalone value**: observe user behavior → filter signals → multi-layer distillation → produce memory (Playbook/Identity/Episodes/Meta) → an execution layer acts on the user's behalf. It runs without any application. A user can use only the distillation engine for personal retrospectives, to view their own Playbooks, and to let an agent handle routine operations for them.
 
-**包含**：
-- 采集层（Screenpipe adapter + 本地工具自动发现）
-- 信号过滤层（转折点 / 回避 / 压力 / 任务边界）
-- 多层蒸馏管线（秒级规则 → 任务级 Haiku → 小时级统计 → 天级 Sonnet → 周级 Opus）
-- 记忆存储（Playbook / Identity / Episodes / Meta，SQLite + 向量索引）
-- 执行层（情境检测 → Playbook 匹配 → agent 执行 → 反馈闭环）
-- 主动学习回路（提问 → 用户回答 → 记忆更新）
+**Contains**:
+- Ingestion layer (Screenpipe adapter + automatic discovery of local tools)
+- Signal filtering layer (turning points / avoidance / stress / task boundaries)
+- Multi-layer distillation pipeline (second-level rules → task-level Haiku → hour-level statistics → day-level Sonnet → week-level Opus)
+- Memory storage (Playbook / Identity / Episodes / Meta, SQLite + vector index)
+- Execution layer (situation detection → Playbook matching → agent execution → feedback loop)
+- Active learning loop (ask a question → user answers → memory update)
 
-**对外接口**：
-- Observation Protocol（CloudEvents）— 采集适配器输入事件
-- Memory Protocol（JSON Schema + REST 语义）— 应用层读写记忆的标准接口
-- Query Protocol（REST + 向量搜索）— 应用层查询记忆
+**External interfaces**:
+- Observation Protocol (CloudEvents) — input events from ingestion adapters
+- Memory Protocol (JSON Schema + REST semantics) — the standard interface for the application layer to read and write memory
+- Query Protocol (REST + vector search) — the application layer queries memory
 
-**技术栈**：Python daemon（详见 distillation-engineering.md）
+**Tech stack**: Python daemon (see distillation-engineering.md)
 
-**许可证**：AGPL v3
+**License**: AGPL v3
 
-### 产品 2：管理中心（网关 + 统一管理面）
+### Product 2: Management center (gateway + unified management surface)
 
-**为什么存在**：每个应用 self-contained 意味着每个应用都有自己的管理界面。蒸馏引擎也需要管理。如果用户装了蒸馏引擎 + 3 个应用，就要开 4 个不同的管理界面。管理中心把这些收到一个地方。
+**Why it exists**: every application being self-contained means every application has its own management UI. The distillation engine also needs management. If a user installs the distillation engine + 3 applications, they have to open 4 different management UIs. The management center gathers these in one place.
 
-**本质是网关**：管理中心知道装了哪些产品（蒸馏引擎 + 各应用），知道怎么和每个产品通信，把各产品的管理面聚合到一个统一界面。
+**It is essentially a gateway**: the management center knows which products are installed (distillation engine + each application), knows how to talk to each one, and aggregates each product's management surface into one unified interface.
 
-**包含**：
+**Contains**:
 
-蒸馏引擎管理面（内置）：
-- 蒸馏引擎状态监控（采集状态、蒸馏管线进度、记忆统计）
-- Playbook 浏览和编辑（查看情境-行动对、maturity、评级）
-- 主动提问界面（系统的问题推送给用户，用户回答写回记忆）
-- 执行审批（建议模式下的操作确认）
-- 执行规则配置（哪些操作允许全自动）
-- 采集适配器管理（开关、权限）
+Distillation engine management surface (built in):
+- Distillation engine status monitoring (ingestion status, distillation pipeline progress, memory statistics)
+- Playbook browsing and editing (view situation-action pairs, maturity, ratings)
+- Proactive question UI (the system's questions are pushed to the user; the user's answers are written back to memory)
+- Execution approval (confirming operations in suggestion mode)
+- Execution rule configuration (which operations may run fully automatically)
+- Ingestion adapter management (on/off, permissions)
 
-应用管理面（聚合）：
-- 应用安装 / 卸载
-- 加载各应用的管理 UI（每个应用提供自己的管理页面，管理中心作为壳渲染）
-- 统一的应用配置入口
+Application management surface (aggregated):
+- App install / uninstall
+- Load each app's management UI (each app provides its own management pages; the management center renders them as a shell)
+- Unified entry point for app configuration
 
-**关键设计：用户面 vs 管理面**
+**Key design: user surface vs management surface**
 
-每个应用有两个面：
+Each application has two surfaces:
 
 ```
-用户面（独立）                    管理面（可聚合）
+User surface (independent)        Management surface (aggregatable)
 ─────────────────────────────────────────────────
-数字分身展示：                    数字分身展示：
-  visitor 打开网页                  owner 管内容、邀请码、角色
-  输入邀请码                        → 独立跑时：自己的 Electron
-  和 AI 聊天                        → 接入管理中心时：嵌入管理中心
-  这个永远独立
+Digital-avatar showcase:          Digital-avatar showcase:
+  visitor opens the web page        owner manages content, invite codes, roles
+  enters an invite code             → running standalone: its own Electron
+  chats with the AI                 → plugged into the management center: embedded in it
+  this always stays independent
 
-日记生成器：                      日记生成器：
-  用户看日记                        配置日记格式、选择 Episode 来源
-  这个永远独立                      → 独立跑时：自己的 Web UI
-                                    → 接入管理中心时：嵌入管理中心
+Journal generator:                Journal generator:
+  user reads the journal            configure journal format, choose Episode sources
+  this always stays independent     → running standalone: its own Web UI
+                                    → plugged into the management center: embedded in it
 
-个人助手：                        个人助手：
-  用户和助手对话                    配置执行权限、查看执行历史
-  这个永远独立                      → 独立跑时：自己的 UI
-                                    → 接入管理中心时：嵌入管理中心
+Personal assistant:               Personal assistant:
+  user talks to the assistant       configure execution permissions, view execution history
+  this always stays independent     → running standalone: its own UI
+                                    → plugged into the management center: embedded in it
 ```
 
-**用户面永远属于应用自己，管理中心不碰。管理中心只聚合管理面。**
+**The user surface always belongs to the application itself; the management center never touches it. The management center only aggregates management surfaces.**
 
-应用通过**应用注册协议**告诉管理中心："我是谁、我提供哪些管理页面、我的管理 API 在哪"。管理中心根据这个渲染导航和路由请求。
+Applications use the **app registration protocol** to tell the management center: "who I am, which management pages I provide, where my management API is". The management center renders navigation and routes requests based on this.
 
-**和蒸馏引擎的关系**：管理中心通过 Memory Protocol + 蒸馏引擎的管理 API 通信。管理中心是蒸馏引擎的 client，不是蒸馏引擎的一部分。蒸馏引擎没有管理中心也能跑（CLI / API 管理）。
+**Relationship to the distillation engine**: the management center communicates through the Memory Protocol + the distillation engine's management API. The management center is a client of the distillation engine, not part of it. The distillation engine runs without the management center (managed via CLI / API).
 
-**技术栈**：Electron + React（复用现有 standmeet-client 的技术栈）
+**Tech stack**: Electron + React (reuses the tech stack of the existing standmeet-client)
 
-**许可证**：商业
+**License**: Commercial
 
-### 产品 3+：应用层（各自独立）
+### Product 3+: Application layer (each independent)
 
-每个应用是一个独立产品，self-contained，有自己的完整功能。接入蒸馏引擎后体验增强，但不依赖蒸馏引擎。
+Each application is an independent product, self-contained, with its own complete feature set. Plugging into the distillation engine enhances the experience, but the app does not depend on it.
 
-**第一个应用：数字分身展示**（现有 StandMeet 代码演化而来）
+**First application: digital-avatar showcase** (evolved from the existing StandMeet code)
 
-独立价值：Owner 手动填写内容 → Visitor 通过 AI 聊天了解 Owner。两种模式：Invitation Mode（WebSocket）和 BYOAI Mode（MCP OAuth）。不需要蒸馏引擎。
+Standalone value: the Owner fills in content by hand → a Visitor learns about the Owner by chatting with an AI. Two modes: Invitation Mode (WebSocket) and BYOAI Mode (MCP OAuth). No distillation engine needed.
 
-接入蒸馏引擎后的增强：
-- AI 回答问题时不只靠手动填的内容，还能查 Playbook（"他遇到这种 bug 通常怎么排查"）
-- AI 能用 Identity 推理未见场景（"他在技术选型时倾向约束强的方案"）
-- 对话记录作为 Episode 流回蒸馏引擎（visitor 问了什么、AI 答不上来什么 → 蒸馏优先级信号）
-- 手动填内容和蒸馏出的记忆格式兼容，通过 Memory Protocol 统一读取
+Enhancements after plugging into the distillation engine:
+- When answering, the AI relies not only on hand-written content but can also query Playbooks ("how does he usually debug this kind of bug")
+- The AI can use Identity to reason about unseen scenarios ("when choosing technology he leans toward strongly constrained options")
+- Conversation records flow back to the distillation engine as Episodes (what visitors asked, what the AI could not answer → distillation priority signals)
+- Hand-written content and distilled memory share a compatible format and are read uniformly through the Memory Protocol
 
-包含：
-- 内容管理（手动填写，现有 ContentEntry 系统）
-- 角色和权限（Role + PathPermission）
-- 邀请码系统（InviteCode + Invitation Mode）
-- MCP server（BYOAI Mode）
-- Gateway（Claude Agent SDK + WebSocket）
-- Web 前端（Next.js visitor 界面）
-- 管理端（Electron，管理内容 / 邀请码 / 角色）
+Contains:
+- Content management (hand-written, the existing ContentEntry system)
+- Roles and permissions (Role + PathPermission)
+- Invite code system (InviteCode + Invitation Mode)
+- MCP server (BYOAI Mode)
+- Gateway (Claude Agent SDK + WebSocket)
+- Web frontend (Next.js visitor UI)
+- Admin client (Electron, manages content / invite codes / roles)
 
-技术栈：现有（Django + Node.js + Next.js + Electron）
+Tech stack: existing (Django + Node.js + Next.js + Electron)
 
-**未来应用（各自独立产品）**：
+**Future applications (each an independent product)**:
 
-| 应用 | 独立价值 | 接入蒸馏引擎后 |
+| Application | Standalone value | After plugging into the distillation engine |
 |------|---------|--------------|
-| 日记生成器 | 手动写日记 | 自动从 Episodes 生成每日总结 |
-| 个人助手 | 通用 AI 助手 | 情境匹配 Playbook → 像你一样做 |
-| 情绪陪伴 | 通用陪伴对话 | 检测到压力标记时主动关怀 |
-| 知识传承 | 手动写知识文档 | 导出 Playbook 为结构化知识 |
-| 技能差距分析 | 手动评估 | 从 Rating 自动分析哪些领域还是 observe |
+| Journal generator | Write a journal by hand | Generate a daily summary automatically from Episodes |
+| Personal assistant | General AI assistant | Match situations to Playbooks → act the way you would |
+| Emotional companion | General companion chat | Reach out proactively when stress markers are detected |
+| Knowledge transfer | Write knowledge docs by hand | Export Playbooks as structured knowledge |
+| Skill gap analysis | Manual assessment | Analyze automatically from Ratings which areas are still at observe |
 
 ---
 
-## 产品间关系
+## Relationships between products
 
 ```
-用户面（各自独立，面向终端用户）          管理面（可聚合，面向 owner）
+User surfaces (each independent, for end users)   Management surfaces (aggregatable, for the owner)
 ─────────────────────────────────   ─────────────────────────────────
 
-visitor 浏览器                       ┌─────────────────────────────┐
-  → 数字分身展示 Web                  │  管理中心（Electron 网关）     │
+visitor browser                      ┌─────────────────────────────┐
+  → digital-avatar showcase Web      │  Management center (Electron gateway) │
                                      │                              │
-用户终端                              │  ┌── 蒸馏引擎管理面（内置）   │
-  → 日记生成器 App                    │  │   Playbook 浏览/编辑       │
-                                     │  │   主动提问/执行审批         │
-用户终端                              │  │   采集适配器管理            │
-  → 个人助手 App                      │  │                           │
-                                     │  ├── 数字分身展示管理面（嵌入）│
-                                     │  │   内容/邀请码/角色管理      │
+user device                          │  ┌── Distillation engine mgmt (built in) │
+  → journal generator App            │  │   Playbook browse/edit      │
+                                     │  │   proactive questions/execution approval │
+user device                          │  │   ingestion adapter mgmt    │
+  → personal assistant App           │  │                           │
+                                     │  ├── Digital-avatar showcase mgmt (embedded) │
+                                     │  │   content/invite code/role mgmt │
                                      │  │                           │
-                                     │  ├── 日记生成器管理面（嵌入）  │
-                                     │  │   日记格式/来源配置         │
+                                     │  ├── Journal generator mgmt (embedded) │
+                                     │  │   journal format/source config │
                                      │  │                           │
-                                     │  └── 个人助手管理面（嵌入）   │
-                                     │      执行权限/历史查看         │
+                                     │  └── Personal assistant mgmt (embedded) │
+                                     │      execution permissions/history │
                                      └──────────┬──────────────────┘
                                                 │
-                                     管理 API + Memory Protocol
+                                     Management API + Memory Protocol
                                                 │
                                      ┌──────────┴──────────────────┐
-                                     │  蒸馏引擎（平台）             │
-                                     │  采集→过滤→蒸馏→记忆→执行     │
+                                     │  Distillation engine (platform) │
+                                     │  ingest→filter→distill→memory→execute │
                                      └──────────┬──────────────────┘
                                                 │
-                                     Memory Protocol（JSON Schema）
+                                     Memory Protocol (JSON Schema)
                                                 │
                                   ┌─────────────┼─────────────┐
                                   ▼             ▼             ▼
-                           数字分身展示     日记生成器      个人助手
-                           (后端+存储)     (后端+存储)    (后端+存储)
+                        Digital-avatar   Journal         Personal
+                        showcase         generator       assistant
+                        (backend+storage) (backend+storage) (backend+storage)
 ```
 
-### 集成方式
+### Integration methods
 
-**蒸馏引擎 ↔ 应用**：Memory Protocol（JSON Schema + REST 语义）。应用读记忆、写记忆，走标准接口。应用不需要知道蒸馏引擎内部怎么工作。
+**Distillation engine ↔ application**: Memory Protocol (JSON Schema + REST semantics). Applications read and write memory through the standard interface. Applications do not need to know how the distillation engine works internally.
 
-**管理中心 ↔ 蒸馏引擎**：管理 API（蒸馏引擎的状态、配置、控制）+ Memory Protocol（浏览/编辑 Playbook）。蒸馏引擎管理面内置在管理中心里。
+**Management center ↔ distillation engine**: management API (distillation engine status, configuration, control) + Memory Protocol (browse/edit Playbooks). The distillation engine's management surface is built into the management center.
 
-**管理中心 ↔ 应用**：应用注册协议（应用声明"我是谁、我提供哪些管理页面、我的管理 API 在哪"）。管理中心加载应用的管理面，作为嵌入页面渲染。应用的用户面不经过管理中心。
+**Management center ↔ application**: app registration protocol (the app declares "who I am, which management pages I provide, where my management API is"). The management center loads the app's management surface and renders it as an embedded page. The app's user surface does not pass through the management center.
 
-**应用 ↔ 应用**：不直接通信。如果需要跨应用关联，通过蒸馏引擎的记忆中转——就像 Grafana 的 metric 和 log 通过 label 关联，不是 Mimir 和 Loki 直接通信。
+**Application ↔ application**: no direct communication. If cross-app correlation is needed, it goes through the distillation engine's memory — just as Grafana correlates metrics and logs through labels, not through Mimir and Loki talking directly.
 
-### 共享约定
+### Shared conventions
 
-| 约定 | 作用 | 类比 |
+| Convention | Purpose | Analogy |
 |------|------|------|
-| Memory Protocol JSON Schema | 记忆数据格式（Playbook/Episode/Identity/Meta） | Elastic Common Schema |
-| Observation Protocol CloudEvents | 采集事件格式 | Beats 的 Lumberjack Protocol |
-| 应用注册协议 | 应用向管理中心声明能力 | Kibana Plugin API |
+| Memory Protocol JSON Schema | Memory data format (Playbook/Episode/Identity/Meta) | Elastic Common Schema |
+| Observation Protocol CloudEvents | Ingestion event format | Beats' Lumberjack Protocol |
+| App registration protocol | Apps declare their capabilities to the management center | Kibana Plugin API |
 
 ---
 
-## 我们自己的产品线
+## Our own product line
 
 ```
-开源免费：
-  ├── 蒸馏引擎（AGPL）
-  ├── 采集适配器（AGPL）
-  └── 协议规范（MIT）
+Open source, free:
+  ├── Distillation engine (AGPL)
+  ├── Ingestion adapters (AGPL)
+  └── Protocol specs (MIT)
 
-商业产品：
-  ├── Electron 管理中心
-  ├── 第一方应用（部分免费部分付费）
-  │   ├── 个人助手（免费，引流）
-  │   ├── 数字分身（付费）
-  │   ├── 日记生成器（免费）
+Commercial products:
+  ├── Electron management center
+  ├── First-party apps (some free, some paid)
+  │   ├── Personal assistant (free, drives traffic)
+  │   ├── Digital avatar (paid)
+  │   ├── Journal generator (free)
   │   └── ...
-  └── 组织层 SaaS（企业付费）
-      ├── 组织蒸馏 + 组织 Playbook
-      ├── 能力地图 + 任务调度
-      ├── 牛马监控 dashboard
-      └── 企业功能（离职保全、最佳实践 diff、招聘建议）
+  └── Organization-layer SaaS (paid by enterprises)
+      ├── Organization distillation + organization Playbooks
+      ├── Capability map + task scheduling
+      ├── Worker monitoring dashboard
+      └── Enterprise features (knowledge retention on departure, best-practice diff, hiring suggestions)
 ```
 
 ---
 
-## 现有代码的归属
+## Where the existing code belongs
 
-现有 StandMeet 代码整体归入**"数字分身展示"应用**：
+The existing StandMeet code belongs, as a whole, to the **"digital-avatar showcase" application**:
 
-| 现有组件 | 归属 | 备注 |
+| Existing component | Belongs to | Notes |
 |---------|------|------|
-| server/（Django + DRF + FastMCP） | 数字分身展示 | 内容管理 + API + MCP server |
-| gateway/（Node.js + Claude Agent SDK） | 数字分身展示 | Invitation Mode 的 WebSocket 网关 |
-| web/（Next.js） | 数字分身展示 | Visitor 前端 |
-| standmeet-client/（Electron） | 数字分身展示 | Owner 管理端 |
+| server/ (Django + DRF + FastMCP) | Digital-avatar showcase | Content management + API + MCP server |
+| gateway/ (Node.js + Claude Agent SDK) | Digital-avatar showcase | WebSocket gateway for Invitation Mode |
+| web/ (Next.js) | Digital-avatar showcase | Visitor frontend |
+| standmeet-client/ (Electron) | Digital-avatar showcase | Owner admin client |
 
-蒸馏引擎和管理中心是全新的产品，从零开始。
+The distillation engine and the management center are brand-new products, built from scratch.
 
-### "记忆就是 content，content 就是记忆"
+### "Memory is content, content is memory"
 
-现有的 ContentEntry（路径 + JSON + 可见性）和蒸馏引擎的 Playbook（路径 + 结构化内容）本质上是同一种数据模型。当数字分身展示接入蒸馏引擎时：
+The existing ContentEntry (path + JSON + visibility) and the distillation engine's Playbook (path + structured content) are essentially the same data model. When the digital-avatar showcase plugs into the distillation engine:
 
-- 手动填的 ContentEntry 和蒸馏出的 Playbook 通过相同的 Memory Protocol 读取
-- AI 回答问题时统一查询，不区分来源
-- 格式兼容靠 JSON Schema 约定，不靠共享数据库
-
----
-
-## 开发顺序
-
-遵循 Grafana Labs 的哲学："先让产品独立跑起来，再从实践中提炼协议。"
-
-### Phase 1：稳固第一个产品
-
-"数字分身展示"已经存在。确保它作为独立产品是完整的、稳定的。这是当前 repo 的工作。
-
-### Phase 2：蒸馏引擎 MVP
-
-新 repo。最小可用版本：采集（Screenpipe adapter）→ 信号过滤 → 单层蒸馏（周级 Opus）→ Playbook 输出。不需要完整的五层管线，不需要执行层。**先能蒸馏出 Playbook 就行。**
-
-### Phase 3：第一次集成
-
-数字分身展示接入蒸馏引擎的记忆。这时候 Memory Protocol 从纸上变成真的——从实际数据流中验证和调整 schema。
-
-### Phase 4：管理中心
-
-蒸馏引擎有了、应用有了，管理复杂度出现了，管理中心自然诞生。从现有 standmeet-client（Electron）的技术栈演化，但是新产品。
-
-### Phase 5：更多应用
-
-日记生成器、个人助手等。每个都是独立产品，各自 repo，各自 self-contained。
+- Hand-written ContentEntries and distilled Playbooks are read through the same Memory Protocol
+- When the AI answers, it queries uniformly without distinguishing sources
+- Format compatibility comes from the JSON Schema convention, not from a shared database
 
 ---
 
-## 应用层范式：从使用中提炼，不预先设计
+## Development order
 
-### 核心原则
+Follow Grafana Labs' philosophy: "Get products running independently first, then distill protocols from practice."
 
-参考 Claude Code 的演进路径（Boris Cherny / Anthropic）：
+### Phase 1: Solidify the first product
 
-- **Latent demand**：只把用户已经在做的事变简单，不让用户做新的事
-- **Never bet against the model**：scaffolding 是临时的，不要为今天的限制搭永久框架
-- **The Bitter Lesson**：更通用的方案终将胜过更特定的方案
-- **从重复中提取**：CLAUDE.md 来自用户自己写 markdown 喂给模型；Plan mode 来自用户在 prompt 里写"先别写代码"；Skills 来自用户想复用 prompt 模式。都是先有行为，再有产品化
+The "digital-avatar showcase" already exists. Make sure it is complete and stable as a standalone product. This is the work of the current repo.
 
-### 应用层的推导
+### Phase 2: Distillation engine MVP
 
-应用 = 独立产品，有自己的后端、存储、用户面。接入蒸馏引擎后体验增强但不依赖。
+New repo. Minimum viable version: ingestion (Screenpipe adapter) → signal filtering → single-layer distillation (week-level Opus) → Playbook output. No need for the full five-layer pipeline, no need for the execution layer. **Being able to distill a Playbook is enough at first.**
 
-**现在不定义应用框架。** 等真实的重复模式出现再提取。具体：
+### Phase 3: First integration
 
-**Phase 3（第一次集成）：直接调 REST API**
+The digital-avatar showcase plugs into the distillation engine's memory. At this point the Memory Protocol goes from paper to reality — validate and adjust the schema against real data flows.
 
-数字分身展示读蒸馏引擎的记忆，就是 HTTP GET/POST 到 Memory Protocol 端点。不需要 SDK、不需要 manifest、不需要注册协议。
+### Phase 4: Management center
+
+Once the distillation engine and applications exist, management complexity appears and the management center emerges naturally. It evolves from the tech stack of the existing standmeet-client (Electron), but it is a new product.
+
+### Phase 5: More applications
+
+Journal generator, personal assistant and so on. Each is an independent product, with its own repo, each self-contained.
+
+---
+
+## Application-layer paradigm: distill from use, do not design up front
+
+### Core principles
+
+Reference the evolution path of Claude Code (Boris Cherny / Anthropic):
+
+- **Latent demand**: only make simpler what users already do; do not make users do new things
+- **Never bet against the model**: scaffolding is temporary; do not build permanent frameworks around today's limitations
+- **The Bitter Lesson**: more general solutions eventually beat more specific ones
+- **Extract from repetition**: CLAUDE.md came from users writing their own markdown to feed the model; Plan mode came from users writing "don't write code yet" in prompts; Skills came from users wanting to reuse prompt patterns. The behavior always came first, then the productization
+
+### Deriving the application layer
+
+Application = independent product with its own backend, storage and user surface. Plugging into the distillation engine enhances the experience, but the app does not depend on it.
+
+**Do not define an application framework now.** Wait for real repeated patterns to appear, then extract. Concretely:
+
+**Phase 3 (first integration): call the REST API directly**
+
+The digital-avatar showcase reads the distillation engine's memory with plain HTTP GET/POST to Memory Protocol endpoints. No SDK, no manifest, no registration protocol needed.
 
 ```python
-# 就这么简单
+# That simple
 client = httpx.AsyncClient(base_url="http://localhost:5000")
 r = await client.get("/memory/playbook/search", params={"q": query})
 ```
 
-这一步的价值：验证 Memory Protocol 的 schema、查询模式、写回频率。从实际数据流中学习。
+The value of this step: validate the Memory Protocol's schema, query patterns and write-back frequency. Learn from real data flows.
 
-**Phase 4（管理中心）：最简方式发现应用**
+**Phase 4 (management center): discover apps the simplest way**
 
 ```yaml
 # ~/.standmeet/apps.yaml
@@ -379,52 +380,52 @@ apps:
     health_url: http://localhost:8000/health
 ```
 
-手动维护，不搞自动发现。就像 CLAUDE.md 是手写的。
+Maintained by hand, no automatic discovery. Just as CLAUDE.md is hand-written.
 
-**Phase 5+（第二个应用出现时）：从重复中提取**
+**Phase 5+ (when the second application appears): extract from repetition**
 
-第二个应用也要调 Memory Protocol、也要在 config 里注册、也要提供 manage_url。这时候再看什么值得抽象：
+The second application also needs to call the Memory Protocol, also needs to register in the config, and also needs to provide a manage_url. Only then look at what is worth abstracting:
 
-- 重复的 REST 调用 → 轻量 SDK
-- 重复的配置格式 → 简单 manifest
-- 重复的管理 UI 模式 → webview 加载约定
+- Repeated REST calls → a lightweight SDK
+- Repeated config format → a simple manifest
+- Repeated management UI patterns → a webview loading convention
 
-提取的时机是"第二次重复"，不是"第一次预测"。
+The time to extract is "the second repetition", not "the first prediction".
 
-### 参考实现（备忘，不急着用）
+### Reference implementations (notes, no rush to use)
 
-以下是调研过的成熟方案，留作 Phase 5+ 有 latent demand 时的参考：
+These are mature solutions already researched, kept as references for Phase 5+ when latent demand appears:
 
-**Shopify Apps**（最接近我们的架构——app 是独立服务）：
-- App = 独立 web 服务，自己的后端和数据库
-- 数据访问：REST/GraphQL + OAuth scoped token
-- UI 嵌入：iframe + App Bridge SDK
-- 能力声明：`shopify.app.toml`（scopes, webhooks, surfaces）
+**Shopify Apps** (closest to our architecture — an app is an independent service):
+- App = independent web service with its own backend and database
+- Data access: REST/GraphQL + OAuth scoped token
+- UI embedding: iframe + App Bridge SDK
+- Capability declaration: `shopify.app.toml` (scopes, webhooks, surfaces)
 
-**Claude Code Skills**（最轻量的扩展范式）：
-- Skill = 一个 SKILL.md 文件 + 目录
-- 三级渐进加载：元数据(~100 tokens) → 完整指令(<5k tokens) → 附带资源(按需)
-- 选择机制是纯 LLM 推理，没有路由系统
-- Anthropic 立场："Don't build agents, build skills"
+**Claude Code Skills** (the lightest extension paradigm):
+- Skill = one SKILL.md file + a directory
+- Three-level progressive loading: metadata (~100 tokens) → full instructions (<5k tokens) → bundled resources (on demand)
+- Selection is pure LLM reasoning; there is no routing system
+- Anthropic's position: "Don't build agents, build skills"
 
-**VS Code Extensions**（声明式 UI 注册）：
-- `contributes` 在 manifest 声明 commands/views/settings
-- `activationEvents` 懒加载
+**VS Code Extensions** (declarative UI registration):
+- `contributes` declares commands/views/settings in the manifest
+- `activationEvents` for lazy loading
 
-**Home Assistant Integrations**（引导式安装）：
-- Config Flow 多步设置向导
+**Home Assistant Integrations** (guided installation):
+- Config Flow multi-step setup wizard
 
-**Grafana App Plugin**（源码级分析，详见原 product-split.md）：
-- 10 个机制：应用发现 Pipeline、前端路由代理、后端 API 代理、导航注册、应用设置存储、扩展点系统、平台 API、生命周期管理、权限模型、健康检查
+**Grafana App Plugin** (source-level analysis, see the original product-split.md):
+- 10 mechanisms: app discovery pipeline, frontend route proxy, backend API proxy, navigation registration, app settings storage, extension point system, platform API, lifecycle management, permission model, health checks
 
-这些都是"工具箱里的工具"。用哪个、什么时候用，等 latent demand 告诉我们。
+These are all "tools in the toolbox". Which to use, and when, latent demand will tell us.
 
 ---
 
-## 开放问题
+## Open questions
 
-1. **Memory Protocol 的版本策略**：Phase 3 集成时从实际数据流中验证和调整 schema，不急着冻结 v1。
+1. **Memory Protocol versioning strategy**: validate and adjust the schema against real data flows during the Phase 3 integration; no rush to freeze v1.
 
-2. **现有 repo 的拆分时机**：蒸馏引擎是新 repo 这点比较确定。现有 monorepo 是否拆？
+2. **When to split the existing repo**: it is fairly certain the distillation engine gets a new repo. Should the existing monorepo be split?
 
-3. **管理中心的技术实现**：Phase 4 再决定。iframe/webview/React 微前端，等有真实场景再选。
+3. **Technical implementation of the management center**: decide in Phase 4. iframe/webview/React micro-frontends — choose once there is a real scenario.

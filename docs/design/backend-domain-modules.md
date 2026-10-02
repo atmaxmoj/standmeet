@@ -192,7 +192,7 @@ unnecessary — it exists *because* the product is BYO-integration.)
 `capsocket` (bare transport) · `pgxpool` (raw pool, ≠ the 66 repos) · `cryptobox` · `httpx` ·
 `retry` · `storage` · `gotenberg` · `sandbox`/`sandboxws` · `config` · `apierr`.
 
-### Platform mechanism (the plugin底座, not a domain)
+### Platform mechanism (the plugin base layer, not a domain)
 
 `capreg` (+ the connector declaration/instance registries — the two axes) · `plugins` ·
 `paritymanifest` · `facadeparity`.
@@ -216,7 +216,7 @@ measure shape, and a semantic duplicate has a perfectly legal shape.
 That is what had happened to booker. `mcp-servers/booker/policy.go` (187 lines) and the kernel's
 booking policy evaluator (167 lines) were two independent implementations of the same rules — same
 conflict tokens, same slot-enumeration constants — and each file's header asserted the *other* side
-owned it (`核心不再认识 booking policy`, `host 认不得 booking`). Both statements were false.
+owned it (`the core no longer knows booking policy`, `the host cannot recognise booking`). Both statements were false.
 
 The root cause was a mechanism gap, not carelessness: a sandboxed capability could only face
 visitors (`OwnerMCPBindings()` returned an empty slice), so any owner-facing surface of the same
@@ -265,8 +265,8 @@ account/instance/page/microsite/appearance/keypair/login/password/recovery + mai
 which is not "every other domain's MCP tools". And the principle above says controllers are **only**
 `internal/routes/*`; an inbound owner-MCP tool surface is a controller.
 
-**Decided (owner, 2026-07-30):** *"ownercore 应该由各个模块自己 facade 出,然后从 route 绑出到
-MCP 上。"* So `ownercore` does not shrink — it **disappears**:
+**Decided (owner, 2026-07-30):** *"ownercore should be exposed by each module through its own facade, then bound from the route onto
+the MCP."* So `ownercore` does not shrink — it **disappears**:
 
 - each domain exposes its own owner-MCP bindings **through its own facade** (`cap_corpus_*` → the
   corpus facade, `cap_roles`/`cap_codes` → access, `cap_marketplace` → marketplace, `cap_page`/
@@ -287,7 +287,7 @@ per its own comment, a **plaintext API key** — and `owner/facade/facade_entity
 `conversation/inference/resolver.go` all hold it. The type carries no protection: no redacting
 `String()`, no `MarshalJSON` mask, so one `slog` call or wrapped error puts the key in the logs.
 
-This is the same invariant the connector layer states loudly and keeps ("凭据永不出 vault";
+This is the same invariant the connector layer states loudly and keeps ("credentials never leave the vault";
 capabilities get handles, never secrets) — AI keys are the double standard. The BYOAI path genuinely
 needs the visitor's own key to reach inference, but the file's "one struct covers both paths" note is
 the problem: the owner's **decrypted vault secret** rides the same public type.

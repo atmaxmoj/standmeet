@@ -229,8 +229,8 @@ judges — composition and balance.
 >    hand first, recording only (§2), and cut the group so its members share a stack state and a
 >    build: all-frontend surfaces together, connector/external-service modules together, and so
 >    on. A batch of one finding is the per-finding loop wearing a batch's name — too small.
->    (Owner, 2026-08-15: "剩下的分三批做". The round's three batches are listed in its `STATUS.md`.)
-> 2. **Nothing runs until the batch ends** (owner, 2026-08-15: "只有批次结尾才能跑测试").
+>    (Owner, 2026-08-15: "do the rest in three batches". The round's three batches are listed in its `STATUS.md`.)
+> 2. **Nothing runs until the batch ends** (owner, 2026-08-15: "tests may run only at the end of a batch").
 >    Inside the batch you drive surfaces by hand, write tests and write fixes — you do not start
 >    the machine. Not even `test-red`.
 > 3. At the batch boundary, in this exact order — it is what keeps ③🧪 honest while still running

@@ -1,521 +1,521 @@
-# OpenClaw 的传播机制：一个传播学视角的拆解
+# How OpenClaw Spread: A Communication-Studies Breakdown
 
 ## Abstract
 
-OpenClaw 60 天 250k+ stars。本文不讨论"它为什么好"，而是用传播学理论框架分析"它为什么传开了"——从创新扩散、二级传播、框架效应、社会认同到争议动力学，逐层拆解每个增长阶段背后的传播机制。
+OpenClaw reached 250k+ stars in 60 days. This document does not discuss "why it is good". It uses communication-theory frameworks to analyse "why it spread" — from diffusion of innovations, the two-step flow, framing, and social proof through to the dynamics of controversy — and takes apart, layer by layer, the communication mechanism behind each growth stage.
 
 ---
 
-## 增长时间线（供后文引用）
+## Growth timeline (referenced below)
 
-| 阶段 | 时间 | Stars | 关键事件 |
+| Stage | Time | Stars | Key events |
 |------|------|-------|---------|
-| 萌芽期 | 2025.11 | ~几百 | Clawdbot 发布 |
-| 争议期 | 2025.12 | ~数千 | Anthropic 商标争议，改名 Moltbot |
-| 更名期 | 2026.01 | ~9,000 | 定名 OpenClaw，密集开发 |
-| 爆发期 | 2026.02 | 9k→210k | 10 天涨 200k |
-| 媒体期 | 2026.02-03 | 210k→250k | TechCrunch, Lex Fridman, Fortune |
-| 稳态期 | 2026.03- | 270k+ | 超越 React，安全危机 |
+| Seed | 2025.11 | ~a few hundred | Clawdbot released |
+| Controversy | 2025.12 | ~a few thousand | Anthropic trademark dispute, renamed to Moltbot |
+| Rename | 2026.01 | ~9,000 | Settled on the name OpenClaw, intensive development |
+| Breakout | 2026.02 | 9k→210k | +200k in 10 days |
+| Media | 2026.02-03 | 210k→250k | TechCrunch, Lex Fridman, Fortune |
+| Steady state | 2026.03- | 270k+ | Passed React, security crisis |
 
 ---
 
-## 一、创新扩散理论（Rogers, 1962）
+## 1. Diffusion of Innovations (Rogers, 1962)
 
-Everett Rogers 的创新扩散理论说，一个创新能否被采纳取决于五个属性。逐一对照：
+Everett Rogers's diffusion of innovations theory says that whether an innovation is adopted depends on five attributes. We check them one by one:
 
-### 1. 相对优势（Relative Advantage）
+### 1. Relative Advantage
 
 ```
-现有方案：              OpenClaw：
-ChatGPT → 数据在云端    → 数据在本地
-Ollama → 只能聊天       → 能执行操作
-Siri → 不可定制         → 完全开源
-LangChain → 要写代码     → npm install 就行
+Existing options:                  OpenClaw:
+ChatGPT → data in the cloud        → data stays local
+Ollama → chat only                 → can carry out actions
+Siri → not customisable            → fully open source
+LangChain → you have to write code → just npm install
 ```
 
-相对优势不在于单点突破，在于**多维同时优于**。Rogers 说相对优势越大，采纳越快。OpenClaw 对每个竞品都有不同维度的优势，所以对每个竞品的用户群都有吸引力——扩大了潜在采纳者的总池子。
+The relative advantage is not a single breakthrough; it is **being better on several dimensions at once**. Rogers says the larger the relative advantage, the faster the adoption. OpenClaw beats each competitor on a different dimension, so it appeals to the user base of every competitor — which enlarges the total pool of potential adopters.
 
-### 2. 兼容性（Compatibility）
+### 2. Compatibility
 
-这是 OpenClaw 最被低估的传播属性。
+This is OpenClaw's most underrated communication attribute.
 
-> **它不要求你改变任何现有行为。**
+> **It does not ask you to change any existing behaviour.**
 
-你用 Telegram？它就在你的 Telegram 里。你用 Discord？它就在你的 Discord 里。你用 WhatsApp？同样。
+You use Telegram? It lives in your Telegram. You use Discord? It lives in your Discord. You use WhatsApp? Same.
 
-Rogers 定义兼容性为"与采纳者的现有价值观、过往经验和当前需求的一致程度"。OpenClaw 的 24 个 channel 支持不是功能特性——**是传播学意义上的兼容性最大化**。
+Rogers defines compatibility as "the degree to which an innovation is perceived as consistent with the existing values, past experiences, and needs of potential adopters". OpenClaw's support for 24 channels is not a feature — **it is compatibility maximised, in the communication-studies sense**.
 
-对比需要你下载新 app、注册新账号、学新界面的 AI 工具，OpenClaw 的采纳成本接近零。你不需要改变任何习惯，只需要在你已经用的工具里多加一个联系人。
+Compared with AI tools that make you download a new app, register a new account and learn a new interface, OpenClaw's adoption cost is close to zero. You do not need to change any habit; you only add one more contact in a tool you already use.
 
-### 3. 复杂性（Complexity）—— 反向
+### 3. Complexity — inverted
 
 ```bash
 npm install -g openclaw@latest
 openclaw onboard --install-daemon
 ```
 
-两条命令。交互式 wizard 引导配置。5 分钟内完成第一次对话。
+Two commands. An interactive wizard guides the configuration. The first conversation happens within 5 minutes.
 
-Rogers 说复杂性与采纳率成反比。OpenClaw 把 self-hosted AI 的复杂性从"需要配 Docker + 数据库 + 反向代理 + SSL"降到了"两条命令"。
+Rogers says complexity is inversely related to the adoption rate. OpenClaw cut the complexity of self-hosted AI from "you need to set up Docker + a database + a reverse proxy + SSL" down to "two commands".
 
-### 4. 可试性（Trialability）
+### 4. Trialability
 
-装完后 `http://127.0.0.1:18789` 直接在浏览器里聊。不需要配置任何 channel。
+After install you chat directly in the browser at `http://127.0.0.1:18789`. No channel needs configuring.
 
-**零配置试用 → 看到价值 → 再决定要不要接入 Telegram/Discord。**
+**Zero-config trial → see the value → then decide whether to connect Telegram/Discord.**
 
-Rogers 说可试性越高、试错成本越低，采纳越快。WebChat 作为零门槛入口，是产品设计服务于可试性的典型案例。
+Rogers says the higher the trialability and the lower the cost of trial and error, the faster the adoption. WebChat as a zero-barrier entry point is a textbook case of product design serving trialability.
 
-### 5. 可观察性（Observability）
+### 5. Observability
 
-这是 OpenClaw 传播最精妙的地方。
+This is the cleverest part of how OpenClaw spread.
 
-传统开发工具的问题是**使用过程不可见**——你用了一个好的 ORM，别人看不到。但 OpenClaw 的使用场景天然可见：
+The problem with traditional developer tools is that **the act of using them is invisible** — you use a good ORM and nobody else sees it. But OpenClaw's usage is visible by nature:
 
-- 你在 Telegram 群聊里问你的 AI，群里其他人看得到
-- 你截图你的 AI 在 WhatsApp 里回复你，发到 Twitter
-- 你在 Discord server 里展示你的 AI 技能，server 成员看得到
+- You ask your AI something in a Telegram group chat, and everyone else in the group sees it
+- You screenshot your AI replying to you in WhatsApp and post it on Twitter
+- You show off your AI's skills in a Discord server, and the server members see it
 
-**24 个 channel 的每一个都是可观察性的放大器。** 用户的日常使用行为本身就是展示行为。这和 Hotmail 在每封邮件底部加"Get your free email at Hotmail"是同一个机制——产品的使用即传播。
+**Each of the 24 channels is an amplifier of observability.** Users' everyday use is itself a showcase. It is the same mechanism as Hotmail adding "Get your free email at Hotmail" to the bottom of every email — using the product is spreading the product.
 
-### Rogers 的 S 曲线预测
+### Rogers's S-curve prediction
 
-Rogers 模型预测创新扩散遵循 S 曲线：缓慢起步 → 起飞 → 快速增长 → 饱和。
+Rogers's model predicts that innovation diffusion follows an S-curve: slow start → take-off → rapid growth → saturation.
 
 ```
 Stars
 270k ─────────────────────────────── ·····→
        │                           ╱
-210k ─ │                         ╱   ← 媒体期（TechCrunch/Lex Fridman 推动晚期多数）
+210k ─ │                         ╱   ← Media (TechCrunch/Lex Fridman drive the late majority)
        │                       ╱
-       │                     ╱       ← 爆发期（GitHub Trending 触发从众效应）
+       │                     ╱       ← Breakout (GitHub Trending triggers herd behaviour)
  60k ─ │                   ╱
        │                 ╱
-  9k ─ │            ···╱             ← 更名期（品牌确立，早期多数开始关注）
+  9k ─ │            ···╱             ← Rename (brand established, early majority starts watching)
        │        ···
-  ~0 ─ │····                         ← 萌芽期 + 争议期（创新者 + 早期采纳者）
+  ~0 ─ │····                         ← Seed + Controversy (innovators + early adopters)
        └──────────────────────────
-       11月  12月  1月   2月    3月
+       Nov   Dec   Jan   Feb    Mar
 ```
 
-OpenClaw 的 S 曲线异常陡峭——从萌芽到起飞只花了约 3 个月。典型开源项目这个阶段需要 1-3 年（React 用了约 2 年，Docker 用了约 1 年）。
+OpenClaw's S-curve is unusually steep — from seed to take-off took only about 3 months. A typical open-source project needs 1-3 years for this stage (React took about 2 years, Docker about 1 year).
 
-原因不只是产品好。下面的理论框架会解释为什么曲线这么陡。
+The reason is not only that the product is good. The frameworks below explain why the curve is so steep.
 
 ---
 
-## 二、二级传播与意见领袖（Katz & Lazarsfeld, 1955）
+## 2. Two-Step Flow and Opinion Leaders (Katz & Lazarsfeld, 1955)
 
-### 传统的二级传播模型
-
-```
-大众媒体 → 意见领袖 → 普通受众
-```
-
-Katz & Lazarsfeld 在 1955 年提出：信息不是直接从媒体流向大众，而是先到达"意见领袖"（opinion leaders），再由他们影响周围的人。
-
-### OpenClaw 的传播实际上是三级的
+### The classic two-step flow model
 
 ```
-第一级：Peter 的个人网络
-   Peter（PSPDFKit 创始人，iOS 社区 KOL）
-      → 他的 Twitter 粉丝（高质量开发者）
-      → iOS/macOS 开发者社区
+Mass media → opinion leaders → general audience
+```
 
-第二级：开发者意见领袖扩散
-   早期采纳的开发者
-      → 写博客分析（Medium 上的技术文章）
-      → 在自己的 Discord server / Telegram 群分享
-      → 提 PR 后发推感谢
+Katz & Lazarsfeld proposed in 1955 that information does not flow directly from the media to the public; it first reaches "opinion leaders", who then influence the people around them.
 
-第三级：大众媒体放大
+### OpenClaw's spread was actually three-step
+
+```
+Step 1: Peter's personal network
+   Peter (PSPDFKit founder, KOL in the iOS community)
+      → his Twitter followers (high-quality developers)
+      → the iOS/macOS developer community
+
+Step 2: spread through developer opinion leaders
+   Early-adopting developers
+      → write analysis blog posts (technical articles on Medium)
+      → share in their own Discord servers / Telegram groups
+      → tweet thanks after submitting a PR
+
+Step 3: mass-media amplification
    TechCrunch / Fortune / Lex Fridman / 36kr
-      → 非开发者技术爱好者
-      → 投资人、产品经理、创业者
-      → "听说过但不一定会用"的泛科技人群
+      → non-developer tech enthusiasts
+      → investors, product managers, founders
+      → the broad tech crowd who "have heard of it but won't necessarily use it"
 ```
 
-**关键洞察：Peter 本人就是第一级的意见领袖。**
+**Key insight: Peter himself is the first-step opinion leader.**
 
-Lazarsfeld 定义意见领袖的特征是：(1) 在某领域被认为有专业能力，(2) 社交活跃，(3) 主动传播信息。Peter 作为 PSPDFKit 创始人，在 iOS 开发社区完全符合这三条。
+Lazarsfeld defines an opinion leader by these traits: (1) seen as competent in a field, (2) socially active, (3) actively passes information on. As the founder of PSPDFKit, Peter fits all three in the iOS developer community.
 
-这意味着 OpenClaw 跳过了大多数开源项目的冷启动困境——不需要等大众媒体注意到你，创始人本身就是分发渠道。
+This means OpenClaw skipped the cold-start problem most open-source projects face — it did not need to wait for the mass media to notice it; the founder himself was the distribution channel.
 
-### 意见领袖密度与传播速度
+### Opinion-leader density and speed of spread
 
-530 个贡献者在 3 周内加入。开源项目的贡献者通常是更广泛用户群中最活跃的 1-5%。按 2% 估算，530 个贡献者意味着约 26,500 个活跃用户。
+530 contributors joined within 3 weeks. Contributors to an open-source project are usually the most active 1-5% of the wider user base. At an estimate of 2%, 530 contributors imply about 26,500 active users.
 
-这些贡献者中有多少是各自社区里的意见领袖？开源贡献者本身就具备 Lazarsfeld 定义的意见领袖特征——他们技术能力强、社交活跃（活跃在 GitHub）、主动传播（提 PR 本身就是传播行为）。
+How many of these contributors are opinion leaders in their own communities? Open-source contributors already have the opinion-leader traits Lazarsfeld defines — they are technically strong, socially active (active on GitHub), and spread information actively (submitting a PR is itself an act of spreading).
 
-**每个贡献者都是一个二级传播的节点。530 个节点在 3 周内同时激活，传播速度指数级增长。**
+**Every contributor is a node in the two-step flow. With 530 nodes activated at the same time within 3 weeks, the speed of spread grows exponentially.**
 
 ---
 
-## 三、框架效应与议程设置（Entman, 1993; McCombs & Shaw, 1972）
+## 3. Framing and Agenda Setting (Entman, 1993; McCombs & Shaw, 1972)
 
-### OpenClaw 的框架（Frame）不是"又一个 AI 工具"
+### OpenClaw's frame is not "yet another AI tool"
 
-Entman 定义框架为"选择感知到的现实的某些方面，使其在传播文本中更加突出"。OpenClaw 的传播框架经历了三次重构：
+Entman defines framing as "selecting some aspects of a perceived reality and making them more salient in a communicating text". OpenClaw's communication frame was rebuilt three times:
 
-**框架 1：萌芽期——"个人 AI 助手"**
+**Frame 1: Seed — "a personal AI assistant"**
 ```
-核心叙事：你可以拥有自己的 AI 助手，在你自己的设备上
-强调的方面：隐私、本地化、自主权
-省略的方面：技术复杂性、需要 API key、需要服务器
-```
-
-**框架 2：爆发期——"vibe coding 的产物"**
-```
-核心叙事：一个人用 AI 写了一个比大团队项目还大的项目
-强调的方面：Peter 的工作方式、AI 辅助开发的可能性
-省略的方面：Peter 的十年工程经验、PSPDFKit 背景
+Core narrative: you can own your own AI assistant, on your own device
+Emphasised: privacy, running locally, autonomy
+Omitted: technical complexity, needing an API key, needing a server
 ```
 
-**框架 3：媒体期——"AI 时代的新范式"**
+**Frame 2: Breakout — "a product of vibe coding"**
 ```
-核心叙事：一个奥地利开发者做了个项目超过 React，被 OpenAI 雇了
-强调的方面：star 数字、超过 React 的叙事张力、个人英雄主义
-省略的方面：安全问题、可持续性疑问、实际用户留存率
+Core narrative: one person used AI to build a project bigger than big-team projects
+Emphasised: Peter's way of working, what AI-assisted development makes possible
+Omitted: Peter's ten years of engineering experience, his PSPDFKit background
 ```
 
-### 议程设置的层级
+**Frame 3: Media — "a new paradigm for the AI era"**
+```
+Core narrative: an Austrian developer built a project that passed React and got hired by OpenAI
+Emphasised: the star count, the narrative tension of passing React, individual heroism
+Omitted: security problems, doubts about sustainability, actual user retention
+```
 
-McCombs & Shaw 的议程设置理论分两层：
-- **第一层**：媒体告诉你"该关注什么"（OpenClaw 存在且值得关注）
-- **第二层**：媒体告诉你"该怎么想"（OpenClaw = 个人开发者的胜利 / AI 时代的标志）
+### The levels of agenda setting
 
-每一波媒体报道都在做议程设置：
+McCombs & Shaw's agenda-setting theory has two levels:
+- **First level**: the media tell you "what to pay attention to" (OpenClaw exists and is worth attention)
+- **Second level**: the media tell you "how to think about it" (OpenClaw = a win for the individual developer / a sign of the AI era)
 
-| 媒体 | 第一层（关注什么） | 第二层（怎么想） |
+Every wave of media coverage was doing agenda setting:
+
+| Outlet | First level (what to attend to) | Second level (how to think) |
 |------|-----------------|----------------|
-| TechCrunch | OpenClaw 存在 | Peter 是值得学习的 builder |
-| Fortune | Peter 被 OpenAI 雇用 | 他一定很厉害 → 项目一定好 |
-| Lex Fridman | AI 开发的哲学 | "Vibe coding 是 slur"——这是严肃工程 |
-| 36kr | OpenClaw 进入中国视野 | 80% 的 app 会消失 |
+| TechCrunch | OpenClaw exists | Peter is a builder worth learning from |
+| Fortune | Peter hired by OpenAI | He must be very good → the project must be good |
+| Lex Fridman | The philosophy of AI development | "Vibe coding is a slur" — this is serious engineering |
+| 36kr | OpenClaw enters China's field of view | 80% of apps will disappear |
 
-**每个媒体都在用自己的框架重新包装 OpenClaw 的故事，但都在做同一件事——把 OpenClaw 放进公众议程。**
-
----
-
-## 四、社会认同与从众（Cialdini, 1984）
-
-### GitHub Star 的社会认同级联
-
-Cialdini 的社会认同原则（Social Proof）：人们在不确定时会参考他人的行为来决定自己的行为。
-
-GitHub star 是开源世界最直观的社会认同信号。但 star 的传播不是线性的——它是级联的：
-
-```
-阶段 1（< 1k stars）
-  信号："有人在用"
-  采纳者：需要这个功能的人（功能驱动）
-
-阶段 2（1k-10k stars）
-  信号："很多人在用"
-  采纳者：关注技术趋势的人（趋势驱动）
-
-阶段 3（10k-100k stars）
-  信号："你不知道这个就 out 了"
-  采纳者：怕错过的人（FOMO 驱动）
-
-阶段 4（> 100k stars）
-  信号："这是现象级项目"
-  采纳者：非技术人群也开始关注（媒体驱动）
-  star 行为本身脱离了使用——很多人 star 了但从没安装过
-```
-
-**OpenClaw 从阶段 1 到阶段 4 只花了约 2 个月。** 正常项目在阶段 2 就会卡很久（1k-10k 是最难跨越的区间），因为需要从"功能驱动"转换到"趋势驱动"的受众。
-
-OpenClaw 为什么没卡在阶段 2？因为 Peter 的个人品牌（二级传播的第一级）直接把它推到了阶段 2 的门槛，Anthropic 商标争议（下一节会分析）提供了跨越到阶段 3 的加速度。
-
-### "超过 React"的锚定效应
-
-> "OpenClaw 超过 React 的 star 数了。React 花了 10 年。"
-
-这不是一个技术事实（star 数不等于项目质量），但作为社会认同信号极其有效。Tversky & Kahneman 的锚定效应（Anchoring）：人们在判断时会过度依赖第一个获得的信息。
-
-"超过 React"把 OpenClaw 锚定在了"和 React 同级"的认知位置。之后的所有讨论都在这个锚点上展开——即使是批评者也必须先承认"它确实比 React stars 多"再开始反驳。
+**Each outlet repackaged OpenClaw's story in its own frame, but all of them did the same thing — put OpenClaw on the public agenda.**
 
 ---
 
-## 五、争议作为传播动力学
+## 4. Social Proof and Conformity (Cialdini, 1984)
 
-### 商标争议：Streisand 效应的经典案例
+### The social-proof cascade of GitHub stars
+
+Cialdini's principle of Social Proof: when uncertain, people look at what others do to decide what to do themselves.
+
+A GitHub star is the most direct social-proof signal in the open-source world. But stars do not spread linearly — they cascade:
 
 ```
-Clawdbot → Anthropic 说商标侵权 → 改名 Moltbot → 最终定名 OpenClaw
+Stage 1 (< 1k stars)
+  Signal: "someone is using it"
+  Adopters: people who need this feature (feature-driven)
+
+Stage 2 (1k-10k stars)
+  Signal: "lots of people are using it"
+  Adopters: people who follow tech trends (trend-driven)
+
+Stage 3 (10k-100k stars)
+  Signal: "if you don't know this, you're behind"
+  Adopters: people afraid of missing out (FOMO-driven)
+
+Stage 4 (> 100k stars)
+  Signal: "this is a phenomenon"
+  Adopters: non-technical people start paying attention too (media-driven)
+  Starring detaches from use — many people star it but never install it
 ```
 
-从传播学角度，这个争议具备完美的新闻价值要素（Galtung & Ruge, 1965 的新闻价值理论）：
+**OpenClaw went from stage 1 to stage 4 in about 2 months.** A normal project gets stuck in stage 2 for a long time (1k-10k is the hardest band to cross), because it has to switch from a "feature-driven" to a "trend-driven" audience.
 
-- **冲突性（Conflict）**：小开发者 vs 大公司
-- **精英关联（Reference to Elite）**：Anthropic 是 AI 领域的头部公司
-- **意外性（Unexpectedness）**：一个 side project 引起大公司注意
-- **叙事性（Narrative）**：David vs Goliath 的故事模板
+Why didn't OpenClaw get stuck in stage 2? Because Peter's personal brand (the first step of the two-step flow) pushed it straight to the threshold of stage 2, and the Anthropic trademark dispute (analysed in the next section) supplied the acceleration to cross into stage 3.
 
-**争议本身比项目更有传播力。** 很多人是因为"Anthropic 让一个开源项目改名"才知道 OpenClaw 的，而不是因为 OpenClaw 的功能。
+### The anchoring effect of "passing React"
 
-这是经典的 Streisand 效应——试图压制信息的行为反而放大了传播。Anthropic 可能从未想过要"压制"什么，但公众的感知是"大公司欺负小开发者"，这个叙事极具传播力。
+> "OpenClaw has more stars than React. React took 10 years."
 
-### "Vibe coding 是一个 slur"：争议声明的传播动力学
+This is not a technical fact (star count is not project quality), but as a social-proof signal it is extremely effective. Tversky & Kahneman's Anchoring effect: people rely too heavily on the first piece of information they receive when they make a judgement.
 
-Peter 在采访中说 "vibe coding" 这个词是"slur"（贬义词）。
-
-从框架分析角度，这个声明精准地做了三件事：
-
-1. **制造可争论的命题**。不是所有人都同意"vibe coding 是 slur"——有人认为他说得对，有人认为他太敏感。两方都需要转发他的原话才能争论 → 传播。
-
-2. **重新定义自己的工作**。从"vibe coder"到"AI-assisted engineer"，Peter 把自己从一个可能带贬义的品类里抽离出来，放入了一个更有尊严感的框架。
-
-3. **让媒体有标题可写**。"OpenClaw creator says 'vibe coding' has become a slur"（AOL 的实际标题）。争议声明天然具备标题价值。
-
-Noelle-Neumann（1974）的沉默螺旋理论在这里适用：持"vibe coding 是正面的"观点的人被迫要么出来辩护，要么沉默。两种反应都放大了 Peter 的声音——辩护者在传播原始信息，沉默者在让 Peter 的框架成为默认框架。
+"Passing React" anchored OpenClaw in the cognitive position of "on the same level as React". Every later discussion unfolded from that anchor — even critics had to first concede "it does have more stars than React" before starting their rebuttal.
 
 ---
 
-## 六、网络效应与弱连接理论（Granovetter, 1973）
+## 5. Controversy as a Communication Dynamic
 
-### 24 个 Channel 的网络拓扑意义
-
-Granovetter 的"弱连接的力量"理论说：新信息更可能通过弱连接（acquaintance）而非强连接（close friend）传播，因为强连接的人拥有的信息高度重叠。
-
-OpenClaw 的 24 个 channel 支持在网络拓扑上意味着什么？
+### The trademark dispute: a textbook case of the Streisand effect
 
 ```
-                    ┌── Telegram 技术群 ──── 俄语圈开发者
-                    │
-        OpenClaw ───┼── Discord server ──── 游戏/mod 社区
-                    │
-                    ├── WhatsApp group ──── 非技术用户、家庭群
-                    │
-                    ├── Slack workspace ──── 企业内部
-                    │
-                    ├── Feishu ──── 中国企业用户
-                    │
-                    ├── Line ──── 日本/台湾用户
-                    │
-                    ├── Zalo ──── 越南用户
-                    │
-                    └── Matrix ──── 隐私极客社区
+Clawdbot → Anthropic says trademark infringement → renamed Moltbot → finally named OpenClaw
 ```
 
-**每个 channel 连接的是一个不同的社交网络。这些网络之间的连接是"弱连接"。**
+From a communication-studies angle, this dispute had every element of news value (Galtung & Ruge's 1965 theory of news values):
 
-一个 Telegram 技术群里的开发者和一个 WhatsApp 家庭群里的用户之间没有直接联系。但 OpenClaw 同时存在于两个网络中，**它自身成为了弱连接的桥梁**。
+- **Conflict**: small developer vs big company
+- **Reference to Elite**: Anthropic is a leading company in AI
+- **Unexpectedness**: a side project caught a big company's attention
+- **Narrative**: the David vs Goliath story template
 
-这在传播效率上的含义：传统工具只在一个网络里传播（比如 Slack-only 工具只在 Slack 用户中传播），OpenClaw 同时在 24 个相对独立的网络中传播。覆盖率不是 24 倍——因为弱连接的信息传播效率远高于强连接内的重复传播，实际效果是指数级的。
+**The controversy itself spread better than the project.** Many people learned of OpenClaw because "Anthropic made an open-source project change its name", not because of OpenClaw's features.
 
-### 地理与文化穿透
+This is the classic Streisand effect — an attempt to suppress information ends up amplifying it. Anthropic may never have meant to "suppress" anything, but the public perception was "a big company bullying a small developer", and that narrative spreads extremely well.
 
-注意 channel 列表中的非英语市场覆盖：
+### "Vibe coding is a slur": the dynamics of a controversial statement
 
-| Channel | 主要市场 | 传播含义 |
+In an interview, Peter said the term "vibe coding" is a "slur" (a derogatory term).
+
+From a framing-analysis angle, this statement did three things precisely:
+
+1. **It created an arguable proposition.** Not everyone agrees that "vibe coding is a slur" — some think he is right, some think he is too sensitive. Both sides have to repost his original words to argue → spread.
+
+2. **It redefined his own work.** From "vibe coder" to "AI-assisted engineer", Peter pulled himself out of a possibly derogatory category and placed himself in a more dignified frame.
+
+3. **It gave the media a headline.** "OpenClaw creator says 'vibe coding' has become a slur" (AOL's actual headline). A controversial statement has built-in headline value.
+
+Noelle-Neumann's (1974) spiral of silence applies here: people holding the view that "vibe coding is positive" were forced either to come out and defend it or to stay silent. Both reactions amplified Peter's voice — defenders spread the original message, and the silent let Peter's frame become the default frame.
+
+---
+
+## 6. Network Effects and the Strength of Weak Ties (Granovetter, 1973)
+
+### What the 24 channels mean in network topology
+
+Granovetter's "strength of weak ties" theory says: new information is more likely to spread through weak ties (acquaintances) than through strong ties (close friends), because people with strong ties hold highly overlapping information.
+
+What does OpenClaw's support for 24 channels mean in network topology?
+
+```
+                    ┌── Telegram tech groups ──── Russian-speaking developers
+                    │
+        OpenClaw ───┼── Discord servers ──── gaming/mod communities
+                    │
+                    ├── WhatsApp groups ──── non-technical users, family groups
+                    │
+                    ├── Slack workspaces ──── inside companies
+                    │
+                    ├── Feishu ──── Chinese business users
+                    │
+                    ├── Line ──── users in Japan/Taiwan
+                    │
+                    ├── Zalo ──── users in Vietnam
+                    │
+                    └── Matrix ──── privacy-geek communities
+```
+
+**Each channel connects to a different social network. The links between these networks are "weak ties".**
+
+A developer in a Telegram tech group and a user in a WhatsApp family group have no direct connection. But OpenClaw lives in both networks at once, so **it becomes the bridge of a weak tie itself**.
+
+What this means for efficiency of spread: a traditional tool spreads within one network (a Slack-only tool, for example, spreads only among Slack users), while OpenClaw spreads in 24 relatively independent networks at once. The reach is not 24 times larger — because information travels far more efficiently across weak ties than by repetition inside strong ties, the actual effect is exponential.
+
+### Geographic and cultural penetration
+
+Note the non-English markets covered in the channel list:
+
+| Channel | Main market | What it means for spread |
 |---------|---------|---------|
-| Feishu | 中国 | 绕过了 GitHub 在中国的可见性问题 |
-| Line | 日本、台湾、泰国 | 进入东亚非中国市场 |
-| Zalo | 越南 | 进入东南亚市场 |
-| Nostr | 全球去中心化社区 | 进入 crypto/Web3 社区 |
-| IRC | 老派 hacker 社区 | 进入原教旨开源社区 |
+| Feishu | China | Bypasses GitHub's visibility problem in China |
+| Line | Japan, Taiwan, Thailand | Enters East Asian markets outside China |
+| Zalo | Vietnam | Enters the Southeast Asian market |
+| Nostr | Global decentralised communities | Enters the crypto/Web3 community |
+| IRC | Old-school hacker communities | Enters the fundamentalist open-source community |
 
-**每个 channel 不只是一个技术集成，是一个文化入口。** 36kr 报道 OpenClaw 不是因为 TechCrunch 先报道了——是因为 Feishu 支持让 OpenClaw 直接进入了中国开发者的视野。
+**Each channel is not just a technical integration; it is a cultural entry point.** 36kr did not cover OpenClaw because TechCrunch covered it first — it covered it because Feishu support put OpenClaw directly in front of Chinese developers.
 
 ---
 
-## 七、叙事传输与神话构建（Barthes, 1957; Green & Brock, 2000）
+## 7. Narrative Transportation and Myth Building (Barthes, 1957; Green & Brock, 2000)
 
-### Peter Steinberger 的英雄叙事
+### Peter Steinberger's hero narrative
 
-Roland Barthes 说每个文化现象背后都有"神话"（myth）——不是虚假的故事，而是一种自然化的意识形态。
+Roland Barthes says that behind every cultural phenomenon there is a "myth" — not a false story, but a naturalised ideology.
 
-OpenClaw 背后的神话结构：
+The myth structure behind OpenClaw:
 
 ```
-英雄：    一个奥地利独立开发者（个体 vs 系统）
-试炼：    大公司的商标争议（David vs Goliath）
-武器：    AI agent（新时代的魔法工具）
-成就：    超越 React（量化的胜利）
-奖赏：    被 OpenAI 雇用（最终的行业认可）
-道德：    一个人 + AI 可以做到一个团队做不到的事
+Hero:     an Austrian indie developer (individual vs system)
+Trial:    a big company's trademark dispute (David vs Goliath)
+Weapon:   the AI agent (the magic tool of a new era)
+Feat:     passing React (a quantified victory)
+Reward:   hired by OpenAI (final recognition from the industry)
+Moral:    one person + AI can do what a team cannot
 ```
 
-这个叙事结构完美契合 Joseph Campbell 的英雄之旅（Hero's Journey）模板。Green & Brock 的叙事传输理论（Narrative Transportation）说：当受众被"传输"进一个叙事中，他们的态度和信念会向叙事方向移动。
+This narrative structure fits Joseph Campbell's Hero's Journey template perfectly. Green & Brock's Narrative Transportation theory says: when an audience is "transported" into a narrative, its attitudes and beliefs move in the narrative's direction.
 
-**人们不只是在用 OpenClaw——他们在消费一个叙事。** Star 一个项目、转发 Peter 的采访、在自己的项目里效仿他的工作方式——这些行为的动力不完全来自功能需求，很大一部分来自对叙事的认同。
+**People are not only using OpenClaw — they are consuming a narrative.** Starring a project, reposting Peter's interviews, copying his way of working in their own projects — the drive behind these actions does not come entirely from functional need; much of it comes from identifying with the narrative.
 
-"我也可以像 Peter 一样，一个人用 AI 做出大事"——这是这个神话的核心诱惑。
+"I too can do something big alone with AI, like Peter" — that is the core temptation of this myth.
 
-### 为什么这个叙事在 2026 年有效
+### Why this narrative worked in 2026
 
-Barthes 说神话的功能是"自然化"社会关系。2026 年初的技术文化中有几个焦虑需要被"自然化"：
+Barthes says the function of myth is to "naturalise" social relations. In early-2026 tech culture there were several anxieties that needed "naturalising":
 
-| 焦虑 | Peter 叙事提供的"解药" |
+| Anxiety | The "antidote" the Peter narrative offers |
 |------|---------------------|
-| "AI 会替代程序员" | → "不会，Peter 证明了人 + AI 的协作模式" |
-| "个人开发者没有机会了" | → "不对，Peter 一个人干过了大团队" |
-| "开源不赚钱" | → "Peter 被 OpenAI 高薪雇了" |
-| "隐私没希望了" | → "你可以在本地跑自己的 AI" |
+| "AI will replace programmers" | → "No, Peter proved the human + AI collaboration model" |
+| "Individual developers have no chance any more" | → "Wrong, Peter alone outdid a big team" |
+| "Open source doesn't make money" | → "Peter got hired by OpenAI on a big salary" |
+| "Privacy is hopeless" | → "You can run your own AI locally" |
 
-**OpenClaw 的传播不只是因为它好用，是因为它的存在缓解了一系列社会焦虑。** 每个 star 都是一次小型的焦虑缓解仪式。
-
----
-
-## 八、(thanks @xxx) 的互惠与认同机制
-
-### 互惠原则（Cialdini, 1984）
-
-Peter 对社区 PR 的处理方式在传播学上值得单独分析。
-
-他不直接 merge PR——他重写代码进 main，在 commit message 里加 `(thanks @username)`。
-
-Cialdini 的互惠原则说：当一个人接受了恩惠，会感到有回报的义务。Peter 的处理方式巧妙地颠倒了互惠方向：
-
-```
-传统开源的互惠：
-  贡献者给予代码 → 维护者接受 → 维护者欠贡献者（应该给 credit）
-
-Peter 的互惠：
-  贡献者提 PR → Peter 重写 + 致谢 → 贡献者感到被重视
-  → 贡献者反而欠 Peter（他花了时间重写我的代码 + 公开感谢了我）
-  → 贡献者更愿意继续贡献 + 公开宣传
-```
-
-`(thanks @xxx)` 不是被动的 credit——是主动的社交礼物。3057 个 commits 中有 223 个带致谢。每个致谢都是一次互惠关系的建立。
-
-### 社会认同与群体归属
-
-`(thanks @xxx)` 还在做另一件事：**构建群体认同**。
-
-被致谢的贡献者形成了一个隐性群体——"被 Peter 感谢的人"。这个群体有清晰的进入条件（提一个被接受的 PR）和可见的标志（commit history 里的 `thanks @` 标记）。
-
-Tajfel & Turner（1979）的社会认同理论说：人们通过群体归属来定义自我。被 OpenClaw 致谢 = 被一个 270k star 项目认可 = 一种身份资本。
-
-**贡献者宣传 OpenClaw 的行为，部分动力来自维护这种身份资本。** "我为 OpenClaw 贡献过代码"在开发者简历里是有价值的，前提是 OpenClaw 继续火。所以贡献者有动力帮助 OpenClaw 继续火。
-
-这是一个自我强化的认同循环。
+**OpenClaw spread not only because it is useful, but because its existence eased a set of social anxieties.** Every star is a small ritual of anxiety relief.
 
 ---
 
-## 九、安全危机的风险传播（Kasperson et al., 1988）
+## 8. (thanks @xxx): Reciprocity and Identity
 
-### 风险的社会放大框架（SARF）
+### The reciprocity principle (Cialdini, 1984)
 
-Kasperson 等人提出"风险的社会放大框架"：风险事件通过社会过程被放大或缩小，最终的社会影响可能远大于或远小于直接影响。
+The way Peter handled community PRs deserves its own analysis from a communication-studies angle.
 
-OpenClaw 的安全危机数据：
-- 8 个 critical/high CVE
-- 42,665 个暴露实例（93.4% 认证被绕过）
-- ~900 个恶意 ClawHub skills（占 registry 20%）
+He does not merge PRs directly — he rewrites the code into main and adds `(thanks @username)` to the commit message.
 
-从 SARF 角度分析：
-
-**放大因素**：
-- 媒体标题倾向于放大（"Security Nightmare"、"Data Breach Waiting to Happen"）
-- 大数字本身就是放大器（42k 暴露实例比"存在安全漏洞"更有冲击力）
-- 竞品（IronClaw）利用危机做对比营销，进一步放大风险感知
-
-**缩小因素**：
-- 受影响的是技术用户，有能力自行评估风险
-- Peter 和社区的修复速度快（符合 OpenClaw 的高迭代节奏）
-- "42k 暴露实例"反向证明了用户基数——对潜在用户来说这是社会认同信号
-- 开源本身是信任机制——"你可以看代码、自己改"
-
-### 反直觉结论
-
-安全危机对 OpenClaw 的传播效果是**净正的**：
+Cialdini's reciprocity principle says: when a person receives a favour, they feel obliged to return it. Peter's approach cleverly reverses the direction of reciprocity:
 
 ```
-直接损失：部分安全敏感用户放弃 → 可能流失了 X 用户
-间接收益：
-  1. 危机报道本身是免费曝光 → 更多人知道 OpenClaw
-  2. IronClaw 等 fork 扩大了生态而不是分裂了用户
-  3. "需要修安全问题"刺激了更多贡献者加入
-  4. 42k 实例 → 社会认同 → 更多新用户
+Reciprocity in traditional open source:
+  contributor gives code → maintainer accepts → maintainer owes the contributor (should give credit)
+
+Peter's reciprocity:
+  contributor submits a PR → Peter rewrites + thanks → contributor feels valued
+  → now the contributor owes Peter (he spent time rewriting my code + thanked me publicly)
+  → contributor is more willing to keep contributing + promote it publicly
 ```
 
-Kasperson 说风险的社会放大可能产生"涟漪效应"（ripple effect），影响范围远超事件本身。OpenClaw 的安全危机确实产生了涟漪——但涟漪的方向是让更多人知道了 OpenClaw。
+`(thanks @xxx)` is not passive credit — it is an active social gift. 223 of 3057 commits carry a thank-you. Each thank-you establishes a reciprocal relationship.
+
+### Social identity and group belonging
+
+`(thanks @xxx)` also does something else: **it builds group identity**.
+
+The thanked contributors form an implicit group — "people Peter has thanked". This group has a clear entry condition (get a PR accepted) and a visible badge (the `thanks @` mark in the commit history).
+
+Tajfel & Turner's (1979) social identity theory says: people define themselves through group belonging. Being thanked by OpenClaw = being recognised by a 270k-star project = a form of identity capital.
+
+**Part of what drives contributors to promote OpenClaw is maintaining this identity capital.** "I contributed code to OpenClaw" has value on a developer's résumé, provided OpenClaw stays popular. So contributors have a reason to help OpenClaw stay popular.
+
+This is a self-reinforcing identity loop.
 
 ---
 
-## 十、技术采纳模型（Davis, 1989）
+## 9. Risk Communication in the Security Crisis (Kasperson et al., 1988)
 
-### TAM 的两个核心变量
+### The Social Amplification of Risk Framework (SARF)
 
-Fred Davis 的技术采纳模型（Technology Acceptance Model）说，用户是否采纳新技术取决于两个因素：
+Kasperson et al. proposed the "social amplification of risk framework": risk events are amplified or attenuated by social processes, and the final social impact can be far larger or far smaller than the direct impact.
 
-**感知有用性（Perceived Usefulness）**：用户认为使用这个技术能在多大程度上提升他们的工作表现。
+OpenClaw's security-crisis data:
+- 8 critical/high CVEs
+- 42,665 exposed instances (93.4% with authentication bypassed)
+- ~900 malicious ClawHub skills (20% of the registry)
 
-**感知易用性（Perceived Ease of Use）**：用户认为使用这个技术有多容易。
+Analysed through SARF:
 
-OpenClaw 在两个维度上同时做到了极端值：
+**Amplifying factors**:
+- Media headlines tend to amplify ("Security Nightmare", "Data Breach Waiting to Happen")
+- Big numbers are amplifiers in themselves (42k exposed instances hits harder than "has security vulnerabilities")
+- A competitor (IronClaw) used the crisis for comparative marketing, amplifying the perceived risk further
 
-| 维度 | OpenClaw 的设计 | 对采纳的影响 |
+**Attenuating factors**:
+- Those affected are technical users who can assess the risk themselves
+- Peter and the community fixed things fast (consistent with OpenClaw's rapid iteration pace)
+- "42k exposed instances" inversely proves the size of the user base — to potential users that is a social-proof signal
+- Open source is itself a trust mechanism — "you can read the code and change it yourself"
+
+### A counter-intuitive conclusion
+
+The security crisis had a **net positive** effect on OpenClaw's spread:
+
+```
+Direct loss: some security-sensitive users gave up → perhaps X users lost
+Indirect gains:
+  1. Crisis coverage is free exposure in itself → more people know OpenClaw
+  2. Forks like IronClaw enlarged the ecosystem instead of splitting the users
+  3. "The security issues need fixing" drew in more contributors
+  4. 42k instances → social proof → more new users
+```
+
+Kasperson says the social amplification of risk can produce a "ripple effect" whose reach goes far beyond the event itself. OpenClaw's security crisis did produce ripples — but the ripples carried OpenClaw to more people.
+
+---
+
+## 10. The Technology Acceptance Model (Davis, 1989)
+
+### The two core variables of TAM
+
+Fred Davis's Technology Acceptance Model says whether users adopt a new technology depends on two factors:
+
+**Perceived Usefulness**: how much users believe using the technology will improve their job performance.
+
+**Perceived Ease of Use**: how easy users believe the technology is to use.
+
+OpenClaw hit extreme values on both dimensions at once:
+
+| Dimension | OpenClaw's design | Effect on adoption |
 |------|---------------|-------------|
-| 感知有用性 | "在你已经用的 app 里多一个 AI 联系人"——不需要想象使用场景 | 直接映射到现有需求 |
-| 感知易用性 | 两条命令安装，wizard 引导，浏览器即用 | 几乎消除了"学习使用"的心理障碍 |
+| Perceived usefulness | "One more AI contact in the app you already use" — no need to imagine a use case | Maps directly onto existing needs |
+| Perceived ease of use | Two-command install, wizard guidance, works in the browser right away | Almost removes the psychological barrier of "learning to use it" |
 
-### 版本号作为感知信号
+### The version number as a perception signal
 
-`v2026.3.8` 这个版本格式在 TAM 框架下有特殊意义：
+The version format `v2026.3.8` has a special meaning under the TAM framework:
 
-它同时传递了两个感知信号：
-1. **感知有用性**：日期版本号暗示"每天都在更新"→ "问题会被快速修复" → "我可以依赖它"
-2. **感知易用性**：日期比语义版本号更直观 → "不需要理解 semver 来判断是否应该更新"
+It sends two perception signals at once:
+1. **Perceived usefulness**: a date-based version suggests "updated every day" → "problems get fixed fast" → "I can rely on it"
+2. **Perceived ease of use**: a date is more intuitive than a semantic version → "no need to understand semver to decide whether to update"
 
 ---
 
-## 十一、总结：传播机制的叠加效应
+## 11. Summary: The Stacking of Communication Mechanisms
 
-OpenClaw 的传播不是单一机制的结果，而是**多个传播机制在不同阶段叠加**的结果。
+OpenClaw's spread is not the result of one mechanism; it is the result of **several communication mechanisms stacking up across different stages**.
 
-| 阶段 | 主导传播机制 | 理论框架 |
+| Stage | Dominant mechanism | Theoretical framework |
 |------|------------|---------|
-| 萌芽期 | Peter 的个人网络辐射 | 二级传播（Katz & Lazarsfeld） |
-| 争议期 | 商标争议引爆话题 | 议程设置（McCombs）+ Streisand 效应 |
-| 更名期 | 品牌确立 + GitHub Trending | 社会认同级联（Cialdini） |
-| 爆发期 | 24 channel 的网络穿透 | 弱连接理论（Granovetter） |
-| 媒体期 | 英雄叙事 + 大众媒体放大 | 叙事传输（Green & Brock）+ 框架效应（Entman） |
-| 稳态期 | 贡献者认同 + 安全危机涟漪 | 社会认同理论（Tajfel）+ SARF（Kasperson） |
+| Seed | Radiation from Peter's personal network | Two-step flow (Katz & Lazarsfeld) |
+| Controversy | The trademark dispute ignites the topic | Agenda setting (McCombs) + Streisand effect |
+| Rename | Brand established + GitHub Trending | Social-proof cascade (Cialdini) |
+| Breakout | Network penetration through 24 channels | Strength of weak ties (Granovetter) |
+| Media | Hero narrative + mass-media amplification | Narrative transportation (Green & Brock) + framing (Entman) |
+| Steady state | Contributor identity + security-crisis ripples | Social identity theory (Tajfel) + SARF (Kasperson) |
 
-**没有哪个单一因素能解释 60 天 250k stars。** 是这些机制在正确的时间点、以正确的顺序叠加，产生了相变。
+**No single factor explains 250k stars in 60 days.** These mechanisms stacked at the right moments, in the right order, and produced a phase transition.
 
-### 一个反事实检验
+### A counterfactual test
 
-如果去掉每个因素，增长会怎样？
+What would growth look like with each factor removed?
 
-| 去掉什么 | 可能的结果 |
+| Remove | Likely result |
 |---------|-----------|
-| Peter 的个人品牌 | 卡在 1k-10k stars（无法跨越早期采纳到早期多数的鸿沟） |
-| Anthropic 商标争议 | 增长曲线更平缓（少了争议曝光的加速度） |
-| 24 个 channel | 传播局限在单一社交网络（可能只在开发者圈子里火） |
-| 媒体报道 | 停留在 GitHub Trending 级别（10-50k stars） |
-| 安全危机 | 少了一轮免费曝光，但也少了信任损失 → 净效果不确定 |
-| AI 辅助的迭代速度 | 飞轮转不起来，PR 处理慢 → 贡献者流失 → 停滞在 50k |
+| Peter's personal brand | Stuck at 1k-10k stars (unable to cross the chasm from early adopters to the early majority) |
+| The Anthropic trademark dispute | A flatter growth curve (without the acceleration from controversy exposure) |
+| The 24 channels | Spread confined to a single social network (perhaps popular only among developers) |
+| Media coverage | Stays at GitHub Trending level (10-50k stars) |
+| The security crisis | One fewer round of free exposure, but also less loss of trust → net effect uncertain |
+| AI-assisted iteration speed | The flywheel never spins up, PRs are handled slowly → contributors leave → stalls at 50k |
 
-**最不可替代的是 Peter 的个人品牌 + AI 辅助的迭代速度。** 前者提供了冷启动所需的种子用户质量，后者提供了飞轮持续转动的燃料。其他因素是加速器，但没有这两个基础，加速器无处可加。
+**The least replaceable factors are Peter's personal brand + AI-assisted iteration speed.** The first supplied the quality of seed users a cold start needs; the second supplied the fuel that kept the flywheel turning. The other factors are accelerators, but without these two foundations there is nothing for the accelerators to accelerate.
 
 ---
 
-## 对做产品的启发
+## Lessons for Building Products
 
-### 1. Channel 策略不是功能决策，是分发决策
+### 1. Channel strategy is a distribution decision, not a feature decision
 
-多 channel 支持的 ROI 不应该用"多少用户用了这个 channel"来算，而应该用"这个 channel 为我们打开了哪个之前接触不到的社交网络"来算。接入 Zalo 不是为了越南的 100 个用户——是为了进入一个全新的传播网络。
+The ROI of multi-channel support should not be measured as "how many users use this channel", but as "which previously unreachable social network this channel opens for us". Integrating Zalo is not for 100 users in Vietnam — it is for entering an entirely new communication network.
 
-### 2. 争议是可以被设计的
+### 2. Controversy can be designed
 
-"Vibe coding 是 slur"不太可能是即兴的——这是一个精确的争议声明，满足传播所需的所有条件（可争论、有立场、有标题价值）。不是说要故意制造争议，而是说：如果争议会来，确保它在你的框架里发生。
+"Vibe coding is a slur" is unlikely to have been improvised — it is a precise controversial statement that meets every condition spread requires (arguable, takes a stance, has headline value). The point is not to manufacture controversy on purpose, but: if controversy is coming, make sure it happens inside your frame.
 
-### 3. 意见领袖密度 > 用户总量
+### 3. Opinion-leader density > total users
 
-530 个贡献者（高质量传播节点）比 50,000 个只 star 不用的人更有传播价值。如果你只能选一个指标优化，选"有多少活跃贡献者"而不是"有多少 star"。
+530 contributors (high-quality spreading nodes) are worth more for spread than 50,000 people who star without using. If you can optimise only one metric, choose "how many active contributors" over "how many stars".
 
-### 4. 叙事先行于产品
+### 4. Narrative comes before product
 
-人们记住的不是 OpenClaw 的功能列表，是"一个人用 AI 做了个超过 React 的项目"的故事。如果你的产品没有一个可以被转述的叙事，它就只能靠功能本身传播——这太慢了。
+What people remember is not OpenClaw's feature list; it is the story "one person used AI to build a project that passed React". If your product has no narrative that can be retold, it can spread only through its features — and that is far too slow.
 
-### 5. 社会认同级联一旦启动就有自己的动力学
+### 5. Once a social-proof cascade starts, it has its own dynamics
 
-一旦过了某个 star 阈值（大约 10k），star 行为就不再完全由产品质量驱动，而是由社会认同驱动。这意味着先发优势极其重要——第一个到 10k 的项目会吃掉后来者的生存空间，因为后来者缺少社会认同信号。
+Once past some star threshold (about 10k), starring is no longer driven fully by product quality but by social proof. This means first-mover advantage is extremely important — the first project to reach 10k eats the room latecomers need to survive, because latecomers lack the social-proof signal.
 
 ---
 

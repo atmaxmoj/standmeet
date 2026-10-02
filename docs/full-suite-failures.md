@@ -89,7 +89,7 @@ Two full runs. Logs: run 1 `scratchpad/accept-logs/.accept-test-fresh.log`, run 
 The 8 skipped are the conditional skips (captcha / boundary); run 2's 7 "did not run" are the
 serial siblings of B1's failed `beforeAll` hooks.
 
-**Process, recorded because the SOP was not followed in this round** (owner: "复习一下 sop"):
+**Process, recorded because the SOP was not followed in this round** (owner: "go over the SOP again"):
 this doc was not written after run 1; specs and a fixture were edited while run 2 was running;
 single specs were re-run to diagnose instead of reading the archive; fixes landed one by one with
 several image builds, and no batch was closed with `REPEAT=5`. From here on the batches below close
@@ -752,7 +752,7 @@ Every one of the 21 is a load artifact, in two shapes:
   1-day job pool racing under load. **Re-run in isolation `REPEAT=5` → 5/5 passed** → confirmed a race,
   not a dedup bug.
 
-**Verification done (per owner: "超时的重跑绿了就算做没事"; and the one non-timeout must be checked):**
+**Verification done (per owner: "a timeout that goes green on a rerun counts as fine"; and the one non-timeout must be checked):**
 `job-fetch-cross-source-dedup` REPEAT=5 → 5 passed. Spot-check of four timeout reds
 (`cssclasses-surfaces`, `draft-composer-backend`, `render-owner-css`, `microsite-is-the-codes-rendering`)
 → 21 passed. So the committed code is effectively green; the 21 are load, not defects.
@@ -770,7 +770,7 @@ clean tally).**
 ## Batch N — this round's NEW incremental features (their own batch, owner's instruction)
 
 Two features written THIS session, held out of the full suite and validated on their own (owner:
-"你的增量测试单独跑，别掺在一起"). Written + all non-stack static gates green; e2e validation via
+"run your incremental tests on their own, don't mix them in"). Written + all non-stack static gates green; e2e validation via
 `make test-only` (separate from the full suite).
 
 - **N1 — traffic monitor: sessions/feed sub-tabs + pagination.** `MonitorSection.tsx` (a tab row under
@@ -790,8 +790,8 @@ Two features written THIS session, held out of the full suite and validated on t
 
 **Status: DONE.** `make test-only SPEC="monitor-sessions-feed-tabs homepage-seo homepage-seo-from-unbuilt"
 REPEAT=5` → **25 passed, 0 failed** (one dev-up applied the migration; backend booted — no boot-panic);
-monitor re-checked REPEAT=3 after the ListPane empty-state fix → 6 passed. **Upgrade path (owner: "任何
-升级都要有测试")**: `upgrade-homepage-seo-columns.spec.ts` mirrors upgrade-pending-email-columns —
+monitor re-checked REPEAT=3 after the ListPane empty-state fix → 6 passed. **Upgrade path (owner: "every
+upgrade needs a test")**: `upgrade-homepage-seo-columns.spec.ts` mirrors upgrade-pending-email-columns —
 downgrade (drop the 3 columns + delete the ledger row) → restart backend (real deploy) → columns +
 ledger back, old owner intact, columns default empty, the SEO write works on the upgraded schema →
 **2 passed**.
@@ -858,7 +858,7 @@ every spec that reads the moved surface, not just the new one.
 - Run the full suite once, only after every batch is REPEAT=5 green **and** the host is quiet.
 - **Race the e2e can't reproduce stably → drill DOWN to a deterministic unit test, then come back up.**
   Do not keep re-running the e2e hoping it repeats. Write a unit test that constructs the race's STATE
-  directly (no timing window) so it fails 必现: RED on the current code → fix → GREEN → then re-run the
+  directly (no timing window) so it fails every time: RED on the current code → fix → GREEN → then re-run the
   original e2e race case `REPEAT`-many until green. (This round: flake #972 `microsite-editor-live-follow`
   → drilled to `microsite-build-mark-gone` (a nonexistent build id hits the same `UPDATE … RETURNING`
   0-rows path a truncate-mid-build produces) → RED 500 → fix → GREEN 404 REPEAT=5. Caveat: a real bug
@@ -1062,7 +1062,7 @@ not working.
 those real defects I had introduced and both fixed: an installed block that reported `deletable:true`
 while delete refused it, and the process-wide registry leaking one owner's blocks into another's list.
 
-## 收尾规则
+## Wrap-up rules
 
 1. Batch by root cause, not by finding.
 2. Diagnose from the **archive**. Do not re-run to diagnose. A rerun may only settle a batch whose

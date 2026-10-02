@@ -1,7 +1,7 @@
 # Q2 — Admin nav / editor click latency → instant nav + skeleton
 
-Status: **design 2026-09-06.** Owner: "nav 点了有时好久才变,该点了立即变;微站编辑有 skeleton 了但点了
-好久才跳到 skeleton,仔细看怎么回事。" + "你可能需要 ut 才能细到真问题去。"
+Status: **design 2026-09-06.** Owner: "sometimes the nav takes ages to change after a click; it should change the moment you click. The microsite editor has a skeleton, but after a click
+it takes ages to even jump to the skeleton — look carefully at what's going on." + "you may need a UT to get down to the real problem."
 
 ## Root cause — two distinct sub-problems (don't conflate)
 The owner reports TWO things; an e2e "it's slow" can't tell them apart — so we pin each with a
@@ -24,7 +24,7 @@ So (b) is a *different* cause, not the missing boundary. Candidate causes, to be
 - **U-cov (structural, deterministic):** a test that enumerates every admin section route dir under
   `src/app/admin/*` and asserts each has a `loading.tsx` (or is covered by a shared boundary). This
   names EXACTLY which routes are missing a skeleton — no browser, no timing flake. RED today for ~29
-  routes; the fix (add boundaries) turns it green and it stays a ratchet. **This is "细到真问题".**
+  routes; the fix (add boundaries) turns it green and it stays a ratchet. **This is "getting down to the real problem".**
 - **U-nav (isolate sub-problem b):** a unit/component test of the nav-click path for `edit/[slug]`
   asserting the click triggers navigation SYNCHRONOUSLY (no `await` before `router.push`) — e.g. the
   handler calls push before any promise resolves. Pins whether (b) is an await-before-nav.

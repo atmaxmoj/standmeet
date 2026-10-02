@@ -16,8 +16,8 @@ in every dimension that matters:
 
 ## The node packages arrive WITH the block — DECIDED
 
-The owner's framing: *"microsite 要 load node 包、字体什么的也能用上，这个就是我说的 plugin 的应用，
-plugin 带着这些功能能挂上 microsite."* A microsite does not acquire dependencies. **A block carries
+The owner's framing: *"a microsite should be able to load node packages and use fonts and such too; this is the plugin use I meant —
+a plugin carries these capabilities and can be mounted onto a microsite."* A microsite does not acquire dependencies. **A block carries
 its own, already built, and mounting the block onto the microsite brings them along.**
 
 **Half of this is already in the tree** — checked, not assumed. `builder/Dockerfile` does not
@@ -55,7 +55,7 @@ Three consequences:
 
 ## Wrapping an npm package as a block — DECIDED 2026-09-09
 
-The owner's words: *"把 npm 包包成 plugin 让 microsites 用."* The owner never writes a
+The owner's words: *"wrap npm packages as plugins for microsites to use."* The owner never writes a
 `package.json`, never names a dependency, never knows which npm package is underneath. He mounts a
 block called "charts" and the page can draw charts.
 

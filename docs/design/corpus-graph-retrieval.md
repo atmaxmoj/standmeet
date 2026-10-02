@@ -6,7 +6,7 @@
 > A single-call server-side bounded-BFS with fused ranking was considered and
 > **declined** — the "which nodes are relevant / how deep to go" judgment is
 > *reasoning* (the agent's job), not deterministic state (the host's job).
-> This closes roadmap 1b's "爬网 (graph retrieval)" line.
+> This closes roadmap 1b's "graph crawling (graph retrieval)" line.
 
 ## What ships today (the retrieval surface)
 

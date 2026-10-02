@@ -24,8 +24,8 @@ server-owned; the WASM preview draws the real selected code's QR client-side —
   editor edits the *structured `ResumeContent`*, then recompiles; it never lets a field inject Typst.
 - **Server render is the source of truth.** The committed PDF is the `typst` binary's output; the
   WASM preview must render the *same* templates so WYSIWYG holds. One template set, two renderers.
-- **The QR carries a real, existing code.** (Owner correction 2026-09-05: "不要place holder …
-  永远真code".) The composer's code picker selects ONLY from codes that already exist (public /
+- **The QR carries a real, existing code.** (Owner correction 2026-09-05: "no placeholder …
+  always a real code".) The composer's code picker selects ONLY from codes that already exist (public /
   invited) and defaults to one — it never mints a code. The live preview draws that code's real,
   scannable QR client-side (qrcode-generator) and its real `<public_url>?code=<code>` URL, so the
   preview shows exactly what the recruiter scans. No placeholder anywhere.

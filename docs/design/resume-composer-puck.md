@@ -1,7 +1,7 @@
 # Resume composer → Puck (rebuild)
 
-Status: **design / decided 2026-09-06.** Owner: "算了,就全改成 puck 吧,但是现在的这几项当作固定模板
-吧(有 skills education 这些的),重新设计一下这边的 ui。" The hand-rolled drag composer
+Status: **design / decided 2026-09-06.** Owner: "forget it, just switch it all to Puck, but keep the current sections as a fixed
+template (the ones with skills, education and so on), and redesign the UI here." The hand-rolled drag composer
 (RowDragOverlay / ColumnDivider) is fragile in both UX and E2E — replace it with **Puck**
 (@measured/puck), the proven data-driven page builder youteacher ships. Reference:
 `youteacher_web/src/features/content/components/puck-editor/` (puckConfig / PuckPageEditor /
@@ -23,10 +23,10 @@ does not invent new component types): `Header` (name/contact/role), `Summary`, `
 `Custom` (label+value / divider). Each maps 1:1 to a `resume_content` section. Field-level content is
 edited in each component's Puck fields panel (the left form), arrangement/order via Puck drag.
 
-## Data wiring + the upgrade scenario  ⟵ owner flagged "数据怎么 wire 升级才 ok"
+## Data wiring + the upgrade scenario  ⟵ owner flagged "how should the data be wired so the upgrade is OK"
 `resume_content` (the typed sections the typst templates + MCP `resume.draft` already use) stays the
 **canonical** shape and the render source. Puck data is a **view/editor projection** of it, not a
-second source of truth (十条 #1/#2):
+second source of truth (the ten rules, #1/#2):
 - **resume_content → Puck data** (`toPuckData`): pure, deterministic; drives the editor + preview.
 - **Puck data → resume_content** (`fromPuckData`): on save; only known component types map, unknown
   ignored → the canonical stays clean and the typst render is unchanged.
@@ -58,7 +58,7 @@ content empty/partial/full/CJK/long(→page2) · fields font-size/accent/left_wi
 
 ### Group U — pure mapping (unit, fast, no UI, no Puck runtime)
 - **U1 round-trip:** `fromPuckData(toPuckData(rc)) ≈ rc` — parametrized over each section type, over
-  repeatable 0/1/many, over empty/partial/full. The core "no silent divergence" guard (十条#2).
+  repeatable 0/1/many, over empty/partial/full. The core "no silent divergence" guard (the ten rules, #2).
 - **U2 toPuckData:** rc → `content[]` with the correct component types **in section order**; each
   section's fields land in its component props (sentinel per field).
 - **U3 fromPuckData:** an arbitrary owner-ordered `content[]` → resume_content whose sections follow
@@ -87,7 +87,7 @@ content empty/partial/full/CJK/long(→page2) · fields font-size/accent/left_wi
 ### Group D — editor interaction (Puck, DETERMINISTIC — the PW-testability the owner asked to verify)
 - **D1 real drag:** focus a section's `data-puck-*` handle → **dnd-kit keyboard DnD** (Space pick up ·
   Arrow move · Space drop) → assert resume_content order changed + preview/PDF reflects it. This is
-  the "真拖拽" guard on a proven engine (no custom overlays, no pointer-timing flake).
+  the "real drag" guard on a proven engine (no custom overlays, no pointer-timing flake).
 - **D2 field edit → persisted + rendered:** edit a field in Puck's panel → Save → reopen shows it +
   the committed PDF has it.
 - **D3 add / remove / duplicate** a repeatable component (Experience) → works[] + PDF reflect it.
@@ -116,18 +116,18 @@ content empty/partial/full/CJK/long(→page2) · fields font-size/accent/left_wi
 5. Vendor @measured/puck into the app (+ builder vendor if a microsite needs it).
 
 ## Resolved (owner 2026-09-06): Puck owns its state; Save persists
-"puck 的应该由自己的 redux,点 save 就 save。" → the Puck editor holds its own `data` (its store) while
+"Puck should have its own redux; clicking save saves." → the Puck editor holds its own `data` (its store) while
 editing; an explicit **Save** persists it. So:
 - **Persist the Puck data** as the draft's stored editor state (new `puck_data` field on the draft).
   On Save: `fromPuckData(puckData)` → derive `resume_content` and persist it too (typst renders from
   resume_content — the canonical render source stays). puck_data = editor fidelity; resume_content =
   render/canonical, always rederivable from puck_data.
 - **No auto-save churn**: state lives in Puck; the Save button is the commit-to-storage moment.
-- **Upgrade path (this is "数据怎么 wire 升级才 ok"):** an existing draft/application has only
+- **Upgrade path (this is "how should the data be wired so the upgrade is OK"):** an existing draft/application has only
   `resume_content`, no `puck_data`. On open: `puck_data` present → load it into Puck; absent (old row)
   → `toPuckData(resume_content)` derives it on the fly → owner edits → Save writes `puck_data`. So old
   rows open + render unchanged, and adopt puck_data on first save. Needs: the `puck_data` column
   (migration, nullable) + an **upgrade-path test** (a pre-Puck row opens, renders identically, and a
   no-op Save produces a resume_content equal to the original) ([[schema-lives-in-the-volume-not-the-image]]).
 - Invariant tests: `fromPuckData(toPuckData(rc)) ≈ rc` (round-trip), and puck_data is always
-  rebuildable from resume_content so the two never silently diverge (十条 #2).
+  rebuildable from resume_content so the two never silently diverge (the ten rules, #2).

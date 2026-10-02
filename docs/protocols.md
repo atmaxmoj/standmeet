@@ -1,57 +1,64 @@
-# 协议规范
+# Protocol specifications
 
-四个协议定义产品间的通信边界。协议全部开源（MIT），实现灵活授权。
+Four protocols define the communication boundaries between products. All protocols are open source (MIT); implementations are licensed flexibly.
 
-产品架构和产品定义见 product-vision.md。许可证策略见 licensing.md。
+See product-vision.md for the product architecture and product definition. See licensing.md for the license strategy.
 
 ---
 
-## 产品架构图
+## Product architecture diagram
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                                                                  │
-│  ┌──────────────┐    ① Observation Protocol (CloudEvents)       │
-│  │  采集适配器    │─────────────────────────────────────────┐     │
-│  │  Screenpipe   │    任何符合协议的采集器都可以接入         │     │
-│  │  IDE 插件     │                                          │     │
-│  │  移动端传感器  │                                          │     │
-│  │  自定义适配器  │                                          │     │
-│  └──────────────┘                                          │     │
-│                                                             ▼     │
+│  ┌────────────────┐  ① Observation Protocol (CloudEvents)        │
+│  │ Capture        │─────────────────────────────────────────┐    │
+│  │ adapters       │  Any protocol-compliant capturer        │    │
+│  │ Screenpipe     │  can plug in                            │    │
+│  │ IDE plugins    │                                         │    │
+│  │ Mobile sensors │                                         │    │
+│  │ Custom adapters│                                         │    │
+│  └────────────────┘                                         │    │
+│                                                             ▼    │
 │  ┌──────────────────────────────────────────────────────────┐     │
-│  │  蒸馏引擎                                                 │     │
-│  │  信号过滤 + 多层管线（秒/任务/小时/天/周）                  │     │
-│  │  Playbook 评级更新                                        │     │
+│  │  Distillation engine                                      │     │
+│  │  Signal filtering + multi-layer pipeline                  │     │
+│  │  (second/task/hour/day/week)                              │     │
+│  │  Playbook rating updates                                  │     │
 │  └──────────────────────────┬───────────────────────────────┘     │
 │                              │                                    │
-│                    ② Memory Protocol (JSON Schema + REST 语义)    │
+│                    ② Memory Protocol (JSON Schema + REST semantics)│
 │                              │                                    │
 │                              ▼                                    │
 │  ┌──────────────────────────────────────────────────────────┐     │
-│  │  记忆存储                                                 │     │
+│  │  Memory store                                             │     │
 │  │  Playbook / Identity / Episodes / Meta                    │     │
-│  │  符合 schema 的任何存储后端（SQLite / PostgreSQL / ...）    │     │
+│  │  Any schema-compliant storage backend                     │     │
+│  │  (SQLite / PostgreSQL / ...)                              │     │
 │  └──────────────────────────┬───────────────────────────────┘     │
 │                              │                                    │
-│                    ③ Query Protocol (REST + 向量搜索)             │
+│                    ③ Query Protocol (REST + vector search)        │
 │                              │                                    │
 │                              ▼                                    │
 │  ┌──────────────────────────────────────────────────────────┐     │
-│  │  执行引擎                                                 │     │
-│  │  情境检测 + Playbook 匹配 + Agent Loop + MCP 工具          │     │
+│  │  Execution engine                                         │     │
+│  │  Situation detection + Playbook matching + Agent Loop     │     │
+│  │  + MCP tools                                              │     │
 │  └──────────────────────────┬───────────────────────────────┘     │
 │                              │                                    │
-│       个人栈（全部开源，MIT） │                                    │
+│  Personal stack (all open    │                                    │
+│  source, MIT)                │                                    │
 │ ─────────────────────────────┼──────────────────────────────────  │
-│       组织栈（商业化）        │                                    │
+│  Organization stack          │                                    │
+│  (commercial)                │                                    │
 │                              │                                    │
-│                    ④ Organization Protocol (A2A 启发)             │
+│                    ④ Organization Protocol (inspired by A2A)      │
 │                              │                                    │
 │                              ▼                                    │
 │  ┌──────────────────────────────────────────────────────────┐     │
-│  │  组织层                                                   │     │
-│  │  能力地图聚合 + 跨人任务调度 + 组织蒸馏                     │     │
+│  │  Organization layer                                       │     │
+│  │  Capability map aggregation + cross-person task           │     │
+│  │  scheduling + organization distillation                   │     │
 │  └──────────────────────────────────────────────────────────┘     │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
@@ -59,24 +66,24 @@
 
 ---
 
-## ① Observation Protocol — 基于 CloudEvents
+## ① Observation Protocol — based on CloudEvents
 
-### 为什么是 CloudEvents
+### Why CloudEvents
 
-- CNCF 标准，专门定义事件数据格式
-- SDK 覆盖：Go、Java、JS/TS、Python、C#、Rust、Ruby
-- 生态：Kafka、NATS、RabbitMQ、Knative 原生支持
-- 规范简单：JSON envelope + 几个必填字段，5 分钟学会
-- 本地场景当 JSON schema 用，不需要跑 event broker
-- 以后有远程场景（手机 → 桌面）transport binding 现成
+- A CNCF standard, specifically for defining event data formats
+- SDK coverage: Go, Java, JS/TS, Python, C#, Rust, Ruby
+- Ecosystem: native support in Kafka, NATS, RabbitMQ, Knative
+- Simple spec: JSON envelope + a few required fields, learnable in 5 minutes
+- In local scenarios it is used as a JSON schema; no event broker needs to run
+- When remote scenarios come later (phone → desktop), transport bindings are ready-made
 
-### 对社区贡献者的价值
+### Value for community contributors
 
-**想写一个新采集适配器，只要输出 CloudEvents 格式就能接入，不需要看内部代码。**
+**To write a new capture adapter, you only need to output the CloudEvents format to plug in; you don't need to read the internal code.**
 
-### 事件格式
+### Event format
 
-所有观测事件共享 CloudEvents envelope，`type` 字段区分事件类别：
+All observation events share the CloudEvents envelope; the `type` field distinguishes event categories:
 
 ```json
 {
@@ -93,22 +100,22 @@
 }
 ```
 
-### 事件类型定义
+### Event type definitions
 
-#### 信号事件（信号过滤层输出）
+#### Signal events (output of the signal filtering layer)
 
 ```
-standmeet.signal.correction        修正（写了→删→重写）
-standmeet.signal.selection          选择（多选项→选了一个）
-standmeet.signal.sequence           顺序（做事的先后路径）
-standmeet.signal.pause              停顿（长时间无操作→突然大动作）
-standmeet.signal.abandonment        放弃（开始→中途放弃→换方向）
-standmeet.signal.avoidance          回避（可用但未使用）
-standmeet.signal.pressure           压力（频率突变、跳过常规步骤）
-standmeet.signal.task_boundary      任务边界（上下文大切换、commit）
+standmeet.signal.correction        Correction (wrote → deleted → rewrote)
+standmeet.signal.selection          Selection (several options → picked one)
+standmeet.signal.sequence           Sequence (the order of steps in doing things)
+standmeet.signal.pause              Pause (long inactivity → sudden big action)
+standmeet.signal.abandonment        Abandonment (started → gave up midway → changed direction)
+standmeet.signal.avoidance          Avoidance (available but not used)
+standmeet.signal.pressure           Pressure (sudden frequency change, skipping routine steps)
+standmeet.signal.task_boundary      Task boundary (big context switch, commit)
 ```
 
-#### 信号事件 data 通用字段
+#### Common fields of signal event data
 
 ```json
 {
@@ -121,7 +128,7 @@ standmeet.signal.task_boundary      任务边界（上下文大切换、commit�
     "duration_ms": 3200
   },
   "detail": {
-    ...  // 每种 signal_type 有自己的 detail schema
+    ...  // each signal_type has its own detail schema
   }
 }
 ```
@@ -171,22 +178,22 @@ standmeet.signal.task_boundary      任务边界（上下文大切换、commit�
 }
 ```
 
-#### 原始观测事件（采集适配器输出，信号过滤层输入）
+#### Raw observation events (output of capture adapters, input of the signal filtering layer)
 
 ```
-standmeet.raw.screen_text           屏幕文本变化
-standmeet.raw.audio_transcript      音频转录
-standmeet.raw.app_switch             应用切换
-standmeet.raw.keystroke_stats        击键统计（不含内容，只含速率/删改率）
-standmeet.raw.file_change            文件修改
-standmeet.raw.clipboard              剪贴板变化
+standmeet.raw.screen_text           Screen text change
+standmeet.raw.audio_transcript      Audio transcription
+standmeet.raw.app_switch             App switch
+standmeet.raw.keystroke_stats        Keystroke statistics (no content, only rate/edit-delete rate)
+standmeet.raw.file_change            File modification
+standmeet.raw.clipboard              Clipboard change
 ```
 
-原始事件量大、噪音多。信号过滤层消费原始事件，产出信号事件。蒸馏引擎只消费信号事件。
+Raw events are high-volume and noisy. The signal filtering layer consumes raw events and produces signal events. The distillation engine consumes only signal events.
 
-### 适配器注册
+### Adapter registration
 
-每个采集适配器在启动时发送一个注册事件：
+Every capture adapter sends a registration event at startup:
 
 ```json
 {
@@ -203,27 +210,27 @@ standmeet.raw.clipboard              剪贴板变化
 }
 ```
 
-蒸馏引擎可以据此知道当前有哪些采集源在线。
+From this, the distillation engine knows which capture sources are currently online.
 
 ---
 
-## ② Memory Protocol — JSON Schema + REST 语义
+## ② Memory Protocol — JSON Schema + REST semantics
 
-### 设计原则
+### Design principles
 
-- 用 JSON Schema 严格定义每种记忆的结构
-- 用 REST 语义描述操作（GET/PUT/POST/DELETE/PATCH）
-- **本地实现就是文件操作**，不需要跑 HTTP server
-- Schema 是协议的核心——符合 schema 的任何存储后端都兼容
+- Use JSON Schema to strictly define the structure of each kind of memory
+- Use REST semantics to describe operations (GET/PUT/POST/DELETE/PATCH)
+- **A local implementation is just file operations**; no HTTP server needs to run
+- The schema is the core of the protocol — any storage backend that conforms to the schema is compatible
 
-### 资源路径
+### Resource paths
 
 ```
 /memory/
 ├── playbook/{filename}              GET / PUT / DELETE
 ├── identity/{filename}              GET / PUT
-├── episodes/{date}                  GET / POST（追加）
-├── episodes/search                  POST（向量搜索）
+├── episodes/{date}                  GET / POST (append)
+├── episodes/search                  POST (vector search)
 ├── meta/rating                      GET / PATCH
 ├── meta/confidence                  GET / PATCH
 ├── meta/gaps                        GET / POST
@@ -243,15 +250,15 @@ standmeet.raw.clipboard              剪贴板变化
   "properties": {
     "situation": {
       "type": "string",
-      "description": "情境描述"
+      "description": "Description of the situation"
     },
     "reaction": {
       "type": "string",
-      "description": "观察到的行为反应"
+      "description": "Observed behavioral reaction"
     },
     "why": {
       "type": "string",
-      "description": "从行为推断的原因"
+      "description": "Reason inferred from the behavior"
     },
     "confidence": {
       "type": "number",
@@ -262,16 +269,16 @@ standmeet.raw.clipboard              剪贴板变化
       "type": "array",
       "items": {
         "type": "string",
-        "description": "来源 episode ID"
+        "description": "Source episode ID"
       }
     },
     "pressure_variant": {
       "type": "boolean",
-      "description": "是否为压力变体"
+      "description": "Whether this is a pressure variant"
     },
     "counterexample": {
       "type": "boolean",
-      "description": "是否为反例"
+      "description": "Whether this is a counterexample"
     },
     "first_observed": {
       "type": "string",
@@ -304,7 +311,7 @@ standmeet.raw.clipboard              剪贴板变化
     "underlying_values": {
       "type": "array",
       "items": { "type": "string" },
-      "description": "跨情境归纳出的共性"
+      "description": "Commonalities generalized across situations"
     }
   }
 }
@@ -333,12 +340,12 @@ standmeet.raw.clipboard              剪贴板变化
     },
     "content": {
       "type": "string",
-      "description": "摘要文本"
+      "description": "Summary text"
     },
     "source_signals": {
       "type": "array",
       "items": { "type": "string" },
-      "description": "来源 CloudEvents ID 列表"
+      "description": "List of source CloudEvents IDs"
     },
     "context": {
       "type": "object",
@@ -352,11 +359,11 @@ standmeet.raw.clipboard              剪贴板变化
     "embedding": {
       "type": "array",
       "items": { "type": "number" },
-      "description": "向量嵌入（可选，由存储后端生成）"
+      "description": "Vector embedding (optional, generated by the storage backend)"
     },
     "absorbed_by": {
       "type": "string",
-      "description": "被哪个 Playbook 文件吸收（固化后填入）"
+      "description": "Which Playbook file absorbed it (filled in after consolidation)"
     }
   }
 }
@@ -375,23 +382,23 @@ standmeet.raw.clipboard              剪贴板变化
       "type": "number",
       "minimum": 0,
       "maximum": 1,
-      "description": "d(t): 本周新情境变体占比，对应 bisimulation failure type I"
+      "description": "d(t): share of new situation variants this week; corresponds to bisimulation failure type I"
     },
     "prediction_accuracy": {
       "type": ["number", "null"],
       "minimum": 0,
       "maximum": 1,
-      "description": "p: 执行接受率（指数衰减加权），对应 failure type β"
+      "description": "p: execution acceptance rate (exponentially decay-weighted); corresponds to failure type β"
     },
     "modification_rate": {
       "type": "number",
       "minimum": 0,
-      "description": "m(t): 本周 Playbook 被蒸馏修改次数归一化，对应 failure type α"
+      "description": "m(t): normalized number of times the Playbook was modified by distillation this week; corresponds to failure type α"
     },
     "boundary_completeness": {
       "type": "number",
       "enum": [0, 0.5, 1.0],
-      "description": "b: 有反例(+0.5) + 有压力变体(+0.5)，对应 failure type F"
+      "description": "b: has a counterexample (+0.5) + has a pressure variant (+0.5); corresponds to failure type F"
     },
     "sample_size": {
       "type": "integer",
@@ -424,11 +431,11 @@ standmeet.raw.clipboard              剪贴板变化
 
 ---
 
-## ③ Query Protocol — REST + 向量搜索
+## ③ Query Protocol — REST + vector search
 
-蒸馏引擎和执行引擎查询记忆存储的接口。
+The interface the distillation engine and the execution engine use to query the memory store.
 
-### 结构化查询
+### Structured queries
 
 ```
 GET /memory/episodes/2026-03-13
@@ -439,12 +446,12 @@ GET /memory/meta/rating?execution_mode=auto
 GET /memory/meta/gaps?asked=false&priority_gte=0.8
 ```
 
-### 向量搜索
+### Vector search
 
 ```
 POST /memory/episodes/search
 {
-  "query": "选择了更有约束的方案",
+  "query": "chose the more constrained option",
   "time_range": {
     "from": "2026-01-01",
     "to": "2026-03-13"
@@ -458,7 +465,7 @@ Response:
   "results": [
     {
       "id": "ep-20260305-a1b2c3",
-      "content": "技术选型：选了 TypeScript 而不是 JavaScript",
+      "content": "Tech choice: picked TypeScript over JavaScript",
       "similarity": 0.92,
       "timestamp": "2026-03-05T14:30:00Z"
     },
@@ -467,7 +474,7 @@ Response:
 }
 ```
 
-### 聚合查询
+### Aggregate queries
 
 ```
 POST /memory/episodes/aggregate
@@ -478,21 +485,21 @@ POST /memory/episodes/aggregate
 }
 ```
 
-### 本地工具查询（透传）
+### Local tool queries (pass-through)
 
-本地工具不通过 Memory Protocol——蒸馏引擎和执行引擎直接调用本地工具（git_log、shell_history 等）。这些工具是 agent 的 tool_use，不是记忆存储的一部分。
+Local tools do not go through the Memory Protocol — the distillation engine and execution engine call local tools (git_log, shell_history, etc.) directly. These tools are the agent's tool_use, not part of the memory store.
 
 ---
 
-## ④ Organization Protocol — A2A 启发
+## ④ Organization Protocol — inspired by A2A
 
-### 背景
+### Background
 
-Google A2A（Agent-to-Agent）协议做的事情：agent 广播自己的能力（Agent Card）、接收任务、返回结果。StandMeet 组织层的需求和 A2A 高度一致。
+What Google's A2A (Agent-to-Agent) protocol does: an agent broadcasts its capabilities (Agent Card), receives tasks, and returns results. The needs of the StandMeet organization layer closely match A2A.
 
-### Agent Card（从 Playbook Rating 自动导出）
+### Agent Card (exported automatically from the Playbook Rating)
 
-每个用户的 agent 定期发布自己的能力卡片：
+Each user's agent periodically publishes its capability card:
 
 ```json
 {
@@ -521,17 +528,17 @@ Google A2A（Agent-to-Agent）协议做的事情：agent 广播自己的能力�
 }
 ```
 
-注意：Agent Card **只暴露能力标签和评级数值**，不暴露 Playbook 内容。数据隔离在协议层保证。
+Note: the Agent Card **exposes only capability labels and rating values**, not Playbook content. Data isolation is guaranteed at the protocol layer.
 
-### Task 对象
+### Task object
 
-组织层下发任务给个人 agent：
+The organization layer dispatches a task to personal agents:
 
 ```json
 {
   "task_id": "org-task-20260313-001",
   "type": "standmeet.org.task",
-  "title": "客户 ABC 合作方案",
+  "title": "Partnership proposal for client ABC",
   "initiated_by": "agent/zhangsan",
   "deadline": "2026-03-17",
   "steps": [
@@ -551,9 +558,9 @@ Google A2A（Agent-to-Agent）协议做的事情：agent 广播自己的能力�
 }
 ```
 
-### Flow Record（流转记录，组织蒸馏的输入）
+### Flow Record (the input to organization distillation)
 
-任务完成后，自动生成流转记录：
+When a task is done, a flow record is generated automatically:
 
 ```json
 {
@@ -584,26 +591,26 @@ Google A2A（Agent-to-Agent）协议做的事情：agent 广播自己的能力�
 }
 ```
 
-Flow Record **只记录角色、时间、模式、修改次数**，不记录具体内容。组织蒸馏基于这些元数据发现协作模式，不需要看每个人具体做了什么。
+A Flow Record **records only role, time, mode, and number of corrections**, not the actual content. Organization distillation discovers collaboration patterns from this metadata and does not need to see what each person actually did.
 
 ---
 
-## 协议版本管理
+## Protocol versioning
 
 ```
-每个协议独立版本号：
+Each protocol has its own version number:
   Observation Protocol v1.0
   Memory Protocol v1.0
   Query Protocol v1.0
   Organization Protocol v1.0
 
-向后兼容策略：
-  - 新增字段：可选字段，旧实现忽略
-  - 删除字段：先标记 deprecated，下个大版本移除
-  - 破坏性变更：大版本号 +1
+Backward-compatibility policy:
+  - Added fields: optional; old implementations ignore them
+  - Removed fields: mark deprecated first, remove in the next major version
+  - Breaking changes: major version +1
 
-Schema 发布：
-  所有 JSON Schema 发布在公开 URL
-  例：https://schema.standmeet.dev/v1/playbook-entry.json
-  实现方可以直接引用做校验
+Schema publishing:
+  All JSON Schemas are published at public URLs
+  e.g. https://schema.standmeet.dev/v1/playbook-entry.json
+  Implementers can reference them directly for validation
 ```

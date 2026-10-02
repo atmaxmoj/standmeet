@@ -1,6 +1,6 @@
 # The SDK is how chat is inherited
 
-Status: APPROVED 2026-09-29 (owner: "sdk要像一个机制能继承过来"). Ledger at the bottom.
+Status: APPROVED 2026-09-29 (owner: "the SDK should work like a mechanism that things inherit"). Ledger at the bottom.
 
 ## Problem
 

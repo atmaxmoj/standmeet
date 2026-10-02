@@ -1,226 +1,226 @@
-# 人工审计指南（lint 守不住的那层质量）
+# Manual audit guide (the layer of quality lint cannot guard)
 
-> lint / 类型检查 / 测试通过 ≠ 架构干净。它们守的是**机械正确性**（格式、未用变量、圈复杂度上限、空容器、//nolint 禁令）。
-> 本文守的是**判断性质量**：意图是否清晰、失败是否吵闹、逻辑是否唯一、抽象是否用在刀刃上。
-> 这些只能人（或带判断的 review）逐条看。每一条都给：**闻味道的信号** + **该问自己的问题** + **本仓真实例子**。
+> lint / type checks / tests passing ≠ clean architecture. They guard **mechanical correctness** (formatting, unused variables, cyclomatic complexity caps, empty containers, the //nolint ban).
+> This document guards **judgement quality**: is the intent clear, are failures loud, is the logic in one place only, are abstractions used where they count.
+> Only a person (or a review that applies judgement) can check these one by one. Each item gives: **the smell signals** + **the questions to ask yourself** + **real examples from this repo**.
 >
-> 用法：改完一块代码、或 review 一个 PR 时，**先读懂意图，再挑一条真实路径端到端走一遍**，然后拿下面的清单过一遍。
-> 不是每条都要满分——是每条都要**有意识地下过判断**，而不是默认放过。
+> Usage: after changing a block of code, or when reviewing a PR, **first understand the intent, then pick one real path and walk it end to end**, then go through the checklist below.
+> Not every item needs full marks — every item needs **a conscious judgement**, not a default pass.
 
 ---
 
-## 0. 怎么做一次审计（流程）
+## 0. How to run an audit (process)
 
-1. **先读意图，不读实现**：看包注释、类型名、函数签名。能不能光凭名字猜对"它干什么 / 会不会失败 / 会不会改状态"？猜不对 → 命名或边界有问题，先记下。
-2. **走一条真实路径**：挑一个端到端场景（如"装配一个 CalDAV supplier → booker 真 book"），顺着代码走一遍数据与控制流。**别只看单元，看路径**——大多数架构债藏在跨模块的接缝里。
-3. **逆向走错误路径**：同一条路径，假设每一步都失败，错会怎么传？会被吞吗？调用方分得清"没数据"和"炸了"吗？
-4. **过下面 1–10 条清单**，每条记 `file:line + 严重度（blocker / 债 / 风格）+ 一句话`。
-5. **输出审计表**，不是直接改——让人先看清全貌再决定动哪些。
-
----
-
-## 1. 控制流：`if` 的密度与意图
-
-**信号**
-- 同一个变量上的长 `if/else` 或 `switch` 按"种类/类型"分支，且**每加一个新种类就要回来改这里** → 缺多态 / 表驱动 / 注册表。
-- 嵌套 `if` 超过 2 层 → 该用 guard clause 早返，把正常路径拉平。
-- `if` 里同时塞了**判断 + 业务计算 + IO/渲染** → 关注点没分离。
-- `if` 在判断**数据的形状**（"它是不是 object / 有没有这个字段"），而不是**控制路径** → 形状判断往往该归一到契约/类型里，别散在调用点。
-
-**问自己**
-- 这个分支结构，业务长大时会不会跟着长？会 → 它该是**数据**（注册表 / map / 配置），不是 `switch`。
-- 这个 `if` 是"本质分支"还是"缺了抽象的补丁"？
-- 删掉这个 `else`，用早返，可读性会不会更好？
-
-**本仓**
-- ❌ 泄漏：如果 booker 里出现 `if provider == "gcal"`，就是具体 supplier 漏进了消费侧——该归一到 seam 后面（消费方只说 `requires: [calendar]`，永不点名 vendor）。
-- ⚠️ 已被现设计推翻的旧例：曾把 `adaptByCategory` 的 `switch(category){case calendar/mail}` + `CalendarProxy` 契约当"✅ 合理的契约边界"。**现在不成立。** seam 解析**按名字**、值是 `CallVerb(verb, json.RawMessage)`——没有 typed category surface。block-model.md:161 原话：typed category surface "is exactly what the existing design kills"。那套 typed 层（`blockCalendarProxy`/`blockMailProxy` in `cmd/server/blockwire/block_calendar.go`·`block_mail.go`，`internal/infra/openapi`）今天**仍物理存在，是待删残留**（step ⑤，2026-09-17 deferred，见 `docs/full-suite-failures.md:17` + `docs/design/plugin/openapi-runtime-block.md`），审计时应记成"待消除"而非"合理保留"。
-- 判据：**`switch` 跟着"业务种类"增长 = 坏；跟着"固定协议"封闭且不引入 per-seam typed 接口 = 尚可。一旦是"每个 seam 一个 typed 契约/Proxy"= 星型拓扑，按现设计要杀。**
+1. **Read the intent first, not the implementation**: look at package comments, type names, function signatures. Can you guess correctly from the names alone "what it does / whether it can fail / whether it changes state"? If not → the naming or the boundary has a problem; note it first.
+2. **Walk one real path**: pick an end-to-end scenario (e.g. "set up a CalDAV supplier → booker really books"), and follow the data and control flow through the code. **Do not look only at units; look at paths** — most architectural debt hides in the seams between modules.
+3. **Walk the error path backwards**: on the same path, assume every step fails. How does the error propagate? Does it get swallowed? Can the caller tell "no data" from "it blew up"?
+4. **Go through checklist items 1–10 below**, recording each finding as `file:line + severity (blocker / debt / style) + one sentence`.
+5. **Output an audit table**, do not fix directly — let people see the whole picture first and then decide what to touch.
 
 ---
 
-## 2. Fail loud vs fail silent（最容易出真 bug 的一条）
+## 1. Control flow: the density and intent of `if`
 
-**默认 fail loud**：错误要么被处理，要么被上报，**绝不无声吞**。
+**Signals**
+- A long `if/else` or `switch` on one variable branches by "kind/type", and **every new kind means coming back to change this spot** → missing polymorphism / table-driven / registry.
+- `if` nested more than 2 levels → use guard clauses with early returns and flatten the normal path.
+- An `if` crams in **a check + business computation + IO/rendering** at once → concerns are not separated.
+- The `if` checks **the shape of data** ("is it an object / does it have this field") rather than **controlling the path** → shape checks usually belong in the contract/type, not scattered across call sites.
 
-合法的 silent degrade 必须**同时**满足：
-1. 它是**预期的业务状态**，不是故障（如 §8-C：provider 回的形状跟契约不符 = "无数据"，不是"挂了"）；
-2. 降级路径有**明确语义 + 注释 + 测试**；
-3. **不掩盖真故障**——能区分"预期 not-found"和"DB 炸了 / 网络断了"。
+**Ask yourself**
+- Will this branch structure grow as the business grows? If yes → it should be **data** (registry / map / config), not a `switch`.
+- Is this `if` an "essential branch" or "a patch for a missing abstraction"?
+- Would deleting this `else` and returning early read better?
 
-**信号**
-- `if err != nil { return nil }` 把**所有**错一锅端（不分预期/真错）。
-- catch-all 后返回零值/默认值，调用方分不清"没数据"还是"失败了"。
-- 降级了但**没有任何痕迹**（不 log、不计数、不告警）。
-
-**问自己**
-- 这里吞掉的错，里面会不会混进一个"本该告警 / 5xx"的真故障？
-- 运维半夜被叫起来，光看日志能不能看出这里发生过降级、为什么？
-- 调用方**需要**区分这几种失败吗？需要 → 给 sentinel / typed error，别一刀切返 nil。
-
-**本仓**
-- ❌ 真 bug（已修）：`ensureActive` 原来 `if merr != nil { return nil }` 吞掉**所有** manifest 错——DB 炸了也静默不激活。改成只 `errors.Is(ErrNotFound)` 跳过，真错 `return fmt.Errorf(...)` 上报。
-- ✅ 合法降级：`decodeInto` 的 shape-mismatch → 留零值不报错，但**抽成独立的 `decodeOrEmpty` + 注释 + §8-C 测试**，语义明确、可测、不掩盖真错。
+**This repo**
+- ❌ Leak: if `if provider == "gcal"` appears in booker, a concrete supplier has leaked into the consuming side — it should be normalized behind the seam (the consumer only says `requires: [calendar]`, never names a vendor).
+- ⚠️ An old example overturned by the current design: `adaptByCategory`'s `switch(category){case calendar/mail}` + the `CalendarProxy` contract was once counted as "✅ a reasonable contract boundary". **That no longer holds.** Seam resolution is **by name**, and the value is `CallVerb(verb, json.RawMessage)` — there is no typed category surface. block-model.md:161, verbatim: a typed category surface "is exactly what the existing design kills". That typed layer (`blockCalendarProxy`/`blockMailProxy` in `cmd/server/blockwire/block_calendar.go`·`block_mail.go`, `internal/infra/openapi`) **still physically exists today as a leftover awaiting deletion** (step ⑤, deferred 2026-09-17, see `docs/full-suite-failures.md:17` + `docs/design/plugin/openapi-runtime-block.md`); an audit should record it as "to be eliminated", not "reasonably kept".
+- Criterion: **a `switch` that grows with "business kinds" = bad; one closed over a "fixed protocol" that introduces no per-seam typed interface = acceptable. Once it is "one typed contract/Proxy per seam" = star topology, which the current design kills.**
 
 ---
 
-## 3. 冗余逻辑 / 单一事实源（DRY 的本质是"知识"，不是"代码行"）
+## 2. Fail loud vs fail silent (the item most likely to produce real bugs)
 
-DRY 不是"别有两段长得像的代码"，是"**同一个知识别在两处表达**"——否则改一处忘另一处。
+**Default to fail loud**: an error is either handled or reported, **never silently swallowed**.
 
-**信号**
-- 同一份知识在多处枚举（两个地方都按品类列 `calendar/mail`；两份独立的校验规则要同步改）。
-- **派生数据被存储**（`message_count` 存了，又能从 dialog 派生）→ 必然有不一致窗口。
-- **同一逻辑两条路给出不同结果**（候选派生 vs 建后派生）。
-- copy-paste 的"平行结构"——A 改了 B 必须跟着改，但没有任何东西强制。
+A legitimate silent degrade must satisfy **all** of these:
+1. It is **an expected business state**, not a fault (e.g. §8-C: a provider returns a shape that does not match the contract = "no data", not "down");
+2. The degrade path has **clear semantics + a comment + a test**;
+3. **It does not mask real faults** — it can tell an "expected not-found" from "the DB blew up / the network is down".
 
-**问自己**
-- 这个值是 **source of truth** 还是 **derived**？derived 的就别存，现算。
-- 加一个品类 / auth 类型 / 状态，要改**几个地方**？> 1 就有重复知识，想办法收成 1。
+**Signals**
+- `if err != nil { return nil }` lumps **all** errors together (expected and real alike).
+- A catch-all returns a zero/default value, and the caller cannot tell "no data" from "failed".
+- It degraded but left **no trace at all** (no log, no counter, no alert).
 
-**本仓**
-- ❌ 真 bug（已修）：apiKey 字段名候选派生给 `'key'`、建后派生给 `'apiKey'`——**同一派生跑了两条路**。归一成一条（`apiKeyField` 对通用 `apiKey` 统一返 `'key'`）。
-- ✅ 已做：`count` 一律从 dialog 派生，删掉存储的 `message_count` 字段。
+**Ask yourself**
+- Could a real fault that "should alert / should be a 5xx" be mixed into the errors swallowed here?
+- If ops are woken up at midnight, can they tell from the logs alone that a degrade happened here, and why?
+- Does the caller **need** to distinguish these failures? If yes → give a sentinel / typed error; do not blanket-return nil.
 
----
-
-## 4. SOLID（务实版，不教条）
-
-逐字母问一个**具体**问题，不背定义：
-
-- **S（单一职责）**：这个 struct 是不是装了一堆**不相关**的字段（god-struct）？这个函数是不是既解析又 IO 又渲染？
-- **O（开放封闭）**：扩展要不要改核心？**新增一个 supplier，要不要动底座代码？**（应该只加数据/插件）
-- **L（里氏替换）**：契约的不同实现**真的可换**吗？CalDAV 和 Google 喂同一个 booker，**错误形状 / 空结果 / 幂等语义**是否一致？（能编译 ≠ 可替换）
-- **I（接口隔离）**：接口是不是过胖，逼消费者依赖它不用的方法？（窄依赖 vs god-deps；参见 `VisitorDeps` 拆窄那次重构）
-- **D（依赖倒置）**：高层依赖**抽象**还是**具体**？跨层时——supplier 层是依赖 `ConnectionStore` 接口，还是直接 import `postgres`？
-
-**问自己**
-- 这个跨层依赖是接口还是具体类型？跨层必须接口。
-- 这个"god-struct/参数包"里的字段，所有使用者都用得上吗？用不上的拆出去。
+**This repo**
+- ❌ Real bug (fixed): `ensureActive` used to swallow **all** manifest errors with `if merr != nil { return nil }` — even a DB failure silently skipped activation. Changed to skip only on `errors.Is(ErrNotFound)`; real errors are reported with `return fmt.Errorf(...)`.
+- ✅ Legitimate degrade: `decodeInto`'s shape-mismatch → keeps the zero value without reporting an error, but it is **extracted into a separate `decodeOrEmpty` + a comment + a §8-C test**; the semantics are clear, testable, and do not mask real errors.
 
 ---
 
-## 5. 设计模式：用在刀刃上，不 cargo-cult
+## 3. Redundant logic / single source of truth (DRY is about "knowledge", not "lines of code")
 
-模式是**降复杂度**的，不是用来"显得专业"的。错用 / 半用 / 提前用都是债。
+DRY does not mean "no two pieces of code that look alike"; it means "**the same knowledge is not expressed in two places**" — otherwise you change one and forget the other.
 
-**信号**
-- **单方法、无状态的接口** → 该是 **func 类型**（`http.HandlerFunc` 取舍），别造空 struct + 接口 + 工厂。
-- 按类型选实现的 `switch` **会随业务增长** → 该是 **registry（数据驱动注册）**，不是写死的工厂 `switch`。
-- 模式**用了一半**：有 Strategy 接口，工厂里却还 `if instanceof` / 特判。
-- **YAGNI 违背**：为"将来可能的灵活"提前抽象；接口只有一个实现、且看不到第二个的来由。
-- 内存缓存 + DB 双写同一状态 → 制造"二相不一致"（宁可每次读 DB 的单一事实源）。
+**Signals**
+- The same knowledge is enumerated in several places (two places both list `calendar/mail` by category; two independent validation rules must be changed in sync).
+- **Derived data is stored** (`message_count` is stored, yet can be derived from dialog) → there is always an inconsistency window.
+- **The same logic gives different results on two paths** (candidate derivation vs post-creation derivation).
+- Copy-pasted "parallel structures" — when A changes B must follow, but nothing enforces it.
 
-**问自己**
-- 这个抽象**现在/可预见**有第二个实现吗？没有 → 别抽，等它来。
-- 这个 `switch` 会随业务长吗？会 → 注册表。不会（固定协议）→ `switch` 就挺好，别过度设计。
-- 这个模式**完整**吗？还是留了个 `if` 特判在破坏它？
+**Ask yourself**
+- Is this value the **source of truth** or **derived**? If derived, do not store it; compute it.
+- Adding one category / auth type / status means changing **how many places**? > 1 means duplicated knowledge; find a way to bring it down to 1.
 
-**本仓**
-- ✅ 已做：`authStrategy` 从"单方法接口 + 4 个空 struct + 工厂"→ **func 类型**，工厂返 func 值。代码更少、`ireturn` 自然消失。
-- ❌ 待消除（旧文档曾写"✅ 合理保留"，现已推翻）：`CalendarProxy/MailProxy` 这种**每 seam 一个 typed 多方法契约**是现设计要杀的星型拓扑，不是要保的抽象。归一化靠 seam 名 + 通用 `CallVerb(verb, json.RawMessage)`，不靠 per-seam 接口。它们今天仍在 `cmd/server/blockwire/block_{calendar,mail}.go`，属 step ⑤ 待删残留（见上）。参见 block-model.md §"'block' and 'supplier' are not two kinds of thing"。
+**This repo**
+- ❌ Real bug (fixed): the apiKey field name was `'key'` in candidate derivation and `'apiKey'` in post-creation derivation — **the same derivation ran on two paths**. Unified into one (`apiKeyField` returns `'key'` for the generic `apiKey` everywhere).
+- ✅ Done: `count` is always derived from dialog; the stored `message_count` field was deleted.
 
 ---
 
-## 6. 命名与意图
+## 4. SOLID (the pragmatic version, not dogma)
 
-名字是**第一层文档**，也是最容易腐烂的。名字必须 == 行为。
+Ask one **concrete** question per letter instead of reciting definitions:
 
-**信号**
-- 函数名说 `get` 却有副作用；说 `list` 却返单个；返 `ok bool` 实为 error 语义。
-- misnomer：模块名跟它实际干的事对不上（如 `seo` 其实是 landing/reader）。
-- 缩写 / 行话只有作者懂。
+- **S (single responsibility)**: does this struct hold a pile of **unrelated** fields (god-struct)? Does this function parse and do IO and render?
+- **O (open/closed)**: does extending it require changing the core? **Does adding a new supplier touch the base code?** (It should only add data/plugins.)
+- **L (Liskov substitution)**: are the different implementations of a contract **really interchangeable**? When CalDAV and Google feed the same booker, are **error shapes / empty results / idempotency semantics** consistent? (Compiles ≠ substitutable.)
+- **I (interface segregation)**: is the interface too fat, forcing consumers to depend on methods they do not use? (Narrow deps vs god-deps; see the refactor that split `VisitorDeps` into narrow pieces.)
+- **D (dependency inversion)**: does the high level depend on **abstractions** or **concretions**? Across layers — does the supplier layer depend on the `ConnectionStore` interface, or import `postgres` directly?
 
-**问自己**
-- 不看实现，光看**签名 + 名字**，能不能猜对：它干什么、会不会失败、会不会改状态？猜错 → 改名或改签名。
-
----
-
-## 7. 状态、不变量、并发（flake 的源头）
-
-**不变量要有唯一的守护点**，且最好由**数据结构/约束**保证，而不是靠"调用方记得按顺序做"。
-
-**信号**
-- 不变量靠**调用顺序**维持（"先 deactivate 别的再 activate 这个"），而非排他写/约束。
-- 共享可变状态 + **顺序依赖**（`rows.find` 依赖 `GET` 返回顺序）。
-- 派生"当前选中/激活"靠"列表里第一个 match"，而列表无确定序。
-
-**问自己**
-- 这个不变量，如果两个请求**并发** / **顺序变了**，还成立吗？
-- 这个测试是**真确定性**，还是碰巧顺序对了？**flake 是设计 smell，不是"重跑就绿"。**
-
-**本仓**
-- ✅ 不变量内聚：一品类一 active 靠 SQL `SET active = (block_id = $1)` **排他**保证，不靠调用方先清别的。
-- ❌ 真 flake（已修）：测试用 `rows.find(category && connected)` 取"刚装的连接器"= 该品类**第一个** connected——多 combo 共享 owner 时拿到旧 combo 的连接器，靠 `GET` 顺序碰运气。改成**按 id 差集**精确定位（顺序无关）。
+**Ask yourself**
+- Is this cross-layer dependency an interface or a concrete type? Across layers it must be an interface.
+- Do all users of this "god-struct / parameter bag" use every field in it? Split out the ones they do not.
 
 ---
 
-## 8. 边界与泄漏
+## 5. Design patterns: use them where they count, no cargo-culting
 
-底座只该有**底座逻辑**；specific 的东西外置成**数据 / 插件**，组装期拉起。
+Patterns exist to **reduce complexity**, not to "look professional". Misused / half-used / premature patterns are all debt.
 
-**信号**
-- 底座 config / 代码里出现**具体 provider 名**（`GCal`、`SendGrid`、`google`）。
-- 适配器 / usecase 层 import 了它**不该知道**的具体类型。
-- "通用"层里藏着只为某一个实现服务的特判。
+**Signals**
+- **A single-method, stateless interface** → should be a **func type** (the `http.HandlerFunc` trade-off); do not build an empty struct + interface + factory.
+- A `switch` that picks an implementation by type **and will grow with the business** → should be a **registry (data-driven registration)**, not a hard-coded factory `switch`.
+- A pattern **used halfway**: there is a Strategy interface, yet the factory still does `if instanceof` / special cases.
+- **YAGNI violations**: abstracting early for "possible future flexibility"; an interface with one implementation and no visible reason for a second.
+- An in-memory cache + DB both writing the same state → creates "two-phase inconsistency" (prefer a single source of truth read from the DB each time).
 
-**问自己（一句话判据）**
-- **把这个具体 supplier / 插件删了，底座编译还过吗？** 过 = 干净；不过 = 泄漏。
+**Ask yourself**
+- Does this abstraction have a second implementation **now / in the foreseeable future**? If not → do not abstract; wait for it to arrive.
+- Will this `switch` grow with the business? If yes → registry. If not (fixed protocol) → a `switch` is fine; do not over-design.
+- Is this pattern **complete**? Or is an `if` special case left behind breaking it?
 
-**本仓**
-- ✅ 已做：删掉底座 config 里死的 `GoogleAuthURL/...`——内置 gcal 的 endpoint 由它**自己的** `spec.yaml` 的 `${GOOGLE_*:-prod}` 经 `builtins/env.go` 解析；底座对 "google" 一无所知。
-- 守护：`check-supplier-boundary`（credentials 只能经 supplier 层）——这条**能**用脚本守，已上 lint。
-
----
-
-## 9. 错误的形状与语义
-
-错误要**分级**：预期业务态（not-found、shape-mismatch、未连接）vs 真故障（DB、网络、配置坏）。
-
-**信号**
-- 用**同一个** error 表达"没找到"和"炸了"，调用方只能一刀切。
-- 没有 sentinel / typed error，调用方靠**字符串匹配** error message 判断。
-- 错误信息对终端用户**漏技术细节**（栈、exit code、jargon）——见 CLAUDE.md「Errors must be user-friendly at the UI」。
-
-**问自己**
-- 调用方**需要**区分这些失败吗？需要 → `errors.New` sentinel / typed error，让 `errors.Is/As` 能分。
-- 这个错冒到 UI 会变成什么？是人话还是栈？
+**This repo**
+- ✅ Done: `authStrategy` went from "single-method interface + 4 empty structs + factory" → **a func type**, with the factory returning func values. Less code, and `ireturn` went away naturally.
+- ❌ To be eliminated (old docs once said "✅ reasonably kept"; now overturned): **one typed multi-method contract per seam** like `CalendarProxy/MailProxy` is the star topology the current design kills, not an abstraction to keep. Normalization relies on the seam name + the generic `CallVerb(verb, json.RawMessage)`, not per-seam interfaces. They still live today in `cmd/server/blockwire/block_{calendar,mail}.go`, as step ⑤ leftovers awaiting deletion (see above). See block-model.md §"'block' and 'supplier' are not two kinds of thing".
 
 ---
 
-## 10. 测试的诚实度
+## 6. Naming and intent
 
-测试要断**正确结果**，不是"没崩"。
+Names are **the first layer of documentation**, and the one that rots most easily. A name must == its behavior.
 
-**信号**
-- 只断 `status == 200` / `len > 0`，不断**内容对不对**。
-- 测试**绿了，但其实走了 fallback / 错连接器 / 默认值**（假绿）。
-- 用 mock 顶掉了被测逻辑本身。
+**Signals**
+- The function name says `get` but it has side effects; says `list` but returns one item; returns `ok bool` that really carries error semantics.
+- Misnomer: the module name does not match what it actually does (e.g. `seo` is really landing/reader).
+- Abbreviations / jargon only the author understands.
 
-**问自己**
-- 这条测试，如果实现**悄悄走了错误分支**（用错 provider、返了缓存、吞了错），它**会红吗**？不会红 = 没守住。
-- 断言断的是"行为发生了"还是"行为正确"？
-
-**本仓**
-- ❌ 假绿（已修）：happy-matrix CalDAV combo 曾"绿"，但 booker 实际打的是 gcal（用错连接器），靠 mock 请求日志才发现。教训：**断言要钉到"事件落在正确 provider 的 collection"**，而不仅是"有一个事件"。
+**Ask yourself**
+- Without looking at the implementation, from just the **signature + name**, can you guess correctly: what it does, whether it can fail, whether it changes state? Guessed wrong → rename it or change the signature.
 
 ---
 
-## 速查表
+## 7. State, invariants, concurrency (the source of flakes)
 
-| # | 维度 | 一句话判据 | lint 能否守 |
+**An invariant must have exactly one guard point**, ideally enforced by **a data structure/constraint**, not by "callers remembering to do things in order".
+
+**Signals**
+- An invariant is maintained by **call order** ("deactivate the others first, then activate this one") rather than an exclusive write/constraint.
+- Shared mutable state + **order dependence** (`rows.find` depends on the order `GET` returns).
+- Deriving "currently selected/active" from "the first match in the list", when the list has no deterministic order.
+
+**Ask yourself**
+- Does this invariant still hold if two requests run **concurrently** / **the order changes**?
+- Is this test **truly deterministic**, or did the order just happen to be right? **A flake is a design smell, not "rerun it and it's green".**
+
+**This repo**
+- ✅ Cohesive invariant: one active per category is guaranteed **exclusively** by SQL `SET active = (block_id = $1)`, not by callers clearing the others first.
+- ❌ Real flake (fixed): the test used `rows.find(category && connected)` to get "the connector just installed" = **the first** connected one in that category — when several combos share an owner it got the old combo's connector, relying on luck with the `GET` order. Changed to locate it precisely **by id set difference** (order-independent).
+
+---
+
+## 8. Boundaries and leaks
+
+The base should hold only **base logic**; specific things are externalized as **data / plugins** and pulled in at assembly time.
+
+**Signals**
+- **Concrete provider names** (`GCal`, `SendGrid`, `google`) appear in base config / code.
+- The adapter / usecase layer imports concrete types it **should not know about**.
+- A "generic" layer hides special cases that serve only one implementation.
+
+**Ask yourself (the one-sentence criterion)**
+- **Delete this concrete supplier / plugin — does the base still compile?** Yes = clean; no = leak.
+
+**This repo**
+- ✅ Done: deleted the dead `GoogleAuthURL/...` from the base config — the built-in gcal's endpoint is resolved from `${GOOGLE_*:-prod}` in **its own** `spec.yaml` via `builtins/env.go`; the base knows nothing about "google".
+- Guard: `check-supplier-boundary` (credentials may only go through the supplier layer) — this one **can** be guarded by a script, and is already in lint.
+
+---
+
+## 9. The shape and semantics of errors
+
+Errors must be **graded**: expected business states (not-found, shape-mismatch, not connected) vs real faults (DB, network, broken config).
+
+**Signals**
+- **The same** error expresses both "not found" and "blew up", so the caller can only treat them all alike.
+- No sentinel / typed error; the caller decides by **string-matching** the error message.
+- Error messages **leak technical details** to end users (stacks, exit codes, jargon) — see CLAUDE.md "Errors must be user-friendly at the UI".
+
+**Ask yourself**
+- Does the caller **need** to distinguish these failures? If yes → an `errors.New` sentinel / typed error, so `errors.Is/As` can tell them apart.
+- What does this error become when it bubbles up to the UI? Plain language, or a stack?
+
+---
+
+## 10. Test honesty
+
+Tests must assert **correct results**, not "didn't crash".
+
+**Signals**
+- Asserting only `status == 200` / `len > 0`, not **whether the content is right**.
+- The test is **green, but actually went through a fallback / the wrong connector / a default value** (false green).
+- A mock replaces the very logic under test.
+
+**Ask yourself**
+- If the implementation **quietly took the wrong branch** (used the wrong provider, returned a cache, swallowed an error), **would this test go red**? Would not go red = not guarded.
+- Does the assertion check "the behavior happened" or "the behavior is correct"?
+
+**This repo**
+- ❌ False green (fixed): the happy-matrix CalDAV combo was once "green", but booker was actually hitting gcal (the wrong connector); this was only found through the mock request log. Lesson: **pin the assertion to "the event landed in the correct provider's collection"**, not merely "there is an event".
+
+---
+
+## Quick reference
+
+| # | Dimension | One-sentence criterion | Can lint guard it |
 |---|------|-----------|:----------:|
-| 1 | 控制流 / if | `switch` 跟"业务种类"增长=坏，跟"固定契约"封闭=好 | 部分（圈复杂度） |
-| 2 | fail loud | 吞错前先问"这里面会不会混进真故障" | ✗ |
-| 3 | 单一事实源 | derived 别存；加一个种类只该改一处 | ✗ |
-| 4 | SOLID | 跨层依赖必须接口；god-struct 拆窄；扩展不改核心 | 部分（god-struct 行数） |
-| 5 | 设计模式 | 单方法无状态→func；switch 会长→注册表；没第二实现别抽 | ✗ |
-| 6 | 命名 | 光看签名+名字能猜对行为/失败/副作用 | ✗ |
-| 7 | 状态/并发 | 不变量靠数据/约束保证，不靠调用顺序；flake=设计 smell | ✗ |
-| 8 | 边界 | 删掉具体插件，底座还能编译 = 干净 | 部分（arch-lint） |
-| 9 | 错误语义 | 调用方要区分的失败，就给 sentinel/typed error | ✗ |
-| 10 | 测试诚实 | 实现悄悄走错分支，这条测试会不会红 | ✗ |
+| 1 | Control flow / if | A `switch` that grows with "business kinds" = bad; closed over a "fixed contract" = good | Partly (cyclomatic complexity) |
+| 2 | Fail loud | Before swallowing an error, ask "could a real fault be mixed in here" | ✗ |
+| 3 | Single source of truth | Do not store derived values; adding one kind should change only one place | ✗ |
+| 4 | SOLID | Cross-layer deps must be interfaces; split god-structs narrow; extending does not change the core | Partly (god-struct line count) |
+| 5 | Design patterns | Single-method stateless → func; a growing switch → registry; no second implementation → do not abstract | ✗ |
+| 6 | Naming | Signature + name alone let you guess behavior/failure/side effects | ✗ |
+| 7 | State/concurrency | Invariants guaranteed by data/constraints, not call order; flake = design smell | ✗ |
+| 8 | Boundaries | Delete the concrete plugin and the base still compiles = clean | Partly (arch-lint) |
+| 9 | Error semantics | Failures the caller must distinguish get a sentinel/typed error | ✗ |
+| 10 | Test honesty | If the implementation quietly takes the wrong branch, does this test go red | ✗ |
 
 ---
 
-*这份指南本身也要演进：每次发现一个"lint 没拦住、人也差点放过"的真 bug，回来把它的味道补进对应条目。*
+*This guide itself must evolve: every time we find a real bug that "lint did not catch and a person nearly let through", come back and add its smell to the matching item.*

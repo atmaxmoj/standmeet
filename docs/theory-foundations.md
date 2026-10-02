@@ -1,481 +1,481 @@
-# 理论基础：Coalgebraic Behavioral Distillation
+# Theoretical Foundations: Coalgebraic Behavioral Distillation
 
 ## Abstract
 
-StandMeet 的蒸馏系统不只是一个工程管道——它在做一个数学问题：**从有限行为观察中构造一个能在未见情境中复现用户行为的模型**。Coalgebra 是这个问题的自然数学语言。
+StandMeet's distillation system is not just an engineering pipeline — it is working on a mathematical problem: **from a finite set of behavioral observations, construct a model that can reproduce the user's behavior in situations it has not seen**. Coalgebra is the natural mathematical language for this problem.
 
-本文建立蒸馏系统的理论框架，目的不是形式化验证，而是：
-1. 给工程设计提供精确的概念工具（什么叫"蒸馏成功"？）
-2. 用理论指导 harness 设计（观测什么、怎么观测、怎么知道观测够不够）
-3. 暴露工程直觉容易忽略的结构性限制
+This document sets up the theoretical framework for the distillation system. The goal is not formal verification, but:
+1. To give engineering design precise conceptual tools (what does "distillation succeeded" mean?)
+2. To use theory to guide harness design (what to observe, how to observe it, how to know whether the observation is enough)
+3. To expose structural limits that engineering intuition tends to miss
 
 ---
 
-## 一、用户作为 Coalgebra
+## 1. The User as a Coalgebra
 
-### 基本模型
+### Basic model
 
-用户是一个有状态的行为系统。给定一个情境（输入），产出一个行动（输出），同时内部状态转移。这是一个 Mealy machine coalgebra：
+The user is a stateful behavioral system. Given a situation (input), it produces an action (output), and its internal state transitions at the same time. This is a Mealy machine coalgebra:
 
 ```
-用户-coalgebra  α: S → (O × S)^I
+user-coalgebra  α: S → (O × S)^I
 
-S = 用户内部状态空间（不可观测，可能无限维）
-    包括：知识、情绪、疲劳度、最近经历、长期偏好...
-I = 情境空间（收到邮件、遇到 bug、被问问题、技术选型...）
-O = 行动空间（回复、忽略、转发、先查再回、写测试...）
+S = the user's internal state space (unobservable, possibly infinite-dimensional)
+    including: knowledge, mood, fatigue, recent experiences, long-term preferences...
+I = the situation space (receiving an email, hitting a bug, being asked a question, choosing a technology...)
+O = the action space (reply, ignore, forward, look it up before replying, write a test...)
 
 α(s)(i) = (o, s')
-在状态 s 下遇到情境 i → 执行行动 o，转移到状态 s'
+in state s, on meeting situation i → perform action o, transition to state s'
 ```
 
-关键：S 不可直接观测。我们只能看到 (i, o) 对的序列——用户-coalgebra 的 **trace**。
+Key point: S cannot be observed directly. We can only see the sequence of (i, o) pairs — the **trace** of the user-coalgebra.
 
-### 为什么是 coalgebra 不是 algebra
+### Why coalgebra and not algebra
 
 ```
-Algebra  = 构造视角：怎么把零件组装成系统     F(A) → A
-Coalgebra = 观察视角：怎么从外部理解系统行为   A → F(A)
+Algebra   = construction view: how to assemble parts into a system      F(A) → A
+Coalgebra = observation view: how to understand a system's behavior from outside   A → F(A)
 ```
 
-我们不拆开用户的大脑——我们通过观察行为来建模。这恰好是 coalgebra 的立场，也是 Ashby 的立场："cybernetics treats not things but ways of behaving"。
+We do not take the user's brain apart — we model the user by observing behavior. This is exactly the coalgebraic stance, and also Ashby's stance: "cybernetics treats not things but ways of behaving".
 
 ---
 
-## 二、Bisimulation 作为成功标准
+## 2. Bisimulation as the Success Criterion
 
-### 定义
+### Definition
 
-蒸馏的目标是构造一个 agent-coalgebra：
+The goal of distillation is to construct an agent-coalgebra:
 
 ```
 agent-coalgebra  β: T → (O × T)^I
 
-T = agent 的状态空间 = (Playbook, Identity, Episodes, CurrentContext)
+T = the agent's state space = (Playbook, Identity, Episodes, CurrentContext)
 ```
 
-使得 β 和 α **bisimilar**：
+such that β and α are **bisimilar**:
 
 ```
-R ⊆ S × T 是 bisimulation 关系，当且仅当：
-  对所有 (s, t) ∈ R，对所有情境 i ∈ I：
-    若 α(s)(i) = (o, s') 且 β(t)(i) = (o', t')
-    则 o = o' 且 (s', t') ∈ R
+R ⊆ S × T is a bisimulation relation if and only if:
+  for all (s, t) ∈ R, for all situations i ∈ I:
+    if α(s)(i) = (o, s') and β(t)(i) = (o', t')
+    then o = o' and (s', t') ∈ R
 ```
 
-直觉：在 R 关联的状态对上，用户和 agent 在任何情境下做同样的事，且行动后的后继状态仍然关联。
+Intuition: on the state pairs related by R, the user and the agent do the same thing in every situation, and the successor states after the action are still related.
 
-### 为什么是 bisimulation 不是 trace equivalence
+### Why bisimulation and not trace equivalence
 
-Trace equivalence（轨迹等价）只要求历史行为序列相同。Bisimulation 更强——它要求在**所有未来分支**上行为都相同。
+Trace equivalence only requires the historical behavior sequences to be the same. Bisimulation is stronger — it requires the behavior to be the same on **all future branches**.
 
 ```
-Trace equivalence：过去像 → 但未来不一定像
-Bisimulation：过去像 + 未来也像
+Trace equivalence: alike in the past → but not necessarily alike in the future
+Bisimulation: alike in the past + alike in the future too
 
-蒸馏要的是后者——不是"回放"用户的历史，是在新情境中"像用户一样做"。
+Distillation wants the latter — not to "replay" the user's history, but to "act like the user" in new situations.
 ```
 
-### 有限近似
+### Finite approximation
 
-完全的 bisimulation 不可实现（S 不可观测、I 可能无限）。实际上我们追求的是：
+Full bisimulation is not achievable (S is unobservable, I may be infinite). What we actually pursue is:
 
 ```
 ε-bisimulation on I' ⊆ I
 
-在已观察的情境子集 I' 上，agent 的行为和用户的行为偏差 ≤ ε
+on the observed subset of situations I', the deviation between the agent's behavior and the user's behavior is ≤ ε
 ```
 
-技能成熟度是这个近似的度量：
+Skill maturity is the measure of this approximation:
 
 ```
-nascent:    |I'| 太小，bisimulation 无法有意义地建立
-developing: I' 上 bisimulation 部分成立（ε 较大）
-mature:     I' 上 bisimulation 基本成立（ε 小）
-mastered:   I' 包含边界情境和反例，bisimulation 仍成立
+nascent:    |I'| is too small, bisimulation cannot be meaningfully established
+developing: bisimulation partly holds on I' (ε is fairly large)
+mature:     bisimulation largely holds on I' (ε is small)
+mastered:   I' contains boundary situations and counterexamples, and bisimulation still holds
 ```
 
-Ashby 覆盖率 = |I'_verified| / |I_observed|，是 bisimulation 已验证域占已观察域的比例。
+Ashby coverage = |I'_verified| / |I_observed|, the ratio of the domain where bisimulation is verified to the observed domain.
 
 ---
 
-## 三、Harness 与函子
+## 3. Harness and Functor
 
-### Harness 定义函子
+### The harness defines the functor
 
-Harness = 观测框架（Screenpipe + 信号过滤 + 本地工具 + episode 边界检测）。
+Harness = the observation framework (Screenpipe + signal filtering + local tools + episode boundary detection).
 
-Harness 的设计选择定义了函子 F：
-
-```
-F 决定了：
-  什么是一个"观察"（屏幕文本？git commit？鼠标轨迹？）
-  什么粒度（秒？任务？天？）
-  什么算一个"情境"（任务边界怎么切？什么上下文纳入？）
-  什么算一个"行动"（一次 commit？一段输入？一个选择？）
-```
-
-不同的 harness → 不同的 F → 不同的 bisimulation 概念。
-
-### F 决定 bisimulation 的上限
+The design choices of the harness define the functor F:
 
 ```
-定理（非正式）：
-  Harness H 能支持的最细 bisimulation 不可能比 F_H 的分辨率更细。
-  如果两个行为在 F_H 下不可区分，无论积累多少数据，它们永远 bisimilar。
+F determines:
+  what counts as one "observation" (screen text? git commit? mouse trajectory?)
+  what granularity (seconds? tasks? days?)
+  what counts as one "situation" (how are task boundaries cut? what context is included?)
+  what counts as one "action" (one commit? one stretch of input? one choice?)
 ```
 
-例：
+A different harness → a different F → a different notion of bisimulation.
+
+### F sets the upper bound on bisimulation
 
 ```
-没有 git_log 的 harness：
-  F₁ 下，"写新功能 1 小时" 和 "重构 1 小时" 是 bisimilar
-  → Screenpipe 只看到 VS Code 在打字
-
-加了 git_log 的 harness：
-  F₂ 下，它们不再 bisimilar
-  → git log 区分 feat commit 和 refactor commit
+Theorem (informal):
+  The finest bisimulation a harness H can support cannot be finer than the resolution of F_H.
+  If two behaviors are indistinguishable under F_H, they stay bisimilar forever, no matter how much data accumulates.
 ```
 
-加工具不是"加数据"，是改变 F，改变什么行为是可区分的。
-
-### 自动发现本地工具 = 自动选择最丰富的可用 F
+Example:
 
 ```
-工程师的 F = F_screenpipe × F_git × F_shell × F_docker
-律师的 F   = F_screenpipe × F_browser × F_calendar
-设计师的 F = F_screenpipe × F_figma × F_file_changes
+Harness without git_log:
+  under F₁, "writing a new feature for 1 hour" and "refactoring for 1 hour" are bisimilar
+  → Screenpipe only sees typing in VS Code
 
-不同的 F → 不同的 induced bisimulation → 不同的 Playbook 结构
+Harness with git_log added:
+  under F₂, they are no longer bisimilar
+  → git log distinguishes a feat commit from a refactor commit
 ```
 
-这解释了为什么 Playbook 由系统涌现、不预设——F 因人而异，F 决定了什么行为模式是可区分的，可区分的模式才能成为 Playbook 条目。
+Adding a tool is not "adding data"; it changes F, and so changes which behaviors are distinguishable.
 
-### 信号过滤 = 函子的商
-
-信号过滤层（丢掉鼠标移动、页面滚动、< 3 秒的 app 切换）是有意地对 F 取商：
+### Auto-discovering local tools = automatically choosing the richest available F
 
 ```
-F_raw = Screenpipe 原始输出
-F_filtered = F_raw / ~    （对噪音行为取等价类）
+an engineer's F = F_screenpipe × F_git × F_shell × F_docker
+a lawyer's F    = F_screenpipe × F_browser × F_calendar
+a designer's F  = F_screenpipe × F_figma × F_file_changes
+
+different F → different induced bisimulation → different Playbook structure
 ```
 
-Tradeoff：F 越粗 → bisimulation 越容易建立但越不精确。F 越细 → 越精确但需要更多数据。
+This explains why the Playbook emerges from the system rather than being preset — F differs from person to person, F determines which behavior patterns are distinguishable, and only distinguishable patterns can become Playbook entries.
 
-多层蒸馏管线在不同粗细的 F 上工作：
+### Signal filtering = a quotient of the functor
+
+The signal filtering layer (dropping mouse movement, page scrolling, app switches under 3 seconds) deliberately takes a quotient of F:
 
 ```
-秒级：  F 最细（击键级别）→ 微操特征
-任务级：F 中等（任务边界）→ 方法论
-天级：  F 较粗（天级聚合）→ 决策风格
-周级：  F 最粗（周级聚合）→ 底层模式
+F_raw = raw Screenpipe output
+F_filtered = F_raw / ~    (taking equivalence classes over noise behaviors)
+```
 
-每一层是上一层的商函子。每一层的 bisimulation 比上一层更粗但更稳定。
+Tradeoff: the coarser F is → the easier bisimulation is to establish, but the less precise. The finer F is → the more precise, but more data is needed.
+
+The multi-layer distillation pipeline works on F of different coarseness:
+
+```
+Second level: F finest (keystroke level) → micro-operation traits
+Task level:   F medium (task boundaries) → methodology
+Day level:    F coarser (daily aggregation) → decision style
+Week level:   F coarsest (weekly aggregation) → underlying patterns
+
+Each layer is a quotient functor of the layer above. Each layer's bisimulation is coarser than the layer above but more stable.
 ```
 
 ---
 
-## 四、对偶结构：蒸馏与执行
+## 4. Dual Structure: Distillation and Execution
 
-### Bisimulation-targeted design（蒸馏层）
+### Bisimulation-targeted design (distillation layer)
 
-Bisimulation 是目标。这个目标驱动 harness 的设计：
+Bisimulation is the target. This target drives the design of the harness:
 
 ```
-"为了达到和用户的行为互模拟，
- 我应该观测什么？怎么切 episode？Playbook 怎么组织？"
+"To reach behavioral bisimulation with the user,
+ what should I observe? How should I cut episodes? How should the Playbook be organized?"
 
-α (用户) → 观察 → 构建 β 使得 β ~bisim~ α
+α (user) → observe → build β such that β ~bisim~ α
                ↑
-               bisimulation 作为目标函数
-               决定 F 的选择（观测什么、什么粒度）
-               决定 Playbook 的结构（情境怎么切、行动怎么编码）
+               bisimulation as the objective function
+               determines the choice of F (what to observe, what granularity)
+               determines the structure of the Playbook (how situations are cut, how actions are encoded)
 ```
 
-### Harness-induced bisimulation（执行层）
+### Harness-induced bisimulation (execution layer)
 
-执行时，harness 约束 agent 的行为，induce 出一个具体的 bisimulation：
+At execution time, the harness constrains the agent's behavior and induces a concrete bisimulation:
 
 ```
-β (agent) → harness 约束 → 行为输出
+β (agent) → harness constraints → behavior output
               ↑
-              Playbook 定义了合法的 (情境→行动) 映射
-              Identity 定义了行动空间的边界
-              confidence 门槛定义了 bisimulation 的有效域
-              → harness 将 agent 行为限制在 bisimulation 关系内
+              the Playbook defines the legal (situation → action) mapping
+              Identity defines the boundary of the action space
+              the confidence threshold defines the effective domain of the bisimulation
+              → the harness restricts the agent's behavior to within the bisimulation relation
 ```
 
-Harness 不是"希望 agent 像用户"，是**强制 agent 在 Playbook 覆盖的域内和用户行为一致**。Induced bisimulation 在覆盖域内是保证的，不是验证的。
+The harness does not "hope the agent acts like the user"; it **forces the agent to behave consistently with the user within the domain the Playbook covers**. Inside the covered domain, the induced bisimulation is guaranteed, not verified.
 
-### 两面的收敛
+### Convergence of the two sides
 
-系统的质量 = 这两面是否收敛：
+System quality = whether these two sides converge:
 
 ```
-蒸馏层瞄准的 bisimulation（"我想让 agent 在这些情境下像用户"）
+the bisimulation the distillation layer aims for ("I want the agent to act like the user in these situations")
   ≈
-执行层 harness 实际 induce 的 bisimulation（"agent 实际在这些情境下像用户"）
+the bisimulation the execution-layer harness actually induces ("the agent actually acts like the user in these situations")
 
-差距来自：
-  1. F 分辨率不够 → 蒸馏层瞄准的比 harness 能 induce 的更细
-  2. 数据不够 → bisimulation 在有限 trace 上成立但未泛化
-  3. 非定常 → 用户变了，harness induce 的还是旧的 bisimulation
+The gap comes from:
+  1. F resolution is not enough → the distillation layer aims finer than the harness can induce
+  2. Not enough data → the bisimulation holds on a finite trace but does not generalize
+  3. Non-stationarity → the user changed, but the harness still induces the old bisimulation
 ```
 
-### 覆盖域内 vs 覆盖域外
+### Inside vs outside the covered domain
 
 ```
-harness 覆盖域内：bisimulation 是 induced（保证的）
-  Playbook 有条目 + confidence ≥ 0.8 → agent 按 Playbook 行动
-  行为等价性由 harness 结构保证
+inside the harness's covered domain: the bisimulation is induced (guaranteed)
+  the Playbook has an entry + confidence ≥ 0.8 → the agent acts according to the Playbook
+  behavioral equivalence is guaranteed by the harness structure
 
-harness 覆盖域外：bisimulation 是 conjectured（猜的）
-  Playbook 没覆盖 → 靠 Identity 推理 + Episodes 检索
-  行为等价性是 LLM 的泛化能力在支撑，没有结构保证
+outside the harness's covered domain: the bisimulation is conjectured (a guess)
+  the Playbook does not cover it → rely on Identity reasoning + Episodes retrieval
+  behavioral equivalence rests on the LLM's ability to generalize; there is no structural guarantee
 
-mature Playbook = induced bisimulation 的定义域大
-nascent Playbook = induced bisimulation 的定义域小，大部分靠 conjecture
+mature Playbook = the induced bisimulation has a large domain
+nascent Playbook = the induced bisimulation has a small domain; most of it relies on conjecture
 ```
 
 ---
 
-## 五、Bisimulation-driven Harness Design
+## 5. Bisimulation-driven Harness Design
 
-Bisimulation 的质量是可观测的。每次 agent 行为和用户行为不一致就是一次 bisimulation failure。这些 failure 是诊断信号，指向 harness 的具体改进方向。
+The quality of the bisimulation is observable. Each time the agent's behavior differs from the user's behavior is one bisimulation failure. These failures are diagnostic signals that point to specific directions for improving the harness.
 
-### Bisimulation failure 的分类
+### Classifying bisimulation failures
 
-#### 推导
+#### Derivation
 
-Bisimulation failure = 在某个情境 i 上，α(s)(i) 产出 o，β(t)(i) 产出 o'，o ≠ o'。
+Bisimulation failure = on some situation i, α(s)(i) produces o, β(t)(i) produces o', and o ≠ o'.
 
-成立条件依赖四个组件：F（函子/观测框架）、I（情境空间划分）、β（agent-coalgebra/学到的模型）、α（用户-coalgebra/用户本身）。
+Whether bisimulation holds depends on four components: F (the functor / observation framework), I (the partition of the situation space), β (the agent-coalgebra / the learned model), α (the user-coalgebra / the user themself).
 
-如果 F 足够细、I 划分正确、β 已从足够数据中收敛、α 没变，bisimulation 必然成立。所以 failure 必然来自其中至少一个组件。四个组件 → 四类 failure，且穷举：
+If F is fine enough, I is partitioned correctly, β has converged from enough data, and α has not changed, then bisimulation necessarily holds. So a failure necessarily comes from at least one of these components. Four components → four types of failure, and the list is exhaustive:
 
 ```
-组件    failure 含义                              工程语言
+Component  What the failure means                                          In engineering terms
 ────────────────────────────────────────────────────────────
-F       有行为差异但观测框架看不到区分信号          隐变量不在观测范围内
-I       观测框架看到了信号但情境编码没用上          Playbook 条目该拆没拆
-β       F 和 I 都够，模型还没从足够数据中收敛      样本不够
-α       F、I、β 都对，但用户本身变了               环境/习惯/工具变了
+F          a behavioral difference exists but the framework sees no signal  hidden variable outside the observation range
+I          the framework saw the signal but the situation encoding didn't use it  a Playbook entry should have been split but wasn't
+β          F and I are both enough, but the model hasn't converged from enough data  not enough samples
+α          F, I and β are all right, but the user themself changed          environment / habits / tools changed
 ```
 
-互斥性：不完全互斥，现实中可能同时有多个组件出问题。但诊断有优先级——先排除 α 变了（看 confidence 时序趋势），再排除 β 未收敛（看样本量），最后区分 F 和 I（看条目内方差模式）。
+Mutual exclusivity: the types are not fully mutually exclusive; in practice several components can go wrong at once. But diagnosis has a priority order — first rule out α having changed (look at the confidence trend over time), then rule out β not having converged (look at the sample size), and finally distinguish F from I (look at the within-entry variance pattern).
 
 ---
 
-**Type 1：F 不够（函子分辨率不够）**
+**Type 1: F is not enough (functor resolution is not enough)**
 
 ```
-信号：同一个 Playbook 情境，用户有时做 A 有时做 B
-      agent 无法预测哪次是 A 哪次是 B
-诊断：存在隐状态变量没被 F 捕获
-      用户的行为依赖于某个 F 看不到的维度
+Signal: in the same Playbook situation, the user sometimes does A and sometimes does B
+        the agent cannot predict which time will be A and which B
+Diagnosis: there is a hidden state variable that F does not capture
+           the user's behavior depends on some dimension F cannot see
 
-例：
-  情境"收到客户邮件"，用户有时秒回有时拖一天
-  F_screenpipe 看不到原因
-  加入 F_calendar 后发现：当天有 deadline 时拖，空闲时秒回
-  → 隐变量是"当天日程压力"
+Example:
+  situation "received a client email": the user sometimes replies within seconds and sometimes waits a day
+  F_screenpipe cannot see the reason
+  after adding F_calendar it turns out: they wait when there is a deadline that day, and reply instantly when free
+  → the hidden variable is "schedule pressure that day"
 
-harness 改进：
-  加观测工具（扩展 F）→ F' = F × F_new
-  或细化情境编码 → 把隐变量显式编码进情境空间 I
+Harness improvement:
+  add an observation tool (extend F) → F' = F × F_new
+  or refine the situation encoding → encode the hidden variable explicitly into the situation space I
 ```
 
-**Type 2：I 太粗（情境空间切分不够）**
+**Type 2: I is too coarse (the situation space is not cut finely enough)**
 
 ```
-信号：一个 Playbook 条目观察了很多次但 confidence 上不去
-      条目内部的行为方差很大
-诊断：这个条目覆盖了应该被区分的多种情境
-      I 的划分太粗，多个不同情境被合并成一个了
+Signal: a Playbook entry has been observed many times but its confidence won't go up
+        the behavioral variance within the entry is large
+Diagnosis: this entry covers several situations that should be distinguished
+           the partition of I is too coarse; several different situations were merged into one
 
-例：
-  "debugging" 条目，confidence 卡在 0.6
-  进一步分析：前端 bug 和后端 bug 的处理方式完全不同
-  → "debugging" 应该分成 "frontend-debugging" 和 "backend-debugging"
+Example:
+  the "debugging" entry, confidence stuck at 0.6
+  further analysis: frontend bugs and backend bugs are handled completely differently
+  → "debugging" should be split into "frontend-debugging" and "backend-debugging"
 
-harness 改进：
-  增加情境维度 → I' = I × D（D 是新的区分维度）
-  Playbook 条目拆分
+Harness improvement:
+  add a situation dimension → I' = I × D (D is the new distinguishing dimension)
+  split the Playbook entry
 ```
 
-**Type 3：β 未收敛（数据不足）**
+**Type 3: β has not converged (not enough data)**
 
 ```
-信号：情境只出现过 1-2 次
-      confidence 低但不矛盾（不是方差大，是样本少）
-诊断：样本不够，harness 本身没问题
+Signal: the situation has only appeared 1-2 times
+        confidence is low but not contradictory (not large variance, just few samples)
+Diagnosis: not enough samples; the harness itself is fine
 
-harness 改进：
-  等待自然积累
-  或主动提问加速（"你在这种情况下通常怎么做？"）
-  → 这是 Angluin L* 的 membership query
+Harness improvement:
+  wait for natural accumulation
+  or ask proactively to speed it up ("What do you usually do in this kind of situation?")
+  → this is Angluin L*'s membership query
 ```
 
-**Type 4：α 变了（非定常）**
+**Type 4: α changed (non-stationarity)**
 
 ```
-信号：bisimulation 曾经成立，现在开始失败
-      Playbook 条目的 confidence 下降
-      用户的行为和 Playbook 记录的偏差越来越大
-诊断：用户变了——换工具、换角色、换习惯
-      底层 coalgebra 的函子 F 或转移函数 α 变了
+Signal: bisimulation used to hold, and now starts to fail
+        the confidence of Playbook entries drops
+        the deviation between the user's behavior and what the Playbook records keeps growing
+Diagnosis: the user changed — switched tools, roles, or habits
+           the functor F or the transition function α of the underlying coalgebra changed
 
-例：
-  用户从 Google Calendar 换到 Notion Calendar
-  meeting-prep.md 的所有条目突然不 work 了
-  不是数据问题，是系统结构变了
+Example:
+  the user switches from Google Calendar to Notion Calendar
+  all the entries in meeting-prep.md suddenly stop working
+  it is not a data problem; the structure of the system changed
 
-harness 改进：
-  检测到漂移 → 旧条目降权或归档
-  重新观察 → 在新 F 下重建 bisimulation
+Harness improvement:
+  drift detected → down-weight or archive the old entries
+  observe again → rebuild the bisimulation under the new F
 ```
 
-### 诊断流程
+### Diagnostic flow
 
 ```
-Bisimulation failure detected（agent 行为 ≠ 用户行为）
+Bisimulation failure detected (agent behavior ≠ user behavior)
   │
-  ├── 这个情境在 Playbook 里有条目吗？
+  ├── Does this situation have an entry in the Playbook?
   │     │
-  │     ├── 没有 → Type 3（数据不足）→ 等待或主动提问
+  │     ├── No → Type 3 (not enough data) → wait or ask proactively
   │     │
-  │     └── 有 → 这个条目的 confidence 趋势？
+  │     └── Yes → What is this entry's confidence trend?
   │           │
-  │           ├── 一直低（从没高过）→ 条目内方差大吗？
+  │           ├── Always low (never was high) → Is the within-entry variance large?
   │           │     │
-  │           │     ├── 大 → Type 2（切分不够）→ 拆分条目，增加情境维度
-  │           │     └── 不大但不稳定 → Type 1（F 太粗）→ 找隐变量，扩展 F
+  │           │     ├── Large → Type 2 (not cut finely enough) → split the entry, add a situation dimension
+  │           │     └── Not large but unstable → Type 1 (F too coarse) → find the hidden variable, extend F
   │           │
-  │           └── 曾经高现在降 → Type 4（非定常）→ 检测变化，重建
+  │           └── Was high, now dropping → Type 4 (non-stationarity) → detect the change, rebuild
   │
-  └── 诊断结果写入 meta/gaps.jsonl
-      → 周级 Opus 在分析时看到诊断信息
-      → 自然地做出 harness 改进（拆分条目 / 加情境维度 / 归档旧条目）
+  └── Diagnosis result is written to meta/gaps.jsonl
+      → the weekly Opus run sees the diagnosis during analysis
+      → and naturally makes the harness improvement (split entry / add situation dimension / archive old entries)
 ```
 
-### 闭环：Bisimulation 驱动 harness 演化
+### Closed loop: bisimulation drives harness evolution
 
 ```
-观察用户行为
-  → 构建 Playbook（bisimulation-targeted design）
-    → agent 按 Playbook 执行（harness-induced bisimulation）
-      → 执行结果 vs 用户行为对比
-        → bisimulation failure 分类诊断
-          → harness 改进（扩展 F / 细化 I / 重建条目）
-            → 回到观察
+Observe user behavior
+  → build the Playbook (bisimulation-targeted design)
+    → the agent executes according to the Playbook (harness-induced bisimulation)
+      → compare execution results vs user behavior
+        → classify and diagnose bisimulation failures
+          → improve the harness (extend F / refine I / rebuild entries)
+            → back to observation
 ```
 
-这个闭环本身就是一个控制论系统：
-- 被控对象 = harness 的设计
-- 传感器 = bisimulation failure 检测
-- 控制器 = failure 诊断 + 改进策略
-- 执行器 = Playbook 更新 / 工具注册 / 情境重新编码
+This closed loop is itself a cybernetic system:
+- Controlled object = the design of the harness
+- Sensor = bisimulation failure detection
+- Controller = failure diagnosis + improvement strategy
+- Actuator = Playbook updates / tool registration / situation re-encoding
 
-Ashby 的必要多样性在这里也生效：**诊断策略的多样性必须 ≥ failure 类型的多样性**。四种 failure type，四种改进策略——刚好满足。
+Ashby's requisite variety also applies here: **the variety of diagnostic strategies must be ≥ the variety of failure types**. Four failure types, four improvement strategies — exactly enough.
 
 ---
 
-## 六、结构性限制
+## 6. Structural Limits
 
-### 不可达行为
+### Unreachable behavior
 
-当行为差异来自不可观测的内部状态时，bisimulation 原则上不可达：
-
-```
-用户昨天和伴侣吵架了 → 今天对客户邮件的语气明显不同
-这个状态变量不在任何 F 的观测范围内
-Playbook 会看到"同一种邮件，有时友好有时冷淡"
-→ confidence 永远上不去
-→ 不是 harness 不够好，是理论上不可达
-```
-
-meta/confidence.json 的理论依据：有些低 confidence 不是"还没学够"，而是"原则上学不到"。系统应该能区分这两种情况（Type 3 vs Type 1 中不可扩展的情况）。
-
-### Stateless 近似 Stateful 的根本张力
+When a behavioral difference comes from an unobservable internal state, bisimulation is unreachable in principle:
 
 ```
-用户-coalgebra 是有状态的：S → (O × S)^I
-Playbook 本质上是 stateless 的：I → O
+The user argued with their partner yesterday → today the tone of their client emails is clearly different
+This state variable is outside the observation range of any F
+The Playbook will see "the same kind of email, sometimes friendly, sometimes cold"
+→ confidence will never go up
+→ it is not that the harness isn't good enough; it is theoretically unreachable
+```
 
-Playbook 用情境空间 I 的细分来近似状态空间 S 的区分：
+The theoretical basis for meta/confidence.json: some low confidence is not "hasn't learned enough yet" but "cannot be learned in principle". The system should be able to tell these two cases apart (Type 3 vs the non-extendable cases of Type 1).
+
+### The fundamental tension of approximating stateful with stateless
+
+```
+The user-coalgebra is stateful: S → (O × S)^I
+The Playbook is essentially stateless: I → O
+
+The Playbook approximates distinctions in the state space S with subdivisions of the situation space I:
   α(s_pressure)(bug) = skip_test     →  playbook(bug_urgent) = skip_test
   α(s_normal)(bug)   = write_test    →  playbook(bug_normal) = write_test
 
-把 s 编码进 i。在很多情况下足够，但有根本限制：
-  当行为差异纯粹来自内部状态、没有外部可观测信号时，
-  无论怎么细分 I 都无法区分。
+Encode s into i. In many cases this is enough, but it has a fundamental limit:
+  when a behavioral difference comes purely from internal state, with no externally observable signal,
+  no subdivision of I can distinguish it.
 ```
 
-Identity 和 Episodes 存在的理论依据：它们为 Playbook 的 stateless 映射补充了 stateful 的近似——Identity 是长期稳定的状态摘要，Episodes 是短期状态的向量检索。三者合起来近似一个 stateful coalgebra。
+The theoretical basis for the existence of Identity and Episodes: they supplement the Playbook's stateless mapping with a stateful approximation — Identity is a long-term stable summary of state, Episodes are vector retrieval of short-term state. Together the three approximate a stateful coalgebra.
 
-### 非定常系统的根本限制
+### The fundamental limit of non-stationary systems
 
 ```
-标准 coalgebra S → F(S) 假设 F 固定。
-用户的 F 随时间变化：F_2025 ≠ F_2026
+The standard coalgebra S → F(S) assumes F is fixed.
+The user's F changes over time: F_2025 ≠ F_2026
 
-在 F_old 上学的 bisimulation 应用到 F_new 上可能失效。
-检测失效需要新的 trace——但如果 agent 在自动执行，用户不亲自做了，
-就没有新的 trace 来检测 F 是否变了。
-→ bisimulation 静默失效（二阶控制论的"执行漂移"）
+A bisimulation learned on F_old may fail when applied to F_new.
+Detecting the failure needs new traces — but if the agent is executing automatically and the user no longer does it themself,
+there are no new traces to detect whether F has changed.
+→ the bisimulation fails silently (the "execution drift" of second-order cybernetics)
 
-主动扰动（定期降回建议模式）= 主动生成新 trace 来验证 bisimulation 是否仍成立。
-这不是工程 hack，是理论要求。
+Active perturbation (periodically dropping back to suggestion mode) = actively generating new traces to verify whether the bisimulation still holds.
+This is not an engineering hack; it is a theoretical requirement.
 ```
 
 ---
 
-## 七、与蒸馏系统设计的对应
+## 7. Mapping to the Distillation System Design
 
-| 理论概念 | 工程对应 | 设计启示 |
+| Theoretical concept | Engineering counterpart | Design implication |
 |---------|---------|---------|
-| 用户-coalgebra α | 用户的真实行为 | 不可直接观测，只能看 trace |
-| Agent-coalgebra β | Playbook + Identity + Episodes | 有限状态的近似 |
-| 函子 F | Harness（观测框架） | 决定 bisimulation 的上限 |
-| F 的商 | 信号过滤层 | 有意地做粗以降低噪音 |
-| Bisimulation | 行为等价 | 成功标准，不是 confidence 高 |
-| ε-bisimulation on I' | 技能成熟度 | mature = 大域上小 ε |
-| Bisimulation failure | agent 行为 ≠ 用户行为 | 四类诊断信号 |
-| Type 1 failure | F 太粗 | 加观测工具 |
-| Type 2 failure | I 切分不够 | 拆分 Playbook 条目 |
-| Type 3 failure | 数据不足 | 等待或主动提问 |
-| Type 4 failure | 函子漂移 | 归档旧条目，重新观察 |
-| Coinduction | 渐进验证 | 不需要穷举，逐步扩展 |
-| Coalgebraic minimization | Playbook 去重 | 行为等价的条目应合并 |
-| Final coalgebra | 所有可能行为的"宇宙" | Playbook 是有限近似 |
-| Stateless ≈ stateful | Playbook + Identity + Episodes | 三者合起来近似 stateful |
-| 非定常 | 用户变化 | staleness + 主动扰动 |
-| L* membership query | 主动提问 | 在 bisimulation 不确定处提问 |
-| L* counterexample | DAgger（agent 做错了） | 用 failure 来改进模型 |
+| User-coalgebra α | The user's real behavior | Not directly observable; only the trace can be seen |
+| Agent-coalgebra β | Playbook + Identity + Episodes | A finite-state approximation |
+| Functor F | Harness (observation framework) | Sets the upper bound on bisimulation |
+| Quotient of F | Signal filtering layer | Deliberately coarsened to reduce noise |
+| Bisimulation | Behavioral equivalence | The success criterion, not high confidence |
+| ε-bisimulation on I' | Skill maturity | mature = small ε over a large domain |
+| Bisimulation failure | Agent behavior ≠ user behavior | Four types of diagnostic signal |
+| Type 1 failure | F too coarse | Add observation tools |
+| Type 2 failure | I not cut finely enough | Split Playbook entries |
+| Type 3 failure | Not enough data | Wait or ask proactively |
+| Type 4 failure | Functor drift | Archive old entries, observe again |
+| Coinduction | Incremental verification | No need to enumerate; extend step by step |
+| Coalgebraic minimization | Playbook deduplication | Behaviorally equivalent entries should be merged |
+| Final coalgebra | The "universe" of all possible behaviors | The Playbook is a finite approximation |
+| Stateless ≈ stateful | Playbook + Identity + Episodes | Together the three approximate stateful |
+| Non-stationarity | User change | staleness + active perturbation |
+| L* membership query | Asking proactively | Ask where the bisimulation is uncertain |
+| L* counterexample | DAgger (the agent got it wrong) | Use failures to improve the model |
 
 ---
 
-## 八、与 Cybernetics 的关系
+## 8. Relationship to Cybernetics
 
-Coalgebra 和 cybernetics 在"系统由外部行为定义"这个核心立场上是同一件事的两种表述——前者给出精确数学结构，后者给出工程直觉和设计原则。
+Coalgebra and cybernetics are two formulations of the same thing in their core stance that "a system is defined by its external behavior" — the former gives a precise mathematical structure, the latter gives engineering intuition and design principles.
 
-**已确立的对应：**
+**Established correspondences:**
 
-- Ashby 的"系统由行为定义，不由结构定义" ↔ coalgebraic bisimulation。Bisimulation 正是"内部不同但行为相同"的精确形式化。
-- Rutten 的 "Universal coalgebra: a theory of systems" 明确把 coalgebra 定位为系统理论。
+- Ashby's "a system is defined by its behavior, not by its structure" ↔ coalgebraic bisimulation. Bisimulation is exactly the precise formalization of "different inside but the same in behavior".
+- Rutten's "Universal coalgebra: a theory of systems" explicitly positions coalgebra as a theory of systems.
 
-**StandMeet 中的交汇：**
+**Where they meet in StandMeet:**
 
 | Cybernetics | Coalgebra | StandMeet |
 |------------|-----------|-----------|
-| 黑箱观察 | A → F(A) | 从行为推断模式 |
-| 必要多样性 | F 的分辨率上限 | harness 的观测能力 |
-| 反馈控制 | bisimulation failure → 修正 | DAgger + 主动提问 |
-| 执行漂移 | 非定常 coalgebra | staleness + 主动扰动 |
-| 观察改变行为 | 尚无严格形式化 | 用户知道系统在学习 |
+| Black-box observation | A → F(A) | Inferring patterns from behavior |
+| Requisite variety | Upper bound on F's resolution | The harness's observation capability |
+| Feedback control | bisimulation failure → correction | DAgger + asking proactively |
+| Execution drift | Non-stationary coalgebra | staleness + active perturbation |
+| Observation changes behavior | No rigorous formalization yet | The user knows the system is learning |
 
-**尚未严格形式化（开放问题）：**
+**Not yet rigorously formalized (open questions):**
 
-- 二阶控制论（观察者作为系统一部分）↔ coalgebra of coalgebras？需要更多工作。
-- 自创生 ↔ final coalgebra？有论文探索但非共识。
-- 必要多样性定律 ↔ 范畴论约束？Ashby 定律的严格表述走信息论（channel capacity），和 coalgebra 的直接桥梁不明确。
+- Second-order cybernetics (the observer as part of the system) ↔ coalgebra of coalgebras? Needs more work.
+- Autopoiesis ↔ final coalgebra? Some papers explore this, but there is no consensus.
+- Law of requisite variety ↔ category-theoretic constraints? The rigorous statement of Ashby's law goes through information theory (channel capacity), and the direct bridge to coalgebra is unclear.

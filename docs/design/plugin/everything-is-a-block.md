@@ -15,10 +15,10 @@ measured a proxy ("does the host name a protocol"), not the goal ("is this a dec
 
 ## Vocabulary (use these names)
 
-- **native key (原生密钥):** a key the backend issues to a block so the block may authenticate its
+- **native key:** a key the backend issues to a block so the block may authenticate its
   privileged reach-back to the backend (the db bridge; the sandbox host_ops). Isolated: a block can
   only find its own.
-- **non-native secret (非原生密钥):** an owner's third-party secret — a Telegram bot token, an SMTP
+- **non-native secret:** an owner's third-party secret — a Telegram bot token, an SMTP
   password, a CalDAV password, an API key. Ordinary data, stored via the credential-manager block
   into db. The base gives it no special mechanism.
 
@@ -95,7 +95,7 @@ has an edge and an error path with a **correct reaction**, never a raw stack tra
   data-loss modal → confirm Drops the schema; attached to a code / microsite → warn which.
 
 **Fibers.**
-- *Create / assemble* — pick a block, mount; all deps met → Active; unmet `requires` → "还差 X", no
+- *Create / assemble* — pick a block, mount; all deps met → Active; unmet `requires` → "still missing X", no
   mount; cycle → refuse; the per-fiber instantiation config is filled here (settings that are
   per-instance, not block-global).
 - *Read* — running fibers, status, resolved deps, what relies on them.

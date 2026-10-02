@@ -53,7 +53,7 @@ genre/tag/date filters need those fields on CorpusCard.
 - **Email-bomb protection.** Audit every outbound-mail path (booking confirmation, access-request
   approval mail, owner notifications, the mail connector) for rate-limiting / anti-abuse: can an
   attacker trigger mass emails to a victim (or exhaust the owner's mail quota) by repeating a public
-  action? Add per-recipient / per-action throttles + tests where missing. "安全不可小觑."
+  action? Add per-recipient / per-action throttles + tests where missing. "Security must not be taken lightly."
 
 ## Then
 Release (PATCH bump from v0.1.23), deploy to sijie (coolify-sijie-deploy-sop), rebuild sijie's home

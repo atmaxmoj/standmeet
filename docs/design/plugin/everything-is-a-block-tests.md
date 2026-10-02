@@ -59,7 +59,7 @@ owner MCP paths); neither surface substitutes for the other.
 | mount a block → it goes **Active**; unmount → its tool is uncallable at once, an in-flight call fails | `block-unmount-is-immediate` |
 | the fiber view draws the dependency graph (provides/requires, what relies on each) | `block-fiber-view`, `block-graph` |
 | installing a block that would form a dependency **cycle** is refused | `block-install-cycle-refused` |
-| assemble with an unmet dep → the "还差 X — not connected" prompt, no mount | `block-dependency-greyed` |
+| assemble with an unmet dep → the "still missing X — not connected" prompt, no mount | `block-dependency-greyed` |
 | a relied-upon block cannot be **deleted** (the dependent is named) | `block-delete-relied-refused` |
 | a relied-upon block cannot be **disabled** (toggle locked, dependent named) | `block-relied-lock` |
 

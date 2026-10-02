@@ -1,6 +1,6 @@
 # Q4 — Email-bomb hardening: per-recipient send throttle
 
-Status: **design 2026-09-06.** Owner earlier: "我们的 email 那边有没有防范 email bomb,安全不可小觑,排队。"
+Status: **design 2026-09-06.** Owner earlier: "does our email side guard against an email bomb? Security must not be taken lightly; queue it."
 
 ## Findings (what's already OK — don't rebuild)
 - The only truly public entry, `POST /api/v1/access-requests`, already has a **per-IP flood guard**

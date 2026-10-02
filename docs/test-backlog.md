@@ -1,406 +1,407 @@
 # StandMeet — Test Backlog
 
-> 从 features-and-journeys.md 的 `[✓ 内置]` / `[ ]` / `[~]` 推导出来的完整
-> spec backlog。每条是一个 e2e test case（不是文件 —— 一个 .spec.ts 文件
-> 可以装多个 case）。
+> The complete spec backlog, derived from the `[✓ built-in]` / `[ ]` / `[~]` tags
+> in features-and-journeys.md. Each item is one e2e test case (not a file — one
+> .spec.ts file can hold several cases).
 >
-> 按状态机 / 用户流组织。每个 flow 列出 happy path + 错误流 + 边界 + 状态
-> 切换。标 `[done]` 表示已有 spec 覆盖；空的就是要补的。
+> Organized by state machine / user flow. Each flow lists the happy path + error
+> flows + edge cases + state transitions. `[done]` means an existing spec covers
+> it; an empty box is one to add.
 >
-> 现状：63 个 spec 文件 / 92 个 test case。下面列的是全覆盖目标。
+> Current state: 63 spec files / 92 test cases. The list below is the full-coverage target.
 
 ---
 
-## 1. Visitor Session 状态机
+## 1. Visitor Session state machine
 
 ### 1.1 Code-tier session
 
 **Happy path:**
-- [done] QR 扫码进 `/?code=ABC` → absorb → URL 清 → SessionStrip 出现 (qr-code-absorb)
-- [done] gate 手动输 code → submit → ChatRoom (gate-access)
-- [ ] paste code → 自动 submit → ChatRoom（不用点 enter）
-- [ ] QR 扫码 → VisitorNamePicker 弹出 → 填名 → ChatRoom welcome 带名字
-- [ ] QR 扫码 → VisitorNamePicker → skip → ChatRoom welcome 无名字（"anonymous"）
+- [done] Scan QR into `/?code=ABC` → absorb → URL cleared → SessionStrip appears (qr-code-absorb)
+- [done] Enter code by hand on the gate → submit → ChatRoom (gate-access)
+- [ ] Paste code → auto-submit → ChatRoom (no need to press enter)
+- [ ] Scan QR → VisitorNamePicker pops up → enter name → ChatRoom welcome includes the name
+- [ ] Scan QR → VisitorNamePicker → skip → ChatRoom welcome without a name ("anonymous")
 
 **Error flows:**
-- [done] 无效 code → error 提示 (qr-code-absorb invalid case)
-- [ ] 过期 code → "code expired" 提示 + 引导 /gate#request
-- [ ] 已 revoke 的 code → "code revoked" 提示
-- [ ] 空 code 提交 → 按钮 disabled / 不触发
-- [ ] 网络断 → session 创建失败 → 友好 error message（不是 raw stack trace）
+- [done] Invalid code → error message (qr-code-absorb invalid case)
+- [ ] Expired code → "code expired" message + points to /gate#request
+- [ ] Revoked code → "code revoked" message
+- [ ] Submit an empty code → button disabled / nothing fires
+- [ ] Network down → session creation fails → friendly error message (not a raw stack trace)
 
 **State transitions:**
-- [ ] session active → 刷新页面 → session 从 localStorage 恢复 → 仍在 ChatRoom
-- [ ] session active → 点 "exit session" → 回到 long-scroll
-- [done] session active → SessionStrip 显示 code 标签 + gauge (session-strip)
+- [ ] session active → reload page → session restored from localStorage → still in ChatRoom
+- [ ] session active → click "exit session" → back to long-scroll
+- [done] session active → SessionStrip shows code label + gauge (session-strip)
 
 ### 1.2 BYOAI session
 
 **Happy path:**
-- [done] gate BYOAI panel → 填 provider + key → submit → ChatRoom BYOAI mode (byoai-chat)
+- [done] gate BYOAI panel → fill provider + key → submit → ChatRoom BYOAI mode (byoai-chat)
 
 **Error flows:**
-- [ ] BYOAI 空 key 提交 → 按钮 disabled
-- [ ] BYOAI key 格式错 → client-side 提示
-- [ ] BYOAI key 在 chat 中途失效（4xx from provider）→ error turn + 引导 re-enter
-- [ ] BYOAI visitor 问 private topic → "need a code" 响应（不是报错）
+- [ ] BYOAI submit with empty key → button disabled
+- [ ] BYOAI key in a wrong format → client-side message
+- [ ] BYOAI key becomes invalid mid-chat (4xx from provider) → error turn + prompt to re-enter
+- [ ] BYOAI visitor asks about a private topic → "need a code" response (not an error)
 
 **State transitions:**
-- [done] BYOAI → SessionStrip 紫色 "visitor-paid · unlimited" (session-strip)
-- [ ] BYOAI → 刷新 → session 恢复 → 仍在 ChatRoom BYOAI mode
-- [ ] BYOAI → exit → 回到 long-scroll
+- [done] BYOAI → SessionStrip violet "visitor-paid · unlimited" (session-strip)
+- [ ] BYOAI → reload → session restored → still in ChatRoom BYOAI mode
+- [ ] BYOAI → exit → back to long-scroll
 
 ### 1.3 Cross-tab sync
 
-- [ ] Tab A 输 code login → Tab B storage event → SessionStrip 同步出现
-- [ ] Tab A exit session → Tab B SessionStrip 消失
-- [ ] Tab A quota 用尽 → Tab B composer 锁
+- [ ] Tab A logs in with a code → Tab B storage event → SessionStrip appears in sync
+- [ ] Tab A exits the session → Tab B SessionStrip disappears
+- [ ] Tab A quota exhausted → Tab B composer locks
 
-### 1.4 Quota 状态机
+### 1.4 Quota state machine
 
-- [done] turns < max → composer 可用 (turn-quota)
+- [done] turns < max → composer usable (turn-quota)
 - [done] turns = max → composer locked + "session full" (code-quotas)
-- [ ] turns 到 80% → SessionStrip 变 warn（accent 红）+ "request more ↗" 出现
-- [ ] quota 用尽 → 新消息不发 + 友好提示（不是 silent 无反应）
-- [ ] max_turns = 0（无限制）→ 永不 lock
-- [done] per-member quota 累计 (member-quotas, quota-accumulation)
-- [ ] owner 改 quota 值 → 下次 session 生效
-- [ ] code revoke → 现有 session 立即锁？还是 grace period？
+- [ ] turns reach 80% → SessionStrip turns warn (accent red) + "request more ↗" appears
+- [ ] quota exhausted → new messages are not sent + friendly message (not a silent no-op)
+- [ ] max_turns = 0 (unlimited) → never locks
+- [done] per-member quota accumulates (member-quotas, quota-accumulation)
+- [ ] owner changes a quota value → takes effect on the next session
+- [ ] code revoke → existing session locks immediately? Or a grace period?
 
 ---
 
-## 2. ChatRoom 状态机
+## 2. ChatRoom state machine
 
-### 2.1 ChatRoom layout 切换
+### 2.1 ChatRoom layout switching
 
-- [ ] public visitor (no session) → 看到 long-scroll（Hero + Insights + Projects + Where + Contact）
-- [ ] coded visitor → 看到 ChatRoom（slim header + welcome + composer）—— 不看到 long-scroll
-- [ ] BYOAI visitor → 看到 ChatRoom（BYOAI mode welcome）
-- [ ] ChatRoom → 点 "full page →" → 切到 long-scroll？还是新 tab？
-- [ ] long-scroll visitor 提问后 → ConversationDeck 出现 + scroll to answer
+- [ ] public visitor (no session) → sees long-scroll (Hero + Insights + Projects + Where + Contact)
+- [ ] coded visitor → sees ChatRoom (slim header + welcome + composer) — does not see long-scroll
+- [ ] BYOAI visitor → sees ChatRoom (BYOAI mode welcome)
+- [ ] ChatRoom → click "full page →" → switch to long-scroll? Or a new tab?
+- [ ] long-scroll visitor asks a question → ConversationDeck appears + scroll to answer
 
 ### 2.2 ChatComposer
 
-- [ ] starter chips 渲染（coded: 3 starters / BYOAI: 2 starters）
-- [ ] 点 starter chip → 自动发送 → chip 消失（showStarters = conv.length > 0）
-- [ ] 手动输入 → ask ↵ → turn 渲染 → "retrieving ···" → answer 渲染
-- [ ] pending 状态 → input disabled + submit 灰
-- [ ] exhausted → "session full" 替换 "ask ↵"
-- [ ] 快速连续提交 → pending 锁防重发
+- [ ] starter chips render (coded: 3 starters / BYOAI: 2 starters)
+- [ ] click a starter chip → sends automatically → chips disappear (showStarters = conv.length > 0)
+- [ ] type by hand → ask ↵ → turn renders → "retrieving ···" → answer renders
+- [ ] pending state → input disabled + submit greyed out
+- [ ] exhausted → "session full" replaces "ask ↵"
+- [ ] rapid repeated submits → pending lock prevents duplicate sends
 
 ### 2.3 ChatWelcome
 
-- [ ] coded mode → 显示 code label + scope 说明 + "ask anything"
-- [ ] BYOAI mode → 显示 provider name + "public slice only"
-- [ ] coded + 有 visitor name → "Hi, {firstName}"
-- [ ] coded + 无 visitor name → "Hi"
+- [ ] coded mode → shows code label + scope description + "ask anything"
+- [ ] BYOAI mode → shows provider name + "public slice only"
+- [ ] coded + has visitor name → "Hi, {firstName}"
+- [ ] coded + no visitor name → "Hi"
 
 ### 2.4 Turn rendering
 
 - [ ] normal answer → serif body paragraphs + "ai" speaker label
-- [ ] answer with citations → "drawn from" block 出现
-- [ ] answer with ToolCallBlock (calendar) → slot grid 渲染
-- [ ] answer with ToolCallBlock (file) → download pill 渲染
-- [ ] pending → "retrieving ···" 动画
-- [ ] error → error message 渲染（不是空白）
-- [ ] reset → 所有 turns 清空 + welcome 重现
+- [ ] answer with citations → "drawn from" block appears
+- [ ] answer with ToolCallBlock (calendar) → slot grid renders
+- [ ] answer with ToolCallBlock (file) → download pill renders
+- [ ] pending → "retrieving ···" animation
+- [ ] error → error message renders (not blank)
+- [ ] reset → all turns cleared + welcome reappears
 
 ---
 
-## 3. Gate 状态机
+## 3. Gate state machine
 
 ### 3.1 Code panel
 
-- [done] 正确 code → redirect to / (gate-access)
-- [ ] paste code → 大写归一 + 非 [A-Z0-9-] 过滤
-- [ ] 错误 code → shake 动画 → 清空 → refocus
-- [ ] "checking…" 状态 → submit 后按钮文案变
-- [ ] code + name 一起提交 → session 带 visitor name
+- [done] correct code → redirect to / (gate-access)
+- [ ] paste code → uppercase normalization + filter out non-[A-Z0-9-]
+- [ ] wrong code → shake animation → cleared → refocus
+- [ ] "checking…" state → button label changes after submit
+- [ ] submit code + name together → session carries the visitor name
 
 ### 3.2 BYOAI panel
 
-- [done] 4 字段填完 → submit → redirect (byoai-chat)
-- [ ] 缺必填字段 → submit disabled
-- [ ] provider 切换 → endpoint/model placeholder 变
+- [done] all 4 fields filled → submit → redirect (byoai-chat)
+- [ ] required field missing → submit disabled
+- [ ] switch provider → endpoint/model placeholder changes
 
 ### 3.3 Request access form
 
-- [done] 填 email/name/org/message → submit → "sent" 状态 (gate-access)
-- [ ] 空 email → 不让提交
-- [ ] 重复提交 → disabled 防重发
-- [ ] 提交后 → collapsible "sent, we'll get back to you"
+- [done] fill email/name/org/message → submit → "sent" state (gate-access)
+- [ ] empty email → submit not allowed
+- [ ] repeated submit → disabled to prevent duplicates
+- [ ] after submit → collapsible "sent, we'll get back to you"
 
 ---
 
-## 4. Blog 状态机
+## 4. Blog state machine
 
 ### 4.1 Blog index
 
-- [done] 有 posts → cover card grid 渲染 (blog-posts)
-- [done] infinite scroll → 加载更多 (blog-posts)
-- [ ] tag filter → 点 tag → 只显示该 tag 的 posts
-- [ ] tag filter → 再点同一 tag → 清空 filter（all）
+- [done] posts exist → cover card grid renders (blog-posts)
+- [done] infinite scroll → loads more (blog-posts)
+- [ ] tag filter → click a tag → only that tag's posts are shown
+- [ ] tag filter → click the same tag again → filter cleared (all)
 - [ ] 0 posts → empty state
-- [ ] AskCorpusCTA → 点 "open the chat →" → 跳到 /
-- [ ] RecommendedRail → "if you only read two" → 显示前 2 篇 + 可点击
+- [ ] AskCorpusCTA → click "open the chat →" → jumps to /
+- [ ] RecommendedRail → "if you only read two" → shows the top 2 posts + clickable
 
 ### 4.2 Blog article
 
 - [done] public post → cover + header + body + backlinks (blog-posts, blog-crosslinks)
 - [done] AskAboutThis → starter prompt → /?q=... (ask-about-this)
-- [ ] private post + 没 code → LockedView（teaser + request CTA）
-- [ ] private post + 有 code (scope 匹配) → 正常渲染
-- [ ] crosslink [[slug]] → 渲染为链接 + 可点击跳转
-- [ ] broken crosslink [[不存在的slug]] → 渲染为纯文本（不报错）
-- [ ] XSS body → 不执行（已有但验证深度）
+- [ ] private post + no code → LockedView (teaser + request CTA)
+- [ ] private post + code (scope matches) → renders normally
+- [ ] crosslink [[slug]] → renders as a link + click navigates
+- [ ] broken crosslink [[nonexistent-slug]] → renders as plain text (no error)
+- [ ] XSS body → not executed (already exists, but verify depth)
 
 ### 4.3 FloatingChatDock
 
-- [ ] blog index → 右下角 pill 可见（有 session 时）
-- [ ] 无 session → pill 不渲染
-- [ ] 点 pill → 面板展开 → input 可见
-- [ ] 输入 → ask → answer 渲 → transcript 在面板内滚动
-- [ ] 关闭面板 → pill 恢复
-- [ ] 跨页面保持（blog → wiki → pill 仍在）
+- [ ] blog index → bottom-right pill visible (when there is a session)
+- [ ] no session → pill not rendered
+- [ ] click pill → panel expands → input visible
+- [ ] type → ask → answer renders → transcript scrolls inside the panel
+- [ ] close panel → pill returns
+- [ ] persists across pages (blog → wiki → pill still there)
 
 ---
 
-## 5. Wiki / Output Landing 状态机
+## 5. Wiki / Output Landing state machine
 
 ### 5.1 Wiki landing
 
 - [done] public wiki → breadcrumb + body + TrustBox (wiki-landing)
-- [ ] cover hero 渲染（title + date）
-- [ ] private wiki + 没 code → LockedView（"requires access code" + gate link）
-- [ ] private wiki + 有 code (scope 匹配) → 正常渲染
-- [ ] AskAboutThis (kind=wiki) → /?q=... 跳到 chat
-- [ ] 不存在的 slug → 404
+- [ ] cover hero renders (title + date)
+- [ ] private wiki + no code → LockedView ("requires access code" + gate link)
+- [ ] private wiki + code (scope matches) → renders normally
+- [ ] AskAboutThis (kind=wiki) → /?q=... jumps to chat
+- [ ] nonexistent slug → 404
 
 ### 5.2 Output landing
 
 - [done] public output → breadcrumb + TrustBox (output-landing)
-- [ ] cover hero + PDF preview card 渲染
-- [ ] gated output + 没 code → LockedView
-- [ ] gated output + 有 code → 正常渲染
+- [ ] cover hero + PDF preview card render
+- [ ] gated output + no code → LockedView
+- [ ] gated output + code → renders normally
 - [ ] AskAboutThis (kind=output) → /?q=...
-- [ ] 不存在的 slug → 404
+- [ ] nonexistent slug → 404
 
 ---
 
-## 6. Admin Dashboard 状态机
+## 6. Admin Dashboard state machine
 
-- [ ] owner 登录 → dashboard 是默认 landing
-- [ ] 4 KPI cards 显示真实数据（entries / unprocessed / codes / requests）
-- [ ] sparkline SVG 渲染 14 天曲线
-- [ ] "needs your hand" → requests > 0 → "review →" 链接可点
-- [ ] "needs your hand" → raw unprocessed > 0 → "open →" 链接可点
-- [ ] "needs your hand" → drafts reviewing > 0 → "review →" 链接可点
-- [ ] 全部 0 → "nothing pending" 空态
-- [ ] recent visitors → 显示最近 5 条 conversation
-- [ ] jobs heat → sent 计数来自 /api/admin/applications/
-- [ ] jump 链接 → 点击跳到对应 admin section
-
----
-
-## 7. Admin Sidebar 状态机
-
-- [done] 6 group 渲染 + active 高亮 (admin-auth-guards)
-- [ ] badge: raw unprocessed > 0 → badge 数字出现
-- [ ] badge: requests new > 0 → badge 数字出现
-- [ ] badge: 数据变化 → 60s 轮询刷新 badge
-- [ ] 点 nav link → section 切换 + active 移动
+- [ ] owner logs in → dashboard is the default landing
+- [ ] 4 KPI cards show real data (entries / unprocessed / codes / requests)
+- [ ] sparkline SVG renders a 14-day curve
+- [ ] "needs your hand" → requests > 0 → "review →" link clickable
+- [ ] "needs your hand" → raw unprocessed > 0 → "open →" link clickable
+- [ ] "needs your hand" → drafts reviewing > 0 → "review →" link clickable
+- [ ] all 0 → "nothing pending" empty state
+- [ ] recent visitors → shows the latest 5 conversations
+- [ ] jobs heat → sent count comes from /api/admin/applications/
+- [ ] jump links → click navigates to the matching admin section
 
 ---
 
-## 8. Admin Corpus CRUD 状态机
+## 7. Admin Sidebar state machine
+
+- [done] 6 groups render + active highlight (admin-auth-guards)
+- [ ] badge: raw unprocessed > 0 → badge number appears
+- [ ] badge: requests new > 0 → badge number appears
+- [ ] badge: data changes → 60s polling refreshes the badge
+- [ ] click a nav link → section switches + active moves
+
+---
+
+## 8. Admin Corpus CRUD state machine
 
 ### 8.1 Raw
 
 - [done] list + filter (corpus-crud-ui)
-- [ ] DumpBox → 选 source chip → 输入 → dump → 新行出现在 list
-- [ ] filter 切换（unprocessed / flagged-private / promoted / all）→ list 过滤
-- [ ] promote → wiki modal → 填 title + tags → confirm → raw 变 "promoted"
-- [ ] archive → raw 消失（或标 archived）
-- [ ] 编辑 body → save → body 更新
-- [ ] media metadata 渲染（有 media 的 entry 显示 kind · label）
+- [ ] DumpBox → pick a source chip → type → dump → new row appears in the list
+- [ ] switch filter (unprocessed / flagged-private / promoted / all) → list filtered
+- [ ] promote → wiki modal → fill title + tags → confirm → raw becomes "promoted"
+- [ ] archive → raw disappears (or is marked archived)
+- [ ] edit body → save → body updated
+- [ ] media metadata renders (entries with media show kind · label)
 
 ### 8.2 Wiki
 
 - [done] list + create + edit + delete (corpus-crud-ui)
-- [ ] tag filter → 点 tag → wiki 列表过滤
-- [ ] excerpt 段落 → 显示 body 截取前 200 字符
-- [ ] visibility dot → public 灰 / private accent
-- [ ] promote to output → output 列表出现新条目
-- [ ] SEO 编辑 → slug / description / indexed toggle
+- [ ] tag filter → click a tag → wiki list filtered
+- [ ] excerpt paragraph → shows the first 200 characters of body
+- [ ] visibility dot → public grey / private accent
+- [ ] promote to output → new entry appears in the output list
+- [ ] SEO editing → slug / description / indexed toggle
 
 ### 8.3 Output
 
 - [done] list + create + edit + delete (output-promotion)
-- [ ] cover strip hue gradient 渲染
-- [ ] tier pill（public / unlisted / private）正确渲染
-- [ ] views / downloads stats 显示
-- [ ] dual create buttons（pdf / web essay）
+- [ ] cover strip hue gradient renders
+- [ ] tier pill (public / unlisted / private) renders correctly
+- [ ] views / downloads stats shown
+- [ ] dual create buttons (pdf / web essay)
 
 ---
 
-## 9. Admin Conversations 状态机
+## 9. Admin Conversations state machine
 
-- [done] table 渲染 + transcript modal (conversations-per-code)
-- [ ] sentiment 列 → 根据 turn count 显示正确标签（short / curious / warm / engaged）
+- [done] table renders + transcript modal (conversations-per-code)
+- [ ] sentiment column → shows the correct label from turn count (short / curious / warm / engaged)
 - [ ] BYOAI conversation → sentiment = "shopping"
 - [ ] private_hits > 2 → sentiment = "probing"
-- [ ] 点击 row → transcript 展开 inline
-- [ ] ?code=LABEL → filter 只显示该 code 的 conversations
-- [ ] clear filter → 显示全部
+- [ ] click a row → transcript expands inline
+- [ ] ?code=LABEL → filter shows only that code's conversations
+- [ ] clear filter → shows all
 
 ---
 
-## 10. Admin Codes 状态机
+## 10. Admin Codes state machine
 
 - [done] create + list + quota (access-codes, code-quotas)
-- [ ] 3-col card layout → members 列 + scope chips + inline QR 同时可见
-- [ ] QR 点击 → QR modal / 下载 PNG
-- [ ] Quota bar → 视觉进度条正确显示 used/max
-- [ ] revoke → card 变灰 + "expired" status
-- [ ] edit code → 改 label / scope / quota → save → card 更新
-- [ ] "view conversations →" → 跳到 conversations?code=XXX
+- [ ] 3-col card layout → members column + scope chips + inline QR visible at the same time
+- [ ] click QR → QR modal / download PNG
+- [ ] Quota bar → visual progress bar shows used/max correctly
+- [ ] revoke → card greys out + "expired" status
+- [ ] edit code → change label / scope / quota → save → card updated
+- [ ] "view conversations →" → jumps to conversations?code=XXX
 
 ---
 
-## 11. Admin Requests 状态机
+## 11. Admin Requests state machine
 
-- [ ] open request → "approve · issue code →" 按钮可见
-- [ ] approve → 自动 issue AccessCode + request 变 approved
-- [ ] decline → request 变 declined + reason 显示
-- [ ] defer → request 变 pending
-- [ ] block sender → UI 反馈（backend 未接通先验 UI）
-- [ ] blockquote message 正确渲染（italic serif + left border）
-- [ ] filter chips → open / replied / closed / all 切换
+- [ ] open request → "approve · issue code →" button visible
+- [ ] approve → AccessCode issued automatically + request becomes approved
+- [ ] decline → request becomes declined + reason shown
+- [ ] defer → request becomes pending
+- [ ] block sender → UI feedback (backend not wired yet; verify the UI first)
+- [ ] blockquote message renders correctly (italic serif + left border)
+- [ ] filter chips → switch between open / replied / closed / all
 
 ---
 
-## 12. Admin Drafts + Applications 状态机
+## 12. Admin Drafts + Applications state machine
 
 ### 12.1 Drafts
 
-- [ ] draft card → 2-col layout（content + PDF preview thumbnail）
-- [ ] status pill 颜色（reviewing = amber / draft = neutral / sent = accent）
-- [ ] diff-vs-master 引用块（accent left border 背景）
-- [ ] reviewing → "open composer →" + "edit" + "regenerate" 三个按钮
-- [ ] draft → "finish drafting →" + "discard" 两个按钮
-- [ ] sent → "view application" + "view pdf" 两个按钮
-- [ ] open composer → ResumeComposer 全屏 overlay 打开
+- [ ] draft card → 2-col layout (content + PDF preview thumbnail)
+- [ ] status pill color (reviewing = amber / draft = neutral / sent = accent)
+- [ ] diff-vs-master quote block (accent left border background)
+- [ ] reviewing → three buttons: "open composer →" + "edit" + "regenerate"
+- [ ] draft → two buttons: "finish drafting →" + "discard"
+- [ ] sent → two buttons: "view application" + "view pdf"
+- [ ] open composer → ResumeComposer full-screen overlay opens
 - [ ] empty state → "No drafts pending."
 
 ### 12.2 Applications
 
-- [ ] application card → 3-col footer（contact / notes / "open ›"）
-- [ ] 点击 card → ApplicationDetailModal 打开
-- [ ] modal → timeline 渲染（sent → opened → reviewing）
-- [ ] modal → status segmented 切换（silent / reviewing / replied / rejected / offer）
-- [ ] modal → notes textarea 可编辑
+- [ ] application card → 3-col footer (contact / notes / "open ›")
+- [ ] click card → ApplicationDetailModal opens
+- [ ] modal → timeline renders (sent → opened → reviewing)
+- [ ] modal → status segmented switch (silent / reviewing / replied / rejected / offer)
+- [ ] modal → notes textarea editable
 - [ ] empty state → "No applications sent yet."
 
 ---
 
-## 13. Admin Connectors 状态机
+## 13. Admin Connectors state machine
 
 - [done] ConnectorAddModal + config form (connector-add-modal)
-- [ ] dashed "＋ browse the catalog" card → 点击 → modal 打开
-- [ ] category tab 切换 → catalog grid 过滤
+- [ ] dashed "＋ browse the catalog" card → click → modal opens
+- [ ] switch category tab → catalog grid filtered
 - [ ] installed connector → "● installed" pill
-- [ ] config form → secret 字段 → reveal/hide toggle
-- [ ] config form → oauth 字段 → "Authorize…" 按钮
-- [ ] connect → tile 状态变 "● connected"
+- [ ] config form → secret field → reveal/hide toggle
+- [ ] config form → oauth field → "Authorize…" button
+- [ ] connect → tile state becomes "● connected"
 
 ---
 
-## 14. Admin Skills 状态机
+## 14. Admin Skills state machine
 
 - [done] create + list + delete (skills, skill-scripts)
-- [ ] heat-bar graph → 渲染 2-col grid + gradient bar
-- [ ] role label → 根据 heat 值正确显示（core / strong / maintained / developing / dormant）
-- [ ] "rebuild from corpus" 按钮 → UI 反馈
+- [ ] heat-bar graph → renders 2-col grid + gradient bar
+- [ ] role label → shown correctly from the heat value (core / strong / maintained / developing / dormant)
+- [ ] "rebuild from corpus" button → UI feedback
 
 ---
 
-## 15. Admin Preview 状态机
+## 15. Admin Preview state machine
 
-- [ ] code picker → 点 code → 右侧 preview frame 变化
-- [ ] BYOAI card → 点 → "byoai mode · public scope" 显示
-- [ ] coded preview → banner 显示 code label + "scoped to N topics"
-- [ ] coded preview → suggested questions 显示（来自 code.suggested_questions）
+- [ ] code picker → click a code → right-hand preview frame changes
+- [ ] BYOAI card → click → "byoai mode · public scope" shown
+- [ ] coded preview → banner shows code label + "scoped to N topics"
+- [ ] coded preview → suggested questions shown (from code.suggested_questions)
 
 ---
 
 ## 16. Admin SEO / Obsidian / System
 
 ### 16.1 SEO
-- [ ] defaults form → 各字段可见
-- [ ] "regenerate sitemap" 按钮 → UI 反馈
-- [ ] indexing stats → pages / outputs / posts 显示
-- [ ] OG preview card 渲染
+- [ ] defaults form → every field visible
+- [ ] "regenerate sitemap" button → UI feedback
+- [ ] indexing stats → pages / outputs / posts shown
+- [ ] OG preview card renders
 
 ### 16.2 Obsidian
-- [ ] vault stats 4-cell（mode / notes / size / last sync）渲染
-- [ ] "import vault zip" 按钮可见
-- [ ] "export corpus zip" 按钮可见
+- [ ] vault stats 4-cell (mode / notes / size / last sync) renders
+- [ ] "import vault zip" button visible
+- [ ] "export corpus zip" button visible
 
 ### 16.3 System
-- [ ] terminal block → version / uptime 渲染
-- [ ] background jobs table → 行数 ≥ 3
-- [ ] health checks → status dots（ok = accent / warn = amber）
+- [ ] terminal block → version / uptime render
+- [ ] background jobs table → row count ≥ 3
+- [ ] health checks → status dots (ok = accent / warn = amber)
 
 ---
 
-## 17. Setup Wizard 状态机
+## 17. Setup Wizard state machine
 
 - [done] 4 step happy path (claim-instance, setup-wizard-4step)
 - [done] password mismatch → error (setup-wizard-4step)
 - [done] wrong captcha → error (setup-wizard-4step)
-- [ ] step 1 → handle 非法字符 → next disabled
-- [ ] step 1 → publicUrl 非 http → next disabled
-- [ ] step 3 → 选 provider → key 字段 placeholder 变
-- [ ] step 3 → ollama 选中 → key 字段隐藏（needsKey=false）
-- [ ] back 按钮 → 回到上一步 → 数据保留
-- [ ] step 1 不填 → next disabled（realtime）
+- [ ] step 1 → illegal characters in handle → next disabled
+- [ ] step 1 → publicUrl not http → next disabled
+- [ ] step 3 → pick a provider → key field placeholder changes
+- [ ] step 3 → ollama selected → key field hidden (needsKey=false)
+- [ ] back button → returns to the previous step → data kept
+- [ ] step 1 left empty → next disabled (realtime)
 
 ---
 
-## 18. Login 状态机
+## 18. Login state machine
 
-- [done] 正确凭据 → /admin (owner-login)
-- [done] 错误密码 → error 提示 (owner-login)
-- [ ] 空 email → submit disabled
-- [ ] 空 password → submit disabled
-- [ ] 连续失败 → throttle 提示
+- [done] correct credentials → /admin (owner-login)
+- [done] wrong password → error message (owner-login)
+- [ ] empty email → submit disabled
+- [ ] empty password → submit disabled
+- [ ] repeated failures → throttle message
 - [done] forgot password → reset flow (password-reset)
 
 ---
 
-## 19. Cross-feature 集成
+## 19. Cross-feature integration
 
-### 19.1 Job loop 端到端
+### 19.1 Job loop end to end
 
-- [ ] register source → fetch_new → listings indexed → shortlist → resume.draft → open composer → edit → send → applications.commit → auto code issued → QR on PDF → recruiter 扫码 → ChatRoom → owner 在 conversations 看 transcript
+- [ ] register source → fetch_new → listings indexed → shortlist → resume.draft → open composer → edit → send → applications.commit → auto code issued → QR on PDF → recruiter scans → ChatRoom → owner sees the transcript in conversations
 
 ### 19.2 Corpus pipeline
 
-- [ ] raw_dump (MCP) → raw list 出现 → promote to wiki → wiki list 出现 → wiki SEO landing 可访问 → promote to output → output list 出现 → output SEO landing 可访问
+- [ ] raw_dump (MCP) → appears in the raw list → promote to wiki → appears in the wiki list → wiki SEO landing reachable → promote to output → appears in the output list → output SEO landing reachable
 
 ### 19.3 Code → chat → transcript
 
-- [ ] owner 创 code → visitor 用 code 进 ChatRoom → 聊几轮 → owner 在 /admin/conversations 看到 transcript + sentiment + cited bodies
+- [ ] owner creates a code → visitor enters ChatRoom with the code → chats a few turns → owner sees transcript + sentiment + cited bodies in /admin/conversations
 
 ### 19.4 Blog → chat flow
 
-- [ ] owner 发 blog post → visitor 在 /blog 看到 → 点开文章 → AskAboutThis → /?q=... → ChatRoom 自动 ask → answer 引用 corpus
+- [ ] owner publishes a blog post → visitor sees it on /blog → opens the article → AskAboutThis → /?q=... → ChatRoom asks automatically → answer cites the corpus
 
 ---
 
-## 统计
+## Statistics
 
-| 分类 | done | 要补 |
+| Category | done | to add |
 |---|---|---|
 | Visitor session | 6 | 18 |
 | ChatRoom | 0 | 18 |
@@ -421,6 +422,6 @@
 | Setup wizard | 3 | 5 |
 | Login | 2 | 3 |
 | Cross-feature | 0 | 4 |
-| **总计** | **29** | **~156** |
+| **Total** | **29** | **~156** |
 
-现有 92 个 test case 覆盖约 29 个状态路径。完整覆盖需要 ~156 个新 case。
+The existing 92 test cases cover about 29 state paths. Full coverage needs ~156 new cases.

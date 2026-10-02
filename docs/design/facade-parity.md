@@ -3,15 +3,16 @@
 **Status:** **half of this is now the wrong shape (owner, 2026-08-15).** The invariant below
 still holds; the *mechanism* does not.
 
-> "facadeparity 不是结构保障，dispatcher 是结构保障，不应该有明文写的任何 parity。所有的程序
-> 向外的接口由 dispatcher 走，route 自己 wire，mcp 组装也从这边组装 —— 没有任何人要明着说
-> '这是个 parity'。**结构 = 没有职责类。**"
+> "facadeparity is not a structural guarantee; the dispatcher is the structural guarantee. There should be no
+> parity written out explicitly anywhere. Every outward interface of the program goes through the dispatcher, the route
+> wires itself, and the MCP is assembled from there too — nobody should have to say out loud
+> 'this is a parity'. **Structure = no responsibility classes.**"
 
 The invariant offers two ways to satisfy it — *generated from* the registry, or *verified
 against* it. **Only the first one is structural.** The second is a responsibility class: a
 `Reach` someone must declare, a `Conform()` someone must run, a `Violation` someone must read,
 and (worst) `internal/infra/paritymanifest`, a 123-op hand-kept ledger whose own comments already
-sentence it to death ("台账在替结构记账 … 这正是这个包最后要消失的方式").
+sentence it to death ("the ledger is keeping the books on behalf of the structure … this is exactly how this package should eventually disappear").
 
 **What the code shows today (verified 2026-08-15):**
 

@@ -1,157 +1,157 @@
-# StandMeet 平台架构 —— 测试设计
+# StandMeet platform architecture — test design
 
-> **状态：** 草稿，待评审（2026-06-18）。配套 [`platform-architecture.md`](platform-architecture.md) 读。
-> **读者：** 写 mock 插件 server / fixture / spec 的人。
-> **怎么反馈：** 每块结尾 `T.n` 决策点，回 `Tn: accept` / `Tn: change — <…>`。
-
----
-
-## TL;DR — 测试哲学
-
-0. **每个 phase 第一步就是写测试，且必须全面（铁律）。** 任何 phase 动实现之前，先把**完整测试套件**写出来并红着：
-   - **happy flow** —— 正常路径成立。
-   - **corner cases** —— 全覆盖：空/缺字段、边界值、并发、重复、未授权、未连接、配额耗尽、版本不符、撞名、降级可见、幂等。
-   - **error stream（中途出错）** —— 流式/多步链路里**任意一步崩**仍可控：tool 调用中途失败、连接器代调失败、插件进程 mid-session 退出、SSE 流中断、依赖 mid-turn 断、超时。每条都要有用例，且 UI/agent 表现是**友好降级**，不是 stack trace / 挂死。
-   覆盖不到位 = phase 不算开始。先红后绿（CLAUDE.md：未测 = 未完成）。
-   - **对着 feature floor 逐条核**，别只对着"这东西干啥"审。每个 visitor-facing 能力都要按 floor 清单走一遍：**ACL via role、connector 依赖、quota、mode(code/public/byoai)、capability_state、降级可见** —— 适用的每条都要有用例。（教训：C3 漏了 ACL，因为只对着"插件 dial/list/wrap"审、没对 floor 核 → 漏测 → 漏实现。floor 就是 checklist。）
-
-1. **e2e 是 feature 的唯一证明（CLAUDE.md）。** 「core 发现了它没写死的能力」这件事，必须有一条**浏览器驱动**的 e2e：真访客进 chat → AI 调到一个**配置声明、非 `MustRegister`**的工具 → 答案正确。这是 C4，是本 feature 的主证。
-2. **协议管道层补 unit/integration，但不当主覆盖。** manifest 解析、stdio 帧读写、version 闸 —— 这些是组合爆炸的纯管道（畸形 JSON / 版本不符 / 进程退出），用浏览器跑既慢又测不全。它们是 booking_confirmation_test.go 那种**补充快测**，不替代 e2e。先例已在：`inference` / `mailer` / `booking_confirmation` 都有 unit。
-3. **插件是真·外部依赖 → 不 mock 在 mcpclient 层，mock 在传输边界。** 跟 external-mock 同理：**mcpclient 代码用真**，只让它连/拉起一个我们写的**真 MCP server**（说真 JSON-RPC、真 stdio/http），只有它的*内容*是 fixture（一个 echo/marker 工具）。绝不 stub `Session`。
-4. **零 if、零 sleep（项目规则）。** unit 用 testify `require.*`；e2e 等 UI 状态，不 `setTimeout`-as-sleep。
-5. **测试按行为命名**，不按 commit：`plugin-discovery-chat.spec.ts`，不是 `c4.spec.ts`。
-
-**决策点 T.0：每个 phase 先写全面测试（happy + corner cases + error stream），红了再实现。覆盖不全 = phase 不算开始。**
-**决策点 T.1：上述哲学接受。**
+> **Status:** Draft, awaiting review (2026-06-18). Read together with [`platform-architecture.md`](platform-architecture.md).
+> **Readers:** people writing mock plugin servers / fixtures / specs.
+> **How to give feedback:** each section ends with a `T.n` decision point; reply `Tn: accept` / `Tn: change — <…>`.
 
 ---
 
-## 测试替身 —— `mock-mcp-plugin`（一个真 MCP server）
+## TL;DR — test philosophy
 
-新增 `backend/cmd/mock-mcp-plugin`（跟 backend 同 binary 复用，**不**用 node）。它说**真 MCP**：`initialize` + `tools/list`（返一个 `echo` 工具：吃 `{text}` 回 `{"echoed": "<MARKER>:<text>"}`）+ `tools/call`。
+0. **The first step of every phase is writing tests, and they must be comprehensive (iron rule).** Before any phase touches implementation, write the **complete test suite** and keep it red:
+   - **happy flow** — the normal path holds.
+   - **corner cases** — full coverage: empty/missing fields, boundary values, concurrency, duplicates, unauthorized, not connected, quota exhausted, version mismatch, name collision, degraded-but-visible, idempotency.
+   - **error stream (failure partway through)** — in a streaming/multi-step chain, **any step crashing** stays controlled: a tool call failing midway, a connector proxied call failing, a plugin process exiting mid-session, an SSE stream interrupted, a dependency dropping mid-turn, timeouts. Each needs a test case, and the UI/agent behavior is **graceful degradation**, not a stack trace / hang.
+   Coverage not in place = the phase has not started. Red first, then green (CLAUDE.md: untested = unfinished).
+   - **Check against the feature floor item by item**; don't review only against "what this thing does". Every visitor-facing capability must walk the floor checklist: **ACL via role, connector dependencies, quota, mode (code/public/byoai), capability_state, degraded-but-visible** — every applicable item needs a test case. (Lesson: C3 missed ACL because it was reviewed only against "plugin dial/list/wrap", not against the floor → missed test → missed implementation. The floor is the checklist.)
 
-**双模式，同一份逻辑：**
-- `--stdio` → 走 stdin/stdout（newline 分隔），给 C2/C4 的 stdio 路径用 —— core 把它当子进程拉起来。
-- `--http :PORT` → Streamable HTTP 单端点，给 C3/C4 的 http 路径 + ext-mcp 回归用。
+1. **e2e is the only proof of a feature (CLAUDE.md).** "Core discovered a capability it did not hard-code" must have a **browser-driven** e2e: a real visitor enters chat → the AI calls a tool that is **declared in config, not `MustRegister`** → the answer is correct. This is C4, the main proof of this feature.
+2. **The protocol plumbing layer gets extra unit/integration tests, but not as primary coverage.** Manifest parsing, stdio frame read/write, the version gate — these are combinatorially explosive pure plumbing (malformed JSON / version mismatch / process exit); running them in a browser is slow and incomplete. They are **supplementary fast tests** like booking_confirmation_test.go and do not replace e2e. Precedents exist: `inference` / `mailer` / `booking_confirmation` all have unit tests.
+3. **Plugins are real external dependencies → don't mock at the mcpclient layer; mock at the transport boundary.** Same idea as external-mock: **the mcpclient code is real**; it only connects to/launches a **real MCP server** we wrote (speaking real JSON-RPC, real stdio/http), and only its *content* is a fixture (an echo/marker tool). Never stub `Session`.
+4. **Zero ifs, zero sleeps (project rule).** Unit tests use testify `require.*`; e2e waits for UI state, never `setTimeout`-as-sleep.
+5. **Name tests by behavior**, not by commit: `plugin-discovery-chat.spec.ts`, not `c4.spec.ts`.
 
-**故障注入开关（环境变量 / flag，给「中间出错」用例）：**
-- `MOCK_PLUGIN_PROTOCOL_VERSION=<v>` —— 让它 initialize 返一个**不兼容版本** → 测 version 闸。
-- `MOCK_PLUGIN_FAIL=call` —— `tools/call` 返 MCP error → 测调用期出错折成 errJSON。
-- `MOCK_PLUGIN_FAIL=list` —— `tools/list` 报错 → 测发现期失败 silently skip。
-- `MOCK_PLUGIN_EXIT_AFTER=1` —— 跑一次 call 后进程退出 → 测 session 中途死。
-- `MOCK_PLUGIN_TOOL_NAME=<name>` —— 改它暴露的工具名 → 测**影子**（声明一个跟内建撞名的工具/能力 id）。
-
-**决策点 T.2：一个 `mock-mcp-plugin` 二进制，双模式 stdio+http，fixture = 一个 echo/marker 工具，故障靠 env 开关。**
+**Decision point T.0: every phase first writes comprehensive tests (happy + corner cases + error stream), red, then implements. Incomplete coverage = the phase has not started.**
+**Decision point T.1: the philosophy above is accepted.**
 
 ---
 
-## C1 —— manifest + 发现来源 + 版本闸（unit, testify, 零 if）
+## Test double — `mock-mcp-plugin` (a real MCP server)
 
-文件：`backend/internal/plugins/manifest_test.go`（external test package）。
+Add `backend/cmd/mock-mcp-plugin` (reusing the backend binary, **not** node). It speaks **real MCP**: `initialize` + `tools/list` (returns one `echo` tool: takes `{text}`, returns `{"echoed": "<MARKER>:<text>"}`) + `tools/call`.
 
-| 测试 | 断言 |
+**Two modes, one piece of logic:**
+- `--stdio` → over stdin/stdout (newline-delimited), for the C2/C4 stdio path — core launches it as a child process.
+- `--http :PORT` → Streamable HTTP single endpoint, for the C3/C4 http path + ext-mcp regression.
+
+**Fault-injection switches (env vars / flags, for the "failure partway through" cases):**
+- `MOCK_PLUGIN_PROTOCOL_VERSION=<v>` — makes initialize return an **incompatible version** → tests the version gate.
+- `MOCK_PLUGIN_FAIL=call` — `tools/call` returns an MCP error → tests folding call-time errors into errJSON.
+- `MOCK_PLUGIN_FAIL=list` — `tools/list` errors → tests silently skipping a discovery-time failure.
+- `MOCK_PLUGIN_EXIT_AFTER=1` — the process exits after one call → tests the session dying midway.
+- `MOCK_PLUGIN_TOOL_NAME=<name>` — changes the tool name it exposes → tests **shadowing** (declaring a tool/capability id that collides with a built-in).
+
+**Decision point T.2: one `mock-mcp-plugin` binary, two modes stdio+http, fixture = one echo/marker tool, faults via env switches.**
+
+---
+
+## C1 — manifest + discovery source + version gate (unit, testify, zero ifs)
+
+File: `backend/internal/plugins/manifest_test.go` (external test package).
+
+| Test | Assertion |
 |---|---|
-| `ParseConfig_StdioAndHttp` | 一份含 1 stdio + 1 http 的配置 → 2 manifest，各字段（id/version/shape/transport.Kind/command/url）精确 |
-| `ParseConfig_MalformedJSON` | 畸形 JSON → 返 error（require.Error） |
-| `ParseConfig_UnknownTransportKind` | `kind:"carrier-pigeon"` → 该条被拒（require.Error 或不进 list，二选一定死） |
-| `ParseConfig_MissingRequiredID` | 缺 id → 被拒 |
-| `ParseConfig_DuplicateID` | 同配置内重复 id → 被拒 |
-| `Source_VersionIncompatible_Skipped` | 一条不兼容 version → **不在**返回 list，且**有** log（不是静默丢） |
-| `Source_Empty_NoError` | 配置缺失 / 空 → 空 slice + nil error（部署默认无插件，合法） |
-| `Source_MixedValidInvalid` | 一好一坏 → 好的进 list，坏的被滤，list 长度=1 |
+| `ParseConfig_StdioAndHttp` | A config with 1 stdio + 1 http → 2 manifests, each field (id/version/shape/transport.Kind/command/url) exact |
+| `ParseConfig_MalformedJSON` | Malformed JSON → returns an error (require.Error) |
+| `ParseConfig_UnknownTransportKind` | `kind:"carrier-pigeon"` → that entry is rejected (require.Error or not in the list; pick one and fix it) |
+| `ParseConfig_MissingRequiredID` | Missing id → rejected |
+| `ParseConfig_DuplicateID` | Duplicate id within one config → rejected |
+| `Source_VersionIncompatible_Skipped` | An incompatible version entry → **not** in the returned list, and there **is** a log (not silently dropped) |
+| `Source_Empty_NoError` | Config missing / empty → empty slice + nil error (deployments have no plugins by default; valid) |
+| `Source_MixedValidInvalid` | One good, one bad → the good one is in the list, the bad one filtered, list length=1 |
 
-纯数据层，不接 Registry、不起 server。
+Pure data layer; no Registry, no server.
 
-**决策点 T.3：C1 全 unit，覆盖 manifest 解析 + version 闸的组合边界。**
-
----
-
-## C2 —— mcpclient transport 抽象 + stdio（integration，真 mock server）
-
-文件：`backend/internal/mcpclient/stdio_test.go`。对真 `mock-mcp-plugin --stdio` 跑。
-
-| 测试 | 断言 |
-|---|---|
-| `Stdio_Initialize_ListTools` | 拉起子进程 → initialize 成功 → ListTools 含 `echo`，inputSchema 正确 |
-| `Stdio_CallTool_Echo` | CallTool(`echo`,`{text:"hi"}`) → result 含 `MARKER:hi` |
-| `Stdio_StderrIgnored` | server 往 stderr 写日志 → 不破坏 stdout 帧解析，CallTool 仍 OK |
-| `Stdio_ProcessExitMidSession` | `MOCK_PLUGIN_EXIT_AFTER=1` → 第二次 CallTool 返**干净 error**（不 hang、不 panic） |
-| `Stdio_Close_ReapsProcess` | Session.Close → 子进程被回收（无僵尸；可查 wait 返回） |
-| `Transport_ParitySmoke` | 同一 Session API 跑 stdio，断言跟 http 同形（ListTools/CallTool 返回结构一致） |
-
-HTTP 路径回归：跑现有 ext-mcp e2e（已覆盖 http），确认抽 Transport 没碰坏。
-
-**决策点 T.4：C2 用真子进程，覆盖 stdio 的 stderr / 中途退出 / 进程回收三个易漏点。**
+**Decision point T.3: C1 is all unit tests, covering the combinatorial boundaries of manifest parsing + the version gate.**
 
 ---
 
-## C3 —— `pluginCapability` 适配器（integration）
+## C2 — mcpclient transport abstraction + stdio (integration, real mock server)
 
-文件：`backend/internal/usecases/plugin_capability_test.go`。
+File: `backend/internal/mcpclient/stdio_test.go`. Runs against a real `mock-mcp-plugin --stdio`.
 
-| 测试 | 断言 |
+| Test | Assertion |
 |---|---|
-| `PluginCap_Binding_HasTool` | manifest（指向 mock http 插件）→ VisitorBinding → Binding.Tools 含命名空间化的 echo 工具 |
-| `PluginCap_UIMeta_IntoExtra` | manifest 带 `ui{resourceUri}` → CapabilityState.Extra 携带 ui.resourceUri（#134 接点） |
-| `PluginCap_DialFail_Hidden` | bad command/url → 返 `ErrHidden`（silently skip，不阻塞 chat） |
+| `Stdio_Initialize_ListTools` | Launch the child process → initialize succeeds → ListTools contains `echo`, inputSchema correct |
+| `Stdio_CallTool_Echo` | CallTool(`echo`,`{text:"hi"}`) → result contains `MARKER:hi` |
+| `Stdio_StderrIgnored` | The server writes logs to stderr → stdout frame parsing is not broken; CallTool still OK |
+| `Stdio_ProcessExitMidSession` | `MOCK_PLUGIN_EXIT_AFTER=1` → the second CallTool returns a **clean error** (no hang, no panic) |
+| `Stdio_Close_ReapsProcess` | Session.Close → the child process is reaped (no zombie; check the wait return) |
+| `Transport_ParitySmoke` | Run the same Session API over stdio and assert the same shape as http (ListTools/CallTool return structures match) |
+
+HTTP path regression: run the existing ext-mcp e2e (already covers http) to confirm that extracting Transport broke nothing.
+
+**Decision point T.4: C2 uses a real child process, covering three easy-to-miss stdio points: stderr / exit midway / process reaping.**
+
+---
+
+## C3 — `pluginCapability` adapter (integration)
+
+File: `backend/internal/usecases/plugin_capability_test.go`.
+
+| Test | Assertion |
+|---|---|
+| `PluginCap_Binding_HasTool` | manifest (pointing at the mock http plugin) → VisitorBinding → Binding.Tools contains the namespaced echo tool |
+| `PluginCap_UIMeta_IntoExtra` | manifest with `ui{resourceUri}` → CapabilityState.Extra carries ui.resourceUri (#134 hook point) |
+| `PluginCap_DialFail_Hidden` | Bad command/url → returns `ErrHidden` (silently skip, does not block chat) |
 | `PluginCap_ListFail_Hidden` | `MOCK_PLUGIN_FAIL=list` → ErrHidden |
-| `PluginCap_CallError_FoldedToToolResult` | `MOCK_PLUGIN_FAIL=call` → CallTool 折成 errJSON tool_result，**Go err = nil**（ext-mcp 唯一不变量） |
-| `PluginCap_Origin_Managed` | 经 RegisterDiscoveredPlugins 注册 → ListByOrigin(managed) 含它；ListByOrigin(builtin) 不含 |
-| `PluginCap_ShadowBuiltin_BuiltinWins` | 插件 id 撞内建 → 注册被拒 + log，内建仍在，List 里该 id 仍是 builtin |
-| `ExtMCP_Regression` | ext-mcp 现有测试全绿（证明泛化没回归） |
+| `PluginCap_CallError_FoldedToToolResult` | `MOCK_PLUGIN_FAIL=call` → CallTool folds into an errJSON tool_result, **Go err = nil** (the single ext-mcp invariant) |
+| `PluginCap_Origin_Managed` | Registered through RegisterDiscoveredPlugins → ListByOrigin(managed) contains it; ListByOrigin(builtin) does not |
+| `PluginCap_ShadowBuiltin_BuiltinWins` | Plugin id collides with a built-in → registration rejected + log; the built-in remains, and that id in List is still builtin |
+| `ExtMCP_Regression` | All existing ext-mcp tests green (proves the generalization did not regress) |
 
-**决策点 T.5：C3 覆盖 dial/list/call 三处「中间出错」+ origin 区分 + 防影子。**
+**Decision point T.5: C3 covers the three "failure partway through" points dial/list/call + origin distinction + anti-shadowing.**
 
 ---
 
-## C4 —— boot 发现 + e2e（浏览器驱动，主证）
+## C4 — boot discovery + e2e (browser-driven, main proof)
 
-文件：`e2e/test/plugin-discovery-chat.spec.ts`。docker-compose 起 `mock-mcp-plugin`（http 模式一个 service；stdio 模式由 backend spawn），配置文件声明它。
+File: `e2e/test/plugin-discovery-chat.spec.ts`. docker-compose brings up `mock-mcp-plugin` (one service in http mode; stdio mode is spawned by the backend), and the config file declares it.
 
-| 测试 | 断言 |
+| Test | Assertion |
 |---|---|
-| `配置声明的插件工具，访客 chat 里被 AI 调到` | 真访客进 chat → 脚本让 mock LLM 调那个插件工具 → 答案含 `MARKER` → **core 发现了非 MustRegister 的能力**（主证） |
-| `该工具不在内建清单` | capability map / admin 里它带 **origin=managed 徽章**，跟内建徽章可区分（呼应你问的「怎么区分」） |
-| `插件 server 挂了，chat 不崩` | 进会话时插件不可达 → chat 正常用别的工具，插件工具缺席，**无 stack trace / 友好降级** |
-| `version 不符的插件，不注册，其余正常` | 配置里塞一条不兼容 version → 它不出现，其余 chat 正常 |
-| `插件撞内建 id → 内建赢` | 配置声明一个跟内建撞 id 的插件 → chat 调到的是**内建行为**，插件被拒（boot log 可查） |
-| `stdio 插件也能被发现调用` | 同一 mock server `--stdio` 由 backend spawn → 工具同样可用（覆盖 stdio 端到端） |
+| `A plugin tool declared in config is called by the AI in visitor chat` | A real visitor enters chat → the script makes the mock LLM call that plugin tool → the answer contains `MARKER` → **core discovered a non-MustRegister capability** (main proof) |
+| `The tool is not in the built-in list` | In the capability map / admin it carries an **origin=managed badge**, distinguishable from the built-in badge (answers your question "how do we tell them apart") |
+| `Plugin server down, chat does not crash` | Plugin unreachable at session start → chat works normally with other tools, the plugin tool is absent, **no stack trace / graceful degradation** |
+| `A plugin with a version mismatch is not registered; the rest works` | Put an incompatible-version entry in the config → it does not appear; the rest of chat is normal |
+| `Plugin collides with a built-in id → built-in wins` | The config declares a plugin whose id collides with a built-in → chat calls the **built-in behavior**; the plugin is rejected (visible in the boot log) |
+| `stdio plugins can also be discovered and called` | The same mock server `--stdio`, spawned by the backend → the tool is equally usable (covers stdio end to end) |
 
-**「中间出错」矩阵齐了：** 发现期挂（不可达 / version 不符 / 撞名）、调用期挂（C3 的 call-fail 折 tool_result，e2e 里表现为 AI 收到错误自己换路答）、会话中途挂（C2 的进程退出）。
+**The "failure partway through" matrix is complete:** failure at discovery (unreachable / version mismatch / name collision), failure at call time (C3's call-fail folded into tool_result; in e2e it shows as the AI receiving the error and answering another way), failure mid-session (C2's process exit).
 
-**决策点 T.6：C4 的第一条 e2e 是本 feature 主证；origin 徽章那条直接回答「内建 vs 插件怎么区分」。**
-
----
-
-## 隔离 / 确定性
-
-- 每个 spec 走现有 `resetInstance` + 独立 owner/code，不跟别的 spec 共享插件配置。
-- mock 插件的故障开关是**进程级 env**，spec 起不同配置的 server 实例，不靠运行时切状态（避免跨 spec race —— 见 `no-rerun-on-flake` 教训）。
-- e2e 等 UI 状态 / 网络响应，零 `setTimeout`-as-sleep；unit 零 if。
-
-**决策点 T.7：故障注入靠「起一个带该 env 的 server 实例」，不靠运行时管理端切状态。**
+**Decision point T.6: C4's first e2e is the main proof of this feature; the origin badge test directly answers "how do we tell built-ins from plugins".**
 
 ---
 
-## Driver / 独立拉起（Bridge 不变量，对应 P.13）
+## Isolation / determinism
 
-C1–C4 测的是「能力/插件外置」。P.13 是另一刀：**agent core 是独立可拉起的模块，靠 Bridge/Driver
-注入环境**。下面对着 P.13 的四条不变量逐条核（不是对「干啥」审 —— 见 TL;DR 第 16 行 floor 教训）。
+- Every spec uses the existing `resetInstance` + its own owner/code, and does not share plugin configuration with other specs.
+- The mock plugin's fault switches are **process-level env**; specs start server instances with different configs and do not rely on switching state at runtime (avoids cross-spec races — see the `no-rerun-on-flake` lesson).
+- e2e waits for UI state / network responses, zero `setTimeout`-as-sleep; unit tests have zero ifs.
 
-测试替身：**`EvalDriver`** —— eval-harness 里 `agentcore.Driver` 的 canned 实现（写死 stdout /
-假 booking / .env cred / 内存 corpus）。它**就是** P.13 说的 ConcreteImplementor，不是额外的 mock。
+**Decision point T.7: fault injection works by "starting a server instance with that env", not by switching state from an admin endpoint at runtime.**
 
-| 不变量 | 测法 | 文件 / 闸 |
+---
+
+## Driver / independent launch (Bridge invariants, corresponding to P.13)
+
+C1–C4 test "externalizing capabilities/plugins". P.13 is a different cut: **the agent core is an independently launchable module, with its environment injected through a Bridge/Driver**.
+Below, each of P.13's four invariants is checked one by one (not reviewed against "what it does" — see the floor lesson on line 16 of the TL;DR).
+
+Test double: **`EvalDriver`** — the canned implementation of `agentcore.Driver` in eval-harness (hard-coded stdout /
+fake booking / .env cred / in-memory corpus). It **is** the ConcreteImplementor P.13 talks about, not an extra mock.
+
+| Invariant | How to test | File / gate |
 |---|---|---|
-| ② **backend 零 fixture** | `check-no-mock` 扩成真闸：`backend/`（**含 agentcore**）grep 到 `canned*` / `*Fixture` / `stub*` 命名即红。整改后 agentcore 无此类，canned 全在 eval-harness。**这条本就该拦住今天焊在 agentcore 的 fixture（具名黑名单漏了它）。** | `infra/scripts/check-no-mock`（lint 闸） |
-| ① **Driver 零 `internal/` 泄漏 = 独立** | eval-harness（**独立 go.mod**）implement `agentcore.Driver` 且**编过** —— Driver 接口若漏任何 `internal/*` 类型，外部 module 根本编不过（Go internal 铁律）。**编译即证**，不必额外断言。 | eval-harness `go build`（CI） |
-| ③ **prod / eval 同一 `Launch` + faithful** | `eval-smoke` 升为**必跑闸**：EvalDriver 拉起的 agent 工具集 = **真 capreg 装配**（非简化 stub 工具）、prompt = **真 `ComposeSystemPrompt`**（override 空时）；脚本化 tool+reply，断言 transcript 完整 round-trip。证明 eval 跟 prod 走同一条 `Launch(driver,…)`、同一真装配。 | `eval-harness/smoke.sh`（从手动 target → CI 闸） |
-| **并行注入 prompt**（原始需求） | smoke：N 进程各注 `SystemPromptOverride=variant_i`、**同时** `Launch`、各自跑通、互不串状态 → 证明「把 agent 单独拉起、多进程并行试 prompt」真成立。 | `eval-harness`（新 smoke） |
-| **floor 仍要核** | EvalDriver 注入下，能力的 floor（ACL via role / connector-dep gate / quota / mode）行为**跟 prod 一致** —— 别只测「driver 能拉起」，要测「拉起后能力 floor 不塌」。复用 capability-acl / connector-deps 的用例，换 EvalDriver 注入跑一遍关键几条。 | eval-harness 集成 |
+| ② **Backend has zero fixtures** | Extend `check-no-mock` into a real gate: grepping `canned*` / `*Fixture` / `stub*` names in `backend/` (**including agentcore**) turns it red. After the cleanup agentcore has none of these; all canned data lives in eval-harness. **This should have caught the fixture welded into agentcore today (the named blacklist missed it).** | `infra/scripts/check-no-mock` (lint gate) |
+| ① **Driver leaks zero `internal/` = independent** | eval-harness (**its own go.mod**) implements `agentcore.Driver` and **compiles** — if the Driver interface leaked any `internal/*` type, an external module could not compile at all (Go's internal iron rule). **Compiling is the proof**; no extra assertion needed. | eval-harness `go build` (CI) |
+| ③ **prod / eval use the same `Launch` + faithful** | Promote `eval-smoke` to a **mandatory gate**: the tool set of the agent launched by EvalDriver = **real capreg assembly** (not simplified stub tools), the prompt = **real `ComposeSystemPrompt`** (when the override is empty); scripted tool+reply, asserting a complete transcript round-trip. Proves eval and prod go through the same `Launch(driver,…)` and the same real assembly. | `eval-harness/smoke.sh` (from a manual target → CI gate) |
+| **Parallel prompt injection** (the original requirement) | smoke: N processes each inject `SystemPromptOverride=variant_i`, `Launch` **at the same time**, each runs through, with no state crossover → proves "launch the agent on its own and try prompts in parallel across processes" really holds. | `eval-harness` (new smoke) |
+| **The floor must still be checked** | Under EvalDriver injection, the capability floor (ACL via role / connector-dep gate / quota / mode) behaves **the same as prod** — don't only test "the driver can launch"; test "after launch the capability floor does not collapse". Reuse the capability-acl / connector-deps cases and rerun the key ones with EvalDriver injection. | eval-harness integration |
 
-**决策点 T.8：Driver 独立性 = 编译即证（eval-harness 编过 = 零 internal 泄漏）；`eval-smoke` 从手动
-target 升为 CI 闸（活证明「独立拉起 + 同一 Launch + faithful 真装配」）；backend-零-fixture 靠扩
-`check-no-mock` 成 lint 闸（顺带拦住今天焊在 agentcore 的 canned）。**
+**Decision point T.8: Driver independence = proof by compilation (eval-harness compiles = zero internal leaks); `eval-smoke` is promoted from a manual
+target to a CI gate (live proof of "independent launch + same Launch + faithful real assembly"); backend-zero-fixtures relies on extending
+`check-no-mock` into a lint gate (which also catches the canned data welded into agentcore today).**
 
-**决策点 T.9：「并行注入 prompt」要有专门 smoke（N 进程各注不同 override 同时拉起），因为这正是 agent
-core 独立化的**原始动机**——不证它，等于没证独立化拿到了想要的东西。**
+**Decision point T.9: "Parallel prompt injection" needs a dedicated smoke (N processes, each injecting a different override, launched at the same time), because this is exactly the **original motivation** for making the agent
+core independent — not proving it means not proving that the independence delivered what we wanted.**

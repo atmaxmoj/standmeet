@@ -60,7 +60,7 @@ it is on.
 
 `presets.go` is already the right shape — `presetTable` is "the only place a new provider is added",
 `ProviderPreset{Name, Label, BaseURL, KeyPrefix}`, and it **deliberately has no default model**
-("防止因为默认指过时/错误模型而不自知"). Multi-provider needs no new metadata concept, only rows.
+("so that a default pointing at an outdated or wrong model never goes unnoticed"). Multi-provider needs no new metadata concept, only rows.
 
 ### Target
 
@@ -156,8 +156,8 @@ if count >= *code.MaxTurnsPerSession {
 }
 ```
 
-`db/queries/conversation/conversations.sql:58` says it outright: *"turn 数不再存,读时从 messages
-派生"*. Turn accounting has no counter, no "where does it stop" question, and no debate about what
+`db/queries/conversation/conversations.sql:58` says it outright: *"the turn count is no longer stored; it is derived from messages
+at read time"*. Turn accounting has no counter, no "where does it stop" question, and no debate about what
 counts as a turn. Gas is the same mechanism with a different dimension.
 
 ### Target
@@ -247,7 +247,7 @@ same call turn accounting made when it declined to weight turns.
 ### Today
 
 `internal/corpus/search/search.go` opens with the invariant that makes this safe:
-*"Postgres 是 source-of-truth, meili 是派生投影:写路径同步 upsert/delete"*. Index maintenance is
+*"Postgres is the source of truth, meili is a derived projection: the write path upserts/deletes synchronously"*. Index maintenance is
 already factored (`corpus/usecase/corpus_index.go`: `IndexNote` / `DeleteNote` / `ReindexOwner`), and
 the retrieval capability already ships **seven** tools from one sandboxed plugin
 (`mcp-servers/retrieval/main.go:37-43`), each backed by a named host op declared in

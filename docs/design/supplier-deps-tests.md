@@ -1,174 +1,174 @@
-# Connector 依赖解析重构 —— 测试设计（清单 + 状态/错误矩阵）
+# Connector dependency resolution refactor — test design (checklist + state/error matrices)
 
-> **状态：** 计划（2026-06-24）。本次重构的**测试清单**：要补什么、现有的哪些改造、哪些
-> 验收一起跑。范围限定在 connector 依赖解析这一刀，外加「一直等着跟 connector 一起改」的
-> 归堆遗留（booked 卡外置 + cancel/email 从 REST 挪成 connector-backed tool）。**做完不留 legacy。**
-> 排期（TDD 阶段）另说，这份只定**测什么**。
+> **Status:** Plan (2026-06-24). The **test checklist** for this refactor: what to add, which existing tests to rework, and which
+> acceptance tests run alongside. Scope is limited to this connector-dependency-resolution cut, plus the
+> leftovers that have been "waiting to change together with connectors" (externalize the booked card + move cancel/email from REST to connector-backed tools). **Leave no legacy behind when done.**
+> Scheduling (TDD phases) is separate; this document only decides **what to test**.
 
 ## Scope
 
-**做什么（本刀）**
+**What this cut does**
 
-1. **host 依赖解析层** —— 命名 dep provider 注册表 + 读 `manifest.Requires` + 解析：
-   - **gate 半边 → 并进 global 门**：`Requires` 任一 connector 未连 → 该 cap 不进
-     `enabledCaps`（registry 单点闸，所有 visitor walk 唯一入口）→ 对所有 session 一律隐藏。
-     删 booker 等 cap 里写死的 `Connected()` 自查。
-   - **inject 半边**：已连时把 connector **句柄（非凭据）** 注入给运行的 binding/插件。
-2. **归堆遗留** —— host 协议加 `mcp-ui:tool`；booker `Requires:[calendar,smtp]` 注入双句柄，
-   book/cancel/send_confirmation 成 connector-backed tool；booked ui:// 卡经 `mcp-ui:tool` 调，
-   退役 REST + 最后一张写死 React 卡（`NON_SANDBOX_CARDS` 清空）。
+1. **Host dependency resolution layer** — named dep provider registry + read `manifest.Requires` + resolve:
+   - **Gate half → merged into the global gate**: if any connector in `Requires` is not connected → the cap does not enter
+     `enabledCaps` (the registry's single gate, the only entry point for every visitor walk) → hidden from every session.
+     Delete the hard-coded `Connected()` self-checks inside caps such as booker.
+   - **Inject half**: when connected, inject the connector **handle (not credentials)** into the running binding/plugin.
+2. **Leftovers** — add `mcp-ui:tool` to the host protocol; booker `Requires:[calendar,smtp]` gets both handles injected;
+   book/cancel/send_confirmation become connector-backed tools; the booked ui:// card calls through `mcp-ui:tool`;
+   retire the REST endpoints and the last hard-coded React card (`NON_SANDBOX_CARDS` becomes empty).
 
-**不在本 scope：** sync 模式（Obsidian→corpus，#107/#108 自成一摊）；跟 connector 无关的 surface。
+**Out of this scope:** sync mode (Obsidian→corpus, #107/#108 is its own track); surfaces unrelated to connectors.
 
-## 锁定的决策点
+## Locked decisions
 
-- **D-1：未连 = 全隐藏（经 global），非降级可见。** 维持现状；置灰按钮 UX 归 #110。
-- **D-2：connector gating 收进 `enabledCaps`（global 单点闸）**，不另起 per-session gate。
-  `global(cap) = owner手关 ∧ 所有 Requires 已连`。
-- **D-3：booked 外置 + cancel/email→tool 进本刀**，做干净。
-- **D-4：发确认信的收件人硬控（引用/透传/422/skip）放 tool 内（后端校验，422 仍后端出）。**
-  卡只收集 + 显示 —— #121 收件人硬控由 `send_confirmation` tool 后端把守，沙盒卡绕不过。
-- **D-8：connector = 消费者无关、双向的底座。** 凭据/OAuth/重试全在连接器内，**谁用它不感知**。
-  MCP 能力（经 capreg 依赖解析 gate）只是「其中一个消费者」；将来的 **IM Gateway**（owner 在
-  Discord/Slack 被 @ → Gateway 唤起 agent → agent 用连接器凭据**读 channel 历史** + **发消息**）
-  是另一个消费者，**不碰 MCP**。因此「按名解析连接器 + 拿句柄」必须住中性位置、**不 import
-  capreg**；句柄双向（read+write）、无凭据 getter。守卫测试：`connector.TestConnector_
-  ConsumerAgnostic_BidirectionalGateway`（fakeGateway 不 import capreg = 编译期证明）。
-  实现阶段把 `capreg.DepRegistry` 并进中性的 `connector.Hub`（一个底座、多个消费者）。
+- **D-1: Not connected = fully hidden (through global), not degraded-but-visible.** Keep current behavior; the greyed-out button UX belongs to #110.
+- **D-2: Connector gating goes into `enabledCaps` (the global single gate)**; do not add a separate per-session gate.
+  `global(cap) = owner did not switch it off ∧ every Requires is connected`.
+- **D-3: Externalizing booked + cancel/email→tool are in this cut**, done cleanly.
+- **D-4: The recipient hard controls for the confirmation email (quote/pass-through/422/skip) live inside the tool (backend validation; the 422 still comes from the backend).**
+  The card only collects + displays — #121 recipient hard control is guarded by the `send_confirmation` tool on the backend, and the sandboxed card cannot bypass it.
+- **D-8: Connector = a consumer-agnostic, bidirectional substrate.** Credentials/OAuth/retries all live inside the connector; **whoever uses it does not know about them**.
+  MCP capabilities (gated through capreg dependency resolution) are only "one of the consumers"; the future **IM Gateway** (owner is
+  @-mentioned in Discord/Slack → Gateway wakes an agent → the agent uses connector credentials to **read channel history** + **send messages**)
+  is another consumer and **does not touch MCP**. So "resolve a connector by name + get a handle" must live in a neutral place and **must not import
+  capreg**; handles are bidirectional (read+write) with no credential getter. Guard test: `connector.TestConnector_
+  ConsumerAgnostic_BidirectionalGateway` (fakeGateway does not import capreg = compile-time proof).
+  In the implementation phase, merge `capreg.DepRegistry` into the neutral `connector.Hub` (one substrate, many consumers).
 
-## 测试哲学（沿用平台架构测试设计）
+## Test philosophy (carried over from the platform architecture test design)
 
-- 插件 / connector 是真·外部依赖 → **mock 在传输边界，不 stub**。合成 connector 接真注册表；
-  测试 MCP 插件用真 server（`mock-stack/mcp`）。
-- **对 feature floor 逐条核**：global/role/code ACL、**connector 依赖**、quota、mode、
-  capability_state、降级可见。
-- **error stream**：链路任意一步崩仍可控、友好降级，无 stack/挂死/泄密。
-- **替身**：`dep-provider:test`（合成 connector「X」，`Connected` 可切 + 代调方法 + 泄漏探针，
-  仅测试装配，绝不进 prod 注册表）；`mock-stack/mcp` 加一个 `Requires:["dep-provider:test"]` 的工具；
-  mock GCal / SMTP / OAuth 沿用 external-mock。
+- Plugins / connectors are real external dependencies → **mock at the transport boundary, do not stub**. Synthetic connectors plug into the real registry;
+  test MCP plugins use a real server (`mock-stack/mcp`).
+- **Check against the feature floor item by item**: global/role/code ACL, **connector dependencies**, quota, mode,
+  capability_state, degraded-but-visible.
+- **Error stream**: any step of the chain can crash and stay controlled, degrading gracefully, with no stack/hang/secret leak.
+- **Stand-ins**: `dep-provider:test` (synthetic connector "X": `Connected` is toggleable + proxied method calls + a leak probe;
+  wired only in tests, never in the prod registry); `mock-stack/mcp` adds a tool with `Requires:["dep-provider:test"]`;
+  mock GCal / SMTP / OAuth reuse external-mock.
 
 ---
 
-## 一、要补的测试（新增，现在没有）
+## 1. Tests to add (new, do not exist today)
 
-**后端 unit / integration**
-- dep-provider 注册表：register / lookup / 重名拒
-- `Requires` boot 校验：未知依赖名 → 拒 + log（现 `manifest_test` 只测 parse）
-- `enabledCaps` 并入 connector 状态：`Requires` 有未连 → 不进 enabledCaps
-- 句柄契约：已连返句柄、**无凭据 getter**（编译期保证密不进 caller）
-- 多依赖 AND（A 连 B 未连仍隐藏）；global 手关优先于「已连」
-- `provider.Connected()` 返 error（非 true/false）时的处置（见错误矩阵 E1）
+**Backend unit / integration**
+- dep-provider registry: register / lookup / reject duplicate names
+- `Requires` boot validation: unknown dependency name → reject + log (today `manifest_test` only tests parsing)
+- `enabledCaps` folds in connector state: an unconnected entry in `Requires` → not in enabledCaps
+- Handle contract: returns a handle when connected, **no credential getter** (compile-time guarantee that secrets never reach the caller)
+- Multi-dependency AND (A connected, B not → still hidden); the global manual switch-off takes priority over "connected"
+- Handling when `provider.Connected()` returns an error (not true/false) (see error matrix E1)
 
 **e2e**
-- **任意性（命门）**：合成 X + `mock-stack/mcp` `Requires:[X]` → 未连掉走 / 已连调通 / 密不泄漏 / mid-session 撤→降级
-- **ext-mcp 默认不接 dep**（声明 `Requires:[calendar]` 也不注入，需 owner 显式授权）
-- **单点闸三 walk 一致**（AssembleVisitor / VisitorStates / VisitorToolSpecs 同进同出）
-- **`mcp-ui:tool` 协议**：卡发具名工具 → host 带 session context 派发 → 回卡（unit + 卡集成）
-- **visitor `calendar_cancel` 作 tool**（今天只有 REST）+ **`send_confirmation` 作 tool**（今天 REST）
-- **密不泄漏到 booker 插件**（句柄注入后的新泄漏面）
-- 状态变更 + error-stream 全部缺口（见下两矩阵，标「补」的每格 = 一条用例）
+- **Arbitrariness (the crux)**: synthetic X + `mock-stack/mcp` `Requires:[X]` → dropped when not connected / works when connected / no secret leak / revoked mid-session → degrades
+- **ext-mcp does not get deps by default** (even when it declares `Requires:[calendar]` nothing is injected; it needs explicit owner authorization)
+- **The single gate is consistent across the three walks** (AssembleVisitor / VisitorStates / VisitorToolSpecs include and exclude together)
+- **`mcp-ui:tool` protocol**: the card sends a named tool → host dispatches with session context → returns to the card (unit + card integration)
+- **visitor `calendar_cancel` as a tool** (today it is REST only) + **`send_confirmation` as a tool** (today REST)
+- **No secret leaks into the booker plugin** (the new leak surface after handle injection)
+- Every gap in state changes + error stream (see the two matrices below; each cell marked "add" = one test case)
 
-## 二、要改造的测试（现有，因机制/结构变）
+## 2. Tests to rework (existing, because the mechanism/structure changes)
 
-- `visitor-cancel-booking` —— 取消从「React 卡 + REST」→ iframe 卡 + `mcp-ui:tool→calendar_cancel`；
-  testid + 机制全变（**隔离负例语义保留**：Mallory 取消不了 Dana 的）
-- `booking-confirmation-email` —— 发信从「`booking-email-*` + REST」→ iframe 卡 +
-  `mcp-ui:tool→send_confirmation`；引用/透传/422/skip 四条卡内重表达（收件人校验按 D-4）
-- `visitor-chat-book-card` —— React booked 卡 → `mcp-app-card-calendar_book` iframe（frameLocator）
-- `manifest_test.go` —— 加 `Requires` 拒绝用例
-- `supplier-secret-no-leak` —— extend：也断言密不进 booker 插件
-- capreg / ACL hierarchy 单测 —— enabledCaps 现在算 connector 状态，加用例
+- `visitor-cancel-booking` — cancel moves from "React card + REST" → iframe card + `mcp-ui:tool→calendar_cancel`;
+  testids + mechanism all change (**keep the isolation negative case**: Mallory cannot cancel Dana's booking)
+- `booking-confirmation-email` — sending moves from "`booking-email-*` + REST" → iframe card +
+  `mcp-ui:tool→send_confirmation`; the four cases quote/pass-through/422/skip are re-expressed inside the card (recipient validation per D-4)
+- `visitor-chat-book-card` — React booked card → `mcp-app-card-calendar_book` iframe (frameLocator)
+- `manifest_test.go` — add `Requires` rejection cases
+- `supplier-secret-no-leak` — extend: also assert that secrets do not reach the booker plugin
+- capreg / ACL hierarchy unit tests — enabledCaps now computes connector state; add cases
 
-## 三、状态变更矩阵（connector 生命周期 × 时机）—— 重点不漏
+## 3. State-change matrix (connector lifecycle × timing) — focus on missing nothing
 
-生命周期：`未配 → 配凭据未授权(no refresh_token) → 已连 → 断联(token 清、凭据留) → 重连 → 外部撤销(invalid_grant)`。
-时机：① 装配时 ② 两 turn 间（状态在 turn 之间变）③ 同 turn 内 mid-call ④ mid-stream(SSE 中)。
+Lifecycle: `not configured → credentials configured but not authorized (no refresh_token) → connected → disconnected (token cleared, credentials kept) → reconnected → externally revoked (invalid_grant)`.
+Timing: ① at assembly ② between two turns (state changes between turns) ③ mid-call within the same turn ④ mid-stream (during SSE).
 
-| 状态 / 转变 | 时机 | 期望 | 覆盖 |
+| State / transition | Timing | Expected | Coverage |
 |---|---|---|---|
-| 未配 | 装配 | 隐藏 | ✓ `chat-book-not-connected`(隐含) |
-| **配了凭据、未授权(no refresh_token)** | 装配 | `Connected=false` → 隐藏 | **补**(half-config 边界) |
-| 已连 | 装配 | 暴露 + 注入句柄 | ✓ `chat-book-success` |
-| 已连 | mid-call | 调通 | ✓ |
-| **已连→断联(owner disconnect)** | 两 turn 间 | 下一 turn 该 tool 隐藏（单点闸重算） | **补**(mid-session disconnect) |
-| **已连→断联** | mid-call(已发 tool 列表、调时已断) | 友好降级，无 500/stack | **补**(依赖 mid-turn 断) |
-| **断联→重连** | 两 turn 间 | 下一 turn tool 重现 | **补** |
-| **断联(token 清、凭据留)** | 装配 | 隐藏（`refresh_token IS NULL`） | 部分 ✓ `admin-gcal-disconnect`(fresh session) |
-| token 过期可刷新 | mid-call | 静默刷新成功 | ✓ `chat-book-token-refresh` |
-| **token 撤销(invalid_grant)** | mid-call | 刷新撞 invalid_grant → 友好降级 | ✓ `connector-revoked-degrades` |
-| **撤销后状态落库** | 撤销后下一装配 | 置 disconnected → 隐藏（撤销→gate 联动） | **补** |
-| mail 断联 | 两 turn 间 | 依赖 smtp 的能力隐藏 | 部分 ✓ `mail-connector`(fresh) → **补** mid-session |
-| **多 session 并发** | owner 断联 | 两 session 下一 turn 都失 tool | **补** |
-| **改身份字段：mail 换 SMTP 邮箱/host/密码** | edit-config | `verified=false` → 依赖 smtp 的能力隐藏 → 重走 OTP 才恢复 | **补** |
-| **改身份字段：calendar 换 client_id/secret** | edit-config | 清 token(`refresh_token=NULL`) → 隐藏 → 重 OAuth 才恢复 | **补** |
-| **改非身份字段（policy / calendar_id / 显示名）** | edit-config | **不** disconnect，连接/验证状态不动 | **补**（守住「只有身份变才重验」） |
+| Not configured | Assembly | Hidden | ✓ `chat-book-not-connected` (implicit) |
+| **Credentials configured, not authorized (no refresh_token)** | Assembly | `Connected=false` → hidden | **add** (half-config boundary) |
+| Connected | Assembly | Exposed + handle injected | ✓ `chat-book-success` |
+| Connected | Mid-call | Works | ✓ |
+| **Connected→disconnected (owner disconnect)** | Between turns | Next turn the tool is hidden (single gate recomputed) | **add** (mid-session disconnect) |
+| **Connected→disconnected** | Mid-call (tool list already sent, disconnected at call time) | Graceful degradation, no 500/stack | **add** (dependency drops mid-turn) |
+| **Disconnected→reconnected** | Between turns | Tool reappears next turn | **add** |
+| **Disconnected (token cleared, credentials kept)** | Assembly | Hidden (`refresh_token IS NULL`) | Partial ✓ `admin-gcal-disconnect` (fresh session) |
+| Token expired, refreshable | Mid-call | Silent refresh succeeds | ✓ `chat-book-token-refresh` |
+| **Token revoked (invalid_grant)** | Mid-call | Refresh hits invalid_grant → graceful degradation | ✓ `connector-revoked-degrades` |
+| **State persisted after revocation** | Next assembly after revocation | Set disconnected → hidden (revocation→gate linkage) | **add** |
+| Mail disconnected | Between turns | Capabilities that depend on smtp are hidden | Partial ✓ `mail-connector` (fresh) → **add** mid-session |
+| **Concurrent sessions** | Owner disconnects | Both sessions lose the tool on their next turn | **add** |
+| **Identity field change: mail switches SMTP address/host/password** | edit-config | `verified=false` → capabilities depending on smtp hidden → restored only after OTP again | **add** |
+| **Identity field change: calendar switches client_id/secret** | edit-config | Clear token (`refresh_token=NULL`) → hidden → restored only after OAuth again | **add** |
+| **Non-identity field change (policy / calendar_id / display name)** | edit-config | Does **not** disconnect; connection/verification state unchanged | **add** (guards "only an identity change forces re-verification") |
 
-> 现状基本只测了「装配时状态」和「mid-call 刷新失败」两点；**turn 间状态翻转、mid-turn 断、
-> 撤销→gate 联动、半配、并发、改配置→重验**都缺。
+> Today we basically test only two points: "state at assembly" and "mid-call refresh failure"; **state flips between turns, drops mid-turn,
+> revocation→gate linkage, half-config, concurrency, config change→re-verification** are all missing.
 >
-> **决策点 D-5：改 connector「身份」字段（凭据/邮箱/host）→ 重置 verified/token、强制重验、
-> 期间隐藏；改「非身份」字段（policy/calendar_id/显示名）不动连接。**
+> **Decision D-5: changing a connector "identity" field (credentials/address/host) → reset verified/token, force re-verification,
+> hidden meanwhile; changing a "non-identity" field (policy/calendar_id/display name) leaves the connection alone.**
 
-## 四、错误流矩阵（全链路每一步失败）—— 不留遗漏
+## 4. Error-stream matrix (failure at every step of the chain) — leave nothing out
 
-链路：`装配解析 → provider.Connected? → 注入句柄 → 插件 tool call → connector proxy → 解密 → 外部(Google/SMTP) → 回`。
+Chain: `assembly resolution → provider.Connected? → inject handle → plugin tool call → connector proxy → decrypt → external (Google/SMTP) → return`.
 
-| # | 步 | 失败模式 | 期望 | 覆盖 |
+| # | Step | Failure mode | Expected | Coverage |
 |---|---|---|---|---|
-| E1 | `provider.Connected()` | DB 读错 | 当未连隐藏 + log，不崩 | **补** |
-| E2 | 解析 | 运行时未知依赖名（防御，boot 后理论不该有） | 隐藏 + log | **补** |
-| E3 | 注入 | 句柄构建失败 | 能力隐藏 / 友好 | **补** |
-| E4 | proxy | 插件→host unix socket 不可达 | 友好降级 | 部分（plugin-down 泛测）→ **补** connector-specific |
-| E5 | 解密 | vault 损坏 / 密钥不符 | 友好，**错误里无密** | **补** |
-| E6 | Google | `freeBusy`/`events.insert` 返 500 / 403 / 429 / timeout / 网络断 | 友好降级，无 stack，无 raw provider err | **补**（现只有 conflict 正常响应 + 刷新失败） |
-| E7 | token refresh | network / 500（非 invalid_grant） | 友好降级 | **补** |
-| E8 | SMTP | 连接拒 / 认证失败 / 超时 / 5xx 收件人拒 | 友好，卡内错误 | **补**（现只有 422 pre-send） |
-| E9 | 收件人 | 非法地址（pre-send 422） | 拒，不发 | ✓ `booking-confirmation-email` |
-| E10 | 多步 partial | book 成、**owner-notify 邮件失败** | **不**回滚 booking，记录/吞 | **补**（核 `booking-owner-notify` 是否覆盖失败分支） |
-| E11 | 多步 partial | book 成、**确认信发失败** | booking 保留，卡显错 | **补** |
-| E12 | `mcp-ui:tool` | host 派发失败 / session 失效 / quota mid-action 耗尽 | 卡内友好，不挂死 | **补**（R4 新路径） |
-| E13 | 幂等 | 重复 cancel / 取消已取消 | 幂等；404 当 cancelled | 部分 ✓ `visitor-cancel-booking`(404) |
-| E14 | 幂等 | 确认信重复发 | 防重 / 明确语义 | **补** |
-| E15 | mid-stream | SSE 中断 during connector-backed tool call | 可恢复，不脏 transcript | **补** |
+| E1 | `provider.Connected()` | DB read error | Treat as not connected, hide + log, do not crash | **add** |
+| E2 | Resolution | Unknown dependency name at runtime (defensive; in theory impossible after boot) | Hide + log | **add** |
+| E3 | Injection | Handle construction fails | Capability hidden / friendly | **add** |
+| E4 | proxy | Plugin→host unix socket unreachable | Graceful degradation | Partial (generic plugin-down test) → **add** connector-specific |
+| E5 | Decrypt | Vault corrupted / key mismatch | Friendly, **no secret in the error** | **add** |
+| E6 | Google | `freeBusy`/`events.insert` returns 500 / 403 / 429 / timeout / network down | Graceful degradation, no stack, no raw provider error | **add** (today only the normal conflict response + refresh failure) |
+| E7 | Token refresh | network / 500 (not invalid_grant) | Graceful degradation | **add** |
+| E8 | SMTP | Connection refused / auth failure / timeout / 5xx recipient rejected | Friendly, error shown in the card | **add** (today only the pre-send 422) |
+| E9 | Recipient | Invalid address (pre-send 422) | Reject, do not send | ✓ `booking-confirmation-email` |
+| E10 | Multi-step partial | Booking succeeds, **owner-notify email fails** | Do **not** roll back the booking; record/swallow | **add** (check whether `booking-owner-notify` covers the failure branch) |
+| E11 | Multi-step partial | Booking succeeds, **confirmation email fails** | Booking kept, card shows the error | **add** |
+| E12 | `mcp-ui:tool` | Host dispatch fails / session invalid / quota runs out mid-action | Friendly inside the card, no hang | **add** (R4 new path) |
+| E13 | Idempotency | Repeated cancel / cancel an already cancelled booking | Idempotent; 404 treated as cancelled | Partial ✓ `visitor-cancel-booking` (404) |
+| E14 | Idempotency | Confirmation email sent twice | Dedup / explicit semantics | **add** |
+| E15 | Mid-stream | SSE interrupted during a connector-backed tool call | Recoverable, no dirty transcript | **add** |
 
-## 五、重试矩阵（第三方易抖 → 按 call-class 配重试，复用 #132 通用可配重试 infra）
+## 5. Retry matrix (third parties are flaky → configure retries per call class, reusing the #132 generic configurable retry infra)
 
-**底座原则：** 重试策略 = 架在 **#132 通用可配重试 infra** 之上的 **per-op 代码配置**。
-通用底座（退避/封顶/retryable 判定/context 打断）**不动** —— connector 操作只「配」不「改」它。
+**Base principle:** retry policy = **per-op code configuration** built on top of the **#132 generic configurable retry infra**.
+The generic base (backoff/cap/retryable decision/context cancellation) **does not change** — connector operations only "configure" it, never "modify" it.
 
-**设计点（已锁）：**
-- **D-6（锁定）：sync vs async 不是全局开关 —— 每个 connector 操作在 connector 侧按自身业务语义
-  声明自己的重试模式 + 预算（代码级 per-op）。** 确认信 / owner-notify 各挑各的；测试只验
-  「每个 op 按它声明的策略行事」，不替它们选一个全局模式。
-- **D-7（锁定）：sync 默认小预算 = 3 次，退避 1s/2s/4s，之后友好降级。硬封顶，绝不无上限：**
-  ① 次数封顶 ② **退避有 max interval 上限**（不指数无限涨）③ **总时长封顶**（context deadline，
-  例 ~10s）→ 到点立即停 + 降级，即使退避没走完。async（10×）同理：次数 + 总时长双封顶。
-  （3/1-2-4/~10s 是 sync 默认值，op 可在同一封顶 infra 内覆盖。）
-- **写幂等**：`events.insert`/`smtp send` 盲重试会双订/双发 → 只在「发送前连接失败」重，或带幂等键。
+**Design points (locked):**
+- **D-6 (locked): sync vs async is not a global switch — each connector operation declares, on the connector side and according to its own business semantics,
+  its own retry mode + budget (code-level, per op).** The confirmation email and owner-notify each pick their own; tests only verify
+  "each op behaves according to the policy it declared", and do not pick one global mode for them.
+- **D-7 (locked): the sync default is a small budget = 3 attempts, backoff 1s/2s/4s, then graceful degradation. Hard caps, never unbounded:**
+  ① attempt cap ② **backoff has a max interval** (no unbounded exponential growth) ③ **total duration cap** (context deadline,
+  e.g. ~10s) → stop immediately at the deadline + degrade, even if the backoff has not finished. Async (10×) is the same: both attempt + total duration caps.
+  (3/1-2-4/~10s is the sync default; an op can override it within the same capped infra.)
+- **Write idempotency**: blind retries of `events.insert`/`smtp send` would double-book/double-send → retry only on "connection failure before sending", or with an idempotency key.
 
-| call | 同步? | 幂等? | 重试策略 | 测试 |
+| call | Sync? | Idempotent? | Retry policy | Test |
 |---|---|---|---|---|
-| `freeBusy` / `list_slots`（读） | sync | 是 | 短预算快速退避 | 瞬时错→重→成功；耗尽→降级 |
-| `events.insert`（订，写） | sync | **否** | 仅发送前连接失败重 / 幂等键 | **重试下不双订** |
-| `cancel`（delete） | sync | 是（幂等） | 短预算 | 重→成功；重复 cancel 幂等 |
-| token refresh | sync（嵌在调用里） | 是 | 短预算快速退避；invalid_grant 不重(直接降级) | network/500→重；invalid_grant→不重→降级 |
-| 确认信 `send_confirmation` | op 声明 | **否** | op 自定（异步→10×长 / 同步→短预算） | **重试下不双发**；耗尽→卡显错 |
-| owner-notify 邮件 | async（不堵 booking） | **否** | 10×~30–60s 后台 | book 成即返；通知失败重试，**不回滚 booking** |
-| sync ingest（Obsidian） | async | 视情况 | 10×长（**本刀外**，#107/#108） | — |
+| `freeBusy` / `list_slots` (read) | sync | Yes | Short budget, fast backoff | Transient error→retry→success; exhausted→degrade |
+| `events.insert` (book, write) | sync | **No** | Retry only on pre-send connection failure / idempotency key | **No double booking under retry** |
+| `cancel` (delete) | sync | Yes (idempotent) | Short budget | Retry→success; repeated cancel is idempotent |
+| token refresh | sync (embedded in the call) | Yes | Short budget, fast backoff; no retry on invalid_grant (degrade directly) | network/500→retry; invalid_grant→no retry→degrade |
+| Confirmation email `send_confirmation` | Declared by the op | **No** | Op decides (async→10× long / sync→short budget) | **No double send under retry**; exhausted→card shows the error |
+| owner-notify email | async (does not block booking) | **No** | 10× over ~30–60s in the background | Returns as soon as booking succeeds; notify failure retries, **booking is not rolled back** |
+| sync ingest (Obsidian) | async | Depends | 10× long (**outside this cut**, #107/#108) | — |
 
-通用重试 infra（#132）本身的单测：退避计算、maxAttempts 封顶、retryable 判定（哪些错该重）、
-context 取消/超时打断重试、jitter。
+Unit tests for the generic retry infra (#132) itself: backoff calculation, maxAttempts cap, retryable decision (which errors should retry),
+context cancellation/timeout interrupting retries, jitter.
 
-## 六、回归网（验收一起跑，原样不动 = 行为等价证明）
+## 6. Regression net (run with acceptance, unchanged = proof of behavioral equivalence)
 
 `chat-book-not-connected` · `chat-book-success` · `chat-book-conflict-{busy,policy-hours,policy-leadtime,policy-weekend}` ·
 `chat-book-{public,byoai}-denied` · `chat-book-skill-not-granted` · `chat-book-quota-exhausted` ·
 `chat-book-schema-rejects-partial` · `chat-book-session-email-default` · `chat-book-token-refresh` ·
 `booking-owner-notify` · `connector-{revoked-degrades,add-modal}` · `admin-connectors-extended` ·
 `mail-{connector,connector-state,otp}` · `admin-gcal-{oauth-connect,disconnect,policy-edit}` ·
-`tool-calendar-cancel-booking`（owner-side facade，无关） · `tool-endpoint-calendar-book` · `tool-calendar-list-slots` ·
-`visitor-chat-list-slots`（F 已迁） · `mcp-skill-grant-booking` ·
-session-block-bundle · capability-acl-hierarchy 全套
+`tool-calendar-cancel-booking` (owner-side facade, unrelated) · `tool-endpoint-calendar-book` · `tool-calendar-list-slots` ·
+`visitor-chat-list-slots` (F already migrated) · `mcp-skill-grant-booking` ·
+session-block-bundle · the full capability-acl-hierarchy suite
 
-> 注：状态/错误矩阵里标 ✓ 的若机制变了（gating 走 global、cancel/email 走 tool），归「改造」桶重表达，
-> 不留在回归网；标「部分 ✓」的要补足缺口分支。
+> Note: cells marked ✓ in the state/error matrices whose mechanism changes (gating goes through global, cancel/email go through tools) move to the "rework" bucket and are re-expressed;
+> they do not stay in the regression net. Cells marked "Partial ✓" must have their missing branches filled.

@@ -1,140 +1,140 @@
-# StandMeet Job Loop — 完整产品全貌
+# StandMeet Job Loop — the full product picture
 
-> **状态：** 设计中（2026-05-20 起草）。本文档把 outbound 求职链跟现有 inbound visitor chat 接成一个完整闭环的设计决策固化下来。
-> **读者：** 实际要写这套东西的人。默认你已读 `CLAUDE.md`、读过 `job-loop-2026-05` 那条 memory。
-> **怎么反馈：** 每块结尾有编号的决策点（`L.1`、`L.2`、…）。回 `Lₙ: accept` 或 `Lₙ: change — <理由>`。没提到的视作 accept。
-
----
-
-## TL;DR — 一句话讲完
-
-owner 在 Claude Code 里问"今天 [filter] 有什么新工作"，Claude 通过 MCP 拉数据，owner 选中两个，Claude 读 corpus 给每个写一份定制 resume **草稿**，owner 在 staging 预览看过点头才正式发，发的时候自动 issue 一条 invitation（复用 access_codes 表）、把 invitation URL 编成 **QR 印在 resume 右上角**、Playwright MCP 接着填表，投出去；recruiter 拿到 PDF 扫 QR → `/<handle>?code=ABC` → 直接进现有的 visitor chat → AI 用 owner voice 答 → **闭环**。
+> **Status:** In design (drafted 2026-05-20). This document pins down the design decisions that join the outbound job-search chain to the existing inbound visitor chat as one closed loop.
+> **Readers:** Whoever actually writes this. It assumes you have read `CLAUDE.md` and the `job-loop-2026-05` memory.
+> **How to give feedback:** Each block ends with numbered decision points (`L.1`, `L.2`, …). Reply `Lₙ: accept` or `Lₙ: change — <reason>`. Anything not mentioned counts as accepted.
 
 ---
 
-## 状态分工：StandMeet 是 state holder，Claude 是 reasoning + I/O
+## TL;DR — in one sentence
 
-| 任务 | Who | 为什么 |
+The owner asks in Claude Code "what new jobs are there today for [filter]"; Claude pulls the data through MCP; the owner picks two; Claude reads the corpus and writes a tailored resume **draft** for each; the owner reviews it in a staging preview and only says yes before it is sent for real; on send, an invitation is issued automatically (reusing the access_codes table), the invitation URL is encoded as a **QR printed in the top-right corner of the resume**, and Playwright MCP then fills in the form and submits it; the recruiter gets the PDF, scans the QR → `/<handle>?code=ABC` → lands straight in the existing visitor chat → the AI answers in the owner's voice → **the loop closes**.
+
+---
+
+## Division of state: StandMeet is the state holder, Claude is reasoning + I/O
+
+| Task | Who | Why |
 |---|---|---|
-| 拉 job 数据（HTTP / RSS / parse） | StandMeet | adapter 知识 / rate limit / User-Agent / dedup |
-| 1d TTL 池子（fetch 出来的暂存） | StandMeet | Redis 状态 |
-| **挑哪条 / 排序 / 评估**  | **Claude** | owner 的口味在 corpus 里 |
-| **写 resume 草稿内容**  | **Claude** | curate raw + wiki + JD 是 LLM 工作 |
-| 渲染 PDF（固定 layout + QR） | StandMeet | 确定性 / 安全 / ATS-friendly |
-| 持久化 application + invitation | StandMeet | DB 状态 |
-| **填表自动化**  | **Claude + Playwright MCP** | 每个公司的 UI 漂移 / Playwright 不在 StandMeet 跑 |
+| Pull job data (HTTP / RSS / parse) | StandMeet | adapter knowledge / rate limit / User-Agent / dedup |
+| 1d TTL pool (staging for fetched jobs) | StandMeet | Redis state |
+| **Choose which / rank / evaluate**  | **Claude** | the owner's taste lives in the corpus |
+| **Write the resume draft content**  | **Claude** | curating raw + wiki + JD is LLM work |
+| Render PDF (fixed layout + QR) | StandMeet | deterministic / safe / ATS-friendly |
+| Persist application + invitation | StandMeet | DB state |
+| **Form-filling automation**  | **Claude + Playwright MCP** | every company's UI drifts / Playwright does not run in StandMeet |
 
-**决策点 L.1：state 跟 reasoning 的分工以上图为准。**
-
----
-
-## 名词去重
-
-- **AccessCode 就是 invitation 就是邀请码**。同一张 `access_codes` 表，同一个域类型。当初这个 schema 就是为了"我投出去的简历带个码进来跟 AI 聊"准备的。
-- 任何代码 / 文档里都不要再起 `ApplicationAccessCode` / `Invitation` 这种平行概念。
-- 自然语言里讲"邀请码"OK，"invitation" OK，"access code" OK，**指的是同一行 access_codes 数据**。
-
-**决策点 L.2：术语统一为 AccessCode，对外文案可以叫"邀请码"。**
+**Decision point L.1: the split between state and reasoning follows the table above.**
 
 ---
 
-## 完整 user journey
+## Deduplicating terms
+
+- **AccessCode is invitation is "邀请码" (invitation code)**. Same `access_codes` table, same domain type. That schema was built in the first place for "the resume I send out carries a code in, to chat with the AI".
+- Do not introduce parallel concepts like `ApplicationAccessCode` / `Invitation` anywhere in code or docs.
+- In natural language, "邀请码" is OK, "invitation" is OK, "access code" is OK; **they all mean the same access_codes row**.
+
+**Decision point L.2: the term is unified as AccessCode; outward-facing copy may call it "邀请码" (invitation code).**
+
+---
+
+## Full user journey
 
 ```
-owner @ Claude Code （持 standmeet MCP + playwright MCP）
+owner @ Claude Code (with standmeet MCP + playwright MCP)
    │
-   │ "今天 staff IC remote 有什么新工作"
+   │ "what new staff IC remote jobs are there today"
    ▼
 [1] Claude → jobs.fetch_new(criteria?)
    │      ── StandMeet ──
-   │      │ 调注册的 N 个源 (Greenhouse / Lever / Ashby / RemoteOK
+   │      │ call the N registered sources (Greenhouse / Lever / Ashby / RemoteOK
    │      │ / WWR / HN Who-is-Hiring)
-   │      │ 拿全量 → diff against job_fingerprints 去重
-   │      │ 新条目进 Redis 1d TTL 池子（key: owner_id:job_cache_id）
-   │      │ 写 fingerprint
-   │      └ 返回 N 条 job (含 cache_id / 标题 / company / JD / source_kind / apply_url)
+   │      │ take the full set → diff against job_fingerprints to dedup
+   │      │ new entries go into the Redis 1d TTL pool (key: owner_id:job_cache_id)
+   │      │ write fingerprint
+   │      └ return N jobs (with cache_id / title / company / JD / source_kind / apply_url)
    │
-   │ Claude 自己排序，按 owner.page.where.looking_for + corpus
-   │ 给出 top 推荐
+   │ Claude ranks them itself, by owner.page.where.looking_for + corpus,
+   │ and gives top recommendations
    ▼
-[2] owner: "对，#3 和 #7 这两个，准备投"
+[2] owner: "yes, #3 and #7, get ready to apply"
    │
    ▼
-[3] Claude（对每条 job）：
-   │   - 读 corpus（已有 MCP: list_recent_raw / list_recent_wiki / search）
-   │   - 读 job JD（jobs.show(cache_id) 或上一步缓存）
-   │   - 撰写 resume_content（结构化 JSON，shape 见下）
+[3] Claude (for each job):
+   │   - read the corpus (existing MCP: list_recent_raw / list_recent_wiki / search)
+   │   - read the job JD (jobs.show(cache_id) or the cache from the previous step)
+   │   - write resume_content (structured JSON, shape below)
    │   ▼
    │ Claude → resume.draft(job_cache_id, resume_content)
    │      ── StandMeet ──
-   │      │ 写 resume_drafts 表 (id, owner_id, job_cache_id, resume_content jsonb,
-   │      │ created_at)，1d TTL（跟 job 池子同周期，过期一起删）
-   │      │ 渲染**预览 PDF**（layout 是真的，QR 是占位 placeholder）
-   │      └ 返回 { draft_id, preview_pdf_url }
+   │      │ write the resume_drafts table (id, owner_id, job_cache_id, resume_content jsonb,
+   │      │ created_at), 1d TTL (same lifetime as the job pool; expires and is deleted with it)
+   │      │ render a **preview PDF** (the layout is real, the QR is a placeholder)
+   │      └ return { draft_id, preview_pdf_url }
    │
-   │ Claude 把 preview_pdf_url 给 owner，"你看看"
+   │ Claude gives preview_pdf_url to the owner: "take a look"
    ▼
-[4] owner 看 preview（在浏览器 / Claude Code 文件预览里都行）
+[4] owner looks at the preview (in a browser or the Claude Code file preview, either works)
    │
-   │   不满意 → "改一下，重点写 GraphQL 那段" → 回到 [3]，Claude
-   │           refine resume_content → resume.draft(...) 出新 draft
-   │           （旧 draft id 可以保留或 Claude 主动 discard）
+   │   Not happy → "change it, focus on the GraphQL part" → back to [3], Claude
+   │           refines resume_content → resume.draft(...) produces a new draft
+   │           (the old draft id can be kept, or Claude discards it proactively)
    │
-   │   满意 → "发吧"
+   │   Happy → "send it"
    ▼
 [5] Claude → applications.commit(draft_id)
    │      ── StandMeet ──
-   │      │ a) 从 resume_drafts 读 content；从 Redis 池子读 job snapshot
-   │      │ b) 写 applications 行（job_snapshot + resume_content 都进表）
-   │      │ c) auto-issue 一条 AccessCode：
+   │      │ a) read content from resume_drafts; read the job snapshot from the Redis pool
+   │      │ b) write an applications row (job_snapshot + resume_content both go in the table)
+   │      │ c) auto-issue one AccessCode:
    │      │     label = "{title} @ {company}"
    │      │     purpose = "applied {date} via {source_kind}"
-   │      │     tags = resume_content 里的 keywords ∪ JD 关键词
-   │      │           （Claude 在 commit 入参里给）
+   │      │     tags = keywords in resume_content ∪ JD keywords
+   │      │           (Claude passes them in the commit input)
    │      │     expires_at = now() + 180d
    │      │     max_sessions_per_member = 10
    │      │     max_turns_per_session = 50
-   │      │     suggested_questions = 默认四条
-   │      │ d) 渲染**正式 PDF**：layout 同 preview，QR 换成真 code 的
+   │      │     suggested_questions = the default four
+   │      │ d) render the **final PDF**: same layout as the preview, the QR is replaced with the real code's
    │      │    deeplink → `https://<owner-domain>/<handle>?code=ABC`
-   │      │    QR 位置：**右上角**
-   │      │ e) 删 resume_drafts 那条 + 从 Redis 池子里 evict job
-   │      │ f) 返回 {
+   │      │    QR position: **top-right corner**
+   │      │ e) delete that resume_drafts row + evict the job from the Redis pool
+   │      │ f) return {
    │      │      application_id, pdf_url, apply_url,
-   │      │      next_action_hint: "下一步：用 playwright MCP 去
-   │      │      {apply_url} 填表，简历传 {pdf_url}"
+   │      │      next_action_hint: "Next: use playwright MCP to go to
+   │      │      {apply_url} and fill in the form; upload the resume {pdf_url}"
    │      │    }
    │      └
    │
-   │ Claude 接 hint：起 Playwright，去 apply_url，填表 + 上传
+   │ Claude takes the hint: starts Playwright, goes to apply_url, fills in the form + uploads
    ▼
-[6] 投出去
+[6] Submitted
    │
-   │ ─── 一段时间后 ───
+   │ ─── some time later ───
    ▼
-[7] recruiter 收到 PDF → 扫**右上角 QR** → /<handle>?code=ABC
-   │  前端 detect ?code= → 不进 /gate 中转，直接 issue visitor
-   │  session → 进 chat（已有逻辑）
+[7] recruiter receives the PDF → scans the **top-right QR** → /<handle>?code=ABC
+   │  the frontend detects ?code= → no /gate hop, issues a visitor
+   │  session directly → enters chat (existing logic)
    │
-   │ AI 用 owner voice 答（已有 corpus + tag scope by tag intersection）
+   │ AI answers in the owner's voice (existing corpus + tag scope by tag intersection)
    │
-   │ /admin/codes 里 owner 看到这条 invitation 被扫了几次、被谁问了什么
+   │ in /admin/codes the owner sees how many times this invitation was scanned, and who asked what
 ```
 
-**决策点 L.3：staging draft → 预览 → owner 点头 → commit 这条流程必须有，不允许 "Claude 写完直接发"。**
+**Decision point L.3: the staging draft → preview → owner says yes → commit flow is mandatory; "Claude writes it and sends it straight away" is not allowed.**
 
-**决策点 L.4：QR 位置 = 右上角（先前文档错为左上角，已纠正）。**
+**Decision point L.4: QR position = top-right corner (an earlier document wrongly said top-left; corrected).**
 
-**决策点 L.5：扫 QR 来的访客落 `/<handle>?code=ABC`，前端自动起 session 进 chat，不经过 /gate 中转页（recruiter 已经表达意图，不要仪式感）。**
+**Decision point L.5: a visitor who scans the QR lands on `/<handle>?code=ABC`; the frontend starts a session automatically and enters chat, with no /gate interstitial (the recruiter has already shown intent; no ceremony).**
 
 ---
 
-## 数据模型
+## Data model
 
-### 新增表
+### New tables
 
 ```sql
--- 注册的 job 源
+-- registered job sources
 CREATE TABLE job_sources (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id      uuid NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
@@ -146,23 +146,23 @@ CREATE TABLE job_sources (
 );
 CREATE INDEX idx_job_sources_owner ON job_sources(owner_id);
 
--- 跨日 dedup 用
+-- for cross-day dedup
 CREATE TABLE job_fingerprints (
   source_id     uuid NOT NULL REFERENCES job_sources(id) ON DELETE CASCADE,
-  external_id   text NOT NULL,        -- per-source 稳定 id (gh.id / lever.id / hn.comment_id / wwr.guid …)
+  external_id   text NOT NULL,        -- per-source stable id (gh.id / lever.id / hn.comment_id / wwr.guid …)
   first_seen_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (source_id, external_id)
 );
 
--- 中间态草稿（owner 还没点头发）
--- 注意：drafts 也有 1d TTL，过期跟 Redis job 池子一起清。可选做法是
--- 直接把 draft 也塞 Redis 不进 PG —— 但 PG 方便 admin 列"未发的草稿"
--- 给 owner 看；如果决定 admin 这一面不开放，可以改 Redis。
--- 默认走 PG。
+-- intermediate drafts (the owner has not said yes to sending yet)
+-- Note: drafts also have a 1d TTL and are cleared together with the Redis job pool. An alternative is
+-- to put drafts in Redis too and not in PG — but PG makes it easy for admin to list "unsent drafts"
+-- for the owner; if we decide not to open that admin view, we can switch to Redis.
+-- Default is PG.
 CREATE TABLE resume_drafts (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id        uuid NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
-  job_cache_id    text NOT NULL,        -- Redis key 后半段，让 commit 时还能反查 job snapshot
+  job_cache_id    text NOT NULL,        -- second half of the Redis key, so commit can still look up the job snapshot
   resume_content  jsonb NOT NULL,
   preview_pdf_path text NOT NULL,
   expires_at      timestamptz NOT NULL DEFAULT now() + interval '1 day',
@@ -171,21 +171,21 @@ CREATE TABLE resume_drafts (
 CREATE INDEX idx_resume_drafts_owner ON resume_drafts(owner_id);
 CREATE INDEX idx_resume_drafts_expires ON resume_drafts(expires_at);
 
--- 持久化的申请记录
+-- persisted application records
 CREATE TABLE applications (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id        uuid NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
-  invitation_id   uuid NOT NULL REFERENCES access_codes(id),   -- 复用，不另起
-  job_snapshot    jsonb NOT NULL,        -- 投的时候 job 长什么样（commit 之后源里改了也不变）
-  resume_content  jsonb NOT NULL,        -- Claude 写的结构化内容
-  resume_pdf_path text NOT NULL,         -- 正式版（带真 QR）的产物路径
+  invitation_id   uuid NOT NULL REFERENCES access_codes(id),   -- reused, not a new table
+  job_snapshot    jsonb NOT NULL,        -- what the job looked like when applied (unchanged even if the source changes after commit)
+  resume_content  jsonb NOT NULL,        -- structured content Claude wrote
+  resume_pdf_path text NOT NULL,         -- artifact path of the final version (with the real QR)
   source_kind     text NOT NULL,
-  apply_url       text,                  -- Playwright 去填表那个 URL
+  apply_url       text,                  -- the URL Playwright goes to fill in the form
   status          text NOT NULL DEFAULT 'applied',  -- applied / interview / rejected / offered / withdrawn
   applied_at      timestamptz NOT NULL DEFAULT now(),
   last_status_at  timestamptz NOT NULL DEFAULT now(),
 
-  -- ★ 日历预留位（现在不实现，calendar PR 接进来）
+  -- ★ calendar placeholder (not implemented now; the calendar PR plugs in here)
   next_event_at   timestamptz,
   notes           text NOT NULL DEFAULT ''
 );
@@ -195,29 +195,29 @@ CREATE INDEX idx_applications_next_event ON applications(owner_id, next_event_at
   WHERE next_event_at IS NOT NULL;
 ```
 
-**不要的表**：
-- ~~`resumes`~~ — resume_content 就长在 applications 里，每条 application 一份独立内容
-- ~~`invitations`~~ — access_codes 就是
-- ~~`application_access_codes`~~ — applications.invitation_id 单字段够
+**Tables we do not want**:
+- ~~`resumes`~~ — resume_content lives in applications; each application has its own independent content
+- ~~`invitations`~~ — that is access_codes
+- ~~`application_access_codes`~~ — the single applications.invitation_id field is enough
 
-**决策点 L.6：draft 走 PG（不走 Redis），方便后续如果开放 /admin/drafts 视图。**
+**Decision point L.6: drafts go in PG (not Redis), to make a later /admin/drafts view easy if we open one.**
 
-**决策点 L.7：applications 表加 `next_event_at` + `notes` 给后续日历整合留口，但本期不实现日历功能。**
+**Decision point L.7: the applications table gets `next_event_at` + `notes` as a hook for later calendar integration, but this phase does not implement calendar features.**
 
-### Redis 池子
+### Redis pool
 
 ```
 key:  job:{owner_id}:{job_cache_id}           value: FetchedJob JSON
                                               TTL: 86400s
 ```
 
-`job_cache_id` = 短随机串（避免 Claude 在对话里看到 source 内部 id 泄露格式）。
+`job_cache_id` = a short random string (so Claude does not see the source's internal id format leak in the conversation).
 
 ---
 
 ## resume_content shape
 
-借 interviewme 的 STAR project 设计：
+Borrowed from interviewme's STAR project design:
 
 ```json
 {
@@ -227,7 +227,7 @@ key:  job:{owner_id}:{job_cache_id}           value: FetchedJob JSON
     "location_line": "Markham, Ontario, Canada",
     "links": [{"label": "github", "url": "..."}, {"label": "site", "url": "..."}]
   },
-  "summary": "1-2 句 lead-in（每个 application 由 Claude 重写 to match JD tone）",
+  "summary": "1-2 sentence lead-in (Claude rewrites it per application to match JD tone)",
   "works": [
     {"title": "...", "company": "...", "location": "...", "period": {"start": "2023-01", "end": null},
      "bullets": ["..."] }
@@ -235,41 +235,41 @@ key:  job:{owner_id}:{job_cache_id}           value: FetchedJob JSON
   "projects": [
     {"name": "Lucerna",
      "situation": "...", "task": "...", "action": "...", "result": "...",
-     "supplementary": "（optional：tech stack 或 metric）"}
+     "supplementary": "(optional: tech stack or metric)"}
   ],
   "educations": [{"school": "...", "degree": "...", "period": {...}}],
   "skills": [{"category": "languages", "items": ["Go", "TypeScript", "Python"]}, ...]
 }
 ```
 
-Claude 每次按 JD 重写 `summary` + 调整 `works.bullets` 顺序 + 选哪几个 `projects` 上 + `skills` 列表排序。**identity 段几乎不变**（除非 owner 自己改 corpus）。
+For each JD, Claude rewrites `summary` + reorders `works.bullets` + chooses which `projects` go in + sorts the `skills` list. **The identity section barely changes** (unless the owner edits the corpus).
 
-**决策点 L.8：resume_content 用 JSON 不用 markdown —— ATS 解析靠 PDF text layer，PDF 渲染端按 JSON 排版能产 deterministic 输出。**
-
----
-
-## PDF 渲染
-
-- **库**：`github.com/signintech/gopdf`（pure-Go，vector PDF，文字可选可搜，
-  ATS 能解析；同时支持 unicode + TrueType embedding）。最初 doc 草案写的
-  `react-pdf` 是 JS 库，跟 Go backend 不搭，改用 gopdf 保持单一语言栈。
-- **QR**：`github.com/skip2/go-qrcode` 服务端生成 PNG byte slice → 直接
-  embed 进 gopdf 页面。
-- **layout**：固定一个版本，**简单**。单栏，serif 正文（Source Serif），
-  mono 标签，**无图标无 sidebar 无 photo**。
-- **不用**：`html2canvas` + `jspdf`（interviewme 那条路 —— 产 image-PDF，
-  ATS 看不见文字）；headless chromium / wkhtmltopdf（额外依赖）；React PDF
-  sidecar (Node service 加部署复杂度，没有真实收益)。
-- **QR 位置**：右上角，~24mm × 24mm。
-- **URL 编码**：`https://{owner-public-url}/{handle}?code={access_code}`
-
-**决策点 L.9：不做模板选择，不做 LayoutConfig。一个 layout 一套字体，永远。**
+**Decision point L.8: resume_content uses JSON, not markdown — ATS parsing relies on the PDF text layer, and a PDF renderer that lays out from JSON produces deterministic output.**
 
 ---
 
-## 前端 `?code=` 落地行为
+## PDF rendering
 
-`/<handle>` page (现有 PublicPage) 加 `useSearchParams` 检测 `?code=`：
+- **Library**: `github.com/signintech/gopdf` (pure-Go, vector PDF, text is selectable and searchable,
+  ATS can parse it; also supports unicode + TrueType embedding). The first doc draft said
+  `react-pdf`, which is a JS library and does not fit a Go backend; switched to gopdf to keep a single-language stack.
+- **QR**: `github.com/skip2/go-qrcode` generates a PNG byte slice server-side → embedded directly
+  into the gopdf page.
+- **layout**: one fixed version, **simple**. Single column, serif body (Source Serif),
+  mono labels, **no icons, no sidebar, no photo**.
+- **Not used**: `html2canvas` + `jspdf` (the interviewme route — produces an image-PDF,
+  ATS cannot see the text); headless chromium / wkhtmltopdf (extra dependency); a React PDF
+  sidecar (a Node service adds deployment complexity with no real gain).
+- **QR position**: top-right corner, ~24mm × 24mm.
+- **URL encoding**: `https://{owner-public-url}/{handle}?code={access_code}`
+
+**Decision point L.9: no template selection, no LayoutConfig. One layout, one set of fonts, forever.**
+
+---
+
+## Frontend `?code=` landing behaviour
+
+The `/<handle>` page (the existing PublicPage) adds `useSearchParams` to detect `?code=`:
 
 ```ts
 const searchParams = useSearchParams();
@@ -277,7 +277,7 @@ const code = searchParams.get('code');
 
 useEffect(() => {
   if (code) {
-    // 直接 issue session，不进 /gate
+    // issue the session directly, skip /gate
     void fetch('/api/v1/sessions', {
       method: 'POST',
       body: JSON.stringify({ handle, code, visitor_name: '(from invitation)' }),
@@ -286,16 +286,16 @@ useEffect(() => {
 }, [code]);
 ```
 
-不要在 URL bar 留 `?code=` —— session 起来之后 `replaceState` 把 code 抹掉（避免 recruiter 转发 URL 给同事时 code 泄露）。
+Do not leave `?code=` in the URL bar — once the session is up, `replaceState` erases the code (so the code does not leak when the recruiter forwards the URL to a colleague).
 
-**决策点 L.10：session 起来后用 history.replaceState 把 `?code=` 抹掉。**
+**Decision point L.10: once the session is up, use history.replaceState to erase `?code=`.**
 
 ---
 
 ## MCP tool surface
 
 ```
-# 阶段 1
+# Phase 1
 jobs.register_source(kind, config, label) → source_id
 jobs.list_sources()                        → [{id, kind, label, config, last_fetched_at}]
 jobs.fetch_new(source_id?, since_hours?=24) → [headline row: cache_id, ttl_remaining_seconds, new]
@@ -303,98 +303,98 @@ jobs.show(job_cache_id)                    → FetchedJob (full JD)
 jobs.discard(job_cache_id)                 → ok
 jobs.unregister_source(source_id)          → ok
 
-# 阶段 2
+# Phase 2
 resume.draft(job_cache_id, resume_content, tags_for_invitation?)
                                            → {draft_id, preview_pdf_url, ttl_remaining}
 resume.update_draft(draft_id, resume_content)
                                            → {draft_id, preview_pdf_url}
 resume.discard_draft(draft_id)             → ok
 
-# 阶段 3
+# Phase 3
 applications.commit(draft_id)              → {
                                                application_id, pdf_url, apply_url,
-                                               next_action_hint: "用 playwright MCP ..."
+                                               next_action_hint: "use playwright MCP ..."
                                              }
 applications.list(status?)                 → [{id, job_snapshot.title, ...status, applied_at, next_event_at, notes}]
-applications.show(id)                      → full record + invitation stats (扫过几次 / 几次 chat)
+applications.show(id)                      → full record + invitation stats (times scanned / number of chats)
 applications.update_status(id, status, next_event_at?, notes?)
                                            → ok
 ```
 
-**决策点 L.11：Playwright 衔接靠 `next_action_hint` 字段嵌进 commit 响应，不做单独 tool。**
+**Decision point L.11: the Playwright hand-off relies on a `next_action_hint` field embedded in the commit response; no separate tool.**
 
-**决策点 L.14（2026-08-20，F-E-29 驱出来的）：`jobs.fetch_new` 交的是「池子这个窗口的整块板子」，
-不是「这一趟新捞的那几条」。** 两件事跟着定死：
+**Decision point L.14 (2026-08-20, driven out by F-E-29): `jobs.fetch_new` returns "the whole board for the pool's window",
+not "the few jobs this run newly caught".** Two things are fixed along with it:
 
-- **列表只发标题级字段**（cache_id / title / company / location / url / tags / published_at /
-  ttl_remaining_seconds / new），**不发 body_text**。一天两三百条真岗位、每条正文一两千字，
-  全塞进回执就把 owner 那一侧的上下文烧光；挑中的那几条再 `jobs.show` 读全文。
-  这也是这张表里 `fetch_new` 和 `show` 一直分开列的原因。
-- **`new=true` 表示这一趟才进池子的**。于是「今天的板子长什么样」和「跟上次比多了什么」
-  由同一个列表回答，owner 一天里问第二次不会拿到空数组。
-- **跨源去重同时作用在池子这一面**（池子按源写，重复的那条物理上有两份），
-  判谁先赢按**入池先后**。`/admin/listings` 跟这条路读同一个 `jobsuc.ListPoolBoard`，
-  两个面不可能给出不同的板子。
+- **The list sends headline fields only** (cache_id / title / company / location / url / tags / published_at /
+  ttl_remaining_seconds / new), **not body_text**. Two or three hundred real jobs a day, each body one or two thousand words —
+  stuffing all of it into the receipt burns through the owner side's context; the chosen few are then read in full with `jobs.show`.
+  This is also why `fetch_new` and `show` have always been listed separately in this table.
+- **`new=true` means it entered the pool on this run**. So "what does today's board look like" and "what is new since last time"
+  are answered by the same list, and the owner asking a second time in a day does not get an empty array.
+- **Cross-source dedup also applies on the pool side** (the pool is written per source, so a duplicate physically exists twice),
+  and the winner is decided by **order of entering the pool**. `/admin/listings` and this path read the same `jobsuc.ListPoolBoard`,
+  so the two surfaces cannot give different boards.
 
 ---
 
-## 已申请视图（/admin/applications）
+## Applied view (/admin/applications)
 
-列表，每行：
+A list; each row has:
 - status badge (`applied` / `interview` / `rejected` / `offered` / `withdrawn`)
-- "{title} @ {company}" + source kind 小字
-- applied 时间
-- **next_event_at**（如果有）—— 现在 owner 手动填，未来日历自动填
-- invitation 入口链接 → /admin/codes 看那条码扫了几次、被聊了什么
-- resume PDF 下载
-- apply_url 外链
+- "{title} @ {company}" + source kind in small text
+- applied time
+- **next_event_at** (if any) — the owner fills it in by hand now; the calendar fills it in automatically in future
+- invitation entry link → /admin/codes to see how many times that code was scanned and what was discussed
+- resume PDF download
+- apply_url external link
 
-筛选：status / source kind / 日期范围
+Filters: status / source kind / date range
 
-**未来日历整合接入位**：每条 application 行有 `next_event_at`，calendar PR 来的时候会：
-1. 把 application 当 calendar event source 之一
-2. owner 在 admin /calendar 看到聚合视图
-3. 接 ICS 输出或 Google Calendar push（再议）
+**Hook for future calendar integration**: every application row has `next_event_at`; when the calendar PR comes it will:
+1. treat applications as one of the calendar event sources
+2. the owner sees an aggregated view in admin /calendar
+3. connect ICS output or Google Calendar push (to be discussed)
 
-**决策点 L.12：本期不做日历，但 applications.list 返回 `next_event_at`，UI 已经显示这一列（手动填）。**
-
----
-
-## 阶段拆分跟实现顺序
-
-详见 task #80–#84。
-- #80 Phase 1：jobs.* + 6 个 fetcher + Redis TTL 池子
-- #81 Phase 2：resume.* + react-pdf 渲染 + STAR shape
-- #82 Phase 3：applications.* + auto-issue invitation + 右上角 QR + `/<handle>?code=` 前端逻辑
-- #83 Phase 4：next_action_hint 引导 playwright（不做独立 tool）
-- #84 把愿景写进 CLAUDE.md mirror
-
-依赖：80 → 81 → 82。83 可以跟 82 同时做（同一个 commit 响应字段）。84 任何时候都能做。
+**Decision point L.12: no calendar this phase, but applications.list returns `next_event_at`, and the UI already shows that column (filled in by hand).**
 
 ---
 
-## Open questions（先记着，不阻塞实现）
+## Phase split and implementation order
 
-- **resume_content "种子"**：第一次 owner 投第一个 job 之前，corpus 里可能没有 work history（owner 还没通过 raw_dump 喂进自己的简历素材）。是否要个 `resume.seed_identity()` MCP tool 让 owner 一次性把基础 identity 灌进 wiki？或者让 Claude 第一次 draft 时主动问 owner 缺什么然后让 owner 在对话里口述 → Claude 用现有 raw_dump 落 corpus。**倾向后者**，不开新 tool。
+See tasks #80–#84.
+- #80 Phase 1: jobs.* + 6 fetchers + Redis TTL pool
+- #81 Phase 2: resume.* + react-pdf rendering + STAR shape
+- #82 Phase 3: applications.* + auto-issue invitation + top-right QR + `/<handle>?code=` frontend logic
+- #83 Phase 4: next_action_hint guides playwright (no separate tool)
+- #84 Write the vision into the CLAUDE.md mirror
 
-- **draft 跟 job 池子的耦合**：draft 表的 `job_cache_id` 指 Redis 池子，过期了 commit 会失败。两种处理：
-  - (a) draft 创建时立刻把 job snapshot 复制进 draft 行 → commit 时直接用 draft 里的 snapshot
-  - (b) 保持现状，commit 时如果 Redis miss 报错让 owner / Claude 重 fetch
-  - **倾向 (a)** —— 数据冗余但行为 robust，draft 跟 job 池子解耦。**决策点 L.13：draft 创建时 snapshot job 进 draft 行。**
-
-- **invitation 反向追踪**：owner 想知道"我投 Vercel 那条码被扫了没"。已有 /admin/codes 看到每条 code 的 member 列表。**够用**，不另起 reporting。
-
-- **撤回**：owner 想撤回一份 application（比如已经接了别家）。需求是：(a) 标记 status=withdrawn (b) revoke invitation。`applications.update_status(id, 'withdrawn')` 内部 cascade 调 `revoke code(invitation_id)`。
-
-- **公司碰巧两次扫同一个 QR 进同一个 invitation**：access_codes 现有 `max_sessions_per_member=10` 已经管这事。
+Dependencies: 80 → 81 → 82. 83 can be done alongside 82 (same commit response field). 84 can be done any time.
 
 ---
 
-## 不做的事（明确划界）
+## Open questions (noted for now, not blocking implementation)
 
-- ❌ Wellfound / LinkedIn / Indeed 的 server 端 scrape（反爬 + TOS + 法律）。如果以后要做 LinkedIn，走 owner-side browser 扩展（owner 自己的 cookie 自己 session），不进 StandMeet server。
-- ❌ resume 模板选择 / 排版自定义。一个 layout 永远。
-- ❌ cover letter 单独 artifact。如果需要 cover letter，Claude 写完直接给 Playwright 填进 application form 的 textarea；StandMeet 不存 cover letter 文件。
-- ❌ "为我自动 daily fetch jobs" 定时任务。fetch 是 on-demand 的（owner 在 Claude 里主动问），StandMeet 不蓄水。
-- ❌ AI 全自动决定哪个 job 投。owner 必须看 draft 点头才 commit。
-- ❌ 邮件通知 / Slack 通知 / 多端推送。已申请的 status 变化靠 owner 自己 update（或未来 calendar 拉过来）。
+- **resume_content "seed"**: before the owner applies to the very first job, the corpus may have no work history (the owner has not yet fed their resume material in via raw_dump). Should there be a `resume.seed_identity()` MCP tool that lets the owner pour basic identity into the wiki in one go? Or should Claude, on the first draft, proactively ask the owner what is missing, have the owner dictate it in the conversation → Claude lands it in the corpus with the existing raw_dump. **Leaning towards the latter**; no new tool.
+
+- **Coupling between drafts and the job pool**: the draft table's `job_cache_id` points into the Redis pool; once it expires, commit fails. Two ways to handle it:
+  - (a) copy the job snapshot into the draft row as soon as the draft is created → commit uses the snapshot in the draft directly
+  - (b) keep things as they are; if commit hits a Redis miss, return an error and let the owner / Claude re-fetch
+  - **Leaning towards (a)** — redundant data but robust behaviour; drafts are decoupled from the job pool. **Decision point L.13: snapshot the job into the draft row when the draft is created.**
+
+- **Reverse-tracking invitations**: the owner wants to know "has the code from my Vercel application been scanned?". /admin/codes already shows each code's member list. **Good enough**; no separate reporting.
+
+- **Withdrawal**: the owner wants to withdraw an application (e.g. they already accepted another offer). The requirement is: (a) mark status=withdrawn (b) revoke the invitation. `applications.update_status(id, 'withdrawn')` internally cascades to `revoke code(invitation_id)`.
+
+- **A company happens to scan the same QR twice into the same invitation**: access_codes' existing `max_sessions_per_member=10` already handles this.
+
+---
+
+## Out of scope (explicit boundary)
+
+- ❌ Server-side scraping of Wellfound / LinkedIn / Indeed (anti-scraping + TOS + legal). If we ever do LinkedIn, it goes through an owner-side browser extension (the owner's own cookies, the owner's own session), not into the StandMeet server.
+- ❌ Resume template selection / custom layout. One layout forever.
+- ❌ Cover letter as a separate artifact. If a cover letter is needed, Claude writes it and hands it straight to Playwright to fill into the application form's textarea; StandMeet does not store cover letter files.
+- ❌ A scheduled "auto daily fetch jobs for me" task. Fetch is on-demand (the owner asks in Claude); StandMeet does not stockpile.
+- ❌ AI fully automatically deciding which job to apply to. The owner must look at the draft and say yes before commit.
+- ❌ Email notifications / Slack notifications / multi-device push. Status changes on applications rely on the owner updating them (or the future calendar pulling them in).

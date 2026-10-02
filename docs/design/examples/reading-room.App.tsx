@@ -93,11 +93,11 @@ function Reader({ note }: { note: Note | null }) {
     <article className="note">
       <div className="mono">from the corpus · {note.updated_at.slice(0, 10)}</div>
       <h3>{note.title}</h3>
-      {/* 只渲摘要，全文给到实例自己的阅读器。
-          原因不是偷懒：`AnswerText` 认的是**行内**标记，笔记正文是完整 markdown ——
-          直接印会把 `#` 标题、`>` 引用、`[链接](…)` 原样摆给读者，那不是"没样式"，
-          那是把源码当正文。而 SDK 里没有块级渲染器（见 F-P-1）。
-          在缺的东西补上之前，页面**明说自己只给引子**，比假装能读全文诚实。 */}
+      {/* Render only the excerpt; the full text goes to the instance's own reader.
+          This is not laziness: `AnswerText` understands **inline** markup, and a note body is full markdown —
+          printing it directly would put `#` headings, `>` quotes and `[links](…)` in front of the reader as-is. That is not "unstyled";
+          that is showing source code as the text. And the SDK has no block-level renderer (see F-P-1).
+          Until the missing piece is filled in, the page **says outright that it only gives a lead-in**, which is more honest than pretending it can show the full text. */}
       <AnswerText text={note.excerpt} paragraphClassName="body" />
       <a className="mono out" href={`/wiki/${note.path}`}>read it in full ↗</a>
       <div className="tags">
@@ -110,8 +110,8 @@ function Reader({ note }: { note: Note | null }) {
 function Ask() {
   const chat = useChatSession({ mode: "public", visitor_name: "reader" });
   const [draft, setDraft] = useState("");
-  // 按 role 走，不按下标配对：消息形状是 {id, role, text}，
-  // 第一版我照常见约定写了 .content，于是问和答都渲成空串。
+  // Pair by role, not by index. The message shape is {id, role, text};
+  // the first version followed the common convention and read .content, so questions and answers all rendered as empty strings.
   const turns: { q: string; a: string }[] = [];
   for (const m of chat.messages) {
     if (m.role === "visitor") turns.push({ q: m.text, a: "" });
@@ -122,9 +122,9 @@ function Ask() {
       <div className="mono" data-sm="ask-scope">
         {hasVisitorGrant() ? "ask · you are here on a code" : "ask · answered from the corpus"}
       </div>
-      {/* 自带 key 这条路只在**没人带授权**的时候给。带着码进来的读者手里那份比自带 key 大，
-          而且是 owner 给的 —— 再问一次「要不要用你自己的 key」，等于把 owner 的决定
-          交回给读者。判断在 SDK 里（`byoaiOffered`），页面只负责渲染。 */}
+      {/* The bring-your-own-key path is offered only when **nobody holds a grant**. A reader who came in on a code holds more than a BYO key gives,
+          and the owner gave it — asking again "do you want to use your own key?" hands the owner's decision
+          back to the reader. The decision lives in the SDK (`byoaiOffered`); the page only renders. */}
       {byoaiOffered()
         ? <a className="mono out" href="/gate" data-sm="byok">bring your own key ↗</a>
         : null}

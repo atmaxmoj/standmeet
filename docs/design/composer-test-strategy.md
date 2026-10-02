@@ -1,7 +1,7 @@
 # Résumé composer — complete test strategy
 
-Owner directive (2026-09-06): "停下来好好想一下完整的测试策略，把所有的状态和验证点都想好了，然后开始写测试
-… 至少要二十多个测试 … 看看现有测试，集合着一起弄." This doc is that strategy. Write no new composer
+Owner directive (2026-09-06): "stop and think properly about a complete test strategy, work out all the states and
+checkpoints, then start writing tests … at least twenty-some tests … look at the existing tests and fold them in together." This doc is that strategy. Write no new composer
 test until this list is agreed. Source inventory: the 23 existing specs (see composer-v2-backlog.md).
 
 ## 1. The one rule
@@ -82,8 +82,8 @@ Disposition: **NEW** · **REWRITE** existing · **EXPAND** existing · **KEEP** 
   order (not just the form). → EXPAND `draft-composer-reorder` (today form-only).
 - **D3. Canvas drag-reorder (P3-b).** Drag a section on the canvas → order flips → PDF order. → NEW,
   gated on building P3-b.
-  - **Drag MUST be a real Playwright pointer gesture** (owner directive: "typst 一定要真的 pw 拖拽,
-    然后看是否拖拽成功"): hover the handle, `page.mouse.down()`, `page.mouse.move(...)` in several
+  - **Drag MUST be a real Playwright pointer gesture** (owner directive: "for typst it must be a real Playwright drag,
+    then check whether the drag succeeded"): hover the handle, `page.mouse.down()`, `page.mouse.move(...)` in several
     steps across the target, `page.mouse.up()` — NOT `dispatchEvent`, NOT calling the reorder handler
     directly. Then ASSERT the drag SUCCEEDED by reading the new order in the rendered artifact (preview
     SVG / committed PDF), not just component state. The same rule applies to D2. A drag guard that

@@ -148,7 +148,7 @@ what fails before the code exists.
 - **B1 — fiber-id derivation (UT + wiring, no behavior change).** Introduce `FiberID` (a small type),
   `RootFiber` sentinel, and `fiberSchemaID(fiberID, blockID)`; UT the derivation + the `_root`
   back-compat (today's `mcp_<block>` == the `_root` fiber). No caller changes yet → suite green
-  verbatim. This is the "基础零件".
+  verbatim. This is the "basic part".
 - **B2 — session + assembly carry FiberID.** Thread bundle → FiberID into `session.go`; default `_root`.
   Parity: the whole agent-use suite stays green verbatim (FiberID present, still `_root` everywhere).
 - **B3 — per-fiber binding + provisioning (item 6/7 e2e).** Move the store/config binding to

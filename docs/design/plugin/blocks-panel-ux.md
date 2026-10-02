@@ -61,7 +61,7 @@ too"). This plan renames **no backend, no MCP op, no DB, no prod state**.
 - The code's group control (`CodeBundleBlock` / the group picker) states the mechanism in its
   label and carries the (B) tooltip. An owner reads how to attach a group without prior knowledge.
 
-## Acceptance — 怎么算做完
+## Acceptance — what counts as done
 
 1. `grep -ri fiber app/src/i18n app/src/components` returns **zero owner-visible hits** (code
    comments may keep the internal word). Chinese no longer prints "fiber".

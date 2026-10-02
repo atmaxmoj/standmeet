@@ -8,7 +8,7 @@ point at, and a live-transcript link is valid for 24 hours.
 
 2026-09-30, in the owner's words (summarised):
 
-- "可以自定义一些事件 … 比如某个 code 有人第一次回答 … 或者某个 microsite 的数据有了新的改动，都可以作为登记事件".
+- "let me define some custom events … for example someone answering on a certain code for the first time … or a certain microsite's data getting a new change — any of these can be registered as events".
 - Story 3 (recruit): a recruiter uses my code and starts talking to "me". Through eiab + im-bridge I get a
   card on WhatsApp saying someone started a conversation. I tap the link and see the conversation's
   transcript **live, streaming**.

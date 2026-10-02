@@ -40,7 +40,7 @@
 - **Steps:** attach an image + a PDF to a wiki entry → note where they render → delete the entry from `/admin/corpus` → reload the reader and re-open any URL you had for those files.
 - **Expected:** the entry is gone and **its files are gone from the real bucket** — the previously-working object URLs stop serving. No orphan bytes survive an entry deletion (blob lifetime ⊆ entry lifetime).
 - **Mock gap:** the e2e deletes via MCP against dev MinIO; a real store with versioning / soft-delete / a lifecycle policy can keep serving an object the app believes it deleted.
-- **Backing test:** `genre-assets.spec.ts` (`${genre}:删掉这条语料 → 它的素材跟着没`)
+- **Backing test:** `genre-assets.spec.ts` (`${genre}: delete this corpus entry → its assets go with it`)
 
 ### 7 — Media inherits the entry's visibility (no side door)
 - **Steps:** put an image on a wiki entry that one access code **can** read and another **cannot**. Open the reader as each visitor in turn. Then take the image's URL you got as the permitted visitor and open it as the other one.
@@ -50,7 +50,7 @@
 
 ### 8 — The output reader is the same product as the wiki reader
 - **Steps:** on an output entry, attach an image and `insert into body`, set a cover plus a `cover_headline`, attach a real PDF → save → open `/output/<path>` as a visitor whose code grants `output://**` and read top to bottom: hero → inline image → download area. Then open the same URL with a code that does **not** grant output.
-- **Expected:** all three render, and they look like the same设置 on a wiki entry — same component, same hero proportions, same download row with a real filename and a real size. The excluded visitor sees neither the entry nor any trace of its media.
+- **Expected:** all three render, and they look like the same setup on a wiki entry — same component, same hero proportions, same download row with a real filename and a real size. The excluded visitor sees neither the entry nor any trace of its media.
 - **Mock gap:** the output landing used to return only `path/title/body/excerpt/updated_at`, so a `standmeet-asset:<id>` in the body was **silently stripped** by react-markdown's urlTransform — an empty image slot, a clean console, and a body-text assertion that still passed. That class of failure (a hole with no exception) only shows up when you put the two genres side by side. This view is also the **SDK's public contract** (`sdk/packages/core/src/types.ts`), so a field added on one side and not the other surfaces first in an SDK consumer → glance at [[sdk-embed]].
 - **Backing test:** `genre-assets-reader.spec.ts` (`output 的 reader 也渲素材`)
 

@@ -21,7 +21,7 @@ There is **no dsh-specific registry**. The dsh harness (deepseek-harness) uses p
   `apps/desktop/src/project-manager.ts:305-319`). That field is **not** in npm's registry metadata
   (npm strips custom top-level keys) — it is only in the tarball, so install must fetch+extract to verify.
 
-So **"蹭 dsh 的市场" = npm search on `@deepseek-ai/cordis-plugin` / `koishi-plugin-`**, gated on the
+So **"piggyback on dsh's marketplace" = npm search on `@deepseek-ai/cordis-plugin` / `koishi-plugin-`**, gated on the
 `dsh.bundle.patch` marker at install.
 
 ## Model it on the skills marketplace (the working precedent)

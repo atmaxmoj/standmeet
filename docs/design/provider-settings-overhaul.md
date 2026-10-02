@@ -14,7 +14,7 @@ test-first. Gas/exhaustion detail lives in `public-free-tier-inference.md`; this
 | 5 | No admin **Provider settings** section; `providers.create` is panel/MCP-only; the public tier has no UI knob; code→provider isn't surfaced. | admin nav + `app/src/components/admin/sections/*`; backend `owner_providers` + ops already exist. | Build the section (below). |
 | 6 | Upstream 429 surfaces as a generic 500 (sentinels defined, never produced). | `backend/internal/conversation/inference/errors.go`, `eino_model.go:142`. | Map upstream 429 → `ErrRateLimited` (optional backstop). |
 | 7 | (verify) Public BYOAI enable-gate may not be enforced server-side — the session issuer keys off the request field, not the owner's `BYOAISettings.Enabled`. | `backend/.../conversation/usecase/visitor_public.go` (sessions issue). | Verify; if unenforced, reject BYOAI at session issue when the owner disabled it. |
-| 8 | Provider row shows **"充值" (recharge) + raw token count + "移除计量"** — misframed. Gas is a token-budget cap, not a purchasable balance, so "recharge" reads as money. It also shows on the owner's paid **default** provider, where a token budget is meaningless. | admin provider row UI (the `providers` section). | Reframe: no "充值". Show gas as an optional **"token budget + refill schedule (`gas_refill_cron`)"**, and surface it only for a **metered / public** provider, not the paid default. "移除计量" = clear the budget (`gas_tokens=null`, unmetered) — keep, relabel plainly. |
+| 8 | Provider row shows **"recharge" + raw token count + "remove metering"** — misframed. Gas is a token-budget cap, not a purchasable balance, so "recharge" reads as money. It also shows on the owner's paid **default** provider, where a token budget is meaningless. | admin provider row UI (the `providers` section). | Reframe: no "recharge". Show gas as an optional **"token budget + refill schedule (`gas_refill_cron`)"**, and surface it only for a **metered / public** provider, not the paid default. "remove metering" = clear the budget (`gas_tokens=null`, unmetered) — keep, relabel plainly. |
 | 9 | The gas/budget control is opaque — "gas" is internal jargon; a visitor of the panel can't tell what it does. | admin provider row UI. | Relabel "gas" → **"token budget"** in the UI, and add a **hover tooltip** explaining it in plain words: a self-set cap on how many tokens this provider may spend per period; it refills on the schedule; when spent, visitors are asked to get a code or bring their own key. Applies to every non-obvious control in the provider row (default / public markers too). |
 
 ## Provider settings model (owner's spec, mapped to what exists)
@@ -44,7 +44,7 @@ only the gas-refill cron (#4) + the two compat fixes (#2, #3) + the BYOAI schema
 
 - New nav entry **Providers** (its own section under settings), listing provider rows: label,
   provider preset, model, key status, and two radio-style markers **default** / **public**.
-- **No "充值".** A provider's budget shows only when it is **metered** (the public/free tier): an
+- **No "recharge".** A provider's budget shows only when it is **metered** (the public/free tier): an
   optional **token budget** + a **refill schedule** (`gas_refill_cron`, e.g. daily). Clearing it
   (`gas_tokens=null`) makes the provider unmetered. The paid **default** provider shows no budget
   control by default (a token cap on your own paid key is meaningless).
@@ -83,7 +83,7 @@ Remaining guards are written as the FIRST step of their item (they reference tes
 features / a cron trigger that are part of that item's build — writing them now would be guessing):
 - #4 gas auto-refill: a pure `dueForRefill(cron, filledAt, now)` unit test + an e2e that a refilled
   budget re-serves — written with the checker job (so the func isn't dead code).
-- #8 budget UI reframe (no "充值", tooltip, hidden on paid default) — e2e in `api-mcp`, written with
+- #8 budget UI reframe (no "recharge", tooltip, hidden on paid default) — e2e in `api-mcp`, written with
   the `ProviderGasControl` relabel + new testids.
 - #9 public exhaustion CTA (visitor sees get-a-code / BYOAI) — visitor e2e, written with the new
   CTA testid.
@@ -110,7 +110,7 @@ VERIFIED GREEN:
 REMAINING (gated on a backend rebuild + stable Docker):
 - #4 migration upgrade-path test on a POPULATED volume (MANDATORY before ship — [[schema-lives-in-the-volume]]).
 - #4 e2e: budget exhausts → refill tick → re-serves.
-- #8 budget UI reframe (no "充值"; "token budget" + refill-cron field + tooltip) + guard.
+- #8 budget UI reframe (no "recharge"; "token budget" + refill-cron field + tooltip) + guard.
 - #9 public exhaustion CTA (get-a-code / BYOAI on gas_exhausted) + guard.
 - Full relevant guard suite green on the rebuilt stack, then SHIP (merge main → tag → CircleCI →
   instance_upgrade).

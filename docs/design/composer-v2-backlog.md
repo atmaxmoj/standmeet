@@ -1,6 +1,6 @@
 # Composer v2 backlog — visual designer direction
 
-**Decision (2026-09-06):** the owner reversed job-loop.md **L.9** ("一个 layout 一套字体，永远",
+**Decision (2026-09-06):** the owner reversed job-loop.md **L.9** ("one layout, one font set, forever",
 ATS-only). The resume composer becomes a **full visual designer** (TypstMe-style): drag layout,
 font color, dividers, in-place edit. ATS-friendliness is no longer the hard constraint — the owner
 chose experience over strict ATS determinism. Update L.9 in job-loop.md to record this reversal.
@@ -22,12 +22,12 @@ every item below is a gap the green test suite missed.
 - [ ] **C. Canvas drag-to-reorder (P3-b).** Drag a section ON the canvas → reorders + persists
   (reuse Phase-1 `reorder`). Today drag exists only in the side panel; the canvas is pencils-only.
   *Guard:* drag section B above A on the canvas → order flips → persists on reopen.
-- [ ] **D. Declutter pencils.** Every page-1 field shows an always-on ✎ hotspot ("全是小铅笔").
+- [ ] **D. Declutter pencils.** Every page-1 field shows an always-on ✎ hotspot ("little pencils everywhere").
   Reveal on hover/focus of the field region instead. Canvas-overlay only (does not touch the PDF).
 - [ ] **E. Font color.** Owner can set text color (sanctioned by the L.9 reversal). Touches the
   template (`fill:`) + a color control + persistence.
 - [ ] **F. Divider lines.** Owner can insert a horizontal rule between sections (`line(...)`).
-- [ ] **G. Footer URL "水印".** The template footer prints the access URL as faint text bottom-right
+- [ ] **G. Footer URL "watermark".** The template footer prints the access URL as faint text bottom-right
   (`classic.typ` `footer:` → `#qr-url`), on top of the header QR. Owner reads it as a watermark.
   Make it optional / remove it (the QR already carries the URL).
 - [ ] **H. Preview QR uses the internal host.** The preview placeholder URL came out as
@@ -37,7 +37,7 @@ every item below is a gap the green test suite missed.
   qrURL uses on sijie — a recruiter scanning the internal host resolves nothing. Verify committed vs
   preview separately.
 
-## Re-imagined test matrix (owner: "这边的测试真的要重新想象，一点也不全面")
+## Re-imagined test matrix (owner: "the tests here really need to be re-imagined; they are not comprehensive at all")
 
 **Why the green suite missed everything:** every composer spec asserted on **plumbing** — a testid is
 visible, an SVG element appears, an array reorders. NONE asserted on the **artifact**: what the
@@ -80,5 +80,5 @@ specs as their coverage moves into the sweep.
 - Side-panel drag-reorder: real HTML5 DnD, `draft-composer-reorder` genuinely GREEN (dragTo flips
   the array + persists on reopen).
 - WASM render path: `draft-composer-wasm-preview` GREEN (data-status=ready, SVG, recompiles). The
-  "渲染中" the owner saw was the 12.8MB compiler WASM loading on first open — slow, not hung.
+  "rendering" the owner saw was the 12.8MB compiler WASM loading on first open — slow, not hung.
   (Consider a clearer first-load indicator, low priority.)

@@ -1,7 +1,7 @@
 # Q5 — MCP client self-update / version-skew
 
-Status: **design 2026-09-06.** Owner: "instance update 的时候,会不会给自己这个 mcp(-client) 也 update,
-有时候就是应该会变的。"
+Status: **design 2026-09-06.** Owner: "when the instance updates, does it also update its own mcp(-client)?
+Sometimes that really should change too."
 
 ## The problem
 `instance.upgrade` recreates the **instance** containers (backend/app/…). The **mcp-client**

@@ -1,13 +1,13 @@
 # Voice input: speech to text in the backend
 
-Status: APPROVED 2026-10-01 (owner: "语音输入，你就做吧 … 记得语音处理是自己的 infra，做好业务解耦";
-then, on a first version that ran the engine as a separate service: "是后端代码里面 infra 啊").
+Status: APPROVED 2026-10-01 (owner: "voice input — go ahead and build it … remember that speech processing is our own infra; keep the business code decoupled from it";
+then, on a first version that ran the engine as a separate service: "I meant infra inside the backend code").
 
 ## What the owner asked
 
-- 2026-09-30: "质量很好的 stt 模型，最好前端能跑". The survey found browser-only Whisper weak on
+- 2026-09-30: "a high-quality STT model, ideally one that runs in the frontend". The survey found browser-only Whisper weak on
   Chinese (whisper-tiny zh CER ≈ 71%), no mixed-language speech, and 75–200 MB per visitor.
-- 2026-09-30, decided: "服务器端转写吧" — the visitor's browser records, the instance transcribes.
+- 2026-09-30, decided: "let's transcribe on the server" — the visitor's browser records, the instance transcribes.
 - 2026-10-01: the engine lives in the backend code's own infra layer (`internal/infra/stt`), and the
   business code is decoupled from it. No separate service, no separate image: an upgrade brings it.
 
@@ -24,7 +24,7 @@ then, on a first version that ran the engine as a separate service: "是后端�
 3. **The browser sends 16 kHz mono 16-bit WAV.** The SDK decodes its own recording (whatever the
    browser recorded: webm/opus, mp4/aac) with the Web Audio API and resamples it, so the backend
    needs no ffmpeg. Anything else is refused with a sentence.
-4. **A pause sends it.** Owner 2026-10-02: "自动识别断句自行发送". The browser watches the mic's
+4. **A pause sends it.** Owner 2026-10-02: "detect the end of a sentence and send it by itself". The browser watches the mic's
    level; once speech has been heard, a 1.2 s pause ends the recording, and the transcript is sent
    as the question (joined to anything already typed). Pressing the mic again ends it early. A
    recording that hears nothing for 8 s stops with "nothing heard".

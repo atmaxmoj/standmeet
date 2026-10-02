@@ -11,7 +11,7 @@ Today an owner-side request is trusted on ONE factor:
 
 Both are enough on their own, so anything holding the raw material — the owner's password in a
 creds file, a leaked admin session, a naked `curl`/script — can drive the owner API directly. That
-is exactly the "从中间弄" (side-channel) path the agent kept taking (Coolify API, `curl POST
+is exactly the "go through the middle" (side-channel) path the agent kept taking (Coolify API, `curl POST
 /api/admin/...`). The product could not tell the legitimate front doors apart from a raw call.
 
 ## The layer
@@ -26,9 +26,9 @@ or the session — it is layered on top, owner-side only (visitor/public surface
   server-side, **never exported** (not in any creds file, not returned by any API). It is the HMAC
   signing secret. → a JWT from instance A is invalid on instance B; nobody without server access
   can forge one offline.
-- **Claims**: `iat` + `exp` (short-lived, time-bound — the "加上时间"), `iss` = this instance id,
+- **Claims**: `iat` + `exp` (short-lived, time-bound — the "add a time element"), `iss` = this instance id,
   `sub` = owner id, `aud` = `owner-api`, and `via` = `gui` | `mcp` (which door minted it; for `mcp`
-  also the `key_id`, so an action stays attributable/revocable). ("各种信息" = these claims.)
+  also the `key_id`, so an action stays attributable/revocable). ("all kinds of information" = these claims.)
 - Signed HS256 with the instance salt.
 
 ### Mint points (the two legitimate doors)
@@ -51,7 +51,7 @@ or the session — it is layered on top, owner-side only (visitor/public surface
 - If the GUI mint is **gated on the human/turnstile check** (which the gate already has), a headless
   agent cannot mint via GUI; the only machine path left is the **MCP key** — which is the auditable,
   revocable, owner-provisioned door by design ([[owner-can-be-the-bot]], [[owner-mcp-driving-path]]).
-  This is what actually makes "不能随便弄" true.
+  This is what actually makes "it can't just be done any old way" true.
 
 **Recommendation:** gate the GUI mint on the human check; leave the MCP key as the sanctioned machine
 door. Then: human at a browser → JWT; owner-provisioned signed key → JWT; a naked script → neither → 401.

@@ -71,7 +71,7 @@ are complete end to end (GUI + MCP + usage + e2e). Nothing here needs new work.
 No GUI, no MCP op. `CodeRepo.SetBundle`/`SetBundleByID` (incl. unbind) exist but are called only
 from `codes.create`'s `bindBundle`. An owner who assembles a group *after* issuing a code, or
 wants to move a code to another group, has to revoke and reissue — losing the code string and any
-embeds keyed on it. This is the deeper half of "怎么挂到 code 上我没看懂": for an existing code
+embeds keyed on it. This is the deeper half of "I couldn't figure out how to attach it to a code": for an existing code
 there is simply no attach control.
 - **Plan (thin — reuse the repo method):**
   1. `codes.set_bundle` op (`{code_id, bundle | bundle_id}`, empty = unbind) over `SetBundle*`;

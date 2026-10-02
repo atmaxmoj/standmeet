@@ -1,13 +1,13 @@
 # Q1 — Homepage: serve the default on-empty, not a stored build
 
-Status: **design 2026-09-06.** Owner: "我 homepage 从没编辑过,就该永远是空的,default 时判空然后
-default 的啊;你不会把 default 当数据填进数据库了吧?"
+Status: **design 2026-09-06.** Owner: "I've never edited my homepage, so it should always be empty — for the default you check for empty and then
+serve the default; you didn't fill the default into the database as data, did you?"
 
 ## Root cause (confirmed, evidence)
 `backend/internal/owner/usecase/default_homepage.go` `InstallDefaultHomepage` runs at claim: it
 **writes the default `App.tsx` into the owner's storage** as the reserved `home` microsite draft;
 `microsite_autopublish.go` then builds + promotes it. So the owner's `home` is a **materialized copy
-frozen at claim-time's code** — a second source of truth (violates 十条 #1/#2). sijie was claimed at
+frozen at claim-time's code** — a second source of truth (violates the ten rules, #1/#2). sijie was claimed at
 an old version → its `home` is the old horizontal, pre-`@source`-fix build. Widget code + its test
 (`default-homepage-cards-expand-inline` → `flexDirection:column`) are correct; the artifact is stale.
 

@@ -1,284 +1,286 @@
-# 蒸馏引擎工程设计
+# Distillation Engine Engineering Design
 
-理论设计见 distillation-design.md。本文定义工程实现：架构总览、编排架构、进程模型、技术选型、存储层、数据流、对外接口、崩溃恢复、云化路径。
+For the theoretical design, see distillation-design.md. This document defines the engineering implementation: architecture overview, orchestration architecture, process model, technology choices, storage layer, data flow, external interfaces, crash recovery, and the path to the cloud.
 
 ---
 
-## 架构总览
+## Architecture overview
 
 ```
-  采集适配器                                                     管理中心          应用层
+  Capture adapters                                             Management center  Application layer
   (Screenpipe/IDE/...)                                         (Electron)     (Claude Code/Cursor/...)
         │                                                          │                │
         │ ① Observation Protocol                                   │                │
         │   (CloudEvents)                                          │                │
         ▼                                                          │                │
 ┌───────────────────────────────────────────────────────────────────┼────────────────┤
-│  蒸馏引擎 daemon（单进程）                                         │                │
+│  Distillation engine daemon (single process)                      │                │
 │                                                                    │                │
 │  ┌──────────────────────────────────────────────────────────────┐ │                │
-│  │  EventBus（抄 Home Assistant）                                │ │                │
-│  │  所有层间通信走事件总线，统一 TriggerProtocol                  │ │                │
+│  │  EventBus (copied from Home Assistant)                        │ │                │
+│  │  All inter-layer communication goes over the event bus,       │ │                │
+│  │  with one unified TriggerProtocol                             │ │                │
 │  └──────────────────────┬───────────────────────────────────────┘ │                │
 │                          │                                         │                │
 │  ┌──────────────────────┼───────────────────────────────────────┐ │                │
-│  │  蒸馏管线                                                     │ │                │
+│  │  Distillation pipeline                                        │ │                │
 │  │                                                               │ │                │
-│  │  秒级（规则，$0）→ micro_features                             │ │                │
-│  │  任务级（Haiku）→ episodes                                    │ │                │
-│  │  小时级（统计，$0）→ rhythm_patterns                          │ │                │
-│  │  天级（Sonnet agent loop）→ daily_digests                     │ │                │
-│  │  周级（Opus agent loop）→ playbook/identity/meta              │ │                │
+│  │  Second level (rules, $0) → micro_features                    │ │                │
+│  │  Task level (Haiku) → episodes                                │ │                │
+│  │  Hour level (statistics, $0) → rhythm_patterns                │ │                │
+│  │  Day level (Sonnet agent loop) → daily_digests                │ │                │
+│  │  Week level (Opus agent loop) → playbook/identity/meta        │ │                │
 │  └───────────────────────────────────────────────────────────────┘ │                │
 │                                                                    │                │
 │  ┌──────────────────────────────────────────────────────────────┐ │                │
-│  │  执行层（实时响应式）                                          │ │                │
-│  │  情境匹配 → auto/suggest/observe                              │ │                │
+│  │  Execution layer (real-time, reactive)                        │ │                │
+│  │  Situation matching → auto/suggest/observe                    │ │                │
 │  └──────────────────────────────────────────────────────────────┘ │                │
 │                                                                    │                │
 │  ┌──────────────────────────────────────────────────────────────┐ │                │
-│  │  存储层（全 SQLite，云化换 PostgreSQL）                        │ │                │
-│  │  13 张表，所有表带 owner_id                                    │ │                │
+│  │  Storage layer (all SQLite; PostgreSQL in the cloud)          │ │                │
+│  │  13 tables, every table carries owner_id                      │ │                │
 │  └──────────────────────┬───────────────────────────────────────┘ │                │
 │                          │                                         │                │
 │  ┌──────────────────────┴───────────────────────────────────────┐ │                │
-│  │  接口层（daemon 的对外边界）                                    │ │                │
+│  │  Interface layer (the daemon's external boundary)             │ │                │
 │  │                                                               │ │                │
-│  │  ② Memory Protocol（JSON Schema + REST 语义）                 │◄┼────────────────┤
+│  │  ② Memory Protocol (JSON Schema + REST semantics)             │◄┼────────────────┤
 │  │     /memory/playbook/, /memory/identity/, ...                 │ │                │
 │  │                                                               │ │                │
-│  │  ③ Query Protocol（REST + 向量搜索）                          │◄┼────────────────┘
+│  │  ③ Query Protocol (REST + vector search)                      │◄┼────────────────┘
 │  │     /memory/episodes/search, /memory/episodes/{date}, ...     │ │
 │  │                                                               │ │
-│  │  管理 API                                                     │◄┘
+│  │  Management API                                               │◄┘
 │  │     /engine/status, /engine/questions, /engine/execution/     │
 │  │                                                               │ │
-│  │  Transport: 本地=直接读 SQLite / 分离部署=HTTP / 云化=HTTP+auth│
+│  │  Transport: local = read SQLite directly / separate           │
+│  │  deployment = HTTP / cloud = HTTP + auth                      │
 │  └───────────────────────────────────────────────────────────────┘ │
 │                                                                    │
-│  LLM：LiteLLM Router（opus→sonnet→haiku fallback）                │
-│  Agent Loop：Pydantic AI    并发：asyncio.Semaphore(2)            │
-│  崩溃恢复：cursor + checkpoint + Target 幂等                      │
+│  LLM: LiteLLM Router (opus→sonnet→haiku fallback)                 │
+│  Agent loop: Pydantic AI    Concurrency: asyncio.Semaphore(2)     │
+│  Crash recovery: cursor + checkpoint + Target idempotency         │
 └────────────────────────────────────────────────────────────────────┘
 ```
 
-**协议对应关系**（详见 protocol-architecture.md）：
+**Protocol mapping** (see protocol-architecture.md for details):
 
-| 边界 | 协议 | 方向 |
+| Boundary | Protocol | Direction |
 |------|------|------|
-| 采集适配器 → 蒸馏引擎 | ① Observation Protocol（CloudEvents） | 入 |
-| 蒸馏引擎 → 应用层/管理中心 | ② Memory Protocol（JSON Schema + REST 语义） | 出 |
-| 蒸馏引擎 → 应用层/管理中心 | ③ Query Protocol（REST + 向量搜索） | 出 |
+| Capture adapters → distillation engine | ① Observation Protocol (CloudEvents) | In |
+| Distillation engine → application layer / management center | ② Memory Protocol (JSON Schema + REST semantics) | Out |
+| Distillation engine → application layer / management center | ③ Query Protocol (REST + vector search) | Out |
 
-**Transport 策略**：协议定义的是语义（GET/PUT/POST + JSON Schema），transport 按部署方式选择：
+**Transport strategy**: the protocols define semantics (GET/PUT/POST + JSON Schema); the transport is chosen by deployment mode:
 
-| 部署方式 | Transport | 说明 |
+| Deployment mode | Transport | Notes |
 |----------|-----------|------|
-| 本地同机 | 直接读 SQLite（WAL） | 协议说"本地实现就是文件操作" |
-| 分离部署 | HTTP REST（FastAPI） | 协议的 REST 语义直接对应 |
-| 云化多租户 | HTTP REST + auth | PostgreSQL，走网络 |
+| Local, same machine | Read SQLite directly (WAL) | The protocol says "the local implementation is just file operations" |
+| Separate deployment | HTTP REST (FastAPI) | Maps directly onto the protocol's REST semantics |
+| Cloud multi-tenant | HTTP REST + auth | PostgreSQL, over the network |
 
 ---
 
-## 编排架构：抄 Home Assistant
+## Orchestration architecture: copied from Home Assistant
 
-### 参考来源
+### Reference sources
 
-| 来源 | 抄什么 | 不抄什么 |
+| Source | What we copy | What we don't copy |
 |------|--------|---------|
-| **Home Assistant**（主参考） | EventBus 事件总线 + TriggerProtocol 触发协议 + RestoreEntity 崩溃恢复 | YAML DSL、Integration 插件系统、Entity 实体模型 |
-| **Dagster**（补充参考） | DaemonController 的 thread-per-concern 模型 | Materialize、IO Manager、资产图 |
-| **Luigi**（补充参考） | Target 幂等性模式（写完标记，崩溃重试不重复） | 静态 DAG、文件为中心的 Target |
+| **Home Assistant** (main reference) | EventBus + TriggerProtocol + RestoreEntity crash recovery | YAML DSL, the Integration plugin system, the Entity model |
+| **Dagster** (supplementary reference) | DaemonController's thread-per-concern model | Materialize, IO Manager, the asset graph |
+| **Luigi** (supplementary reference) | The Target idempotency pattern (mark only after the write completes; a retry after a crash does not duplicate) | Static DAGs, file-centric Targets |
 
 ### EventBus
 
-所有层间通信走事件总线，不直接函数调用。抄 Home Assistant 的 `EventBus` 设计：
+All inter-layer communication goes over the event bus, not direct function calls. This copies Home Assistant's `EventBus` design:
 
 ```python
 class EventBus:
-    """抄 HA 的 homeassistant/core.py EventBus"""
+    """Copied from HA's homeassistant/core.py EventBus"""
 
     def __init__(self):
         self._listeners: dict[str, list[Callable]] = {}
 
     def listen(self, event_type: str, callback: Callable) -> None:
-        """注册监听器。层启动时注册。"""
+        """Register a listener. Layers register when they start."""
         self._listeners.setdefault(event_type, []).append(callback)
 
     async def fire(self, event_type: str, data: dict) -> None:
-        """触发事件。所有注册的监听器异步执行。"""
+        """Fire an event. All registered listeners run asynchronously."""
         for callback in self._listeners.get(event_type, []):
             asyncio.create_task(callback(data))
 ```
 
-事件类型：
+Event types:
 
-| 事件 | 生产者 | 消费者 |
+| Event | Producer | Consumer |
 |------|--------|--------|
-| `screenpipe.raw_events` | Screenpipe 轮询器 | 秒级（信号过滤） |
-| `pipeline.micro_features` | 秒级 | 执行层（情境匹配） |
-| `pipeline.task_boundary` | 秒级（边界检测） | 任务级 |
-| `pipeline.episode_created` | 任务级 | （日志/监控） |
-| `cron.rhythm` | CronTrigger 12:00/23:00 | 小时级 |
-| `cron.daily` | CronTrigger 23:00 | 天级 |
-| `cron.weekly` | CronTrigger 周日 03:00 | 周级 |
-| `execution.result` | 执行层 | meta_ratings 更新 |
+| `screenpipe.raw_events` | Screenpipe poller | Second level (signal filtering) |
+| `pipeline.micro_features` | Second level | Execution layer (situation matching) |
+| `pipeline.task_boundary` | Second level (boundary detection) | Task level |
+| `pipeline.episode_created` | Task level | (logging/monitoring) |
+| `cron.rhythm` | CronTrigger 12:00/23:00 | Hour level |
+| `cron.daily` | CronTrigger 23:00 | Day level |
+| `cron.weekly` | CronTrigger Sunday 03:00 | Week level |
+| `execution.result` | Execution layer | meta_ratings update |
 
 ### TriggerProtocol
 
-统一三种触发方式——轮询、事件、定时——都实现同一个 protocol：
+Unifies three trigger styles (polling, events, schedules); all implement the same protocol:
 
 ```python
 class TriggerProtocol(Protocol):
-    """抄 HA 的 homeassistant/helpers/trigger.py"""
+    """Copied from HA's homeassistant/helpers/trigger.py"""
 
     async def async_attach_trigger(self, config: dict, action: Callable) -> Callable:
-        """注册触发器，返回 detach 回调。"""
+        """Register a trigger; return a detach callback."""
         ...
 
 class PollingTrigger:
-    """每 N 秒轮询 Screenpipe SQLite。"""
+    """Poll the Screenpipe SQLite every N seconds."""
     interval: float = 5.0
 
 class EventTrigger:
-    """监听 EventBus 上的特定事件。"""
+    """Listen for a specific event on the EventBus."""
     event_type: str
 
 class CronTrigger:
-    """定时触发。cron 表达式。"""
+    """Scheduled trigger. A cron expression."""
     cron_expr: str
 ```
 
-秒级用 PollingTrigger（5 秒轮询 Screenpipe），任务级用 EventTrigger（监听 task_boundary），小时/天/周级用 CronTrigger。
+The second level uses PollingTrigger (polls Screenpipe every 5 seconds), the task level uses EventTrigger (listens for task_boundary), and the hour/day/week levels use CronTrigger.
 
-### 为什么抄 Home Assistant 不抄别的
+### Why copy Home Assistant and not something else
 
-- **同构问题**：HA 也是单进程 daemon，管理多种异构数据源（传感器 = Screenpipe），触发多种自动化（automation = 蒸馏管线各层），需要崩溃恢复
-- **生产验证**：HA 用户量大，EventBus 架构跑了 10 年
-- **不是编排框架**：Dagster/Temporal/Prefect 是编排框架，设计给数据管道/微服务，太重。我们需要的是应用内编排，不是分布式编排
-- **局部 AI daemon 没有好的参考**：Screenpipe/Mem0/Khoj 都是 hand-roll，没有值得抄的编排层
+- **Isomorphic problem**: HA is also a single-process daemon that manages many heterogeneous data sources (sensors = Screenpipe), triggers many automations (automation = each layer of the distillation pipeline), and needs crash recovery
+- **Proven in production**: HA has a large user base, and the EventBus architecture has run for 10 years
+- **Not an orchestration framework**: Dagster/Temporal/Prefect are orchestration frameworks designed for data pipelines/microservices; they are too heavy. We need in-application orchestration, not distributed orchestration
+- **No good reference for a local AI daemon**: Screenpipe/Mem0/Khoj are all hand-rolled; none has an orchestration layer worth copying
 
 ---
 
-## 进程模型
+## Process model
 
-单个 Python daemon 进程，单 asyncio event loop。不搞多进程。
+A single Python daemon process with a single asyncio event loop. No multiprocessing.
 
-技术栈被工程选型锁死——Pydantic AI、LiteLLM 都是 Python，没得选。
+The tech stack is locked in by the engineering choices: Pydantic AI and LiteLLM are both Python, so there is no alternative.
 
 ```
 standmeet-engine start
   │
-  ├── 1. 初始化 EventBus
-  │      创建事件总线，注册所有层的监听器
+  ├── 1. Initialize the EventBus
+  │      Create the event bus; register the listeners of every layer
   │
-  ├── 2. 初始化存储层
-  │      ├── 连接 state.db（SQLite，所有蒸馏数据）
-  │      │   所有表带 owner_id，本地只有一个值
-  │      │   云化时换 PostgreSQL + pgvector，改连接字符串
-  │      ├── 初始化 sqlite-vec 扩展（episodes 的向量索引）
-  │      └── 打开 Screenpipe 的 SQLite（只读消费者）
+  ├── 2. Initialize the storage layer
+  │      ├── Connect state.db (SQLite, all distillation data)
+  │      │   Every table carries owner_id; locally there is only one value
+  │      │   For the cloud, switch to PostgreSQL + pgvector by changing the connection string
+  │      ├── Initialize the sqlite-vec extension (vector index for episodes)
+  │      └── Open Screenpipe's SQLite (read-only consumer)
   │
-  ├── 3. 初始化 Screenpipe（嵌入式依赖）
-  │      import screenpipe，在进程内启动采集
-  │      Screenpipe 写自己的 SQLite，蒸馏引擎只读消费
+  ├── 3. Initialize Screenpipe (embedded dependency)
+  │      import screenpipe, start capture inside the process
+  │      Screenpipe writes its own SQLite; the distillation engine only reads it
   │
-  ├── 4. 本地工具自动发现
-  │      检测 ~/.gitconfig → 注册 git_log
-  │      检测 ~/.zsh_history → 注册 shell_history
-  │      检测 ~/Library/Safari/ → 注册 browser_history
-  │      ... 扫描环境，注册到 tool_registry
+  ├── 4. Auto-discover local tools
+  │      Detect ~/.gitconfig → register git_log
+  │      Detect ~/.zsh_history → register shell_history
+  │      Detect ~/Library/Safari/ → register browser_history
+  │      ... scan the environment, register into tool_registry
   │
-  ├── 5. 初始化 LLM 路由
+  ├── 5. Initialize LLM routing
   │      LiteLLMRouter(
   │        fallbacks={"opus": ["sonnet"], "sonnet": ["haiku"]},
   │        num_retries=3
   │      )
-  │      asyncio.Semaphore(2)  ← 最多 2 个并行 LLM 调用
+  │      asyncio.Semaphore(2)  ← at most 2 parallel LLM calls
   │
-  ├── 6. 注册 Triggers
-  │      PollingTrigger(5s)   → screenpipe.raw_events → 秒级处理
-  │      EventTrigger         → pipeline.task_boundary → 任务级处理
-  │      CronTrigger(12,23)   → cron.rhythm → 小时级处理
-  │      CronTrigger(23)      → cron.daily → 天级处理
-  │      CronTrigger(Sun 03)  → cron.weekly → 周级处理
+  ├── 6. Register Triggers
+  │      PollingTrigger(5s)   → screenpipe.raw_events → second-level processing
+  │      EventTrigger         → pipeline.task_boundary → task-level processing
+  │      CronTrigger(12,23)   → cron.rhythm → hour-level processing
+  │      CronTrigger(23)      → cron.daily → day-level processing
+  │      CronTrigger(Sun 03)  → cron.weekly → week-level processing
   │
-  └── 7. 启动 Memory Protocol REST server
-         FastAPI on localhost，暴露给管理中心和应用层
+  └── 7. Start the Memory Protocol REST server
+         FastAPI on localhost, exposed to the management center and the application layer
 ```
 
 ---
 
-## 技术选型
+## Technology choices
 
-| 组件 | 选型 | 理由 |
+| Component | Choice | Rationale |
 |------|------|------|
-| 编排架构 | EventBus + TriggerProtocol（抄 Home Assistant） | 层间解耦，统一触发协议，单进程内编排 |
-| 任务持久化 | Huey + SqliteHuey | 零外部依赖，任务队列持久化，崩溃恢复 |
-| LLM 路由 | LiteLLM Router | fallback chain（opus→sonnet→haiku），自动重试 429/5xx，指数退避 0.5s→60s |
-| Agent loop | Pydantic AI | typed tool 定义，运行时动态切换 model，structured output |
-| 并发控制 | asyncio.Semaphore(2) | 最多 2 个并行 LLM 调用，防止 rate limit |
-| REST server | FastAPI | Memory Protocol + 管理 API |
-| 向量搜索 | sqlite-vec（本地）→ pgvector（云化） | 嵌入 SQLite，无外部依赖 |
-| 采集层 | Screenpipe（嵌入式依赖） | 屏幕 OCR + 音频 Whisper，开源，import 进来用 |
+| Orchestration architecture | EventBus + TriggerProtocol (copied from Home Assistant) | Decouples layers, one unified trigger protocol, orchestration inside a single process |
+| Task persistence | Huey + SqliteHuey | Zero external dependencies, persistent task queue, crash recovery |
+| LLM routing | LiteLLM Router | Fallback chain (opus→sonnet→haiku), automatic retry on 429/5xx, exponential backoff 0.5s→60s |
+| Agent loop | Pydantic AI | Typed tool definitions, switch model dynamically at runtime, structured output |
+| Concurrency control | asyncio.Semaphore(2) | At most 2 parallel LLM calls, to avoid rate limits |
+| REST server | FastAPI | Memory Protocol + management API |
+| Vector search | sqlite-vec (local) → pgvector (cloud) | Embedded in SQLite, no external dependencies |
+| Capture layer | Screenpipe (embedded dependency) | Screen OCR + audio Whisper, open source, imported and used directly |
 
-### Huey 的角色
+### Huey's role
 
-Huey 不负责编排逻辑——编排走 EventBus。Huey 只做两件事：
-1. **任务持久化**：LLM 调用（任务级/天级/周级）入队到 SqliteHuey，崩溃后自动恢复
-2. **后台执行**：长时间的 agent loop 放到 Huey worker 线程跑，不阻塞 asyncio event loop
+Huey does not own orchestration logic; orchestration goes through the EventBus. Huey does only two things:
+1. **Task persistence**: LLM calls (task/day/week level) are enqueued into SqliteHuey and recover automatically after a crash
+2. **Background execution**: long-running agent loops run on Huey worker threads so they do not block the asyncio event loop
 
-### 排除的选项
+### Rejected options
 
-| 排除 | 理由 |
+| Rejected | Rationale |
 |------|------|
-| Temporal | 太重，需要独立集群 |
-| Celery | 需要 Redis/RabbitMQ，桌面应用装不了 |
-| Prefect | 云服务导向 |
-| Dagster | 数据管道框架，不是应用内编排（但借鉴其 DaemonController thread-per-concern 模型） |
-| 多进程架构 | Screenpipe 验证了单 runtime 够用，不需要复杂的 IPC |
+| Temporal | Too heavy; needs its own cluster |
+| Celery | Needs Redis/RabbitMQ, which a desktop app cannot install |
+| Prefect | Oriented toward a cloud service |
+| Dagster | A data pipeline framework, not in-application orchestration (but we borrow its DaemonController thread-per-concern model) |
+| Multi-process architecture | Screenpipe showed a single runtime is enough; no need for complex IPC |
 
 ---
 
-## 存储层：全数据库
+## Storage layer: all database
 
-不用文件系统。所有数据存 SQLite（本地），设计按 PostgreSQL 能力来，云化多租户时换连接字符串。所有表带 `owner_id`。
+No file system. All data lives in SQLite (locally); the design targets PostgreSQL's capabilities, and for cloud multi-tenancy we change the connection string. Every table carries `owner_id`.
 
-### 数据库文件
+### Database files
 
-| 文件 | 用途 | 管理者 |
+| File | Purpose | Owner |
 |------|------|--------|
-| `state.db` | 所有蒸馏数据（下面的所有表） | 蒸馏引擎 |
-| `distillation.db` | Huey 任务队列 + 结果 | SqliteHuey |
-| Screenpipe 的 SQLite | 原始采集数据 | Screenpipe（只读消费） |
+| `state.db` | All distillation data (every table below) | Distillation engine |
+| `distillation.db` | Huey task queue + results | SqliteHuey |
+| Screenpipe's SQLite | Raw capture data | Screenpipe (read-only consumption) |
 
-### SQLite/PostgreSQL 兼容性策略
+### SQLite/PostgreSQL compatibility strategy
 
-本地用 SQLite，云化换 PostgreSQL。SQL 语法 90% 通用，需要注意的差异：
+SQLite locally, PostgreSQL in the cloud. 90% of the SQL syntax is shared; the differences to watch:
 
-| 特性 | SQLite | PostgreSQL | 策略 |
+| Feature | SQLite | PostgreSQL | Strategy |
 |------|--------|------------|------|
-| 自增主键 | `INTEGER PRIMARY KEY`（自动自增） | `GENERATED ALWAYS AS IDENTITY` | 我们用 TEXT UUID 做主键，不依赖自增 |
-| JSON | `TEXT` + `json_extract()` | `JSONB` + `->` / `->>` | 存 TEXT，查询用 Python 层处理，不在 SQL 里查 JSON |
-| 向量 | sqlite-vec `FLOAT[768]` | pgvector `vector(768)` | 必须抽 storage interface，API 完全不同 |
-| 布尔 | 0/1（无真 BOOLEAN） | true/false | 写入统一用 0/1，PG 会自动转 |
-| 时间戳 | TEXT（ISO8601） | `TIMESTAMP WITH TIME ZONE` | 统一存 ISO8601 TEXT |
-| UPSERT | `INSERT ... ON CONFLICT DO UPDATE` | 同 | 两边都支持（SQLite 3.24+） |
+| Auto-increment primary key | `INTEGER PRIMARY KEY` (auto-increments) | `GENERATED ALWAYS AS IDENTITY` | We use TEXT UUID primary keys and do not depend on auto-increment |
+| JSON | `TEXT` + `json_extract()` | `JSONB` + `->` / `->>` | Store as TEXT, handle queries in the Python layer, never query JSON in SQL |
+| Vector | sqlite-vec `FLOAT[768]` | pgvector `vector(768)` | Must extract a storage interface; the APIs are completely different |
+| Boolean | 0/1 (no real BOOLEAN) | true/false | Always write 0/1; PG converts automatically |
+| Timestamp | TEXT (ISO8601) | `TIMESTAMP WITH TIME ZONE` | Always store ISO8601 TEXT |
+| UPSERT | `INSERT ... ON CONFLICT DO UPDATE` | Same | Both support it (SQLite 3.24+) |
 
-**结论**：Schema 直接通用。真正不兼容的只有向量列（sqlite-vec vs pgvector），抽一层 VectorStore interface 即可。JSON 字段只存不查（查询在 Python 层做），避免语法差异。
+**Conclusion**: the schema is portable as is. The only truly incompatible part is the vector column (sqlite-vec vs pgvector); one VectorStore interface layer covers it. JSON fields are stored but never queried (queries happen in the Python layer), which avoids syntax differences.
 
 ### Schema
 
 ```sql
--- Playbook：playbook_files 一对多 playbook_entries
--- 原来是"一个 md 文件里塞多个情境-行动对"
--- 现在是结构化行
+-- Playbook: playbook_files one-to-many playbook_entries
+-- Before: "one md file stuffed with several situation-action pairs"
+-- Now: structured rows
 
 CREATE TABLE playbook_files (
   id TEXT PRIMARY KEY,
   owner_id TEXT NOT NULL,
-  filename TEXT NOT NULL,         -- "debugging"，逻辑分组
-  description TEXT NOT NULL,      -- 给 agent 看的一行描述
+  filename TEXT NOT NULL,         -- "debugging", a logical grouping
+  description TEXT NOT NULL,      -- one-line description for the agent
   maturity TEXT NOT NULL DEFAULT 'nascent',  -- nascent/developing/mature/mastered
   entry_count INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMP NOT NULL,
@@ -290,11 +292,11 @@ CREATE TABLE playbook_entries (
   id TEXT PRIMARY KEY,
   owner_id TEXT NOT NULL,
   playbook_file_id TEXT NOT NULL REFERENCES playbook_files(id),
-  situation TEXT NOT NULL,        -- 情境描述
-  action TEXT NOT NULL,           -- 行动描述
-  why TEXT,                       -- 推断原因
+  situation TEXT NOT NULL,        -- situation description
+  action TEXT NOT NULL,           -- action description
+  why TEXT,                       -- inferred reason
   confidence REAL NOT NULL DEFAULT 0.5,
-  evidence_ids JSON,              -- 关联的 episode ids
+  evidence_ids JSON,              -- linked episode ids
   stress_variant BOOLEAN NOT NULL DEFAULT FALSE,
   is_counterexample BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMP NOT NULL,
@@ -321,7 +323,7 @@ CREATE TABLE episodes (
   stress_marked BOOLEAN NOT NULL DEFAULT FALSE,
   type TEXT NOT NULL DEFAULT 'observation',  -- "observation" / "user_explanation"
   absorbed BOOLEAN NOT NULL DEFAULT FALSE,
-  embedding BLOB,                -- sqlite-vec 向量，云化时改 vector 类型
+  embedding BLOB,                -- sqlite-vec vector; becomes the vector type in the cloud
   created_at TIMESTAMP NOT NULL
 );
 
@@ -368,7 +370,7 @@ CREATE TABLE meta_ratings (
   sample_size INTEGER NOT NULL DEFAULT 0,
   execution_mode TEXT NOT NULL DEFAULT 'observe',  -- "auto"/"suggest"/"observe"
   last_verified DATE,
-  history JSON,                   -- 每周快照 [{week, d, p, m, b}, ...]
+  history JSON,                   -- weekly snapshots [{week, d, p, m, b}, ...]
   updated_at TIMESTAMP NOT NULL,
   UNIQUE(owner_id, playbook_filename)
 );
@@ -416,17 +418,17 @@ CREATE TABLE agent_checkpoints (
 
 ---
 
-## 数据流：逐层 trace
+## Data flow: a layer-by-layer trace
 
-### 数据消费：从 Screenpipe 读事件
+### Data consumption: reading events from Screenpipe
 
-Screenpipe 作为嵌入式依赖在蒸馏引擎进程内运行，采集数据写入自己的 SQLite。蒸馏引擎是该 SQLite 的只读消费者。Screenpipe 的 SQLite 是 WAL 模式，读不阻塞写。
+Screenpipe runs inside the distillation engine process as an embedded dependency and writes captured data into its own SQLite. The distillation engine is a read-only consumer of that SQLite. Screenpipe's SQLite is in WAL mode, so reads do not block writes.
 
-PollingTrigger 每 5 秒轮询，通过 EventBus 分发：
+PollingTrigger polls every 5 seconds and dispatches through the EventBus:
 
 ```python
 class ScreenpipePoller:
-    """PollingTrigger 驱动，每 5 秒执行。"""
+    """Driven by PollingTrigger, runs every 5 seconds."""
 
     async def poll(self):
         last_id = state_db.get_cursor('screenpipe_last_id')
@@ -436,17 +438,17 @@ class ScreenpipePoller:
 
         state_db.set_cursor('screenpipe_last_id', rows[-1].rowid)
 
-        events = [to_cloud_event(row) for row in rows]  # 转 CloudEvents（Observation Protocol）
+        events = [to_cloud_event(row) for row in rows]  # convert to CloudEvents (Observation Protocol)
         await event_bus.fire('screenpipe.raw_events', {'events': events})
 ```
 
-### 秒级：信号过滤 + 微操提取
+### Second level: signal filtering + micro-action extraction
 
-监听 `screenpipe.raw_events` 事件。同步、纯规则、零 LLM。
+Listens for the `screenpipe.raw_events` event. Synchronous, pure rules, zero LLM.
 
 ```python
 class SecondLevelProcessor:
-    """监听 screenpipe.raw_events，产出 micro_features 和 task_boundary。"""
+    """Listens for screenpipe.raw_events; produces micro_features and task_boundary."""
 
     def __init__(self, event_bus: EventBus):
         event_bus.listen('screenpipe.raw_events', self.handle)
@@ -454,42 +456,42 @@ class SecondLevelProcessor:
     async def handle(self, data: dict):
         events = data['events']
 
-        # 信号过滤：5 个检测器，过滤 ~90% 噪音
+        # Signal filtering: 5 detectors, filters out ~90% of noise
         filtered = signal_filter.process(events)
 
-        # 微操提取
+        # Micro-action extraction
         micro_features = micro_extractor.extract(filtered)
         state_db.bulk_insert('micro_features', micro_features)
 
-        # 广播微操事件（执行层监听）
+        # Broadcast the micro-action event (the execution layer listens)
         await event_bus.fire('pipeline.micro_features', {'features': micro_features})
 
-        # 检测任务边界 → 触发任务级
+        # Detect task boundaries → trigger the task level
         for chunk in boundary_detector.detect(filtered):
             await event_bus.fire('pipeline.task_boundary', {'chunk': chunk})
 ```
 
-- `SignalFilter.process(events)` — 5 个检测器（修正、选择、停顿、放弃、压力），给事件打标签，无标签的丢弃
-- `MicroExtractor.extract(filtered)` — 从有标签的事件生成 micro_features 行
-- `AvoidanceDetector.update(events)` — 跨事件统计"可用但未使用"
-- `BoundaryDetector.detect(filtered)` — 检测任务边界（上下文大切换、git commit、长停顿）
+- `SignalFilter.process(events)` — 5 detectors (correction, choice, pause, abandonment, stress) tag events; untagged events are dropped
+- `MicroExtractor.extract(filtered)` — generates micro_features rows from tagged events
+- `AvoidanceDetector.update(events)` — counts "available but not used" across events
+- `BoundaryDetector.detect(filtered)` — detects task boundaries (a big context switch, a git commit, a long pause)
 
-写入：`INSERT INTO micro_features`。必然写，有事件就有产出。
+Writes: `INSERT INTO micro_features`. Always writes; if there are events, there is output.
 
-### 任务级：Haiku 单次调用
+### Task level: a single Haiku call
 
-监听 `pipeline.task_boundary` 事件，入队到 Huey 执行：
+Listens for the `pipeline.task_boundary` event and enqueues the work into Huey:
 
 ```python
 class TaskLevelProcessor:
-    """监听 pipeline.task_boundary，Haiku 做序列摘要。"""
+    """Listens for pipeline.task_boundary; Haiku summarizes the sequence."""
 
     def __init__(self, event_bus: EventBus):
         event_bus.listen('pipeline.task_boundary', self.handle)
 
     async def handle(self, data: dict):
         chunk = data['chunk']
-        # 入队到 Huey，不阻塞 event loop
+        # Enqueue into Huey; do not block the event loop
         distill_task_level(chunk)
 
 @huey.task()
@@ -518,15 +520,15 @@ def distill_task_level(chunk: TaskChunk):
     event_bus.fire('pipeline.episode_created', {'episode_id': ...})
 ```
 
-一天约 50 个 chunk，~$0.05/天。必然写——每个 chunk 必产出一条 episode。
+About 50 chunks a day, ~$0.05/day. Always writes: every chunk produces exactly one episode.
 
-### 小时级：纯统计
+### Hour level: pure statistics
 
-CronTrigger 12:00/23:00 触发，通过 `cron.rhythm` 事件：
+Triggered by CronTrigger at 12:00/23:00, via the `cron.rhythm` event:
 
 ```python
 class RhythmProcessor:
-    """CronTrigger 驱动，纯统计，零 LLM。"""
+    """Driven by CronTrigger; pure statistics, zero LLM."""
 
     def __init__(self, event_bus: EventBus):
         event_bus.listen('cron.rhythm', self.handle)
@@ -543,11 +545,11 @@ class RhythmProcessor:
         })
 ```
 
-零 LLM，必然写。
+Zero LLM, always writes.
 
-### 天级：Sonnet Agent Loop
+### Day level: Sonnet agent loop
 
-CronTrigger 23:00 触发。Pydantic AI agent，多轮，典型 4-8 轮。入队到 Huey 执行。
+Triggered by CronTrigger at 23:00. A Pydantic AI agent, multi-turn, typically 4-8 turns. Enqueued into Huey.
 
 ```python
 day_agent = Agent(
@@ -566,51 +568,51 @@ day_agent = Agent(
 
 @huey.task()
 def distill_daily():
-    # 注入 Playbook 索引到 system prompt
+    # Inject the Playbook index into the system prompt
     playbook_index = state_db.query(
         "SELECT filename, description, maturity, entry_count FROM playbook_files"
     )
 
     result = day_agent.run_sync(
-        f"分析 {today()} 的行为数据",
+        f"Analyze the behavior data for {today()}",
         model="sonnet",
         message_history=restore_checkpoint("daily", today()),
     )
 ```
 
-必然写日报（daily_digests），insight 数量不定。建议但不直接写 Playbook——留给周级确认。
+Always writes the daily report (daily_digests); the number of insights varies. It suggests Playbook changes but does not write the Playbook directly; that is left for the week level to confirm.
 
-每次 tool_use 完成后自动存 checkpoint 到 agent_checkpoints 表。
+After each tool_use completes, a checkpoint is saved automatically to the agent_checkpoints table.
 
-### 周级：Opus Agent Loop
+### Week level: Opus agent loop
 
-CronTrigger 周日 03:00 触发。工具集最大，典型 8-15 轮。入队到 Huey 执行。
+Triggered by CronTrigger on Sunday at 03:00. The largest tool set, typically 8-15 turns. Enqueued into Huey.
 
 ```python
 week_agent = Agent(
     model=litellm_router,
     system_prompt=WEEK_DISTILL_PROMPT,
     tools=[
-        # 读
+        # Read
         read_day_report,     # SELECT FROM daily_digests
-        drill_down,           # episode → micro_features 逐层下钻
+        drill_down,           # episode → micro_features, drilling down layer by layer
         find_similar,         # SELECT FROM episodes ORDER BY embedding <-> $vec
         read_playbook,        # SELECT FROM playbook_files JOIN entries
         read_meta,            # SELECT FROM meta_ratings / meta_gaps
 
-        # 写 Playbook（agent 自主决定是否写）
+        # Write the Playbook (the agent decides on its own whether to write)
         update_playbook,      # UPDATE playbook_entries / INSERT
         create_playbook,      # INSERT INTO playbook_files + entries
 
-        # 写 Identity（更稀少）
+        # Write Identity (rarer)
         update_identity,      # UPDATE identity SET content = ?
 
-        # 写 Meta
+        # Write Meta
         update_confidence,    # UPDATE meta_ratings
-        update_rating,        # 计算 d(t)/p/m(t)/b，UPDATE meta_ratings
+        update_rating,        # compute d(t)/p/m(t)/b, UPDATE meta_ratings
         mark_episode_absorbed,# UPDATE episodes SET absorbed = true
 
-        # 本地工具（自动发现的，因人而异）
+        # Local tools (auto-discovered, vary per person)
         *tool_registry.get_all(),
     ],
 )
@@ -618,7 +620,7 @@ week_agent = Agent(
 @huey.task()
 def distill_weekly():
     result = week_agent.run_sync(
-        f"分析 {this_week_range()} 的行为数据",
+        f"Analyze the behavior data for {this_week_range()}",
         model="opus",
         message_history=restore_checkpoint("weekly", this_week()),
     )
@@ -626,126 +628,126 @@ def distill_weekly():
 
 ---
 
-## 写入模式
+## Write modes
 
-关键区分：管道式确定性写入 vs agent 自主性写入。
+The key distinction: deterministic pipeline writes vs autonomous agent writes.
 
-### 确定性写入（数据进来必然产出）
+### Deterministic writes (incoming data always produces output)
 
-| 层 | 写入表 | 触发方式 | 频率 |
+| Layer | Table written | Trigger | Frequency |
 |---|--------|---------|------|
-| 秒级 | micro_features | PollingTrigger 每 5 秒 | 有事件就写 |
-| 任务级 | episodes | EventTrigger task_boundary | 每个 chunk 必产出 |
-| 小时级 | rhythm_patterns | CronTrigger 12:00/23:00 | 每天 2 次 |
-| 天级 | daily_digests | CronTrigger 23:00 | 每天 1 次 |
-| 执行层 | meta_ratings (prediction_accuracy) | 每次执行后 | 实时 |
+| Second level | micro_features | PollingTrigger every 5 seconds | Writes whenever there are events |
+| Task level | episodes | EventTrigger task_boundary | Every chunk produces output |
+| Hour level | rhythm_patterns | CronTrigger 12:00/23:00 | 2 times a day |
+| Day level | daily_digests | CronTrigger 23:00 | Once a day |
+| Execution layer | meta_ratings (prediction_accuracy) | After each execution | Real time |
 
-### 自主性写入（agent 决定是否写）
+### Autonomous writes (the agent decides whether to write)
 
-| 层 | 写入表 | 条件 |
+| Layer | Table written | Condition |
 |---|--------|------|
-| 天级 | episodes (insight) | Sonnet 觉得有值得记录的发现才写，数量不定 |
-| 周级 | playbook_files + entries | Opus 觉得有新模式（≥3 次同类情境）才创建，已有条目需要修正才更新 |
-| 周级 | identity | 发现跨领域共性才更新，很稀少 |
-| 周级 | meta_ratings (d/m/b) | 必然写评级更新 |
-| 周级 | episodes (absorbed) | 吸收进 Playbook 的才标记 |
+| Day level | episodes (insight) | Writes only when Sonnet finds something worth recording; the count varies |
+| Week level | playbook_files + entries | Creates only when Opus sees a new pattern (≥3 similar situations); updates an existing entry only when it needs correcting |
+| Week level | identity | Updates only when it finds a cross-domain commonality; very rare |
+| Week level | meta_ratings (d/m/b) | Always writes rating updates |
+| Week level | episodes (absorbed) | Marks only the ones absorbed into the Playbook |
 
 ---
 
-## 执行层
+## Execution layer
 
-实时响应式，和蒸馏管线的定时批处理完全不同。监听 `pipeline.micro_features` 事件。
+Real-time and reactive, completely different from the scheduled batch processing of the distillation pipeline. Listens for the `pipeline.micro_features` event.
 
 ```
-pipeline.micro_features 事件到达
-  → Haiku 做情境匹配
+pipeline.micro_features event arrives
+  → Haiku does situation matching
     → SELECT FROM playbook_entries WHERE situation LIKE ...
     → SELECT execution_mode FROM meta_ratings WHERE playbook_filename = ...
-  → 按 execution_mode 分流：
-      "auto"    → agent 直接执行 → 完成后通知用户
-      "suggest" → 草拟方案 → 推给管理中心 → 用户确认才执行
-      "observe" → 不做，只记录
+  → Route by execution_mode:
+      "auto"    → agent executes directly → notifies the user when done
+      "suggest" → drafts a plan → pushes it to the management center → executes only after the user confirms
+      "observe" → does nothing, only records
 
-执行完成后通过 EventBus fire execution.result：
+After execution, fire execution.result through the EventBus:
   accept → UPDATE meta_ratings SET prediction_accuracy += ...
   modify → INSERT INTO meta_corrections + UPDATE meta_ratings
   reject → UPDATE meta_ratings SET prediction_accuracy -= ...
-           连续 3 reject → execution_mode 降级
+           3 consecutive rejects → execution_mode is downgraded
 
-降级是实时的（一次 reject 立即 auto→suggest）
-升级等周级（连续 2 周满足全部 5 个条件）
+Downgrades are real time (one reject immediately moves auto→suggest)
+Upgrades wait for the week level (all 5 conditions met for 2 consecutive weeks)
 ```
 
 ---
 
-## 对外接口
+## External interfaces
 
-协议定义见 protocol-architecture.md。蒸馏引擎实现其中三个协议：
+For the protocol definitions, see protocol-architecture.md. The distillation engine implements three of them:
 
-| 方向 | 协议 | 蒸馏引擎的角色 |
+| Direction | Protocol | Distillation engine's role |
 |------|------|--------------|
-| 入 | ① Observation Protocol（CloudEvents） | 消费者：接收采集适配器的原始事件 |
-| 出 | ② Memory Protocol（JSON Schema + REST 语义） | 提供者：暴露记忆数据给管理中心和应用层 |
-| 出 | ③ Query Protocol（REST + 向量搜索） | 提供者：暴露查询接口给管理中心和应用层 |
+| In | ① Observation Protocol (CloudEvents) | Consumer: receives raw events from capture adapters |
+| Out | ② Memory Protocol (JSON Schema + REST semantics) | Provider: exposes memory data to the management center and the application layer |
+| Out | ③ Query Protocol (REST + vector search) | Provider: exposes the query interface to the management center and the application layer |
 
-### 蒸馏引擎自己的管理 API
+### The distillation engine's own management API
 
-不属于协议，是蒸馏引擎内部的管理接口：
+Not part of the protocols; this is the distillation engine's internal management interface:
 
 ```
-GET  /engine/status                      → 采集状态、管线进度、记忆统计
+GET  /engine/status                      → capture status, pipeline progress, memory statistics
 GET  /engine/questions                   → meta_gaps WHERE asked=false ORDER BY priority
 POST /engine/questions/{id}/answer       → INSERT episodes(type='user_explanation') + UPDATE meta_gaps
-POST /engine/execution/{id}/approve      → 执行审批
-GET  /engine/execution/history           → 执行历史
+POST /engine/execution/{id}/approve      → execution approval
+GET  /engine/execution/history           → execution history
 ```
 
-### SQLite 并发安全
+### SQLite concurrency safety
 
-蒸馏引擎是 state.db 的唯一写入方。外部消费方（管理中心、MCP server）如果本地同机部署，可以直接只读打开 state.db（协议说"本地实现就是文件操作"）。
+The distillation engine is the only writer of state.db. External consumers (management center, MCP server), when deployed on the same machine, can open state.db read-only directly (the protocol says "the local implementation is just file operations").
 
-参考 SkyPilot 踩坑经验：
-- WAL 模式必须开（`PRAGMA journal_mode=WAL`）
-- `busy_timeout` 设 60 秒（不是默认 5 秒）
-- 蒸馏引擎是唯一写入方，消费方只读，不存在写写冲突
-
----
-
-## 崩溃恢复
-
-四层保障，借鉴 Luigi Target 幂等模式（写完才标记完成，崩溃重试不重复）：
-
-1. **Screenpipe 游标** — state.db 里一个 cursor 值（last rowid），重启从上次位置继续，不丢不重
-2. **Huey 任务持久化** — distillation.db（SqliteHuey），未完成任务重启自动恢复队列
-3. **Agent checkpoint** — agent_checkpoints 表，每次 tool_use 后存 message_history，崩溃后从最后 checkpoint 继续，不用重跑整个 agent loop
-4. **Target 幂等** — 每个写入操作先检查目标是否已存在（如 daily_digests 的 UNIQUE(date)），存在则跳过，不重复写
+Lessons from SkyPilot's pitfalls:
+- WAL mode must be on (`PRAGMA journal_mode=WAL`)
+- Set `busy_timeout` to 60 seconds (not the default 5 seconds)
+- The distillation engine is the only writer and consumers only read, so there are no write-write conflicts
 
 ---
 
-## 云化路径
+## Crash recovery
 
-| 本地 | 云化 |
+Four layers of protection, borrowing Luigi's Target idempotency pattern (mark complete only after the write finishes; a retry after a crash does not duplicate):
+
+1. **Screenpipe cursor** — one cursor value in state.db (the last rowid); a restart continues from the last position, with no loss and no duplication
+2. **Huey task persistence** — distillation.db (SqliteHuey); unfinished tasks are restored to the queue automatically on restart
+3. **Agent checkpoint** — the agent_checkpoints table stores message_history after each tool_use; after a crash, the agent continues from the last checkpoint instead of rerunning the whole agent loop
+4. **Target idempotency** — every write first checks whether the target already exists (for example, the UNIQUE(date) on daily_digests); if it exists, the write is skipped, so nothing is written twice
+
+---
+
+## Path to the cloud
+
+| Local | Cloud |
 |------|------|
 | SQLite state.db | PostgreSQL |
 | sqlite-vec | pgvector |
-| SqliteHuey distillation.db | RedisHuey 或 Celery |
-| 单进程 daemon | K8s pod |
-| owner_id 固定一个值 | 多租户 |
-| localhost REST | 公网 REST + auth |
+| SqliteHuey distillation.db | RedisHuey or Celery |
+| Single-process daemon | K8s pod |
+| owner_id fixed to one value | Multi-tenant |
+| localhost REST | Public REST + auth |
 
-Schema 不变，所有表已有 owner_id。向量列通过 VectorStore interface 隔离，其余 SQL 语法 100% 兼容。
+The schema does not change; every table already has owner_id. The vector column is isolated behind the VectorStore interface, and the rest of the SQL syntax is 100% compatible.
 
 ---
 
-## 成本
+## Cost
 
 ```
-秒级：  $0（纯规则）
-任务级：$0.05/天（Haiku，~50 次）
-小时级：$0（统计）
-天级：  $0.03/天（Sonnet，4-8 轮）
-周级：  $0.15-0.40/天均摊（Opus，8-15 轮）
-执行层：$0.07/天（Haiku 匹配 + Sonnet 草稿）
+Second level:     $0 (pure rules)
+Task level:       $0.05/day (Haiku, ~50 calls)
+Hour level:       $0 (statistics)
+Day level:        $0.03/day (Sonnet, 4-8 turns)
+Week level:       $0.15-0.40/day amortized (Opus, 8-15 turns)
+Execution layer:  $0.07/day (Haiku matching + Sonnet drafts)
 ─────────────────
-总计：  ~$0.30-0.55/天 ≈ $10-17/月/用户
+Total:            ~$0.30-0.55/day ≈ $10-17/month/user
 ```

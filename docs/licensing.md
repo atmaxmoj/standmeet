@@ -1,122 +1,122 @@
-# 许可证策略：分层 Dual Licensing
+# License strategy: layered dual licensing
 
-## 背景：为什么不能全 MIT
+## Background: why not all MIT
 
-MIT 允许任何人拿代码做闭源商业产品，不需要贡献回来。这直接导致了 ClawHub 被腾讯爬取做 SkillHub 的事件——在 MIT 下完全合法，但对社区零贡献。
+MIT lets anyone take the code into a closed-source commercial product without contributing back. That is exactly what led to Tencent scraping ClawHub to build SkillHub — fully legal under MIT, but zero contribution to the community.
 
-OpenClaw 的教训：MIT 对个人工具类项目太宽松。大厂的商业模式就是闭源魔改开源项目，MIT 完全挡不住。
-
----
-
-## 三层许可
-
-```
-协议规范 — MIT
-  ├── CloudEvents 事件类型定义
-  ├── JSON Schema（Playbook/Episode/Rating/...）
-  ├── REST API 规范
-  └── Organization Protocol 规范
-
-  为什么 MIT：
-    协议必须完全开放，否则没人来实现。
-    协议被广泛采用对我们有利——采用率越高，生态越大。
-    大厂用协议做自己的实现？好事，说明协议有价值。
-    协议本身没有商业价值，价值在实现和数据。
-
-个人栈实现 — AGPL v3
-  ├── 采集适配器（Screenpipe adapter、IDE 插件 等）
-  ├── 信号过滤引擎
-  ├── 蒸馏引擎（多层管线）
-  ├── 记忆存储（SQLite 后端）
-  ├── Playbook 评级系统
-  ├── 执行引擎（个人）
-  └── 参考实现（全栈个人版）
-
-  为什么 AGPL：
-    个人用户：完全免费，正常使用，无任何限制。
-    社区贡献者：fork、修改、提 PR，一切正常。
-    大厂想魔改：可以，但修改必须以 AGPL 开源。
-    大厂想做成闭源服务：不行，AGPL 要求网络交互也算分发。
-    → 大厂的选项：
-      a. 按 AGPL 来，修改全公开 → 社区受益
-      b. 买商业许可（dual licensing）→ 我们赚钱
-      c. 不用 → 我们不损失什么
-
-  AGPL 的威慑力：
-    Google 内部明确禁止使用 AGPL 代码。
-    腾讯、字节的法务看到 AGPL 也会拦。
-    → 要么贡献，要么付钱，没有第三条路。
-
-组织层 — 商业许可（proprietary）
-  ├── 组织蒸馏引擎（聚合多人 Agent Card + Flow Record）
-  ├── 能力地图可视化
-  ├── 跨人任务调度
-  ├── 组织 Playbook 管理
-  ├── 企业功能（离职保全、最佳实践 diff、招聘建议）
-  └── 托管服务（API key 管理、用量计费）
-
-  为什么 proprietary：
-    组织层需要中心化服务，技术上不可能纯本地。
-    这是自然的付费边界——不是人为设限，是架构决定的。
-    协议开放 → 第三方可以实现自己的组织层（用 AGPL 或其他许可）。
-    我们的商业优势不是垄断协议，是最好的实现 + 最早的用户数据积累。
-```
+The OpenClaw lesson: MIT is too permissive for personal-tool projects. Big companies' business model is closed-source modification of open-source projects, and MIT does nothing to stop it.
 
 ---
 
-## Dual Licensing 商业模式
+## Three license layers
 
 ```
-对个人用户和小团队：
-  AGPL 免费使用，没有任何限制。
-  自带 API key，蒸馏成本 ~$10-17/月 自付。
+Protocol specs — MIT
+  ├── CloudEvents event type definitions
+  ├── JSON Schema (Playbook/Episode/Rating/...)
+  ├── REST API spec
+  └── Organization Protocol spec
 
-对企业（不想开源自己的修改）：
-  购买商业许可，年费制。
-  可以闭源部署、闭源修改、不公开代码。
-  包含技术支持和 SLA。
+  Why MIT:
+    Protocols must be fully open, or nobody will implement them.
+    Wide adoption of the protocols helps us — the higher the adoption, the bigger the ecosystem.
+    A big company builds its own implementation of the protocols? Good — it shows the protocols have value.
+    The protocols themselves have no commercial value; the value is in the implementation and the data.
 
-对企业（需要组织功能）：
-  组织层 SaaS，$30-50/人/月。
-  包含商业许可（个人栈闭源部署权）。
+Personal stack implementation — AGPL v3
+  ├── Capture adapters (Screenpipe adapter, IDE plugins, etc.)
+  ├── Signal filtering engine
+  ├── Distillation engine (multi-layer pipeline)
+  ├── Memory store (SQLite backend)
+  ├── Playbook rating system
+  ├── Execution engine (personal)
+  └── Reference implementation (full-stack personal edition)
 
-价格参考（同模式的公司）：
-  GitLab：AGPL 社区版免费，企业版 $29/人/月
-  Grafana：AGPL 社区版免费，企业版 $29/人/月
-  Sentry：BSL 社区版免费，企业版 $26/人/月
+  Why AGPL:
+    Individual users: completely free, normal use, no restrictions at all.
+    Community contributors: fork, modify, send PRs — all normal.
+    A big company wants to modify it: allowed, but the modifications must be open-sourced under AGPL.
+    A big company wants to turn it into a closed-source service: not allowed; AGPL counts network interaction as distribution.
+    → The big company's options:
+      a. Follow the AGPL and publish all modifications → the community benefits
+      b. Buy a commercial license (dual licensing) → we make money
+      c. Don't use it → we lose nothing
+
+  AGPL's deterrent power:
+    Google explicitly bans AGPL code internally.
+    Tencent's and ByteDance's legal teams will also block it when they see AGPL.
+    → Either contribute or pay; there is no third way.
+
+Organization layer — commercial license (proprietary)
+  ├── Organization distillation engine (aggregates many people's Agent Cards + Flow Records)
+  ├── Capability map visualization
+  ├── Cross-person task scheduling
+  ├── Organization Playbook management
+  ├── Enterprise features (knowledge retention on departure, best-practice diff, hiring suggestions)
+  └── Hosted service (API key management, usage billing)
+
+  Why proprietary:
+    The organization layer needs a centralized service; it cannot be purely local, technically.
+    This is a natural paywall — not an artificial limit, but one decided by the architecture.
+    Open protocols → third parties can build their own organization layer (under AGPL or another license).
+    Our commercial advantage is not a protocol monopoly; it is the best implementation + the earliest accumulation of user data.
 ```
 
 ---
 
-## 先例
+## Dual licensing business model
 
-| 公司 | 社区许可 | 商业许可 | 结果 |
+```
+For individual users and small teams:
+  Free under AGPL, no restrictions at all.
+  Bring your own API key; distillation costs ~$10-17/month, paid by the user.
+
+For enterprises (that don't want to open-source their modifications):
+  Buy a commercial license, billed annually.
+  Closed-source deployment, closed-source modification, no obligation to publish code.
+  Includes technical support and an SLA.
+
+For enterprises (that need organization features):
+  Organization layer SaaS, $30-50/person/month.
+  Includes a commercial license (right to deploy the personal stack closed-source).
+
+Pricing references (companies with the same model):
+  GitLab: AGPL community edition free, enterprise edition $29/person/month
+  Grafana: AGPL community edition free, enterprise edition $29/person/month
+  Sentry: BSL community edition free, enterprise edition $26/person/month
+```
+
+---
+
+## Precedents
+
+| Company | Community license | Commercial license | Outcome |
 |------|---------|---------|------|
-| GitLab | AGPL (CE) | Proprietary (EE) | $4B+ 市值，大厂乖乖付钱 |
-| Grafana | AGPL | Proprietary | $6B+ 估值，AWS 被迫用 AGPL 版 |
-| MongoDB | SSPL | Commercial | 逼 AWS 做 DocumentDB（自己重写），$20B+ |
-| Sentry | BSL | Commercial | 大厂要么等 3 年，要么付钱 |
-| HashiCorp | BSL | Commercial | $4B 被 IBM 收购 |
+| GitLab | AGPL (CE) | Proprietary (EE) | $4B+ market cap; big companies pay without complaint |
+| Grafana | AGPL | Proprietary | $6B+ valuation; AWS forced to use the AGPL edition |
+| MongoDB | SSPL | Commercial | Pushed AWS to build DocumentDB (its own rewrite); $20B+ |
+| Sentry | BSL | Commercial | Big companies either wait 3 years or pay |
+| HashiCorp | BSL | Commercial | Acquired by IBM for $4B |
 
-AGPL 是最成熟的选择——比 BSL/SSPL 更被社区认可（OSI 批准的开源许可），同时对大厂有足够威慑力。
+AGPL is the most mature choice — more accepted by the community than BSL/SSPL (it is an OSI-approved open-source license), while still deterring big companies enough.
 
 ---
 
-## 许可证与协议层的关系
+## How the license relates to the protocol layer
 
 ```
-许可证保护的是"实现"（代码）。
-协议保护的是"互操作性"（接口）。
+The license protects the "implementation" (code).
+The protocol protects "interoperability" (interfaces).
 
-两者独立：
-  协议 MIT → 任何人可以写自己的实现
-  实现 AGPL → 如果用了我们的代码，修改必须开源
+The two are independent:
+  Protocol MIT → anyone can write their own implementation
+  Implementation AGPL → if you use our code, your modifications must be open-sourced
 
-  大厂选项 A：用我们的协议 + 自己从零写实现 → 完全合法，无限制
-  大厂选项 B：fork 我们的代码做修改 → 必须 AGPL 开源修改
-  大厂选项 C：买商业许可 → 可以闭源修改
+  Big company option A: use our protocol + write its own implementation from scratch → fully legal, no restrictions
+  Big company option B: fork our code and modify it → must open-source the modifications under AGPL
+  Big company option C: buy a commercial license → may modify closed-source
 
-  选项 A 是我们鼓励的——协议采用率越高越好。
-  如果大厂愿意花工程资源从零实现，说明协议设计得好。
-  他们的实现最终也会推动协议的演进。
+  Option A is the one we encourage — the higher the protocol adoption, the better.
+  If a big company is willing to spend engineering resources implementing from scratch, the protocol is well designed.
+  Their implementation will also end up driving the protocol's evolution.
 ```

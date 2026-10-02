@@ -1,6 +1,6 @@
-# Layer ② — retire the last in-core capability fibers (roadmap 块二 层②)
+# Layer ② — retire the last in-core capability fibers (roadmap Block 2 layer ②)
 
-> **Status:** design, red-first tests owed. Grounds the 🟡 in roadmap 块二 层②.
+> **Status:** design, red-first tests owed. Grounds the 🟡 in roadmap Block 2 layer ②.
 > **One line:** the everything-is-a-block migration externalized every
 > visitor/leaf capability and every connector; the only feature-named things
 > still `MustRegister`ed into the in-process registry are the job-loop trio
@@ -122,7 +122,7 @@ land in either order; (4) is the last, once nothing feeds `RegisterOwnerFibers`.
 must survive: for the job loop (`:342`) — `register_source / fetch_new /
 resume.draft / applications.commit + auto-issue AccessCode`, floored by
 `integration-job-loop`. The cross-cutting framework (`capability_state`,
-`enabled=false 但可见`, prompt fragment+hash, ACL, quota, connector-dep gate,
+`enabled=false but visible`, prompt fragment+hash, ACL, quota, connector-dep gate,
 Close-hook, `ErrHidden`, mode gating) **stays in core** — the block only supplies
 tools/instructions. Guards that must stay green through the migration:
 `check-host-blind-to-blocks.sh` (no block id as a Go literal outside `blocks/`),
