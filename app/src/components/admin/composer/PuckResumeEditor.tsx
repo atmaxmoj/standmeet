@@ -63,7 +63,7 @@ export function PuckResumeEditor({ initial, onData }: {
   // Puck keeps its edit state (the `data` prop is unchanged).
   const { qrURL } = useComposerCodeControl();
   return (
-    <div data-testid="puck-resume-editor" className="h-full">
+    <div data-testid="puck-resume-editor" className="h-full sm-puck-fill">
       <Puck
         config={resumePuckConfig} data={data} onChange={onChange}
         overrides={composerOverrides} metadata={{ qrURL }}

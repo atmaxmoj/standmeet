@@ -229,6 +229,18 @@
   padding-right: 12px;
 }
 
+/* ── the résumé editor fills its box, not the window ───────────────────
+   Puck sizes its layout `height: 100dvh` wherever it sits. Below the admin bar and the composer's
+   own bar (and the master banner) that hung 100–140 px past the window, and the admin pane scrolled
+   on top of the three panels' own scrolling (owner, 2026-10-02). Its layers fill our box instead; the
+   hashed inner class is matched by its stable stem. */
+.sm-puck-fill .Puck,
+.sm-puck-fill .Puck > div,
+.sm-puck-fill [class*="_PuckLayout_"],
+.sm-puck-fill [class*="_PuckLayout-inner_"] {
+  height: 100%;
+}
+
 /* ── match gauge (resume composer) ─────────────────────────────────────
    `match NN / 100` is the **only** number on this screen that could make the owner change
    their mind about sending this application, yet it originally borrowed the visitor quota
