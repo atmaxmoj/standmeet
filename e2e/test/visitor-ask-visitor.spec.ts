@@ -59,10 +59,11 @@ test.describe('visitor ask_visitor block · externalized sandbox card', () => {
       await enterChatWithCode(page);
       await fireFirstTurn(page, 'hello', tag);
       const frame = await assertRadioCard(page, 'Which best describes you?');
-      // The card IS this turn's answer: once the turn settles it carries no "no answer"
-      // notice (prod 2026-10-02 showed "no answer this turn" under the card).
+      // The card IS this turn's answer: once the turn settles it carries no stop notice
+      // (prod 2026-10-02 showed "no answer this turn", then "turn full · spent on lookups",
+      // under the card).
       await expect(page.getByTestId('chat-progress')).toHaveCount(0, { timeout: 30_000 });
-      await expect(lastDialog(page)).not.toContainText('no answer this turn');
+      await expect(lastDialog(page)).not.toContainText(/no answer this turn|turn full/i);
       await frame.getByTestId('ask-visitor-opt-1').click();
       await expect(frame.locator('[data-testid="ask-visitor-card"]'))
         .toHaveAttribute('data-answered', 'true', { timeout: 5_000 });

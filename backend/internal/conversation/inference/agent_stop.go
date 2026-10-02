@@ -42,11 +42,11 @@ const StopDeadline = "deadline"
 //   - not rescued, body is empty → **there's genuinely nothing in hand** → `no_answer`
 //   - everything else → passed through unchanged (there's a body, it just didn't finish)
 //
-// The criterion is hasProduct, not any specific stop reason: any outcome of "ended normally
-// but produced nothing" is the same situation, and shouldn't need patching again the next time
-// a new finish_reason shows up ([[lesson-not-swept-to-neighbours]]; same root cause as the
-// condition in ensureProduct). A return-directly card (ask_visitor's question) is a product:
-// judging by answer text alone hung "no answer this turn" under that card (prod 2026-10-02).
+// The criterion is `product == ""`, not any specific stop reason: any outcome of "ended
+// normally but produced nothing" is the same situation, and shouldn't need patching again the
+// next time a new finish_reason shows up ([[lesson-not-swept-to-neighbours]]; same root cause
+// as the condition in ensureProduct). The one product with no text is a return-directly card
+// (cardOrNoAnswer).
 //
 // The logs still record the real stop + recovered as they are — the two readers want different
 // things.
@@ -57,8 +57,19 @@ func doneStop(state *turnState) string {
 	if state.recovered {
 		return "end_turn"
 	}
-	if !hasProduct(state) {
-		return StopNoAnswer
+	if state.product == "" {
+		return cardOrNoAnswer(state)
 	}
 	return state.stop
+}
+
+// cardOrNoAnswer —— the word for a turn with no answer text. A return-directly card (ask_visitor's
+// question) is the whole answer: the turn ended as designed, so `end_turn` — not `no_answer`, and
+// not the upstream `tool_use` that a real provider reports for the card's round (prod 2026-10-02
+// hung "no answer this turn", then "turn full · spent on lookups", under the question).
+func cardOrNoAnswer(state *turnState) string {
+	if state.returnedDirectly {
+		return "end_turn"
+	}
+	return StopNoAnswer
 }
