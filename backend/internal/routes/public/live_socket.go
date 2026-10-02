@@ -10,6 +10,7 @@ package public
 import (
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -35,7 +36,7 @@ func relayLive(w http.ResponseWriter, r *http.Request, frames <-chan []byte, log
 		}
 		return writeAndFlush(w, b)
 	}
-	write([]byte(": live\n\n"))
+	write(streamOpening(": live\n"))
 	for liveStep(write, frames, r.Context().Done()) {
 	}
 }
@@ -51,6 +52,18 @@ func liveStep(write func([]byte) bool, frames <-chan []byte, done <-chan struct{
 	case <-done:
 		return false
 	}
+}
+
+// openingPad —— an SSE comment line of padding, past a compressing proxy's decision size. Coolify
+// puts Traefik's compress middleware on every service; Traefik holds a response until it has about
+// 1KB (Caddy's encode: 512B) to decide whether to compress, so a stream of small frames reached the
+// browser only when it ended (sijie.xyz, measured 2026-10-02: first byte at 20.3s with
+// Accept-Encoding, 0.4s without). Clients ignore comment lines.
+var openingPad = ": " + strings.Repeat(".", 2048) + "\n"
+
+// streamOpening —— a stream's first frame: its own lines, then the padding, then the frame's end.
+func streamOpening(lines string) []byte {
+	return []byte(lines + openingPad + "\n")
 }
 
 func writeAndFlush(w http.ResponseWriter, b []byte) bool {

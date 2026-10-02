@@ -1,5 +1,5 @@
-// microsite_store_socket.go —— GET /api/v1/pages/{slug}/store/stream: an open page hears when its
-// store changes (docs/design/scenario-s2-collaborative-writing.md, *Live updates*).
+// microsite_store_socket.go —— POST (or GET) /api/v1/pages/{slug}/store/stream: an open page
+// hears when its store changes (docs/design/scenario-s2-collaborative-writing.md, *Live updates*).
 //
 // The stream carries no content, only `event: changed`. The page then reads the store through the
 // ordinary GET, so the read rule (the page's access rule, pending documents hidden) lives in one
@@ -11,9 +11,8 @@
 // saw another visitor's passage). A clean end makes EventSource reconnect within seconds, and the
 // SDK reads the store again on every (re)connect, so nothing written in the gap is missed.
 //
-// The SDK opens it with a POST. Cloudflare (in front of sijie.xyz) holds a GET event stream until
-// the response ends and passes a POST stream through as it comes (measured 2026-10-02: through
-// Cloudflare a GET's first byte came at 20.3s, the stream's end; from the origin at 0.4s).
+// It opens with streamOpening's padding: a compressing proxy (Coolify's Traefik) otherwise held
+// the small frames until the stream ended, 20s late (live_socket.go, openingPad).
 
 package public
 
@@ -49,7 +48,7 @@ func (h *MicrositeStoreHandlers) stream() http.HandlerFunc {
 			writeAndFlush(w, []byte("event: poll\ndata: {}\n\n"))
 			return
 		}
-		writeAndFlush(w, []byte("retry: 1000\n: store\n\n"))
+		writeAndFlush(w, streamOpening("retry: 1000\n: store\n"))
 		end := time.NewTimer(storeStreamLifetime)
 		defer end.Stop()
 		for storeStreamStep(w, wake, end.C, r.Context().Done()) {

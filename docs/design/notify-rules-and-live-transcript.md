@@ -126,9 +126,10 @@ Each red on the code of 2026-10-01.
 - Channels: webhook → that endpoint's own `webhook.deliver` job; email → the mail port; im → the
   bridge's internal `POST :8090/internal/notify`. Owner pairing: `notify.link_im` issues a code,
   the owner sends `/pair CODE` to the bot, the bridge calls `POST /internal/im/pair`.
-- Live transcript: `/live/<token>` (app) → `GET /api/v1/live/{token}` and `POST …/stream` (a POST:
-  Cloudflare holds a GET event stream until it ends; the stream pings every 15s and moves its
-  write deadline on each write, so it outlives the server's 30s write timeout). The visitor's
+- Live transcript: `/live/<token>` (app) → `GET /api/v1/live/{token}` and `POST …/stream` (it opens
+  with ~2KB of comment padding so a compressing proxy — Coolify's Traefik — lets it flow; it pings
+  after 15s of quiet and moves its write deadline on each write, so it outlives the server's 30s
+  write timeout). The visitor's
   `/agent/turn` writer is teed onto Redis `standmeet:live:<conversation>` (a `turn` frame with the
   question, then the visitor's own frames); the SDK's `LiveTranscript` replays them through the
   chat's reducer.

@@ -44,8 +44,7 @@ type MicrositeStoreHandlers struct {
 }
 
 // Mount wires GET/POST /pages/{slug}/store and POST /pages/{slug}/store/stream onto /api/v1.
-// The stream is a POST because Cloudflare holds a GET stream until it ends (stream's doc); GET
-// stays for pages built on an older SDK.
+// The SDK opens the stream with a POST; GET stays for pages built on an older SDK.
 func (h *MicrositeStoreHandlers) Mount(r chi.Router) {
 	gated := r.With(h.opensGate)
 	gated.Get("/pages/{slug}/store", h.query())

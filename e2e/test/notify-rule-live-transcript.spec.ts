@@ -18,7 +18,7 @@ import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { scriptMockReplyText } from '@/fixtures/mock-llm-script';
 import { enterCodeSession, gotoAdminSection, openReader } from '@/fixtures/navigate';
-import { holdGetStreams } from '@/fixtures/proxy';
+import { COMPRESSOR_DECIDES_AT, openingBytes } from '@/fixtures/proxy';
 import { connectTelegram, ownerTypes, resetTelegram, sentTo, type SentMessage } from '@/fixtures/telegram';
 
 const OWNER = {
@@ -137,12 +137,15 @@ async function watchLive(browser: Browser, request: APIRequestContext): Promise<
   if (visitor === null) throw new Error('the first visitor is gone');
   const owner = await browser.newContext();
   const live = await owner.newPage();
-  // The owner opens the link through the proxy a real deployment has (sijie.xyz: Cloudflare).
-  await holdGetStreams(live);
   await openReader(live, new URL(liveLink).pathname);
   await expect(live.getByTestId('live-transcript'), 'the page opens without a sign-in').toBeVisible();
   await expect(live.getByTestId('live-transcript'), 'with the conversation so far')
     .toContainText(FIRST_QUESTION);
+  // Behind Coolify's compressing Traefik the stream flows only once it has sent ~1KB
+  // (fixtures/proxy.ts); the opening frame carries that much.
+  const token = new URL(liveLink).pathname.split('/').pop() ?? '';
+  expect(await openingBytes(live, `/api/v1/live/${token}/stream`), 'the opening frame')
+    .toBeGreaterThanOrEqual(COMPRESSOR_DECIDES_AT);
   // The answer starts 35s after the question: the owner's stream must outlive the server's 30s
   // write timeout before its first word arrives.
   const words = 'ALPHA one two three four five six seven eight OMEGA';

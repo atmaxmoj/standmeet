@@ -28,7 +28,7 @@ import {
   lastGatewayRequest, resetGatewayRequests, scriptMockReplyText, scriptMockToolCall,
 } from '@/fixtures/mock-llm-script';
 import { enterCodeSession } from '@/fixtures/navigate';
-import { holdGetStreams } from '@/fixtures/proxy';
+import { COMPRESSOR_DECIDES_AT, openingBytes } from '@/fixtures/proxy';
 
 const OWNER = {
   email: 'novel@example.com', password: 'correct-horse-battery-staple',
@@ -87,7 +87,7 @@ test.beforeAll(async ({ playwright, browser }) => {
   ({ csrf } = await loginAPI(admin, OWNER.email, OWNER.password));
   await publishPage(admin, csrf, SLUG, APP);
   await setStoreWritable(admin, csrf, SLUG, true);
-  for (const code of ['WRITER-A', 'WRITER-B', 'WRITER-C', 'WRITER-D']) {
+  for (const code of ['WRITER-A', 'WRITER-B', 'WRITER-D']) {
     const c = await createCode(admin, csrf, { code, label: code });
     await bindCodeToPage(admin, csrf, c.id, SLUG);
   }
@@ -155,16 +155,12 @@ test('6 the owner deletes a passage and it leaves every open page', async () => 
   await expect(passage(ben, P1), 'gone from Ben\'s page').toHaveCount(0, { timeout: 15_000 });
 });
 
-// On sijie.xyz a passage reached the other page only when the stream's 20s life ran out: the
-// proxy there holds a GET stream to its end (fixtures/proxy.ts).
-test('7 behind a proxy that holds GET streams to their end, a passage still appears in seconds',
-  async ({ browser }) => {
-    const cal = await openAs(browser, 'WRITER-C', 'Cal', holdGetStreams);
-    await ben.locator('[data-sm="draft"]').fill(P4);
-    await ben.locator('[data-sm="add"]').click();
-    await expect(passage(cal, P4), 'Cal sees it well inside a stream\'s life').toBeVisible({ timeout: 5_000 });
-    await cal.context().close();
-  });
+// On sijie.xyz a passage reached the other page only when the stream's 20s life ran out: Coolify's
+// Traefik compressor held the tiny frames until the response ended (fixtures/proxy.ts).
+test('7 the store stream opens with enough bytes that a compressing proxy lets it flow', async () => {
+  expect(await openingBytes(ana, `/api/v1/pages/${SLUG}/store/stream`), 'the opening frame')
+    .toBeGreaterThanOrEqual(COMPRESSOR_DECIDES_AT);
+});
 
 // A stream the network drops must come back at once, as EventSource did: the fetch-based watcher
 // once waited 15s after a dropped stream, and a passage written meanwhile showed up 15s late.

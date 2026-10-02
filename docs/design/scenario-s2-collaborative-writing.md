@@ -252,18 +252,19 @@ before the first implementation commit.
   `store_approve`; /admin/data shows the review switch, the limit, and approve on a waiting entry.
 - Live: every store change NOTIFYs `standmeet_page_store` (page id) in its transaction; POST
   `/api/v1/pages/{slug}/store/stream` (SSE, same gate as the GET) says `changed`; the SDK's
-  `useMicrositeStore` refetches on each change and each (re)connect. A POST read with fetch, not
-  an EventSource GET: Cloudflare in front of sijie.xyz holds a GET event stream until it ends, so
-  every passage arrived ~20s late there (measured 2026-10-02). GET stays for older page builds.
-  The owner's live transcript stream moved to POST for the same reason.
+  `useMicrositeStore` refetches on each change and each (re)connect (a POST read with fetch; GET
+  stays for older page builds). Both this stream and the owner's live transcript open with ~2KB of
+  comment padding: Coolify puts Traefik's compress middleware on every service, and Traefik holds a
+  response until ~1KB to decide on compression, so on sijie.xyz every passage arrived at the
+  stream's 20s end (measured 2026-10-02; first byte 20.3s with Accept-Encoding, 0.4s without).
 - Agent: block `microsite.store` (`page_only`: present only in a turn asked on a microsite), JS
   plugin `infra/plugins/pagestore`, host ops `page_store.read / search / append`; the page comes from
   the turn's `doc_context`, and each op checks the session may open that page.
 - Search is a scan over the page's published documents (bounded by its limit), not an index.
 - Not built: editing a passage (supersede + conflict). Revising = add a new passage and the owner
   deletes the old one.
-- Acceptance: `e2e/test/microsite-collab-writing.spec.ts` (test 7 runs a page behind that
-  proxy, `e2e/fixtures/proxy.ts`), `e2e/test/admin-data-store-policy.spec.ts`.
+- Acceptance: `e2e/test/microsite-collab-writing.spec.ts` (test 7 checks the opening is past a
+  compressor's decision size, `e2e/fixtures/proxy.ts`), `e2e/test/admin-data-store-policy.spec.ts`.
 
 ## Not in this change
 

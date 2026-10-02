@@ -258,8 +258,7 @@ type StreamEnd = 'ended' | 'failed' | 'poll';
 // server ends it now and then (under its write timeout) and the watcher opens the next one; every
 // open is a change too, so nothing written in the gap is missed.
 //
-// A POST read with fetch, not EventSource (GET only): Cloudflare holds a GET event stream until
-// it ends, so behind it every change arrived up to 20s late (measured on sijie.xyz, 2026-10-02).
+// A POST read with fetch, not EventSource: the reconnect rules below are ours to set.
 function watchMicrositeStore(baseURL: string, slug: string, onChange: () => void): () => void {
   const url = `${baseURL}${micrositeStoreBase}/${encodeURIComponent(slug)}/store/stream`;
   const stop = new AbortController();

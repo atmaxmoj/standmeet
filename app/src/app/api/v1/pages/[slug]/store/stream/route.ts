@@ -3,8 +3,8 @@
 //
 // Same reason as /api/v1/live/[token]/stream: next.config's rewrites() buffer an SSE body until it
 // ends. The request's headers go along: the backend applies the page's access rule from the
-// visitor's token or the owner's cookie. The SDK opens it with a POST (Cloudflare holds a GET
-// stream until it ends); GET stays for pages built on an older SDK.
+// visitor's token or the owner's cookie. The SDK opens it with a POST; GET stays for pages built
+// on an older SDK.
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://backend:8000';
 

@@ -200,8 +200,7 @@ export async function fetchLiveConversation(token: string): Promise<AggDialog[] 
   }
 }
 
-// openLiveStream —— the live link's SSE body (null when it cannot be opened). A POST: Cloudflare
-// holds a GET event stream until it ends, and this one does not end while the owner watches.
+// openLiveStream —— the live link's SSE body (null when it cannot be opened).
 export async function openLiveStream(
   token: string, signal: AbortSignal,
 ): Promise<ReadableStream<Uint8Array> | null> {

@@ -4,7 +4,6 @@
 //   - GET /api/v1/live/{token}: the conversation so far ({conversation}, the visitor's shape)
 //   - POST /api/v1/live/{token}/stream: SSE, every frame of the visitor's turns as they stream —
 //     a `turn` frame with the question, then the very frames the visitor's own stream carries.
-//     A POST because Cloudflare holds a GET stream until it ends (microsite_store_socket.go).
 //
 // The token is the credential (signed, one conversation, 24 h): the owner opens it from a phone's
 // IM app, with no admin session. A tampered or expired token answers 404 and nothing else.
