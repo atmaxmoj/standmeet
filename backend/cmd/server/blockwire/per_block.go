@@ -10,7 +10,6 @@ package blockwire
 import (
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
 	"github.com/atmaxmoj/standmeet/internal/plugin"
-	"github.com/atmaxmoj/standmeet/internal/plugin/blockstore"
 	"github.com/atmaxmoj/standmeet/internal/routes/hostdesk"
 )
 
@@ -33,7 +32,7 @@ func PerBlockDeps(d *deps.Runtime, m *plugin.Manifest) *hostdesk.PerBlock {
 	// published nothing, and the host panicked that calendar.book wanted an op "the
 	// host does not publish" — an op whose implementation was sitting right there.
 	if wantsAny(m, "blockstore.") {
-		per.Store = boundBlockStore{store: store, kind: blockstore.KindMCP, blockID: m.ID}
+		per.Store = newBoundBlockStore(d, store, m.ID)
 	}
 	if len(m.Config) > 0 {
 		per.Config = boundBlockConfig{cfg: BlockConfigFor(store, m.ID), decl: m.Config}

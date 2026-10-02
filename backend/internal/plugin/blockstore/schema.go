@@ -12,6 +12,8 @@
 package blockstore
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"regexp"
 	"strings"
@@ -51,6 +53,35 @@ var coreSchemas = map[string]bool{
 // only be interpolated, never $1-parameterized, so the name must be locked down first).
 var droppableRe = regexp.MustCompile(`^(supplier|mcp|microsite)_[a-z0-9_]+$`)
 
+// maxSchemaName —— Postgres's identifier limit (NAMEDATALEN-1).
+const maxSchemaName = 63
+
+// schemaHashLen —— hex digits of the full name's hash kept on a shortened name.
+const schemaHashLen = 8
+
+// fitSchemaName —— a name over Postgres's limit, made to fit without merging two names. Postgres
+// would cut it to 63 bytes silently, folding every fiber whose name shares those bytes into one
+// schema (a fiber name is root_<uuid> or b_<uuid> before the block id, so a block id of 15+
+// characters already overflows). Instead keep the head and append a hash of the whole name:
+// deterministic (the same fiber always finds its schema) and distinct per name.
+func fitSchemaName(name string) string {
+	if len(name) <= maxSchemaName {
+		return name
+	}
+	sum := sha256.Sum256([]byte(name))
+	head := strings.TrimRight(name[:maxSchemaName-schemaHashLen-1], "_")
+	return head + "_" + hex.EncodeToString(sum[:])[:schemaHashLen]
+}
+
+// FiberSchemaID —— the schema id of one fiber of one block: fiber + "_" + block, or the block's
+// own legacy id when there is no fiber. The one place the composition is spelled.
+func FiberSchemaID(fiber, blockID string) string {
+	if fiber == "" {
+		return blockID
+	}
+	return fiber + "_" + blockID
+}
+
 // idSuffixRe —— sanitizes a block id (which may contain '-'/'.', e.g. google-calendar /
 // calendar.book) into a legal suffix.
 var idSuffixRe = regexp.MustCompile(`[^a-z0-9]+`)
@@ -67,7 +98,7 @@ func schemaName(kind Kind, id string) (string, error) {
 	if suffix == "" {
 		return "", fmt.Errorf("blockstore: empty schema id for kind %q", kind)
 	}
-	name := prefix + suffix
+	name := fitSchemaName(prefix + suffix)
 	if derr := assertDroppable(name); derr != nil {
 		return "", derr // the derived name can't even pass the guard: a logic error, fail early
 	}

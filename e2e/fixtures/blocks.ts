@@ -108,8 +108,27 @@ export async function runToolAndRead(
   const res = await request.post(`${BACKEND}/internal/diag/session/tool`, {
     headers: { 'X-Session-Token': sessionToken },
     data: { tool, args },
+    // 25s like sessionToolNames: the run assembles the session, which cold-starts the block's
+    // sandbox (a node block's first initialize was measured at 10–23s on a busy host).
+    timeout: 25_000,
   });
   if (res.status() !== 200) throw new Error(`run tool ${tool}: ${res.status()}`);
   const { result } = await res.json() as { result: string };
   return JSON.parse(result) as Record<string, unknown>;
+}
+
+/** Call one tool the way a visitor's card does: POST /api/v1/sessions/{conversation}/tools/{tool}
+ *  with the session's bearer token (lib/api/public.ts callVisitorTool). Unlike runToolAndRead's
+ *  diag route, this carries the conversation, so conversation-scoped tools (calendar_cancel) see
+ *  the visitor's own booking. Returns the tool's `result` object. */
+export async function callSessionTool(
+  request: APIRequestContext, session: { conversation_id: string; session_token: string },
+  tool: string, args: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const res = await request.post(
+    `${BACKEND}/api/v1/sessions/${session.conversation_id}/tools/${tool}`,
+    { headers: { Authorization: `Bearer ${session.session_token}` }, data: args },
+  );
+  if (res.status() !== 200) throw new Error(`session tool ${tool}: ${res.status()} ${await res.text()}`);
+  return ((await res.json()) as { result?: Record<string, unknown> }).result ?? {};
 }

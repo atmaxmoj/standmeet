@@ -194,15 +194,18 @@ ledger):
 2. **Owner calls get their own fiber**, `owner_<owner>`, minted for owner tools only. A store call on
    an owner fiber **fans out** across the owner's fibers (root + every bundle that holds the block):
    reads union the schemas; delete-by-id finds the schema holding the id.
-3. **Claims stay owner-scoped**: claim/release always use the owner's root schema, whatever fiber
-   calls, so F-B-15 holds across bundles.
+3. **Claims never split by fiber**: claim/release always use the block's legacy schema
+   (`mcp_<block>`), whatever fiber calls, so F-B-15 holds across bundles. The claim key carries its
+   own scope (the booker puts the owner id in it), so one table serves every owner.
 4. **Quota counts the calling fiber's schema** (`max_bookings` is per code; a code has one fiber).
 5. **Rebinding a code to another bundle** starts a new fiber for new bookings. Old bookings stay
    visible and cancellable to the owner (fan-out); a visitor's conversation-scoped cancel of a booking
    made under the old bundle no longer finds it. Accepted and documented; rebinding mid-conversation
    is rare.
-6. **Schema names are length-guarded**: a name over Postgres's 63 bytes is an error, never silently
-   truncated.
+6. **Schema names fit without merging**: a name over Postgres's 63 bytes keeps its first 54 bytes
+   plus 8 hex digits of the whole name's sha256 (`blockstore.fitSchemaName`). Postgres would cut it
+   silently and fold two fibers into one schema; refusing it instead (the first plan) broke every
+   block whose id is 15+ characters, since `root_<uuid>_` alone is 42 bytes.
 
 ### Checkpoints (each green, committed, before the next)
 
@@ -228,6 +231,23 @@ ledger):
 - **T6** deleting bundle A drops its schema and raises the warning naming the dropped records.
 - **T7** upgrade: a booking stored on the old shape survives; the owner lists it; its visitor cancels it.
 - **T8** adversary block sends another fiber's id → it reaches only its own schema.
+
+### Status (2026-10-02): built
+
+| # | Where it landed |
+|---|---|
+| 0 | `Manifest.OwnerOnlyTools`, `mount.visitorFacing`, booker `ownerOnly` (v0.1.112) |
+| 1 | `hostop.CallerFiber`; `hostsocket.dispatch` puts the key's fiber on the ctx; `blockdesk` reads only it; owner tools mint `registry.OwnerFiber` |
+| 2–3 | `blockwire/bound_store.go`: write → own fiber (owner → root), owner reads fan out over `OwnerFibers` ∩ `blockstore.Existing`, claims in the legacy schema |
+| 4 | `blockquota.Counter.Allow/Remaining(fiber, …)` count in `FiberSchemaID(fiber, block)` |
+| 5 | `blockwire/fiber_lifecycle.go`: bundle delete drops `b_<bundle>` of every storing block; uninstall drops legacy + every owner fiber; data-loss warning per drop |
+| 6 | `blockwire/fiber_migrate.go` at boot (after installed blocks restore): legacy non-`blockconfig*` records → the sole owner's root fiber |
+| 7 | e2e `resetInstance` drops `mcp_(b|root)_*`; `blockstore`'s provisioned cache is package-wide and cleared on `Drop` |
+
+Specs: `booking-per-fiber-storage` (T1–T6), `upgrade-per-fiber-storage` (T7),
+`security-fiber-forgery` (T8). Found on the way and fixed: an owner-installed block that orders
+host ops was never given its socket (only builtins were served), so it could not start —
+`deps.ServeHostOps`, called from `MountInstalledBlockAs`.
 
 ### Existing specs to re-run after the last checkpoint
 

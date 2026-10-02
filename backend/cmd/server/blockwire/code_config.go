@@ -176,7 +176,7 @@ func quotaGate(
 	counter *blockquota.Counter, log *slog.Logger, blockID string,
 ) registry.SessionGate {
 	return func(ctx context.Context, in *registry.AssembleInput) (bool, error) {
-		allow, err := counter.Allow(ctx, quotaScope(in.Subject))
+		allow, err := counter.Allow(ctx, in.FiberID(), quotaScope(in.Subject))
 		if err != nil {
 			log.Warn("block quota check failed — hiding the tool",
 				"block", blockID, "subject_kind", in.Subject.Kind,
@@ -201,7 +201,7 @@ func quotaGate(
 func quotaState(counter *blockquota.Counter, blockID string) mount.StateHook {
 	return func(ctx context.Context, in *registry.AssembleInput) registry.FiberState {
 		st := registry.FiberState{ID: blockID, Enabled: true}
-		left, err := counter.Remaining(ctx, quotaScope(in.Subject))
+		left, err := counter.Remaining(ctx, in.FiberID(), quotaScope(in.Subject))
 		if err != nil {
 			return st
 		}

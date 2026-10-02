@@ -300,6 +300,8 @@ func restoreOwnerBlocks(ctx context.Context, d *deps.Runtime) {
 		return
 	}
 	blockwire.RestoreInstalledBlocks(ctx, d, ownerID)
+	// After the restore: an installed storing block has its store only once it is mounted.
+	blockwire.MigrateLegacyFiberRows(ctx, d, ownerID)
 }
 
 // blocksAdminDeps — the owner's plugin screen. Every op goes through the outbound

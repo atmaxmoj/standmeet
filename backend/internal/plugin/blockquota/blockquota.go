@@ -70,8 +70,10 @@ func New(b *Bind) *Counter {
 // The subject arrives as a **mount point** (`blockconfig.CodeScope(id)` / `KeyScope(id)`): this
 // package does not know how many kinds of subject exist, and should not — who it is and where
 // it mounts is the composition root's call, since only it sees both sides.
-func (c *Counter) Allow(ctx context.Context, subject blockconfig.Scope) (bool, error) {
-	left, err := c.Remaining(ctx, subject)
+func (c *Counter) Allow(
+	ctx context.Context, fiber string, subject blockconfig.Scope,
+) (bool, error) {
+	left, err := c.Remaining(ctx, fiber, subject)
 	if err != nil {
 		return false, err
 	}
@@ -83,12 +85,14 @@ func (c *Counter) Allow(ctx context.Context, subject blockconfig.Scope) (bool, e
 
 // Remaining — how many uses are left. nil = unlimited (or no subject) — **not 0**: 0 would be
 // read as "already exhausted".
-func (c *Counter) Remaining(ctx context.Context, subject blockconfig.Scope) (*int32, error) {
+func (c *Counter) Remaining(
+	ctx context.Context, fiber string, subject blockconfig.Scope,
+) (*int32, error) {
 	limit, err := c.limitOf(ctx, subject)
 	if err != nil || limit == nil {
 		return nil, err
 	}
-	used, cerr := c.used(ctx, subject.ID())
+	used, cerr := c.used(ctx, fiber, subject.ID())
 	if cerr != nil {
 		return nil, cerr
 	}
@@ -125,13 +129,18 @@ func decodeLimit(raw json.RawMessage) (*int32, error) {
 	return limit, nil
 }
 
-// used — how many this subject has already used (counts rows in the block's own store).
-func (c *Counter) used(ctx context.Context, subjectID string) (int64, error) {
+// used — how many this subject has already used: rows in the calling fiber's schema of the block
+// (a code has one fiber, so its uses all land there; per-fiber-schema.md decision 4).
+func (c *Counter) used(ctx context.Context, fiber, subjectID string) (int64, error) {
 	filter, merr := json.Marshal(map[string]string{c.decl.SubjectField: subjectID})
 	if merr != nil {
 		return 0, fmt.Errorf("blockquota filter: %w", merr)
 	}
-	n, cerr := c.store.Count(ctx, c.kind, c.blockID, c.decl.Collection, filter)
+	sid := blockstore.FiberSchemaID(fiber, c.blockID)
+	if perr := c.store.EnsureProvisioned(ctx, c.kind, sid); perr != nil {
+		return 0, fmt.Errorf("blockquota provision: %w", perr)
+	}
+	n, cerr := c.store.Count(ctx, c.kind, sid, c.decl.Collection, filter)
 	if cerr != nil {
 		return 0, fmt.Errorf("blockquota count: %w", cerr)
 	}

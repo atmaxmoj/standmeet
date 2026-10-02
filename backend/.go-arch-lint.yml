@@ -667,7 +667,8 @@ deps:
 
   # hostsocket — narrow host unix-socket service leaf: line-JSON dispatch, no internal deps.
   hostsocket:
-    mayDependOn: []
+    mayDependOn:
+      - hostop # the caller-fiber context the socket hands its handlers (both leaves)
     anyVendorDeps: true
 
   # storage is an S3 / MinIO client, pure vendor + stdlib.

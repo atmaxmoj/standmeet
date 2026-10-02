@@ -225,8 +225,13 @@ func deleteBundleByID(d *deps.Runtime) fp.Invoke {
 		if err != nil {
 			return nil, err
 		}
+		b, found := findBundle(ctx, d, ownerID,
+			func(x *assembly.Bundle) bool { return x.ID == in.Name })
 		if derr := d.Assembly.DeleteBundleByID(ctx, ownerID, in.Name); derr != nil {
 			return nil, bundleWriteErr("delete bundle", derr)
+		}
+		if found {
+			dropBundleFibers(ctx, d, ownerID, b.ID, b.Name)
 		}
 		return json.Marshal(okOut{OK: true})
 	}
@@ -250,11 +255,34 @@ func deleteBundle(d *deps.Runtime) fp.Invoke {
 		if err != nil {
 			return nil, err
 		}
+		b, found := findBundle(ctx, d, ownerID,
+			func(x *assembly.Bundle) bool { return x.Name == in.Name })
 		if derr := d.Assembly.DeleteBundle(ctx, ownerID, in.Name); derr != nil {
 			return nil, fp.OpErr("delete bundle", derr)
 		}
+		if found {
+			dropBundleFibers(ctx, d, ownerID, b.ID, b.Name)
+		}
 		return json.Marshal(okOut{OK: true})
 	}
+}
+
+// findBundle — the owner's bundle matching `match`, read before a delete so its fiber can be
+// dropped after. A read failure means no drop (logged): the delete itself still goes ahead.
+func findBundle(
+	ctx context.Context, d *deps.Runtime, ownerID string, match func(*assembly.Bundle) bool,
+) (assembly.Bundle, bool) {
+	all, err := d.Assembly.ListBundles(ctx, ownerID)
+	if err != nil {
+		d.Log.Warn("read bundle before delete", "err", err)
+		return assembly.Bundle{}, false
+	}
+	for i := range all {
+		if match(&all[i]) {
+			return all[i], true
+		}
+	}
+	return assembly.Bundle{}, false
 }
 
 func removeBundleBlock(d *deps.Runtime) fp.Invoke {

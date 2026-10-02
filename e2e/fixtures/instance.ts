@@ -75,6 +75,7 @@ export function resetInstance(): void {
   ensureStackUp();
   t('truncate start');
   truncateTables();
+  dropFiberSchemas();
   clearOwnerJobs();
   t('unclaim start');
   unclaim();
@@ -189,6 +190,18 @@ function definedServices(): string[] {
 function truncateTables(): void {
   const tableList = TABLES.join(', ');
   runPsql(`TRUNCATE ${tableList} RESTART IDENTITY CASCADE`);
+}
+
+// dropFiberSchemas —— a storing block keeps one schema per fiber (mcp_b_<bundle>_<block>,
+// mcp_root_<owner>_<block>; per-fiber-schema.md). Their owners and bundles were just truncated, so
+// the schemas are orphans: drop them, or every spec's bookings pile up in schemas nobody reads.
+// The block's legacy schema (mcp_<block>) stays — config and claims live there.
+function dropFiberSchemas(): void {
+  const names = querySQL(
+    `SELECT string_agg(quote_ident(schema_name), ',') FROM information_schema.schemata ` +
+    `WHERE schema_name ~ '^mcp_(b|root)_'`,
+  );
+  if (names !== '') runPsql(`DROP SCHEMA IF EXISTS ${names} CASCADE`);
 }
 
 // unclaim —— UPDATE the singleton's single row back to is_claimed=false. Leaves

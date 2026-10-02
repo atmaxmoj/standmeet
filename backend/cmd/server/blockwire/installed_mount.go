@@ -49,6 +49,14 @@ func MountInstalledBlockAs(
 	// Storage first: a block that declares settings needs somewhere to keep them before
 	// anything can read them, and the panel reads them as soon as the row appears.
 	ProvisionBlockStorage(ctx, d, m)
+	// Then its host socket: a block that orders host ops is bound to that socket path by its
+	// sandbox, and without it the sandbox cannot even start ("bwrap: Can't find source path").
+	// Only the builtins used to get one, so an installed reach-back block never ran.
+	if d.ServeHostOps != nil {
+		if err := d.ServeHostOps(m); err != nil {
+			d.Log.Error("installed block host socket", "block", m.ID, "err", err)
+		}
+	}
 	ms := []plugin.Manifest{*m}
 	noteBlock(ms)
 	// The dial-error hook records WHY a block vanished, on a context detached from this one

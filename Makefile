@@ -164,7 +164,7 @@ backend-lint:
 # is built from schema.sql; each test clones it (`CREATE DATABASE … TEMPLATE standmeet`), so tests
 # never share rows. A test that needs the DB and finds STANDMEET_TEST_PG unset FAILS — it never skips,
 # because a skipped suite reads as green.
-UT_DB_PORT ?= 55439
+UT_DB_PORT ?= $(or $(DEV_PORT_UT_DB),55439)
 UT_DB_CONTAINER ?= $(COMPOSE_PROJECT_NAME)-ut-db
 STANDMEET_TEST_PG ?= postgres://standmeet:standmeet@127.0.0.1:$(UT_DB_PORT)/postgres?sslmode=disable
 backend-test: ut-db

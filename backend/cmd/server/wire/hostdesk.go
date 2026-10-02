@@ -43,31 +43,38 @@ func HostDesk(
 		return
 	}
 	shared := sharedHostDeps(d, skills)
+	// A block mounted later (the owner installs one, or the boot restores it) gets its socket
+	// through the same function, on this process-lifetime ctx.
+	d.ServeHostOps = func(m *plugin.Manifest) error { return serveHostOps(ctx, d, shared, m) }
 	manifests := blockwire.BuiltinManifests()
 	for i := range manifests {
-		serveHostOps(ctx, d, shared, &manifests[i])
+		if err := serveHostOps(ctx, d, shared, &manifests[i]); err != nil {
+			// A builtin declaring an op the host doesn't provide = the manifest is lying; crash
+			// at startup.
+			panic(err)
+		}
 	}
 }
 
 // serveHostOps — one block: assemble its own isolated storage and config, gather the
-// ops it names, open the socket.
+// ops it names, open the socket. An op the host does not publish is an error.
 func serveHostOps(
 	ctx context.Context, d *deps.Runtime, shared *hostdesk.Deps, m *plugin.Manifest,
-) {
+) error {
 	want := blockwire.HostOpsOf(m)
 	if len(want) == 0 {
-		return // a plugin that wants no backend data: fully cut off, doesn't even get a socket.
+		return nil // a plugin that wants no backend data: fully cut off, doesn't even get a socket.
 	}
 	// Opening the socket and telling the block where it is are two halves of one fact,
 	// and they lived in two files. When the loaders merged, the second half was dropped:
 	// sockets were still opened, sandboxes still launched, and every host call inside
 	// answered "STANDMEET_HOST_SOCKET not set". Nothing failed here, because nothing
 	// here was wrong — booking, retrieval, summarize and mail-sender simply went quiet.
-	// A socket nobody can find is not a working plugin, so refuse to start instead.
+	// A socket nobody can find is not a working plugin, so refuse instead.
 	if m.Transport.Env[plugin.HostSocketEnv] == "" {
-		panic(fmt.Sprintf(
+		return fmt.Errorf(
 			"hostdesk: block %q orders %d host ops but was never told its socket path (%s unset)",
-			m.ID, len(want), plugin.HostSocketEnv))
+			m.ID, len(want), plugin.HostSocketEnv)
 	}
 	per := blockwire.PerBlockDeps(d, m)
 	srv, serr := hostdesk.ServeAt(ctx, d.Log, &hostdesk.ServeInput{
@@ -75,10 +82,10 @@ func serveHostOps(
 		SockPath: hostdesk.SocketPath(m.ID), Verify: nativeKeyVerify(d),
 	})
 	if serr != nil {
-		// Declaring an op the host doesn't provide = the manifest is lying; crash at startup.
-		panic(serr)
+		return fmt.Errorf("block %q host socket: %w", m.ID, serr)
 	}
 	_ = srv
+	return nil
 }
 
 // nativeKeyVerify — a block socket's reach-back auth check: resolve the presented native key to its

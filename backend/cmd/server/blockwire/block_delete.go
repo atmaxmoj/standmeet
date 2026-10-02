@@ -13,8 +13,6 @@ import (
 
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 	"github.com/atmaxmoj/standmeet/internal/plugin"
-	"github.com/atmaxmoj/standmeet/internal/plugin/blockstore"
-	"github.com/atmaxmoj/standmeet/internal/plugin/blockwarn"
 )
 
 // Delete — only an owner-authored skill or an owner-installed block can be deleted. Registry
@@ -84,14 +82,10 @@ func (a blockOps) uninstall(ctx context.Context, ownerID, id string) error {
 	// Count the records the drop will destroy BEFORE dropping. A block that held data must not
 	// lose it silently: after the drop we raise a persistent data-loss warning the owner sees in
 	// admin (everything-is-a-block.md rule 3, "warns of data loss — and the warning is a block
-	// too"). Count failure is not fatal to the uninstall — a missing warning must never block the
-	// delete the owner asked for; it is logged as best-effort.
-	held, cerr := a.store.CountAll(ctx, blockstore.KindMCP, id)
-	if cerr != nil {
-		held = 0 // count failed → skip the warning rather than block the delete the owner asked for
-	}
-	if err := a.store.Drop(ctx, blockstore.KindMCP, id); err != nil {
-		return fmt.Errorf("drop block schema: %w", err)
+	// too"). Every fiber of the block goes, not only its legacy schema (per-fiber-schema.md).
+	held, derr := a.dropSchemas(ctx, a.blockSchemaIDs(ctx, ownerID, id))
+	if derr != nil {
+		return derr
 	}
 	if err := a.assembly.Uninstall(ctx, ownerID, id); err != nil {
 		return fmt.Errorf("uninstall block: %w", err)
@@ -108,8 +102,8 @@ func (a blockOps) uninstall(ctx context.Context, ownerID, id string) error {
 // the live registry so it leaves assembly and the panel at once, then clear any persisted
 // row best-effort (these are typically registry-only, so Uninstall is a no-op).
 func (a blockOps) uninstallRegistered(ctx context.Context, ownerID, id string) error {
-	if err := a.store.Drop(ctx, blockstore.KindMCP, id); err != nil {
-		return fmt.Errorf("drop block schema: %w", err)
+	if _, err := a.dropSchemas(ctx, a.blockSchemaIDs(ctx, ownerID, id)); err != nil {
+		return err
 	}
 	a.registry.Unregister(id)
 	if err := a.assembly.Uninstall(ctx, ownerID, id); err != nil {
@@ -121,10 +115,6 @@ func (a blockOps) uninstallRegistered(ctx context.Context, ownerID, id string) e
 // raiseDataLoss — record the persistent warning; best-effort (a warning that fails to store must
 // not fail the delete the owner already asked for and which already happened).
 func (a blockOps) raiseDataLoss(ctx context.Context, ownerID, id string, records int64) {
-	msg := fmt.Sprintf("Uninstalling %q permanently dropped %d stored record(s).", id, records)
-	if err := a.warn.Raise(ctx, ownerID, blockwarn.Warning{
-		Kind: blockwarn.KindDataLoss, BlockID: id, Message: msg,
-	}); err != nil {
-		slog.Default().Warn("data-loss warning not recorded", "block", id, "err", err)
-	}
+	a.raise(ctx, ownerID, id,
+		fmt.Sprintf("Uninstalling %q permanently dropped %d stored record(s).", id, records))
 }

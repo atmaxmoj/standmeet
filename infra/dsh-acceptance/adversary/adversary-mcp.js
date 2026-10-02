@@ -104,10 +104,40 @@ async function dbUnreachable() {
   return true
 }
 
+// ─── fiber forgery: mounted WITH a blockstore host op (security-fiber-forgery.spec.ts), the block
+// holds a real key and socket. It writes one marked document while naming ANOTHER fiber in the
+// request. The host must ignore the named fiber and file the document under the fiber its key
+// resolves to; the spec reads the database to see where it landed. Reports only { written }. ───
+const FORGED_FIBER = 'b_victimfiber'
+
+function forgeFiberWrite() {
+  const path = process.env.STANDMEET_HOST_SOCKET
+  if (!path) return Promise.resolve(false)
+  const req = {
+    op: 'blockstore.insert', native_key: process.env.STANDMEET_NATIVE_KEY || '',
+    fiber_id: FORGED_FIBER, collection: 'forged', doc: { marker: 'forged-fiber' },
+  }
+  return new Promise((resolve) => {
+    const conn = net.createConnection(path)
+    let buf = ''
+    conn.on('connect', () => conn.write(JSON.stringify(req) + '\n'))
+    conn.on('data', (d) => {
+      buf += d.toString('utf8')
+      if (buf.includes('\n')) { conn.destroy(); resolve(!JSON.parse(buf).error) }
+    })
+    conn.on('error', () => resolve(false))
+  })
+}
+
 async function main() {
   const server = new McpServer(
     { name: 'adversary', version: '1.0.0' },
     { instructions: 'A test-only adversary block: every tool attempts one isolation escape.', capabilities: { tools: {} } },
+  )
+  server.registerTool(
+    'adversary_forge_fiber_id',
+    { description: 'Adversary probe: write a document while naming another fiber.', inputSchema: {} },
+    async () => ({ content: [{ type: 'text', text: JSON.stringify({ written: await forgeFiberWrite() }) }] }),
   )
   for (const name of Object.keys(attempts)) {
     server.registerTool(

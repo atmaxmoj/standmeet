@@ -24,11 +24,16 @@ import (
 type Store struct {
 	pool *pgxpool.Pool
 	tx   pgx.Tx // set by WithTx: Insert joins the caller's transaction
-	// provisioned —— schema ids (kind+id) already ensured this process. Per-fiber schemas are
-	// created lazily on first use (the fiber set isn't known at install), and running the
-	// CREATE-IF-NOT-EXISTS DDL on every op would be a needless round-trip; this makes it once.
-	provisioned sync.Map // map[string]struct{}, key = string(kind)+"\x00"+id
 }
+
+// provisioned —— schema ids (kind+id) already ensured this process. Per-fiber schemas are created
+// lazily on first use (the fiber set isn't known at install), and running the CREATE-IF-NOT-EXISTS
+// DDL on every op would be a needless round-trip; this makes it once. Package-wide, not per Store:
+// several Stores share one database, and a Drop through one must be seen by all (else a dropped
+// schema stays "ensured" and the next write into it fails).
+var provisioned sync.Map // map[string]struct{}, key = provisionKey(kind, id)
+
+func provisionKey(kind Kind, id string) string { return string(kind) + "\x00" + id }
 
 // New —— the composition root injects the shared connection pool.
 func New(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
@@ -41,14 +46,14 @@ func (s *Store) WithTx(tx pgx.Tx) *Store { return &Store{pool: s.pool, tx: tx} }
 // and cheap after the first call per id (a process-local cache over the idempotent DDL). Used by
 // the per-fiber reach-back, where a fiber's schema is created on first use rather than at install.
 func (s *Store) EnsureProvisioned(ctx context.Context, kind Kind, id string) error {
-	key := string(kind) + "\x00" + id
-	if _, ok := s.provisioned.Load(key); ok {
+	key := provisionKey(kind, id)
+	if _, ok := provisioned.Load(key); ok {
 		return nil
 	}
 	if err := s.Provision(ctx, kind, id); err != nil {
 		return err
 	}
-	s.provisioned.Store(key, struct{}{})
+	provisioned.Store(key, struct{}{})
 	return nil
 }
 
@@ -114,6 +119,7 @@ func (s *Store) Drop(ctx context.Context, kind Kind, id string) error {
 	if _, eerr := s.pool.Exec(ctx, dropSQL); eerr != nil {
 		return fmt.Errorf("blockstore drop %q: %w", schema, eerr)
 	}
+	provisioned.Delete(provisionKey(kind, id))
 	return nil
 }
 

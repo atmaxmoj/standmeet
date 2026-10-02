@@ -16,6 +16,8 @@ export interface IssueCodeInput {
   max_bookings?: number;
   max_members?: number;
   max_turns_per_session?: number;
+  // bundle_id —— bind the code to a bundle (its blocks, and its own storage fiber).
+  bundle_id?: string;
   // Whether this code's role emails the owner a notification when a booking is made.
   //
   // The field is named notify_owner —— it's a key declared by **calendar.book
@@ -105,6 +107,7 @@ async function postCode(
         max_bookings: input.max_bookings ?? null,
         max_members: input.max_members ?? 10,
         max_turns_per_session: input.max_turns_per_session ?? 50,
+        ...(input.bundle_id ? { bundle_id: input.bundle_id } : {}),
       },
       headers: { 'X-Csrftoken': csrf },
     },

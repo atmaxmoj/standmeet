@@ -30,6 +30,7 @@ import (
 	jobfetch "github.com/atmaxmoj/standmeet/internal/owner/jobs/fetch"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/printsess"
+	"github.com/atmaxmoj/standmeet/internal/plugin"
 	"github.com/atmaxmoj/standmeet/internal/plugin/adapters"
 	"github.com/atmaxmoj/standmeet/internal/plugin/assembly"
 	"github.com/atmaxmoj/standmeet/internal/plugin/blockstore"
@@ -121,7 +122,13 @@ type Runtime struct {
 	// NativeKeys — mints/resolves the per-mount native key a sandboxed block presents on its
 	// reach-back (rule 4: the reach-back is a keyed channel). Minted bound to the fiber at dial,
 	// revoked at unmount; the socket dispatch resolves a presented key back to its fiber.
-	NativeKeys        *nativekey.Issuer
+	NativeKeys *nativekey.Issuer
+	// ServeHostOps — open one block's host socket for the ops its manifest orders. Set by the
+	// inbound convergence point (wire.HostDesk) for the builtins, and called by the install path
+	// for a block mounted at runtime: a block that orders host ops and gets no socket cannot even
+	// start (bwrap binds the socket path). Serves on the process-lifetime context, never a
+	// request's. nil until wired.
+	ServeHostOps      func(m *plugin.Manifest) error
 	VaultSyncRepo     *corpus.VaultSyncRepo
 	StorageClient     *storage.Client
 	JobCachePool      *jobcache.Pool

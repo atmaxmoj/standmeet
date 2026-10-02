@@ -26,6 +26,10 @@ type Scope struct {
 	id string
 }
 
+// CollectionPrefix — every config collection starts with it. Config stays in a block's legacy
+// schema, whatever fiber the block's own records live in.
+const CollectionPrefix = ownerCollection
+
 const (
 	ownerCollection = "blockconfig"
 	codeCollection  = "blockconfig_code"

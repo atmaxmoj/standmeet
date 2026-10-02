@@ -13,10 +13,11 @@
 //	request : {"op":"<name>", ...op-specific fields...}
 //	response: {...op-specific fields..., "error":"<msg or empty>"}
 //
-// The trusted session identity (owner/conversation/...) is part of the request —
-// the host plants it on the plugin's tool-call `_meta`, the plugin forwards it
-// here. The socket file is owner-only (0600) and reachable only inside the
-// sandbox it's bound into.
+// The session identity (owner/conversation/...) is part of the request — the host
+// plants it on the plugin's tool-call `_meta`, the plugin forwards it here. The
+// fiber the request acts for is NOT: it is what the presented native key resolves
+// to, handed to the handler on the context (hostop.CallerFiber). The socket file is
+// owner-only (0600) and reachable only inside the sandbox it's bound into.
 package hostsocket
 
 import (
@@ -29,6 +30,8 @@ import (
 	"maps"
 	"net"
 	"os"
+
+	"github.com/atmaxmoj/standmeet/internal/infra/hostop"
 )
 
 const (
@@ -159,7 +162,8 @@ func (s *Server) dispatch(ctx context.Context, raw []byte) json.RawMessage {
 	if err := json.Unmarshal(raw, &env); err != nil {
 		return errResp("bad request: " + err.Error())
 	}
-	if kerr := s.checkKey(env.NativeKey); kerr != nil {
+	fiber, kerr := s.checkKey(env.NativeKey)
+	if kerr != nil {
 		return errResp(kerr.Error())
 	}
 	h, ok := s.handlers[env.Op]
@@ -167,7 +171,7 @@ func (s *Server) dispatch(ctx context.Context, raw []byte) json.RawMessage {
 		s.log.Warn("hostsocket: unknown op", "op", env.Op)
 		return errResp("unknown op: " + env.Op)
 	}
-	out, err := h(ctx, raw)
+	out, err := h(hostop.WithCallerFiber(ctx, fiber), raw)
 	if err != nil {
 		// Say it out loud. The reply travels back into a sandbox that is free to swallow it
 		// (best-effort paths do exactly that), so without this the host side of a failed
@@ -178,19 +182,21 @@ func (s *Server) dispatch(ctx context.Context, raw []byte) json.RawMessage {
 	return out
 }
 
-// checkKey —— authenticate the reach-back by its native key (rule 4). Every reach-back block now
+// checkKey —— authenticate the reach-back by its native key (rule 4) and return the fiber the key
+// was minted for: the identity the handler acts for (hostop.CallerFiber). Every reach-back block
 // presents the per-mount key the host delivered into its sandbox env, so a request whose key is
 // absent OR unresolvable is a forged/stale channel → refused (verify("") never resolves, folding
-// absent into the same reject). No verifier configured → no check (eval's mini-host).
-func (s *Server) checkKey(nativeKey string) error {
+// absent into the same reject). No verifier configured → no check, no fiber (eval's mini-host).
+func (s *Server) checkKey(nativeKey string) (string, error) {
 	if s.verify == nil {
-		return nil
+		return "", nil
 	}
-	if _, ok := s.verify(nativeKey); !ok {
+	fiber, ok := s.verify(nativeKey)
+	if !ok {
 		s.log.Warn("hostsocket: reach-back with absent or unresolvable native key")
-		return errors.New("unauthorized reach-back: native key not recognized")
+		return "", errors.New("unauthorized reach-back: native key not recognized")
 	}
-	return nil
+	return fiber, nil
 }
 
 func errResp(msg string) json.RawMessage {

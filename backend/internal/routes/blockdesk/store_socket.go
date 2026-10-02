@@ -17,11 +17,10 @@ import (
 
 // BoundStore — one block's own document store. Bound host-side to the block's namespace; the
 // `fiber` on each op selects WHICH of that block's per-fiber schemas to touch (rule 3, "one
-// schema per bundle/fiber"). fiber is the host-planted session identity the plugin forwards (the
-// same trust as the owner_id config forwards), NOT a schema name the plugin invents — the host
-// composes the real schema from (block, fiber), so the plugin still cannot name another block's
-// store. Empty fiber → the block's legacy single schema (today's mcp_<block>), so a block that
-// does not yet forward a fiber is unchanged.
+// schema per bundle/fiber"). fiber is what the presented native key resolved to
+// (hostop.CallerFiber), never a field of the request: a fiber the block could write is a fiber
+// the block could forge. Empty fiber → no key was verified (eval's mini-host) → the block's
+// legacy single schema.
 type BoundStore interface {
 	Insert(ctx context.Context, fiber, collection string, doc json.RawMessage) (string, error)
 	Query(
@@ -106,13 +105,11 @@ func StoreOps(store BoundStore) []hostop.Op {
 }
 
 type writeReq struct {
-	FiberID    string          `json:"fiber_id"`
 	Collection string          `json:"collection"`
 	Doc        json.RawMessage `json:"doc"`
 }
 
 type filterReq struct {
-	FiberID    string          `json:"fiber_id"`
 	Collection string          `json:"collection"`
 	Filter     json.RawMessage `json:"filter"`
 }
@@ -123,7 +120,7 @@ func insertHandler(store BoundStore) hostop.Invoke {
 		if err := json.Unmarshal(raw, &req); err != nil {
 			return nil, fmt.Errorf("blockstore.insert: decode: %w", err)
 		}
-		id, err := store.Insert(ctx, req.FiberID, req.Collection, req.Doc)
+		id, err := store.Insert(ctx, hostop.CallerFiber(ctx), req.Collection, req.Doc)
 		if err != nil {
 			return nil, fmt.Errorf("blockstore.insert: %w", err)
 		}
@@ -141,7 +138,7 @@ func queryHandler(store BoundStore) hostop.Invoke {
 		if err := json.Unmarshal(raw, &req); err != nil {
 			return nil, fmt.Errorf("blockstore.query: decode: %w", err)
 		}
-		docs, err := store.Query(ctx, req.FiberID, req.Collection, req.Filter)
+		docs, err := store.Query(ctx, hostop.CallerFiber(ctx), req.Collection, req.Filter)
 		if err != nil {
 			return nil, fmt.Errorf("blockstore.query: %w", err)
 		}
@@ -159,7 +156,7 @@ func queryRecordsHandler(store BoundStore) hostop.Invoke {
 		if err := json.Unmarshal(raw, &req); err != nil {
 			return nil, fmt.Errorf("blockstore.query_records: decode: %w", err)
 		}
-		recs, err := store.QueryRecords(ctx, req.FiberID, req.Collection, req.Filter)
+		recs, err := store.QueryRecords(ctx, hostop.CallerFiber(ctx), req.Collection, req.Filter)
 		if err != nil {
 			return nil, fmt.Errorf("blockstore.query_records: %w", err)
 		}
@@ -172,7 +169,6 @@ func queryRecordsHandler(store BoundStore) hostop.Invoke {
 }
 
 type byIDReq struct {
-	FiberID    string `json:"fiber_id"`
 	Collection string `json:"collection"`
 	RecordID   string `json:"record_id"`
 }
@@ -183,7 +179,7 @@ func deleteByIDHandler(store BoundStore) hostop.Invoke {
 		if err := json.Unmarshal(raw, &req); err != nil {
 			return nil, fmt.Errorf("blockstore.delete_by_id: decode: %w", err)
 		}
-		n, err := store.DeleteByID(ctx, req.FiberID, req.Collection, req.RecordID)
+		n, err := store.DeleteByID(ctx, hostop.CallerFiber(ctx), req.Collection, req.RecordID)
 		if err != nil {
 			return nil, fmt.Errorf("blockstore.delete_by_id: %w", err)
 		}
@@ -201,7 +197,7 @@ func countHandler(store BoundStore) hostop.Invoke {
 		if err := json.Unmarshal(raw, &req); err != nil {
 			return nil, fmt.Errorf("blockstore.count: decode: %w", err)
 		}
-		n, err := store.Count(ctx, req.FiberID, req.Collection, req.Filter)
+		n, err := store.Count(ctx, hostop.CallerFiber(ctx), req.Collection, req.Filter)
 		if err != nil {
 			return nil, fmt.Errorf("blockstore.count: %w", err)
 		}
@@ -219,7 +215,7 @@ func deleteHandler(store BoundStore) hostop.Invoke {
 		if err := json.Unmarshal(raw, &req); err != nil {
 			return nil, fmt.Errorf("blockstore.delete: decode: %w", err)
 		}
-		n, err := store.Delete(ctx, req.FiberID, req.Collection, req.Filter)
+		n, err := store.Delete(ctx, hostop.CallerFiber(ctx), req.Collection, req.Filter)
 		if err != nil {
 			return nil, fmt.Errorf("blockstore.delete: %w", err)
 		}

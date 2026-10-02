@@ -25,7 +25,10 @@
 
 package registry
 
-import "context"
+import (
+	"context"
+	"strings"
+)
 
 // BundleGate — the blocks this session's code is bound to, right now.
 //
@@ -87,12 +90,34 @@ func (in *AssembleInput) FiberID() string {
 		return "root"
 	}
 	if in.bundleBound && in.bundleID != "" {
-		return "b_" + in.bundleID
+		return BundleFiber(in.bundleID)
 	}
 	if in.OwnerID == "" {
 		return "root"
 	}
-	return "root_" + in.OwnerID
+	return RootFiber(in.OwnerID)
+}
+
+// The fiber names, in one place (docs/design/plugin/per-fiber-schema.md, Execution plan):
+//
+//	b_<bundle>    a visitor on a code bound to that bundle
+//	root_<owner>  a visitor on a code with no bundle
+//	owner_<owner> the owner's own tools; its storage reads span all of the owner's fibers
+const ownerFiberPrefix = "owner_"
+
+// BundleFiber — the fiber of a bundle's visitors.
+func BundleFiber(bundleID string) string { return "b_" + bundleID }
+
+// RootFiber — the fiber of an owner's no-bundle visitors.
+func RootFiber(ownerID string) string { return "root_" + ownerID }
+
+// OwnerFiber — the fiber the owner's own tools run as.
+func OwnerFiber(ownerID string) string { return ownerFiberPrefix + ownerID }
+
+// OwnerOfOwnerFiber — the owner id when fiber is an owner fiber.
+func OwnerOfOwnerFiber(fiber string) (string, bool) {
+	owner, ok := strings.CutPrefix(fiber, ownerFiberPrefix)
+	return owner, ok && owner != ""
 }
 
 // bundleGateFor — the gate to ask, or nil when this assembly has no bundle to read.
