@@ -1,0 +1,17 @@
+# pagestore block — its mountable declaration for a dsh bundle. A JS stdio-MCP server bridged onto dsh
+# through @deepseek-ai/dsh-mcp-client: the patch inserts one mcp-client row that runs the server with
+# node; its 3 tools register on ctx.tools as `mcp__pagestore__store_*`. Cross-platform (JS). Tools
+# reach the host over STANDMEET_HOST_SOCKET only at CALL time, so it boots + lists tools on a bare DSH.
+- insert:
+    - id: pagestore
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        transport: stdio
+        serverName: pagestore
+        command: node
+        args:
+          - pagestore-mcp.js
+        # This package's installed directory, resolved by Node from the running profile's manifest,
+        # so the bundle works in a profile of any name.
+        cwd: !!js "process.getBuiltinModule('node:path').dirname(process.getBuiltinModule('node:module').createRequire(ctx.get('profileContext').dir + '/package.json').resolve('standmeet-pagestore-mcp/package.json'))"
+        failOnStartupError: true

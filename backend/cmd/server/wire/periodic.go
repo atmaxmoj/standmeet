@@ -72,6 +72,7 @@ func StartBackground(ctx context.Context, d *deps.Runtime) error {
 	}
 	d.Events.Start(ctx, d.Jobs)
 	go d.BuildSettled.Run(ctx) // the preview long-poll's LISTEN; ends with ctx
+	go d.StoreChanged.Run(ctx) // open pages' store streams; ends with ctx
 	if d.CorpusIndexer != nil {
 		if _, err := corpus.EnqueueReindex(ctx, d.Jobs, soleOwnerID(d)); err != nil {
 			d.Log.Warn("enqueue boot reindex", "err", err)

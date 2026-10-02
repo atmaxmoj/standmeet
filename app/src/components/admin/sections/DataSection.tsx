@@ -21,8 +21,9 @@ import {
   type MicrositeSummary,
 } from '@/lib/admin/use-microsites';
 import { totalLabel, type PagedState } from '@/lib/state/create-paged-store';
-import { useMicrositeStore, type StoreDoc } from '@/lib/admin/use-microsite-store';
+import { isPending, useMicrositeStore, type StoreDoc } from '@/lib/admin/use-microsite-store';
 import { useAction } from '@/lib/ui/use-action';
+import { ApproveButton, PendingMark, StoreRules } from '@/components/admin/sections/DataStoreRules';
 
 export function DataSection() {
   const t = useTranslations('adminPages.data');
@@ -115,6 +116,7 @@ function StoreView({ slug }: { slug: string }) {
   } as const;
   return (
     <div className="border-t border-(--color-rule) px-4 py-3" data-testid={`data-store-${slug}`}>
+      <StoreRules slug={slug} store={store} />
       {map[pickStoreState(store)]}
     </div>
   );
@@ -182,10 +184,12 @@ function DocRow({ doc, store }: { doc: StoreDoc; store: Store }) {
         <span className="mono text-[9.5px] tracking-[0.14em] uppercase text-(--color-faint)">
           {doc.collection}
         </span>
+        {isPending(doc) ? <PendingMark /> : null}
         <pre className="mono text-[11px] text-(--color-ink) whitespace-pre-wrap break-words mt-1 overflow-x-auto">
           {JSON.stringify(doc.doc)}
         </pre>
       </div>
+      {isPending(doc) ? <ApproveButton doc={doc} store={store} /> : null}
       <DeleteDocButton doc={doc} store={store} />
     </div>
   );

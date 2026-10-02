@@ -68,6 +68,9 @@ const GOLDEN_INWARD: readonly Cap[] = [
   // expose_as_agent_tools (visitor-side "booking succeeded → send confirmation email" #122).
   // Same as supplier.agent_tools: Shape=VisitorOnly + per-session gate.
   { id: 'mail.send', shape: 'visitor_only', origin: 'builtin' },
+  // microsite.store — the agent's hands on the store of the microsite a turn is asked on (S2,
+  // writing a manuscript together): page_only, so it appears only in a turn asked on a page.
+  { id: 'microsite.store', shape: 'visitor_only', origin: 'builtin' },
   { id: 'summarize_conversation', shape: 'visitor_only', origin: 'builtin' },
   { id: 'echoer', shape: 'visitor_only', origin: 'managed' },
   // everything / fsmcp — genuine third-party MCP servers (the @modelcontextprotocol official

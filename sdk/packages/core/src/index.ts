@@ -11,6 +11,7 @@ export type {
   IssueSessionInput,
   MicrositeDoc,
   StandMeetClient,
+  StoredDoc,
   SystemPromptSource,
   TurnMsg,
 } from './client.js';

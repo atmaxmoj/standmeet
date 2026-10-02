@@ -1,6 +1,10 @@
 // use-microsite-store.ts —— a microsite reads + writes its OWN persistence store (a poll, a sign-up
-// sheet, a guestbook). The page's slug is taken from its address (/p/<slug>/…), so the page never
-// has to know or pass its own id; the server scopes every read/write to that page's namespace.
+// sheet, a guestbook, a manuscript several people write). The page's slug is taken from its address
+// (/p/<slug>/…), so the page never has to know or pass its own id; the server scopes every
+// read/write to that page's namespace.
+//
+// Live: the list follows the store — another visitor's write, the agent's, the owner's approval
+// or delete appear on every open page without a reload (the store stream).
 //
 // Reads degrade to an empty list (never throw). A write surfaces its refusal via `error` — the
 // owner may have the store closed (model C), or it may be full, or the document invalid.
@@ -8,7 +12,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { widgetClient } from './widgets/client.js';
-import type { MicrositeDoc } from '@standmeet/sdk-core';
+import type { MicrositeDoc, StoredDoc } from '@standmeet/sdk-core';
 
 // currentPageSlug —— the <slug> in /p/<slug>/…. Empty off a microsite (e.g. the site root).
 function currentPageSlug(): string {
@@ -18,14 +22,15 @@ function currentPageSlug(): string {
 }
 
 export interface MicrositeStore {
-  docs: MicrositeDoc[];
+  // docs —— the published documents, oldest first, each with the host's `_id` and `_author`.
+  docs: StoredDoc[];
   save: (doc: MicrositeDoc) => Promise<void>;
   error: string | null;
 }
 
 export function useMicrositeStore(collection: string, slugOverride?: string): MicrositeStore {
   const slug = slugOverride ?? currentPageSlug();
-  const [docs, setDocs] = useState<MicrositeDoc[]>([]);
+  const [docs, setDocs] = useState<StoredDoc[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
@@ -34,7 +39,9 @@ export function useMicrositeStore(collection: string, slugOverride?: string): Mi
 
   useEffect(() => {
     void refresh();
-  }, [refresh]);
+    if (slug === '') return undefined;
+    return widgetClient.watchMicrositeStore(slug, () => { void refresh(); });
+  }, [slug, refresh]);
 
   const save = useCallback(async (doc: MicrositeDoc) => {
     setError(null);

@@ -316,4 +316,7 @@ var micrositeErrClasses = []struct {
 	{entity.ErrMicrositeHomeReserved, func() error {
 		return fp.Coded(fp.BadInput("the homepage slug is reserved"), "home_reserved")
 	}},
+	{usecase.ErrMicrositeStoreInvalid, func() error {
+		return fp.Coded(fp.BadInput("max_docs must be at least 1"), "store_policy_invalid")
+	}},
 }

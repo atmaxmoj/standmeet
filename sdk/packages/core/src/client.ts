@@ -120,10 +120,13 @@ export interface StandMeetClient {
   composeSystem(session: SystemPromptSource): Promise<string>;
   // queryMicrositeDocs —— read this page's own stored documents in a collection (a poll tally, a
   // sign-up list). Degrades to empty on failure — a read never throws.
-  queryMicrositeDocs(slug: string, collection: string): Promise<MicrositeDoc[]>;
+  queryMicrositeDocs(slug: string, collection: string): Promise<StoredDoc[]>;
   // insertMicrositeDoc —— append one document to this page's store. Throws MicrositeStoreError on a
   // refusal (the store is closed, full, the doc is invalid) so the page can tell the visitor.
   insertMicrositeDoc(slug: string, collection: string, doc: MicrositeDoc): Promise<string>;
+  // watchMicrositeStore —— call onChange whenever this page's store changes (anyone's write, the
+  // owner's approval or delete), and once on each (re)connect. Returns the stop function.
+  watchMicrositeStore(slug: string, onChange: () => void): () => void;
   // callTool —— invoke ONE block (plugin) tool directly over the adopted visitor session, outside
   // the chat loop. The block runs server-side on the SAME code-gated endpoint the chat agent uses,
   // so a tool the visitor's code did not grant comes back { ok:false, reason:'block_not_enabled' }.
@@ -144,6 +147,15 @@ export interface CallToolResult {
 
 // MicrositeDoc —— an opaque JSON document a microsite stores (the SDK doesn't model its shape).
 export type MicrositeDoc = Record<string, unknown>;
+
+// StoredDoc —— a document as the store gives it back: the page's own keys plus the host's, which
+// start with `_` and which a page can read but never write.
+export interface StoredDoc extends MicrositeDoc {
+  _id: string;
+  // _author —— who wrote it: a visitor by hand ('member'), the agent for a visitor ('agent'), the owner.
+  _author?: { kind: 'member' | 'agent' | 'owner'; name: string };
+  _created_at?: string;
+}
 
 // MicrositeStoreError —— a write refusal, carrying the HTTP status + the server's code so the page can
 // distinguish "closed" (403) from "full" (429) from "invalid" (400).
@@ -193,6 +205,7 @@ export function createClient(opts: ClientOptions = {}): StandMeetClient {
     composeSystem: (session) => composeSystem(f, baseURL, session),
     queryMicrositeDocs: (slug, collection) => queryMicrositeDocs(f, baseURL, slug, collection),
     insertMicrositeDoc: (slug, collection, doc) => insertMicrositeDoc(f, baseURL, slug, collection, doc),
+    watchMicrositeStore: (slug, onChange) => watchMicrositeStore(baseURL, slug, onChange),
     callTool: (id, token, name, args) => callTool(f, baseURL, id, token, name, args),
   };
 }
@@ -222,16 +235,42 @@ const micrositeStoreBase = '/api/v1/pages';
 
 async function queryMicrositeDocs(
   f: typeof fetch, baseURL: string, slug: string, collection: string,
-): Promise<MicrositeDoc[]> {
+): Promise<StoredDoc[]> {
   try {
     const url = `${baseURL}${micrositeStoreBase}/${slug}/store?collection=${encodeURIComponent(collection)}`;
     const res = await f(url, { cache: 'no-store' });
     if (!res.ok) return [];
-    const body = (await res.json()) as { docs?: MicrositeDoc[] };
+    const body = (await res.json()) as { docs?: StoredDoc[] };
     return body.docs ?? [];
   } catch {
     return [];
   }
+}
+
+// storePollMs —— when the instance cannot hold one more stream ('poll'), or there is no EventSource.
+const storePollMs = 15_000;
+
+// watchMicrositeStore —— the page's store stream (SSE, the visitor's cookie rides along). The
+// server closes it now and then (its write timeout); EventSource reconnects by itself, and every
+// (re)connect is a change too, so nothing written in the gap is missed.
+function watchMicrositeStore(baseURL: string, slug: string, onChange: () => void): () => void {
+  const Source = (globalThis as { EventSource?: typeof EventSource }).EventSource;
+  if (!Source) return pollEvery(onChange);
+  const es = new Source(`${baseURL}${micrositeStoreBase}/${encodeURIComponent(slug)}/store/stream`,
+    { withCredentials: true });
+  let stopPoll: (() => void) | null = null;
+  es.addEventListener('open', onChange);
+  es.addEventListener('changed', onChange);
+  es.addEventListener('poll', () => {
+    es.close();
+    stopPoll = pollEvery(onChange);
+  });
+  return () => { es.close(); stopPoll?.(); };
+}
+
+function pollEvery(onChange: () => void): () => void {
+  const t = setInterval(onChange, storePollMs);
+  return () => clearInterval(t);
 }
 
 async function insertMicrositeDoc(

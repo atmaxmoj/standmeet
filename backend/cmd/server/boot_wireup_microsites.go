@@ -83,6 +83,34 @@ func ownerSignedIn(r *http.Request, d *deps.Runtime) bool {
 	return err == nil
 }
 
+// storeWatch —— a page's store change feed: a waiter on the store listener, keyed by page id.
+func storeWatch(d *deps.Runtime, pageDeps owner.MicrositeDeps) publicroutes.StoreWatch {
+	return func(ctx context.Context, slug string) (<-chan struct{}, func(), bool, error) {
+		pageID, err := owner.PublicStorePageID(ctx, pageDeps, d.OwnerRepo, slug)
+		if err != nil {
+			return nil, func() {}, false, mapMicrositeStoreErr(err)
+		}
+		waiter, ok := d.StoreChanged.Register(pageID)
+		return waiter.Wake, waiter.Release, ok, nil
+	}
+}
+
+// storeAuthor —— who a page-store write is from: the visitor's session (their picked name and
+// member), else the signed-in owner, else an anonymous reader of an open page.
+func storeAuthor(r *http.Request, d *deps.Runtime, visitorToken string) owner.DocAuthor {
+	if visitorToken != "" {
+		if sess, err := d.VisitorStore.Get(r.Context(), visitorToken); err == nil {
+			return owner.DocAuthor{
+				Kind: owner.AuthorMember, Name: sess.Visitor.Name, MemberID: sess.MemberID,
+			}
+		}
+	}
+	if ownerSignedIn(r, d) {
+		return owner.DocAuthor{Kind: owner.AuthorOwner, Name: "owner"}
+	}
+	return owner.DocAuthor{Kind: owner.AuthorMember, Name: "anonymous"}
+}
+
 func visitorCodeOpens(
 	ctx context.Context, d *deps.Runtime, pages owner.MicrositeDeps, token, pageID string,
 ) bool {
@@ -200,7 +228,8 @@ func buildPublicMicrositeStoreDeps(d *deps.Runtime) publicroutes.MicrositeStoreH
 	}
 	grant := micrositeGrant(d)
 	return publicroutes.MicrositeStoreHandlers{
-		Log: d.Log,
+		Log:   d.Log,
+		Watch: storeWatch(d, pageDeps),
 		// The page's own rule (sijie 2026-10-01: a code-only page's store answered anyone). A
 		// refusal reads as no such page, like the closed page's sub-assets.
 		Opens: func(r *http.Request, visitor, slug string) error {
@@ -212,16 +241,19 @@ func buildPublicMicrositeStoreDeps(d *deps.Runtime) publicroutes.MicrositeStoreH
 			return mapMicrositeStoreErr(err)
 		},
 		Insert: func(
-			ctx context.Context, slug, collection string, doc json.RawMessage,
-		) (string, error) {
-			w := owner.DocWrite{Slug: slug, Collection: collection, Doc: doc}
-			id, err := owner.PublicInsertMicrositeDoc(ctx, pageDeps, d.OwnerRepo, w)
-			return id, mapMicrositeStoreErr(err)
+			r *http.Request, visitor, slug, collection string, doc json.RawMessage,
+		) (publicroutes.InsertedStoreDoc, error) {
+			w := owner.DocWrite{
+				Slug: slug, Collection: collection, Doc: doc, Author: storeAuthor(r, d, visitor),
+			}
+			got, err := owner.PublicInsertMicrositeDoc(r.Context(), pageDeps, d.OwnerRepo, &w)
+			return publicroutes.InsertedStoreDoc{ID: got.ID, Pending: got.Pending},
+				mapMicrositeStoreErr(err)
 		},
 		Query: func(
-			ctx context.Context, slug, collection string, filter json.RawMessage,
+			ctx context.Context, slug, collection string, _ json.RawMessage,
 		) ([]json.RawMessage, error) {
-			q := owner.DocQuery{Slug: slug, Collection: collection, Filter: filter}
+			q := owner.DocQuery{Slug: slug, Collection: collection}
 			docs, err := owner.PublicQueryMicrositeDocs(ctx, pageDeps, d.OwnerRepo, q)
 			return docs, mapMicrositeStoreErr(err)
 		},

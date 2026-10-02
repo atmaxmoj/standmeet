@@ -61,8 +61,9 @@ async function writeGateFlow(request: APIRequestContext, token: string, sid: str
 
   const read = await request.get(storeURL('store-a', 'votes'));
   expect(read.status()).toBe(200);
+  // The page's own keys, plus the host's (`_id`, `_author`, …) which a reader also gets.
   expect(((await read.json()) as QueryResult).docs, 'the document reads back')
-    .toContainEqual({ choice: 'x' });
+    .toContainEqual(expect.objectContaining({ choice: 'x' }));
 }
 
 async function ownerSession(request: APIRequestContext): Promise<{ token: string; sid: string }> {

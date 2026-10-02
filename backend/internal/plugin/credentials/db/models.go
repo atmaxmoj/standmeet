@@ -324,6 +324,16 @@ type HandleAlias struct {
 	CreatedAt pgtype.Timestamptz
 }
 
+type ImLink struct {
+	ID          pgtype.UUID
+	OwnerID     pgtype.UUID
+	Platform    string
+	PairingCode string
+	ChatID      string
+	CreatedAt   pgtype.Timestamptz
+	PairedAt    pgtype.Timestamptz
+}
+
 type InferenceUsage struct {
 	ID           pgtype.UUID
 	OwnerID      pgtype.UUID
@@ -450,10 +460,37 @@ type MicrositeBuild struct {
 	ClaimedAt    pgtype.Timestamptz
 }
 
+type MicrositeStorePolicy struct {
+	PageID    pgtype.UUID
+	MaxDocs   int32
+	Review    bool
+	UpdatedAt pgtype.Timestamptz
+}
+
 type NoteRef struct {
 	SrcID     pgtype.UUID
 	DstID     pgtype.UUID
 	OwnerID   pgtype.UUID
+	CreatedAt pgtype.Timestamptz
+}
+
+type NotifyRule struct {
+	ID          pgtype.UUID
+	OwnerID     pgtype.UUID
+	EventType   string
+	FilterKey   string
+	FilterValue string
+	FirstOnly   bool
+	Channel     string
+	ChannelRef  string
+	Template    string
+	Enabled     bool
+	CreatedAt   pgtype.Timestamptz
+}
+
+type NotifyRuleMark struct {
+	RuleID    pgtype.UUID
+	Mark      string
 	CreatedAt pgtype.Timestamptz
 }
 

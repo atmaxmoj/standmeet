@@ -28,6 +28,7 @@ type (
 	DocWrite                   = usecase.DocWrite
 	DocQuery                   = usecase.DocQuery
 	DocRef                     = usecase.DocRef
+	DocPatch                   = usecase.DocPatch
 	EmailUpdateInput           = usecase.EmailUpdateInput
 	HandleDeps                 = usecase.HandleDeps
 	KeyChange                  = usecase.KeyChange
@@ -105,6 +106,9 @@ var (
 	MicrositeStoreQuery       = usecase.VisitorQuery
 	PublicInsertMicrositeDoc  = usecase.PublicInsertDoc
 	PublicQueryMicrositeDocs  = usecase.PublicQueryDocs
+	PublicStorePageID         = usecase.PublicStorePageID
+	SearchMicrositeDocs       = usecase.SearchDocs
+	VisitorInsertMicrositeDoc = usecase.VisitorInsert
 	PublicMicrositeStoreOpens = usecase.PublicStoreOpens
 	MicrositeStoreListAll     = usecase.OwnerListDocs
 	MicrositeStoreDeleteDoc   = usecase.OwnerDeleteDoc

@@ -28,3 +28,6 @@ var (
 
 // BuildSettledChannel —— the NOTIFY channel a settle wakes (payload: the owner id).
 const BuildSettledChannel = usecase.BuildSettledChannel
+
+// StoreChangedChannel —— the NOTIFY channel a page store change wakes (payload: the page id).
+const StoreChangedChannel = usecase.StoreChangedChannel

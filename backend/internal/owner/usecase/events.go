@@ -25,6 +25,7 @@ const (
 	PageUnpublished           = "page.unpublished"
 	MicrositeStoreDocInserted = "microsite.store.doc_inserted"
 	MicrositeStoreDocDeleted  = "microsite.store.doc_deleted"
+	MicrositeStoreDocApproved = "microsite.store.doc_approved"
 )
 
 // OwnerEventTypes —— the owner-domain event types.
@@ -55,6 +56,9 @@ func OwnerEventTypes() []events.Type {
 		t(MicrositeStoreDocDeleted,
 			"The owner removed a document from a microsite's store (data.collection, "+
 				"data.doc_id).", page),
+		t(MicrositeStoreDocApproved,
+			"The owner approved a document that waited for review; visitors now see it "+
+				"(data.collection, data.doc_id).", page),
 	}
 }
 

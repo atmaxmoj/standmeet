@@ -7,12 +7,21 @@ type (
 	Microsite         = entity.Microsite
 	MicrositeBuild    = entity.MicrositeBuild
 	MicrositeDocument = entity.MicrositeDocument
+	DocAuthor         = entity.DocAuthor
+	StorePolicy       = entity.StorePolicy
 	KeypairMetadata   = entity.KeypairMetadata
 	Owner             = entity.Owner
 	Prompt            = entity.Prompt
 	Settings          = entity.Settings
 	// VaultImportReceipt —— the most recent vault import (UX-62). At zero value = never imported.
 	VaultImportReceipt = entity.VaultImportReceipt
+)
+
+// Document author kinds (impl: entity).
+const (
+	AuthorMember = entity.AuthorMember
+	AuthorAgent  = entity.AuthorAgent
+	AuthorOwner  = entity.AuthorOwner
 )
 
 // Constructors/functions (impl: entity).

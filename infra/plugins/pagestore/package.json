@@ -1,0 +1,24 @@
+{
+  "name": "standmeet-pagestore-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "microsite.store block (JS): a stdio-MCP server whose 3 tools read, search and append to the store of the microsite a visitor's turn is asked on (a shared manuscript the visitors write with the agent). Forwards to the host over STANDMEET_HOST_SOCKET; owns no data. As JS it cannot import host/Go internals — host-blindness is structural.",
+  "main": "pagestore-mcp.js",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^3.25.76"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh": ">=0.1.7-rc.2 <0.2.0-0"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/dsh": {
+      "optional": true
+    }
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

@@ -914,8 +914,20 @@ CREATE TABLE microsite_builds (
 -- schema (page_<id>) with a generic records(collection, doc jsonb) table — the capstore pattern
 -- (internal/plugin/blockstore, KindMicrosite), same isolation as a plugin: physical schema
 -- separation (not a shared table keyed by id), created on page create, DROP SCHEMA CASCADE on page
--- delete. See internal/owner/usecase/microsite_store.go. The only microsite_store trace in core is the
--- microsites.store_writable flag above (whether visitors may write it — security model C).
+-- delete. See internal/owner/usecase/microsite_store.go. The only microsite_store traces in core are
+-- the microsites.store_writable flag above (whether visitors may write it — security model C) and
+-- the policy row below.
+
+-- microsite_store_policy —— the owner's rules for one page's store: how many documents it may hold
+-- (max_docs), and whether a new document waits for the owner's approval before visitors see it
+-- (review). No row = the defaults (500, no review).
+-- events: none (owner configuration)
+CREATE TABLE microsite_store_policy (
+    page_id     uuid        PRIMARY KEY REFERENCES microsites(id) ON DELETE CASCADE,
+    max_docs    integer     NOT NULL DEFAULT 500 CHECK (max_docs > 0),
+    review      boolean     NOT NULL DEFAULT false,
+    updated_at  timestamptz NOT NULL DEFAULT now()
+);
 
 -- access_requests —— visitor 在 /<handle>/gate 留言（无 code 时）。
 -- owner 在 /admin/requests 看；open → replied (回邮件后) / closed (无视)。

@@ -114,6 +114,10 @@ func sharedHostDeps(
 		Bookings:     owner.BookingRecorder{Owners: d.OwnerRepo, Events: d.Events.Recorder()},
 		Suppliers:    d.BlockDispatch,
 		SupplierJobs: supplierJobs(d),
+		PageStore: &owner.MicrositeDeps{
+			Pages: d.MicrositeRepo, Builds: d.MicrositeBuildRepo, Docs: d.MicrositeDocs,
+			Events: d.Recorder,
+		},
 	}
 }
 

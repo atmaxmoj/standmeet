@@ -76,8 +76,11 @@ type AssembleInput struct {
 	Subject        Subject
 	Visitor        access.VisitorProfile
 	ConversationID string
-	bundleBound    bool
-	bundleDone     bool
+	// Page —— the microsite slug this turn is asked on ("" elsewhere). A page_only block is present
+	// only with one, and its host ops act on that page.
+	Page        string
+	bundleBound bool
+	bundleDone  bool
 }
 
 // The BindingTool definition moved to binding_tool.go (H.8: it now goes through

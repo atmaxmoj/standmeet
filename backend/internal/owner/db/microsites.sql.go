@@ -359,6 +359,23 @@ func (q *Queries) GetMicrositeBySlugAny(ctx context.Context, arg GetMicrositeByS
 	return i, err
 }
 
+const getMicrositeStorePolicy = `-- name: GetMicrositeStorePolicy :one
+SELECT max_docs, review FROM microsite_store_policy WHERE page_id = $1
+`
+
+type GetMicrositeStorePolicyRow struct {
+	MaxDocs int32
+	Review  bool
+}
+
+// The page's store policy; no row → the caller uses the defaults.
+func (q *Queries) GetMicrositeStorePolicy(ctx context.Context, pageID pgtype.UUID) (GetMicrositeStorePolicyRow, error) {
+	row := q.db.QueryRow(ctx, getMicrositeStorePolicy, pageID)
+	var i GetMicrositeStorePolicyRow
+	err := row.Scan(&i.MaxDocs, &i.Review)
+	return i, err
+}
+
 const listMicrositesByOwner = `-- name: ListMicrositesByOwner :many
 SELECT cp.id, cp.owner_id, cp.slug, cp.title, cp.status,
        cp.live_build_id, cp.staging_build_id, cp.previous_live_build_id,
@@ -952,5 +969,24 @@ WHERE id = $1
 
 func (q *Queries) SoftDeleteMicrosite(ctx context.Context, id pgtype.UUID) error {
 	_, err := q.db.Exec(ctx, softDeleteMicrosite, id)
+	return err
+}
+
+const upsertMicrositeStorePolicy = `-- name: UpsertMicrositeStorePolicy :exec
+INSERT INTO microsite_store_policy (page_id, max_docs, review, updated_at)
+VALUES ($1, $2, $3, now())
+ON CONFLICT (page_id) DO UPDATE SET max_docs = excluded.max_docs, review = excluded.review,
+    updated_at = now()
+`
+
+type UpsertMicrositeStorePolicyParams struct {
+	PageID  pgtype.UUID
+	MaxDocs int32
+	Review  bool
+}
+
+// Set the page's store policy (both fields; the caller fills an unchanged one from the current row).
+func (q *Queries) UpsertMicrositeStorePolicy(ctx context.Context, arg UpsertMicrositeStorePolicyParams) error {
+	_, err := q.db.Exec(ctx, upsertMicrositeStorePolicy, arg.PageID, arg.MaxDocs, arg.Review)
 	return err
 }

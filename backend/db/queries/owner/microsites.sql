@@ -272,3 +272,14 @@ WHERE owner_id = $1 AND slug = $2 AND status != 'deleted';
 -- Owner toggles whether this page's store accepts visitor writes. Owner-scoped by (owner_id, slug).
 UPDATE microsites SET store_writable = $3, updated_at = now()
 WHERE owner_id = $1 AND slug = $2 AND status != 'deleted';
+
+-- name: GetMicrositeStorePolicy :one
+-- The page's store policy; no row → the caller uses the defaults.
+SELECT max_docs, review FROM microsite_store_policy WHERE page_id = $1;
+
+-- name: UpsertMicrositeStorePolicy :exec
+-- Set the page's store policy (both fields; the caller fills an unchanged one from the current row).
+INSERT INTO microsite_store_policy (page_id, max_docs, review, updated_at)
+VALUES ($1, $2, $3, now())
+ON CONFLICT (page_id) DO UPDATE SET max_docs = excluded.max_docs, review = excluded.review,
+    updated_at = now();

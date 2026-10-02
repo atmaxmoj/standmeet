@@ -140,6 +140,10 @@ type Manifest struct {
 	// unprefixed. Last because field order follows pointer width (govet
 	// fieldalignment), and a bool is the narrowest thing here.
 	RawToolNames bool `yaml:"raw_tool_names"`
+
+	// PageOnly — the block acts on the microsite a turn is asked on (its store, say). It is
+	// present only in a turn asked on a microsite; elsewhere it has nothing to act on.
+	PageOnly bool `yaml:"page_only"`
 }
 
 // Transport — how the host reaches this block's code.

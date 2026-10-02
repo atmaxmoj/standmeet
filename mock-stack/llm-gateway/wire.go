@@ -106,10 +106,23 @@ func (r *MessagesReq) markerText() string {
 	b.WriteString(r.System.Text)
 	b.WriteString(" ")
 	for i := range r.Messages {
-		b.WriteString(joinTextBlocks(r.Messages[i].Content))
+		b.WriteString(seenBlocks(r.Messages[i].Content))
 		b.WriteString(" ")
 	}
 	return b.String()
+}
+
+// seenBlocks —— everything the model reads in one message: text blocks and tool results. A
+// recorder that kept only the text could not answer "did this tool's result reach the model"
+// (S2, 2026-10-02: a store search handed the agent the passage, and the record said it never did).
+func seenBlocks(blocks []Block) string {
+	out := joinTextBlocks(blocks)
+	for i := range blocks {
+		if blocks[i].Type == "tool_result" {
+			out += " " + string(blocks[i].Content)
+		}
+	}
+	return out
 }
 
 func joinTextBlocks(blocks []Block) string {

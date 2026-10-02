@@ -147,6 +147,9 @@ type deferredWiring struct {
 // answers at its timeout.
 const maxPreviewWaiters = 64
 
+// maxStoreStreams —— open page store streams this process holds; past it a page polls instead.
+const maxStoreStreams = 512
+
 // sttModelDir —— where the backend image bakes the speech model (backend/Dockerfile, the stt
 // stage). Fixed by the image, not a knob; a build without it simply offers no mic.
 const sttModelDir = "/srv/stt"
@@ -163,6 +166,8 @@ func assembleRuntimeDeps(
 		Corpus: corpus.NewCorpus(repos.raw, repos.wiki, repos.output, repos.writing),
 		BuildSettled: pgstore.NewListener(
 			c.db, owner.BuildSettledChannel, maxPreviewWaiters, log),
+		StoreChanged: pgstore.NewListener(
+			c.db, owner.StoreChangedChannel, maxStoreStreams, log),
 		SelfStatPeers:      cfg.SelfStatPeers,
 		StorageSecretKey:   cfg.StorageSecretKey,
 		BlockMarket:        marketplace.NewBlockMarket(cfg.BlockMarketNpmBaseURL),

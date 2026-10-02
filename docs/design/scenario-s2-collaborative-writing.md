@@ -1,6 +1,6 @@
 # Scenario S2: writing a novel together on a microsite
 
-Status: PROPOSED 2026-10-01. Waits for the owner's answers under *Decisions for the owner*.
+Status: BUILT 2026-10-02 (agent-first; see *Decisions* and *As built* at the end).
 
 ## What the owner asked
 
@@ -235,17 +235,31 @@ drives two browser contexts. Fixtures exist: `publishPage` (`fixtures/microsite-
 Each step is red on the code of 2026-10-01. Prove it by running the spec on the current main
 before the first implementation commit.
 
-## Decisions for the owner
+## Decisions (owner, 2026-10-02)
 
-1. **Quota.** 500 documents per page fits a short story, not a novel with edits (each edit is
-   one more document). Options: a per-page quota the owner sets (recommended, default 500), or
-   one higher fixed cap for every page.
-2. **Pre-moderation.** Default: a passage appears at once and the owner deletes after the fact.
-   Option: passages wait in `pending` until the owner approves — safer for strangers, slower for
-   friends.
-3. **Agent write.** Default: the agent may append passages on a visitor's request, never edit or
-   delete. Option: read-only agent (the novel is only human text), or an agent that may also
-   resolve conflicts by superseding.
+1. **Quota.** Per page, set by the owner; default 500 (`microsite_store_policy.max_docs`).
+2. **Review.** Default: a passage appears at once. The owner can turn review on per page; then a
+   new passage is `_status: pending` until the owner approves it (`microsite.store_approve`).
+3. **Agent write.** The agent appends passages for the visitor (`store_append`).
+4. **The agent is the main way to write.** The page puts the chat next to the manuscript; a plain
+   add box is the second way.
+
+## As built (2026-10-02)
+
+- Host keys stamped at write: `_author {kind, name, member_id}`, `_status`, `_created_at`; a reader
+  also gets `_id`. A client `_` key is refused. (`owner/usecase/microsite_store_writing.go`)
+- Policy: table `microsite_store_policy`; ops `microsite.store_policy` / `set_store_policy` /
+  `store_approve`; /admin/data shows the review switch, the limit, and approve on a waiting entry.
+- Live: every store change NOTIFYs `standmeet_page_store` (page id) in its transaction; GET
+  `/api/v1/pages/{slug}/store/stream` (SSE, same gate as the GET) says `changed`; the SDK's
+  `useMicrositeStore` refetches on each change and each (re)connect.
+- Agent: block `microsite.store` (`page_only`: present only in a turn asked on a microsite), JS
+  plugin `infra/plugins/pagestore`, host ops `page_store.read / search / append`; the page comes from
+  the turn's `doc_context`, and each op checks the session may open that page.
+- Search is a scan over the page's published documents (bounded by its limit), not an index.
+- Not built: editing a passage (supersede + conflict). Revising = add a new passage and the owner
+  deletes the old one.
+- Acceptance: `e2e/test/microsite-collab-writing.spec.ts`, `e2e/test/admin-data-store-policy.spec.ts`.
 
 ## Not in this change
 

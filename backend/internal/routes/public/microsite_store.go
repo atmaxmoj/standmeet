@@ -30,19 +30,25 @@ const micrositeStoreMaxBody = 16 * 1024
 type MicrositeStoreHandlers struct {
 	// Opens —— the page's own access rule, the one /p/<slug> applies: a page closed to visitors
 	// without a code keeps its store closed to them too (a display error when it refuses).
-	Opens  func(r *http.Request, visitor, slug string) error
-	Insert func(ctx context.Context, slug, collection string, doc json.RawMessage) (string, error)
-	Query  func(
+	Opens func(r *http.Request, visitor, slug string) error
+	// Insert —— the write, stamped with who wrote it: the composition root reads the author from
+	// the visitor session (or the signed-in owner), never from the document.
+	Insert func(r *http.Request, visitor, slug, collection string, doc json.RawMessage) (
+		InsertedStoreDoc, error)
+	Query func(
 		ctx context.Context, slug, collection string, filter json.RawMessage,
 	) ([]json.RawMessage, error)
-	Log *slog.Logger
+	// Watch —— the store's change feed for the stream route.
+	Watch StoreWatch
+	Log   *slog.Logger
 }
 
-// Mount wires GET/POST /pages/{slug}/store onto /api/v1.
+// Mount wires GET/POST /pages/{slug}/store and GET /pages/{slug}/store/stream onto /api/v1.
 func (h *MicrositeStoreHandlers) Mount(r chi.Router) {
 	gated := r.With(h.opensGate)
 	gated.Get("/pages/{slug}/store", h.query())
 	gated.Post("/pages/{slug}/store", h.insert())
+	gated.Get("/pages/{slug}/store/stream", h.stream())
 }
 
 // opensGate —— the page's own access rule in front of its store (Opens): refused → no such page.
@@ -69,12 +75,13 @@ func (h *MicrositeStoreHandlers) insert() http.HandlerFunc {
 			writeError(h.Log, w, envBadReq("invalid body"))
 			return
 		}
-		id, err := h.Insert(r.Context(), chi.URLParam(r, "slug"), req.Collection, req.Doc)
+		visitor, _ := visitorToken(r)
+		got, err := h.Insert(r, visitor, chi.URLParam(r, "slug"), req.Collection, req.Doc)
 		if err != nil {
 			h.writeStoreErr(w, "page store insert", err)
 			return
 		}
-		writeJSON(h.Log, w, insertedDocResponse{ID: id})
+		writeJSON(h.Log, w, got)
 	}
 }
 
@@ -113,15 +120,17 @@ func (h *MicrositeStoreHandlers) opens(r *http.Request) error {
 // micrositeStoreBody — a marker so the encoder takes a named type, not `any` (banned in domain).
 type micrositeStoreBody interface{ micrositeStoreBody() }
 
-type insertedDocResponse struct {
-	ID string `json:"id"`
+// InsertedStoreDoc —— the write's receipt: the id, and whether it waits for the owner's review.
+type InsertedStoreDoc struct {
+	ID      string `json:"id"`
+	Pending bool   `json:"pending"`
 }
 
 type micrositeStoreDocsResponse struct {
 	Docs []json.RawMessage `json:"docs"`
 }
 
-func (insertedDocResponse) micrositeStoreBody()        {}
+func (InsertedStoreDoc) micrositeStoreBody()           {}
 func (micrositeStoreDocsResponse) micrositeStoreBody() {}
 
 func nonNilDocs(docs []json.RawMessage) []json.RawMessage {

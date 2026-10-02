@@ -215,6 +215,9 @@ const GOLDEN_TOOLSET: readonly string[] = [
   // management of what it holds (list docs / delete one / clear the store).
   'microsite.set_store_writable',
   'microsite.store_docs', 'microsite.store_delete_doc', 'microsite.store_clear',
+  // microsite.store_policy / set_store_policy / store_approve -- the page store's rules (how many
+  // documents, whether a new one waits for review) and approving a waiting one (S2, 2026-10-02).
+  'microsite.store_policy', 'microsite.set_store_policy', 'microsite.store_approve',
   // microsite.guide -- the frontend-authoring guide (design system, SDK
   // widgets, show-corpus-inline) the owner's agent reads before writing a page.
   'microsite.guide',

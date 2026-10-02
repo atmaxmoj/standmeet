@@ -60,6 +60,11 @@ func mcpAppGranted(m *plugin.Manifest, snap *access.RoleSnapshot) bool {
 // code that carries none, and those keep the frozen three-tier judgment untouched —
 // which is why the 600-odd specs encoding it stayed green through this change.
 func (c *mcpAppFiber) granted(in *registry.AssembleInput) bool {
+	// A page_only block works on the microsite a turn is asked on; with no page it has nothing to
+	// act on, so it is absent rather than a tool that can only refuse.
+	if c.m.PageOnly && in.Page == "" {
+		return false
+	}
 	if g := in.BundleGrants(c.m.ID); g.Bound {
 		return g.Granted
 	}

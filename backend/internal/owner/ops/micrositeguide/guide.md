@@ -88,20 +88,36 @@ import { useMicrositeStore } from '@standmeet/sdk';
 
 function Guestbook() {
   const { docs, save, error } = useMicrositeStore('entries'); // 'entries' = a collection name
-  // docs: the stored documents (each an opaque JSON object), newest state on mount + after each save.
+  // docs: the published documents, oldest first. LIVE: another visitor's write, the agent's, the
+  // owner's approval or delete appear on every open page without a reload.
   // save(doc): append one document; resolves when stored, or sets `error` if the write is refused.
   const add = (name: string, note: string) => { void save({ name, note, at: Date.now() }); };
-  // …render docs as a list, an input that calls add(), and show `error` if present.
+  // …render docs as a list (key={d._id}, show d._author?.name), an input that calls add(), and
+  // show `error` if present.
 }
 ```
 
-- `useMicrositeStore(collection, slugOverride?)` → `{ docs, save, error }`. `docs` is a
-  `Record<string, unknown>[]`; `save(doc)` appends one; `error` is a human string or null.
+- `useMicrositeStore(collection, slugOverride?)` → `{ docs, save, error }`. `docs` is a `StoredDoc[]`:
+  your own keys plus the host's, which start with `_` — `_id`, `_author` (`{kind: 'member' |
+  'agent' | 'owner', name}`: the visitor who wrote it, or the agent writing for that visitor) and
+  `_created_at`. A document you `save` may not contain a top-level `_` key; the host writes those.
 - **Reads never throw** — they degrade to an empty list. **Writes can be refused**: the owner may
   have this page's store set to read-only, or it may be full, or the document invalid — surface
   `error` to the reader rather than assuming success.
 - The store is **enabled per page by the owner** (`microsite.set_store_writable`). If writes always
   fail with a "not writable" error, that's why — the owner has to open the store for this page.
+- **The owner's rules per page** (`microsite.set_store_policy`): `max_docs` (default 500) and
+  `review` — with review on, a new document waits until the owner approves it
+  (`microsite.store_approve`) and `docs` does not include it until then.
+
+### Writing together through the agent
+
+On a page with a store, the visitor's agent (`<AgentWidget>` / `<Agent>`) can read and write it:
+`store_read` and `store_search` (passages with their authors) and `store_append` (adds one passage
+for the visitor, stamped `_author.kind = 'agent'`). They act on the collection `passages` unless the
+call names another, so a shared manuscript is `useMicrositeStore('passages')` with documents
+`{ text }`. Make the agent the main way to write: put the chat next to the manuscript, and keep a
+plain "add" box as the second way. What the agent adds appears live on every open page.
 
 For deeper context (the current page, the owner, the active session), `import { useStandMeet } from
 '@standmeet/sdk'` exposes the provider's context; most pages need only the widgets + the store above.

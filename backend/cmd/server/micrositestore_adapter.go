@@ -55,6 +55,41 @@ func (p *micrositeDocStore) Query(
 	return docs, nil
 }
 
+// QueryRecords —— a collection's documents with ids and times, oldest first; no schema = empty.
+func (p *micrositeDocStore) QueryRecords(
+	ctx context.Context, pageID, collection string,
+) ([]owner.MicrositeDocument, error) {
+	recs, err := p.store.QueryWithIDs(ctx, blockstore.KindMicrosite, pageID, collection, nil)
+	if missingSchema(err) {
+		return []owner.MicrositeDocument{}, nil
+	}
+	if err != nil {
+		return []owner.MicrositeDocument{}, err
+	}
+	out := make([]owner.MicrositeDocument, 0, len(recs))
+	for i := range recs {
+		out = append(out, owner.MicrositeDocument{
+			ID: recs[i].ID, Collection: collection, Doc: recs[i].Doc,
+		})
+	}
+	return out, nil
+}
+
+// Patch —— merge keys into one document; no such document is ErrMicrositeNotFound.
+func (p *micrositeDocStore) Patch(ctx context.Context, tx pgstore.Tx, d owner.DocPatch) error {
+	n, err := p.store.WithTx(tx).Patch(
+		ctx, blockstore.KindMicrosite, d.PageID, blockstore.RecordPatch{
+			Collection: d.Collection, RecordID: d.RecordID, Patch: d.Patch,
+		})
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return owner.ErrMicrositeNotFound
+	}
+	return nil
+}
+
 func (p *micrositeDocStore) CountAll(ctx context.Context, pageID string) (int64, error) {
 	n, err := p.store.CountAll(ctx, blockstore.KindMicrosite, pageID)
 	if missingSchema(err) {

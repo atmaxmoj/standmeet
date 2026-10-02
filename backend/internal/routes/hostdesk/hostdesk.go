@@ -53,6 +53,8 @@ type Deps struct {
 	Suppliers    supplierroutes.Invoker
 	// SupplierJobs —— supplier.invoke with background=true: the call as a durable job.
 	SupplierJobs supplierroutes.Background
+	// PageStore —— the microsite store a page-scoped block reads and appends to.
+	PageStore *owner.MicrositeDeps
 }
 
 // PerBlock — the two things that belong to only one block: its own isolated store,
@@ -81,6 +83,7 @@ func Collect(d *Deps, per *PerBlock) []hostop.Op {
 	ops = append(ops, corpus.CorpusHostOpsFor(d.Corpus)...)
 	ops = append(ops, owner.HostOps(d.Owners)...)
 	ops = append(ops, owner.BookingHostOps(d.Bookings)...)
+	ops = append(ops, owner.PageStoreHostOps(d.PageStore)...)
 	ops = append(ops, supplierroutes.Ops(d.Suppliers, d.SupplierJobs)...)
 	ops = append(ops, blockdesk.StoreOps(per.Store)...)
 	ops = append(ops, blockdesk.ConfigOps(per.Config)...)

@@ -120,6 +120,11 @@ func (t liveTee) Flush() {
 	}
 }
 
+// Unwrap —— the real writer, for http.ResponseController. The turn extends its write deadline
+// through the controller; without this the tee hid the writer ("feature not supported") and the
+// server's 30s write timeout cut every slower answer off before it reached the visitor.
+func (t liveTee) Unwrap() http.ResponseWriter { return t.ResponseWriter }
+
 // teeTurn —— w copied to the turn's conversation feed, which first hears the question. A turn
 // with no conversation, or an instance without a feed, streams to the visitor alone.
 func teeTurn(

@@ -108,6 +108,13 @@ func (h *Handlers) mountMicrositeItem(r chi.Router, face *dispatcher.Face) {
 		r.Delete("/store/{collection}/{record_id}",
 			h.dispatchOp(face, "microsite.store_delete_doc",
 				bodyWithURLParam("slug", "collection", "record_id"), jsonOK))
+		r.Post("/store/{collection}/{record_id}/approve",
+			h.dispatchOp(face, "microsite.store_approve",
+				bodyWithURLParam("slug", "collection", "record_id"), jsonOK))
+		r.Get("/store-policy",
+			h.dispatchOp(face, "microsite.store_policy", urlParamArgs("slug"), jsonOK))
+		r.Put("/store-policy",
+			h.dispatchOp(face, "microsite.set_store_policy", bodyWithURLParam("slug"), jsonOK))
 		r.Post("/staging",
 			h.dispatchOp(face, "microsite.promote_to_staging", bodyWithURLParam("slug"), jsonOK))
 		r.Post("/live",

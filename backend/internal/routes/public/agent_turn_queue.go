@@ -36,7 +36,7 @@ func dispatchTurn(
 		return
 	}
 	assembling := time.Now()
-	ts := collectVisitorTools(r.Context(), h, auth, req.ConversationID)
+	ts := collectVisitorTools(r.Context(), h, auth, req.ConversationID, pageOfTurn(req.DocContext))
 	defer closeBindings(ts.Bindings)
 	// The time before "agent turn start": a turn that sat 8-11s here (dev under load) logged
 	// nothing, so the slot wait and the block assembly (per-session plugin dials) were

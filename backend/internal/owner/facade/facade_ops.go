@@ -26,6 +26,9 @@ var (
 	HostOps = ops.HostOps
 	// BookingHostOps —— exposed to sandboxed blocks: booking.record (an outbox event).
 	BookingHostOps = ops.BookingHostOps
+	// PageStoreHostOps —— exposed to sandboxed blocks: read / search / append the store of the
+	// microsite a turn is asked on.
+	PageStoreHostOps = ops.PageStoreHostOps
 	// FullNameOf —— the name persona's opening "who are you" line needs (UX-66).
 	FullNameOf    = ops.FullNameOf
 	AccountOps    = ops.Account

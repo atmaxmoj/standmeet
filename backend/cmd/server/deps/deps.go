@@ -84,7 +84,10 @@ type Runtime struct {
 	MicrositeBuildRepo *owner.MicrositeBuildRepo
 	// BuildSettled —— the preview long-poll's waiters, woken by a build settle's NOTIFY (keyed by
 	// owner). Run by StartBackground.
-	BuildSettled       *pgstore.Listener
+	BuildSettled *pgstore.Listener
+	// StoreChanged —— open pages' store streams, woken by a page store change's NOTIFY (keyed by
+	// page id).
+	StoreChanged       *pgstore.Listener
 	SandboxWorkspaces  *sandboxws.Manager
 	AccessRequestRepo  *access.RequestRepo
 	JobSourceRepo      *jobsuc.JobSourceRepo

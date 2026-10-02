@@ -1,0 +1,31 @@
+# microsite.store — the agent's hands on the store of the microsite a turn is asked on
+# (docs/design/scenario-s2-collaborative-writing.md). Visitors who write a shared manuscript do it
+# mostly by talking to the agent: it reads and searches what was written (with authors) and adds a
+# passage for the visitor. The owner's page policy decides how many documents the page holds and
+# whether a new one waits for review; the page decides whether it is open for writing at all.
+#
+# page_only: present only in a turn asked on a microsite. The page comes from the turn, and every
+# host op checks the session may open that page.
+id: microsite.store
+title: Write on this page
+version: "1"
+shape: visitor_only
+acl: always
+page_only: true
+raw_tool_names: true
+
+visitor_tools:
+  - store_read
+  - store_search
+  - store_append
+
+transport:
+  kind: sandbox_stdio
+  command: node
+  args: ["/plugin/pagestore-mcp.js"]
+  sandbox:
+    plugin_dir: /srv/plugins/pagestore
+    host_ops:
+      - page_store.read
+      - page_store.search
+      - page_store.append

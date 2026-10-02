@@ -27,8 +27,6 @@ import (
 )
 
 const (
-	// MicrositeStoreMaxDocs — per-page document cap (quota / leak guard).
-	MicrositeStoreMaxDocs = 500
 	// MicrositeStoreMaxDocBytes — per-document size cap.
 	MicrositeStoreMaxDocBytes = 8 * 1024
 	// MicrositeStoreMaxCollectionLen — collection name length cap.
@@ -38,18 +36,27 @@ const (
 // ErrMicrositeStoreInvalid — the write's collection or document violates a shape/size cap.
 var ErrMicrositeStoreInvalid = errors.New("invalid page store write")
 
-// DocWrite — one visitor write: which collection, and the opaque document.
+// DocWrite — one write: which collection, the opaque document, and who wrote it (taken from the
+// session by the caller, never from the document).
 type DocWrite struct {
+	Author     entity.DocAuthor
 	Slug       string
 	Collection string
 	Doc        json.RawMessage
 }
 
-// DocQuery — one read: which collection, and an optional JSONB-containment filter.
+// DocQuery — one read: which page, which collection.
 type DocQuery struct {
 	Slug       string
 	Collection string
-	Filter     json.RawMessage
+}
+
+// DocPatch — keys to merge into one document of a page (the host's own keys, e.g. `_status`).
+type DocPatch struct {
+	PageID     string
+	Collection string
+	RecordID   string
+	Patch      json.RawMessage
 }
 
 // DocRef — one document addressed for owner-side deletion.
@@ -71,6 +78,10 @@ type MicrositeDocStore interface {
 	Query(
 		ctx context.Context, pageID, collection string, filter json.RawMessage,
 	) ([]json.RawMessage, error)
+	// QueryRecords —— a collection's documents with their ids and times, oldest first.
+	QueryRecords(ctx context.Context, pageID, collection string) ([]entity.MicrositeDocument, error)
+	// Patch runs on tx: merge the patch's top-level keys into one document.
+	Patch(ctx context.Context, tx pgstore.Tx, p DocPatch) error
 	CountAll(ctx context.Context, pageID string) (int64, error)
 	// RecordsPage —— up to limit documents, newest first, after the cursor (nil = first page).
 	RecordsPage(
@@ -83,11 +94,11 @@ type MicrositeDocStore interface {
 // PublicInsertDoc — the visitor-facing write from the public route: resolve the sole owner (v1
 // single-owner), then VisitorInsert. The route never supplies an owner or page id.
 func PublicInsertDoc(
-	ctx context.Context, deps MicrositeDeps, owners SoleOwnerLookup, w DocWrite,
-) (string, error) {
+	ctx context.Context, deps MicrositeDeps, owners SoleOwnerLookup, w *DocWrite,
+) (InsertedDoc, error) {
 	soleOwner, err := resolveSoleOwner(ctx, owners)
 	if err != nil {
-		return "", err
+		return InsertedDoc{}, err
 	}
 	return VisitorInsert(ctx, deps, soleOwner.ID, w)
 }
@@ -136,73 +147,95 @@ func PublicQueryDocs(
 	return VisitorQuery(ctx, deps, soleOwner.ID, q)
 }
 
-// VisitorInsert — a visitor appends one document to a page collection. Guarded by model C (owner
-// opt-in), the doc-size cap, and the per-page quota. Returns the new document's id.
+// VisitorInsert — append one document to a page collection, stamped by the host with who wrote it,
+// when, and whether it waits for review (stampDoc). Guarded by model C (owner opt-in), the doc-size
+// cap, and the page's own limit (StorePolicy).
 func VisitorInsert(
-	ctx context.Context, deps MicrositeDeps, ownerID string, w DocWrite,
-) (string, error) {
-	page, err := insertablePage(ctx, deps, ownerID, w)
+	ctx context.Context, deps MicrositeDeps, ownerID string, w *DocWrite,
+) (InsertedDoc, error) {
+	target, err := insertablePage(ctx, deps, ownerID, w)
 	if err != nil {
-		return "", err
+		return InsertedDoc{}, err
+	}
+	page, policy := target.page, target.policy
+	doc, serr := stampDoc(w, policy)
+	if serr != nil {
+		return InsertedDoc{}, serr
 	}
 	var id string
 	ierr := pgstore.InTx(ctx, deps.Pages.Pool(), func(tx pgstore.Tx) error {
 		var derr error
-		if id, derr = deps.Docs.Insert(ctx, tx, page.ID, w.Collection, w.Doc); derr != nil {
+		if id, derr = deps.Docs.Insert(ctx, tx, page.ID, w.Collection, doc); derr != nil {
 			return derr
 		}
-		data := map[string]string{"collection": w.Collection, "doc_id": id}
-		return deps.Events().With(tx).Record(ctx, ownerID, MicrositeStoreDocInserted,
-			"microsite/"+page.Slug, data)
+		return recordStoreChange(ctx, deps, tx, &storeChange{
+			owner: ownerID, typ: MicrositeStoreDocInserted, pageID: page.ID, slug: page.Slug,
+			collection: w.Collection, docID: id,
+		})
 	})
 	if ierr != nil {
-		return "", fmt.Errorf("insert page doc: %w", ierr)
+		return InsertedDoc{}, fmt.Errorf("insert page doc: %w", ierr)
 	}
-	return id, nil
+	return InsertedDoc{ID: id, Pending: policy.Review}, nil
 }
 
 // insertablePage — resolve + gate the write: valid shape, page exists, owner opened it (model C),
 // and the store has capacity (schema provisioned + under quota). Returns the page to write into.
 func insertablePage(
-	ctx context.Context, deps MicrositeDeps, ownerID string, w DocWrite,
-) (entity.Microsite, error) {
+	ctx context.Context, deps MicrositeDeps, ownerID string, w *DocWrite,
+) (writeTarget, error) {
 	if !validWrite(w) {
-		return entity.Microsite{}, ErrMicrositeStoreInvalid
+		return writeTarget{}, ErrMicrositeStoreInvalid
 	}
 	page, err := lookupPage(ctx, deps, ownerID, w.Slug)
 	if err != nil {
-		return entity.Microsite{}, err
+		return writeTarget{}, err
 	}
 	if !page.StoreWritable {
-		return entity.Microsite{}, entity.ErrMicrositeStoreNotWritable
+		return writeTarget{}, entity.ErrMicrositeStoreNotWritable
 	}
-	if cerr := ensureCapacity(ctx, deps, page.ID); cerr != nil {
-		return entity.Microsite{}, cerr
+	policy, cerr := ensureCapacity(ctx, deps, page.ID)
+	if cerr != nil {
+		return writeTarget{}, cerr
 	}
-	return page, nil
+	return writeTarget{page: page, policy: policy}, nil
 }
 
-// ensureCapacity — the page's schema exists (provision is idempotent) and it is under the quota.
-func ensureCapacity(ctx context.Context, deps MicrositeDeps, pageID string) error {
+// writeTarget —— the page a write goes to and the policy it is under.
+type writeTarget struct {
+	page   entity.Microsite
+	policy entity.StorePolicy
+}
+
+// ensureCapacity — the page's schema exists (provision is idempotent) and it holds fewer documents
+// than the owner's limit. Returns the policy the write is under.
+func ensureCapacity(
+	ctx context.Context, deps MicrositeDeps, pageID string,
+) (entity.StorePolicy, error) {
 	if err := deps.Docs.Provision(ctx, pageID); err != nil {
-		return fmt.Errorf("provision page store: %w", err)
+		return entity.StorePolicy{}, fmt.Errorf("provision page store: %w", err)
 	}
-	return checkQuota(ctx, deps, pageID)
+	policy, err := deps.Pages.StorePolicy(ctx, pageID)
+	if err != nil {
+		return entity.StorePolicy{}, err
+	}
+	return policy, checkQuota(ctx, deps, pageID, policy.MaxDocs)
 }
 
-func checkQuota(ctx context.Context, deps MicrositeDeps, pageID string) error {
+func checkQuota(ctx context.Context, deps MicrositeDeps, pageID string, limit int32) error {
 	n, err := deps.Docs.CountAll(ctx, pageID)
 	if err != nil {
 		return fmt.Errorf("count page store: %w", err)
 	}
-	if n >= MicrositeStoreMaxDocs {
+	if n >= int64(limit) {
 		return entity.ErrMicrositeStoreQuota
 	}
 	return nil
 }
 
-// VisitorQuery — read a page collection's documents (matching an optional filter). Not gated by
-// StoreWritable: a page can display its own data (a poll tally) without opening itself to writes.
+// VisitorQuery — read a page collection's published documents, oldest first, each with its `_id`
+// (publishedDocs). Not gated by StoreWritable: a page can display its own data (a poll tally)
+// without opening itself to writes. A document waiting for review is not among them.
 func VisitorQuery(
 	ctx context.Context, deps MicrositeDeps, ownerID string, q DocQuery,
 ) ([]json.RawMessage, error) {
@@ -213,11 +246,7 @@ func VisitorQuery(
 	if err != nil {
 		return []json.RawMessage{}, err
 	}
-	docs, qerr := deps.Docs.Query(ctx, page.ID, q.Collection, q.Filter)
-	if qerr != nil {
-		return []json.RawMessage{}, fmt.Errorf("query page store: %w", qerr)
-	}
-	return docs, nil
+	return publishedDocs(ctx, deps, page.ID, q.Collection)
 }
 
 // OwnerListDocs — one page of the documents a page holds, newest first, for the admin management
@@ -253,9 +282,10 @@ func OwnerDeleteDoc(ctx context.Context, deps MicrositeDeps, ownerID string, ref
 		if xerr != nil {
 			return xerr
 		}
-		data := map[string]string{"collection": ref.Collection, "doc_id": ref.RecordID}
-		return deps.Events().With(tx).Record(ctx, ownerID, MicrositeStoreDocDeleted,
-			"microsite/"+page.Slug, data)
+		return recordStoreChange(ctx, deps, tx, &storeChange{
+			owner: ownerID, typ: MicrositeStoreDocDeleted, pageID: page.ID, slug: page.Slug,
+			collection: ref.Collection, docID: ref.RecordID,
+		})
 	})
 	if derr != nil {
 		return fmt.Errorf("delete page doc: %w", derr)
@@ -272,7 +302,7 @@ func OwnerClear(ctx context.Context, deps MicrositeDeps, ownerID, slug string) e
 	if derr := deps.Docs.Drop(ctx, page.ID); derr != nil {
 		return fmt.Errorf("clear page store: %w", derr)
 	}
-	return nil
+	return notifyStoreChanged(ctx, deps.Pages.Pool(), page.ID)
 }
 
 // OwnerSetWritable — open or close a page's store to visitor writes (model C toggle).
@@ -302,7 +332,7 @@ func DropMicrositeStore(ctx context.Context, deps MicrositeDeps, pageID string) 
 	return nil
 }
 
-func validWrite(w DocWrite) bool {
+func validWrite(w *DocWrite) bool {
 	return validCollection(w.Collection) && validDoc(w.Doc)
 }
 

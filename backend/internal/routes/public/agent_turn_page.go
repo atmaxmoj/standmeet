@@ -28,3 +28,12 @@ func pageTextForTurn(r *http.Request, h *Handlers, doc *inference.AgentDocContex
 func onMicrosite(doc *inference.AgentDocContext) bool {
 	return doc != nil && doc.Genre == inference.DocGenreMicrosite
 }
+
+// pageOfTurn —— the microsite slug the turn is asked on, "" elsewhere. Page-scoped blocks act on
+// it; their host op checks the session may open that page, so a forged slug reaches nothing.
+func pageOfTurn(doc *inference.AgentDocContext) string {
+	if !onMicrosite(doc) {
+		return ""
+	}
+	return doc.Path
+}

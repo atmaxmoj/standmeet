@@ -40,6 +40,7 @@ func sessionMetaFor(m *plugin.Manifest, in *registry.AssembleInput) *mcpclient.S
 		// This block's own per-role config (frozen in the snapshot). Only its own —
 		// a plugin should never see the settings configured for a different block.
 		BlockConfig: blockConfigOf(in, m.ID),
+		Page:        in.Page,
 	}
 }
 

@@ -317,9 +317,10 @@ func pickAgentTurnBYOAICred(
 // AssembleInput.ConversationID so downstream tools (calendar_book / persist) can find the
 // conversation row; an empty conv_id makes BookMeeting's parseUUID fail (H.10 regression).
 func collectVisitorTools(
-	ctx context.Context, h *Handlers, auth authedVisitor, convID string,
+	ctx context.Context, h *Handlers, auth authedVisitor, convID, page string,
 ) *visitorToolset {
 	in := assembleInputFromSession(auth.Data, convID)
+	in.Page = page
 	bindings := h.Visitor.AgentSkills.AssembleVisitor(ctx, in)
 	fr := registry.FlattenBindings(bindings)
 	return &visitorToolset{

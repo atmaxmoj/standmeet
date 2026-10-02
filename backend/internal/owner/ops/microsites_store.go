@@ -35,6 +35,33 @@ func micrositeStoreOps(deps usecase.MicrositeDeps) []fp.Op {
 			Invoke:      deleteMicrositeDoc(deps),
 		},
 		{
+			ID: "microsite.store_approve",
+			Description: "Approve one document that waits for review (its _status is " +
+				"\"pending\"); visitors and the agent see it from now on.",
+			InputSchema: micrositeStoreDocRefSchema,
+			Kind:        fp.Action,
+			Reach:       fp.OwnerAction(),
+			Invoke:      approveMicrositeDoc(deps),
+		},
+		{
+			ID:          "microsite.store_policy",
+			Description: "A page store's rules now: max_docs and review.",
+			InputSchema: pageSlugSchema,
+			Kind:        fp.Read,
+			Reach:       fp.OwnerRead(),
+			Invoke:      getMicrositeStorePolicy(deps),
+		},
+		{
+			ID: "microsite.set_store_policy",
+			Description: "Set a page store's rules: max_docs (how many documents it may hold, " +
+				"default 500) and review (true: a new document waits for your approval before " +
+				"visitors see it; default false). Omitted fields stay as they are.",
+			InputSchema: micrositeStorePolicySchema,
+			Kind:        fp.Action,
+			Reach:       fp.OwnerAction(),
+			Invoke:      setMicrositeStorePolicy(deps),
+		},
+		{
 			ID: "microsite.store_clear",
 			Description: "Clear a page's data store — every document goes. The next visitor " +
 				"write re-creates the store empty.",
@@ -55,6 +82,73 @@ var micrositeStoreDocRefSchema = json.RawMessage(`{
 	},
 	"required":["slug","collection","record_id"]
 }`)
+
+var micrositeStorePolicySchema = json.RawMessage(`{
+	"type":"object",
+	"properties":{
+		"slug":{"type":"string"},
+		"max_docs":{"type":"integer","minimum":1},
+		"review":{"type":"boolean"}
+	},
+	"required":["slug"]
+}`)
+
+type storePolicyArgs struct {
+	usecase.StorePolicyChange
+
+	Slug string `json:"slug"`
+}
+
+func approveMicrositeDoc(deps usecase.MicrositeDeps) fp.Invoke {
+	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
+		in, perr := decodeStoreDocRef(raw)
+		if perr != nil {
+			return nil, perr
+		}
+		ref := usecase.DocRef{Slug: in.Slug, Collection: in.Collection, RecordID: in.RecordID}
+		if err := usecase.OwnerApproveDoc(ctx, deps, ownerID, ref); err != nil {
+			return nil, micrositeErr(err)
+		}
+		return json.Marshal(approvedDocOut{RecordID: in.RecordID, Approved: true})
+	}
+}
+
+// approvedDocOut —— the approve receipt.
+type approvedDocOut struct {
+	RecordID string `json:"record_id"`
+	Approved bool   `json:"approved"`
+}
+
+func getMicrositeStorePolicy(deps usecase.MicrositeDeps) fp.Invoke {
+	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
+		in, perr := decodePageSlug(raw)
+		if perr != nil {
+			return nil, perr
+		}
+		p, err := usecase.OwnerStorePolicy(ctx, deps, ownerID, in.Slug)
+		if err != nil {
+			return nil, micrositeErr(err)
+		}
+		return json.Marshal(p)
+	}
+}
+
+func setMicrositeStorePolicy(deps usecase.MicrositeDeps) fp.Invoke {
+	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
+		var in storePolicyArgs
+		if err := json.Unmarshal(raw, &in); err != nil {
+			return nil, fp.BadInput("invalid arguments: " + err.Error())
+		}
+		if err := fp.RequireArgs([2]string{"slug", in.Slug}); err != nil {
+			return nil, err
+		}
+		p, err := usecase.OwnerSetStorePolicy(ctx, deps, ownerID, in.Slug, in.StorePolicyChange)
+		if err != nil {
+			return nil, micrositeErr(err)
+		}
+		return json.Marshal(p)
+	}
+}
 
 // micrositeDocOut —— one stored document as the management view sees it: a stable id + the
 // collection it lives in + the opaque JSON the page wrote.

@@ -132,6 +132,7 @@ install_project_into ask-visitor
 install_project_into summarize
 install_project_into booker
 install_project_into retrieval
+install_project_into pagestore
 install_project_into mail-sender
 # smtp —— the mail supplier as a stdio-MCP block wrapping nodemailer (smtp-mcp.js). Replaces the
 # old in-host protocol(smtp) supplier: SMTP is an app on a protocol, so it is a block like caldav.
