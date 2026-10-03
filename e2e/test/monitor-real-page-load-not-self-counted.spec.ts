@@ -68,6 +68,7 @@ test.describe('monitor · one real page open is one human read (the app does not
 
       // The one real visit carries the real client's browser/os/device and the visitor's country.
       const v = rows[0];
+      if (v === undefined) throw new Error('the real visit was not recorded at all');
       expect(v.is_bot, 'a real visitor is not a bot').toBe(false);
       expect(v.browser, 'the real visitor has a browser').not.toBe('');
       expect(v.os, 'the real visitor has an os').not.toBe('');

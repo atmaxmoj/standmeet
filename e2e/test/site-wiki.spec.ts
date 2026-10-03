@@ -13,7 +13,8 @@
 //   8  review on: a new version waits, and the page keeps showing the approved one
 //   9  the tree sits in the page's own sidebar (SiteWikiTree); a link the page writes itself
 //      (SiteWikiLink) knows whether its page exists and opens it
-//  10  saving over a version someone else saved meanwhile asks before it replaces it
+//  10  in-page links (tree, wiki link, the page's own #anchor) never reload the page
+//  11  saving over a version someone else saved meanwhile asks before it replaces it
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Browser, Page } from '@playwright/test';
@@ -41,6 +42,7 @@ export default function App() {
       <aside data-testid="page-sidebar">
         <SiteWikiTree label="Contents" />
         <p data-testid="page-note">Start at <SiteWikiLink to="ledger">the ledger</SiteWikiLink>.</p>
+        <a href="#about" data-testid="page-own-anchor">about this page</a>
       </aside>
       <SiteWikiPage />
     </SiteWikiProvider>
@@ -171,8 +173,26 @@ test('9 the tree lives in the page\'s own sidebar; the page\'s own link opens a 
   await expect(ana.getByTestId('site-wiki-page')).toContainText('Kept by');
 });
 
+// The instance injects <base href="/p/<slug>/"> while the page's address has no trailing slash, so a
+// bare "#…" link resolved to another document: every click on the tree reloaded the whole page — a
+// flash of the loading state (owner, 2026-10-03). Content tests stayed green: the reload landed on
+// the same page. Here the evidence is the network: an in-page link must not fetch a document.
+test('10 in-page links (tree, wiki link, the page\'s own #anchor) never reload the page', async () => {
+  const documents: string[] = [];
+  ana.on('request', (r) => { if (r.resourceType() === 'document') documents.push(r.url()); });
+  await openFromTree(ana, 'The ledger');
+  await expect(article(ana)).toContainText('Kept by');
+  await openFromTree(ana, 'The master');
+  await expect(article(ana)).toContainText('He never wanted');
+  await ana.getByTestId('page-note').getByRole('link', { name: 'the ledger' }).click();
+  await expect(article(ana)).toContainText('Kept by');
+  await ana.getByTestId('page-own-anchor').click();
+  await expect(ana).toHaveURL(/#about$/);
+  expect(documents, 'no page load behind any of these clicks').toEqual([]);
+});
+
 // Two writers on one page: the later save must not silently bury the earlier one.
-test('10 a save over a version someone else saved meanwhile asks first', async () => {
+test('11 a save over a version someone else saved meanwhile asks first', async () => {
   await openFromTree(ana, 'The master');
   await openFromTree(ben, 'The master');
   await ana.getByTestId('site-wiki-edit').click();

@@ -47,7 +47,7 @@ type pageHead struct {
 // other half of the same thing as sending no cache header (something taken down must
 // stop taking effect immediately).
 func (p *pageHead) tags() string {
-	return `<base href="` + html.EscapeString(p.base) + `">` +
+	return `<base href="` + html.EscapeString(p.base) + `">` + fragmentLinks +
 		seoHead(p.seoTitle, p.seoDescription, p.seoImage) +
 		identityTags(p.canonical, p.personLD) +
 		boolMeta("standmeet-page-byoai", p.allowBYOAI) +
@@ -55,6 +55,19 @@ func (p *pageHead) tags() string {
 		meta("standmeet-public-chat", p.publicChat) +
 		optionalMeta("standmeet-microsite", p.slug)
 }
+
+// fragmentLinks —— keeps an in-page "#…" link in the page. The <base> above ends in a slash
+// (/p/<slug>/, so the build's ./assets resolve) while the page's address does not (/p/<slug>), so
+// the browser resolved "#x" to /p/<slug>/#x: another document. Every click on a SiteWiki tree, and
+// on any page's own "#section" link, reloaded the whole page — a flash of its loading state (owner,
+// 2026-10-03). A plain left click on such a link now just sets the hash; a new-tab click, a
+// target, or a handler that already took the click is left alone.
+const fragmentLinks = `<script>document.addEventListener('click',function(e){` +
+	`var a=e.target&&e.target.closest?e.target.closest('a[href^="#"]'):null;` +
+	`if(!a||e.defaultPrevented||e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;` +
+	`var t=a.getAttribute('target');if(t&&t!=='_self')return;` +
+	`e.preventDefault();var h=a.getAttribute('href');if(location.hash!==h)location.hash=h;});` +
+	`</script>`
 
 // optionalMeta —— the meta line, or nothing when content is empty.
 func optionalMeta(name, content string) string {

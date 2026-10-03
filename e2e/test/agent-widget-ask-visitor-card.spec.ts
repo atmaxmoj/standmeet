@@ -39,7 +39,7 @@ export default function App() {
   return <main data-testid="microsite"><AgentWidget placeholder="Ask" /></main>;
 }`;
 const QUESTION = 'Do you mean available in France, or a French interface?';
-const OPTIONS = ['Available in France', 'French interface', 'Both'];
+const OPTIONS = ['Available in France', 'French interface', 'Both'] as const;
 const ANSWER_AFTER_SEARCH = 'I mostly read novels in the language I am learning.';
 
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
@@ -185,8 +185,8 @@ async function assertCard(page: Page): Promise<FrameLocator> {
     'the widget renders the ask_visitor card').toBeVisible({ timeout: 20_000 });
   const frame = page.frameLocator('[data-testid="mcp-app-card-ask_visitor"]');
   await expect(frame.getByTestId('ask-visitor-question')).toHaveText(QUESTION, { timeout: 10_000 });
-  for (let i = 0; i < OPTIONS.length; i++) {
-    await expect(frame.getByTestId(`ask-visitor-opt-${i}`)).toHaveText(OPTIONS[i]);
+  for (const [i, option] of OPTIONS.entries()) {
+    await expect(frame.getByTestId(`ask-visitor-opt-${i}`)).toHaveText(option);
   }
   return frame;
 }

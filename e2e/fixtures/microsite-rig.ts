@@ -13,7 +13,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import type { APIRequestContext } from '@playwright/test';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
@@ -136,6 +136,10 @@ export async function publishPage(
   request: APIRequestContext, csrf: string, slug: string, source = ASK_PAGE,
   buildTimeoutMs = 180_000,
 ): Promise<void> {
+  // Publishing may take buildTimeoutMs plus its requests; the test or hook calling this gets that
+  // much more time, first thing. A caller on the default 30s (a beforeAll that a group timeout does
+  // not cover) was cut off mid-poll while a 32s build was about to finish ("the build never settled").
+  test.info().setTimeout(test.info().timeout + buildTimeoutMs + 30_000);
   await pageAPI(request, csrf, 'post', '/', { slug, title: slug });
   await pageAPI(request, csrf, 'put', `/${slug}/files`, { path: 'App.tsx', content: source });
   const started = await pageAPI(request, csrf, 'post', `/${slug}/build`);
