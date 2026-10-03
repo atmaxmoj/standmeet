@@ -29,7 +29,11 @@ export interface MicrositeStore {
   error: string | null;
 }
 
-export function useMicrositeStore(collection: string, slugOverride?: string): MicrositeStore {
+// enabled —— false: read nothing and open no stream (a component that gets the same data from a
+// provider above it still calls this hook, unconditionally, as hooks must be).
+export function useMicrositeStore(
+  collection: string, slugOverride?: string, enabled = true,
+): MicrositeStore {
   const slug = slugOverride ?? currentPageSlug();
   const [docs, setDocs] = useState<StoredDoc[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -39,10 +43,11 @@ export function useMicrositeStore(collection: string, slugOverride?: string): Mi
   }, [slug, collection]);
 
   useEffect(() => {
+    if (!enabled) return undefined;
     void refresh();
     if (slug === '') return undefined;
     return widgetClient.watchMicrositeStore(slug, () => { void refresh(); });
-  }, [slug, refresh]);
+  }, [slug, refresh, enabled]);
 
   const save = useCallback(async (doc: MicrositeDoc): Promise<InsertedDoc | null> => {
     setError(null);

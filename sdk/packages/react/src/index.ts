@@ -50,8 +50,10 @@ export { useChatSession } from './use-chat-session.js';
 export type { ChatMessage, ChatState, ChatTool } from './use-chat-session.js';
 export { useMicrositeStore } from './use-microsite-store.js';
 // SiteWiki —— a microsite that reads like a wiki, kept in the microsite's own store.
-export { SiteWiki } from './site-wiki/SiteWiki.js';
+export { SiteWiki, SiteWikiLink, SiteWikiProvider, SiteWikiTree } from './site-wiki/SiteWiki.js';
 export type { SiteWikiProps } from './site-wiki/SiteWiki.js';
+export { SiteWikiPage } from './site-wiki/page.js';
+export type { SiteWikiPageProps } from './site-wiki/page.js';
 export { useSiteWiki, useHashPath } from './site-wiki/use-site-wiki.js';
 export type { PageDraft, SiteWikiData } from './site-wiki/use-site-wiki.js';
 export type { WikiPage, WikiVersion, WikiFolder } from './site-wiki/model.js';

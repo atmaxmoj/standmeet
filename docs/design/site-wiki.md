@@ -1,7 +1,9 @@
 # SiteWiki — a microsite that reads like a wiki, stored in the microsite
 
-Status: DESIGN (2026-10-02). Owner request: "make the site look like a wiki, but the storage is just
-each microsite's db; the SDK is there so it is easy to use."
+Status: BUILT (v0.1.120 whole wiki; v0.1.121 parts + conflict check). Owner request (2026-10-02):
+"make the site look like a wiki, but the storage is just each microsite's db; the SDK is there so it
+is easy to use." Then (2026-10-03): "many components I can take out and use; with the tree or
+without; make sure it is easy to use."
 
 ## What it is
 
@@ -18,6 +20,25 @@ write. The pages live in the microsite's own store (one schema per page, dropped
 not corpus notes: the owner's corpus, its ACL and its index are not involved.
 
 `useSiteWiki()` is the same data without the UI, for a page that draws its own.
+
+## The parts
+
+| Part | What it is |
+|---|---|
+| `<SiteWiki />` | The whole wiki: tree + page. `tree={false}` drops the tree. |
+| `<SiteWikiTree />` | The page tree, for the page's own sidebar; the current page is marked. |
+| `<SiteWikiPage />` | What the address shows: start, a page (backlinks, history), or the editor; "write a page". |
+| `<SiteWikiLink to>` | A link from the page's own text to a wiki page (path or title), marked missing until written. |
+| `<SiteWikiProvider>` | Optional. The parts below share one read and one live stream. |
+| `useSiteWiki()` | The data: pages, tree, save. |
+
+Every part works alone (it reads the store itself); under a provider it uses the provider's data
+instead (`useMicrositeStore`'s `enabled` switch keeps the hook call unconditional). The parts stay in
+step through the address `#/<path>` only, so a page arranges them freely with no wiring.
+
+Two writers on one page: the editor remembers the version it was opened on (`base`); a save over a
+newer version someone saved meanwhile is held back with "X saved a newer version" and a choice
+(save mine over it / show theirs). Nothing is lost either way: every version stays in the history.
 
 ## Names
 
@@ -70,7 +91,10 @@ The `microsite.store` block reads a page's store already. In this slice the agen
 
 ## Not in this slice
 
-- Editing conflicts beyond "newest wins" (no merge, no lock).
+- Merging two writers' edits, and seeing each other type (cursors, presence): the CRDT path (Yjs over
+  a socket). This slice detects a conflict at save and asks; it does not merge.
+- Pushing the changed document in the store event (saves the reader's refetch, ~one round trip).
+  Worth it once a store is large enough that re-reading it on every change is slow; not before.
 - Attachments and images inside pages (the store holds JSON only).
 - Per-page access rules: the whole microsite has one rule.
 

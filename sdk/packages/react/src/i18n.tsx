@@ -93,6 +93,9 @@ const en = {
   'wiki.history': 'history · {count}',
   'wiki.by': 'by {name}',
   'wiki.pending': 'Saved. It shows here once the owner approves it.',
+  'wiki.conflict': '{name} saved a newer version of this page while you were editing.',
+  'wiki.keepMine': 'save mine over it',
+  'wiki.seeTheirs': 'show theirs',
 } as const;
 
 export type MessageKey = keyof typeof en;
@@ -176,6 +179,9 @@ const zh: Catalog = {
   'wiki.history': '历史 · {count}',
   'wiki.by': '{name} 写',
   'wiki.pending': '已保存。owner 审核通过后会显示在这里。',
+  'wiki.conflict': '你编辑的时候，{name} 保存了这一页的新版本。',
+  'wiki.keepMine': '用我的覆盖',
+  'wiki.seeTheirs': '看他的版本',
   'tools.searched': '已搜索 {count}',
   'tools.read': '已读 {count}',
 };
@@ -261,6 +267,9 @@ const zhHK: Catalog = {
   'wiki.history': '歷史 · {count}',
   'wiki.by': '{name} 寫',
   'wiki.pending': '已儲存。owner 審核通過後會顯示在這裡。',
+  'wiki.conflict': '你編輯的時候，{name} 儲存了這一頁的新版本。',
+  'wiki.keepMine': '用我的覆蓋',
+  'wiki.seeTheirs': '看他的版本',
   'tools.searched': '已搜尋 {count}',
   'tools.read': '已讀 {count}',
 };
@@ -343,6 +352,9 @@ const fr: Catalog = {
   'wiki.history': 'historique · {count}',
   'wiki.by': 'par {name}',
   'wiki.pending': 'Enregistré. La page s’affichera ici une fois approuvée par le propriétaire.',
+  'wiki.conflict': '{name} a enregistré une version plus récente de cette page pendant que vous la modifiiez.',
+  'wiki.keepMine': 'enregistrer la mienne par-dessus',
+  'wiki.seeTheirs': 'voir la sienne',
   'tools.searched': 'recherche {count}',
   'tools.read': 'lire {count}',
 };
@@ -427,6 +439,9 @@ const hi: Catalog = {
   'wiki.history': 'इतिहास · {count}',
   'wiki.by': '{name} द्वारा',
   'wiki.pending': 'सहेज लिया गया। मालिक की मंज़ूरी के बाद यह यहाँ दिखेगा।',
+  'wiki.conflict': 'आपके संपादन के दौरान {name} ने इस पेज का नया संस्करण सहेजा।',
+  'wiki.keepMine': 'मेरा संस्करण सहेजें',
+  'wiki.seeTheirs': 'उनका संस्करण देखें',
 };
 
 const de: Catalog = {
@@ -507,6 +522,9 @@ const de: Catalog = {
   'wiki.history': 'Verlauf · {count}',
   'wiki.by': 'von {name}',
   'wiki.pending': 'Gespeichert. Die Seite erscheint hier, sobald der Inhaber sie freigibt.',
+  'wiki.conflict': '{name} hat eine neuere Version dieser Seite gespeichert, während Sie bearbeitet haben.',
+  'wiki.keepMine': 'meine darüber speichern',
+  'wiki.seeTheirs': 'ihre Version zeigen',
   'tools.searched': 'durchsucht {count}',
   'tools.read': 'liest {count}',
 };
@@ -591,6 +609,9 @@ const ja: Catalog = {
   'wiki.history': '履歴 · {count}',
   'wiki.by': '{name} が書いた',
   'wiki.pending': '保存しました。オーナーが承認するとここに表示されます。',
+  'wiki.conflict': '編集中に {name} がこのページの新しい版を保存しました。',
+  'wiki.keepMine': '自分の版で上書きする',
+  'wiki.seeTheirs': '相手の版を見る',
 };
 
 const ko: Catalog = {
@@ -673,6 +694,9 @@ const ko: Catalog = {
   'wiki.history': '기록 · {count}',
   'wiki.by': '{name} 작성',
   'wiki.pending': '저장했습니다. 소유자가 승인하면 여기에 표시됩니다.',
+  'wiki.conflict': '편집하는 동안 {name} 님이 이 페이지의 새 버전을 저장했습니다.',
+  'wiki.keepMine': '내 버전으로 덮어쓰기',
+  'wiki.seeTheirs': '상대 버전 보기',
 };
 
 const es: Catalog = {
@@ -753,6 +777,9 @@ const es: Catalog = {
   'wiki.history': 'historial · {count}',
   'wiki.by': 'por {name}',
   'wiki.pending': 'Guardado. Se mostrará aquí cuando el propietario lo apruebe.',
+  'wiki.conflict': '{name} guardó una versión más reciente de esta página mientras la editabas.',
+  'wiki.keepMine': 'guardar la mía encima',
+  'wiki.seeTheirs': 'ver la suya',
   'tools.searched': 'buscado {count}',
   'tools.read': 'leer {count}',
 };

@@ -129,6 +129,21 @@ for visitors the page lets write. The pages live in this page's own store (colle
 store's document limit counts versions: raise it for a busy wiki. Review, live updates and authors
 work as for any store. `useSiteWiki()` gives the same pages without the UI.
 
+The same wiki also comes in parts, for a page that lays itself out (they follow one another through
+the address `#/<path>`, nothing to wire):
+
+```tsx
+import { SiteWikiLink, SiteWikiPage, SiteWikiProvider, SiteWikiTree } from '@standmeet/sdk';
+<SiteWikiProvider>                 {/* optional: the parts share one read + one live stream */}
+  <aside><SiteWikiTree /></aside>   {/* the page tree, current page marked */}
+  <main><SiteWikiPage /></main>     {/* the page the address shows: view, edit, history, new */}
+</SiteWikiProvider>
+```
+
+`<SiteWikiLink to="the-ledger">the ledger</SiteWikiLink>` links the page's own text to a wiki page
+(by path or title), marked missing until someone writes it. `<SiteWiki tree={false} />` is the wiki
+without its built-in tree. A save over a version someone else saved meanwhile asks first.
+
 For deeper context (the current page, the owner, the active session), `import { useStandMeet } from
 '@standmeet/sdk'` exposes the provider's context; most pages need only the widgets + the store above.
 

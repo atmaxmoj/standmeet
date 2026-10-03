@@ -3,7 +3,7 @@
 
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import type { InsertedDoc } from '@standmeet/sdk-core';
 
@@ -14,6 +14,9 @@ export interface PageDraft {
   path: string;
   title: string;
   body: string;
+  // base —— the version this draft was written over (empty for a new page): a save over a newer
+  // version someone else made meanwhile is held back (SiteWiki asks first).
+  base?: string;
 }
 
 export interface SiteWikiData {
@@ -24,14 +27,27 @@ export interface SiteWikiData {
   error: string | null;
 }
 
-export function useSiteWiki(collection = 'wiki'): SiteWikiData {
-  const { docs, save: insert, error } = useMicrositeStore(collection);
+// SiteWikiContext —— the wiki a <SiteWikiProvider> holds for every SiteWiki part below it: one
+// read, one live stream, however many parts the page uses.
+export const SiteWikiContext = createContext<SiteWikiData | null>(null);
+
+// useSiteWikiData —— the wiki read from the store (enabled false: nothing read, no stream).
+export function useSiteWikiData(collection: string, enabled = true): SiteWikiData {
+  const { docs, save: insert, error } = useMicrositeStore(collection, undefined, enabled);
   const pages = useMemo(() => pagesOf(docs), [docs]);
   const tree = useMemo(() => treeOf(pages), [pages]);
   const save = useCallback((d: PageDraft) => insert({
     path: cleanPath(d.path), title: d.title.trim(), body: d.body,
   }), [insert]);
   return { pages, tree, save, error };
+}
+
+// useSiteWiki —— the wiki's pages: the provider's when the component sits under a
+// <SiteWikiProvider>, else read here (collection: which store collection, default 'wiki').
+export function useSiteWiki(collection = 'wiki'): SiteWikiData {
+  const shared = useContext(SiteWikiContext);
+  const own = useSiteWikiData(collection, shared === null);
+  return shared ?? own;
 }
 
 // useHashPath —— the page the address shows (#/people/the-master), and a way to go to another.

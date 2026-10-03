@@ -16,6 +16,15 @@
   color: var(--color-muted, #6b5d4f); margin: 0 0 .75rem;
 }
 
+/* each part also stands alone in a page's own layout (SiteWikiTree / SiteWikiPage), so each
+   carries the type and ink itself */
+.smw-tree, .smw-main { color: var(--color-ink, #1B1814); font-family: var(--smc-serif); }
+
+/* tree={false}: the page draws the tree in its own sidebar (SiteWikiTree); the wiki is one column */
+.smw-solo { grid-template-columns: minmax(0, 1fr); padding-top: 1.5rem; }
+.smw-main-bar { display: flex; justify-content: flex-end; margin-bottom: 1.5rem; }
+.smw-tree { margin-bottom: 1rem; }
+
 /* the tree */
 .smw-aside { border-right: 1px solid var(--color-rule, rgba(27, 24, 20, 0.14)); padding-right: 1.5rem; }
 @media (max-width: 760px) {
@@ -64,6 +73,13 @@
 .smw-field input:focus, .smw-field textarea:focus { outline: none; border-color: var(--color-ink, #1B1814); }
 .smw-field textarea { font-family: var(--smc-mono); font-size: 14px; line-height: 1.6; }
 .smw-editor-actions { display: flex; gap: .75rem; }
+
+/* a save held back: someone saved this page while the draft was being written */
+.smw-conflict {
+  border: 1px solid var(--color-accent, #B5391C); padding: .8rem 1rem; margin-bottom: 1.5rem;
+  display: grid; gap: .75rem; font-size: 16px;
+}
+.smw-conflict p { margin: 0; }
 
 /* messages */
 .smw-empty { font-style: italic; color: var(--color-muted, #6b5d4f); }
