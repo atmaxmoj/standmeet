@@ -22,7 +22,15 @@
 
 /* tree={false}: the page draws the tree in its own sidebar (SiteWikiTree); the wiki is one column */
 .smw-solo { grid-template-columns: minmax(0, 1fr); padding-top: 1.5rem; }
-.smw-main-bar { display: flex; justify-content: flex-end; margin-bottom: 1.5rem; }
+.smw-main-bar { display: flex; justify-content: flex-end; margin: 1.5rem 0; }
+
+/* a wiki link in any text (SiteWikiLink, a page body): a page's CSS reset (Tailwind preflight)
+   strips links bare, so the link carries its own look — accent, underlined */
+.smw-link {
+  color: var(--color-accent, #B5391C); text-decoration: underline;
+  text-decoration-thickness: 1px; text-underline-offset: .2em;
+}
+.smw-link:hover { text-decoration-thickness: 2px; }
 .smw-tree { margin-bottom: 1rem; }
 
 /* the tree */

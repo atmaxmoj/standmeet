@@ -39,7 +39,7 @@ export default function App() {
   return (
     <SiteWikiProvider>
       <aside data-testid="page-sidebar">
-        <SiteWikiTree />
+        <SiteWikiTree label="Contents" />
         <p data-testid="page-note">Start at <SiteWikiLink to="ledger">the ledger</SiteWikiLink>.</p>
       </aside>
       <SiteWikiPage />
@@ -149,9 +149,24 @@ test('9 the tree lives in the page\'s own sidebar; the page\'s own link opens a 
   await expect(ana.getByTestId('page-sidebar').getByTestId('site-wiki-tree')).toBeVisible();
   await expect(ana.getByTestId('site-wiki').getByTestId('site-wiki-tree'), 'not drawn twice')
     .toHaveCount(0);
+  await expect(ana.getByTestId('page-sidebar'), 'the page names its own tree')
+    .toContainText('Contents');
+  await expect(ana.getByTestId('page-sidebar').getByText('pages', { exact: true }), 'and only once')
+    .toHaveCount(0);
   await openFromTree(ana, 'The master');
   const note = ana.getByTestId('page-note').getByRole('link', { name: 'the ledger' });
   await expect(note, 'the page now exists').toHaveAttribute('data-missing', 'false');
+  // The microsite's CSS reset strips links bare; a wiki link still reads as a link in the page's text.
+  const look = await note.evaluate((el) => {
+    const parent = el.parentElement;
+    return {
+      underline: getComputedStyle(el).textDecorationLine,
+      color: getComputedStyle(el).color,
+      around: parent === null ? '' : getComputedStyle(parent).color,
+    };
+  });
+  expect(look.underline, 'underlined').toContain('underline');
+  expect(look.color, 'in a colour of its own').not.toBe(look.around);
   await note.click();
   await expect(ana.getByTestId('site-wiki-page')).toContainText('Kept by');
 });

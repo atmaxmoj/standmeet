@@ -58,8 +58,12 @@ export function SiteWikiProvider(
 }
 
 // SiteWikiTree —— the page tree, for the page's own sidebar. The current page is marked.
-export function SiteWikiTree({ collection = 'wiki', lang }: CommonProps): React.ReactElement {
-  return withLang(lang, <TreePanel collection={collection} />);
+// label —— the heading above it (default "pages" in the page's language); false for none, when the
+// page already heads its sidebar itself.
+export function SiteWikiTree(
+  { collection = 'wiki', lang, label }: CommonProps & { label?: React.ReactNode },
+): React.ReactElement {
+  return withLang(lang, <TreePanel collection={collection} label={label} />);
 }
 
 // SiteWikiLink —— a link from the page's own content to a wiki page, by path or title. It says
@@ -80,13 +84,16 @@ function withLang(lang: string | undefined, body: React.ReactElement): React.Rea
   return lang === undefined ? body : <ChatLangProvider lang={lang}>{body}</ChatLangProvider>;
 }
 
-function TreePanel({ collection }: { collection: string }): React.ReactElement {
+function TreePanel(
+  { collection, label }: { collection: string; label: React.ReactNode },
+): React.ReactElement {
   const t = useChatT('wiki');
   const wiki = useSiteWiki(collection);
   const [path] = useHashPath();
+  const heading = label === undefined ? t('pages') : label;
   return (
     <div className="smw-tree">
-      <p className="smw-label">{t('pages')}</p>
+      {heading !== false && <p className="smw-label">{heading}</p>}
       <nav data-testid="site-wiki-tree"><Tree folder={wiki.tree} current={path} /></nav>
     </div>
   );
