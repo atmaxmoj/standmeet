@@ -45,23 +45,6 @@ test.describe('render · TikZ diagrams on the reader', () => {
       await expect(doc.locator('[data-testid="tikz-svg"] svg')).toBeVisible({ timeout: 20_000 });
     });
 
-  test('a published writing renders a TikZ fence as an SVG, not source',
-    async ({ request, page }) => {
-      await uploadVault(request, OWNER, [
-        {
-          rel: 'writings/tikz-essay.md',
-          body: makeVaultMD({ publish: true, title: 'TikZ essay' }, `## Diagram\n\n${TIKZ}`),
-        },
-      ]);
-      await openReader(page, '/writings/tikz-essay');
-      const article = page.getByTestId('writing-article-body');
-      await expect(article).toBeVisible();
-      await expect(article.locator('[data-testid="tikz-svg"] svg'))
-        .toBeVisible({ timeout: 20_000 });
-      expect(await article.innerText(), 'the reader must not print the TikZ source')
-        .not.toContain('\\begin{tikzpicture}');
-    });
-
   // In a real vault, tikz **almost never sits at the top level**: a multi-language
   // note wraps its body in a double-nested `> [!i18n]` blockquote, and the diagram
   // rides along inside it. The case above only drives the top-level cell — while in
@@ -137,4 +120,30 @@ test.describe('render · TikZ diagrams on the reader', () => {
       await expect(doc.locator('[data-testid="tikz-svg"] svg'), '三张全在')
         .toHaveCount(3, { timeout: 60_000 });
     });
+});
+
+// Writings have a separate Markdown renderer; keep this as its own route-level regression.
+test.describe('render · TikZ diagrams in writings', () => {
+  test.beforeEach(async ({ request }) => {
+    resetInstance();
+    await claimSyncOwner(request, OWNER);
+  });
+
+  test('a published writing renders a TikZ fence as an SVG, not source',
+    async ({ request, page }) => {
+      await uploadVault(request, OWNER, [
+        {
+          rel: 'writings/tikz-essay.md',
+          body: makeVaultMD({ publish: true, title: 'TikZ essay' }, `## Diagram\n\n${TIKZ}`),
+        },
+      ]);
+      await openReader(page, '/writings/tikz-essay');
+      const article = page.getByTestId('writing-article-body');
+      await expect(article).toBeVisible();
+      await expect(article.locator('[data-testid="tikz-svg"] svg'))
+        .toBeVisible({ timeout: 20_000 });
+      expect(await article.innerText(), 'the reader must not print the TikZ source')
+        .not.toContain('\\begin{tikzpicture}');
+    });
+
 });

@@ -13,16 +13,11 @@
 
 'use client';
 
-import { lazy, Suspense, type ReactNode } from 'react';
-import { mermaidSource, MermaidBlock } from '@standmeet/sdk';
+import { Suspense, type ReactNode } from 'react';
+import { mermaidSource, MermaidBlock, TikZBlock } from '@standmeet/sdk';
 import styles from '@/components/writings/WritingArticleMarkdown.module.css';
 
 // MermaidBlock is light; the ~600KB mermaid library it renders with loads lazily inside it.
-
-const TikZBlock = lazy(async () => {
-  const mod = await import('@/components/page/TikZBlock');
-  return { default: mod.TikZBlock };
-});
 
 export { styles as markdownStyles };
 
@@ -68,11 +63,7 @@ function MermaidCode({ children }: { children?: ReactNode }) {
 
 function TikZCode({ children }: { children?: ReactNode }) {
   const source = mermaidSource(children);
-  return (
-    <Suspense fallback={<pre data-testid="tikz-loading">{source}</pre>}>
-      <TikZBlock source={source} />
-    </Suspense>
-  );
+  return <TikZBlock source={source} />;
 }
 
 function CodeFence({ cls, children }: { cls: string; children?: ReactNode }) {
