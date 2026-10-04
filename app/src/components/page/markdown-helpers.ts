@@ -2,10 +2,6 @@
 
 import type { ReactNode } from 'react';
 
-export function isMermaidCode(className: string): boolean {
-  return className.replace(/^language-/, '') === 'mermaid';
-}
-
 // escapeCurrencyDollars —— escapes a "currency $" to \$ so remark-math doesn't
 // eat the text between two dollar amounts as inline math (#36/#40:
 // "$100 ... $200").
