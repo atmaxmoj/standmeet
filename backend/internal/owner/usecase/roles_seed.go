@@ -12,6 +12,7 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
@@ -56,9 +57,17 @@ func SeedPublicRole(
 // the owner has curated, while public only reads what's published. Before the two were
 // separated, a targeted invitation got the fallback profile meant for the uninvited —
 // which, once public was narrowed, amounted to locking an invited person out.
+//
+// Its corpus allowlist is seeded once, when the role is created: after that it is the owner's
+// ("Narrow it here…"), and a restart must not write the default back (sijie.xyz, 2026-10-05: the
+// v0.1.128 upgrade dropped the owner's subjectivity://background from it). Same rule as hiring.
 func seedInvitedRole(
 	ctx context.Context, roles *access.RoleRepo, ownerID, promptID string,
 ) error {
+	isNew, gerr := invitedRoleMissing(ctx, roles, ownerID)
+	if gerr != nil {
+		return gerr
+	}
 	role, err := roles.UpsertBuiltin(ctx, &access.UpsertBuiltinInput{
 		OwnerID:     ownerID,
 		Name:        access.InvitedRoleName,
@@ -68,10 +77,24 @@ func seedInvitedRole(
 	if err != nil {
 		return fmt.Errorf("upsert invited role: %w", err)
 	}
+	if !isNew {
+		return nil
+	}
 	if serr := roles.SetCorpusURIs(ctx, role.ID(), access.InvitedRoleCorpusURIs); serr != nil {
 		return fmt.Errorf("set invited role corpus uris: %w", serr)
 	}
 	return nil
+}
+
+func invitedRoleMissing(ctx context.Context, roles *access.RoleRepo, ownerID string) (bool, error) {
+	_, err := roles.GetByName(ctx, ownerID, access.InvitedRoleName)
+	if errors.Is(err, access.ErrRoleNotFound) {
+		return true, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("get invited role: %w", err)
+	}
+	return false, nil
 }
 
 func upsertPublicPrompt(

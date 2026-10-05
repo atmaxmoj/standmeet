@@ -19,17 +19,26 @@ const OWNER = {
 };
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
-test('a narrowed hiring role keeps its corpus allowlist across a backend restart', async ({ playwright }) => {
+// The invited role (the codes the product issues for the owner) says the same, and sijie.xyz lost
+// it on the v0.1.128 upgrade, 2026-10-05: the owner had added subjectivity://background (education
+// and work in broad strokes, for invitees), and the restart's re-seed wrote the default back.
+const OWN_CHOICE: Record<string, string[]> = { // sorted: the assertions sort what they read
+  hiring: ['output://**', 'wiki://**'],
+  invited: ['output://**', 'subjectivity://background', 'wiki://**', 'writing://**'],
+};
+
+test('the owner\'s corpus allowlists on the builtin roles survive a backend restart', async ({ playwright }) => {
   test.setTimeout(240_000);
   resetInstance();
   const api = await playwright.request.newContext();
   await claim(api, findSetupToken(), OWNER);
   const { csrf } = await loginAPI(api, OWNER.email, OWNER.password);
 
-  const narrowed = ['output://**', 'wiki://**']; // sorted: the assertions sort what they read
-  await setRoleCorpus(api, csrf, await getRoleByName(api, 'hiring'), narrowed);
-  expect((await getRoleByName(api, 'hiring')).corpus_uris.sort(), 'narrowed before the restart')
-    .toEqual(narrowed);
+  for (const [name, uris] of Object.entries(OWN_CHOICE)) {
+    await setRoleCorpus(api, csrf, await getRoleByName(api, name), uris);
+    expect((await getRoleByName(api, name)).corpus_uris.sort(), `${name} set before the restart`)
+      .toEqual(uris);
+  }
 
   restartBackend();
   await expect.poll(async () => (await api.get(`${BACKEND}/api/v1/instance`)).status(),
@@ -37,7 +46,9 @@ test('a narrowed hiring role keeps its corpus allowlist across a backend restart
 
   const relog = await loginAPI(api, OWNER.email, OWNER.password);
   expect(relog.csrf, 'signed in again').toBeTruthy();
-  expect((await getRoleByName(api, 'hiring')).corpus_uris.sort(), 'the narrowing survived the restart')
-    .toEqual(narrowed);
+  for (const [name, uris] of Object.entries(OWN_CHOICE)) {
+    expect((await getRoleByName(api, name)).corpus_uris.sort(), `${name}: the owner's list survived`)
+      .toEqual(uris);
+  }
   await api.dispose();
 });
