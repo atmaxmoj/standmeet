@@ -79,16 +79,17 @@ const CodeIntroSchema = z.object({
 });
 export type CodeIntro = z.infer<typeof CodeIntroSchema>;
 
-// fetchCodeIntro —— the code goes in the body (kept out of URL logs). A bad
-// code / network failure / wrong shape → null; the picker degrades gracefully
-// (shows only the default form).
-export async function fetchCodeIntro(code: string): Promise<CodeIntro | null> {
+// fetchCodeIntro —— the code goes in the body (kept out of URL logs). The backend refusing the code
+// (revoked / expired / unknown: a 4xx) → 'closed'. A network failure / 5xx / wrong shape → null; the
+// picker degrades gracefully (shows only the default form).
+export async function fetchCodeIntro(code: string): Promise<CodeIntro | 'closed' | null> {
   try {
     const res = await fetch(`${baseURL()}/api/v1/codes/intro`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code }),
     });
+    if (res.status >= 400 && res.status < 500) return 'closed';
     if (!res.ok) return null;
     const parsed = CodeIntroSchema.safeParse(await res.json());
     return parsed.success ? parsed.data : null;

@@ -5,7 +5,7 @@
 // Dialog update/finalize pures. use-chat.ts keeps the React orchestration (hook, ask flow,
 // observer glue); components keep importing the types via use-chat's re-exports.
 
-import type { AgentEvent } from '@standmeet/agent-core';
+import { SESSION_GONE_CODE, type AgentEvent } from '@standmeet/agent-core';
 
 import { throbberLabel } from './throbber-label.js';
 import { pickCorpusReadShape, citableCorpusRead } from './corpus-read-wire.js';
@@ -125,6 +125,10 @@ export interface DialogAccumulator {
   // rendered as an answer paragraph instead of blank.
   errorMsg: string;
   errorCode: string;
+  // goneMsg —— a gone session's sentence, held back from errorMsg: the chat first settles the dead
+  // session (use-chat runAsk) and usually asks the question again, so nothing may render it before
+  // then — not even an update queued by an earlier event, which reads this accumulator late.
+  goneMsg: string;
   // ghostReceived —— whether this turn received a `ghost_received` frame.
   // F-A-9: when policy stays silent (no frame) for a turn, wrap-up must
   // **clear** the previous ghost, or the input box keeps showing a stale
@@ -156,7 +160,8 @@ export interface DialogAccumulator {
 export function makeAccumulator(): DialogAccumulator {
   return {
     body: '', citations: [], seenCitedIDs: new Set(),
-    currentTool: null, toolSeq: 0, toolCalls: [], retrying: false, errorMsg: '', errorCode: '',
+    currentTool: null, toolSeq: 0, toolCalls: [], retrying: false,
+    errorMsg: '', errorCode: '', goneMsg: '',
     ghostReceived: false, stopReason: 'end_turn', claimUnbacked: false,
   };
 }
@@ -212,8 +217,10 @@ export function handleAgentEvent(ev: AgentEvent, accum: DialogAccumulator): void
     // A backend `error` event (including the frontend's stream-cut
     // fallback): render the human-readable message as the wrap-up instead
     // of leaving the dialog blank. Clear retrying.
-    accum.errorMsg = ev.message;
     accum.errorCode = ev.code ?? '';
+    const gone = accum.errorCode === SESSION_GONE_CODE;
+    accum.errorMsg = gone ? '' : ev.message;
+    accum.goneMsg = gone ? ev.message : '';
     accum.retrying = false;
     return;
   }

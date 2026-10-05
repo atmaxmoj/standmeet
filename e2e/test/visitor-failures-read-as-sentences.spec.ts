@@ -17,7 +17,7 @@
 // marker" cannot pass on an empty answer.
 
 import { test, expect } from '@/fixtures/test';
-import type { Locator, Page } from '@playwright/test';
+import type { Browser, Locator, Page, Playwright } from '@playwright/test';
 
 import { claim, login as loginAPI } from '@/fixtures/admin';
 import { createCode, revokeCode } from '@/fixtures/codes';
@@ -79,11 +79,15 @@ test.describe('a failed question reads as a sentence, never an error code', () =
     const tag = await scriptMockReplyText(page.request, 'Public tier answering after the code was revoked.');
     const widget = await openAsk(page);
     await ask(widget, `what are you working on${tag}`);
+    // The FIRST words the visitor reads are the answer: the dead session's "Re-open your access
+    // link" never flashes up before the question is asked again (it did, 2026-10-05, 1 run in 4).
     const shown = await answerText(widget);
     expect(shown).toContain('Public tier answering after the code was revoked.');
     expect(shown, `visitor saw internals: ${shown}`).not.toMatch(LEAK);
     await ctx.close();
   });
+
+  test('a revoked code\'s link: no "access granted" name picker, the gate instead', revokedCodeLink);
 
   test('a provider that refuses the request as too large reads as "too big for this chat"', async ({ browser }) => {
     test.setTimeout(120_000);
@@ -113,6 +117,29 @@ test.describe('a failed question reads as a sentence, never an error code', () =
     await ctx.close();
   });
 });
+
+// revokedCodeLink —— sijie.xyz, 2026-10-05: opening /?code=<revoked> greeted the visitor "ACCESS
+// GRANTED · CODE …" and asked for a name; only the name's submit found out the code refuses them.
+async function revokedCodeLink(
+  { browser, playwright }: { browser: Browser; playwright: Playwright },
+): Promise<void> {
+  test.setTimeout(120_000);
+  const code = 'FAILSENT-BACK';
+  const admin = await playwright.request.newContext();
+  const { csrf } = await loginAPI(admin, OWNER.email, OWNER.password);
+  await revokeCode(admin, csrf, (await createCode(admin, csrf, { code, label: 'come back' })).id);
+  await admin.dispose();
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  let pickerSeen = false;
+  const watch = page.getByTestId('visitor-name-overlay').waitFor({ timeout: 15_000 })
+    .then(() => { pickerSeen = true; }, () => undefined);
+  await openReader(page, `/?code=${code}`);
+  await expect(page, 'a closed code lands on the gate').toHaveURL(/\/gate/, { timeout: 15_000 });
+  await watch;
+  expect(pickerSeen, 'the name picker never showed for a revoked code').toBe(false);
+  await ctx.close();
+}
 
 // openAsk —— the home-like page, its widget answering in place.
 async function openAsk(page: Page): Promise<Locator> {

@@ -413,6 +413,15 @@ async function runAsk(
       // epilogue to run (the ghost is a real LLM call, 10–26 seconds in
       // prod), and that stretch has nothing to do with the visitor.
       makeObserver(id, accum, setDialogs, () => { setPending(false); }), deps.docContext);
+    const gone = accum.errorCode === SESSION_GONE_CODE;
+    if (gone) {
+      // The session no longer exists (session-gone.ts): a code that still opens goes back to its
+      // entry flow; otherwise the visitor is public now and this question is asked again.
+      refs.sessionRef.current = null;
+      refs.docConvRef.current = null;
+      if (await settleGoneSession()) return id;
+      accum.errorMsg = accum.goneMsg; // not asked again: now the visitor reads why
+    }
     finalizeDialog(id, accum, setDialogs);
     // F-A-9: when policy stays silent (this turn produced no ghost frame)
     // → clear the previous steering ghost, so a stale ghost for an
@@ -436,13 +445,7 @@ async function runAsk(
     // back on whether the session is still alive.
     if (turnSucceeded(accum)) {
       useVisitorSessionStore.getState().incUsed();
-    } else if (accum.errorCode === SESSION_GONE_CODE) {
-      // The session no longer exists (session-gone.ts): a code that still opens goes back to its
-      // entry flow; otherwise the visitor is public now and this question is asked again.
-      refs.sessionRef.current = null;
-      refs.docConvRef.current = null;
-      if (await settleGoneSession()) return id;
-    } else {
+    } else if (!gone) {
       void revalidateSession(sess.conversationID, sess.sessionToken);
     }
   } catch (e) {

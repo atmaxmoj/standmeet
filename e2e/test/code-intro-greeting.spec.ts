@@ -18,7 +18,7 @@
 //     does not crash.
 
 import { test, expect } from '@/fixtures/test';
-import type { APIRequestContext, Browser, Page, Playwright } from '@playwright/test';
+import type { APIRequestContext, Browser, Playwright } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
@@ -110,25 +110,15 @@ test.describe('code intro · greeting + member-count on name picker', () => {
       await expect(cap).not.toContainText('Up to');
     });
 
-  test('invalid code → intro fails, no greeting, picker degrades gracefully',
+  test('invalid code → the intro refuses it → no name picker, the gate',
     async ({ page }) => {
       await openReader(page, `/?code=${BAD_CODE}`);
-      // The picker still renders (absorb takes the code unconditionally); the intro fetch
-      // just fails → no greeting line + fallback member-count line, and the visitor can
-      // still type a name (submit is where code_invalid actually hits).
-      await expect(page.getByTestId('visitor-name-input')).toBeVisible({
-        timeout: 5_000,
-      });
-      await expectGreetingHidden(page);
-      await expect(page.getByTestId('visitor-name-capacity')).toContainText(
-        'More than one person can use this code.',
-      );
+      // The picker waits for the intro; a code the backend refuses never gets "ACCESS GRANTED"
+      // and a name field (2026-10-05) — the visitor lands on the gate instead.
+      await expect.poll(() => page.url(), { timeout: 15_000 }).toMatch(/\/gate$/);
+      await expect(page.getByTestId('visitor-name-input')).toHaveCount(0);
     });
 });
-
-async function expectGreetingHidden(page: Page): Promise<void> {
-  await expect(page.getByTestId('visitor-name-greeting')).toHaveCount(0);
-}
 
 // enterAsName — a separate context goes through the full entry flow to become a named
 // member (bumping member_count).

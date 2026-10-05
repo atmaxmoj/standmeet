@@ -28,6 +28,7 @@ export async function validateVisitorSession(): Promise<void> {
     // convergence point as chat restore, avoiding a "bare clear vs.
     // re-seed code" race that loses the code and wrongly jumps to /gate).
     // No code (anonymous expiry) → falls straight back to anonymous (F-L-11).
+    // A rescued code that no longer opens is dropped by the name picker's own check.
     clearAndPreserveCode();
   }
 }

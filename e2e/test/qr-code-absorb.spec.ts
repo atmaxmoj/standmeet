@@ -83,27 +83,17 @@ test.describe('QR `?code=` is absorbed into store + stripped from URL', () => {
       expect(extraCalls).toBe(0);
     });
 
-  test('invalid `?code=BOGUS` → URL 清干净;提交后 401 → 回落 public(无 strip)',
+  test('invalid `?code=BOGUS` → URL 清干净;no name picker, the gate (no strip)',
     async ({ page }) => {
       await openReader(page, '/');
       await page.evaluate(() => window.localStorage.clear());
 
       await openReader(page, '/?code=BOGUS-NOPE');
-      // code= is cleared from the URL (absorb still happens, it just doesn't issue
-      // right away).
-      await expect.poll(() => page.url(), { timeout: 5_000 })
-        .not.toMatch(/[?&]code=/);
-
-      // The name picker pops; skip -> issueCodeSession (bad code) -> 401 -> drops the
-      // pending code and falls back to public.
-      const skip = page.getByTestId('visitor-name-skip');
-      await expect(skip).toBeVisible({ timeout: 5_000 });
-      await skip.click();
-
-      // No session -> the strip doesn't render; the name picker is also gone (the
-      // pending code has been consumed).
+      // The code leaves the URL, and the backend refuses it before any name is asked: the
+      // visitor lands on the gate (2026-10-05: no "ACCESS GRANTED" picker for a code that won't open).
+      await expect.poll(() => page.url(), { timeout: 15_000 }).toMatch(/\/gate$/);
+      await expect(page.getByTestId('visitor-name-skip')).toHaveCount(0);
       await expect(page.getByTestId('session-strip')).toHaveCount(0, { timeout: 5_000 });
-      await expect(skip).toBeHidden({ timeout: 5_000 });
     });
 });
 

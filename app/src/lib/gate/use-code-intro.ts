@@ -18,8 +18,7 @@ type PickerT = ReturnType<typeof useTranslations<'visitor.visitorNamePicker'>>;
 // useCodeIntroLines —— the picker's two intro lines, in the UI language. greeting: the role's own
 // (as the owner wrote it), else the default; '' when there is no intro (bad code / fetch failed).
 // capacity: "Up to N people…"; '' for unlimited / no intro, and the picker says capacityDefault.
-export function useCodeIntroLines(): { greeting: string; capacity: string } {
-  const intro = useCodeIntro();
+export function useCodeIntroLines(intro: CodeIntro | null): { greeting: string; capacity: string } {
   const t = useTranslations('visitor.visitorNamePicker');
   return { greeting: greetingOf(intro, t), capacity: capacityOf(intro, t) };
 }
@@ -38,21 +37,41 @@ function capacityOf(intro: CodeIntro | null, t: PickerT): string {
   return t('capacity', { max: intro.max_members, count: intro.member_count });
 }
 
-export function useCodeIntro(): CodeIntro | null {
+// CodeCheck —— what the backend said about the pending code: 'checking' until it answers, 'closed'
+// when it refuses the code (revoked / expired / unknown), else the intro (null: unreadable, the
+// picker still works).
+export type CodeCheck = CodeIntro | null | 'closed' | 'checking';
+
+export function useCodeIntro(): CodeCheck {
   const code = usePendingCodeStore((s) => s.code);
-  const [intro, setIntro] = useState<CodeIntro | null>(null);
+  const [check, setCheck] = useState<{ code: string | null; result: CodeCheck }>({
+    code: null, result: null,
+  });
   useEffect(() => {
-    if (code === null) {
-      setIntro(null);
-      return;
-    }
+    if (code === null) return;
     let alive = true;
     void fetchCodeIntro(code).then((r) => {
-      if (alive) setIntro(r);
+      if (alive) setCheck({ code, result: r });
     });
     return () => {
       alive = false;
     };
   }, [code]);
-  return intro;
+  // An answer about an earlier code is no answer about this one.
+  return code !== null && check.code === code ? check.result : 'checking';
+}
+
+// usePickerIntro —— what the name picker shows: the code's intro (null: unreadable), or undefined
+// while there is nothing to show — no pending code, no answer yet, or a code the backend refuses.
+// A refused code (revoked / expired / unknown) is dropped and the visitor lands on the gate, so no
+// "ACCESS GRANTED" is ever shown for it (sijie.xyz, 2026-10-05).
+export function usePickerIntro(): CodeIntro | null | undefined {
+  const check = useCodeIntro();
+  const closed = check === 'closed';
+  useEffect(() => {
+    if (!closed) return;
+    usePendingCodeStore.getState().consume();
+    window.location.assign('/gate');
+  }, [closed]);
+  return check === 'closed' || check === 'checking' ? undefined : check;
 }

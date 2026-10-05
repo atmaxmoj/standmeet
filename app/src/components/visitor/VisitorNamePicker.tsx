@@ -16,25 +16,23 @@ import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 
 import { usePendingCodeStore } from '@standmeet/sdk';
+import type { CodeIntro } from '@/lib/api/public';
 import {
   dismissPicker,
   submitPickerName,
   useIssuePendingCode,
   type IssueOutcome,
 } from '@/lib/gate/use-issue-pending-code';
-import { useCodeIntroLines } from '@/lib/gate/use-code-intro';
-import {
-  loadVisitorName,
-  loadVisitorEmail,
-  useShouldAskVisitorName,
-} from '@/lib/visitor/visitor-name';
+import { useCodeIntroLines, usePickerIntro } from '@/lib/gate/use-code-intro';
+import { loadVisitorName, loadVisitorEmail } from '@/lib/visitor/visitor-name';
 
 export function VisitorNamePicker() {
-  const should = useShouldAskVisitorName();
-  return should ? <Modal /> : null;
+  // Nothing until the backend has answered about the pending code (see usePickerIntro).
+  const intro = usePickerIntro();
+  return intro !== undefined ? <Modal intro={intro} /> : null;
 }
 
-function Modal() {
+function Modal({ intro: codeIntro }: { intro: CodeIntro | null }) {
   // Initial values load the last-used name + optional email from
   // localStorage (the same person opening it again gets them back
   // automatically).
@@ -42,7 +40,7 @@ function Modal() {
   const [email, setEmail] = useState(loadVisitorEmail);
   const [full, setFull] = useState(false);
   const code = usePendingCodeStore((s) => s.code);
-  const intro = useCodeIntroLines();
+  const intro = useCodeIntroLines(codeIntro);
   const { issue, busy } = useIssuePendingCode();
   const onSubmit = () => { void settleOutcome(submitPickerName(name, email, issue), setFull); };
   const onDismiss = () => { void settleOutcome(dismissPicker(issue), setFull); };

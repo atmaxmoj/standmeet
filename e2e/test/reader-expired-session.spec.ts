@@ -38,12 +38,13 @@ test.describe('F-L-11 · expired visitor session drops the fake "unlocked" chrom
     async ({ page }) => {
       await plantDeadSession(page);
       await openReader(page, '/');
-      // The dead token's code is rescued into pending and the visitor is asked to re-enter
-      // (session-recovery.ts: clear the identity, keep the code, pop the name picker). Asserted
-      // FIRST because it is the half that proves the mount probe actually ran: `toBeHidden` on
-      // the strip below passes just as well when nothing ever rendered, so on its own it cannot
-      // tell "validated away" from "not there yet".
-      await expect(page.getByTestId('visitor-name-overlay')).toBeVisible({ timeout: 5_000 });
+      // The dead token's code is rescued into pending (session-recovery.ts); DEAD-01 does not
+      // open, so the name picker's check sends the visitor to the gate. Asserted FIRST because it
+      // is the half that proves the mount probe actually ran: `toBeHidden` on the strip below
+      // passes just as well when nothing ever rendered, so on its own it cannot tell "validated
+      // away" from "not there yet". (A rescued code that still opens re-asks for a name:
+      // visitor-dead-session-recovery.spec.ts.)
+      await expect.poll(() => page.url(), { timeout: 15_000 }).toMatch(/\/gate$/);
       // The "unlocked" chrome must be gone: the liveness probe 401'd the dead token and cleared
       // the stored session. (RED before the fix: the strip renders off stale localStorage and stays.)
       await expect(page.getByTestId('session-strip')).toBeHidden({ timeout: 5_000 });
