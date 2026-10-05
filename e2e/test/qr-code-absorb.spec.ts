@@ -14,7 +14,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { openReader, enterCodeSession } from '@/fixtures/navigate';
+import { openReader, enterCodeSession, gotoUnhydrated } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'qr-owner@example.com',
@@ -83,15 +83,16 @@ test.describe('QR `?code=` is absorbed into store + stripped from URL', () => {
       expect(extraCalls).toBe(0);
     });
 
-  test('invalid `?code=BOGUS` → URL 清干净;no name picker, the gate (no strip)',
+  test('invalid `?code=BOGUS` → URL 清干净;no name picker, the front page (no strip)',
     async ({ page }) => {
       await openReader(page, '/');
       await page.evaluate(() => window.localStorage.clear());
 
-      await openReader(page, '/?code=BOGUS-NOPE');
+      await gotoUnhydrated(page, '/?code=BOGUS-NOPE'); // it reloads itself: no `load` wait
       // The code leaves the URL, and the backend refuses it before any name is asked: the
-      // visitor lands on the gate (2026-10-05: no "ACCESS GRANTED" picker for a code that won't open).
-      await expect.poll(() => page.url(), { timeout: 15_000 }).toMatch(/\/gate$/);
+      // visitor is a public one (2026-10-05: no "ACCESS GRANTED" picker for a code that won't open).
+      await expect(page.getByTestId('default-home')).toBeVisible({ timeout: 15_000 });
+      expect(page.url()).not.toMatch(/[?&]code=/);
       await expect(page.getByTestId('visitor-name-skip')).toHaveCount(0);
       await expect(page.getByTestId('session-strip')).toHaveCount(0, { timeout: 5_000 });
     });

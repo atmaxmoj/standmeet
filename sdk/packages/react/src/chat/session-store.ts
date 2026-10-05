@@ -158,9 +158,34 @@ function load(): VisitorSession | null {
   }
 }
 
+// ENDED_KEY —— "this tab's visitor session just ended" (per tab, so a new tab never inherits it). Set
+// when a stored session is cleared, removed when a session is set, and taken once by whoever moves
+// the visitor on (the app's `/` fallback loads the owner's home page: use-leave-for-home).
+const ENDED_KEY = 'standmeet:session-ended';
+
+// takeEndedSession —— did this tab's session end since it last had one? Reading it clears it.
+export function takeEndedSession(): boolean {
+  try {
+    const ended = window.sessionStorage.getItem(ENDED_KEY) === '1';
+    window.sessionStorage.removeItem(ENDED_KEY);
+    return ended;
+  } catch {
+    return false;
+  }
+}
+
+function markEnded(s: VisitorSession | null): void {
+  if (s !== null) {
+    window.sessionStorage.removeItem(ENDED_KEY);
+  } else if (window.localStorage.getItem(STORAGE_KEY) !== null) {
+    window.sessionStorage.setItem(ENDED_KEY, '1');
+  }
+}
+
 function persist(s: VisitorSession | null): void {
   if (typeof window === 'undefined') return;
   try {
+    markEnded(s);
     if (s === null) {
       window.localStorage.removeItem(STORAGE_KEY);
     } else {

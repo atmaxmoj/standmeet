@@ -27,6 +27,7 @@ import {
   type SessionMode, type VisitorSession,
 } from '@standmeet/sdk';
 import { useShouldAskVisitorName } from '@/lib/visitor/visitor-name';
+import { useLeaveForHome } from '@/lib/visitor/use-leave-for-home';
 
 export function VisitorRoot({ name, handle, hasCode }: {
   name: string; handle: string; hasCode: boolean;
@@ -46,7 +47,9 @@ export function VisitorRoot({ name, handle, hasCode }: {
     picker: <VisitorNamePicker />,
     fallback: <DefaultHome name={name} handle={handle} />,
   };
-  return els[chooseVisitorView(session, pending, hasCode)];
+  const view = chooseVisitorView(session, pending, hasCode);
+  useLeaveForHome(view === 'fallback', session);
+  return els[view];
 }
 
 export type VisitorView = 'chat' | 'picker' | 'fallback';

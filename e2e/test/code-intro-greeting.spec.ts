@@ -24,7 +24,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { enterCodeSession, openReader } from '@/fixtures/navigate';
+import { enterCodeSession, gotoUnhydrated, openReader } from '@/fixtures/navigate';
 import { createRole } from '@/fixtures/roles';
 
 const OWNER = {
@@ -110,12 +110,12 @@ test.describe('code intro · greeting + member-count on name picker', () => {
       await expect(cap).not.toContainText('Up to');
     });
 
-  test('invalid code → the intro refuses it → no name picker, the gate',
+  test('invalid code → the intro refuses it → no name picker, the front page',
     async ({ page }) => {
-      await openReader(page, `/?code=${BAD_CODE}`);
+      await gotoUnhydrated(page, `/?code=${BAD_CODE}`); // it reloads itself: no `load` wait
       // The picker waits for the intro; a code the backend refuses never gets "ACCESS GRANTED"
-      // and a name field (2026-10-05) — the visitor lands on the gate instead.
-      await expect.poll(() => page.url(), { timeout: 15_000 }).toMatch(/\/gate$/);
+      // and a name field (2026-10-05) — the visitor is a public one, on the front page.
+      await expect(page.getByTestId('default-home')).toBeVisible({ timeout: 15_000 });
       await expect(page.getByTestId('visitor-name-input')).toHaveCount(0);
     });
 });

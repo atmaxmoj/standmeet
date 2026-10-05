@@ -33,7 +33,7 @@ export type { SessionMode, ChatState as ChatEngineState } from './chat/use-chat.
 export { seedEphemeralStores } from './chat/use-chat-restore.js';
 export {
   useVisitorSessionStore, bindVisitorSessionSync, peekStoredSession, useVisitorChatAvailable,
-  useIsQuotaExhausted,
+  useIsQuotaExhausted, takeEndedSession,
 } from './chat/session-store.js';
 export type { VisitorSession } from './chat/session-store.js';
 export { persistSession, loadStoredSession, clearStoredSession } from './chat/stored-session.js';

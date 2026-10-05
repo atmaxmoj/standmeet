@@ -24,7 +24,7 @@ import { createCode, revokeCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken, execSQL } from '@/fixtures/instance';
 import { publishPage } from '@/fixtures/microsite-rig';
 import { scriptMockReplyText, scriptMockTooLarge } from '@/fixtures/mock-llm-script';
-import { enterCodeSession, openReader } from '@/fixtures/navigate';
+import { enterCodeSession, gotoUnhydrated, openReader } from '@/fixtures/navigate';
 import { createProvider } from '@/fixtures/providers';
 
 const MOCK = 'http://llm-gateway:9300';
@@ -87,7 +87,9 @@ test.describe('a failed question reads as a sentence, never an error code', () =
     await ctx.close();
   });
 
-  test('a revoked code\'s link: no "access granted" name picker, the gate instead', revokedCodeLink);
+  test('a revoked code\'s link: no "access granted" name picker, the front page instead', revokedCodeLink);
+
+  test('back at / after the code was revoked: the owner\'s home page, not the gate', backAfterRevoke);
 
   test('a provider that refuses the request as too large reads as "too big for this chat"', async ({ browser }) => {
     test.setTimeout(120_000);
@@ -134,11 +136,50 @@ async function revokedCodeLink(
   let pickerSeen = false;
   const watch = page.getByTestId('visitor-name-overlay').waitFor({ timeout: 15_000 })
     .then(() => { pickerSeen = true; }, () => undefined);
-  await openReader(page, `/?code=${code}`);
-  await expect(page, 'a closed code lands on the gate').toHaveURL(/\/gate/, { timeout: 15_000 });
+  await gotoUnhydrated(page, `/?code=${code}`); // it reloads itself: no `load` wait
+  // A visitor whose code is gone is a public visitor: they land on the front page.
+  await expect(frontPage(page), 'a closed code lands on the front page').toBeVisible({ timeout: 15_000 });
+  expect(page.url()).not.toContain('code=');
   await watch;
   expect(pickerSeen, 'the name picker never showed for a revoked code').toBe(false);
   await ctx.close();
+}
+
+// backAfterRevoke —— sijie.xyz, 2026-10-05: a visitor whose code was revoked came back to `/`. Their
+// dead session made the app (not the home page) answer `/`; it rescued the code and sent them to the
+// gate. They are a public visitor now: the owner's home page, answering on the public tier.
+async function backAfterRevoke(
+  { browser, playwright }: { browser: Browser; playwright: Playwright },
+): Promise<void> {
+  test.setTimeout(240_000);
+  const code = 'FAILSENT-HOME';
+  const admin = await playwright.request.newContext();
+  const { csrf } = await loginAPI(admin, OWNER.email, OWNER.password);
+  const id = (await createCode(admin, csrf, { code, label: 'back home' })).id;
+  await publishPage(admin, csrf, 'home', PAGE);
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  await enterCodeSession(page, code);
+  await page.waitForURL(/\/c\//); // the room's own landing, settled before we navigate away
+  await revokeCode(admin, csrf, id);
+  await admin.dispose();
+  // The page reloads itself on the way (the dead session leaves for the home page): wait for the
+  // response, not for a load the reload would abort.
+  // The room the visitor sat in may already be on its way home (it found the session dead): then
+  // this navigation is the one cut short, and the page still ends up on `/`.
+  await gotoUnhydrated(page, '/').catch((e: unknown) => {
+    if (!String(e).includes('ERR_ABORTED')) throw e;
+  });
+  await expect(page.getByTestId('microsite'), 'the owner\'s home page').toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId('agent-widget')).toHaveAttribute('data-mode', 'inline', { timeout: 20_000 });
+  expect(page.url(), 'not sent to the gate').not.toContain('/gate');
+  await expect(page.getByTestId('visitor-name-overlay')).toHaveCount(0);
+  await ctx.close();
+}
+
+// frontPage —— whichever front page the instance has: the app's default, or the owner's home.
+function frontPage(page: Page): Locator {
+  return page.getByTestId('default-home').or(page.getByTestId('microsite'));
 }
 
 // openAsk —— the home-like page, its widget answering in place.

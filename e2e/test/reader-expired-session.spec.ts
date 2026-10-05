@@ -15,7 +15,7 @@ import type { Page } from '@playwright/test';
 
 import { claim } from '@/fixtures/admin';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { openReader } from '@/fixtures/navigate';
+import { gotoUnhydrated } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'expired-reader@example.com', password: 'correct-horse-battery-staple',
@@ -37,14 +37,15 @@ test.describe('F-L-11 · expired visitor session drops the fake "unlocked" chrom
   test('a dead token in localStorage → strip validated away, not shown as unlocked',
     async ({ page }) => {
       await plantDeadSession(page);
-      await openReader(page, '/');
+      await gotoUnhydrated(page, '/'); // it reloads itself: no `load` wait
       // The dead token's code is rescued into pending (session-recovery.ts); DEAD-01 does not
-      // open, so the name picker's check sends the visitor to the gate. Asserted FIRST because it
-      // is the half that proves the mount probe actually ran: `toBeHidden` on the strip below
-      // passes just as well when nothing ever rendered, so on its own it cannot tell "validated
-      // away" from "not there yet". (A rescued code that still opens re-asks for a name:
-      // visitor-dead-session-recovery.spec.ts.)
-      await expect.poll(() => page.url(), { timeout: 15_000 }).toMatch(/\/gate$/);
+      // open, so the name picker's check drops it and the visitor gets the public front page.
+      // Asserted FIRST because it is the half that proves the mount probe actually ran:
+      // `toBeHidden` on the strip below passes just as well when nothing ever rendered, so on its
+      // own it cannot tell "validated away" from "not there yet". (A rescued code that still opens
+      // re-asks for a name: visitor-dead-session-recovery.spec.ts.)
+      await expect(page.getByTestId('default-home')).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByTestId('visitor-name-overlay')).toHaveCount(0);
       // The "unlocked" chrome must be gone: the liveness probe 401'd the dead token and cleared
       // the stored session. (RED before the fix: the strip renders off stale localStorage and stays.)
       await expect(page.getByTestId('session-strip')).toBeHidden({ timeout: 5_000 });
@@ -53,6 +54,10 @@ test.describe('F-L-11 · expired visitor session drops the fake "unlocked" chrom
 
 async function plantDeadSession(page: Page): Promise<void> {
   await page.addInitScript(([dead]) => {
+    // Planted once per tab: the page reloads itself after dropping the dead code, and a browser
+    // does not bring a cleared session back.
+    if (sessionStorage.getItem('planted') === '1') return;
+    sessionStorage.setItem('planted', '1');
     // credential store (session_token) — must satisfy the StoredVisitorSession zod schema.
     localStorage.setItem('standmeet:visitor-session', JSON.stringify({
       session_token: dead, conversation_id: '', byoai: false,
