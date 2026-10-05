@@ -3,7 +3,7 @@
 // event consumer, wiring the 3 ports (prompts / turn / observer) to run
 // VisitorTurnAgent.
 
-export { VisitorTurnAgent, agentEventOf } from './agent-turn.js';
+export { VisitorTurnAgent, agentEventOf, SESSION_GONE_CODE } from './agent-turn.js';
 // TURN_STOP_REASONS is a **value**, not a type: the SSE parsing side uses it
 // to check "is this stop reason known?".
 // This is the only list — adding a new stop reason just means editing it

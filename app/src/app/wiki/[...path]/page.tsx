@@ -16,6 +16,7 @@ import { fetchInstance } from '@/lib/api/instance';
 import { fetchWikiContext, fetchWikiLanding } from '@/lib/api/public';
 import { parseWikiLanding } from '@/lib/visitor/wiki-landing';
 import { TrackVisit } from '@/components/monitor/TrackVisit';
+import { wantedContentLang } from '@/i18n/content-lang';
 
 // catch-all [...path]: path can contain `/` (grouping like projects/lucerna).
 type Params = { path: string[] };
@@ -35,17 +36,12 @@ export async function generateMetadata(
   } : { title: 'not found' };
 }
 
-// wantedLang — `?lang=`; if absent, use this note's identity language (backend decides).
-function wantedLang(search: Search): string {
-  return search.lang ?? '';
-}
-
 export default async function WikiLandingPage(
   { params, searchParams }: { params: Promise<Params>; searchParams: Promise<Search> },
 ) {
   const { path } = await params;
   const slug = path.join('/');
-  const want = wantedLang(await searchParams);
+  const want = await wantedContentLang(await searchParams);
   // SSR fetches anonymously (published-only, for crawlers/SEO). WikiReaderClient re-fetches WITH the
   // stored visitor token when this comes back null, so an invited viewer reads in-scope gated entries
   // (F-L-11 bearer-aware reader) while published entries keep their fast SSR path.

@@ -8,13 +8,18 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-const LANG_KEY = 'sm-lang';        // this toggle's memory; the widgets read <html lang>, not this
+import { chooseLang, chosenLang, VISITOR_LANG_EVENT } from './visitor-lang.js';
+
+// LEGACY_LANG_KEY —— where a bilingual page's toggle kept the choice before it moved to the shared
+// cookie (visitor-lang.ts); still read so a returning visitor keeps their language.
+const LEGACY_LANG_KEY = 'sm-lang';
 const THEME_KEY = 'standmeet-dark'; // '1' dark, '0' light, absent = follow the system
 
-/** The page language among `supported`: `fallback` on the first render, then the visitor's stored
- *  choice, else their browser language, else `fallback`. Setting it stores the choice. The page
- *  declares whichever it shows (<html lang>): that is what screen readers and the SDK's own widgets
- *  follow — the stored choice is only this toggle's memory. */
+/** The page language among `supported`: `fallback` on the first render, then the visitor's choice
+ *  (the one shared with the app's pages and every bilingual page), else their browser language,
+ *  else `fallback`. Setting it stores the choice for the whole instance, and the page follows a
+ *  `<LangSwitch />` anywhere on it. The page declares whichever it shows (<html lang>): that is
+ *  what screen readers, the SDK's widgets and the agent's answers follow. */
 export function usePageLang<L extends string>(
   supported: readonly L[], fallback: L,
 ): [L, (lang: L) => void] {
@@ -23,22 +28,31 @@ export function usePageLang<L extends string>(
   // every render and undo the visitor's own switch.
   const initial = useRef({ supported, fallback });
   useEffect(() => {
-    setLang(visitorLang(initial.current.supported, initial.current.fallback));
+    const { supported: langs, fallback: base } = initial.current;
+    setLang(visitorLang(langs, base));
+    const follow = (e: Event) => {
+      const next = (e as CustomEvent<string>).detail;
+      if ((langs as readonly string[]).includes(next)) setLang(next as L);
+    };
+    window.addEventListener(VISITOR_LANG_EVENT, follow);
+    return () => { window.removeEventListener(VISITOR_LANG_EVENT, follow); };
   }, []);
   useEffect(() => {
     try { document.documentElement.lang = lang; } catch { /* no document */ }
   }, [lang]);
   const choose = (next: L) => {
     setLang(next);
-    try { localStorage.setItem(LANG_KEY, next); } catch { /* no storage */ }
+    chooseLang(next);
   };
   return [lang, choose];
 }
 
 function visitorLang<L extends string>(supported: readonly L[], fallback: L): L {
   const known = (v: string): v is L => (supported as readonly string[]).includes(v);
+  const chosen = chosenLang();
+  if (known(chosen)) return chosen;
   try {
-    const stored = localStorage.getItem(LANG_KEY) ?? '';
+    const stored = localStorage.getItem(LEGACY_LANG_KEY) ?? '';
     if (known(stored)) return stored;
   } catch { /* no storage */ }
   try {

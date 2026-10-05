@@ -15,7 +15,7 @@ import { cookies, headers } from 'next/headers';
 import { getRequestConfig } from 'next-intl/server';
 
 import {
-  DEFAULT_LOCALE, LOCALE_COOKIE, LOCALE_HEADER, isLocale, type Locale,
+  DEFAULT_LOCALE, LOCALES, LOCALE_COOKIE, LOCALE_HEADER, isLocale, type Locale,
 } from '@/i18n/locales';
 
 // NAMESPACES — message file stem → the useTranslations namespace key it provides.
@@ -48,16 +48,38 @@ async function loadCatalog(locale: Locale): Promise<Record<string, unknown>> {
   return Object.fromEntries(entries);
 }
 
-// resolveLocale — header (this request's URL prefix) wins; cookie (persisted choice) next; else base.
-function resolveLocale(headerLocale: string | undefined, cookieLocale: string | undefined): Locale {
+// resolveLocale — header (this request's URL prefix) wins; cookie (the visitor's choice) next; then
+// the browser's languages, the same signal a bilingual microsite reads on a first visit (so a
+// Chinese browser no longer gets a Chinese home page and an English /wiki — owner 2026-10-04:
+// "有时候我看见中文，有时候我看见英文"); else base.
+function resolveLocale(
+  headerLocale: string | undefined, cookieLocale: string | undefined, acceptLanguage: string,
+): Locale {
   if (isLocale(headerLocale)) return headerLocale;
   if (isLocale(cookieLocale)) return cookieLocale;
-  return DEFAULT_LOCALE;
+  return browserLocale(acceptLanguage) ?? DEFAULT_LOCALE;
+}
+
+// browserLocale — the first supported language in an Accept-Language header ("zh-CN,zh;q=0.9,en"),
+// in the order the browser sent them: the whole tag when supported (zh-HK), traditional Chinese
+// (zh-TW, zh-Hant) as zh-HK, else the base language (zh-CN → zh).
+export function browserLocale(acceptLanguage: string): Locale | null {
+  for (const part of acceptLanguage.split(',')) {
+    const tag = (part.split(';')[0] ?? '').trim();
+    if (tag === '') continue;
+    const whole = LOCALES.find((l) => l.toLowerCase() === tag.toLowerCase());
+    if (whole !== undefined) return whole;
+    if (/^zh-(tw|hant|mo)/i.test(tag)) return 'zh-HK';
+    const base = tag.split('-')[0]?.toLowerCase();
+    if (isLocale(base)) return base;
+  }
+  return null;
 }
 
 export default getRequestConfig(async () => {
-  const headerLocale = (await headers()).get(LOCALE_HEADER) ?? undefined;
+  const h = await headers();
+  const headerLocale = h.get(LOCALE_HEADER) ?? undefined;
   const cookieLocale = (await cookies()).get(LOCALE_COOKIE)?.value;
-  const locale = resolveLocale(headerLocale, cookieLocale);
+  const locale = resolveLocale(headerLocale, cookieLocale, h.get('accept-language') ?? '');
   return { locale, messages: await loadCatalog(locale) };
 });

@@ -6,7 +6,10 @@
 // the visitor presses the mic or the 60 s cap; add a VAD model if that bites.
 
 const SAMPLE_MS = 100;
-const PAUSE_MS = 1200;
+// PAUSE_MS —— a person thinking out loud stops to breathe and to find the next words; 1.2 s cut
+// them off mid-question (owner 2026-10-04: "语音的间隔判断太短了，我说话都不敢喘气"). Three seconds
+// of quiet means they are done; pressing the mic ends it sooner.
+const PAUSE_MS = 3000;
 const QUIET_MS = 8000;
 // SPEECH_RMS —— the level a voice reaches at a laptop mic; room noise sits well below it.
 const SPEECH_RMS = 0.02;

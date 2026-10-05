@@ -144,7 +144,14 @@
 /* dark mode via .dark class on <html> (the TopBar toggle writes localStorage). System-level
    prefers-color-scheme no longer goes through @media —— the useTheme hook reads prefers
    once on first visit, and after that the user's TopBar toggle is in control. */
+/* Scrollbars stay out of the way (owner 2026-10-04): an invisible track and a thin thumb in the rule
+   colour; scrollbar-color inherits from html. color-scheme makes native bars and controls follow
+   the palette — a dark page used to draw the light system scrollbar. */
+html { color-scheme: light; scrollbar-color: var(--color-rule) transparent; }
+* { scrollbar-width: thin; }
+
 html.dark {
+  color-scheme: dark;
   --color-paper:        #14110D;
   --color-surface:      #1C1812;
   --color-raised:       #221C15;

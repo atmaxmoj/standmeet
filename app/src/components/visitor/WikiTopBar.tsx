@@ -13,6 +13,7 @@
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 
+import { LocaleSwitch } from '@/components/page/LocaleSwitch';
 import { useTheme } from '@/lib/page/use-theme';
 import { useReadingTitle } from '@/lib/visitor/use-reading-title';
 
@@ -30,8 +31,10 @@ export function WikiTopBar({ handle }: { handle: string }) {
   const { dark, toggle } = useTheme();
   const t = useTranslations('visitor.wikiTopBar');
   return (
+    // relative sm-z-raised: the language menu opens downward over the reader; without its own
+    // stacking layer the scrolling body below took the clicks and no language could be picked.
     <header
-      className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 pt-[18px] pb-[14px] px-4 sm:px-6 lg:px-8 border-b border-(--color-rule)"
+      className="relative sm-z-raised flex flex-wrap items-center justify-between gap-x-6 gap-y-2 pt-[18px] pb-[14px] px-4 sm:px-6 lg:px-8 border-b border-(--color-rule)"
       data-testid="wiki-topbar"
     >
       <Brand handle={handle} />
@@ -47,6 +50,9 @@ export function WikiTopBar({ handle }: { handle: string }) {
         >
           {dark ? 'light' : 'dark'}
         </button>
+        {/* The visitor picks the interface language on every reader page, not only the gate
+            (owner 2026-10-04: "最好还是要给访客界面有调整语言的地方"). */}
+        <LocaleSwitch />
       </nav>
     </header>
   );

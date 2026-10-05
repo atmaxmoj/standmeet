@@ -44,7 +44,7 @@ test.describe.serial('voice input · speak a question, read it, send it', () => 
     await expect(mic, 'the composer offers the mic').toBeVisible({ timeout: 20_000 });
     await mic.click();
     await expect(mic, 'it is recording').toHaveAttribute('data-state', 'recording');
-    // The fake microphone plays the sentence, then 2.5 s of silence: the pause ends the recording.
+    // The fake microphone plays the sentence, then 6 s of silence: the pause ends the recording.
     await expect(page.getByTestId('visitor-question').last(), 'the spoken words were asked')
       .toContainText(/quick brown fox/i, { timeout: 60_000 });
     await expect(page.getByTestId('answer-body').last(), 'and answered').not.toBeEmpty({ timeout: 30_000 });

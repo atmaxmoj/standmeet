@@ -1,0 +1,22 @@
+/* LangSwitch —— a quiet mono label that opens a short menu, like the admin's language switch. */
+.sm-lang-switch { position: relative; display: inline-block; }
+.sm-lang-switch-current {
+  list-style: none; cursor: pointer; user-select: none;
+  font: 11px/1.4 var(--font-mono, 'JetBrains Mono', ui-monospace, monospace);
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-muted, #7A7167);
+}
+.sm-lang-switch-current::-webkit-details-marker { display: none; }
+.sm-lang-switch-current:hover, .sm-lang-switch[open] .sm-lang-switch-current { color: var(--color-ink, #1B1814); }
+.sm-lang-switch-menu {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 30;
+  display: flex; flex-direction: column; gap: 2px; min-width: 8rem; padding: 6px;
+  background: var(--color-surface, #ECE6D8); border: 1px solid var(--color-rule, #DCD3BF); border-radius: 3px;
+}
+.sm-lang-switch-opt {
+  background: none; border: 0; padding: 4px 6px; text-align: left; cursor: pointer;
+  font: 12px/1.4 var(--font-mono, 'JetBrains Mono', ui-monospace, monospace); color: var(--color-muted, #7A7167);
+}
+.sm-lang-switch-opt:hover, .sm-lang-switch-opt[aria-current="true"] { color: var(--color-ink, #1B1814); }
+.sm-lang-switch-opt:focus-visible, .sm-lang-switch-current:focus-visible {
+  outline: 2px solid var(--color-accent, #B5391C); outline-offset: 2px;
+}

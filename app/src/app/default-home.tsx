@@ -11,6 +11,8 @@
 
 import { AgentWidget, CorpusWidget, GateWidget, PageNavWidget } from '@standmeet/sdk';
 
+import { LocaleSwitch } from '@/components/page/LocaleSwitch';
+
 export function DefaultHome({ name, handle }: { name: string; handle: string }) {
   return (
     <main data-testid="default-home" className="mx-auto max-w-[720px] px-6 min-h-screen">
@@ -18,6 +20,7 @@ export function DefaultHome({ name, handle }: { name: string; handle: string }) 
         <div className="mono text-[10.5px] tracking-[0.22em] uppercase text-(--color-muted) mb-8 flex items-center gap-2">
           <span className="inline-block w-1.5 h-1.5 rounded-full bg-(--color-accent)" />
           {name || handle}
+          <span className="ml-auto"><LocaleSwitch /></span>
         </div>
         <AgentWidget />
       </section>

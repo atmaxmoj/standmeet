@@ -443,6 +443,14 @@
 }
 .sm-agent-rail-head { padding: 18px 22px 12px; border-bottom: 1px solid var(--color-rule); }
 .sm-agent-rail-transcript { flex: 1; min-height: 0; overflow-y: auto; padding: 0 22px; }
+
+/* Scrollbars inside the chat stay out of the way (owner 2026-10-04, a light system bar on a dark
+   page: "scrolling bar能不能css上隐藏一下"). The area still scrolls; the track is invisible and the
+   thumb is a thin line in the page's rule colour, so it reads in both themes. */
+.sm-agent-rail-transcript, .sm-floating-chat-transcript, .smc-pasted-body, .smc-zoom-stage {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-rule) transparent;
+}
 .sm-agent-rail-transcript article { padding-top: 18px; padding-bottom: 18px; }
 .sm-agent-rail-transcript .smc-answer .reading { font-size: 16px; }
 .sm-agent-rail-composer { padding: 0 22px 14px; }

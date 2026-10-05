@@ -22,7 +22,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { VisitorTurnAgent, type DocContext } from '@standmeet/agent-core';
+import { SESSION_GONE_CODE, VisitorTurnAgent, type DocContext } from '@standmeet/agent-core';
 import type { EventObserver, Message } from '@standmeet/agent-core';
 import {
   forgetBYOAI, readBYOAICredFull, wrapBYOAIKey, type PublicSessionResponse,
@@ -46,6 +46,7 @@ import {
   type SessionMode as SessionModeT,
 } from './page-session.js';
 import { useVisitorSessionStore } from './session-store.js';
+import { settleGoneSession } from './session-gone.js';
 import { useGhostsStore } from './ghosts-store.js';
 import {
   clearPersisted, loadPersisted, saveDialogs, saveHistory,
@@ -57,6 +58,13 @@ class CodedError extends Error {
   constructor(readonly code: string, message: string) {
     super(message);
   }
+}
+
+// errorCodeOf —— the machine code a failure carries: ours (CodedError) or the server envelope's,
+// which sdk-core attaches to its errors as `code` (e.g. 'rate_limited' when opening the session).
+function errorCodeOf(e: unknown): string {
+  const code = (e as { code?: unknown } | null)?.code;
+  return typeof code === 'string' ? code : '';
 }
 
 // Domain shapes live in dialog-stream (SRP split); components keep this import path.
@@ -221,7 +229,10 @@ export function useChat(deps: Deps): ChatState {
   const startedAt = useVisitorSessionStore((s) => s.session?.startedAt ?? 0);
   const lastStartedAt = useRef(startedAt);
   useEffect(() => {
-    if (lastStartedAt.current !== 0 && startedAt !== lastStartedAt.current) {
+    // Only a NEW session (a new non-zero start) starts a new transcript. A session that ends
+    // (cleared → 0) leaves the transcript alone: wiping it there erased the visitor's own question
+    // when their code was revoked mid-visit (2026-10-04).
+    if (lastStartedAt.current !== 0 && startedAt !== 0 && startedAt !== lastStartedAt.current) {
       sessionRef.current = null;
       setDialogs([]);
       setError(null);
@@ -265,13 +276,23 @@ export function useChat(deps: Deps): ChatState {
       return;
     }
     let job: { q: string; id: string | null } | null = { q, id: null };
+    let askedAgain = false;
     while (job !== null) {
       streamOpenRef.current = true;
+      let again: string | null = null;
       try {
-        await runAsk(job.q, deps, { sessionRef, docConvRef, histRef: messageHistRef },
+        again = await runAsk(job.q, deps, { sessionRef, docConvRef, histRef: messageHistRef },
           { setDialogs, setPending, setError, setConvID: setConversationID }, nextID, job.id);
       } finally {
         streamOpenRef.current = false;
+      }
+      // Its session was gone: ask the same question once more, in the same place, on a fresh one.
+      if (again !== null && !askedAgain) {
+        askedAgain = true;
+        const retry: { q: string; id: string } = { q: job.q, id: again };
+        setDialogs((prev) => prev.map((d) => (d.id === retry.id ? newPendingDialog(retry.id, retry.q) : d)));
+        job = retry;
+        continue;
       }
       // The model's history is final only once the turn's stream closed (agent.send returned).
       if (deps.persistKey !== undefined) saveHistory(deps.persistKey, messageHistRef.current);
@@ -362,7 +383,9 @@ async function runAsk(
   // was queued** (F-A-42); reuse that dialog instead of creating a second
   // one. null = the normal path, create it here.
   queuedID: string | null,
-): Promise<void> {
+  // Returns the dialog's id when the question should be asked again on a fresh session (its
+  // session turned out to be gone), else null.
+): Promise<string | null> {
   const { setDialogs, setPending, setError, setConvID } = setters;
   const id = queuedID ?? nextID();
   setError(null);
@@ -413,17 +436,24 @@ async function runAsk(
     // back on whether the session is still alive.
     if (turnSucceeded(accum)) {
       useVisitorSessionStore.getState().incUsed();
+    } else if (accum.errorCode === SESSION_GONE_CODE) {
+      // The session no longer exists (session-gone.ts): a code that still opens goes back to its
+      // entry flow; otherwise the visitor is public now and this question is asked again.
+      refs.sessionRef.current = null;
+      refs.docConvRef.current = null;
+      if (await settleGoneSession()) return id;
     } else {
       void revalidateSession(sess.conversationID, sess.sessionToken);
     }
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'chat failed';
     setError(msg);
-    setDialogs((prev) => markFailed(prev, id, msg, e instanceof CodedError ? e.code : ''));
+    setDialogs((prev) => markFailed(prev, id, msg, errorCodeOf(e)));
     void revalidateStored();
   } finally {
     setPending(false);
   }
+  return null;
 }
 
 // wrapBYOAIFor —— in byoai mode, pulls the plaintext key from the vault

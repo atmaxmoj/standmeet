@@ -30,6 +30,7 @@ import {
   CORPUS_REMARK_PLUGINS, FloatingChatDock, escapeCurrencyDollars, promoteDisplayMath,
 } from '@standmeet/sdk';
 import { LanguageSwitch } from '@/components/visitor/LanguageSwitch';
+import { LocaleSwitch } from '@/components/page/LocaleSwitch';
 import { SessionStrip } from '@/components/visitor/SessionStrip';
 import { expandBody } from '@/lib/corpus/media';
 
@@ -103,12 +104,14 @@ function Backlinks({ refs }: { refs: BacklinkRef[] }) {
 function ArticleTopBar() {
   const t = useTranslations('writings.common');
   return (
-    <header className="flex items-center justify-between px-6 lg:px-10 pt-6 pb-4">
+    // relative sm-z-raised: the language menu opens over the article (see WikiTopBar).
+    <header className="relative sm-z-raised flex items-center justify-between px-6 lg:px-10 pt-6 pb-4">
       <div className="mono text-[11px] tracking-[0.14em] uppercase flex items-baseline gap-3">
         <Link href="/" className="text-(--color-ink)">{t('brand')}</Link>
         <span className="text-(--color-faint) mx-1">·</span>
         <Link href="/writings" className="text-(--color-accent)">{t('writings')}</Link>
       </div>
+      <LocaleSwitch />
     </header>
   );
 }

@@ -11,6 +11,7 @@ import {
   usePinToBottom, type SessionMode,
 } from '@standmeet/sdk';
 
+import { LocaleSwitch } from '@/components/page/LocaleSwitch';
 import { SessionStrip } from '@/components/visitor/SessionStrip';
 import { VisitorNamePicker } from '@/components/visitor/VisitorNamePicker';
 import { useConsumeQuestionFromURL } from '@/lib/page/consume-question-url';
@@ -98,9 +99,13 @@ function BrandMark({ handle }: { handle: string }) {
 function FullPageLink() {
   const t = useTranslations('visitor.chatRoom');
   return (
-    <Link href="/" className="sm-session-strip-link">
-      {t('fullPage')}
-    </Link>
+    <span className="inline-flex items-baseline gap-4">
+      {/* The visitor can change the language inside the room too (owner 2026-10-04). */}
+      <LocaleSwitch />
+      <Link href="/" className="sm-session-strip-link">
+        {t('fullPage')}
+      </Link>
+    </span>
   );
 }
 

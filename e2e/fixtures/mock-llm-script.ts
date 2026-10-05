@@ -149,6 +149,14 @@ export async function scriptMockRateLimit(
   });
 }
 
+/** Make the mock answer every inference call carrying the returned tag with **413**, the way
+ *  Groq refuses a request larger than the tier's per-minute token cap ("Request too large …
+ *  tokens per minute"). Waiting does not help that request, so it is not a rate limit: the
+ *  visitor has to ask something smaller. Returns the `[[s:key]]` tag to embed. */
+export async function scriptMockTooLarge(request: APIRequestContext): Promise<string> {
+  return postScript(request, 'next_too_large', {});
+}
+
 /** What the gateway actually received for a turn carrying `tag` — the only way to
  *  assert WHICH upstream configuration served it. `model` is the request's model
  *  (give each provider row a distinct one); `auth_prefix` is the first 8 chars of

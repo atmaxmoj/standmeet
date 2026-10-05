@@ -85,8 +85,15 @@ The SDK imports nothing from Next:
   (`<ChatLangProvider lang>`). Anywhere else the chat speaks the `lang` prop, else the language the
   page declares (`<html lang>`, followed live), else English. Never the stored `sm-lang`:
   localStorage is shared by every page on the instance, so one bilingual page's toggle put
-  "向 AI 提问" on an English letter. `usePageLang` (a bilingual page's toggle) sets `<html lang>`;
-  `sm-lang` is only that toggle's memory.
+  "向 AI 提问" on an English letter. `usePageLang` (a bilingual page's toggle) sets `<html lang>`.
+- The visitor's language choice (2026-10-04): one home, the `NEXT_LOCALE` cookie the app already
+  renders from (`visitor-lang.ts`). `<LangSwitch />` writes it and declares `<html lang>`;
+  `usePageLang` reads it first (then the old `sm-lang`, then the browser) and follows the switch. A
+  page that renders no switch is not bilingual and keeps its author's language. The app's pages
+  carry the app's URL-prefixed `LocaleSwitch` (gate, wiki, writings, chat room, default home); a
+  first visit follows `Accept-Language`, the same signal a bilingual page reads. Each turn sends
+  `page_lang` (the page's declared language); the backend turns a known code into one instruction
+  line: answer in the page's language unless the visitor writes in another.
 - The reader's `?lang=` on corpus links: `reader-lang.ts` reads it from a host that provides it
   (`ReaderLangProvider`) or from the page URL. The app's own reader components keep their
   next/navigation hooks, built on the same pure helpers (`withLang`, `corpusHref`).

@@ -445,9 +445,21 @@ export function markFailed(prev: Dialog[], id: string, msg: string, code = ''): 
     d.id === id ? { ...d, pending: false, retrying: false, failed: true, answer: errorAnswer(msg, code) } : d);
 }
 
-function errorAnswer(msg: string, code: string): Answer {
+// UNREACHABLE_CODE —— a turn that failed before any answer could start (the session would not open,
+// the network dropped, the request was refused) and whose cause has no sentence of its own. The
+// view says it in the visitor's language. A failed turn never shows its raw message: that printed
+// "error: issue session: 400" on the owner's home page (2026-10-04).
+export const UNREACHABLE_CODE = 'unreachable';
+
+// SPOKEN_CODES —— failure codes the transcript has a sentence for; any other code reads as
+// UNREACHABLE_CODE.
+const SPOKEN_CODES: ReadonlySet<string> = new Set([
+  'rate_limited', 'too_large', 'byoai_key_unreadable', 'byoai_key_required',
+]);
+
+function errorAnswer(_msg: string, code: string): Answer {
   return {
-    paras: [`error: ${msg}`], citations: [], toolCalls: [], ...(code === '' ? {} : { errorCode: code }),
+    paras: [], citations: [], toolCalls: [], errorCode: SPOKEN_CODES.has(code) ? code : UNREACHABLE_CODE,
   };
 }
 

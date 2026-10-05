@@ -15,6 +15,7 @@ import { WritingArticle } from '@/components/writings/WritingArticle';
 import { ReaderLayout } from '@/components/visitor/ReaderLayout';
 import { WritingTreeAside } from '@/components/writings/WritingTreeAside';
 import { TrackVisit } from '@/components/monitor/TrackVisit';
+import { wantedContentLang } from '@/i18n/content-lang';
 import type { TreeNode } from '@/lib/corpus/tree';
 
 export const dynamic = 'force-dynamic';
@@ -35,9 +36,9 @@ export default async function WritingArticlePage({ params, searchParams }: PageP
   // misaligned article), and the tree's cut edge had no continuation cue. Sharing one
   // skeleton means "body centers on viewport" and "cut edge fades" only need to hold in
   // one place.
-  const { lang } = await searchParams;
+  const lang = await wantedContentLang(await searchParams);
   try {
-    const writing = await fetchWriting(slug, lang ?? '');
+    const writing = await fetchWriting(slug, lang);
     const ctx = await fetchWritingContext(slug);
     return (
       <ReaderLayout mainTestId="writing-page" aside={<WritingTreeAside activeSlug={slug} />}>

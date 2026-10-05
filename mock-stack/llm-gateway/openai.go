@@ -73,6 +73,10 @@ func (s *server) serveChatCompletions(w http.ResponseWriter, r *http.Request) {
 		oaiError(s.log, w, http.StatusTooManyRequests, "mock injected rate limit", "rate_limit_error")
 		return
 	}
+	if s.queue.tooLargeFor(marker) {
+		oaiError(s.log, w, http.StatusRequestEntityTooLarge, tooLargeMessage, "tokens")
+		return
+	}
 	if !req.Stream {
 		s.serveOpenAINonStream(w, &req, marker)
 		return

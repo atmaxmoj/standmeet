@@ -14,6 +14,7 @@ import type {
 } from '@standmeet/agent-core';
 
 import { parseAgentTurnSSE } from './agent-turn-sse';
+import { resolveLocale } from './i18n';
 
 // ───── PromptSource: HTTP GET /api/v1/prompts/{id} ────────────────
 
@@ -88,6 +89,11 @@ async function* streamAgentTurnHTTP(
       // (booking in particular) in the visitor's timezone, instead of hedging or
       // asking back.
       visitor_timezone: browserTimezone(),
+      // page_lang —— the language the page shows the visitor, so the answer comes back in it
+      // (owner 2026-10-04: the language goes to the agent as well as to the widgets).
+      // ponytail: reads <html lang>, not a widget's own `lang` prop; thread the prop through
+      // TurnRequest if a page ever embeds a widget in a language other than its own.
+      page_lang: resolveLocale(),
     }),
   });
   // A refusal the session layer writes before any stream —— out of quota (gas_exhausted), the turn

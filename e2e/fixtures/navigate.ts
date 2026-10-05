@@ -175,6 +175,11 @@ export async function openReader(page: Page, path: string): Promise<void> {
 }
 
 // openGate —— a code-less visitor lands on the gate (optionally carrying ?q=… / ?code=… in `path`).
+// openHome —— the owner's public home page at `/`, as a visitor lands on it.
+export async function openHome(page: Page): Promise<void> {
+  await goto(page, '/');
+}
+
 export async function openGate(page: Page, path = '/gate'): Promise<void> {
   await goto(page, path);
 }

@@ -22,7 +22,11 @@ import (
 
 // Sentinel errors.
 var (
-	ErrRateLimited     = errors.New("inference: rate limited")
+	ErrRateLimited = errors.New("inference: rate limited")
+	// ErrRequestTooLarge —— the provider refused this request as larger than it will take: Groq
+	// answers 413 when one request exceeds the tier's per-minute token cap. Waiting does not help
+	// that request (unlike a 429), so the visitor is told to ask something narrower.
+	ErrRequestTooLarge = errors.New("inference: request too large for the provider")
 	ErrContextTooLong  = errors.New("inference: context length exceeded")
 	ErrInvalidAPIKey   = errors.New("inference: invalid api key")
 	ErrPaymentRequired = errors.New("inference: payment required / quota exhausted")
@@ -62,6 +66,9 @@ func ClassifyStreamErr(err error) StreamErrClass {
 	}
 	if c, ok := classifyDirectStatus(err); ok {
 		return c
+	}
+	if errors.Is(normalizeUpstream(err), ErrRequestTooLarge) {
+		return StreamErrClass{Code: "too_large", Status: http.StatusRequestEntityTooLarge}
 	}
 	if c, ok := classifyServiceStatus(err); ok {
 		return c
@@ -110,11 +117,12 @@ func errChain(err error) string {
 
 // upstreamSentinels —— provider status → the sentinel that already carries its meaning.
 var upstreamSentinels = map[int]error{
-	http.StatusTooManyRequests:    ErrRateLimited,
-	http.StatusUnauthorized:       ErrInvalidAPIKey,
-	http.StatusForbidden:          ErrInvalidAPIKey,
-	http.StatusServiceUnavailable: ErrOverloaded,
-	529:                           ErrOverloaded, // Anthropic's "overloaded"
+	http.StatusTooManyRequests:       ErrRateLimited,
+	http.StatusRequestEntityTooLarge: ErrRequestTooLarge,
+	http.StatusUnauthorized:          ErrInvalidAPIKey,
+	http.StatusForbidden:             ErrInvalidAPIKey,
+	http.StatusServiceUnavailable:    ErrOverloaded,
+	529:                              ErrOverloaded, // Anthropic's "overloaded"
 }
 
 // normalizeUpstream —— err, joined with the sentinel its provider status means (if any), so every
@@ -164,8 +172,10 @@ func classifyDirectStatus(err error) (StreamErrClass, bool) {
 // friendlyMessages —— code → user-facing copy. Never leaks a raw error / NodeRunError / stack
 // trace to the UI (CLAUDE.md: errors must be user-friendly).
 var friendlyMessages = map[string]string{
-	"timeout":              "That took too long — try a shorter, more specific question.",
-	"rate_limited":         "The AI is busy right now — give it a minute and ask again.",
+	"timeout":      "That took too long — try a shorter, more specific question.",
+	"rate_limited": "The AI is busy right now — give it a minute and ask again.",
+	"too_large": "That question needs more than this chat can take at once — try a narrower " +
+		"question, or ask for an access code for a fuller conversation.",
 	"overloaded":           "The AI provider is overloaded — please try again shortly.",
 	"invalid_api_key":      "The AI provider key isn't working — the owner needs to fix it.",
 	"byoai_key_required":   "Your AI key didn't come through — add it again to keep asking.",

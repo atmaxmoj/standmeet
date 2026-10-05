@@ -9,7 +9,7 @@ import type { DocContext } from '@standmeet/agent-core';
 import { readBYOAIVaultMeta, type PublicSessionResponse } from '@standmeet/sdk-core';
 
 import {
-  issueBYOAISession, issueCodeSession, issuePublicSession,
+  issueBYOAISession, issuePublicSession,
   openDocConversation,
 } from './api.js';
 import { loadStoredSession } from './stored-session.js';
@@ -147,9 +147,13 @@ function reuseStored(stored: StoredFull): PublicSessionResponse {
   };
 }
 
+// issueByMode —— a fresh session when none is stored. A code visitor's session is only ever opened
+// at entry, with the code (gate / ?code=); reaching here in code mode means that session is gone
+// (the code was revoked or expired, and its sessions were purged). Such a visitor no longer holds
+// a code, so they ask as a public visitor. This used to send `{mode:'code', code:''}`: the backend
+// answered 400 and the home page printed "error: issue session: 400" (sijie.xyz, 2026-10-04).
 async function issueByMode(deps: SessionDeps): Promise<PublicSessionResponse> {
-  if (deps.mode === 'public') return issuePublicSession();
-  if (deps.mode === 'code') return issueCodeSession({ code: '' });
+  if (deps.mode === 'public' || deps.mode === 'code') return issuePublicSession();
   const meta = readBYOAIVaultMeta();
   return issueBYOAISession({ byoai_provider: meta?.provider ?? 'anthropic' });
 }

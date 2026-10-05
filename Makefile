@@ -808,6 +808,9 @@ eval-booking-fabrication: eval-creds
 eval-owner-identity: eval-creds
 	@$(EVAL_ENV) cd eval-harness && go test -run TestOwnerIdentityLive -count=1 -v -timeout 1800s ./...
 
+eval-page-lang: eval-creds
+	@$(EVAL_ENV) cd eval-harness && go test -run 'TestPageLangLive|TestHanShareSeesTheLanguage' -count=1 -v -timeout 1800s ./...
+
 eval-slots-restated: eval-creds
 	@$(EVAL_ENV) cd eval-harness && go test -run TestSlotsRestatedLive -count=1 -v -timeout 1800s ./...
 

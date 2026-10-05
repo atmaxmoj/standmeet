@@ -31,7 +31,10 @@ type AgentTurnRequest struct {
 	ConversationID  string           `json:"conversation_id"`
 	Model           string           `json:"model,omitempty"`
 	VisitorTimezone string           `json:"visitor_timezone,omitempty"`
-	History         []ChatRequestMsg `json:"history,omitempty"`
+	// PageLang —— the language the visitor's page shows (the SDK's resolved locale). Only the
+	// codes in pageLangNames reach the prompt.
+	PageLang string           `json:"page_lang,omitempty"`
+	History  []ChatRequestMsg `json:"history,omitempty"`
 }
 
 // AgentDocContext —— the minimal identity of the document the visitor is currently on

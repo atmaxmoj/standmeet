@@ -38,8 +38,12 @@
 }
 
 /* Dark mode follows the visitor's system preference (a microsite has no TopBar toggle). */
+:root { color-scheme: light; }
 @media (prefers-color-scheme: dark) {
   :root {
+    /* Native scrollbars and form controls follow the palette. Without it a dark page drew the
+       light system scrollbar beside its text (owner 2026-10-04). */
+    color-scheme: dark;
     --color-paper:        #14110D;
     --color-surface:      #1C1812;
     --color-raised:       #221C15;
@@ -57,6 +61,11 @@ html, body {
   color: var(--color-ink);
   accent-color: var(--color-accent);
 }
+/* Scrollbars stay out of the way (owner 2026-10-04: "scrolling bar能不能css上隐藏一下"): every
+   scroll area still scrolls, with an invisible track and a thin thumb in the rule colour.
+   scrollbar-color inherits, so setting it on html reaches every element. */
+html { scrollbar-color: var(--color-rule) transparent; }
+* { scrollbar-width: thin; }
 body {
   font-family: var(--font-serif);
   font-feature-settings: 'kern', 'liga', 'onum';

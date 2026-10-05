@@ -143,6 +143,10 @@ type scriptQueue struct {
 	// rate limiting is the one scenario where "retrying too soon" causes actual harm
 	// (a heavier ban).
 	rateLimits map[string]int
+	// tooLarge —— keywords whose calls get **413**: the request is larger than the provider's
+	// per-minute token cap (Groq's free tier answers exactly this). Unlike 429, waiting does not
+	// help that request.
+	tooLarge map[string]bool
 	// lastKeys —— the `[[s:…]]` tokens from the most recent visitor (stream) turn.
 	// Backend-initiated generate calls (GhostPolicy, summarize) are built from
 	// derived content and don't carry the visitor message, so the mock retains
@@ -157,7 +161,26 @@ func newScriptQueue() *scriptQueue {
 		ghosts:     map[string]scriptedGhostValue{},
 		fails:      map[string]bool{},
 		rateLimits: map[string]int{},
+		tooLarge:   map[string]bool{},
 	}
+}
+
+func (q *scriptQueue) setTooLarge(key string) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	q.tooLarge[key] = true
+}
+
+// tooLargeFor —— true when the message contains a keyword registered with next_too_large.
+func (q *scriptQueue) tooLargeFor(text string) bool {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	for key := range q.tooLarge {
+		if strings.Contains(text, key) {
+			return true
+		}
+	}
+	return false
 }
 
 // rememberTurnKeys —— retain a visitor (stream) turn's script keywords for the
@@ -413,6 +436,25 @@ func (s *server) serveSetNextRateLimit(w http.ResponseWriter, r *http.Request) {
 	s.queue.setRateLimit(p.Key, p.RetryAfterSeconds)
 	writeJSON(s.log, w, map[string]bool{"ok": true})
 }
+
+// serveSetNextTooLarge —— turns on "return 413" for a keyword ({key}).
+func (s *server) serveSetNextTooLarge(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "read body", http.StatusBadRequest)
+		return
+	}
+	var p ScriptedError
+	if uerr := json.Unmarshal(body, &p); uerr != nil {
+		http.Error(w, "bad json", http.StatusBadRequest)
+		return
+	}
+	s.queue.setTooLarge(p.Key)
+	writeJSON(s.log, w, map[string]bool{"ok": true})
+}
+
+// tooLargeMessage —— Groq's wording for a request over the tier's per-minute token cap.
+const tooLargeMessage = "Request too large for model on tokens per minute (TPM): Limit 8000, Requested 8010"
 
 func (s *server) serveSetNextReply(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)

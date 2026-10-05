@@ -68,6 +68,11 @@ func (s *server) serveMessages(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"mock injected rate limit"}`, http.StatusTooManyRequests)
 		return
 	}
+	if s.queue.tooLargeFor(req.markerText()) {
+		http.Error(w, `{"type":"error","error":{"type":"request_too_large","message":"`+tooLargeMessage+`"}}`,
+			http.StatusRequestEntityTooLarge)
+		return
+	}
 	if !req.Stream {
 		s.serveNonStream(w, &req)
 		return

@@ -21,6 +21,7 @@ import { ToolCallCards } from './ToolCallCards.js';
 import { PartialNotice } from './PartialNotice.js';
 import { VisitorQuestion } from './ComposerAttachments.js';
 import type { Citation, Dialog, ToolThrobberView } from './use-chat.js';
+import { UNREACHABLE_CODE } from './dialog-stream.js';
 
 export function ChatTranscript({ dialogs, onAsk, conversationID, noteEvent }: {
   dialogs: readonly Dialog[]; onAsk: (q: string) => void;
@@ -162,6 +163,8 @@ export const KEY_LOST_CODES: ReadonlySet<string> = new Set(['byoai_key_unreadabl
 function useKnownErrorText(code: string | undefined): string | null {
   const t = useT();
   if (code === 'rate_limited') return t('errRateLimited');
+  if (code === 'too_large') return t('errTooLarge');
+  if (code === UNREACHABLE_CODE) return t('errUnreachable');
   if (KEY_LOST_CODES.has(code ?? '')) return t('errKeyUnreadable');
   return null;
 }

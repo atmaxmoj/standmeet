@@ -136,7 +136,7 @@ export class VisitorTurnAgent {
       return;
     }
     ctx.errored = true;
-    this.emit({ type: 'error', message: unfinishedMessage(ctx) });
+    this.emit({ type: 'error', message: unfinishedMessage(ctx), ...sessionGoneCode(ctx) });
   }
 
   // tryRecover —— only a **pure transport drop** is recoverable. A 401/403 cut
@@ -235,6 +235,15 @@ function cutMessage(status: number): string {
 // unfinishedMessage —— which line to show when unfinished: some text
 // already streamed in -> say it's partial; nothing at all -> pick "re-open
 // the link" or "try again" based on the status at the time of the cut.
+// SESSION_GONE_CODE —— the turn was refused because its session no longer exists (401/403 before a
+// word came back). The chat layer retries the question once on a fresh session instead of leaving
+// the visitor with a dead one (a revoked code's visitor on the owner's home page, 2026-10-04).
+export const SESSION_GONE_CODE = 'session_gone';
+
+function sessionGoneCode(ctx: TurnCtx): { code?: string } {
+  return ctx.text === '' && (ctx.cutStatus === 401 || ctx.cutStatus === 403) ? { code: SESSION_GONE_CODE } : {};
+}
+
 function unfinishedMessage(ctx: TurnCtx): string {
   return ctx.text === '' ? cutMessage(ctx.cutStatus) : PARTIAL_ANSWER_MESSAGE;
 }

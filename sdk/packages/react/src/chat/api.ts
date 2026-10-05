@@ -257,6 +257,20 @@ export async function callVisitorTool(
   }
 }
 
+// codeStillOpens —— whether an access code still admits a visitor (POST /codes/intro), without
+// opening a session or claiming a name. A refusal (revoked, expired, unknown) → false; a network
+// failure → true, so a passing hiccup never throws a valid code away.
+export async function codeStillOpens(code: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${chatBaseURL()}/api/v1/codes/intro`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }),
+    });
+    return res.ok || res.status >= 500;
+  } catch {
+    return true;
+  }
+}
+
 // voiceAvailable —— whether this instance turns recordings into text (GET /voice). Any failure → no
 // (the composer simply offers no mic).
 export async function voiceAvailable(): Promise<boolean> {

@@ -6,6 +6,7 @@
 // Styles: import '@standmeet/sdk/styles.css' once.
 
 import './chat/chat.css';
+import './lang-switch.css';
 
 export { StandMeetProvider, useStandMeet } from './provider.js';
 
@@ -63,6 +64,9 @@ export type { InsertedDoc, MicrositeDoc, StoredDoc } from '@standmeet/sdk-core';
 export { AnswerText } from './AnswerText.js';
 export type { AnswerTextProps } from './AnswerText.js';
 export { usePageLang, usePageTheme } from './page-prefs.js';
+export { LangSwitch, LANG_LABELS } from './LangSwitch.js';
+export type { LangSwitchProps } from './LangSwitch.js';
+export { chooseLang, chosenLang } from './visitor-lang.js';
 export type { PageTheme } from './page-prefs.js';
 
 // Site widgets —— the central, managed drop-in blocks a microsite composes (corpus browser,

@@ -25,7 +25,8 @@ then, on a first version that ran the engine as a separate service: "I meant inf
    browser recorded: webm/opus, mp4/aac) with the Web Audio API and resamples it, so the backend
    needs no ffmpeg. Anything else is refused with a sentence.
 4. **A pause sends it.** Owner 2026-10-02: "detect the end of a sentence and send it by itself". The browser watches the mic's
-   level; once speech has been heard, a 1.2 s pause ends the recording, and the transcript is sent
+   level; once speech has been heard, a 3 s pause ends the recording (1.2 s cut people off when
+   they stopped to breathe — owner 2026-10-04: "我说话都不敢喘气"), and the transcript is sent
    as the question (joined to anything already typed). Pressing the mic again ends it early. A
    recording that hears nothing for 8 s stops with "nothing heard".
 

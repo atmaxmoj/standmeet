@@ -17,6 +17,7 @@ import { WritingsScrollLoader } from '@/components/writings/WritingsScrollLoader
 import { WritingCardLead, WritingRow } from '@/components/writings/WritingCards';
 import { FloatingChatDock } from '@standmeet/sdk';
 import { SessionStrip } from '@/components/visitor/SessionStrip';
+import { LocaleSwitch } from '@/components/page/LocaleSwitch';
 import { useWritingsFeed } from '@/lib/writings/use-writings-feed';
 
 interface Props {
@@ -144,18 +145,22 @@ function navigateTag(router: ReturnType<typeof useRouter>, tag: string | null) {
 function WritingsTopBar() {
   const t = useTranslations('writings');
   return (
-    <header className="flex items-center justify-between px-6 lg:px-10 pt-6 pb-4">
+    // relative sm-z-raised: the language menu opens over the list (see WikiTopBar).
+    <header className="relative sm-z-raised flex items-center justify-between px-6 lg:px-10 pt-6 pb-4">
       <div className="mono text-[11px] tracking-[0.14em] uppercase flex items-baseline gap-3">
         <Link href="/" className="text-(--color-ink)">{t('common.brand')}</Link>
         <span className="text-(--color-faint) mx-1">·</span>
         <span className="text-(--color-accent)">{t('common.writings')}</span>
       </div>
-      <Link
-        href="/"
-        className="mono text-[11px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-ink)"
-      >
-        {t('index.chat')}
-      </Link>
+      <span className="inline-flex items-baseline gap-5">
+        <LocaleSwitch />
+        <Link
+          href="/"
+          className="mono text-[11px] tracking-[0.14em] uppercase text-(--color-muted) hover:text-(--color-ink)"
+        >
+          {t('index.chat')}
+        </Link>
+      </span>
     </header>
   );
 }

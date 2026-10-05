@@ -92,6 +92,7 @@ func (s *server) run(port string) error {
 	mux.HandleFunc("POST /__mock/inference/next_ghost", s.serveSetNextGhost)
 	mux.HandleFunc("POST /__mock/inference/next_error", s.serveSetNextError)
 	mux.HandleFunc("POST /__mock/inference/next_rate_limit", s.serveSetNextRateLimit)
+	mux.HandleFunc("POST /__mock/inference/next_too_large", s.serveSetNextTooLarge)
 	mux.HandleFunc("GET /__mock/inference/state", s.serveState)
 	mux.HandleFunc("GET /__mock/inference/last_request", s.serveLastRequest)
 	mux.HandleFunc("GET /__mock/inference/any_request", s.serveAnyRequest)
