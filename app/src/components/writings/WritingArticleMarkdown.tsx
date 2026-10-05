@@ -8,15 +8,13 @@
 // WritingArticle, supplies it); descriptive selectors like `.body h1` /
 // `.body p` take over font / spacing from there.
 //
-// I.2: a ```` ```mermaid ```` fence → lazy MermaidBlock (same set used by
-// chat rendering); math goes through remarkMath + rehypeKatex (plugin added
-// in WritingArticle).
+// Mermaid and TikZ fences use the same diagram components as the corpus
+// reader; math goes through remarkMath + rehypeKatex in WritingArticle.
 
 'use client';
 
 import { Suspense, type ReactNode } from 'react';
-import { isMermaidCode, mermaidSource, MermaidBlock } from '@standmeet/sdk';
-
+import { mermaidSource, MermaidBlock, TikZBlock } from '@standmeet/sdk';
 import styles from '@/components/writings/WritingArticleMarkdown.module.css';
 
 // MermaidBlock is light; the ~600KB mermaid library it renders with loads lazily inside it.
@@ -42,12 +40,16 @@ interface CodeProps { className?: string; children?: ReactNode }
 // and ```fence``` blocks; a language-* className means fence context, and
 // needs to be preserved so a future tool like a syntax highlighter can
 // recognize it.
-// I.2: language-mermaid goes through lazy MermaidBlock, rendering SVG.
+// Diagram fences render SVG; other code retains its language class.
+const DIAGRAM_RENDERERS: Record<string, (children?: ReactNode) => ReactNode> = {
+  mermaid: (children) => <MermaidCode>{children}</MermaidCode>,
+  tikz: (children) => <TikZCode>{children}</TikZCode>,
+};
+
 function CodeInlineOrBlock({ className, children }: CodeProps) {
   const cls = className ?? '';
-  return isMermaidCode(cls)
-    ? <MermaidCode>{children}</MermaidCode>
-    : <CodeFence cls={cls}>{children}</CodeFence>;
+  const renderDiagram = DIAGRAM_RENDERERS[cls.replace(/^language-/, '')];
+  return renderDiagram ? renderDiagram(children) : <CodeFence cls={cls}>{children}</CodeFence>;
 }
 
 function MermaidCode({ children }: { children?: ReactNode }) {
@@ -57,6 +59,11 @@ function MermaidCode({ children }: { children?: ReactNode }) {
       <MermaidBlock source={source} />
     </Suspense>
   );
+}
+
+function TikZCode({ children }: { children?: ReactNode }) {
+  const source = mermaidSource(children);
+  return <TikZBlock source={source} />;
 }
 
 function CodeFence({ cls, children }: { cls: string; children?: ReactNode }) {

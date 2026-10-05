@@ -23,6 +23,7 @@ export {
   escapeCurrencyDollars, isMermaidCode, mermaidSource, promoteDisplayMath,
 } from './chat/markdown-helpers.js';
 export { MermaidBlock } from './chat/MermaidBlock.js';
+export { TikZBlock } from './chat/TikZBlock.js';
 export { DiagramDiagnostics } from './chat/diagram-diagnostics.js';
 // The chat —— state.
 export { useChatController, useChatRoomDerived } from './chat/chat-controller.js';
