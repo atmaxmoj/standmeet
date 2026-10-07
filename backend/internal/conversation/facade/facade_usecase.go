@@ -58,6 +58,7 @@ var (
 	AcceptGhost               = usecase.AcceptGhost
 	BuildAPIKeyRoleSnapshot   = usecase.BuildAPIKeyRoleSnapshot
 	BuildCrossConvDigest      = usecase.BuildCrossConvDigest
+	BuildProfileFacts         = usecase.BuildProfileFacts
 	BuildGhostContext         = usecase.BuildGhostContext
 	ChatBelongsToMember       = usecase.ChatBelongsToMember
 	CodeIntro                 = usecase.CodeIntro

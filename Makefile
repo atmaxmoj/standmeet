@@ -7,7 +7,7 @@
 # incremental development.
 
 .PHONY: lint secrets secrets-image release-build release-assert-stripped release-assert-multiarch release-assert-version release-push release-gc release-repro release-repro-logs release-repro-down backend-lint backend-test ut-db ut-db-down backend-no-mock app-lint sdk-lint e2e-lint env-lint updater-e2e im-bridge-lint im-bridge-test im-bridge-up im-bridge-logs
-.PHONY: npm-stamp npm-pack npm-publish npm-unstamp
+.PHONY: npm-stamp npm-pack npm-publish npm-unstamp eval-speed
 .PHONY: deps stackstack-init stack-ready stack-test stack-retire dev dev-up dev-rebuild dev-down dev-remove-orphans prod-up prod-down prod-logs build clean test test-fresh test-only test-asis dsh-plugin-test test-red test-boundary test-dsh-live mobile-shots mobile-shots-asis archive-failures sdk-build builder-vendor dev-rebuild-builder dev-restart-gotenberg app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-blocks eval-owner-mcp verify-round schema-drift i18n-keys
 
 # ── per-checkout dev stack ──────────────────────────────────────
@@ -824,6 +824,13 @@ eval-slots-restated: eval-creds
 eval-ask:
 	@cd eval-harness && go build -o /tmp/eval-harness . && \
 	  /tmp/eval-harness --ask --persona fixtures/personas/marcus-chen
+
+# eval-speed —— the visitor-agent speed eval: the five regression questions (a–e) in one visitor
+# session on a real instance; per question the wall time, first-token time and tools called, and
+# a transcript to read against each question's gold points. Speed counts only if the answers hold.
+#   EVAL_HOST=https://sijie.xyz EVAL_CODE=<code> make eval-speed   (EVAL_ONLY=de for a subset)
+eval-speed:
+	@python3 eval-harness/speed.py
 
 # eval-ghost —— Ghost steering judgment, deterministic eval: inject each ghost scenario's
 # waypoints into the frozen RoleSnapshot, run the SAME prod loop via the agentcore facade,

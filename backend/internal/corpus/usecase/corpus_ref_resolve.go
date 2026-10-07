@@ -44,15 +44,28 @@ func NewRefResolver(deps *IndexDeps) *RefResolver {
 // gate (FilterWaypointsByCorpus); this function only answers existence, and
 // keeping the two apart lets each one say clearly what it's answering.
 func (r *RefResolver) ResolvesRef(ctx context.Context, ownerID, uri string) bool {
+	_, found := r.NoteText(ctx, ownerID, uri)
+	return found
+}
+
+// NoteText —— the note this ref names, read the same way: exact genre and tree path. Like
+// ResolvesRef it does not check ACL; the caller decides with the note's Published flag.
+func (r *RefResolver) NoteText(ctx context.Context, ownerID, uri string) (RefNote, bool) {
 	ref, err := entity.ParseURI(uri)
 	if err != nil {
-		return false
+		return RefNote{}, false
 	}
 	for _, find := range r.lister.finders() {
 		entry, found := find(ctx, ownerID, ref.Path)
 		if found && entry.Genre == string(ref.Genre) {
-			return true
+			return RefNote{Body: entry.Body, Published: entry.Published}, true
 		}
 	}
-	return false
+	return RefNote{}, false
+}
+
+// RefNote —— a resolved note's text and whether it is published.
+type RefNote struct {
+	Body      string
+	Published bool
 }

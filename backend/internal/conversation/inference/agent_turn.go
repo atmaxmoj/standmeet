@@ -102,6 +102,10 @@ type AgentTurnInput struct {
 	// route handler fills it in (reads the DB), inference never touches the DB. Empty = not
 	// injected (public / no member / no other conversations).
 	CrossConvContext string
+	// ProfileFacts —— the role's named fact notes (who the owner is, where they may work, the
+	// employers and dates), read by the route handler. instructionWithProfileFacts puts them in
+	// the instruction so the agent answers those without a search. Empty = none.
+	ProfileFacts string
 	// PageText —— the visible text of the microsite the visitor is chatting on (its live,
 	// prerendered build), so "what does this page mean by X" is answered from the page itself.
 	// Filled in by the route handler from the owner's published build; empty = not on a microsite.

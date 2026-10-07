@@ -247,6 +247,7 @@ const apiKeyDefaultRPM = 120
 
 // newVisitorSessionDeps —— role-snapshot bundle shared by visitor routes + API-key facade.
 func newVisitorSessionDeps(d *deps.Runtime) conversation.VisitorSessionDeps {
+	refs := corpus.NewRefResolver(wire.CorpusIndexDeps(d))
 	return conversation.VisitorSessionDeps{
 		Codes: d.CodeRepo, Chats: d.ChatRepo,
 		Owners: d.OwnerRepo, Skills: d.SkillRepo,
@@ -271,8 +272,10 @@ func newVisitorSessionDeps(d *deps.Runtime) conversation.VisitorSessionDeps {
 		}},
 		// When freezing waypoints, asks "does this evidence_ref resolve to a real note?"
 		// (F-A-26). Same IndexDeps as the sandbox's corpus reads — reachable = readable.
-		CorpusRefs: corpus.NewRefResolver(wire.CorpusIndexDeps(d)),
-		Events:     d.Recorder(),
+		CorpusRefs: refs,
+		// The role's named fact notes, in every turn's instruction — read the same way.
+		ProfileNotes: refs,
+		Events:       d.Recorder(),
 	}
 }
 

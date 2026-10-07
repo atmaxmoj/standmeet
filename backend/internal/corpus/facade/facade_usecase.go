@@ -36,6 +36,7 @@ type (
 	PromoteToOutputInput            = usecase.PromoteToOutputInput
 	RawDumpInput                    = usecase.RawDumpInput
 	RefResolver                     = usecase.RefResolver
+	RefNote                         = usecase.RefNote
 	SaveWritingInput                = usecase.SaveWritingInput
 	SubjectivityCiteLookup          = usecase.SubjectivityCiteLookup
 	UpdateOutputReq                 = usecase.UpdateOutputReq

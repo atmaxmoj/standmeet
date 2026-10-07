@@ -111,7 +111,10 @@ func BuildAgentIterator(
 				instructionWithDateTime(
 					instructionWithCrossConv(
 						instructionWithPageText(
-							instructionWithDoc(in.Req.System, in.Req.DocContext), in.PageText,
+							instructionWithProfileFacts(
+								instructionWithDoc(in.Req.System, in.Req.DocContext),
+								in.ProfileFacts,
+							), in.PageText,
 						), in.CrossConvContext,
 					),
 					time.Now(), in.OwnerTimezone, in.VisitorTimezone,

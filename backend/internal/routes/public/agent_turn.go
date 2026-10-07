@@ -181,9 +181,8 @@ func ownerTZForTurn(r *http.Request, h *Handlers, ownerID string) string {
 	return ownerRow.ProfileTimezone
 }
 
-// buildCrossConvForTurn —— "cross-conversation awareness": before the turn, computes a
-// digest of this member's other conversations to inject into the instruction. No member
-// (public/byoai) or no conv → empty. fail-open (warn + empty on failure).
+// buildCrossConvForTurn —— a digest of this member's other conversations, for the instruction.
+// No member (public/byoai) or no conv → empty. fail-open (warn + empty on failure).
 func buildCrossConvForTurn(
 	r *http.Request, h *Handlers, auth authedVisitor, convID string,
 ) string {
@@ -200,6 +199,12 @@ func crossConvDigestOrEmpty(r *http.Request, h *Handlers, memberID, convID strin
 		return ""
 	}
 	return digest
+}
+
+// profileFactsForTurn —— the role's named fact notes for the instruction (W3; usecase explains).
+func profileFactsForTurn(r *http.Request, h *Handlers, auth authedVisitor) string {
+	return conversation.BuildProfileFacts(r.Context(), &h.Visitor, auth.Data.OwnerID,
+		auth.Data.RoleSnapshot)
 }
 
 // buildAgentTurnPersist —— the persistence port injected into inference. Routes the

@@ -1,0 +1,29 @@
+[
+  {
+    "id": "a",
+    "q": "Introduce Sijie in a few lines, and how his work fits a senior backend role.",
+    "gold": "Builds products end to end; StandMeet built alone over about five months; numbers like 2,050 commits / 103 releases / 221 MCP tools / 745 e2e specs."
+  },
+  {
+    "id": "b",
+    "q": "We're making our CRM usable by MCP agents — has he actually built that?",
+    "gold": "Parity audit 56 gaps → 0; a parity gate at boot; an Ed25519-signed MCP client.",
+    "must": ["56"]
+  },
+  {
+    "id": "c",
+    "q": "How does he make LLM output dependable? Concrete mechanisms, please.",
+    "gold": "Same-loop eval, multi-dimension scoring, privacy canary, retrieval with citations, sandbox / deterministic tests ('eight controls')."
+  },
+  {
+    "id": "d",
+    "q": "What are his weaknesses for a senior backend role?",
+    "gold": "Mostly solo work; no proof at production scale; the runtime-quality half is thinner. Baseline: over 60 s, 10 sources."
+  },
+  {
+    "id": "e",
+    "q": "Sijie is based in Canada — can he legally work for a US company like ours?",
+    "gold": "Holds a Canadian work permit and can work legally in Canada; no US work authorization — needs employer sponsorship or a Canada-based arrangement (entity / EOR / contractor). Must not guess the permit type or its expiry.",
+    "must": ["work permit", "sponsor"]
+  }
+]

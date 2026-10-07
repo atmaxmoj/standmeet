@@ -57,6 +57,9 @@ type VisitorSessionDeps struct {
 	// CorpusRefs —— asks "does this evidence_ref resolve to a real note" when freezing
 	// waypoints (F-A-26). Nil = no feasibility filtering (see feasibleWaypoints).
 	CorpusRefs CorpusRefResolver
+	// ProfileNotes —— reads the role's named fact notes for every turn's instruction
+	// (visitor_profile_facts.go). Nil = no fact notes in the instruction.
+	ProfileNotes ProfileNoteReader
 	// Events —— conversation.started and code.redeemed commit with their rows (inTx).
 	Events events.Recorder
 }
