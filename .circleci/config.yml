@@ -72,6 +72,8 @@ jobs:
       - run:
           name: Tools (Go, golangci-lint, go-arch-lint, go-escape-lint, gitleaks, node, pnpm)
           command: |
+            # The image ships its own Go in /usr/local/go; unpacking over it mixes two trees.
+            sudo rm -rf /usr/local/go
             curl -fsSL https://go.dev/dl/go1.27.1.linux-amd64.tar.gz | sudo tar -C /usr/local -xz
             echo 'export PATH=/usr/local/go/bin:$HOME/go/bin:$PATH' >> "$BASH_ENV"
             export PATH=/usr/local/go/bin:$HOME/go/bin:$PATH
