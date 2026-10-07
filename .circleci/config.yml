@@ -122,7 +122,10 @@ workflows:
           name: << matrix.target >>
           matrix:
             parameters:
-              target: [lint, backend-test, test-unit]
+              # `make lint`'s parts as parallel jobs: the slowest (secrets' full-history scan)
+              # sets the wall time instead of the sum, and each red is named on its own.
+              target: [secrets, env-lint, backend-lint, backend-no-mock, app-lint, sdk-lint,
+                       e2e-lint, im-bridge-lint, verify-items, backend-test, test-unit]
           filters:
             branches:
               only: main
