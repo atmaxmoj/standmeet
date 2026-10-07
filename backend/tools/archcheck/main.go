@@ -37,15 +37,14 @@ var domains = []string{
 }
 
 // submodules —— sub-packages that keep their OWN boundary: not a domain's DDD guts, but
-// aggregators/plugins hanging off it with their own entry points (owner/ownercore is the owner-MCP
-// block bundle, owner/jobs the job loop, corpus/obsidian vault I/O, corpus/integration the value
-// objects saying where a document came from plus the sync-source shape, conversation/inference the
-// agent engine). Both the facade gate and the acyclic gate treat this same set as separate nodes —
-// otherwise an aggregator that legitimately spans domains forges a false cycle onto the core it
-// merely sits beside. Each domain's core must still be a clean node.
+// aggregators/plugins hanging off it with their own entry points (owner/jobs the job loop,
+// corpus/obsidian vault I/O, corpus/integration the value objects saying where a document came
+// from plus the sync-source shape, conversation/inference the agent engine). Both the facade
+// gate and the acyclic gate treat this same set as separate nodes — otherwise an aggregator
+// that legitimately spans domains forges a false cycle onto the core it merely sits beside.
+// Each domain's core must still be a clean node.
 var submodules = map[string]bool{
-	"jobs": true, "inference": true, "obsidian": true, "ownercore": true,
-	"integration": true,
+	"jobs": true, "inference": true, "obsidian": true, "integration": true,
 }
 
 // layerOf —— the DDD layer order inside one domain (low → high). A file in layer L may import a

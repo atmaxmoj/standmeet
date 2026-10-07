@@ -1,6 +1,6 @@
 # StandMeet code architecture
 
-> **Status:** Draft, awaiting owner review (revised 2026-05-16; backend switched to Go, builder changed to an MCP-driven workflow).
+> **Status:** Historical draft (revised 2026-05-16). The system is built; where this text and the code differ, the code and the as-built records in `docs/design/` win (`backend-domain-modules.md`, `facade-parity.md`, `sdk-chat-inheritance.md`, `plugin/`). Of its open questions, the IM bridge and the email / calendar connectors are settled by being built (`im-bridge/`, `backend/blocks/`). Inference payer, Electron, and microsite allowlist governance stay open.
 > **Audience:** the people who will actually write this system. It assumes you have read `CLAUDE.md` for product context and `docs/design/chats/chat1.md` for visual intent.
 > **How to give feedback:** each section ends with numbered decision points (`A.1`, `A.2`, …). Reply `Aₙ: accept` or `Aₙ: change — <reason / new direction>`. Anything not mentioned counts as accept.
 

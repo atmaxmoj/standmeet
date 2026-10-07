@@ -1,6 +1,6 @@
 # StandMeet
 
-> **Status (2026-09-05):** The redefinition is built and shipping. Active code lives in `backend/` (Go, domain modules), `app/` (Next.js — the four public surfaces + admin), `sdk/`, `builder/` (owner-written **microsites**), `im-bridge/`, and `infra/`. Released to ghcr and self-hosted on sijie.xyz (see [[live-instance-url]] in memory). The dirs at the repo root prefixed `standmeet-*` (`standmeet-client/`, `standmeet-e2e/`, `standmeet-server/`) are **legacy reference only** — not built, not run. The old architecture (Invitation Mode WebSocket gateway, Electron-only owner client, observer distillation engine) is dead.
+> **Status (2026-10-07):** The redefinition is built and shipping. Active code lives in `backend/` (Go, domain modules), `app/` (Next.js — the four public surfaces + admin), `sdk/`, `builder/` (owner-written **microsites**), `im-bridge/`, `e2e/`, `eval-harness/`, `mock-stack/`, and `infra/`. Released to ghcr and self-hosted on sijie.xyz (see [[live-instance-url]] in memory). The legacy `standmeet-*` reference trees are deleted. The old architecture (Invitation Mode WebSocket gateway, Electron-only owner client, observer distillation engine) is dead.
 
 ## What StandMeet is
 
@@ -10,13 +10,15 @@ A self-hostable platform for people who think a lot but don't like writing. Owne
 
 **Self-hosted, Coolify-style.** A single instance is single-owner in v1, but every table / route carries an `owner_id` so multi-tenant comes for free later. Deployment experience is the differentiator: one command brings up the stack, Caddy/Traefik signs Let's Encrypt automatically, owner CNAMEs their domain over and it just works.
 
+**Release path.** A `v*` tag triggers CircleCI. CircleCI builds the images and pushes them to ghcr. A running instance upgrades itself through the owner MCP tool `instance.upgrade` (the `updater` service). See `docs/release-npm.md` for the npm packages.
+
 **Default outward surface = 4 web pages** (see `docs/design/project/`):
 
 | Surface | What it is |
 |---------|-----------|
 | `index` | Owner's public page. Long-scroll, hero prose + chat input + insights + projects + status + contact. |
 | `gate` | Visitor without a code. Code-entry block + BYOAI panel + request-access. |
-| `admin` | Owner backend. 6 sections: raw / wiki / conversations / codes / suppliers / page (+ api·mcp). |
+| `admin` | Owner backend. 8 groups, 35 sections. The one source is `NAV_GROUPS` in `app/src/lib/admin/nav.ts`. |
 | `login` | Sign in + first-run "claim this instance" flow. |
 
 **Three visitor access tiers:**
@@ -25,7 +27,7 @@ A self-hostable platform for people who think a lot but don't like writing. Owne
 2. **BYOAI** — no code, visitor brings own API key, public slice of corpus only.
 3. **Gate** — fully blocked, can request access.
 
-**Ingest is owner-curated, not auto-distilled.** Owner's AI calls MCP write tools — `corpus.create` / `corpus.promote` / `corpus.update` / `corpus.delete`, where the genre (`raw` / `wiki` / `output`) is a **parameter**, not a separate tool; plus `writing_create` and `subjectivity_write`. The earlier "observe and distill" path (`observer/`) was tried and gave low-quality output — that direction is dead.
+**Ingest is owner-curated, not auto-distilled.** Owner's AI calls MCP write tools — `corpus.create` / `corpus.promote` / `corpus.update` / `corpus.delete`, where the genre (`raw` / `wiki` / `output`) is a **parameter**, not a separate tool; plus `writing_create` and `subjectivity_write`. The owner MCP surface is generated from the dispatcher's ops (200+ tools); every op declares a danger class, and a key's scopes limit which tools it reaches. The earlier "observe and distill" path (`observer/`) was tried and gave low-quality output — that direction is dead.
 
 > Attachments / images / hero art exist for `writings` only. `upload_media` appears in older notes but was never implemented, and the `media_assets` table (with its raw/wiki/output foreign keys) has no writer. Bringing assets to every genre is planned work, not something the code already does.
 
@@ -35,7 +37,7 @@ A self-hostable platform for people who think a lot but don't like writing. Owne
 
 **Chat lives in the SDK only** (`docs/design/sdk-chat-inheritance.md`). The app room, every microsite (`<Agent layout="inline" | "rail" | "dock">`, `AgentWidget` is an alias) and `<standmeet-chat>` render the same SDK engine and views, so a chat feature written once reaches every surface. `infra/scripts/check-chat-only-in-sdk.sh` (in `make app-lint`) keeps turn-running code out of the surfaces. Chat styles are semantic classes in the SDK's CSS (`@standmeet/sdk/styles.css`), never in TSX. The chat speaks the page's declared language (`<html lang>`), not a stored preference.
 
-**Custom page hosting.** Owners can write their own React page using the SDK; a sandboxed builder (the pattern in `standmeet-server/page-builder/` is the seed) builds it and hosts the static output on the instance. Owner doesn't manage deploy infra.
+**Custom page hosting.** Owners can write their own React page using the SDK; a sandboxed builder (`builder/`) builds it and hosts the static output on the instance. Owner doesn't manage deploy infra.
 
 **Outbound side: job loop (in progress 2026-05).** StandMeet 不止 inbound visitor chat —— 也是 outbound 求职平台。完整闭环：
 
@@ -50,8 +52,8 @@ A self-hostable platform for people who think a lot but don't like writing. Owne
 完整设计落在 `docs/design/job-loop.md` + 测试设计落在 `docs/design/job-loop-tests.md`。
 
 **Additional surfaces (out of scope for first slice, but planned):**
-- Electron client — extra owner ingest channel (clipboard, local notifications, drag-drop files, local MCP server). Shares the same backend API as web admin.
-- IM bridge (Telegram / Discord / Slack) — extra ingest *and* extra visitor chat surface (visitors with an access code can chat from inside an IM).
+- Electron client — not built. Planned extra owner ingest channel (clipboard, local notifications, drag-drop files, local MCP server) on the same backend API as web admin.
+- IM bridge — built (`im-bridge/`). Telegram and Discord are blocks; the bridge carries owner notifications and visitor chat from inside an IM.
 
 ## Design source of truth
 
@@ -71,26 +73,22 @@ The prototype is vanilla HTML + Tailwind CDN + Babel standalone. Implementations
 ```
 standmeet/
 ├─ CLAUDE.md            ← you are here
-├─ README.md            ← user-facing (currently legacy; will be rewritten)
-├─ Makefile             ← legacy commands; will be replaced
-├─ docs/
-│  ├─ design/           ← canonical visual + product spec (read this)
-│  ├─ product-vision.md ← legacy ("protocols + distillation engine" framing — superseded)
-│  ├─ distillation-*.md ← legacy (observer-era thinking — direction dead)
-│  ├─ growth.md         ← still useful (general traction analysis)
-│  ├─ licensing.md      ← still relevant (AGPL strategy)
-│  └─ protocols.md      ← legacy (four-protocol scheme not the current plan)
-├─ standmeet-client/    ← legacy reference (Electron); useful for ingest-channel design
-├─ standmeet-e2e/       ← legacy reference (Playwright E2E patterns to mine)
-└─ standmeet-server/    ← legacy reference
-   ├─ backend/          ←   Django DDD; the layering is reusable
-   ├─ frontend/         ←   Next.js; useful component patterns
-   ├─ gateway/          ←   WebSocket pattern dies; rewrite for 3-tier model
-   ├─ im-bridge/        ←   reusable for new ingest channel
-   └─ page-builder/     ←   the seed of the SDK + sandbox microsite system
+├─ Makefile             ← every build / test / lint / release command (use it, never bare docker)
+├─ backend/             ← Go: domain modules, dispatcher, owner MCP, blocks/ manifests
+├─ app/                 ← Next.js: index / gate / login / admin
+├─ sdk/                 ← @standmeet/* packages: core, agent-core, react (chat engine), embed, mcp-client
+├─ builder/             ← sandboxed microsite builder
+├─ im-bridge/           ← IM notifications + visitor chat
+├─ e2e/                 ← Playwright specs (`make test-asis SPEC=…`)
+├─ eval-harness/        ← real-model evals (e.g. `make eval-speed`)
+├─ mock-stack/          ← mock LLM gateway, mail, job boards, MCP for e2e
+├─ infra/               ← gate scripts (infra/scripts/check-*), plugins, deploy
+└─ docs/
+   ├─ design/           ← canonical design + as-built records (read this)
+   ├─ features-and-journeys.md, roadmap.md, deploy.md, release-npm.md
+   ├─ product-vision.md, distillation-*.md, protocols.md ← legacy framing, superseded
+   └─ growth.md, licensing.md ← still relevant
 ```
-
-New work goes in the top-level dirs that now exist: `backend/`, `app/`, `sdk/`, `builder/`, `im-bridge/`, `infra/`.
 
 ## Throughput: round trips are the bottleneck
 

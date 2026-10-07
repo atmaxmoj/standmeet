@@ -33,8 +33,8 @@
 
 set -eu
 
-# The legacy reference trees are not built and not run (see CLAUDE.md); they predate the
-# per-checkout stack and nothing in them addresses a live container.
+# The legacy standmeet-* reference trees are deleted. The pattern still excludes them, so a
+# checkout that has an old copy lying around does not go red over code nobody runs.
 EXCLUDE='^\(standmeet-client\|standmeet-server\|standmeet-e2e\)/'
 
 # ADDRESSING —— the two shapes that actually POINT AT a stack:

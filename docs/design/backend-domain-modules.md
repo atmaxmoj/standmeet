@@ -246,7 +246,12 @@ resolves by `booking_id`, the sandbox by conversation + `event_id`. The external
    exactly what its `resolveConvBooking` already expects;
 4. delete both host usecases. `entity/booking.go` keeps only the types the admin surfaces read.
 
-## Owed: ownercore is the fourth god-package, relocated not dissolved
+## Settled: ownercore is the fourth god-package, relocated not dissolved
+
+**Done (commit f35e82c04):** `internal/owner/ownercore` is deleted; each domain projects its own
+owner-MCP tools through the dispatcher. The archcheck `submodules` entry for it is removed
+(2026-10-07). The acyclic special case still lists `jobs`; it goes with refactor R1. The history
+below is why.
 
 `internal/owner/ownercore` is 49 files importing **every** domain — corpus 14, access 9,
 marketplace 6, connector 5, conversation 2, stats 1, security 1. It is not owner's domain logic; it

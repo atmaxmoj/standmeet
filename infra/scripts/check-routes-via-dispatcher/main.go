@@ -98,7 +98,6 @@ var baseline = map[string]bool{
 	// all go through the convergence point now. corpus_detail.go and corpus_output.go
 	// disappeared entirely.
 	"internal/routes/admin/corpus.go":                   true,
-	"internal/routes/admin/corpus_page.go":              true,
 	"internal/routes/admin/corpus_tree.go":              true,
 	"internal/routes/admin/corpus_tree_subjectivity.go": true,
 	"internal/routes/admin/corpus_views.go":             true,
@@ -110,7 +109,7 @@ var baseline = map[string]bool{
 	// Face.OpFiles, the same op as the MCP path. The remaining writings_tree.go: tree
 	// and pagination are views unique to the panel (a lazy-load layer / a keyset page),
 	// and don't have a matching op yet.
-	"internal/routes/admin/writings_tree.go":         true,
+	"internal/routes/admin/writings_tree.go": true,
 	// The block-vocabulary rename renamed this package and some of its files; the rows
 	// below are the same debt under new names. One sibling row is gone because that file
 	// left routes/ entirely — the mount machinery lives in internal/plugin/mount now,
@@ -126,17 +125,17 @@ var baseline = map[string]bool{
 	"internal/routes/blockload/register_mechanisms.go": true,
 	"internal/routes/blockload/skill_runner.go":        true,
 	"internal/routes/mcphandle/server.go":              true,
-	"internal/routes/pubapi/dispatch.go":             true,
-	"internal/routes/pubapi/pubapi.go":               true,
-	"internal/routes/public/access_requests.go":      true,
-	"internal/routes/public/agent_turn.go":           true,
+	"internal/routes/pubapi/dispatch.go":               true,
+	"internal/routes/pubapi/pubapi.go":                 true,
+	"internal/routes/public/access_requests.go":        true,
+	"internal/routes/public/agent_turn.go":             true,
 	// agent_turn_preflight.go is the three admission gates (privilege escalation /
 	// budget / turn count) split out of agent_turn.go — the same old debt under a new
 	// filename, not newly incurred.
 	"internal/routes/public/agent_turn_preflight.go":  true,
 	"internal/routes/public/app_state.go":             true,
 	"internal/routes/public/chat.go":                  true,
-	"internal/routes/public/microsites.go":          true,
+	"internal/routes/public/microsites.go":            true,
 	"internal/routes/public/ghosts.go":                true,
 	"internal/routes/public/history.go":               true,
 	"internal/routes/public/landing.go":               true,
