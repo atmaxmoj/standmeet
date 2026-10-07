@@ -57,6 +57,42 @@ jobs:
             make release-push-one SVC=<< parameters.image >> TAG="<< pipeline.git.tag >>"
           no_output_timeout: 45m
 
+  # quality —— the local gates, run on the server for every push to main (refactor ledger R23).
+  # Before this, every gate ran only in lefthook: `--no-verify`, or a checkout without hooks,
+  # shipped unchecked. The tool versions match the dev box (`go version -m` on its binaries);
+  # change them here and there together. Dependencies are installed first: the frontend lint
+  # targets print "[skip]" and pass when node_modules is missing, and a skip is not a pass.
+  quality:
+    parameters:
+      target:
+        type: string
+    executor: linux
+    steps:
+      - checkout
+      - run:
+          name: Tools (Go, golangci-lint, go-arch-lint, go-escape-lint, gitleaks, node, pnpm)
+          command: |
+            curl -fsSL https://go.dev/dl/go1.27.1.linux-amd64.tar.gz | sudo tar -C /usr/local -xz
+            echo 'export PATH=/usr/local/go/bin:$HOME/go/bin:$PATH' >> "$BASH_ENV"
+            export PATH=/usr/local/go/bin:$HOME/go/bin:$PATH
+            go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
+            go install github.com/fe3dback/go-arch-lint@v1.15.0
+            go install github.com/maxpoletaev/go-escape-lint@v0.0.0-20240522212809-bd7ef3ec9ca4
+            curl -fsSL https://github.com/gitleaks/gitleaks/releases/download/v8.30.0/gitleaks_8.30.0_linux_x64.tar.gz \
+              | sudo tar -C /usr/local/bin -xz gitleaks
+            nvm install 22 >/dev/null && nvm alias default 22
+            echo 'nvm use 22 >/dev/null' >> "$BASH_ENV"
+      - run:
+          name: Dependencies
+          command: |
+            corepack enable && corepack prepare pnpm@9.15.0 --activate
+            pnpm install --frozen-lockfile
+          no_output_timeout: 20m
+      - run:
+          name: make << parameters.target >>
+          command: make << parameters.target >>
+          no_output_timeout: 45m
+
   # npm-publish —— the five @standmeet/* packages at the tag's version (docs/release-npm.md).
   # NPM_TOKEN (an npm automation token with publish rights on @standmeet) in the project's
   # Environment Variables turns it on; without it the job says so and passes.
@@ -72,6 +108,16 @@ jobs:
             make npm-publish TAG="<< pipeline.git.tag >>"
 
 workflows:
+  quality:
+    jobs:
+      - quality:
+          name: << matrix.target >>
+          matrix:
+            parameters:
+              target: [lint, backend-test]
+          filters:
+            branches:
+              only: main
   release:
     jobs:
       - build-push:
