@@ -221,6 +221,7 @@ app-lint:
 	@infra/scripts/check-one-section-heading.sh
 	@infra/scripts/check-one-corpus-href.sh
 	@infra/scripts/check-chat-only-in-sdk.sh
+	@infra/scripts/check-chat-only-in-sdk-test.sh
 	@infra/scripts/check-one-select.sh
 	@infra/scripts/check-one-text-input.sh
 	@infra/scripts/check-one-time-format.sh
@@ -1355,6 +1356,7 @@ test-run:
 # e2e suite stays the primary coverage; this is the guard for things e2e structurally can't pin.
 test-unit:
 	@cd app && pnpm run test:unit
+	@pnpm -F @standmeet/sdk test
 
 # gui-p1-variant —— F-A-4 P1 presentation-variant probe: drive the REAL prod GUI (real
 # DeepSeek) through one broad-question visitor turn, screenshot narration/tools/done/reload

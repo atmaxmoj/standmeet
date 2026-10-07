@@ -119,7 +119,7 @@ workflows:
           name: << matrix.target >>
           matrix:
             parameters:
-              target: [lint, backend-test]
+              target: [lint, backend-test, test-unit]
           filters:
             branches:
               only: main

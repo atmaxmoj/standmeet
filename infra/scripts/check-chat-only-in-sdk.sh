@@ -7,15 +7,23 @@
 # every surface renders it. This gate keeps it that way: the surfaces below may not run a turn
 # themselves, so a new chat surface can only be a use of the SDK's chat.
 #
-# Surfaces scanned: the app, the microsite template, the embed, the SDK's other widgets.
-# A turn is run by: the agent-core loop, the agent-turn streamer, or the core client's streamMessage.
+# Surfaces scanned: the app's UI, the microsite template, the embed, the SDK's other widgets. The
+# app's route handlers (app/src/app/api) are server-side proxies, not surfaces.
+# A turn is run by: the agent-core loop, the agent-turn streamer, the core client's streamMessage,
+# or any code that names the turn endpoint itself (a hand-written fetch + SSE parser — refactor
+# ledger R21: the gate used to match the SDK's own names only, and that shape passed it).
+#
+# ROOT —— the tree to scan (the self-test points it at a planted tree).
 
 set -eu
 
+ROOT="${ROOT:-.}"
 SURFACES="app/src builder/template/src sdk/packages/embed/src sdk/packages/react/src/widgets"
-PATTERN='VisitorTurnAgent|httpAgentTurnStreamer|\.streamMessage\(|streamChatMessage'
+PATTERN='VisitorTurnAgent|httpAgentTurnStreamer|\.streamMessage\(|streamChatMessage|agent/turn'
 
-offenders=$(find $SURFACES \( -name '*.ts' -o -name '*.tsx' \) -print0 2>/dev/null \
+cd "$ROOT"
+offenders=$(find $SURFACES -path 'app/src/app/api' -prune -o \( -name '*.ts' -o -name '*.tsx' \) -print0 \
+  2>/dev/null \
   | xargs -0 grep -nE "$PATTERN" 2>/dev/null \
   | grep -vE '^[^:]*:[0-9]+:[[:space:]]*(//|\*|/\*)' || true)
 

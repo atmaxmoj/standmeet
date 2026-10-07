@@ -74,6 +74,8 @@ total="$("$GOCYCLO" $(target_dirs) 2>/dev/null | grep -cvE "$SKIP" || true)"
 if [ "$total" -eq 0 ]; then
   echo "check-routes-cyclo: scanned 0 functions — the scanner is blind, not the code clean." >&2
   echo "(run it from backend/, e.g. 'make -C backend routes-cyclo')" >&2
+  echo "scanner: $GOCYCLO — its own output:" >&2
+  "$GOCYCLO" $(target_dirs) 2>&1 | head -5 >&2 || true
   exit 1
 fi
 left="$(printf '%s\n' "$baseline" | grep -cv '^$' || true)"
