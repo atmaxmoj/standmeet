@@ -20,6 +20,12 @@ describe('landAfterIssue', () => {
     expect(landAfterIssue('', 'hire-me')).toEqual({ kind: 'rewrite', href: '/c/hire-me' });
   });
 
+  it('giving a name inside this code\'s own room stays there, microsite or not', () => {
+    // The room is where the conversation is (sijie.xyz, 2026-10-07).
+    expect(landAfterIssue('my-page', 'snow123', '/c/snow123')).toEqual({ kind: 'none', href: '' });
+    expect(landAfterIssue('my-page', 'snow123', '/')).toEqual({ kind: 'nav', href: '/p/my-page' });
+  });
+
   it('neither slug → nothing to do', () => {
     expect(landAfterIssue('', '')).toEqual({ kind: 'none', href: '' });
   });

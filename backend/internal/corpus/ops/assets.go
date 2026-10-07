@@ -45,7 +45,7 @@ func AssetOps(deps usecase.Deps) []fp.Op {
 
 func assetsDeleteOp(deps usecase.Deps) fp.Op {
 	return fp.Op{
-		ID: "assets.delete",
+		ID: "assets.delete", Danger: fp.DangerDestructive,
 		Description: "Remove one file from a corpus entry. If it was the entry's cover, " +
 			"the cover is cleared too. Body references to it stop resolving, so drop " +
 			"the 'standmeet-asset:<asset_id>' text from the body as well.",
@@ -116,7 +116,7 @@ func parseAssetDelete(raw json.RawMessage) (assetDeleteArgs, error) {
 
 func assetsUploadOp(deps usecase.Deps) fp.Op {
 	return fp.Op{
-		ID: "assets.upload",
+		ID: "assets.upload", Danger: fp.DangerWrite,
 		Description: "Attach a file to a corpus entry of any genre (raw / wiki / output). " +
 			"The server fetches `url` itself, so pass a public https link. kind='image' " +
 			"for inline pictures and hero art, kind='attachment' for downloadables like a " +

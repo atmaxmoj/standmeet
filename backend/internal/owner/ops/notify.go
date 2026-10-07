@@ -56,19 +56,22 @@ func notifyRuleOps(d *usecase.NotifyDeps) []fp.Op {
 			},
 		},
 		{
-			ID: "notify.create_rule", Kind: fp.Action, Reach: fp.OwnerAction(),
+			ID: "notify.create_rule", Kind: fp.Action,
+			Danger: fp.DangerEgress, Reach: fp.OwnerAction(),
 			InputSchema: notifyRuleSchema,
 			Description: "Add a notification rule: when this event (filtered) happens, send " +
 				"a card by email, to a webhook endpoint, or to a linked chat.",
 			Invoke: createNotifyRule(d),
 		},
 		{
-			ID: "notify.set_rule_enabled", Kind: fp.Action, Reach: fp.OwnerAction(),
+			ID: "notify.set_rule_enabled", Kind: fp.Action,
+			Danger: fp.DangerEgress, Reach: fp.OwnerAction(),
 			InputSchema: notifyEnableSchema, Description: "Turn a notification rule off or on.",
 			Invoke: setNotifyRuleEnabled(d),
 		},
 		{
-			ID: "notify.delete_rule", Kind: fp.Action, Reach: fp.OwnerAction(),
+			ID: "notify.delete_rule", Kind: fp.Action,
+			Danger: fp.DangerDestructive, Reach: fp.OwnerAction(),
 			InputSchema: notifyIDSchema, Description: "Remove a notification rule.",
 			Invoke: deleteByNotifyID(func(ctx context.Context, owner, id string) error {
 				return usecase.DeleteNotifyRule(ctx, d, owner, id)
@@ -85,13 +88,15 @@ func notifyIMOps(d *usecase.NotifyDeps) []fp.Op {
 			Invoke:      listIMLinks(d),
 		},
 		{
-			ID: "notify.link_im", Kind: fp.Action, Reach: fp.OwnerAction(), InputSchema: noArgs,
+			ID: "notify.link_im", Kind: fp.Action,
+			Danger: fp.DangerCredential, Reach: fp.OwnerAction(), InputSchema: noArgs,
 			Description: "Start linking a chat: returns a pairing code. Send \"/pair <code>\" " +
 				"to your bot within 30 minutes; the chat it comes from becomes linked.",
 			Invoke: startIMLink(d),
 		},
 		{
-			ID: "notify.unlink_im", Kind: fp.Action, Reach: fp.OwnerAction(),
+			ID: "notify.unlink_im", Kind: fp.Action,
+			Danger: fp.DangerWrite, Reach: fp.OwnerAction(),
 			InputSchema: notifyIDSchema,
 			Description: "Unlink a chat. Rules pointing at it stop sending.",
 			Invoke: deleteByNotifyID(func(ctx context.Context, owner, id string) error {

@@ -94,6 +94,10 @@ type OwnerTool struct {
 	Tool        string `yaml:"tool"`
 	Description string `yaml:"description"`
 	InputSchema string `yaml:"input_schema"`
+	// Danger —— the tool's blast radius (read / write / destructive / credential / authority /
+	// spend / egress; facadeparity/danger.go). Required: the owner MCP admits it only to keys
+	// scoped for its class, and the dispatcher does not boot with an unclassified op.
+	Danger string `yaml:"danger"`
 }
 
 // ConfigField — one settings field, rendered by the admin without knowing what

@@ -281,7 +281,7 @@ func declaredOpsOf(m *adapters.Manifest, impls map[string]fp.Invoke) []fp.Op {
 				" over unimplemented contract op " + decl.Op)
 		}
 		out = append(out, fp.Op{
-			ID: decl.Name, Description: decl.Description,
+			ID: decl.Name, Description: decl.Description, Danger: fp.Danger(decl.Danger),
 			InputSchema: decl.InputSchema, Kind: fp.Action,
 			Reach: fp.OwnerAction(), Invoke: invoke,
 		})

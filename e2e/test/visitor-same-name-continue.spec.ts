@@ -14,14 +14,15 @@
 // conversation, with the previous Q&A still there and the turn count unchanged.
 
 import { test, expect } from '@/fixtures/test';
-import type { Browser } from '@playwright/test';
+import type { APIRequestContext, Browser } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { seedWiki } from '@/fixtures/corpus';
 import { createCode } from '@/fixtures/codes';
-import { enterCodeSession, openHome } from '@/fixtures/navigate';
+import { enterCodeSession, openHome, openReader } from '@/fixtures/navigate';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
-import { initMCP } from '@/fixtures/mcp';
+import { callTool, initMCP } from '@/fixtures/mcp';
+import { publishPage } from '@/fixtures/microsite-rig';
 
 const OWNER = {
   email: 'alice@example.com', password: 'correct-horse-battery-staple',
@@ -35,6 +36,8 @@ const NAME = 'Dana';
 // (Dana's) same question, which would make getByText hit 2 matches.
 const NAME2 = 'Eve';
 const QUESTION = 'tell me about lucerna';
+const BOUND = 'BOUND-001';
+const BOUND_ROOM = 'bound-room';
 
 test.describe('换人窗口同名 START 续聊,不清空不重置', () => {
   test.beforeAll(async ({ playwright }) => {
@@ -51,9 +54,8 @@ test.describe('换人窗口同名 START 续聊,不清空不重置', () => {
       body: 'lucerna is a local-first knowledge tool.',
       title: 'Lucerna', path: 'projects/lucerna',
     });
-    await createCode(request, csrf, {
-      code: CODE, label: 'intro', max_turns_per_session: 50, max_members: 10,
-    });
+    test.setTimeout(600_000);
+    await seedCodes(request, csrf, token, sid);
     await request.dispose();
   });
 
@@ -93,11 +95,16 @@ test.describe('换人窗口同名 START 续聊,不清空不重置', () => {
       await ctx.close();
     });
 
-  // sijie.xyz, 2026-10-06 (owner: "作为访客,我的同一个码,怎么找我的历史"): the session lapsed while
-  // the visitor was away; back on the site, the code still opens, the name picker asks who they are,
-  // they give the same name — and the room showed only the welcome. The backend had resumed their
-  // conversation (same name = same member = same conversation); the page never read it back.
-  test('session lapsed → back with the same code and name → the earlier Q&A is there', lapsedSameName);
+  // sijie.xyz, 2026-10-06 (owner: "作为访客,我的同一个码,怎么找我的历史"): lapsed, back, same name —
+  // the backend resumed the conversation but the room showed only the welcome.
+  test('session lapsed → back with the same code and name → the earlier Q&A is there',
+    ({ browser }) => lapsedSameName(browser, 'Fay', 'home'));
+  // The owner's own path (sijie.xyz, 2026-10-07): lapsed in the room, reloaded, and v0.1.128 sent
+  // them home: the session was cleared a moment before the code was kept (the page had neither).
+  test('session lapsed in the room → reload → the name picker, then the earlier Q&A',
+    ({ browser }) => lapsedSameName(browser, 'Gil', 'room'));
+  test('a code bound to a page: lapsed in its room → reload → the name picker, then the Q&A',
+    ({ browser }) => lapsedSameName(browser, 'Hal', 'room', BOUND));
 
   test('换人窗口点窗外 backdrop → 关窗续聊,不清空',
     async ({ browser }) => {
@@ -130,14 +137,38 @@ test.describe('换人窗口同名 START 续聊,不清空不重置', () => {
     });
 });
 
+// seedCodes —— CODE, plain; and BOUND, a code bound to a microsite like the owner's NOVEL-WIKI:
+// entering it lands on the page; the room is still at /c/<slug>. Bound the way the owner binds it,
+// through MCP.
+async function seedCodes(
+  request: APIRequestContext, csrf: string, token: string, sid: string,
+): Promise<void> {
+  await createCode(request, csrf, {
+    code: CODE, label: 'intro', max_turns_per_session: 50, max_members: 10,
+  });
+  await publishPage(request, csrf, 'novel', `export default function App() {
+  return <main data-testid="microsite">novel</main>;
+}`);
+  const bound = await createCode(request, csrf, {
+    code: BOUND, label: 'bound', slug: BOUND_ROOM, max_turns_per_session: 50, max_members: 10,
+  });
+  await callTool(request, token, sid, 'codes.set_microsite', { code_id: bound.id, slug: 'novel' });
+}
+
 // lapsedSameName —— the session lapsed while the visitor was away (idle TTL); back on the site the
 // code still opens, the name picker asks who they are, they give the same name. Same name = same
 // member = same conversation: the earlier Q&A must be on screen.
-async function lapsedSameName({ browser }: { browser: Browser }): Promise<void> {
-  const NAME3 = 'Fay';
+async function lapsedSameName(
+  browser: Browser, NAME3: string, back: 'home' | 'room', code = CODE,
+): Promise<void> {
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
-  await enterCodeSession(page, CODE, NAME3);
+  await enterCodeSession(page, code, NAME3);
+  // A page-bound code lands on its page; the visitor's room is /c/<slug>.
+  if (code === BOUND) {
+    await page.waitForURL(/\/p\/novel/, { timeout: 30_000 });
+    await openReader(page, `/c/${BOUND_ROOM}`);
+  }
   const turnDone = page.waitForResponse((r) =>
     r.url().includes('/agent/turn') && r.status() === 200, { timeout: 20_000 });
   const input = page.locator('[data-testid="chat-input-field"]');
@@ -151,7 +182,8 @@ async function lapsedSameName({ browser }: { browser: Browser }): Promise<void> 
     localStorage.setItem('standmeet:visitor-session',
       JSON.stringify({ ...JSON.parse(raw) as object, session_token: 'lapsed-token-xxxxxxxx' }));
   });
-  await openHome(page);
+  if (back === 'home') await openHome(page);
+  else await page.reload();
   await expect(page.getByTestId('visitor-name-input')).toBeVisible({ timeout: 15_000 });
   await page.getByTestId('visitor-name-input').fill(NAME3);
   await page.getByTestId('visitor-name-submit').click();

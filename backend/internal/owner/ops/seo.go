@@ -42,7 +42,7 @@ type SEODeps struct {
 func SEO(d *SEODeps) []fp.Op {
 	return []fp.Op{
 		{
-			ID: "seo.set_entry_seo",
+			ID: "seo.set_entry_seo", Danger: fp.DangerWrite,
 			Description: "Publish or unpublish one corpus entry and set its excerpt. The " +
 				"public URL is derived from the title and the tree, never set by hand. " +
 				"Unpublishing a pinned wiki entry also unpins it, and says which sections.",

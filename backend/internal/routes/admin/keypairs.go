@@ -26,23 +26,26 @@ type KeypairsAdminDeps struct {
 }
 
 type createKeypairRequest struct {
-	Label string `json:"label"`
+	Label  string   `json:"label"`
+	Scopes []string `json:"scopes"` // danger classes; omitted = every class
 }
 
 type createKeypairResponse struct {
-	KeyID         string `json:"key_id"`
-	PrivateKeyPEM string `json:"private_key_pem"`
-	Label         string `json:"label"`
-	CreatedAt     string `json:"created_at"`
+	KeyID         string   `json:"key_id"`
+	PrivateKeyPEM string   `json:"private_key_pem"`
+	Label         string   `json:"label"`
+	CreatedAt     string   `json:"created_at"`
+	Scopes        []string `json:"scopes"`
 }
 
 type listKeypairItem struct {
-	LastUsedAt        *string `json:"last_used_at"`
-	LastUsedIP        *string `json:"last_used_ip"`
-	LastUsedUserAgent *string `json:"last_used_user_agent"`
-	KeyID             string  `json:"key_id"`
-	Label             string  `json:"label"`
-	CreatedAt         string  `json:"created_at"`
+	LastUsedAt        *string  `json:"last_used_at"`
+	LastUsedIP        *string  `json:"last_used_ip"`
+	LastUsedUserAgent *string  `json:"last_used_user_agent"`
+	KeyID             string   `json:"key_id"`
+	Label             string   `json:"label"`
+	CreatedAt         string   `json:"created_at"`
+	Scopes            []string `json:"scopes"`
 }
 
 // MountKeypairs mounts the /api/admin/keypairs subrouter.
@@ -83,6 +86,7 @@ func toListKeypairItem(k *owner.KeypairMetadata) listKeypairItem {
 	item := listKeypairItem{
 		KeyID:             k.KeyID,
 		Label:             k.Label,
+		Scopes:            k.Scopes,
 		CreatedAt:         k.CreatedAt.Format(time.RFC3339),
 		LastUsedIP:        k.LastUsedIP,
 		LastUsedUserAgent: k.LastUsedUserAgent,
@@ -106,7 +110,7 @@ func (h *Handlers) createKeypair() http.HandlerFunc {
 		}
 		ownerID := middleware.OwnerIDFrom(r.Context())
 		created, err := owner.CreateKeypair(r.Context(), h.KeypairsAdmin.Deps,
-			&owner.CreateKeypairInputReq{OwnerID: ownerID, Label: req.Label})
+			&owner.CreateKeypairInputReq{OwnerID: ownerID, Label: req.Label, Scopes: req.Scopes})
 		if err != nil {
 			writeError(h.Log, w, createKeypairEnv(err))
 			return
@@ -122,6 +126,13 @@ func createKeypairEnv(err error) apierr.Envelope {
 			Message: "label is required",
 		}
 	}
+	if errors.Is(err, owner.ErrUnknownScope) {
+		return apierr.Envelope{
+			Status: http.StatusBadRequest, Code: "unknown_scope",
+			Message: "a scope must be one of: read, write, destructive, credential, authority, " +
+				"spend, egress",
+		}
+	}
 	return serverErr()
 }
 
@@ -134,6 +145,7 @@ func writeCreatedKeypair(
 		KeyID:         c.Record.KeyID,
 		PrivateKeyPEM: c.PrivateKeyPEM,
 		Label:         c.Record.Label,
+		Scopes:        c.Record.Scopes,
 		CreatedAt:     c.Record.CreatedAt.Format(time.RFC3339),
 	}
 	if err := json.NewEncoder(w).Encode(&resp); err != nil {

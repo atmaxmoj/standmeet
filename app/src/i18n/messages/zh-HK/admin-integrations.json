@@ -118,7 +118,11 @@
   "newToken": {
     "label": "生成密鑰",
     "submit": "生成",
-    "namePlaceholder": "裝置標籤 — 例如 'mojat-mbp'"
+    "namePlaceholder": "裝置標籤 — 例如 'mojat-mbp'",
+    "scope": "這個 key 能做甚麼",
+    "scopeFull": "全部",
+    "scopeRead": "唯讀",
+    "scopeContent": "讀寫內容 —— 不能刪除、管理密鑰、分享或外發"
   },
   "newlyCreated": {
     "warning": "現在就儲存——私鑰只展示一次",
@@ -132,6 +136,7 @@
     "never": "從未",
     "lastFrom": "{device} · {ip}",
     "algo": "ed25519",
+    "scopes": "可以：{list}",
     "revoke": "吊銷",
     "keyId": "密鑰 id",
     "deletedToast": "已刪除密鑰"

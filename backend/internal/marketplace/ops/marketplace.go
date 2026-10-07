@@ -41,7 +41,7 @@ func Marketplace(deps usecase.InstallSkillDeps) []fp.Op {
 			Invoke:      searchMarketplace(deps),
 		},
 		{
-			ID: "marketplace.install",
+			ID: "marketplace.install", Danger: fp.DangerAuthority,
 			Description: "Install a marketplace skill by source and id: fetch its SKILL.md " +
 				"and persist it as a source='marketplace' owner skill. name and version are " +
 				"fallbacks for when the frontmatter omits them.",
@@ -51,7 +51,7 @@ func Marketplace(deps usecase.InstallSkillDeps) []fp.Op {
 			Invoke:      installSkill(deps),
 		},
 		{
-			ID: "marketplace.install_manual",
+			ID: "marketplace.install_manual", Danger: fp.DangerAuthority,
 			Description: "Install a SKILL.md the owner pasted in — no marketplace, no network. " +
 				"Parses frontmatter and body, persists it as source='manual'.",
 			InputSchema: marketManualSchema,

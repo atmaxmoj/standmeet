@@ -38,7 +38,7 @@ import (
 func BlockResource(d *deps.Runtime) dispatcher.Resource {
 	return dispatcher.Resource{Name: "blocks", Ops: append(blockPanelOps(d), []fp.Op{
 		{
-			ID: "blocks.install",
+			ID: "blocks.install", Danger: fp.DangerAuthority,
 			Description: "Install a block from its manifest. The manifest is the whole " +
 				"block: id, what it faces, how to start it, and the settings it wants. " +
 				"Installing an id that is already installed replaces it.",
@@ -48,7 +48,7 @@ func BlockResource(d *deps.Runtime) dispatcher.Resource {
 			Invoke:      installBlock(d),
 		},
 		{
-			ID: "blocks.marketplace_install",
+			ID: "blocks.marketplace_install", Danger: fp.DangerAuthority,
 			Description: "Install a block from the dsh marketplace by its npm package id " +
 				"(optionally a version). Fetches the package, verifies it is a mountable dsh " +
 				"block, and mounts it through the same loader as any block, with no more trust.",
@@ -92,7 +92,7 @@ func bundleCoreOps(d *deps.Runtime) []fp.Op {
 			Invoke:      listBundles(d),
 		},
 		{
-			ID: "bundles.create",
+			ID: "bundles.create", Danger: fp.DangerAuthority,
 			Description: "Create a bundle by name, optionally with an initial block list and " +
 				"included bundles. A code bound to it can use exactly the blocks it resolves to.",
 			InputSchema: bundleCreateSchema,
@@ -101,7 +101,7 @@ func bundleCoreOps(d *deps.Runtime) []fp.Op {
 			Invoke:      createBundle(d),
 		},
 		{
-			ID: "bundles.delete",
+			ID: "bundles.delete", Danger: fp.DangerDestructive,
 			Description: "Delete a bundle. Codes bound to it keep working and fall back to " +
 				"their role's grant; they are not revoked.",
 			InputSchema: bundleNameSchema,
@@ -110,7 +110,7 @@ func bundleCoreOps(d *deps.Runtime) []fp.Op {
 			Invoke:      deleteBundle(d),
 		},
 		{
-			ID: "bundles.add_block",
+			ID: "bundles.add_block", Danger: fp.DangerAuthority,
 			Description: "Set a bundle's whole block list (by id, {blocks:[…]}) or add one " +
 				"block (by name, {block_id}). Read live: an open session's grant changes on its " +
 				"next turn.",
@@ -120,7 +120,7 @@ func bundleCoreOps(d *deps.Runtime) []fp.Op {
 			Invoke:      writeBundleBlocks(d),
 		},
 		{
-			ID: "bundles.remove_block",
+			ID: "bundles.remove_block", Danger: fp.DangerAuthority,
 			Description: "Take a block out of a bundle. It becomes uncallable at once — " +
 				"there is no draining and no grace period.",
 			InputSchema: bundleMemberSchema,
@@ -134,7 +134,7 @@ func bundleCoreOps(d *deps.Runtime) []fp.Op {
 func bundleWriteOps(d *deps.Runtime) []fp.Op {
 	return []fp.Op{
 		{
-			ID: "bundles.set_includes",
+			ID: "bundles.set_includes", Danger: fp.DangerAuthority,
 			Description: "Set the bundles a bundle includes (by id). A code resolves to the " +
 				"recursive, deduped union. An edge that would create a cycle is refused.",
 			InputSchema: bundleIncludesSchema,
@@ -143,7 +143,7 @@ func bundleWriteOps(d *deps.Runtime) []fp.Op {
 			Invoke:      setBundleIncludes(d),
 		},
 		{
-			ID: "bundles.delete_by_id",
+			ID: "bundles.delete_by_id", Danger: fp.DangerDestructive,
 			Description: "Delete a bundle by id. Codes bound to it fall back to their role's " +
 				"grant; they are not revoked.",
 			InputSchema: bundleIDSchema,

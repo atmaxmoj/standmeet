@@ -49,7 +49,7 @@ func ObsidianSync(ingest VaultIngest) []fp.Op {
 	}
 	return []fp.Op{
 		{
-			ID: "obsidian.import",
+			ID: "obsidian.import", Danger: fp.DangerWrite,
 			Description: "Sync a vault into the corpus: pass its files (each a path + markdown " +
 				"content); they reconcile into raw/wiki/subjectivity/writings by top folder, the " +
 				"same ingest the admin upload runs, as JSON so it works from your AI client. " +

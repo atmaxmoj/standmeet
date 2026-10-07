@@ -47,7 +47,7 @@ func AccessRequests(d *AccessRequestsDeps) []fp.Op {
 			Invoke:      listAccessRequests(d.Requests, d.Approve.Jobs),
 		},
 		{
-			ID:          "access_requests.update",
+			ID: "access_requests.update", Danger: fp.DangerWrite,
 			Description: "Update a gate access request's status (open / replied / closed).",
 			InputSchema: accessRequestUpdateSchema,
 			Kind:        fp.Action,
@@ -55,7 +55,7 @@ func AccessRequests(d *AccessRequestsDeps) []fp.Op {
 			Invoke:      updateAccessRequest(d.Requests, d.Approve.Jobs),
 		},
 		{
-			ID: "access_requests.approve",
+			ID: "access_requests.approve", Danger: fp.DangerAuthority,
 			Description: "Approve a gate access request: issue an access code (returned at " +
 				"once with its link) and mail it to the requester. The request turns replied " +
 				"only after the mail went out; mail.state says sending, sent or failed, and " +

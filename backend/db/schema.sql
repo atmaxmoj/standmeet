@@ -202,6 +202,9 @@ CREATE TABLE owner_keypairs (
     last_used_at    timestamptz,
     last_used_ip    text,
     last_used_user_agent text,
+    -- scopes —— the danger classes (facadeparity.Danger) this key may use on the owner MCP face.
+    scopes          text[]        NOT NULL
+                    DEFAULT '{read,write,destructive,credential,authority,spend,egress}',
     created_at      timestamptz   NOT NULL DEFAULT now()
 );
 

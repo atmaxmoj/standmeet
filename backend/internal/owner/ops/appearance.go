@@ -32,7 +32,7 @@ func Appearance(store usecase.CSSStore, fav usecase.FaviconStore) []fp.Op {
 			Invoke:      getCSS(store),
 		},
 		{
-			ID: "set_owner_css",
+			ID: "set_owner_css", Danger: fp.DangerWrite,
 			Description: "Set the owner's custom CSS for their public corpus pages, like an " +
 				"Obsidian CSS snippet. Sanitized and scoped to the content area on save.",
 			InputSchema: cssSchema,
@@ -41,7 +41,7 @@ func Appearance(store usecase.CSSStore, fav usecase.FaviconStore) []fp.Op {
 			Invoke:      setCSS(store),
 		},
 		{
-			ID: "appearance.set_favicon",
+			ID: "appearance.set_favicon", Danger: fp.DangerWrite,
 			Description: "Set the owner's favicon to an uploaded image asset — pass its asset_id " +
 				"from the asset pool (assets.list); an empty asset_id clears it back to the " +
 				"product default. Served at /favicon.ico.",

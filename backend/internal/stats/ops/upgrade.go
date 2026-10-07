@@ -76,7 +76,7 @@ func Upgrade(deps UpgradeDeps) []fp.Op {
 			Invoke:      upgradeCheck(deps),
 		},
 		{
-			ID: "instance.upgrade",
+			ID: "instance.upgrade", Danger: fp.DangerAuthority,
 			Description: "Press the upgrade: write the pulse the updater sidecar applies, which " +
 				"recreates the stack on the newest images. Reports only that the request went " +
 				"out — the process serving this call is itself being replaced, so it cannot " +

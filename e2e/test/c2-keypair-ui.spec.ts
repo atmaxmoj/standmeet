@@ -7,6 +7,8 @@
 //   than the old plaintext bearer. The Revoke button deletes the key, and the list
 //   empties immediately.
 
+import type { Page } from '@playwright/test';
+
 import { test, expect } from '@/fixtures/test';
 
 import { claim } from '@/fixtures/admin';
@@ -69,6 +71,10 @@ test.describe('C-2 owner generates MCP keypair from admin UI', () => {
       await expect(list.getByText('mojat-mbp')).toBeHidden({ timeout: 5_000 });
     });
 
+  // R7: a key for a third-party client can be read-only; the row says what each key may do.
+  test('a read-only key is generated from the form and its row says so',
+    ({ adminPage: page }) => readOnlyKeyFromTheForm(page));
+
   test('install snippet panel cycles through client tabs',
     async ({ adminPage: page }) => {
       await gotoAdminSection(page, 'api-mcp');
@@ -113,3 +119,18 @@ test.describe('C-2 owner generates MCP keypair from admin UI', () => {
       ).toHaveCount(0);
     });
 });
+
+async function readOnlyKeyFromTheForm(page: Page): Promise<void> {
+  await gotoAdminSection(page, 'api-mcp');
+  await page.getByTestId('token-name').fill('reader-laptop');
+  await page.getByTestId('token-scope').selectOption('read');
+  await page.getByTestId('token-create').click();
+  await expect(page.getByTestId('new-token')).toBeVisible({ timeout: 5_000 });
+  const scopes = page.getByTestId('token-scopes-reader-laptop');
+  await expect(scopes).toHaveText(/\bread\b/);
+  await expect(scopes).not.toContainText('write');
+
+  await page.reload();
+  await expect(scopes, 'stored, not just shown').toHaveText(/\bread\b/);
+  await expect(scopes).not.toContainText('write');
+}

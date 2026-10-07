@@ -34,7 +34,7 @@ func codeACLOps(deps usecase.CodeACLDeps) []fp.Op {
 			Invoke:      listCodeDenials(deps),
 		},
 		{
-			ID: "codes.add_denial",
+			ID: "codes.add_denial", Danger: fp.DangerAuthority,
 			Description: "Deny this code one block, skill, or corpus URI glob. " +
 				"Idempotent.",
 			InputSchema: codeDenialSchema,
@@ -43,7 +43,7 @@ func codeACLOps(deps usecase.CodeACLDeps) []fp.Op {
 			Invoke:      writeCodeDenial(deps, usecase.AddCodeDenial),
 		},
 		{
-			ID:          "codes.remove_denial",
+			ID: "codes.remove_denial", Danger: fp.DangerAuthority,
 			Description: "Lift one denial from this code. Idempotent.",
 			InputSchema: codeDenialSchema,
 			Kind:        fp.Action,
@@ -51,7 +51,7 @@ func codeACLOps(deps usecase.CodeACLDeps) []fp.Op {
 			Invoke:      writeCodeDenial(deps, usecase.RemoveCodeDenial),
 		},
 		{
-			ID: "codes.set_corpus_denials",
+			ID: "codes.set_corpus_denials", Danger: fp.DangerAuthority,
 			Description: "Replace the whole list of corpus URI globs this code takes back " +
 				"from its role's grant. Pure subtraction: it can never open what the role " +
 				"never granted.",
@@ -70,7 +70,7 @@ func codeACLOps(deps usecase.CodeACLDeps) []fp.Op {
 			Invoke:      readCodeWaypoints(deps),
 		},
 		{
-			ID: "codes.set_waypoints",
+			ID: "codes.set_waypoints", Danger: fp.DangerWrite,
 			Description: "Set this code's waypoint overrides. An empty list clears the " +
 				"override and goes back to inheriting the role's.",
 			InputSchema: codeWaypointsSchema,

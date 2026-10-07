@@ -119,7 +119,7 @@ export function useIssuePendingCode(): IssuePending {
       // Land: a microsite → full nav to /p/<slug> (what you scanned into is
       // what you land on); no microsite → rewrite the URL to /c/<slug> so the
       // raw code leaves the address bar and this chat gets a stable path.
-      applyLanding(landAfterIssue(sess.microsite_slug ?? '', sess.slug ?? ''));
+      applyLanding(landAfterIssue(sess.microsite_slug ?? '', sess.slug ?? '', window.location.pathname));
       return 'ok';
     } catch (e) {
       return classifyIssueError(e);

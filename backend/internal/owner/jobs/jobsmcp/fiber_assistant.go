@@ -41,7 +41,7 @@ func (*assistantFiber) SystemPromptFragmentID(_ context.Context, _ *registry.Ass
 
 func (c *assistantFiber) OwnerMCPBindings() []*registry.MCPBinding {
 	return []*registry.MCPBinding{{
-		Name: "assistant.push",
+		Name: "assistant.push", Danger: "write",
 		Description: "Stream one screen-assistant event to /admin/screen-assistant. " +
 			"kind=heard is a transcript line; kind=cue is a cue card — push the growing " +
 			"text under the same id, the page keeps the latest.",

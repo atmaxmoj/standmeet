@@ -51,6 +51,7 @@ transport:
 owner_tools:
   - name: suppliers.calendar_check
     tool: calendar.check
+    danger: read
     description: >-
       Ask the connected calendar what it is busy with over the next few days.
       Read-only — it books nothing. Proves the credential still works and the
@@ -68,6 +69,7 @@ owner_tools:
   # discovery; a provider that can't enumerate answers with a reason, not a crash.
   - name: suppliers.calendar_list
     tool: calendar.list_calendars
+    danger: read
     description: >-
       List the calendars in the connected account (name + collection URL). Use it
       to find a calendar's URL when switching which calendar bookings land on,

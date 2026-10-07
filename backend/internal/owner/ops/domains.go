@@ -33,7 +33,7 @@ func Domains(deps usecase.AllowedDomainsDeps) []fp.Op {
 			Invoke:      listDomains(deps),
 		},
 		{
-			ID: "domains.add",
+			ID: "domains.add", Danger: fp.DangerAuthority,
 			Description: "Allow a custom domain for on-demand TLS. Scheme and trailing " +
 				"slash are normalized off.",
 			InputSchema: domainSchema("Domain to allow, e.g. me.example.com"),
@@ -42,7 +42,7 @@ func Domains(deps usecase.AllowedDomainsDeps) []fp.Op {
 			Invoke:      mutateDomain(deps, usecase.AddAllowedDomain),
 		},
 		{
-			ID:          "domains.remove",
+			ID: "domains.remove", Danger: fp.DangerDestructive,
 			Description: "Stop allowing a custom domain. Idempotent.",
 			InputSchema: domainSchema("Domain to remove."),
 			Kind:        fp.Action,

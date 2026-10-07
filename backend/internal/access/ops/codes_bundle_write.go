@@ -34,7 +34,7 @@ type codeBundleOut struct {
 // under its line budget.
 func setBundleOp(d *CodesDeps) fp.Op {
 	return fp.Op{
-		ID: "codes.set_bundle",
+		ID: "codes.set_bundle", Danger: fp.DangerAuthority,
 		Description: "Bind an already-issued code to a group of blocks (a bundle), switch it, " +
 			"or clear it. Read live: editing the group moves this code too, and a block removed " +
 			"from it leaves an open session on the next turn. An empty bundle unbinds — the code " +

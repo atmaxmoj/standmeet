@@ -1,29 +1,35 @@
-// NewTokenInline — type a name, click create. Keeps the e2e testids
-// (token-name / token-create).
+// NewTokenInline — type a name, pick what the key may do, click create. Keeps the e2e testids
+// (token-name / token-scope / token-create).
 
 'use client';
 
 import { useCallback, useState } from 'react';
 import { useTranslations } from 'next-intl';
 
+import { SelectField } from '@/components/atoms/SelectField';
+import { keyScopePresetOf, type KeyScopePreset } from '@/lib/admin/use-tokens';
 import { useReportError } from '@/lib/ui/use-report-error';
 
+type CreateToken = (name: string, preset?: KeyScopePreset) => Promise<void>;
+
 type Props = {
-  createToken: (name: string) => Promise<void>;
+  createToken: CreateToken;
   error: string | null;
 };
 
 export function NewTokenInline({ createToken, error }: Props) {
   const [name, setName] = useState('');
+  const [preset, setPreset] = useState<KeyScopePreset>('full');
   const report = useReportError();
   const onSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = name.trim();
-    trimmed === '' || await submit(trimmed, createToken, setName, report);
-  }, [name, createToken, report]);
+    trimmed === '' || await submit(() => createToken(trimmed, preset), setName, report);
+  }, [name, preset, createToken, report]);
   return (
     <form onSubmit={onSubmit} className="space-y-3 mb-4">
       <NameField name={name} onChange={setName} />
+      <ScopeField preset={preset} onChange={setPreset} />
       <ErrorBox message={error} />
       <SubmitBtn />
     </form>
@@ -34,13 +40,12 @@ export function NewTokenInline({ createToken, error }: Props) {
 // failure, report and **keep the label** (don't drop what owner just typed,
 // so a retry is a straight click).
 async function submit(
-  trimmed: string,
-  createToken: (n: string) => Promise<void>,
+  create: () => Promise<void>,
   setName: (v: string) => void,
   report: (e: unknown) => void,
 ): Promise<void> {
   try {
-    await createToken(trimmed);
+    await create();
     setName('');
   } catch (e) {
     report(e);
@@ -62,6 +67,31 @@ function NameField({ name, onChange }: { name: string; onChange: (v: string) => 
         data-testid="token-name"
         className="sm-field-input"
       />
+    </label>
+  );
+}
+
+const PRESETS: readonly KeyScopePreset[] = ['full', 'read', 'content'];
+const PRESET_LABEL = { full: 'scopeFull', read: 'scopeRead', content: 'scopeContent' } as const;
+
+function ScopeField(
+  { preset, onChange }: { preset: KeyScopePreset; onChange: (p: KeyScopePreset) => void },
+) {
+  const t = useTranslations('adminIntegrations.newToken');
+  return (
+    <label className="block">
+      <div className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-muted) mb-2">
+        {t('scope')}
+      </div>
+      <SelectField
+        value={preset}
+        onChange={(e) => onChange(keyScopePresetOf(e.target.value))}
+        testid="token-scope"
+      >
+        {PRESETS.map((p) => (
+          <option key={p} value={p}>{t(PRESET_LABEL[p])}</option>
+        ))}
+      </SelectField>
     </label>
   );
 }

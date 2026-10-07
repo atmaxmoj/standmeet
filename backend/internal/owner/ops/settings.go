@@ -60,7 +60,7 @@ func Settings(deps *SettingsDeps) []fp.Op {
 func inferenceSettingsOps(deps *SettingsDeps) []fp.Op {
 	return []fp.Op{
 		{
-			ID: "byoai.set",
+			ID: "byoai.set", Danger: fp.DangerAuthority,
 			Description: "Set BYOAI settings — enabled, allowed providers, public blurb — " +
 				"for uninvited visitors who bring their own API key.",
 			InputSchema: byoaiSchema,
@@ -69,7 +69,7 @@ func inferenceSettingsOps(deps *SettingsDeps) []fp.Op {
 			Invoke:      setBYOAI(deps.BYOAI),
 		},
 		{
-			ID: "ai_provider.set",
+			ID: "ai_provider.set", Danger: fp.DangerCredential,
 			Description: "Set the owner's chat inference provider: endpoint, model, and the " +
 				"API key itself (encrypted at rest, never returned).",
 			InputSchema: aiProviderSchema,
@@ -78,7 +78,7 @@ func inferenceSettingsOps(deps *SettingsDeps) []fp.Op {
 			Invoke:      setAIProvider(deps.AI),
 		},
 		{
-			ID:          "monitoring.set",
+			ID: "monitoring.set", Danger: fp.DangerAuthority,
 			Description: "Turn the owner's traffic monitoring on or off; off collects nothing.",
 			InputSchema: monitoringSchema,
 			Kind:        fp.Action,

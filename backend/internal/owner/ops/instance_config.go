@@ -29,7 +29,7 @@ func instanceConfigOps(deps usecase.InstanceConfigDeps) []fp.Op {
 			Invoke:      getInstanceConfig(deps),
 		},
 		{
-			ID: "instance.settings_set",
+			ID: "instance.settings_set", Danger: fp.DangerAuthority,
 			Description: "Set the internal hosts every outbound guard may reach (host names " +
 				"only) and the skill catalogue URL ('' = public anthropics/skills). Immediate.",
 			InputSchema: instanceConfigSchema,
@@ -38,7 +38,7 @@ func instanceConfigOps(deps usecase.InstanceConfigDeps) []fp.Op {
 			Invoke:      setInstanceConfig(deps),
 		},
 		{
-			ID: "captcha.set",
+			ID: "captcha.set", Danger: fp.DangerCredential,
 			Description: "Set the Cloudflare Turnstile login check: site key and secret (sealed " +
 				"at rest, never returned). The check is on only when both are set.",
 			InputSchema: captchaSchema,

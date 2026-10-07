@@ -118,7 +118,11 @@
   "newToken": {
     "label": "schlüssel generieren",
     "submit": "generieren",
-    "namePlaceholder": "gerätebezeichnung — z. B. 'mojat-mbp'"
+    "namePlaceholder": "gerätebezeichnung — z. B. 'mojat-mbp'",
+    "scope": "was dieser schlüssel darf",
+    "scopeFull": "alles",
+    "scopeRead": "nur lesen",
+    "scopeContent": "inhalte lesen und schreiben — kein löschen, keine schlüssel, kein teilen oder senden"
   },
   "newlyCreated": {
     "warning": "speichern Sie diese jetzt — der private schlüssel wird nur einmal angezeigt",
@@ -132,6 +136,7 @@
     "never": "nie",
     "lastFrom": "{device} · {ip}",
     "algo": "ed25519",
+    "scopes": "darf: {list}",
     "revoke": "widerrufen",
     "keyId": "schlüssel id",
     "deletedToast": "Schlüssel gelöscht"

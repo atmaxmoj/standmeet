@@ -36,7 +36,7 @@ func Skills(deps usecase.SkillsDeps) []fp.Op {
 			Invoke:      listSkills(deps),
 		},
 		{
-			ID: "skill_create",
+			ID: "skill_create", Danger: fp.DangerAuthority,
 			Description: "Create an owner-curated AI skill: an extra system prompt plus " +
 				"optional sandbox scripts. Attach it to invite codes to compose the " +
 				"visitor-facing persona and block set.",
@@ -46,7 +46,7 @@ func Skills(deps usecase.SkillsDeps) []fp.Op {
 			Invoke:      createSkill(deps),
 		},
 		{
-			ID: "skill_update",
+			ID: "skill_update", Danger: fp.DangerAuthority,
 			Description: "Edit an owner-curated skill: its prompt, its description, and " +
 				"which tools it may call. Naming a supplier operation here is what lets a " +
 				"visitor's AI reach an uploaded supplier. Builtin skills cannot be edited.",
@@ -56,7 +56,7 @@ func Skills(deps usecase.SkillsDeps) []fp.Op {
 			Invoke:      updateSkill(deps),
 		},
 		{
-			ID: "skill_set_enabled",
+			ID: "skill_set_enabled", Danger: fp.DangerAuthority,
 			Description: "Globally enable or disable a skill. A disabled skill never enters " +
 				"the agent, even when a role attaches it. Builtin skills can be toggled; " +
 				"only deleting them is blocked.",
@@ -66,7 +66,7 @@ func Skills(deps usecase.SkillsDeps) []fp.Op {
 			Invoke:      setSkillEnabled(deps),
 		},
 		{
-			ID:          "skill_delete",
+			ID: "skill_delete", Danger: fp.DangerDestructive,
 			Description: "Delete an owner-curated skill. Builtin skills cannot be deleted.",
 			InputSchema: skillIDSchema,
 			Kind:        fp.Action,

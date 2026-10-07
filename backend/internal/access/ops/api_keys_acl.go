@@ -59,7 +59,7 @@ func apiKeyACLOps(d APIKeysDeps) []fp.Op {
 			Invoke:      listKeyDenials(d),
 		},
 		{
-			ID: "api_keys.add_denial",
+			ID: "api_keys.add_denial", Danger: fp.DangerAuthority,
 			Description: "Deny a block or skill on an API key (per-key ACL). " +
 				"kind is 'block' or 'skill'; target_id is the block/skill id.",
 			InputSchema: keyDenialSchema,
@@ -68,7 +68,7 @@ func apiKeyACLOps(d APIKeysDeps) []fp.Op {
 			Invoke:      writeKeyDenial(d, keyDenialAdders(d), keyDenialVerbDenied),
 		},
 		{
-			ID: "api_keys.remove_denial",
+			ID: "api_keys.remove_denial", Danger: fp.DangerAuthority,
 			Description: "Remove a per-key block or skill denial (re-grants it if the " +
 				"key's assumed role allows). kind is 'block' or 'skill'.",
 			InputSchema: keyDenialSchema,
@@ -77,7 +77,7 @@ func apiKeyACLOps(d APIKeysDeps) []fp.Op {
 			Invoke:      writeKeyDenial(d, keyDenialRemovers(d), keyDenialVerbRemoved),
 		},
 		{
-			ID: "api.open",
+			ID: "api.open", Danger: fp.DangerAuthority,
 			Description: "Open a block to the API facade (make it an API candidate). " +
 				"Only non-Agentic outward blocks may be opened.",
 			InputSchema: apiBlockIDSchema,
@@ -86,7 +86,7 @@ func apiKeyACLOps(d APIKeysDeps) []fp.Op {
 			Invoke:      openAPIBlock(d),
 		},
 		{
-			ID: "api.close",
+			ID: "api.close", Danger: fp.DangerAuthority,
 			Description: "Close a block from the API facade (withdraw its candidacy). " +
 				"Keys whose role granted it stop reaching it immediately.",
 			InputSchema: apiBlockIDSchema,

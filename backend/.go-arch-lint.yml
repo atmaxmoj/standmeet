@@ -1323,6 +1323,8 @@ deps:
       - marketplace
       - corpus
       - access
+      # facadeparity — a keypair's scopes are its Danger classes; one vocabulary, not a copy.
+      - facadeparity
       # adapters — booking usecases (list_slots / cancel / cancel-own) reach calendars only through
       # the seam contract; the concrete supplier is injected at the composition root. Inherited from
       # the dissolved plugins/booker, which had exactly this one dependency.

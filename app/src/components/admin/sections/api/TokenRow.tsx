@@ -40,6 +40,12 @@ function TokenRowHead({ token, deleteToken }: Props) {
           })}
         </div>
         <LastUsedFrom token={token} />
+        <div
+          data-testid={`token-scopes-${token.name}`}
+          className="mono text-[10px] tracking-[0.04em] text-(--color-faint) mt-0.5"
+        >
+          {t('scopes', { list: token.scopes.join(' · ') })}
+        </div>
       </div>
       <div className="flex items-center gap-2 shrink-0">
         <Chip>{t('algo')}</Chip>

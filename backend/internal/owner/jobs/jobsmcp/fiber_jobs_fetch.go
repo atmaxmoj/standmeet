@@ -25,7 +25,7 @@ import (
 
 func (c *jobsFiber) fetchNewBinding() *registry.MCPBinding {
 	return &registry.MCPBinding{
-		Name: "jobs.fetch_new",
+		Name: "jobs.fetch_new", Danger: "write",
 		Description: "Poll one or all registered sources, then return the whole live job " +
 			"pool for the window — not only what this call happened to add. Each row " +
 			"carries cache_id, ttl_remaining_seconds, and new=true when this call " +
@@ -54,7 +54,7 @@ func (c *jobsFiber) fetchNewBinding() *registry.MCPBinding {
 
 func (c *jobsFiber) fetchResultBinding() *registry.MCPBinding {
 	return &registry.MCPBinding{
-		Name: "jobs.fetch_result",
+		Name: "jobs.fetch_result", Danger: "read",
 		Description: "The answer of a jobs.fetch_new that returned {job_ids, pending: true}: " +
 			"the same shape jobs.fetch_new returns when done (jobs, failed_sources, sources, " +
 			"cross_source_dropped), or {job_ids, pending: true} again while any source is " +

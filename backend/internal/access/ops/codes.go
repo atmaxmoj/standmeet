@@ -52,7 +52,7 @@ func codeCoreOps(d *CodesDeps) []fp.Op {
 		},
 		countsOp(d),
 		{
-			ID: "codes.create",
+			ID: "codes.create", Danger: fp.DangerAuthority,
 			Description: "Issue an access code against a role. The role decides persona, " +
 				"corpus scope and blocks; the code adds its own quotas.",
 			InputSchema: withExtraFields(codeCreateSchema, extras.Fields()),
@@ -61,7 +61,7 @@ func codeCoreOps(d *CodesDeps) []fp.Op {
 			Invoke:      createCode(d.Codes, extras),
 		},
 		{
-			ID:          "codes.revoke",
+			ID: "codes.revoke", Danger: fp.DangerDestructive,
 			Description: "Revoke an access code. Existing sessions keep their frozen snapshot.",
 			InputSchema: codeIDSchema,
 			Kind:        fp.Action,
@@ -70,7 +70,7 @@ func codeCoreOps(d *CodesDeps) []fp.Op {
 		},
 		rotateOp(d),
 		{
-			ID: "codes.set_microsite",
+			ID: "codes.set_microsite", Danger: fp.DangerAuthority,
 			Description: "Point this code at a microsite, or clear it. Presenting the code " +
 				"then opens that page instead of the default visitor chat — the page is a " +
 				"rendering of the code, so the grant, quotas, identity prompt and transcript " +
@@ -82,7 +82,7 @@ func codeCoreOps(d *CodesDeps) []fp.Op {
 		},
 		setBundleOp(d),
 		{
-			ID:          "codes.update_quotas",
+			ID: "codes.update_quotas", Danger: fp.DangerAuthority,
 			Description: "Change a code's quotas (members, turns per session, bookings).",
 			InputSchema: withExtraFields(codeQuotaSchema, extras.Fields()),
 			Kind:        fp.Action,
@@ -90,7 +90,7 @@ func codeCoreOps(d *CodesDeps) []fp.Op {
 			Invoke:      updateCodeQuotas(d.Codes, extras),
 		},
 		{
-			ID: "codes.set_ghost_evidence",
+			ID: "codes.set_ghost_evidence", Danger: fp.DangerWrite,
 			Description: "Require (or stop requiring) cited evidence before the AI answers " +
 				"on this code. null clears the per-code override and inherits the role's.",
 			InputSchema: codeGhostSchema,

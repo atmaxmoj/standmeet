@@ -118,7 +118,11 @@
   "newToken": {
     "label": "generate key",
     "submit": "generate",
-    "namePlaceholder": "デバイスのラベル — 例: 'mojat-mbp'"
+    "namePlaceholder": "デバイスのラベル — 例: 'mojat-mbp'",
+    "scope": "このキーでできること",
+    "scopeFull": "すべて",
+    "scopeRead": "読み取りのみ",
+    "scopeContent": "内容の読み書き — 削除・鍵・共有・外部送信は不可"
   },
   "newlyCreated": {
     "warning": "save these now — the private key is shown only once",
@@ -132,6 +136,7 @@
     "never": "never",
     "lastFrom": "{device} · {ip}",
     "algo": "ed25519",
+    "scopes": "可能: {list}",
     "revoke": "revoke",
     "keyId": "key id",
     "deletedToast": "キーを削除しました"

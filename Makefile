@@ -1949,15 +1949,15 @@ npm-pack: npm-stamp
 
 # npm-publish —— the real publish (CI on a release tag; needs NPM_TOKEN with publish rights on the
 # @standmeet scope). Unset → says so and stops, so a release without npm set up still ships images.
-npm-publish: npm-stamp
-	@test -n "$$NPM_TOKEN" || { echo "[npm] NPM_TOKEN not set — skipping the npm publish"; $(MAKE) npm-unstamp; exit 0; }
-	@echo "//registry.npmjs.org/:_authToken=$${NPM_TOKEN}" > .npmrc.publish
-	@for p in $(NPM_PACKAGES); do \
-	  (cd sdk/packages/$$p && pnpm publish --access public --no-git-checks \
-	    --userconfig ../../../.npmrc.publish) || { rm -f .npmrc.publish; exit 1; }; \
-	done
-	@rm -f .npmrc.publish
-	@$(MAKE) npm-unstamp
+npm-publish:
+	@if [ -z "$$NPM_TOKEN" ]; then echo "[npm] NPM_TOKEN not set — skipping the npm publish"; exit 0; fi; \
+	$(MAKE) npm-stamp || exit 1; \
+	echo "//registry.npmjs.org/:_authToken=$${NPM_TOKEN}" > .npmrc.publish; \
+	rc=0; for p in $(NPM_PACKAGES); do \
+	  (cd sdk/packages/$$p && NPM_CONFIG_USERCONFIG=$(CURDIR)/.npmrc.publish \
+	    pnpm publish --access public --no-git-checks) || { rc=1; break; }; \
+	done; \
+	rm -f .npmrc.publish; $(MAKE) npm-unstamp; exit $$rc
 
 # npm-unstamp —— put the repo's 0.0.0 back (the tag is the version's one home).
 npm-unstamp:

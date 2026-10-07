@@ -12,9 +12,9 @@ import (
 )
 
 const createOwnerKeypair = `-- name: CreateOwnerKeypair :one
-INSERT INTO owner_keypairs (owner_id, key_id, public_key_pem, label)
-VALUES ($1, $2, $3, $4)
-RETURNING id, owner_id, key_id, public_key_pem, label, last_used_at, last_used_ip, last_used_user_agent, created_at
+INSERT INTO owner_keypairs (owner_id, key_id, public_key_pem, label, scopes)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, owner_id, key_id, public_key_pem, label, last_used_at, last_used_ip, last_used_user_agent, scopes, created_at
 `
 
 type CreateOwnerKeypairParams struct {
@@ -22,6 +22,7 @@ type CreateOwnerKeypairParams struct {
 	KeyID        string
 	PublicKeyPem string
 	Label        string
+	Scopes       []string
 }
 
 func (q *Queries) CreateOwnerKeypair(ctx context.Context, arg CreateOwnerKeypairParams) (OwnerKeypair, error) {
@@ -30,6 +31,7 @@ func (q *Queries) CreateOwnerKeypair(ctx context.Context, arg CreateOwnerKeypair
 		arg.KeyID,
 		arg.PublicKeyPem,
 		arg.Label,
+		arg.Scopes,
 	)
 	var i OwnerKeypair
 	err := row.Scan(
@@ -41,6 +43,7 @@ func (q *Queries) CreateOwnerKeypair(ctx context.Context, arg CreateOwnerKeypair
 		&i.LastUsedAt,
 		&i.LastUsedIp,
 		&i.LastUsedUserAgent,
+		&i.Scopes,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -61,7 +64,7 @@ func (q *Queries) DeleteOwnerKeypair(ctx context.Context, arg DeleteOwnerKeypair
 }
 
 const getOwnerKeypairByKeyID = `-- name: GetOwnerKeypairByKeyID :one
-SELECT id, owner_id, key_id, public_key_pem, label, last_used_at, last_used_ip, last_used_user_agent, created_at FROM owner_keypairs WHERE key_id = $1
+SELECT id, owner_id, key_id, public_key_pem, label, last_used_at, last_used_ip, last_used_user_agent, scopes, created_at FROM owner_keypairs WHERE key_id = $1
 `
 
 func (q *Queries) GetOwnerKeypairByKeyID(ctx context.Context, keyID string) (OwnerKeypair, error) {
@@ -76,13 +79,14 @@ func (q *Queries) GetOwnerKeypairByKeyID(ctx context.Context, keyID string) (Own
 		&i.LastUsedAt,
 		&i.LastUsedIp,
 		&i.LastUsedUserAgent,
+		&i.Scopes,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const listOwnerKeypairs = `-- name: ListOwnerKeypairs :many
-SELECT id, key_id, label, last_used_at, last_used_ip, last_used_user_agent, created_at
+SELECT id, key_id, label, last_used_at, last_used_ip, last_used_user_agent, scopes, created_at
 FROM owner_keypairs
 WHERE owner_id = $1
 ORDER BY created_at DESC
@@ -95,6 +99,7 @@ type ListOwnerKeypairsRow struct {
 	LastUsedAt        pgtype.Timestamptz
 	LastUsedIp        *string
 	LastUsedUserAgent *string
+	Scopes            []string
 	CreatedAt         pgtype.Timestamptz
 }
 
@@ -114,6 +119,7 @@ func (q *Queries) ListOwnerKeypairs(ctx context.Context, ownerID pgtype.UUID) ([
 			&i.LastUsedAt,
 			&i.LastUsedIp,
 			&i.LastUsedUserAgent,
+			&i.Scopes,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err

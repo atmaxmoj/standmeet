@@ -22,7 +22,7 @@ func micrositeAuthoringOps(deps usecase.MicrositeDeps) []fp.Op {
 func micrositeSettingOps(deps usecase.MicrositeDeps) []fp.Op {
 	return []fp.Op{
 		{
-			ID: "microsite.set_byoai",
+			ID: "microsite.set_byoai", Danger: fp.DangerAuthority,
 			Description: "Allow or forbid readers bringing their own key on this page. " +
 				"This applies only when nobody presents a grant — a reader arriving with " +
 				"an access code is scoped by that code, and this setting is then inert.",
@@ -32,7 +32,7 @@ func micrositeSettingOps(deps usecase.MicrositeDeps) []fp.Op {
 			Invoke:      setMicrositeByoai(deps),
 		},
 		{
-			ID: "microsite.set_store_writable",
+			ID: "microsite.set_store_writable", Danger: fp.DangerAuthority,
 			Description: "Open or close this page's data store to visitor writes. Off by " +
 				"default: a page has no write surface until you open it. Reads are unaffected.",
 			InputSchema: micrositeStoreWritableSchema,
@@ -41,7 +41,7 @@ func micrositeSettingOps(deps usecase.MicrositeDeps) []fp.Op {
 			Invoke:      setMicrositeStoreWritable(deps),
 		},
 		{
-			ID: "microsite.set_open_without_code",
+			ID: "microsite.set_open_without_code", Danger: fp.DangerAuthority,
 			Description: "Whether this page opens for a visitor without an access code. " +
 				"Off: only a visitor whose code is bound to the page (or you, signed in) " +
 				"can open it; anyone else is sent to enter a code. A page with a code " +
@@ -52,7 +52,7 @@ func micrositeSettingOps(deps usecase.MicrositeDeps) []fp.Op {
 			Invoke:      setMicrositeOpenWithoutCode(deps),
 		},
 		{
-			ID: "microsite.rename",
+			ID: "microsite.rename", Danger: fp.DangerWrite,
 			Description: "Rename a microsite's slug (its /p/<slug> address). The new slug must " +
 				"be free. Bound access codes follow the rename; the reserved home page cannot be " +
 				"renamed.",
@@ -62,7 +62,7 @@ func micrositeSettingOps(deps usecase.MicrositeDeps) []fp.Op {
 			Invoke:      renameMicrosite(deps),
 		},
 		{
-			ID: "microsite.set_seo",
+			ID: "microsite.set_seo", Danger: fp.DangerWrite,
 			Description: "Set this page's SEO title + description, injected into its served " +
 				"<head>. SEO follows each microsite. Empty strings clear a field.",
 			InputSchema: pageSeoSchema,
@@ -124,7 +124,7 @@ type openWithoutCodeOut struct {
 func micrositeBuildOps(deps usecase.MicrositeDeps) []fp.Op {
 	return append([]fp.Op{
 		{
-			ID: "microsite.create",
+			ID: "microsite.create", Danger: fp.DangerWrite,
 			// F-L-44: this used to say `/<handle>/p/<slug>` — that address 404s, the
 			// real address is `/p/<slug>` (the instance is single-owner, the URL
 			// carries no handle). **The owner's AI only reads the description**, so a
@@ -136,7 +136,7 @@ func micrositeBuildOps(deps usecase.MicrositeDeps) []fp.Op {
 			Invoke:      createMicrosite(deps),
 		},
 		{
-			ID: "microsite.write_file",
+			ID: "microsite.write_file", Danger: fp.DangerWrite,
 			Description: "Add or overwrite one source file in the page's draft. Call " +
 				"microsite.guide first: it gives the design system, the SDK widgets to import, " +
 				"and how to show corpus inline instead of linking away.",
@@ -154,7 +154,7 @@ func micrositeBuildOps(deps usecase.MicrositeDeps) []fp.Op {
 			Invoke:      getMicrositeDraft(deps),
 		},
 		{
-			ID: "microsite.build",
+			ID: "microsite.build", Danger: fp.DangerSpend,
 			Description: "Build the current draft. The builder is asynchronous — poll the " +
 				"returned build id with microsite.get_build.",
 			InputSchema: pageSlugSchema,
@@ -163,7 +163,7 @@ func micrositeBuildOps(deps usecase.MicrositeDeps) []fp.Op {
 			Invoke:      buildMicrosite(deps),
 		},
 		{
-			ID:          "microsite.promote_to_staging",
+			ID: "microsite.promote_to_staging", Danger: fp.DangerWrite,
 			Description: "Put a finished build on staging, where only the owner can see it.",
 			InputSchema: pagePromoteSchema,
 			Kind:        fp.Action,
@@ -171,7 +171,7 @@ func micrositeBuildOps(deps usecase.MicrositeDeps) []fp.Op {
 			Invoke:      promoteMicrosite(deps, usecase.PromoteToStaging, "promote to staging"),
 		},
 		{
-			ID:          "microsite.promote_to_live",
+			ID: "microsite.promote_to_live", Danger: fp.DangerWrite,
 			Description: "Put a finished build live, where visitors see it.",
 			InputSchema: pagePromoteSchema,
 			Kind:        fp.Action,

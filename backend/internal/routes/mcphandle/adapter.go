@@ -32,10 +32,13 @@ const PanicResultMarker = "internal error: block handler panicked"
 // each binding into the mcp-go server. If corpus / page / job-loop etc.
 // also have an MCP face, it automatically shows up in the owner MCP's
 // tools/list.
-func registerBlocks(srv *server.MCPServer, reg *registry.Registry, log *slog.Logger) {
+func registerBlocks(
+	srv *server.MCPServer, reg *registry.Registry, dangers toolDangers, log *slog.Logger,
+) {
 	for _, b := range reg.OwnerMCPBindings() {
 		mcpTool := mcpgo.NewToolWithRawSchema(b.Name, b.Description, b.InputSchema)
-		srv.AddTool(mcpTool, wrapBlockHandler(b.Handler, b.Name, log))
+		srv.AddTool(mcpTool,
+			dangers.guard(b.Name, b.Danger, wrapBlockHandler(b.Handler, b.Name, log)))
 	}
 }
 

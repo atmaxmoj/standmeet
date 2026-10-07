@@ -51,7 +51,7 @@ func accountReadOps(deps *AccountDeps) []fp.Op {
 			Invoke:      readMe(deps.Account, deps.EmailChange.Jobs),
 		},
 		{
-			ID:          "account.set_full_name",
+			ID: "account.set_full_name", Danger: fp.DangerWrite,
 			Description: "Change the owner's display name.",
 			InputSchema: fullNameSchema,
 			Kind:        fp.Action,
@@ -59,7 +59,7 @@ func accountReadOps(deps *AccountDeps) []fp.Op {
 			Invoke:      setFullName(deps.Account),
 		},
 		{
-			ID: "account.set_timezone",
+			ID: "account.set_timezone", Danger: fp.DangerWrite,
 			Description: "Set the owner's IANA timezone (e.g. America/New_York). Blocks " +
 				"that reason about time of day — booking hours, for one — read it from here; " +
 				"it is the owner's profile, not any one block's setting.",
@@ -77,7 +77,7 @@ func accountCredentialOps(deps *AccountDeps) []fp.Op {
 	credentialed := func(why string) fp.Reach { return fp.Only(why, "admin") }
 	return []fp.Op{
 		{
-			ID: "account.change_email",
+			ID: "account.change_email", Danger: fp.DangerAuthority,
 			Description: "Change the login email. Requires the current password; panel-only " +
 				"because it carries a raw credential.",
 			InputSchema: changeEmailSchema,
@@ -88,7 +88,7 @@ func accountCredentialOps(deps *AccountDeps) []fp.Op {
 			Invoke: changeEmail(deps.EmailChange),
 		},
 		{
-			ID: "account.cancel_email_change",
+			ID: "account.cancel_email_change", Danger: fp.DangerWrite,
 			Description: "Drop a pending email change. The confirmation link in the message " +
 				"that was already sent stops working.",
 			InputSchema: noArgs,
@@ -97,7 +97,7 @@ func accountCredentialOps(deps *AccountDeps) []fp.Op {
 			Invoke:      cancelEmailChange(deps.EmailChange),
 		},
 		{
-			ID: "account.change_password",
+			ID: "account.change_password", Danger: fp.DangerCredential,
 			Description: "Change the login password. Requires the current password; " +
 				"panel-only because it carries raw credentials.",
 			InputSchema: changePasswordSchema,
@@ -106,7 +106,7 @@ func accountCredentialOps(deps *AccountDeps) []fp.Op {
 			Invoke:      changePassword(deps.Account),
 		},
 		{
-			ID: "account.generate_recovery",
+			ID: "account.generate_recovery", Danger: fp.DangerCredential,
 			Description: "Mint a new account-recovery phrase. Only its hash is stored; the " +
 				"phrase itself is sent to the owner.",
 			InputSchema: noArgs,

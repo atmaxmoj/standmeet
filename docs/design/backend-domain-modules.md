@@ -333,7 +333,19 @@ audited, never guaranteed. The gate — `routes/*` may reach capability only thr
 needs a shrink-only baseline (the repo's usual ratchet): the 56 go in, a NEW direct reach is red
 immediately, and each migrated resource deletes a line until the baseline file is deleted.
 
-## Owed: a generated fan-out makes omission impossible — and mis-exposure easy
+## Settled 2026-10-07: a generated fan-out makes omission impossible — and mis-exposure easy
+
+**Resolution (refactor ledger R7 + R8).** Every op carries a danger class (`facadeparity.Danger`:
+read / write / destructive / credential / authority / spend / egress). Read and query ops are
+`read` by their Kind. An action must declare its class; the dispatcher's `Conform` reports an
+undeclared or unknown class as `unclassified`, so the default is not "publish". Plugin owner tools
+declare `danger:` in the manifest; the jobs fibers declare it on their `registry.MCPBinding`.
+An owner keypair carries `scopes`, a set of classes. A key made before this has every class. The
+owner MCP face lists only the tools in the key's scopes (mcp-go `WithToolFilter`) and refuses a call
+outside them with the class it needed (`routes/mcphandle/scopes.go`). A tool with no class is open
+only to a key with every class. The admin form offers three presets: everything, read only, and
+read + write content. The admin HTTP face keeps the session's full reach: a session is short-lived
+and not pasted into a third-party client. The history below is how the classes were chosen.
 
 Flagged by the owner while designing the dispatcher: **"if the API is just exposed bare like this,
 exposing some of these operations is quite dangerous for the user."**

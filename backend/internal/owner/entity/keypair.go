@@ -26,6 +26,8 @@ type Keypair struct {
 	KeyID        string
 	PublicKeyPEM string
 	Label        string
+	// Scopes —— the danger classes (facadeparity.Danger) this key may use on the owner MCP face.
+	Scopes []string
 }
 
 // KeypairMetadata —— for the admin list: drops PEM + ownerID, keeps only
@@ -42,4 +44,5 @@ type KeypairMetadata struct {
 	ID                string
 	KeyID             string
 	Label             string
+	Scopes            []string
 }

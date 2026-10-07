@@ -27,7 +27,7 @@ func micrositeStoreOps(deps usecase.MicrositeDeps) []fp.Op {
 			Invoke:      listMicrositeDocs(deps),
 		},
 		{
-			ID:          "microsite.store_delete_doc",
+			ID: "microsite.store_delete_doc", Danger: fp.DangerDestructive,
 			Description: "Delete one document from a page's data store by its record id.",
 			InputSchema: micrositeStoreDocRefSchema,
 			Kind:        fp.Action,
@@ -35,7 +35,7 @@ func micrositeStoreOps(deps usecase.MicrositeDeps) []fp.Op {
 			Invoke:      deleteMicrositeDoc(deps),
 		},
 		{
-			ID: "microsite.store_approve",
+			ID: "microsite.store_approve", Danger: fp.DangerWrite,
 			Description: "Approve one document that waits for review (its _status is " +
 				"\"pending\"); visitors and the agent see it from now on.",
 			InputSchema: micrositeStoreDocRefSchema,
@@ -52,7 +52,7 @@ func micrositeStoreOps(deps usecase.MicrositeDeps) []fp.Op {
 			Invoke:      getMicrositeStorePolicy(deps),
 		},
 		{
-			ID: "microsite.set_store_policy",
+			ID: "microsite.set_store_policy", Danger: fp.DangerAuthority,
 			Description: "Set a page store's rules: max_docs (how many documents it may hold, " +
 				"default 500) and review (true: a new document waits for your approval before " +
 				"visitors see it; default false). Omitted fields stay as they are.",
@@ -62,7 +62,7 @@ func micrositeStoreOps(deps usecase.MicrositeDeps) []fp.Op {
 			Invoke:      setMicrositeStorePolicy(deps),
 		},
 		{
-			ID: "microsite.store_clear",
+			ID: "microsite.store_clear", Danger: fp.DangerDestructive,
 			Description: "Clear a page's data store — every document goes. The next visitor " +
 				"write re-creates the store empty.",
 			InputSchema: pageSlugSchema,

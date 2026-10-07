@@ -118,7 +118,11 @@
   "newToken": {
     "label": "generate key",
     "submit": "generate",
-    "namePlaceholder": "डिवाइस लेबल — जैसे 'mojat-mbp'"
+    "namePlaceholder": "डिवाइस लेबल — जैसे 'mojat-mbp'",
+    "scope": "यह key क्या कर सकती है",
+    "scopeFull": "सब कुछ",
+    "scopeRead": "सिर्फ़ पढ़ना",
+    "scopeContent": "कंटेंट पढ़ना और लिखना — हटाना, keys, शेयर करना या भेजना नहीं"
   },
   "newlyCreated": {
     "warning": "save these now — the private key is shown only once",
@@ -132,6 +136,7 @@
     "never": "never",
     "lastFrom": "{device} · {ip}",
     "algo": "ed25519",
+    "scopes": "कर सकती है: {list}",
     "revoke": "revoke",
     "keyId": "key id",
     "deletedToast": "कुंजी हटाई गई"

@@ -21,7 +21,7 @@ const masterIDProp = `"master_id":{"type":"string",` +
 func (c *resumeFiber) masterBindings() []*registry.MCPBinding {
 	return []*registry.MCPBinding{
 		{
-			Name: "resume.master_list",
+			Name: "resume.master_list", Danger: "read",
 			Description: "List résumé masters (named, persistent résumés; drafts start " +
 				"from one), newest first, paged: {items, next_cursor, total}.",
 			InputSchema: paging.Schema(nil),
@@ -29,13 +29,14 @@ func (c *resumeFiber) masterBindings() []*registry.MCPBinding {
 		},
 		{
 			Name:        "resume.master_get",
+			Danger:      "read",
 			Description: "One résumé master with its resume_content.",
 			InputSchema: json.RawMessage(`{"type":"object","properties":{` + masterIDProp +
 				`},"required":["master_id"]}`),
 			Handler: c.handleMasterGet,
 		},
 		{
-			Name: "resume.master_create",
+			Name: "resume.master_create", Danger: "write",
 			Description: "Create a résumé master: from a draft's content (draft_id), from " +
 				"resume_content, or blank. is_default makes it the one default.",
 			InputSchema: json.RawMessage(`{"type":"object","properties":{
@@ -47,7 +48,7 @@ func (c *resumeFiber) masterBindings() []*registry.MCPBinding {
 			Handler: c.handleMasterCreate,
 		},
 		{
-			Name: "resume.master_update",
+			Name: "resume.master_update", Danger: "write",
 			Description: "Rename a master, replace its resume_content, and/or set is_default " +
 				"(true makes it the one default). Omitted fields stay as they are.",
 			InputSchema: json.RawMessage(`{"type":"object","properties":{` + masterIDProp + `,
@@ -58,7 +59,7 @@ func (c *resumeFiber) masterBindings() []*registry.MCPBinding {
 			Handler: c.handleMasterUpdate,
 		},
 		{
-			Name: "resume.master_delete",
+			Name: "resume.master_delete", Danger: "destructive",
 			Description: "Delete a master (idempotent). Drafts based on it keep their content " +
 				"and stop naming it.",
 			InputSchema: json.RawMessage(`{"type":"object","properties":{` + masterIDProp +
@@ -66,7 +67,7 @@ func (c *resumeFiber) masterBindings() []*registry.MCPBinding {
 			Handler: c.handleMasterDelete,
 		},
 		{
-			Name: "resume.draft_save_as_master",
+			Name: "resume.draft_save_as_master", Danger: "write",
 			Description: "Save a draft's resume_content as a master: overwrite master_id, or " +
 				"create a new master called name. The draft is unchanged.",
 			InputSchema: json.RawMessage(`{"type":"object","properties":{

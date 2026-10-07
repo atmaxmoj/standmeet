@@ -45,7 +45,7 @@ func blockPanelOps(d *deps.Runtime) []fp.Op {
 			Invoke:      listBlocks(ops),
 		},
 		{
-			ID: "blocks.set_enabled",
+			ID: "blocks.set_enabled", Danger: fp.DangerAuthority,
 			Description: "Enable or disable one row. A disabled block never enters " +
 				"a visitor session, even when a role attaches it.",
 			InputSchema: blockEnabledSchema,
@@ -54,7 +54,7 @@ func blockPanelOps(d *deps.Runtime) []fp.Op {
 			Invoke:      setBlockEnabled(ops),
 		},
 		{
-			ID: "blocks.delete",
+			ID: "blocks.delete", Danger: fp.DangerDestructive,
 			Description: "Remove a block the owner added: an installed block is " +
 				"uninstalled, an owner-authored skill row is deleted. Built-in blocks " +
 				"and managed suppliers cannot be removed.",

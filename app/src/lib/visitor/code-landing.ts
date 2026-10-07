@@ -20,9 +20,13 @@ export interface Landing {
   href: string;
 }
 
-// landAfterIssue —— the pure decision. micrositeSlug wins (full nav); else the
+// landAfterIssue —— the pure decision. A visitor who gives their name inside this code's own room
+// (`/c/<slug>`, e.g. back after their session lapsed) stays there: that room is where their
+// conversation is, and sending them to the code's microsite left them looking at an empty chat
+// (sijie.xyz, 2026-10-07: "怎么找我的历史"). Otherwise micrositeSlug wins (full nav); else the
 // code's own slug drives an in-place rewrite; empty both → nothing.
-export function landAfterIssue(micrositeSlug: string, codeSlug: string): Landing {
+export function landAfterIssue(micrositeSlug: string, codeSlug: string, currentPath = ''): Landing {
+  if (codeSlug !== '' && currentPath === `/c/${codeSlug}`) return { kind: 'none', href: '' };
   if (micrositeSlug !== '') return { kind: 'nav', href: `/p/${micrositeSlug}` };
   if (codeSlug !== '') return { kind: 'rewrite', href: `/c/${codeSlug}` };
   return { kind: 'none', href: '' };

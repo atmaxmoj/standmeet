@@ -34,7 +34,7 @@ func newSupplierOps(d *deps.Runtime) supplierOps {
 func supplierWriteOps(ops supplierOps) []fp.Op {
 	return []fp.Op{
 		{
-			ID: "suppliers.create",
+			ID: "suppliers.create", Danger: fp.DangerCredential,
 			Description: "Create a supplier. kind 'credential' builds a token-only supplier " +
 				"(explicit seam); otherwise uploads an openapi supplier from a spec + JSONata " +
 				"binding.",
@@ -44,7 +44,7 @@ func supplierWriteOps(ops supplierOps) []fp.Op {
 			Invoke:      createSupplier(ops),
 		},
 		{
-			ID: "suppliers.update",
+			ID: "suppliers.update", Danger: fp.DangerCredential,
 			Description: "Edit an uploaded openapi supplier's spec + binding (built-in " +
 				"suppliers are read-only).",
 			InputSchema: supplierUpdateSchema,
@@ -53,7 +53,7 @@ func supplierWriteOps(ops supplierOps) []fp.Op {
 			Invoke:      updateSupplier(ops),
 		},
 		{
-			ID: "suppliers.delete",
+			ID: "suppliers.delete", Danger: fp.DangerDestructive,
 			Description: "Delete an owner-built supplier (built-in suppliers are " +
 				"read-only and cannot be deleted).",
 			InputSchema: supplierIDSchema,
@@ -62,7 +62,7 @@ func supplierWriteOps(ops supplierOps) []fp.Op {
 			Invoke:      supplierIDAction(ops.svc.Delete, "delete supplier"),
 		},
 		{
-			ID:          "suppliers.activate",
+			ID: "suppliers.activate", Danger: fp.DangerAuthority,
 			Description: "Activate a supplier into its seam slot (make it the active one).",
 			InputSchema: supplierIDSchema,
 			Kind:        fp.Action,
@@ -70,7 +70,7 @@ func supplierWriteOps(ops supplierOps) []fp.Op {
 			Invoke:      supplierIDAction(ops.svc.Activate, "activate supplier"),
 		},
 		{
-			ID: "suppliers.disconnect",
+			ID: "suppliers.disconnect", Danger: fp.DangerDestructive,
 			Description: "Soft-disconnect a supplier (clear tokens; keep credentials). A " +
 				"connected sibling on the same seam is promoted to active if one exists.",
 			InputSchema: supplierIDSchema,
@@ -79,7 +79,7 @@ func supplierWriteOps(ops supplierOps) []fp.Op {
 			Invoke:      supplierIDAction(ops.svc.Disconnect, "disconnect supplier"),
 		},
 		{
-			ID: "suppliers.validate_spec",
+			ID: "suppliers.validate_spec", Danger: fp.DangerWrite,
 			Description: "Validate an OpenAPI spec (inline text or fetched from a URL) before " +
 				"creating a supplier. Returns a candidate title + derived auth forms, or a " +
 				"human-readable rejection reason.",

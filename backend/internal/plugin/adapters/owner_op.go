@@ -27,6 +27,7 @@ type OwnerOp struct {
 	Name        string
 	Op          string
 	Description string
+	Danger      string // the declared blast radius (manifest `danger:`)
 	InputSchema json.RawMessage
 }
 
@@ -68,7 +69,7 @@ var renderableFieldTypes = map[string]bool{"string": true, "integer": true, "num
 // box was missing — F-C-17. A skip has to be **loud**: at load time, ValidateOpSchema outright
 // rejects a field that can't be derived, the same discipline as "a declared but unimplemented
 // op crashes on boot".
-func (o OwnerOp) Fields() []OpField {
+func (o *OwnerOp) Fields() []OpField {
 	var decl opSchemaDecl
 	if err := json.Unmarshal(o.InputSchema, &decl); err != nil {
 		return []OpField{}
@@ -121,7 +122,7 @@ func orderFields(props map[string]opPropDecl, required map[string]bool) []OpFiel
 // should crash on boot, not leave the owner staring at a form missing a field (F-C-17). A
 // broken schema itself isn't this function's concern (the loader validates the JSON first); if
 // it can't be parsed, treat it as declaring no fields.
-func (o OwnerOp) UnrenderableFields() []string {
+func (o *OwnerOp) UnrenderableFields() []string {
 	var decl opSchemaDecl
 	if err := json.Unmarshal(o.InputSchema, &decl); err != nil {
 		return []string{}

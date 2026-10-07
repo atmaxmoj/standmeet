@@ -53,7 +53,7 @@ func writingsCreateOp(deps WritingsDeps) fp.Op {
 		// shipped. It genuinely is inconsistent with the neighboring writings.list /
 		// publish / delete, but the cost of a rename falls on every caller, while
 		// consistency is only cosmetic. (Same story for prompt_create / role_create.)
-		ID: "writing_create",
+		ID: "writing_create", Danger: fp.DangerWrite,
 		Description: "Write a long-form piece to the owner's /writings, or update one by " +
 			"passing writing_id. body_md is GitHub-flavored markdown; publish=true makes it " +
 			"visible immediately, otherwise draft. Inline images go in `files` as " +

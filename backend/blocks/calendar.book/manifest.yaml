@@ -73,6 +73,7 @@ transport:
 owner_tools:
   - name: calendar.list_slots
     tool: calendar_list_slots
+    danger: read
     description: >-
       Enumerate available [start, end] slots that pass booking policy (weekday +
       working_hours + min_lead_days) AND don't overlap any FreeBusy window. Returns up
@@ -94,6 +95,7 @@ owner_tools:
       }
   - name: bookings.list
     tool: bookings_list
+    danger: read
     description: >-
       List the owner's confirmed bookings, newest first, each with its booking id.
     input_schema: |
@@ -105,6 +107,7 @@ owner_tools:
       }
   - name: calendar.cancel_booking
     tool: calendar_cancel_booking
+    danger: destructive
     description: >-
       Cancel one of the owner's bookings by its booking id: removes the calendar event
       and the stored booking record.

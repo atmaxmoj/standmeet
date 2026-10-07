@@ -34,7 +34,7 @@ func Embeds(d EmbedsDeps) []fp.Op {
 			Invoke:      listEmbeds(d),
 		},
 		{
-			ID: "embeds.create",
+			ID: "embeds.create", Danger: fp.DangerCredential,
 			Description: "Create an embed widget that exposes a code as a <standmeet-chat> " +
 				"drop-in, optionally restricted to a set of origins.",
 			InputSchema: embedCreateSchema,
@@ -43,7 +43,7 @@ func Embeds(d EmbedsDeps) []fp.Op {
 			Invoke:      createEmbed(d),
 		},
 		{
-			ID: "embeds.update",
+			ID: "embeds.update", Danger: fp.DangerAuthority,
 			Description: "Update an embed's label, allowed origins and update hook URL. " +
 				"Fields left out stay as they are.",
 			InputSchema: embedUpdateSchema,
@@ -52,7 +52,7 @@ func Embeds(d EmbedsDeps) []fp.Op {
 			Invoke:      updateEmbed(d),
 		},
 		{
-			ID:          "embeds.delete",
+			ID: "embeds.delete", Danger: fp.DangerDestructive,
 			Description: "Delete an embed (the code it exposed is left intact).",
 			InputSchema: embedIDSchema,
 			Kind:        fp.Action,

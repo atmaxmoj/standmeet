@@ -167,7 +167,7 @@ func revokeCode(deps usecase.CodesDeps) fp.Invoke {
 // rotateOp — codes.rotate. Lives here (not codeCoreOps) to keep codes.go under its line budget.
 func rotateOp(d *CodesDeps) fp.Op {
 	return fp.Op{
-		ID: "codes.rotate",
+		ID: "codes.rotate", Danger: fp.DangerCredential,
 		Description: "Rotate a code's STRING (leak recovery). The new string replaces the old; " +
 			"anything keyed on the code id (embeds, application rows) keeps working, but every " +
 			"already-distributed copy of the OLD string — a résumé PDF/QR sent, a shared ?code= " +

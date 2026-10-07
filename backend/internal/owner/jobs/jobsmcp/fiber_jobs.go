@@ -65,7 +65,7 @@ func (c *jobsFiber) OwnerMCPBindings() []*registry.MCPBinding {
 
 func (c *jobsFiber) registerSourceBinding() *registry.MCPBinding {
 	return &registry.MCPBinding{
-		Name: "jobs.register_source",
+		Name: "jobs.register_source", Danger: "write",
 		Description: "Register a job source. kind ∈ greenhouse|lever|ashby|remoteok|wwr|" +
 			"hn_hiring|smartrecruiters|workable. config: {company} for ats; " +
 			"{categories:[]} for wwr; {} for remoteok / hn_hiring.",
@@ -128,6 +128,7 @@ func parseRegisterSourceCapArgs(
 func (c *jobsFiber) listSourcesBinding() *registry.MCPBinding {
 	return &registry.MCPBinding{
 		Name:        "jobs.list_sources",
+		Danger:      "read",
 		Description: "List all job sources the owner has registered.",
 		InputSchema: json.RawMessage(`{"type":"object","properties":{}}`),
 		Handler:     c.handleListSources,
@@ -154,6 +155,7 @@ func (c *jobsFiber) handleListSources(
 func (c *jobsFiber) unregisterSourceBinding() *registry.MCPBinding {
 	return &registry.MCPBinding{
 		Name:        "jobs.unregister_source",
+		Danger:      "destructive",
 		Description: "Delete a registered job source (and its dedup fingerprints).",
 		InputSchema: json.RawMessage(`{
 			"type":"object",
@@ -196,6 +198,7 @@ func (c *jobsFiber) handleUnregisterSource(
 func (c *jobsFiber) showBinding() *registry.MCPBinding {
 	return &registry.MCPBinding{
 		Name:        "jobs.show",
+		Danger:      "read",
 		Description: "Look up a job by cache_id; returns full JD body.",
 		InputSchema: json.RawMessage(`{
 			"type":"object",
@@ -234,6 +237,7 @@ func (c *jobsFiber) handleShow(
 func (c *jobsFiber) discardBinding() *registry.MCPBinding {
 	return &registry.MCPBinding{
 		Name:        "jobs.discard",
+		Danger:      "write", // a pool row expires in a day anyway
 		Description: "Drop a job from the cache pool (owner reviewed and rejected).",
 		InputSchema: json.RawMessage(`{
 			"type":"object",

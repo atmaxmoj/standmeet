@@ -24,7 +24,7 @@ func publicPolicyOps(chats *repo.ChatRepo) []fp.Op {
 			Invoke:      getPublicPolicy(chats),
 		},
 		{
-			ID: "conversations.public_policy_set",
+			ID: "conversations.public_policy_set", Danger: fp.DangerAuthority,
 			Description: "Set how codeless (public/byoai) conversations are kept: save=false " +
 				"stops storing them; prune_cron deletes those idle > retention_days. " +
 				"Coded conversations are never affected.",

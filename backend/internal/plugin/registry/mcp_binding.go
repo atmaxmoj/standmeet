@@ -20,6 +20,10 @@ type MCPBinding struct {
 	Handler     MCPHandler
 	Name        string
 	Description string
+	// Danger —— the tool's class (facadeparity.Danger as a string: read / write / destructive /
+	// credential / authority / spend / egress). A key reaches the tool only with that scope; ""
+	// means only a key with every class does.
+	Danger      string
 	InputSchema json.RawMessage
 }
 

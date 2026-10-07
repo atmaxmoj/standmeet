@@ -66,21 +66,24 @@ func webhookReads(d *usecase.WebhooksDeps) []fp.Op {
 func webhookWrites(d *usecase.WebhooksDeps) []fp.Op {
 	return []fp.Op{
 		{
-			ID: "webhooks.create", Kind: fp.Action, Reach: fp.OwnerAction(),
+			ID: "webhooks.create", Kind: fp.Action,
+			Danger: fp.DangerCredential, Reach: fp.OwnerAction(),
 			InputSchema: webhookCreateSchema,
 			Description: "Add a webhook endpoint. Returns its signing secret (whsec_…) once; " +
 				"store it, it is not shown again.",
 			Invoke: createWebhook(d),
 		},
 		{
-			ID: "webhooks.update", Kind: fp.Action, Reach: fp.OwnerAction(),
+			ID: "webhooks.update", Kind: fp.Action,
+			Danger: fp.DangerEgress, Reach: fp.OwnerAction(),
 			InputSchema: webhookUpdateSchema,
 			Description: "Change an endpoint's URL, event types or description, or turn it " +
 				"off and on.",
 			Invoke: updateWebhook(d),
 		},
 		{
-			ID: "webhooks.delete", Kind: fp.Action, Reach: fp.OwnerAction(),
+			ID: "webhooks.delete", Kind: fp.Action,
+			Danger: fp.DangerDestructive, Reach: fp.OwnerAction(),
 			InputSchema: webhookIDSchema,
 			Description: "Remove a webhook endpoint. Its queued deliveries are dropped.",
 			Invoke: withWebhookID(func(ctx context.Context, owner, id string) (flagOut, error) {
@@ -88,7 +91,8 @@ func webhookWrites(d *usecase.WebhooksDeps) []fp.Op {
 			}),
 		},
 		{
-			ID: "webhooks.rotate_secret", Kind: fp.Action, Reach: fp.OwnerAction(),
+			ID: "webhooks.rotate_secret", Kind: fp.Action,
+			Danger: fp.DangerCredential, Reach: fp.OwnerAction(),
 			InputSchema: webhookIDSchema,
 			Description: "Replace an endpoint's signing secret. Returns the new secret once.",
 			Invoke: withWebhookID(func(ctx context.Context, owner, id string) (textOut, error) {
@@ -97,7 +101,8 @@ func webhookWrites(d *usecase.WebhooksDeps) []fp.Op {
 			}),
 		},
 		{
-			ID: "webhooks.send_test", Kind: fp.Action, Reach: fp.OwnerAction(),
+			ID: "webhooks.send_test", Kind: fp.Action,
+			Danger: fp.DangerEgress, Reach: fp.OwnerAction(),
 			InputSchema: webhookIDSchema,
 			Description: "Send a webhook.test event to this endpoint only. The delivery log " +
 				"shows whether it arrived.",
@@ -107,7 +112,8 @@ func webhookWrites(d *usecase.WebhooksDeps) []fp.Op {
 			}),
 		},
 		{
-			ID: "webhooks.redeliver", Kind: fp.Action, Reach: fp.OwnerAction(),
+			ID: "webhooks.redeliver", Kind: fp.Action,
+			Danger: fp.DangerEgress, Reach: fp.OwnerAction(),
 			InputSchema: webhookIDSchema,
 			Description: "Deliver again every discarded delivery of this endpoint (after the " +
 				"receiver is fixed).",

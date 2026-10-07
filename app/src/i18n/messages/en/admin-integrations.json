@@ -118,7 +118,11 @@
   "newToken": {
     "label": "generate key",
     "submit": "generate",
-    "namePlaceholder": "device label — e.g. 'mojat-mbp'"
+    "namePlaceholder": "device label — e.g. 'mojat-mbp'",
+    "scope": "what this key may do",
+    "scopeFull": "everything",
+    "scopeRead": "read only",
+    "scopeContent": "read and write content — no deleting, keys, sharing or sending"
   },
   "newlyCreated": {
     "warning": "save these now — the private key is shown only once",
@@ -132,6 +136,7 @@
     "never": "never",
     "lastFrom": "{device} · {ip}",
     "algo": "ed25519",
+    "scopes": "may: {list}",
     "revoke": "revoke",
     "keyId": "key id",
     "deletedToast": "Key deleted"

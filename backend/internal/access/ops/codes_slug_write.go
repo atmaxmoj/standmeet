@@ -12,7 +12,7 @@ import (
 
 func setSlugOp(d *CodesDeps) fp.Op {
 	return fp.Op{
-		ID: "codes.set_slug",
+		ID: "codes.set_slug", Danger: fp.DangerAuthority,
 		Description: "Rename a code's landing path: a visitor who redeems the code lands on " +
 			"/c/<slug>. The code string, its grant and its live sessions are unchanged.",
 		InputSchema: codeSlugSchema,

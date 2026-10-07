@@ -27,7 +27,7 @@ import (
 func CorpusWrites(deps usecase.Deps) []fp.Op {
 	return []fp.Op{
 		{
-			ID: "corpus.create",
+			ID: "corpus.create", Danger: fp.DangerWrite,
 			Description: "Create a corpus entry. genre 'raw' takes a body (a rough dump, no " +
 				"title); 'wiki' and 'output' take a title plus body, and their address is " +
 				"derived from the title and the tree — never set by hand.",
@@ -37,7 +37,7 @@ func CorpusWrites(deps usecase.Deps) []fp.Op {
 			Invoke:      createCorpus(deps),
 		},
 		{
-			ID: "corpus.update",
+			ID: "corpus.update", Danger: fp.DangerWrite,
 			Description: "Update a corpus entry in place: body, tags, title, parent, and the " +
 				"show_as_source switch. Omitted fields are replaced, so send the whole entry — " +
 				"except parent_id and the cover_* fields, which are left alone when omitted " +
@@ -48,7 +48,7 @@ func CorpusWrites(deps usecase.Deps) []fp.Op {
 			Invoke:      updateCorpus(deps),
 		},
 		{
-			ID: "corpus.delete",
+			ID: "corpus.delete", Danger: fp.DangerDestructive,
 			Description: "Delete a corpus entry of any genre (raw / wiki / output / " +
 				"subjectivity), along with the files attached to it. This cannot be undone.",
 			InputSchema: corpusGetSchema,
@@ -57,7 +57,7 @@ func CorpusWrites(deps usecase.Deps) []fp.Op {
 			Invoke:      deleteCorpus(deps),
 		},
 		{
-			ID: "corpus.promote",
+			ID: "corpus.promote", Danger: fp.DangerWrite,
 			Description: "Promote an entry one step along raw → wiki → output: genre names the " +
 				"SOURCE. The new entry records where it came from, and inherits the source's " +
 				"tags on top of any given here.",

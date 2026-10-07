@@ -47,7 +47,7 @@ func BlockConfigResource(d *deps.Runtime) dispatcher.Resource {
 			Invoke:      getBlockConfig(ops),
 		},
 		{
-			ID: "block_config.set",
+			ID: "block_config.set", Danger: fp.DangerCredential,
 			Description: "Set one block's settings. Only keys the block declares are " +
 				"accepted; anything else is rejected rather than stored and ignored.",
 			InputSchema: blockConfigSetSchema,

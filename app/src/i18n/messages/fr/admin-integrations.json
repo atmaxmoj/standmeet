@@ -118,7 +118,11 @@
   "newToken": {
     "label": "générer une clé",
     "submit": "générer",
-    "namePlaceholder": "libellé de l’appareil — p. ex. 'mojat-mbp'"
+    "namePlaceholder": "libellé de l’appareil — p. ex. 'mojat-mbp'",
+    "scope": "ce que cette clé peut faire",
+    "scopeFull": "tout",
+    "scopeRead": "lecture seule",
+    "scopeContent": "lire et écrire le contenu — sans suppression, clés, partage ni envoi"
   },
   "newlyCreated": {
     "warning": "enregistrez-les maintenant — la clé privée n'est affichée qu'une seule fois",
@@ -132,6 +136,7 @@
     "never": "jamais",
     "lastFrom": "{device} · {ip}",
     "algo": "ed25519",
+    "scopes": "peut : {list}",
     "revoke": "révoquer",
     "keyId": "id de clé",
     "deletedToast": "Clé supprimée"

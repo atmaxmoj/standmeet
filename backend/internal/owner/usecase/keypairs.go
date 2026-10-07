@@ -55,13 +55,14 @@ type NonceStore interface {
 type CreateKeypairInputReq struct {
 	OwnerID string
 	Label   string
+	Scopes  []string // danger classes; empty = every class
 }
 
 // CreatedKeypair — Create's result (includes PrivateKeyPEM, **returned only once, at
 // creation time**).
 type CreatedKeypair struct {
-	Record        entity.Keypair
 	PrivateKeyPEM string
+	Record        entity.Keypair
 }
 
 // CreateKeypair — the server generates an Ed25519 keypair, persists the public key, and
@@ -69,8 +70,9 @@ type CreatedKeypair struct {
 func CreateKeypair(
 	ctx context.Context, deps KeypairDeps, in *CreateKeypairInputReq,
 ) (CreatedKeypair, error) {
-	if in.OwnerID == "" || in.Label == "" {
-		return CreatedKeypair{}, apierr.ErrEmptyField
+	scopes, serr := checkCreateInput(in)
+	if serr != nil {
+		return CreatedKeypair{}, serr
 	}
 	pems, gerr := generateKeypairPEMs()
 	if gerr != nil {
@@ -78,7 +80,7 @@ func CreateKeypair(
 	}
 	rec, err := deps.Repo.Create(ctx, &repo.CreateKeypairInput{
 		OwnerID: in.OwnerID, KeyID: uuid.NewString(),
-		PublicKeyPEM: pems.PublicPEM, Label: in.Label,
+		PublicKeyPEM: pems.PublicPEM, Label: in.Label, Scopes: scopes,
 	})
 	if err != nil {
 		return CreatedKeypair{}, fmt.Errorf("persist keypair: %w", err)
@@ -174,18 +176,20 @@ func ensureKeypairOwned(
 //  5. First-seen nonce check (Redis, defends against replay within the window; fail-closed)
 //  6. Touch last_used_at (best effort, log only on failure)
 //
-// Returns (ownerID, nil) on success; (empty, ErrKeypairUnauthorized) if any step fails.
+// Returns the owner and the key's scopes on success; ErrKeypairUnauthorized if any step fails.
 // A bound signature (`v=2`) must cover exactly the request's method, path and body (refactor
 // ledger R6: an unbound header could be lifted onto any other request to the full-power endpoint
 // within the skew window). The unbound form is still accepted for clients that predate it, with a
 // warning naming the key; it goes once those have updated.
-func VerifySigv1(ctx context.Context, deps KeypairDeps, req *SignedRequest) (string, error) {
+func VerifySigv1(
+	ctx context.Context, deps KeypairDeps, req *SignedRequest,
+) (VerifiedKey, error) {
 	parsed, perr := parseSigv1Header(req.Header)
 	if perr != nil {
-		return "", entity.ErrKeypairUnauthorized
+		return VerifiedKey{}, entity.ErrKeypairUnauthorized
 	}
 	if !withinSkew(parsed.ts) {
-		return "", entity.ErrKeypairUnauthorized
+		return VerifiedKey{}, entity.ErrKeypairUnauthorized
 	}
 	return verifyParsedSig(ctx, deps, &parsed, req)
 }

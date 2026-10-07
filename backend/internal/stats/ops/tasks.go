@@ -89,18 +89,21 @@ func Tasks(d TasksDeps) []fp.Op {
 			Invoke: tasksPeriodic(d),
 		},
 		{
-			ID: "tasks.retry", Kind: fp.Action, Reach: fp.OwnerAction(), InputSchema: taskIDSchema,
+			ID: "tasks.retry", Kind: fp.Action,
+			Danger: fp.DangerSpend, Reach: fp.OwnerAction(), InputSchema: taskIDSchema,
 			Description: "Run a job again now (a failed, discarded or waiting one).",
 			Invoke:      taskAction(d, d.Jobs.Retry),
 		},
 		{
-			ID: "tasks.cancel", Kind: fp.Action, Reach: fp.OwnerAction(), InputSchema: taskIDSchema,
+			ID: "tasks.cancel", Kind: fp.Action,
+			Danger: fp.DangerWrite, Reach: fp.OwnerAction(), InputSchema: taskIDSchema,
 			Description: "Cancel a job: it will not run again and its side effect " +
 				"will not happen.",
 			Invoke: taskAction(d, d.Jobs.Cancel),
 		},
 		{
-			ID: "tasks.run_periodic", Kind: fp.Action, Reach: fp.OwnerAction(),
+			ID: "tasks.run_periodic", Kind: fp.Action,
+			Danger: fp.DangerSpend, Reach: fp.OwnerAction(),
 			InputSchema: periodicNameSchema,
 			Description: "Run a periodic job now, outside its schedule.",
 			Invoke:      runPeriodicNow(d),

@@ -118,7 +118,11 @@
   "newToken": {
     "label": "generar clave",
     "submit": "generar",
-    "namePlaceholder": "etiqueta del dispositivo — p. ej. 'mojat-mbp'"
+    "namePlaceholder": "etiqueta del dispositivo — p. ej. 'mojat-mbp'",
+    "scope": "qué puede hacer esta clave",
+    "scopeFull": "todo",
+    "scopeRead": "solo lectura",
+    "scopeContent": "leer y escribir contenido — sin borrar, claves, compartir ni enviar"
   },
   "newlyCreated": {
     "warning": "guarde estos ahora — la clave privada se muestra solo una vez",
@@ -132,6 +136,7 @@
     "never": "nunca",
     "lastFrom": "{device} · {ip}",
     "algo": "ed25519",
+    "scopes": "puede: {list}",
     "revoke": "revocar",
     "keyId": "id de clave",
     "deletedToast": "Clave eliminada"

@@ -139,7 +139,20 @@ func (d *Dispatcher) Conform() []fp.Violation {
 	for _, f := range d.faces {
 		exposures = append(exposures, fp.Exposure{Facade: f.profile, Exposed: f.served})
 	}
-	return fp.Conform(d.ParityOps(), exposures)
+	return append(fp.Conform(d.ParityOps(), exposures), d.unclassified()...)
+}
+
+// unclassified —— every action that does not declare a known danger class (danger.go). A face is
+// generated from these ops; an op with no class would be published to the long-lived-key face with
+// nothing to decide which keys may call it, so it does not boot.
+func (d *Dispatcher) unclassified() []fp.Violation {
+	out := []fp.Violation{}
+	for i := range d.ops {
+		if !fp.ValidDanger(d.ops[i].DangerOf()) {
+			out = append(out, fp.Violation{Facade: "-", OpID: d.ops[i].ID, Kind: "unclassified"})
+		}
+	}
+	return out
 }
 
 // ConformReport -- a human-readable violation report (empty string = consistent). For the

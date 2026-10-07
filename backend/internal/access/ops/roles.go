@@ -71,7 +71,7 @@ func Roles(d RolesDeps) []fp.Op {
 			Invoke:      getRole(d),
 		},
 		{
-			ID: "role_create",
+			ID: "role_create", Danger: fp.DangerAuthority,
 			Description: "Create an owner-curated Role (visitor identity archetype). " +
 				"A role bundles a Prompt (persona) + a positive-list of corpus URI globs " +
 				"+ selected skills + selected MCP servers. Issue access codes against this " +
@@ -82,7 +82,7 @@ func Roles(d RolesDeps) []fp.Op {
 			Invoke:      writeRole(d, extras, usecase.CreateRole, decodeRoleCreate),
 		},
 		{
-			ID: "role_update",
+			ID: "role_update", Danger: fp.DangerAuthority,
 			Description: "Update an owner-curated Role. Mirrors role_create fields plus " +
 				"role_id. Re-sets the prompt / corpus URIs / skills / mcp servers / " +
 				"per-role switches. Builtin (public) role can be edited but not renamed.",
@@ -92,7 +92,7 @@ func Roles(d RolesDeps) []fp.Op {
 			Invoke:      writeRole(d, extras, usecase.UpdateRole, decodeRoleUpdate),
 		},
 		{
-			ID: "role_delete",
+			ID: "role_delete", Danger: fp.DangerDestructive,
 			Description: "Delete an owner-curated role. Public builtin cannot be deleted. " +
 				"Roles in use by active codes are FK-restricted from deletion — " +
 				"reassign or revoke codes first.",
@@ -102,7 +102,7 @@ func Roles(d RolesDeps) []fp.Op {
 			Invoke:      deleteRole(d.Roles),
 		},
 		{
-			ID: "roles.set_dock_buttons",
+			ID: "roles.set_dock_buttons", Danger: fp.DangerWrite,
 			Description: "Set a role's chat dock buttons (#109/#110): at most two " +
 				"{block_id, trigger}. Clicking a button sends its trigger phrase as the " +
 				"visitor's message. block_id must be a visitor-facing block this " +

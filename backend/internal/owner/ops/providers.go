@@ -44,7 +44,7 @@ func Providers(d ProvidersDeps) []fp.Op {
 			Invoke:      listProviders(d),
 		},
 		{
-			ID: "providers.set_default",
+			ID: "providers.set_default", Danger: fp.DangerSpend,
 			Description: "Make one provider the default — the one used when neither the " +
 				"access code nor the role names another.",
 			InputSchema: providerIDSchema,
@@ -63,7 +63,7 @@ func Providers(d ProvidersDeps) []fp.Op {
 			Invoke:      listProviderModels(d.ModelLister),
 		},
 		{
-			ID: "providers.delete",
+			ID: "providers.delete", Danger: fp.DangerDestructive,
 			Description: "Delete a provider. Codes and roles pointing at it fall back to the " +
 				"default; the default itself cannot be deleted.",
 			InputSchema: providerIDSchema,
@@ -78,7 +78,7 @@ func Providers(d ProvidersDeps) []fp.Op {
 func providerWriteOps(d ProvidersDeps) []fp.Op {
 	return []fp.Op{
 		{
-			ID: "providers.create",
+			ID: "providers.create", Danger: fp.DangerCredential,
 			Description: "Add a provider to the owner's book: label, provider preset, " +
 				"endpoint, model, and the API key itself (encrypted at rest, never returned).",
 			InputSchema: providerCreateSchema,
@@ -87,7 +87,7 @@ func providerWriteOps(d ProvidersDeps) []fp.Op {
 			Invoke:      createProvider(d),
 		},
 		{
-			ID: "providers.update",
+			ID: "providers.update", Danger: fp.DangerCredential,
 			Description: "Change a provider's label / preset / endpoint / model, or set its " +
 				"gas tank (tokens; null = unmetered).",
 			InputSchema: providerUpdateSchema,

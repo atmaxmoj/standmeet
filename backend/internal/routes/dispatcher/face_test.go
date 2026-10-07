@@ -23,7 +23,10 @@ const (
 func ownerOps() dispatcher.Resource {
 	return dispatcher.Resource{Name: "things", Ops: []dispatcher.Op{
 		{ID: thingsList, Kind: fp.Read, Reach: fp.OwnerRead(), Invoke: noop},
-		{ID: "things.create", Kind: fp.Action, Reach: fp.OwnerAction(), Invoke: noop},
+		{
+			ID: "things.create", Kind: fp.Action, Danger: fp.DangerWrite,
+			Reach: fp.OwnerAction(), Invoke: noop,
+		},
 	}}
 }
 
@@ -160,7 +163,7 @@ func TestGeneratedFaceDoesNotServeWhatItIsNotOwed(t *testing.T) {
 	adminOnly := dispatcher.Resource{Name: "things", Ops: []dispatcher.Op{
 		{ID: thingsList, Kind: fp.Read, Reach: fp.OwnerRead(), Invoke: noop},
 		{
-			ID: thingsPaste, Kind: fp.Action, Invoke: noop,
+			ID: thingsPaste, Kind: fp.Action, Danger: fp.DangerCredential, Invoke: noop,
 			Reach: fp.Only("browser-only affordance", "admin"),
 		},
 	}}

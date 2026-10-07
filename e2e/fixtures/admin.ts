@@ -301,10 +301,13 @@ export async function createAPIToken(
   request: APIRequestContext,
   csrf: string,
   name = 'e2e-token',
+  // scopes —— the danger classes this key may use (read / write / destructive / credential /
+  // authority / spend / egress). Omitted = every class (what a key always was).
+  scopes?: string[],
 ): Promise<string> {
   const res = await request.post(`${BACKEND}/api/admin/keypairs`, {
     headers: { 'X-Csrftoken': csrf },
-    data: { label: name },
+    data: scopes === undefined ? { label: name } : { label: name, scopes },
   });
   if (res.status() !== 201) {
     throw new Error(`create keypair failed: ${res.status()} ${await res.text()}`);

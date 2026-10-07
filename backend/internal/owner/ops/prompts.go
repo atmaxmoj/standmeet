@@ -54,7 +54,7 @@ func promptReadOps(deps usecase.PromptsDeps) []fp.Op {
 func promptWriteOps(deps usecase.PromptsDeps) []fp.Op {
 	return []fp.Op{
 		{
-			ID: "prompt_create",
+			ID: "prompt_create", Danger: fp.DangerWrite,
 			Description: "Create an owner prompt: a system-prompt fragment that shapes the " +
 				"visitor-facing AI's persona.",
 			InputSchema: promptCreateSchema,
@@ -63,7 +63,7 @@ func promptWriteOps(deps usecase.PromptsDeps) []fp.Op {
 			Invoke:      createPrompt(deps),
 		},
 		{
-			ID:          "prompt_update",
+			ID: "prompt_update", Danger: fp.DangerWrite,
 			Description: "Update an owner prompt. Builtin prompts cannot be renamed.",
 			InputSchema: promptUpdateSchema,
 			Kind:        fp.Action,
@@ -71,7 +71,7 @@ func promptWriteOps(deps usecase.PromptsDeps) []fp.Op {
 			Invoke:      updatePrompt(deps),
 		},
 		{
-			ID:          "prompt_delete",
+			ID: "prompt_delete", Danger: fp.DangerDestructive,
 			Description: "Delete an owner prompt. Builtin prompts cannot be deleted.",
 			InputSchema: promptIDSchema,
 			Kind:        fp.Action,

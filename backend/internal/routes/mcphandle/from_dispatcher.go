@@ -42,11 +42,14 @@ func MCPFace() fp.Facade {
 // miss mounting an op (there is no hand-written manifest to omit one from),
 // nor claim to have mounted one without actually doing so (the registration
 // IS the taking).
-func registerDispatcherOps(srv *server.MCPServer, d *dispatcher.Dispatcher, log *slog.Logger) {
+func registerDispatcherOps(
+	srv *server.MCPServer, d *dispatcher.Dispatcher, dangers toolDangers, log *slog.Logger,
+) {
 	ops := d.Attach(MCPFace()).Ops()
 	for i := range ops {
 		tool := mcpgo.NewToolWithRawSchema(ops[i].ID, ops[i].Description, ops[i].InputSchema)
-		srv.AddTool(tool, wrapBlockHandler(mcpHandlerFor(ops[i].Invoke), ops[i].ID, log))
+		h := wrapBlockHandler(mcpHandlerFor(ops[i].Invoke), ops[i].ID, log)
+		srv.AddTool(tool, dangers.guard(ops[i].ID, string(ops[i].DangerOf()), h))
 	}
 }
 

@@ -63,7 +63,7 @@ func (d APIKeysDeps) issue() usecase.IssueAPIKeyDeps {
 func APIKeys(d APIKeysDeps) []fp.Op {
 	return append([]fp.Op{
 		{
-			ID: "api_keys.create",
+			ID: "api_keys.create", Danger: fp.DangerCredential,
 			Description: "Mint an API key assuming a role. Returns the raw secret ONCE " +
 				"(smk_…) plus its id and prefix; the secret is never retrievable again.",
 			// The fields each block occupies on the key grow along with it
@@ -84,7 +84,7 @@ func APIKeys(d APIKeysDeps) []fp.Op {
 			Invoke:      listAPIKeys(d),
 		},
 		{
-			ID: "api_keys.revoke",
+			ID: "api_keys.revoke", Danger: fp.DangerDestructive,
 			Description: "Revoke an API key by id. The key stops authenticating immediately. " +
 				"Idempotent on already-revoked keys.",
 			InputSchema: apiKeyIDSchema,
@@ -93,7 +93,7 @@ func APIKeys(d APIKeysDeps) []fp.Op {
 			Invoke:      revokeAPIKey(d),
 		},
 		{
-			ID: "api_keys.update",
+			ID: "api_keys.update", Danger: fp.DangerAuthority,
 			Description: "Update an API key's label and/or rate limit. Omit a field to keep it; " +
 				"pass rate_limit_rpm as null to clear to instance default.",
 			InputSchema: apiKeyUpdateSchema,

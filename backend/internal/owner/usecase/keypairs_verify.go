@@ -18,25 +18,25 @@ import (
 
 func verifyParsedSig(
 	ctx context.Context, deps KeypairDeps, p *parsedSigv1, req *SignedRequest,
-) (string, error) {
+) (VerifiedKey, error) {
 	kp, err := deps.Repo.GetByKeyID(ctx, p.keyID)
 	if err != nil {
-		return "", entity.ErrKeypairUnauthorized
+		return VerifiedKey{}, entity.ErrKeypairUnauthorized
 	}
 	pub, perr := decodePublicKey(kp.PublicKeyPEM)
 	if perr != nil {
 		deps.Log.Error("keypair: decode stored public key", "err", perr, "key_id", p.keyID)
-		return "", entity.ErrKeypairUnauthorized
+		return VerifiedKey{}, entity.ErrKeypairUnauthorized
 	}
 	if !ed25519.Verify(pub, []byte(challengeFor(p, req)), p.sig) {
-		return "", entity.ErrKeypairUnauthorized
+		return VerifiedKey{}, entity.ErrKeypairUnauthorized
 	}
 	if rerr := checkNonceFresh(ctx, deps, p); rerr != nil {
-		return "", rerr
+		return VerifiedKey{}, rerr
 	}
 	warnUnbound(deps.Log, p, kp.Label)
 	deps.Repo.Touch(ctx, deps.Log, kp.ID, req.ClientIP, req.UserAgent)
-	return kp.OwnerID, nil
+	return VerifiedKey{OwnerID: kp.OwnerID, Scopes: kp.Scopes}, nil
 }
 
 // warnUnbound —— a client still signing the unbound form: say which key, so the owner can update it

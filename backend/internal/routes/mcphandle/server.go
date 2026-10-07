@@ -2,10 +2,9 @@
 // controller layer for the owner's self-service tools, living under
 // internal/routes/ alongside admin/public/sys).
 //
-// Auth: Bearer API token (mcp:write/mcp:read/mcp:pages are not split by
-// granularity in v1 — every token is treated the same). Token verification
-// injects ownerID into ctx via HTTPContextFunc; the tool handler reads it
-// from ctx.
+// Auth: a Sigv1-signed request from an owner keypair. Verification injects the
+// ownerID and the key's scopes into ctx via HTTPContextFunc; the tool handler
+// reads the owner from ctx, and scopes.go limits the key to its classes.
 //
 // Transport: mcp-go's streamable HTTP. The single /mcp/ endpoint handles
 // both POST requests and optional SSE.
@@ -94,13 +93,15 @@ func New(deps *Deps) http.Handler {
 	if version == "" {
 		version = "dev"
 	}
+	dangers := toolDangers{}
 	mcpSrv := server.NewMCPServer(
 		"standmeet",
 		version,
 		server.WithToolCapabilities(true),
 		server.WithInstructions(ServerInstructions(version)),
+		server.WithToolFilter(dangers.filter),
 	)
-	registerTools(mcpSrv, deps)
+	registerTools(mcpSrv, deps, dangers)
 
 	httpSrv := server.NewStreamableHTTPServer(
 		mcpSrv,
@@ -124,12 +125,13 @@ func authMiddleware(deps *Deps, next http.Handler) http.Handler {
 			http.Error(w, "unauthorized: unreadable request", http.StatusUnauthorized)
 			return
 		}
-		ownerID, err := owner.VerifySigv1(r.Context(), deps.Keypairs, signed)
+		key, err := owner.VerifySigv1(r.Context(), deps.Keypairs, signed)
 		if err != nil {
 			http.Error(w, "unauthorized: invalid Sigv1", http.StatusUnauthorized)
 			return
 		}
-		ctx := context.WithValue(r.Context(), ctxKeyOwnerID, ownerID)
+		ctx := context.WithValue(r.Context(), ctxKeyOwnerID, key.OwnerID)
+		ctx = context.WithValue(ctx, ctxKeyScopes, key.Scopes)
 		extendMCPWriteDeadline(deps.Log, w)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
@@ -186,6 +188,7 @@ func propagateOwnerCtx(ctx context.Context, r *http.Request) context.Context {
 	if !ok {
 		return ctx
 	}
+	ctx = context.WithValue(ctx, ctxKeyScopes, scopesFrom(r.Context()))
 	return context.WithValue(ctx, ctxKeyOwnerID, v)
 }
 
@@ -208,7 +211,7 @@ func OwnerIDFrom(ctx context.Context) string {
 // During the migration both coexist: every resource moved into the
 // convergence point means ownercore registers one fewer, until ownercore
 // is deleted entirely.
-func registerTools(mcpSrv *server.MCPServer, deps *Deps) {
-	registerBlocks(mcpSrv, deps.AgentSkills, deps.Log)
-	registerDispatcherOps(mcpSrv, deps.Dispatcher, deps.Log)
+func registerTools(mcpSrv *server.MCPServer, deps *Deps, dangers toolDangers) {
+	registerBlocks(mcpSrv, deps.AgentSkills, dangers, deps.Log)
+	registerDispatcherOps(mcpSrv, deps.Dispatcher, dangers, deps.Log)
 }

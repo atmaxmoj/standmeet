@@ -66,7 +66,7 @@ func (c *applicationsFiber) OwnerMCPBindings() []*registry.MCPBinding {
 
 func (c *applicationsFiber) commitBinding() *registry.MCPBinding {
 	return &registry.MCPBinding{
-		Name: "applications.commit",
+		Name: "applications.commit", Danger: "authority", // issues an access code
 		Description: "Promote a resume draft to a persistent application: atomically " +
 			"issues a 180-day AccessCode (10 sessions / 50 turns per member), writes " +
 			"the application row, and deletes the draft. Returns application_id, the " +

@@ -34,6 +34,7 @@ type CreateKeypairInput struct {
 	KeyID        string
 	PublicKeyPEM string
 	Label        string
+	Scopes       []string
 }
 
 // Create writes a new keypair (the caller has already generated the
@@ -51,6 +52,7 @@ func (r *KeypairRepo) Create(
 		KeyID:        in.KeyID,
 		PublicKeyPem: in.PublicKeyPEM,
 		Label:        in.Label,
+		Scopes:       in.Scopes,
 	})
 	if err != nil {
 		return entity.Keypair{}, fmt.Errorf("create owner keypair: %w", err)
@@ -145,6 +147,7 @@ func toDomainKeypair(r *db.OwnerKeypair) entity.Keypair {
 		KeyID:        r.KeyID,
 		PublicKeyPEM: r.PublicKeyPem,
 		Label:        r.Label,
+		Scopes:       r.Scopes,
 		LastUsedAt:   tsPtr(r.LastUsedAt),
 		CreatedAt:    r.CreatedAt.Time,
 	}
@@ -155,6 +158,7 @@ func toDomainKeypairMetadata(r *db.ListOwnerKeypairsRow) entity.KeypairMetadata 
 		ID:                pgstore.FormatUUID(r.ID),
 		KeyID:             r.KeyID,
 		Label:             r.Label,
+		Scopes:            r.Scopes,
 		LastUsedAt:        tsPtr(r.LastUsedAt),
 		LastUsedIP:        r.LastUsedIp,
 		LastUsedUserAgent: r.LastUsedUserAgent,

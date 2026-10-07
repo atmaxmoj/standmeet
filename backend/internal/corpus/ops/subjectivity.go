@@ -34,7 +34,7 @@ func Subjectivity(deps usecase.Deps) []fp.Op {
 	return []fp.Op{{
 		// Keep the id the name the owner's AI has always used — a relocation
 		// shouldn't rename the public-facing label.
-		ID: "subjectivity_write",
+		ID: "subjectivity_write", Danger: fp.DangerWrite,
 		Description: "Write (create or update) a subjectivity note — the owner's self-model: " +
 			"taste, judgment, what they care about. Prose; the address is derived from the " +
 			"title and the tree. Private unless show_as_source says otherwise.",

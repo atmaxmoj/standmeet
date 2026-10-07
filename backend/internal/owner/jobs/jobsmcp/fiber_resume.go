@@ -64,7 +64,7 @@ func (c *resumeFiber) OwnerMCPBindings() []*registry.MCPBinding {
 
 func (c *resumeFiber) draftBinding() *registry.MCPBinding {
 	return &registry.MCPBinding{
-		Name: "resume.draft",
+		Name: "resume.draft", Danger: "write",
 		// The phrase "preview at /admin/drafts/<id>" used to be a dead link:
 		// a draft has no route of its own, the composer is a button on the
 		// list page. The owner's AI would copy that phrase verbatim and
@@ -121,7 +121,7 @@ func (c *resumeFiber) handleDraft(
 
 func (c *resumeFiber) updateDraftBinding() *registry.MCPBinding {
 	return &registry.MCPBinding{
-		Name: "resume.update_draft",
+		Name: "resume.update_draft", Danger: "write",
 		Description: "Replace the structured content of an existing draft. " +
 			"job_snapshot is preserved.",
 		InputSchema: json.RawMessage(`{
@@ -169,7 +169,7 @@ func (c *resumeFiber) handleUpdateDraft(
 
 func (c *resumeFiber) discardDraftBinding() *registry.MCPBinding {
 	return &registry.MCPBinding{
-		Name: "resume.discard_draft",
+		Name: "resume.discard_draft", Danger: "destructive",
 		Description: "Delete a draft (idempotent — unknown / wrong-owner / " +
 			"already-deleted all succeed).",
 		InputSchema: json.RawMessage(`{

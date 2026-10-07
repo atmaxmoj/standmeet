@@ -54,7 +54,7 @@ func IPBans(d IPBanDeps) []fp.Op {
 			Invoke:      listIPBans(repo),
 		},
 		{
-			ID:          "ip_bans.add",
+			ID: "ip_bans.add", Danger: fp.DangerAuthority,
 			Description: "Ban a source IP. Re-banning the same IP overwrites the old row.",
 			InputSchema: ipBanAddSchema,
 			Kind:        fp.Action,
@@ -62,7 +62,7 @@ func IPBans(d IPBanDeps) []fp.Op {
 			Invoke:      addIPBan(repo, rec),
 		},
 		{
-			ID:          "ip_bans.remove",
+			ID: "ip_bans.remove", Danger: fp.DangerAuthority,
 			Description: "Lift a ban by its row id. Idempotent.",
 			InputSchema: ipBanIDSchema,
 			Kind:        fp.Action,

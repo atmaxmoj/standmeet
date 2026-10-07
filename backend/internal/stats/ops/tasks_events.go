@@ -40,7 +40,7 @@ func Events(d TasksDeps) []fp.Op {
 			Invoke: eventsGet(d),
 		},
 		{
-			ID: "events.requeue", Kind: fp.Action, Reach: fp.OwnerAction(),
+			ID: "events.requeue", Kind: fp.Action, Danger: fp.DangerEgress, Reach: fp.OwnerAction(),
 			InputSchema: eventIDSchema,
 			Description: "Puts a poisoned event (one the relay gave up on) back in line " +
 				"to fan out.",

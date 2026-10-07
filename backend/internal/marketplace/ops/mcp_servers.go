@@ -41,7 +41,7 @@ func MCPServers(deps usecase.MCPServersDeps) []fp.Op {
 			Invoke:      listMCPServers(deps),
 		},
 		{
-			ID: "mcp_server_create",
+			ID: "mcp_server_create", Danger: fp.DangerCredential,
 			Description: "Register an external MCP server (HTTP streamable). Attach it to " +
 				"invite codes; visitors with that code get those tools.",
 			InputSchema: mcpServerCreateSchema,
@@ -50,7 +50,7 @@ func MCPServers(deps usecase.MCPServersDeps) []fp.Op {
 			Invoke:      createMCPServer(deps),
 		},
 		{
-			ID:          "mcp_server_delete",
+			ID: "mcp_server_delete", Danger: fp.DangerDestructive,
 			Description: "Delete a registered external MCP server by id.",
 			InputSchema: mcpServerIDSchema,
 			Kind:        fp.Action,
@@ -69,7 +69,7 @@ func MCPServers(deps usecase.MCPServersDeps) []fp.Op {
 			Invoke:      checkMCPServer(deps),
 		},
 		{
-			ID: "mcp_server_grant_dep",
+			ID: "mcp_server_grant_dep", Danger: fp.DangerCredential,
 			Description: "Grant this ext-MCP server a seam dependency. ext-MCP is " +
 				"lowest-trust: tools declaring Requires stay uninjected until the owner " +
 				"grants the dep here. Idempotent; the server must belong to the owner.",

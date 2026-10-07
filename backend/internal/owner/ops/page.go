@@ -31,7 +31,7 @@ func Page(d PageOpsDeps) []fp.Op {
 func pageAddressOps(d PageOpsDeps) []fp.Op {
 	return []fp.Op{
 		{
-			ID: "page.set_handle",
+			ID: "page.set_handle", Danger: fp.DangerAuthority,
 			Description: "Change the owner's public handle (the URL prefix). The old handle " +
 				"stays as an alias, so codes and QR links already handed out keep working.",
 			InputSchema: pageHandleSchema,
@@ -40,7 +40,7 @@ func pageAddressOps(d PageOpsDeps) []fp.Op {
 			Invoke:      setHandle(d.Handle),
 		},
 		{
-			ID: "page.set_public_url",
+			ID: "page.set_public_url", Danger: fp.DangerAuthority,
 			Description: "Set this deployment's canonical public URL, used for QR codes and " +
 				"canonical links. Must be http(s):// with a host.",
 			InputSchema: pagePublicURLSchema,

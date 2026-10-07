@@ -67,11 +67,13 @@ func FilesFrom(ctx context.Context) []File {
 }
 
 // Op —— an operation's full declaration: stable id, a description for callers, input schema,
-// semantic category, exposure intent (which facades owe it), and the implementation.
+// semantic category, exposure intent (which facades owe it), blast radius (danger.go; required on
+// an Action), and the implementation.
 type Op struct {
 	Invoke      Invoke
 	ID          string
 	Description string
+	Danger      Danger
 	InputSchema json.RawMessage
 	Reach       Reach
 	Kind        Kind

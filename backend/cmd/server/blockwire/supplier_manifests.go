@@ -122,7 +122,7 @@ func declaredOwnerOps(ts []plugin.OwnerTool) []adapters.OwnerOp {
 	out := make([]adapters.OwnerOp, 0, len(ts))
 	for i := range ts {
 		out = append(out, adapters.OwnerOp{
-			Name: ts[i].Name, Op: ts[i].Tool,
+			Name: ts[i].Name, Op: ts[i].Tool, Danger: ts[i].Danger,
 			Description: ts[i].Description, InputSchema: []byte(ts[i].InputSchema),
 		})
 	}

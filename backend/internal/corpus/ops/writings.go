@@ -50,7 +50,7 @@ func Writings(deps WritingsDeps) []fp.Op {
 			Invoke:      listWritings(deps),
 		},
 		{
-			ID:          "writings.publish",
+			ID: "writings.publish", Danger: fp.DangerWrite,
 			Description: "Publish a draft writing: it becomes readable at its public path.",
 			InputSchema: writingIDSchema,
 			Kind:        fp.Action,
@@ -58,7 +58,7 @@ func Writings(deps WritingsDeps) []fp.Op {
 			Invoke:      setWritingPublished(deps, usecase.PublishWriting, "publish writing"),
 		},
 		{
-			ID: "writings.unpublish",
+			ID: "writings.unpublish", Danger: fp.DangerWrite,
 			Description: "Take a published writing back to draft. The text is kept; only the " +
 				"public page goes away.",
 			InputSchema: writingIDSchema,
@@ -67,7 +67,7 @@ func Writings(deps WritingsDeps) []fp.Op {
 			Invoke:      setWritingPublished(deps, usecase.UnpublishWriting, "unpublish writing"),
 		},
 		{
-			ID:          "writings.delete",
+			ID: "writings.delete", Danger: fp.DangerDestructive,
 			Description: "Delete a writing and the images that belong to it.",
 			InputSchema: writingIDSchema,
 			Kind:        fp.Action,

@@ -118,7 +118,11 @@
   "newToken": {
     "label": "generate key",
     "submit": "generate",
-    "namePlaceholder": "기기 라벨 — 예: 'mojat-mbp'"
+    "namePlaceholder": "기기 라벨 — 예: 'mojat-mbp'",
+    "scope": "이 키로 할 수 있는 일",
+    "scopeFull": "전부",
+    "scopeRead": "읽기 전용",
+    "scopeContent": "콘텐츠 읽기·쓰기 — 삭제, 키, 공유, 외부 전송 불가"
   },
   "newlyCreated": {
     "warning": "save these now — the private key is shown only once",
@@ -132,6 +136,7 @@
     "never": "never",
     "lastFrom": "{device} · {ip}",
     "algo": "ed25519",
+    "scopes": "가능: {list}",
     "revoke": "revoke",
     "keyId": "key id",
     "deletedToast": "키를 삭제했습니다"

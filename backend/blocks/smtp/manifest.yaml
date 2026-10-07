@@ -59,6 +59,7 @@ config:
 owner_tools:
   - name: suppliers.mail_test_send
     tool: mail.test_send
+    danger: egress
     description: >-
       Send a test email through the active mail supplier. Reports the mail kind
       that served it (proves the mailer is kind-agnostic).

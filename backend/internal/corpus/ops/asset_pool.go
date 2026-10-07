@@ -53,7 +53,7 @@ type poolUploadArgs struct {
 
 func assetsPoolUploadOp(deps usecase.Deps) fp.Op {
 	return fp.Op{
-		ID: "assets.pool_upload",
+		ID: "assets.pool_upload", Danger: fp.DangerWrite,
 		Description: "Upload a file straight into your global pool — no corpus entry needed. " +
 			"Pass a public https `url` the server fetches; kind='image' (default) or " +
 			"'attachment'. The asset lands unreferenced; cite it later with " +
@@ -180,7 +180,7 @@ func assetListErr(err error) error {
 
 func assetsPoolDeleteOp(deps usecase.Deps) fp.Op {
 	return fp.Op{
-		ID: "assets.pool_delete",
+		ID: "assets.pool_delete", Danger: fp.DangerDestructive,
 		Description: "Permanently delete one asset from your pool. Refused, naming who uses " +
 			"it, while any corpus entry or microsite still references it — remove those first.",
 		InputSchema: assetIDSchema,

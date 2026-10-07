@@ -34,6 +34,7 @@ type (
 	KeyChange                  = usecase.KeyChange
 	KeypairDeps                = usecase.KeypairDeps
 	SignedRequest              = usecase.SignedRequest
+	VerifiedKey                = usecase.VerifiedKey
 	LandingURL                 = usecase.LandingURL
 	LoginDeps                  = usecase.LoginDeps
 	LoginInput                 = usecase.LoginInput
@@ -174,4 +175,5 @@ const (
 var (
 	ErrPasswordTooShort = usecase.ErrPasswordTooShort
 	ErrPublicURLInvalid = usecase.ErrPublicURLInvalid
+	ErrUnknownScope     = usecase.ErrUnknownScope
 )

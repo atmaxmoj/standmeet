@@ -16,7 +16,7 @@ import (
 func micrositeTakedownOps(deps usecase.MicrositeDeps) []fp.Op {
 	return []fp.Op{
 		{
-			ID:          "microsite.rollback",
+			ID: "microsite.rollback", Danger: fp.DangerWrite,
 			Description: "Send live back to the previous build. No-op if there is none.",
 			InputSchema: pageSlugSchema,
 			Kind:        fp.Action,
@@ -24,7 +24,7 @@ func micrositeTakedownOps(deps usecase.MicrositeDeps) []fp.Op {
 			Invoke:      rollbackMicrosite(deps),
 		},
 		{
-			ID: "microsite.unpublish",
+			ID: "microsite.unpublish", Danger: fp.DangerDestructive,
 			Description: "Clear the live build so the page serves nothing. For the homepage this " +
 				"reverts / to the built-in default; the draft is kept for re-publishing.",
 			InputSchema: pageSlugSchema,
@@ -33,7 +33,7 @@ func micrositeTakedownOps(deps usecase.MicrositeDeps) []fp.Op {
 			Invoke:      unpublishMicrosite(deps),
 		},
 		{
-			ID:          "microsite.delete",
+			ID: "microsite.delete", Danger: fp.DangerDestructive,
 			Description: "Delete a microsite.",
 			InputSchema: pageSlugSchema,
 			Kind:        fp.Action,

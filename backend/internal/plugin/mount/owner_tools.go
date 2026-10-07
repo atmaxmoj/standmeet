@@ -33,6 +33,7 @@ func (c *mcpAppFiber) OwnerMCPBindings() []*registry.MCPBinding {
 		out = append(out, &registry.MCPBinding{
 			Name:        t.Name,
 			Description: t.Description,
+			Danger:      t.Danger,
 			InputSchema: json.RawMessage(t.InputSchema),
 			Handler:     c.ownerToolHandler(&t),
 		})

@@ -536,6 +536,7 @@ type OwnerKeypair struct {
 	LastUsedAt        pgtype.Timestamptz
 	LastUsedIp        *string
 	LastUsedUserAgent *string
+	Scopes            []string
 	CreatedAt         pgtype.Timestamptz
 }
 
