@@ -65,10 +65,10 @@ def frames(resp):
 def ask(host, session, system, history, question):
     t0 = time.monotonic()
     first, answer, tools, err = None, '', [], ''
-    resp = post(f'{host}/api/v1/agent/turn', {
-        'system': system, 'user_message': question,
-        'conversation_id': session['conversation_id'], 'history': history,
-    }, {'Authorization': f"Bearer {session['session_token']}"})
+    body = {'system': system, 'user_message': question,
+            'conversation_id': session['conversation_id'], 'history': history}
+    resp = post(f'{host}/api/v1/agent/turn', body,
+                {'Authorization': f"Bearer {session['session_token']}"})
     for ev, data in frames(resp):
         d = json.loads(data) if data.startswith('{') else {}
         if ev == 'text' and d.get('delta'):

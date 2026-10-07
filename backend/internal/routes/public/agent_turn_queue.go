@@ -27,6 +27,10 @@ func dispatchTurn(
 	slot turnSlot, req *inference.AgentTurnRequest,
 ) {
 	auth := slot.auth
+	// The owner picks the model (provider / role / code); a visitor's request does not. The
+	// field let any session run the owner's key on any model the provider offers (2026-10-07).
+	// BYOAI names its model in its own header.
+	req.Model = ""
 	cred, cerr := resolveAgentTurnCred(r, h, auth)
 	if cerr != nil {
 		writeLLMPreStreamErr(h, w, cerr)

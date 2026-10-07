@@ -829,6 +829,7 @@ eval-ask:
 # session on a real instance; per question the wall time, first-token time and tools called, and
 # a transcript to read against each question's gold points. Speed counts only if the answers hold.
 #   EVAL_HOST=https://sijie.xyz EVAL_CODE=<code> make eval-speed   (EVAL_ONLY=de for a subset)
+#   To compare models, point the code at another provider (codes.create provider_id).
 eval-speed:
 	@python3 eval-harness/speed.py
 
