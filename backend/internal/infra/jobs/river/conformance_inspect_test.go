@@ -55,13 +55,27 @@ func TestWaitersOverTheCapGetTheirReceiptAtOnce(t *testing.T) {
 	for range jobsriver.MaxWaiters {
 		wg.Go(func() { rt.Wait(context.Background(), id, waiterPatience) })
 	}
-	time.Sleep(100 * time.Millisecond) // let them all park
+	waitAllParked(t, rt)
 	began := time.Now()
 	_, ok := rt.Wait(context.Background(), id, waiterPatience)
 	if ok || time.Since(began) > atOnce {
 		t.Fatalf("waiter over the cap: ok=%v after %s, want false at once", ok, time.Since(began))
 	}
 	wg.Wait()
+}
+
+// waitAllParked — until MaxWaiters Wait calls are parked; not "probably by now": under -race on a
+// loaded CI box a fixed 100 ms was not enough, and the extra waiter got a free slot and waited out
+// its patience.
+func waitAllParked(t *testing.T, rt jobs.Runtime) {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for jobsriver.WaitingOn(rt) < jobsriver.MaxWaiters {
+		if time.Now().After(deadline) {
+			t.Fatalf("only %d of %d waiters parked", jobsriver.WaitingOn(rt), jobsriver.MaxWaiters)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
 }
 
 // assertAllMatch — every row has the given kind and state.

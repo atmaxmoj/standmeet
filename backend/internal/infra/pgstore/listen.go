@@ -103,6 +103,13 @@ func (l *Listener) Wake(key string) {
 	}
 }
 
+// Waiting —— how many waiters are registered now.
+func (l *Listener) Waiting() int {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.n
+}
+
 func (l *Listener) listenOnce(ctx context.Context) error {
 	conn, err := l.pool.Acquire(ctx)
 	if err != nil {
@@ -112,7 +119,24 @@ func (l *Listener) listenOnce(ctx context.Context) error {
 	if _, err = conn.Exec(ctx, sqltext.Format("LISTEN %s", l.channel)); err != nil {
 		return fmt.Errorf("listen: %w", err)
 	}
+	// A NOTIFY sent before this point (startup, or while reconnecting) is lost by Postgres. Every
+	// waiter re-checks its state on a wake-up, so wake them all once listening has started.
+	l.wakeAll()
 	return l.dispatch(ctx, conn)
+}
+
+// wakeAll —— wakes every registered waiter (without blocking).
+func (l *Listener) wakeAll() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	for _, chs := range l.byKey {
+		for _, ch := range chs {
+			select {
+			case ch <- struct{}{}:
+			default:
+			}
+		}
+	}
 }
 
 // dispatch — wakes the waiters of every key in each notification, until an error.

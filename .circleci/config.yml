@@ -83,12 +83,14 @@ jobs:
             curl -fsSL https://github.com/gitleaks/gitleaks/releases/download/v8.30.0/gitleaks_8.30.0_linux_x64.tar.gz \
               | sudo tar -C /usr/local/bin -xz gitleaks
             nvm install 22 >/dev/null && nvm alias default 22
-            echo 'nvm use 22 >/dev/null' >> "$BASH_ENV"
+            # nvm is a shell function of the login shell; later steps get node by PATH instead.
+            echo "export PATH=$(dirname "$(nvm which 22)"):\$PATH" >> "$BASH_ENV"
       - run:
-          name: Dependencies
+          name: Dependencies (workspace install; the SDK build the builder vendors)
           command: |
             corepack enable && corepack prepare pnpm@9.15.0 --activate
             pnpm install --frozen-lockfile
+            make sdk-build builder-vendor
           no_output_timeout: 20m
       - run:
           name: make << parameters.target >>
