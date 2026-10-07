@@ -65,6 +65,9 @@ def frames(resp):
 def ask(host, session, system, history, question):
     t0 = time.monotonic()
     first, answer, tools, err = None, '', [], ''
+    # tool_s —— time inside tools (first tool_started of a batch → its last tool_completed); the
+    # rest of the wall time before the first token is the model deciding.
+    open_tools, batch_start, tool_s = 0, 0.0, 0.0
     body = {'system': system, 'user_message': question,
             'conversation_id': session['conversation_id'], 'history': history}
     resp = post(f'{host}/api/v1/agent/turn', body,
@@ -76,13 +79,20 @@ def ask(host, session, system, history, question):
             answer += d['delta']
         elif ev == 'tool_started':
             tools.append(d.get('name', '?'))
+            if open_tools == 0:
+                batch_start = time.monotonic()
+            open_tools += 1
+        elif ev == 'tool_completed' and open_tools > 0:
+            open_tools -= 1
+            if open_tools == 0:
+                tool_s += time.monotonic() - batch_start
         elif ev == 'error':
             err = d.get('message', 'error')
         elif ev == 'done':
             break
     return {'total_s': round(time.monotonic() - t0, 1),
             'first_token_s': round(first, 1) if first is not None else None,
-            'tools': tools, 'answer': answer, 'error': err}
+            'tool_s': round(tool_s, 1), 'tools': tools, 'answer': answer, 'error': err}
 
 
 def main():
@@ -104,6 +114,7 @@ def main():
         r['missing'] = [m for m in q.get('must', []) if m.lower() not in r['answer'].lower()]
         rows.append({**q, **r})
         print(f"({q['id']}) total {r['total_s']}s · first token {r['first_token_s']}s · "
+              f"in tools {r['tool_s']}s · "
               f"{len(r['tools'])} tools {r['tools']}{' · ERROR ' + r['error'] if r['error'] else ''}"
               f"{' · MISSING ' + str(r['missing']) if r['missing'] else ''}", flush=True)
     stamp = time.strftime('%Y%m%d-%H%M%S')

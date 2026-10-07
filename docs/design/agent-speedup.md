@@ -57,4 +57,8 @@ cover work authorization". The corpus states it in `subjectivity://background`.
   summaries and ghosts. The change is the owner's to approve.
 - **pro (e) wording.** In one run the pro model named "H-1B" as an example of sponsorship. The
   facts were right, but the example is a guess the red line forbids. flash did not do this.
-- **W4 (per-conversation retrieval cache), W5 (landing timings).** Not started.
+- **W4 (per-conversation retrieval cache): decided against, 2026-10-07.** `make eval-speed` now
+  records the time spent inside tools. On sijie.xyz (v0.1.136, pro) it was 0.4 s of 37 s for (b),
+  0.1 s of 17 s for (c), 0.5 s of 33 s for (d). A cache saves at most that half second; the time
+  is the model's own rounds. The lever is the model (W1), not retrieval.
+- **W5 (landing timings).** Not started.

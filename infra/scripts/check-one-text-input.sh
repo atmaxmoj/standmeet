@@ -53,10 +53,10 @@ RULE='
     collecting = 0
     if (buf ~ /readOnly/)                        next
     if (buf ~ /type="(checkbox|radio|file)"/)    next
-    if (buf ~ /className/ == 0)                  next
+    if (buf !~ /className/)                      next
     if (buf ~ /sm-field-input/)                  next
-    if (buf ~ /border border-\(--color-rule\)/)  { print FILENAME ":" start ": hand-rolled box"; next }
-    if (buf ~ /border-b border-\(--color-rule\)/){ print FILENAME ":" start ": hand-rolled underline"; next }
+    if (buf ~ /border border-[(]--color-rule[)]/)  { print FILENAME ":" start ": hand-rolled box"; next }
+    if (buf ~ /border-b border-[(]--color-rule[)]/){ print FILENAME ":" start ": hand-rolled underline"; next }
   }
 '
 
