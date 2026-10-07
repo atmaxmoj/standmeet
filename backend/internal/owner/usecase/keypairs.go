@@ -1,8 +1,9 @@
 // keypairs.go — Phase C: Owner keypair create / list / delete + Sigv1 header signature
 // verification. Every MCP HTTP request carries `Authorization: Sigv1 keyId=X,ts=N,
 // sig=base64`; this usecase parses the header -> looks up the public key ->
-// ed25519.Verify. No session cookie / no token minting / no nonce table — replay is
-// defended against with a ts window instead.
+// ed25519.Verify (keypairs_verify.go). No session cookie / no token minting — replay is
+// defended against with a ts window plus a one-time nonce, and the `v=2` form binds the
+// signature to the request's method, path and body.
 
 package usecase
 
@@ -10,11 +11,14 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"strings"
 	"time"
@@ -166,31 +170,74 @@ func ensureKeypairOwned(
 //  2. ts is within the +/-5min window (clock skew)
 //  3. DB lookup of the public key (a miss = 401)
 //  4. ed25519.Verify(pub, challenge, sig) — challenge =
-//     "standmeet-sigv1\n<keyId>\n<ts>\n<nonce>"
-//  5. First-seen nonce check (Redis, defends against replay within the window; fail-open)
+//     "standmeet-sigv1\n<keyId>\n<ts>\n<nonce>", plus "\n<METHOD>\n<path>\n<body sha256>" for v=2
+//  5. First-seen nonce check (Redis, defends against replay within the window; fail-closed)
 //  6. Touch last_used_at (best effort, log only on failure)
 //
 // Returns (ownerID, nil) on success; (empty, ErrKeypairUnauthorized) if any step fails.
-// usedIP / usedUA — where this request came from (clientaddr + User-Agent), recorded on the
-// keypair when the signature checks out so the owner can see the last device/IP that used it.
-func VerifySigv1(
-	ctx context.Context, deps KeypairDeps, authHeader, usedIP, usedUA string,
-) (string, error) {
-	parsed, perr := parseSigv1Header(authHeader)
+// A bound signature (`v=2`) must cover exactly the request's method, path and body (refactor
+// ledger R6: an unbound header could be lifted onto any other request to the full-power endpoint
+// within the skew window). The unbound form is still accepted for clients that predate it, with a
+// warning naming the key; it goes once those have updated.
+func VerifySigv1(ctx context.Context, deps KeypairDeps, req *SignedRequest) (string, error) {
+	parsed, perr := parseSigv1Header(req.Header)
 	if perr != nil {
 		return "", entity.ErrKeypairUnauthorized
 	}
 	if !withinSkew(parsed.ts) {
 		return "", entity.ErrKeypairUnauthorized
 	}
-	return verifyParsedSig(ctx, deps, parsed, usedIP, usedUA)
+	return verifyParsedSig(ctx, deps, &parsed, req)
+}
+
+// SignedRequest —— one request on the owner MCP face, as the signature check sees it: the
+// Authorization header, the method, the path with its query, and the body. ClientIP / UserAgent
+// are where it came from, recorded on the keypair when the signature checks out so the owner can
+// see the last device/IP that used it.
+type SignedRequest struct {
+	Header, Method, Path string
+	ClientIP, UserAgent  string
+	Body                 []byte
+}
+
+// maxSignedBody —— the most of a request body the signature check reads. An owner MCP call is a
+// JSON-RPC message; the largest real one (a microsite file write) is well under this.
+const maxSignedBody = 32 << 20
+
+// ReadSignedBody —— reads the body once, so the caller can both check the signature over it and
+// hand it on. A body over maxSignedBody is refused rather than hashed partially.
+func ReadSignedBody(body io.Reader) ([]byte, error) {
+	if body == nil {
+		return []byte{}, nil
+	}
+	b, err := io.ReadAll(io.LimitReader(body, maxSignedBody+1))
+	if err != nil {
+		return b, fmt.Errorf("read body: %w", err)
+	}
+	if len(b) > maxSignedBody {
+		return b, errors.New("body too large to sign")
+	}
+	return b, nil
 }
 
 type parsedSigv1 struct {
-	keyID string
-	nonce string
-	sig   []byte
-	ts    int64
+	keyID   string
+	nonce   string
+	version string // "2" = bound to the request; "" = the original, unbound form
+	sig     []byte
+	ts      int64
+}
+
+// challengeFor —— the signed payload: the unbound form, or the bound one with the request's lines
+// (method, path, hex SHA-256 of the body).
+func challengeFor(p *parsedSigv1, req *SignedRequest) string {
+	base := fmt.Sprintf("%s\n%s\n%d\n%s", challengeNS, p.keyID, p.ts, p.nonce)
+	if p.version != "2" {
+		return base
+	}
+	sum := sha256.Sum256(req.Body)
+	return fmt.Sprintf("%s\n%s\n%s\n%s",
+		base, strings.ToUpper(req.Method), req.Path, hex.EncodeToString(sum[:]))
 }
 
 func parseSigv1Header(h string) (parsedSigv1, error) {
@@ -237,7 +284,9 @@ func buildParsedSigv1(fields map[string]string) (parsedSigv1, error) {
 	if derr != nil {
 		return parsedSigv1{}, fmt.Errorf("decode sig: %w", derr)
 	}
-	return parsedSigv1{keyID: raw.keyID, ts: ts, sig: sig, nonce: raw.nonce}, nil
+	return parsedSigv1{
+		keyID: raw.keyID, ts: ts, sig: sig, nonce: raw.nonce, version: fields["v"],
+	}, nil
 }
 
 // rawSigv1Fields — the string quadruple after presence-checking the fields.
@@ -262,66 +311,4 @@ func withinSkew(ts int64) bool {
 		diff = -diff
 	}
 	return diff <= int64(sigv1MaxSkew.Seconds())
-}
-
-func verifyParsedSig(
-	ctx context.Context, deps KeypairDeps, p parsedSigv1, usedIP, usedUA string,
-) (string, error) {
-	kp, err := deps.Repo.GetByKeyID(ctx, p.keyID)
-	if err != nil {
-		return "", entity.ErrKeypairUnauthorized
-	}
-	pub, perr := decodePublicKey(kp.PublicKeyPEM)
-	if perr != nil {
-		deps.Log.Error("keypair: decode stored public key", "err", perr, "key_id", p.keyID)
-		return "", entity.ErrKeypairUnauthorized
-	}
-	challenge := fmt.Sprintf("%s\n%s\n%d\n%s", challengeNS, p.keyID, p.ts, p.nonce)
-	if !ed25519.Verify(pub, []byte(challenge), p.sig) {
-		return "", entity.ErrKeypairUnauthorized
-	}
-	if rerr := checkNonceFresh(ctx, deps, p); rerr != nil {
-		return "", rerr
-	}
-	deps.Repo.Touch(ctx, deps.Log, kp.ID, usedIP, usedUA)
-	return kp.OwnerID, nil
-}
-
-// nonceTTL — how long a nonce record stays alive: covers both sides of the +/-skew
-// acceptance window plus margin; after that it can be reused (ts has long since expired).
-const nonceTTL = 2 * sigv1MaxSkew
-
-// checkNonceFresh — after signature verification passes, confirms the nonce is being
-// seen for the first time (defends against replay). Fail-open: if the nonce store isn't
-// wired up or Redis errors, allow the request (degrade to plain ts-window) — a Redis
-// blip must not block the owner's MCP auth.
-func checkNonceFresh(ctx context.Context, deps KeypairDeps, p parsedSigv1) error {
-	if deps.Nonce == nil {
-		return nil
-	}
-	fresh, err := deps.Nonce.Fresh(ctx, "sigv1nonce:"+p.keyID+":"+p.nonce, nonceTTL)
-	if err != nil {
-		deps.Log.Warn("sigv1 nonce store error; allowing (degrade to ts-window)", "err", err)
-		return nil
-	}
-	if !fresh {
-		return entity.ErrKeypairUnauthorized
-	}
-	return nil
-}
-
-func decodePublicKey(pemStr string) (ed25519.PublicKey, error) {
-	block, _ := pem.Decode([]byte(pemStr))
-	if block == nil {
-		return nil, errors.New("decode PEM: no block found")
-	}
-	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
-	if err != nil {
-		return nil, fmt.Errorf("parse PKIX: %w", err)
-	}
-	edPub, ok := pub.(ed25519.PublicKey)
-	if !ok {
-		return nil, errors.New("not an ed25519 public key")
-	}
-	return edPub, nil
 }

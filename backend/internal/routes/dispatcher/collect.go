@@ -34,6 +34,7 @@ type Deps struct {
 	Codes          access.OpsCodes
 	Embeds         access.OpsEmbeds
 	Corpus         corpus.Deps
+	CorpusIndex    *corpus.IndexDeps // the corpus reading set (owner-face navigation ops)
 	Writings       corpus.OpsWritingsDeps
 	// ObsidianIngest — the vault-sync port for obsidian.import (owner MCP + admin). The
 	// composition root adapts corpus/integration's sync types to it; the dispatcher may not
@@ -71,6 +72,7 @@ func Collect(d *Deps) []Resource {
 		),
 			corpus.CorpusWriteOps(d.Corpus)...),
 			corpus.CorpusI18nOps()...)},
+		{Name: "corpus_nav", Ops: corpus.CorpusNavOps(d.CorpusIndex)},
 		{Name: "assets", Ops: corpus.AssetOps(d.Corpus)},
 		{Name: "ip_bans", Ops: security.IPBanOps(d.BannedIPs)},
 		{Name: "monitor", Ops: MonitorOps(d.Monitor)},

@@ -22,6 +22,8 @@
 
 package inference
 
+import "github.com/atmaxmoj/standmeet/internal/infra/secret"
+
 // VisitorCred —— the provider credential a visitor brings themselves under BYOAI mode
 // (unpacked by the route layer from the X-Byoai-* header via an HKDF envelope). **Always
 // untrusted**: Endpoint is visitor-controlled, so its outbound traffic must pass through the
@@ -31,7 +33,7 @@ package inference
 // visitor's key.
 type VisitorCred struct {
 	Provider string
-	Key      string
+	Key      secret.String
 	Model    string
 	Endpoint string
 }
@@ -39,7 +41,7 @@ type VisitorCred struct {
 // HasKey —— whether the visitor actually brought a key. No key → falls back to the owner's
 // own configured provider.
 func (c *VisitorCred) HasKey() bool {
-	return c != nil && c.Key != ""
+	return c != nil && !c.Key.Empty()
 }
 
 // ownerCred —— the provider credential the owner configured themselves, unsealed from the
@@ -48,7 +50,7 @@ func (c *VisitorCred) HasKey() bool {
 // see it.
 type ownerCred struct {
 	Provider string
-	Key      string
+	Key      secret.String
 	Model    string
 	Endpoint string
 }

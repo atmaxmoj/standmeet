@@ -196,19 +196,11 @@ export function dialogsOf(dialogs: readonly AggDialog[]): Dialog[] {
 
 // toCitations —— rebuilds the aggregate's citations (genre/path/title)
 // into a frontend Citation. id/body aren't available on restore and
-// aren't needed (CitationRow only uses genre/path to compute the link,
-// and title for display).
-//
-// slug is always empty, and this is **not** a shortcut being cut: the
-// stored `DialogCitationSchema`'s genre enum only has `wiki | output` —
-// writings never appear in the persisted transcript at all, so this path
-// never reaches the branch that would need slug.
-// (This incidentally explains why that href bug only ever showed up on
-// the live turn: after a refresh, a writing citation disappears entirely.
-// That's a separate gap in the same family — noted, not expanded on in
-// this pass.)
+// aren't needed (CitationRow uses genre + path / slug to compute the link,
+// and title for display). A writing links by its slug, which the server
+// sends with the citation.
 function toCitations(cites: readonly DialogCitation[] | undefined): Citation[] {
   return (cites ?? []).map((c): Citation => ({
-    genre: c.genre, id: '', path: c.path, slug: '', title: c.title, body: '',
+    genre: c.genre, id: '', path: c.path, slug: c.slug, title: c.title, body: '',
   }));
 }

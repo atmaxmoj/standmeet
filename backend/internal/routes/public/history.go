@@ -30,6 +30,7 @@ type citationResp struct {
 	Genre string `json:"genre"`
 	Path  string `json:"path"`
 	Title string `json:"title"`
+	Slug  string `json:"slug,omitempty"` // a writing's public address (/writings/<slug>)
 }
 
 type dialogResp struct {
@@ -172,7 +173,9 @@ func toGhostResps(gs []conversation.DialogGhost) []ghostResp {
 func toCitationResps(cs []conversation.DialogCitation) []citationResp {
 	out := make([]citationResp, len(cs))
 	for i := range cs {
-		out[i] = citationResp{Genre: cs[i].Genre, Path: cs[i].Path, Title: cs[i].Title}
+		out[i] = citationResp{
+			Genre: cs[i].Genre, Path: cs[i].Path, Title: cs[i].Title, Slug: cs[i].Slug,
+		}
 	}
 	return out
 }

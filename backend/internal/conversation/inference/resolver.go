@@ -17,13 +17,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
+	"github.com/atmaxmoj/standmeet/internal/infra/secret"
 )
 
 // Cred —— resolved upstream credential. all four fields non-empty after
 // a successful Resolve.
 type Cred struct {
 	Provider string
-	Key      string
+	Key      secret.String // unprintable; Reveal() only where the provider call is built
 	Endpoint string
 	Model    string
 	// Untrusted —— cred came from a visitor BYOAI envelope (Endpoint is visitor-controlled). Its
@@ -95,7 +97,7 @@ func (r *OwnerKeyResolver) loadOwnerCred(
 	if err != nil {
 		return ownerCred{}, fmt.Errorf("resolve owner provider: %w", err)
 	}
-	if view.Key == "" {
+	if view.Key.Empty() {
 		return ownerCred{}, ErrOwnerProviderUnconfigured
 	}
 	return ownerCred{
@@ -112,7 +114,7 @@ func (r *OwnerKeyResolver) loadOwnerCred(
 // passed in from outside.
 type credFields struct {
 	Provider  string
-	Key       string
+	Key       secret.String
 	Endpoint  string
 	Model     string
 	Untrusted bool

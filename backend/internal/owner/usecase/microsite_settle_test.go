@@ -14,6 +14,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/infra/events"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
+	"github.com/atmaxmoj/standmeet/internal/infra/sqltext"
 	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 	"github.com/atmaxmoj/standmeet/internal/owner/repo"
 	"github.com/atmaxmoj/standmeet/internal/owner/usecase"
@@ -249,10 +250,13 @@ func (f *settleFixture) awaitListening(t *testing.T) {
 	t.Fatal("the listener never started listening")
 }
 
+// listening —— the listener's LISTEN shows up in pg_stat_activity. The statement text is built by
+// the same sqltext.Format the listener uses (it quotes the channel); comparing against a
+// hand-written "LISTEN <channel>" never matched once the name started being quoted.
 func (f *settleFixture) listening() bool {
 	var n int
 	err := f.pool.QueryRow(context.Background(), `SELECT count(*) FROM pg_stat_activity
 		WHERE datname = current_database() AND query = $1`,
-		"LISTEN "+usecase.BuildSettledChannel).Scan(&n)
+		sqltext.Format("LISTEN %s", usecase.BuildSettledChannel)).Scan(&n)
 	return err == nil && n > 0
 }

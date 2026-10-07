@@ -124,7 +124,7 @@ func buildClaudeModel(
 	ctx context.Context, cred *Cred, maxTok int,
 ) (model.ToolCallingChatModel, error) {
 	cfg := &claude.Config{
-		APIKey:    cred.Key,
+		APIKey:    cred.Key.Reveal(),
 		Model:     cred.Model,
 		MaxTokens: maxTok,
 	}
@@ -143,7 +143,7 @@ func buildOpenAICompatModel(
 	ctx context.Context, cred *Cred, maxTok int,
 ) (model.ToolCallingChatModel, error) {
 	cfg := &openai.ChatModelConfig{
-		APIKey:    cred.Key,
+		APIKey:    cred.Key.Reveal(),
 		Model:     cred.Model,
 		MaxTokens: &maxTok,
 		// The retry transport: automatically retries a transient failure (connection error /

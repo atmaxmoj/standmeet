@@ -106,7 +106,7 @@ async function forward(
   opts: BridgeOptions, jsonRpcLine: string, sessionId: string | undefined,
 ): Promise<ForwardResult> {
   const headers: Record<string, string> = {
-    Authorization: signAuthHeader(opts.creds),
+    Authorization: signAuthHeader(opts.creds, { method: 'POST', path: '/mcp', body: jsonRpcLine }),
     'Content-Type': 'application/json',
     Accept: 'application/json, text/event-stream',
   };
@@ -255,7 +255,9 @@ async function handleUpdateSelf(opts: BridgeOptions, line: string): Promise<stri
   const id = msg.id ?? null;
   try {
     const res = await fetch(`${opts.host}/api/mcp-package`, {
-      headers: { Authorization: signAuthHeader(opts.creds) },
+      headers: {
+        Authorization: signAuthHeader(opts.creds, { method: 'GET', path: '/api/mcp-package', body: '' }),
+      },
     });
     if (!res.ok) return toolError(id, `GET /api/mcp-package → HTTP ${res.status}`);
     const bytes = Buffer.from(await res.arrayBuffer());

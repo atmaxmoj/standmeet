@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/atmaxmoj/standmeet/internal/infra/secret"
 )
 
 const (
@@ -62,7 +64,10 @@ func hangingUpstream(stop chan struct{}) *httptest.Server {
 
 func hungTurnInput(endpoint string) *AgentTurnInput {
 	return &AgentTurnInput{
-		Cred: &Cred{Provider: "openai", Key: "test-key", Endpoint: endpoint, Model: "test-model"},
+		Cred: &Cred{
+			Provider: "openai", Key: secret.New("test-key"),
+			Endpoint: endpoint, Model: "test-model",
+		},
 		Req:  &AgentTurnRequest{System: "test persona", UserMessage: "hello", Model: "test-model"},
 		Mode: "public",
 	}

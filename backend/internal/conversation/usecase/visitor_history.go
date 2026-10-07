@@ -45,11 +45,13 @@ type DialogGhost struct {
 	Selected bool
 }
 
-// DialogCitation —— one citation: genre + tree-derived path + title.
+// DialogCitation —— one citation: genre + tree-derived path + title. Slug is the public address of
+// a writing (its page is /writings/<slug>, not its path); empty for wiki / output.
 type DialogCitation struct {
 	Genre string
 	Path  string
 	Title string
+	Slug  string
 }
 
 // ConvDialog —— one exchange: ghosts, question, answer, citations, tool calls, timestamp.
@@ -231,6 +233,7 @@ type citationResolver struct {
 	wikiTitles    map[string]string
 	writingPaths  map[string]string
 	writingTitles map[string]string
+	writingSlugs  map[string]string
 	outputPaths   map[string]string
 	outputTitles  map[string]string
 }
@@ -274,6 +277,7 @@ func (r *citationResolver) loadWritings(
 	if writings, err := deps.Writing.ListPublishedByOwner(ctx, ownerID); err == nil {
 		r.writingPaths = writingPathMap(writings)
 		r.writingTitles = writingTitleMap(writings)
+		r.writingSlugs = writingSlugMap(writings)
 	}
 }
 
@@ -292,54 +296,9 @@ func (r *citationResolver) loadOutputs(
 func (r *citationResolver) resolve(m *entity.Message) []DialogCitation {
 	out := make([]DialogCitation, 0,
 		len(m.CitedWikiIDs)+len(m.CitedWritingIDs)+len(m.CitedOutputIDs))
-	out = appendCites(out, "wiki", m.CitedWikiIDs, r.wikiPaths, r.wikiTitles)
-	out = appendCites(out, "writing", m.CitedWritingIDs, r.writingPaths, r.writingTitles)
-	out = appendCites(out, "output", m.CitedOutputIDs, r.outputPaths, r.outputTitles)
+	out = appendCites(out, "wiki", m.CitedWikiIDs, citeMaps{r.wikiPaths, r.wikiTitles, nil})
+	out = appendCites(out, "writing", m.CitedWritingIDs,
+		citeMaps{r.writingPaths, r.writingTitles, r.writingSlugs})
+	out = appendCites(out, "output", m.CitedOutputIDs, citeMaps{r.outputPaths, r.outputTitles, nil})
 	return out
-}
-
-func appendCites(
-	out []DialogCitation, genre string, ids []string, paths, titles map[string]string,
-) []DialogCitation {
-	for _, id := range ids {
-		path, ok := paths[id]
-		if !ok {
-			continue
-		}
-		out = append(out, DialogCitation{Genre: genre, Path: path, Title: titles[id]})
-	}
-	return out
-}
-
-func wikiTitleMap(ws []corpus.Wiki) map[string]string {
-	m := make(map[string]string, len(ws))
-	for i := range ws {
-		m[ws[i].ID()] = ws[i].Title()
-	}
-	return m
-}
-
-func outputTitleMap(os []corpus.Output) map[string]string {
-	m := make(map[string]string, len(os))
-	for i := range os {
-		m[os[i].ID()] = os[i].Title()
-	}
-	return m
-}
-
-// writingPathMap —— writing has its own slug-derived path ("writings/"+slug), no tree walk.
-func writingPathMap(ws []corpus.Writing) map[string]string {
-	m := make(map[string]string, len(ws))
-	for i := range ws {
-		m[ws[i].ID()] = ws[i].Path()
-	}
-	return m
-}
-
-func writingTitleMap(ws []corpus.Writing) map[string]string {
-	m := make(map[string]string, len(ws))
-	for i := range ws {
-		m[ws[i].ID()] = ws[i].Title()
-	}
-	return m
 }

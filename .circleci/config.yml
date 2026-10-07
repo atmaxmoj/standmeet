@@ -57,6 +57,20 @@ jobs:
             make release-push-one SVC=<< parameters.image >> TAG="<< pipeline.git.tag >>"
           no_output_timeout: 45m
 
+  # npm-publish —— the five @standmeet/* packages at the tag's version (docs/release-npm.md).
+  # NPM_TOKEN (an npm automation token with publish rights on @standmeet) in the project's
+  # Environment Variables turns it on; without it the job says so and passes.
+  npm-publish:
+    executor: linux
+    steps:
+      - checkout
+      - run:
+          name: Publish @standmeet/* to npm
+          command: |
+            nvm install 22 >/dev/null && nvm alias default 22 && nvm use 22
+            corepack enable
+            make npm-publish TAG="<< pipeline.git.tag >>"
+
 workflows:
   release:
     jobs:
@@ -65,6 +79,12 @@ workflows:
           matrix:
             parameters:
               image: [backend, app, builder, im-bridge, db, updater]
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              ignore: /.*/
+      - npm-publish:
           filters:
             tags:
               only: /^v.*/

@@ -25,6 +25,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/conversation/inference"
 	"github.com/atmaxmoj/standmeet/internal/infra/cryptobox"
+	"github.com/atmaxmoj/standmeet/internal/infra/secret"
 )
 
 const (
@@ -93,7 +94,7 @@ func readBYOAICredFromHeaders(
 		return nil
 	}
 	return &inference.VisitorCred{
-		Provider: hdrs.Provider, Key: plain,
+		Provider: hdrs.Provider, Key: secret.New(plain),
 		Endpoint: hdrs.Endpoint, Model: hdrs.Model,
 	}
 }

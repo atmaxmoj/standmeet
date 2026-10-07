@@ -43,6 +43,8 @@ components:
     in: internal/infra/depcheck                  # checks at startup whether a hand-copied dependency table has a missing row; domain-less leaf
   textcut:
     in: internal/infra/textcut                   # safe char/byte-bounded text truncation (single implementation); domain-less leaf
+  secret:
+    in: internal/infra/secret                    # a plaintext credential that prints as [redacted] (fmt/json/slog); Reveal() only at the call; domain-less leaf
   sqltext:
     in: internal/infra/sqltext                   # the one way a runtime name enters SQL text (quoted identifier); domain-less leaf
   paging:
@@ -780,6 +782,8 @@ deps:
       - httpx
       # textcut — evidence summaries are truncated to a byte budget without splitting a character (single implementation, in infra).
       - textcut
+      # secret — the provider key it holds prints as [redacted]; Reveal() only where the call is built.
+      - secret
     anyVendorDeps: true
 
   # agentcore — public facade: re-exports internal/inference's agentic-loop surface
@@ -1467,6 +1471,7 @@ deps:
       - corpus
       - session
       - inference
+      - secret # the BYOAI key unwrapped from the envelope is wrapped again before it travels on
       - apierr
       - registry # D-2: /api/v1/sessions returns block_state + part_ids, reads the Registry
       - cryptobox   # BYOAI envelope (HKDF + AES-GCM) unwraps the X-BYOAI-Key header
@@ -1492,6 +1497,7 @@ deps:
   # cmd/ is the composition root — the one place allowed to cross all layers.
   cmd:
     mayDependOn:
+      - secret             # unseal.go hands the unsealed provider key out wrapped (prints as [redacted])
       - jobcues            # the screen assistant's cue feed, built on the shared Redis client
       - jobsriver          # River's own migrator runs at boot, after pgstore.Migrate
       - paging             # the microsite store adapter maps the blockstore records page onto a paging.Page

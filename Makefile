@@ -7,7 +7,8 @@
 # incremental development.
 
 .PHONY: lint secrets secrets-image release-build release-assert-stripped release-assert-multiarch release-assert-version release-push release-gc release-repro release-repro-logs release-repro-down backend-lint backend-test ut-db ut-db-down backend-no-mock app-lint sdk-lint e2e-lint env-lint updater-e2e im-bridge-lint im-bridge-test im-bridge-up im-bridge-logs
-.PHONY: deps stack stack-init stack-ready stack-test stack-retire dev dev-up dev-rebuild dev-down dev-remove-orphans prod-up prod-down prod-logs build clean test test-fresh test-only test-asis dsh-plugin-test test-red test-boundary test-dsh-live mobile-shots mobile-shots-asis archive-failures sdk-build builder-vendor dev-rebuild-builder dev-restart-gotenberg app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-blocks eval-owner-mcp verify-round schema-drift i18n-keys
+.PHONY: npm-stamp npm-pack npm-publish npm-unstamp
+.PHONY: deps stackstack-init stack-ready stack-test stack-retire dev dev-up dev-rebuild dev-down dev-remove-orphans prod-up prod-down prod-logs build clean test test-fresh test-only test-asis dsh-plugin-test test-red test-boundary test-dsh-live mobile-shots mobile-shots-asis archive-failures sdk-build builder-vendor dev-rebuild-builder dev-restart-gotenberg app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-blocks eval-owner-mcp verify-round schema-drift i18n-keys
 
 # ── per-checkout dev stack ──────────────────────────────────────
 # One machine, N checkouts, N stacks. Without this every worktree drives the SAME
@@ -1911,3 +1912,53 @@ release-assert-multiarch:
 # This used to have a single-arch `docker push` version. Deleted rather than kept: it pushed
 # exactly the kind of arm64-only image that broke v0.0.3, and leaving an entry point that can
 # reintroduce that defect means someone eventually takes it. Release only has one path: buildx.
+
+# ── npm: the five @standmeet/* packages (runbook: docs/release-npm.md) ──────────────────────
+# Published in dependency order: mcp-client (self-contained) → sdk-core → agent-core → sdk → embed
+# (embed bundles everything it uses; it has no runtime dependency). The version is the release tag
+# without its v (v0.1.130 → 0.1.130), written into each package.json for the publish only — the
+# repo keeps 0.0.0, so the tag stays the one place a version lives. pnpm publish turns workspace:*
+# into that same version. Built with STRIP_TEST_HOOKS=1, like the release images.
+NPM_PACKAGES := mcp-client core agent-core react embed
+NPM_VERSION   = $(patsubst v%,%,$(TAG))
+
+# npm-stamp —— build the SDK as released and write the tag's version into the five package.json.
+npm-stamp:
+	@case "$(NPM_VERSION)" in [0-9]*.[0-9]*.[0-9]*) ;; *) echo "npm: TAG=$(TAG) is not a release tag (vX.Y.Z)"; exit 2 ;; esac
+	@STRIP_TEST_HOOKS=1 STANDMEET_VERSION=$(TAG) $(MAKE) sdk-build
+	@for p in $(NPM_PACKAGES); do \
+	  (cd sdk/packages/$$p && npm pkg set version=$(NPM_VERSION)) || exit 1; \
+	done
+	@echo "[npm] stamped $(NPM_VERSION) into: $(NPM_PACKAGES)"
+
+# npm-pack —— the dry run: stamp, pack each package into .npm-out/, and check every tarball has its
+# README, the stamped version, and no workspace: left in its manifest. Needs no npm login.
+npm-pack: npm-stamp
+	@rm -rf .npm-out && mkdir -p .npm-out
+	@for p in $(NPM_PACKAGES); do \
+	  (cd sdk/packages/$$p && pnpm pack --pack-destination ../../../.npm-out >/dev/null) || exit 1; \
+	done
+	@for t in .npm-out/*.tgz; do \
+	  tar -tzf $$t | grep -q '^package/README.md$$' || { echo "npm: $$t has no README.md"; exit 1; }; \
+	  m=$$(tar -xzOf $$t package/package.json); \
+	  echo "$$m" | grep -q '"version": "$(NPM_VERSION)"' || { echo "npm: $$t is not $(NPM_VERSION)"; exit 1; }; \
+	  echo "$$m" | grep -q 'workspace:' && { echo "npm: $$t still says workspace:"; exit 1; }; \
+	  echo "  ok $$t"; \
+	done
+	@$(MAKE) npm-unstamp
+
+# npm-publish —— the real publish (CI on a release tag; needs NPM_TOKEN with publish rights on the
+# @standmeet scope). Unset → says so and stops, so a release without npm set up still ships images.
+npm-publish: npm-stamp
+	@test -n "$$NPM_TOKEN" || { echo "[npm] NPM_TOKEN not set — skipping the npm publish"; $(MAKE) npm-unstamp; exit 0; }
+	@echo "//registry.npmjs.org/:_authToken=$${NPM_TOKEN}" > .npmrc.publish
+	@for p in $(NPM_PACKAGES); do \
+	  (cd sdk/packages/$$p && pnpm publish --access public --no-git-checks \
+	    --userconfig ../../../.npmrc.publish) || { rm -f .npmrc.publish; exit 1; }; \
+	done
+	@rm -f .npmrc.publish
+	@$(MAKE) npm-unstamp
+
+# npm-unstamp —— put the repo's 0.0.0 back (the tag is the version's one home).
+npm-unstamp:
+	@for p in $(NPM_PACKAGES); do (cd sdk/packages/$$p && npm pkg set version=0.0.0); done

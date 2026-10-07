@@ -50,7 +50,10 @@ import (
 // one moved removes a line from here.
 func BuildDispatcher(d *deps.Runtime) *dispatcher.Dispatcher {
 	resources := dispatcher.Collect(&dispatcher.Deps{
-		Corpus:         corpusDepsOf(d),
+		Corpus: corpusDepsOf(d),
+		// CorpusIndex — the same reading set the sandboxed retrieval block uses, so the owner
+		// face's navigation (corpus.map / grep / …) and the visitor's run over one implementation.
+		CorpusIndex:    CorpusIndexDeps(d),
 		BannedIPs:      security.IPBanDeps{Bans: d.BannedIPRepo, Events: d.Recorder()},
 		Monitor:        d.MonitorRepo,
 		AllowedDomains: owner.AllowedDomainsDeps{Instance: d.InstanceRepo},

@@ -24,6 +24,7 @@ import (
 	"fmt"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/cryptobox"
+	"github.com/atmaxmoj/standmeet/internal/infra/secret"
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 )
@@ -35,15 +36,18 @@ import (
 // owner hasn't configured one; returns an empty string so the resolver takes the
 // ErrOwnerProviderUnconfigured path — "not configured" and "failed to unseal" are two
 // different things and must not both be reported as an unseal failure.
-func openAIProviderKey(ownerID string, enc []byte) (string, error) {
+//
+// The plaintext comes out wrapped (secret.String): from here on it cannot be printed, logged or
+// serialised by accident, only Revealed where the provider call is built.
+func openAIProviderKey(ownerID string, enc []byte) (secret.String, error) {
 	if len(enc) == 0 {
-		return "", nil
+		return secret.String{}, nil
 	}
 	plain, err := cryptobox.Decrypt(enc, []byte(ownerID))
 	if err != nil {
-		return "", fmt.Errorf("open owner ai key: %w", err)
+		return secret.String{}, fmt.Errorf("open owner ai key: %w", err)
 	}
-	return string(plain), nil
+	return secret.New(string(plain)), nil
 }
 
 // mcpServerStore —— the sliver of the repo surface this adapter needs. Narrowed to

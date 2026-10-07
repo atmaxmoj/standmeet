@@ -281,20 +281,13 @@ importers:
         version: 8.59.4(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
 
   sdk/packages/embed:
-    dependencies:
+    devDependencies:
       '@standmeet/sdk':
         specifier: workspace:*
         version: link:../react
       '@standmeet/sdk-core':
         specifier: workspace:*
         version: link:../core
-      react:
-        specifier: ^19.0.0
-        version: 19.2.6
-      react-dom:
-        specifier: ^19.0.0
-        version: 19.2.6(react@19.2.6)
-    devDependencies:
       '@types/react':
         specifier: ^19.0.0
         version: 19.2.14
@@ -304,6 +297,12 @@ importers:
       eslint:
         specifier: ^9.39.3
         version: 9.39.4(jiti@2.7.0)
+      react:
+        specifier: ^19.0.0
+        version: 19.2.6
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.6(react@19.2.6)
       tsup:
         specifier: ^8.3.0
         version: 8.5.1(@swc/core@1.15.43)(jiti@2.7.0)(postcss@8.5.19)(tsx@4.23.12)(typescript@5.9.3)(yaml@2.9.0)

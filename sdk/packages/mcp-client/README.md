@@ -2,8 +2,9 @@
 
 MCP client for StandMeet. Spawned by Claude Desktop / Cursor / any MCP client;
 bridges stdio JSON-RPC to the StandMeet backend's streamable HTTP `/mcp`
-endpoint. Authenticates each request with an Ed25519 sigv1 signature — no
-session cookie, no token cache.
+endpoint. Authenticates each request with an Ed25519 sigv1 signature bound to
+that request (method, path and body) — no session cookie, no token cache, and a
+captured header is useless on any other request.
 
 ## Install
 

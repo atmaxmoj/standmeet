@@ -5,7 +5,11 @@
 
 package inference
 
-import "context"
+import (
+	"context"
+
+	"github.com/atmaxmoj/standmeet/internal/infra/secret"
+)
 
 // OwnerKeyView —— the minimal information the resolver needs from the owner repo.
 // Endpoint / Model are required only for provider='custom' (a self-hosted OpenAI-compat
@@ -19,10 +23,10 @@ import "context"
 // the ciphertext AND a universal unsealer to one piece of code that had no business holding
 // either.)
 type OwnerKeyView struct {
-	Provider string // 'anthropic' / 'openai' / 'deepseek' / ... / 'custom'
-	Endpoint string // openai-compat base URL; empty = use the preset default
-	Model    string // default model; empty = use the preset default
-	Key      string // plaintext API key; empty = the owner hasn't configured one
+	Provider string        // 'anthropic' / 'openai' / 'deepseek' / ... / 'custom'
+	Endpoint string        // openai-compat base URL; empty = use the preset default
+	Model    string        // default model; empty = use the preset default
+	Key      secret.String // plaintext API key (unprintable); empty = the owner hasn't set one
 }
 
 // OwnerLookup —— the narrow interface the resolver injects, avoiding an import of postgres.

@@ -14,11 +14,12 @@
 // conversation, with the previous Q&A still there and the turn count unchanged.
 
 import { test, expect } from '@/fixtures/test';
+import type { Browser } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { seedWiki } from '@/fixtures/corpus';
 import { createCode } from '@/fixtures/codes';
-import { enterCodeSession } from '@/fixtures/navigate';
+import { enterCodeSession, openHome } from '@/fixtures/navigate';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
 
@@ -92,6 +93,12 @@ test.describe('换人窗口同名 START 续聊,不清空不重置', () => {
       await ctx.close();
     });
 
+  // sijie.xyz, 2026-10-06 (owner: "作为访客,我的同一个码,怎么找我的历史"): the session lapsed while
+  // the visitor was away; back on the site, the code still opens, the name picker asks who they are,
+  // they give the same name — and the room showed only the welcome. The backend had resumed their
+  // conversation (same name = same member = same conversation); the page never read it back.
+  test('session lapsed → back with the same code and name → the earlier Q&A is there', lapsedSameName);
+
   test('换人窗口点窗外 backdrop → 关窗续聊,不清空',
     async ({ browser }) => {
       const ctx = await browser.newContext();
@@ -122,3 +129,32 @@ test.describe('换人窗口同名 START 续聊,不清空不重置', () => {
       await ctx.close();
     });
 });
+
+// lapsedSameName —— the session lapsed while the visitor was away (idle TTL); back on the site the
+// code still opens, the name picker asks who they are, they give the same name. Same name = same
+// member = same conversation: the earlier Q&A must be on screen.
+async function lapsedSameName({ browser }: { browser: Browser }): Promise<void> {
+  const NAME3 = 'Fay';
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  await enterCodeSession(page, CODE, NAME3);
+  const turnDone = page.waitForResponse((r) =>
+    r.url().includes('/agent/turn') && r.status() === 200, { timeout: 20_000 });
+  const input = page.locator('[data-testid="chat-input-field"]');
+  await input.fill(QUESTION);
+  await input.press('Enter');
+  await expect(page.locator('[data-testid="answer-body"]')).toBeVisible({ timeout: 20_000 });
+  await (await turnDone).finished();
+  // The browser still holds its token; the backend no longer knows it.
+  await page.evaluate(() => {
+    const raw = localStorage.getItem('standmeet:visitor-session') ?? '{}';
+    localStorage.setItem('standmeet:visitor-session',
+      JSON.stringify({ ...JSON.parse(raw) as object, session_token: 'lapsed-token-xxxxxxxx' }));
+  });
+  await openHome(page);
+  await expect(page.getByTestId('visitor-name-input')).toBeVisible({ timeout: 15_000 });
+  await page.getByTestId('visitor-name-input').fill(NAME3);
+  await page.getByTestId('visitor-name-submit').click();
+  await expect(page.getByText(QUESTION), 'the earlier question is back').toBeVisible({ timeout: 15_000 });
+  await ctx.close();
+}

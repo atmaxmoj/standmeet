@@ -164,15 +164,17 @@ func (l *pgCorpusLister) grepNotes(
 	return out, nil
 }
 
-// grepNoteRow — run one note through the ACL, then match. path is built by joining the
-// root→leaf title segments (consistent with the other read paths).
+// grepNoteRow — run one note through the ACL, then match. path is the note's address — the
+// slugified root→leaf title chain (PathFromTitles), as every other read path reports it. It used
+// to join the raw titles ("…/Eval is the type system"): a path corpus_read could not open, and an
+// ACL check made against an address no grant glob is written in (owner MCP nav spec, 2026-10-07).
 func grepNoteRow(
 	row *repo.GrepNoteRow, scope access.CorpusScope, re *regexp.Regexp,
 ) (GrepHit, bool) {
 	if len(row.PathTitles) == 0 {
 		return GrepHit{}, false
 	}
-	path := strings.Join(row.PathTitles, "/")
+	path := PathFromTitles(row.PathTitles)
 	if !allowsCorpusEntry(scope, row.Genre, path, row.Published) {
 		return GrepHit{}, false
 	}

@@ -22,6 +22,7 @@ var (
 	AssetOps        = ops.AssetOps
 	CorpusReadOps   = ops.CorpusReads
 	CorpusSearchOps = ops.CorpusSearch
+	CorpusNavOps    = ops.CorpusNav
 	CorpusWriteOps  = ops.CorpusWrites
 	CorpusI18nOps   = ops.I18nOps
 	SubjectivityOps = ops.Subjectivity

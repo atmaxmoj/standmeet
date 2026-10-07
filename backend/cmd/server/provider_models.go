@@ -49,7 +49,7 @@ func (l *providerModelLister) ListModels(
 	if kerr != nil {
 		return nil, fmt.Errorf("open provider key: %w", kerr)
 	}
-	models, lerr := providermodels.List(ctx, row.Provider, row.Endpoint, key)
+	models, lerr := providermodels.List(ctx, row.Provider, row.Endpoint, key.Reveal())
 	if lerr != nil {
 		return nil, sayableListErr(lerr)
 	}

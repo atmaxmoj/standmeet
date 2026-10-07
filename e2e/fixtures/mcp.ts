@@ -41,7 +41,7 @@ interface MCPCallResult {
 // createAPIToken, {keyId, privateKeyPem}. This file internally parses + Sigv1-signs
 // each request (no cookie cache). Specs can still call
 // `callTool(req, apiToken, sid, ...)`; apiToken is now an opaque creds blob.
-import { formatAuthHeader, signNow } from '@/fixtures/sigv1';
+import { signBound } from '@/fixtures/sigv1';
 
 interface Creds { keyId: string; privateKeyPem: string }
 
@@ -64,7 +64,10 @@ async function mcpCall(
   sessionId?: string,
 ): Promise<MCPCallResult> {
   const creds = parseCreds(bearer);
-  const auth = formatAuthHeader(signNow(creds.privateKeyPem, creds.keyId));
+  // Signed over the exact bytes sent (the bound `v=2` form the shipped client uses); the unbound
+  // form is still exercised by c1-keypair-auth.spec.ts.
+  const raw = JSON.stringify(body);
+  const auth = signBound(creds.privateKeyPem, creds.keyId, { method: 'POST', path: '/mcp', body: raw });
   const headers: Record<string, string> = {
     Authorization: auth,
     'Content-Type': 'application/json',
@@ -76,7 +79,7 @@ async function mcpCall(
   // + tool dispatch) occasionally hits the 10s ceiling (_render-sample-pdfs was
   // caught by it during a sweep).
   const res = await request.post(`${BACKEND}/mcp`, {
-    headers, data: body, timeout: 30_000,
+    headers, data: raw, timeout: 30_000,
   });
   return {
     status: res.status(),

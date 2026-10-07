@@ -12,7 +12,9 @@
 package mcphandle
 
 import (
+	"bytes"
 	"context"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -117,9 +119,12 @@ func New(deps *Deps) http.Handler {
 // `Authorization: Sigv1 keyId=X, ts=N,sig=base64` is recognized.
 func authMiddleware(deps *Deps, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		authHeader := r.Header.Get("Authorization")
-		ownerID, err := owner.VerifySigv1(r.Context(), deps.Keypairs, authHeader,
-			clientIP(r), r.Header.Get("User-Agent"))
+		signed, berr := signedRequestOf(r)
+		if berr != nil {
+			http.Error(w, "unauthorized: unreadable request", http.StatusUnauthorized)
+			return
+		}
+		ownerID, err := owner.VerifySigv1(r.Context(), deps.Keypairs, signed)
 		if err != nil {
 			http.Error(w, "unauthorized: invalid Sigv1", http.StatusUnauthorized)
 			return
@@ -128,6 +133,17 @@ func authMiddleware(deps *Deps, next http.Handler) http.Handler {
 		extendMCPWriteDeadline(deps.Log, w)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+// signedRequestOf —— the request as the signature check sees it. The body is read once and put
+// back, so the MCP handler downstream still reads it in full.
+func signedRequestOf(r *http.Request) (*owner.SignedRequest, error) {
+	body, err := owner.ReadSignedBody(r.Body)
+	r.Body = io.NopCloser(bytes.NewReader(body))
+	return &owner.SignedRequest{
+		Header: r.Header.Get("Authorization"), Method: r.Method, Path: r.URL.RequestURI(),
+		Body: body, ClientIP: clientIP(r), UserAgent: r.Header.Get("User-Agent"),
+	}, err
 }
 
 // mcpWriteBudget — an owner MCP request can carry a long write: a full-vault

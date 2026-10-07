@@ -279,7 +279,16 @@ Falsifiable check that it actually worked (not just moved): the cross-domain edg
 own-boundary sub-module special case can be **deleted** from `check-domain-acyclic` and the gate
 still passes. If the special case is still needed, the aggregator is still there under a new name.
 
-## Owed: AI credentials cross the owner facade in plaintext
+## Settled (2026-10-07): AI credentials cross the owner facade in plaintext
+
+**Where it stands.** `AICredential` is gone: the owner's key is `inference.ownerCred` (unexported,
+never leaves the package) and the visitor's is `inference.VisitorCred` (untrusted by type). Every
+struct that carries a provider key now holds it as `infra/secret.String`, which prints as
+`[redacted]` through `%v` / `%+v` / `%#v`, JSON and slog; the plaintext is reachable only through
+`Reveal()`, at the two places a provider call or model listing is built. The unseal in
+`cmd/server/unseal.go` hands the key out already wrapped. Pinned by
+`conversation/inference/cred_redact_test.go` (red on the plain-string structs). The original note,
+kept for the reasoning:
 
 `owner/entity/ai_credential.go` holds `AICredential{Provider, Key, Model, Endpoint}` where `Key` is,
 per its own comment, a **plaintext API key** — and `owner/facade/facade_entity.go` re-exports it, so

@@ -33,6 +33,7 @@ type (
 	HandleDeps                 = usecase.HandleDeps
 	KeyChange                  = usecase.KeyChange
 	KeypairDeps                = usecase.KeypairDeps
+	SignedRequest              = usecase.SignedRequest
 	LandingURL                 = usecase.LandingURL
 	LoginDeps                  = usecase.LoginDeps
 	LoginInput                 = usecase.LoginInput
@@ -150,6 +151,7 @@ var (
 	UpdateOwnerPublicURL      = usecase.UpdateOwnerPublicURL
 	UpdatePrompt              = usecase.UpdatePrompt
 	VerifySigv1               = usecase.VerifySigv1
+	ReadSignedBody            = usecase.ReadSignedBody
 	WikiNodeContext           = usecase.WikiNodeContext
 	WikiTreeChildren          = usecase.WikiTreeChildren
 	WikiTreeScopeFor          = usecase.WikiTreeScopeFor

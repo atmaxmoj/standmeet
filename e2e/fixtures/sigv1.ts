@@ -7,7 +7,7 @@
 // the backend records seen nonces in Redis, and replaying the same header within the window → nonce already seen → reject (replay protection).
 // The nonce makes each signature single-use: capturing one valid header still cannot be replayed.
 
-import { createPrivateKey, randomUUID, sign as cryptoSign } from 'node:crypto';
+import { createHash, createPrivateKey, randomUUID, sign as cryptoSign } from 'node:crypto';
 
 const CHALLENGE_NS = 'standmeet-sigv1';
 
@@ -37,6 +37,23 @@ export function signChallenge(
 /** formatAuthHeader —— serializes a signed challenge into an Authorization header value. */
 export function formatAuthHeader(s: SignedChallenge): string {
   return `Sigv1 keyId=${s.keyId},ts=${s.ts},nonce=${s.nonce},sig=${s.sig}`;
+}
+
+/** signBound —— the bound form (`v=2`): the signature also covers the request's method, path (with
+ *  query) and a SHA-256 of its body, so a captured header cannot be put on another request.
+ *  Payload: `standmeet-sigv1\n<keyId>\n<ts>\n<nonce>\n<METHOD>\n<path>\n<hex sha256(body)>`. */
+export function signBound(
+  privateKeyPem: string, keyId: string,
+  req: { method: string; path: string; body: string },
+): string {
+  const ts = Math.floor(Date.now() / 1000);
+  const nonce = randomUUID();
+  const bodyHash = createHash('sha256').update(req.body, 'utf8').digest('hex');
+  const challenge = Buffer.from(
+    `${CHALLENGE_NS}\n${keyId}\n${ts}\n${nonce}\n${req.method.toUpperCase()}\n${req.path}\n${bodyHash}`, 'utf8');
+  const key = createPrivateKey({ key: privateKeyPem, format: 'pem' });
+  const sig = cryptoSign(null, challenge, key).toString('base64');
+  return `Sigv1 keyId=${keyId},ts=${ts},nonce=${nonce},v=2,sig=${sig}`;
 }
 
 /** signNow —— used by most specs: sign once with the current unix-ts + a fresh random nonce. */

@@ -52,10 +52,20 @@ export const issueBYOAISession = (input: IssueBYOAISessionInput) =>
 // conversation. The frontend hydrates it all in one shot on load.
 const GhostSchema = z.object({ text: z.string(), selected: z.boolean() });
 const DialogCitationSchema = z.object({
-  genre: z.enum(['wiki', 'output']),
+  genre: z.enum(['wiki', 'output', 'writing']),
   path: z.string(),
   title: z.string(),
+  // slug —— a writing's public address (/writings/<slug>); absent for wiki / output.
+  slug: z.string().optional().default(''),
 });
+// CitationsSchema —— a citation this page cannot read is dropped on its own. It used to fail the
+// whole conversation's check, and the visitor came back to a blank room: their five turns were on
+// the server, but one writing citation (the list allowed only wiki | output) threw them all away
+// (sijie.xyz, 2026-10-07).
+const CitationsSchema = z.array(z.unknown()).transform((items) => items.flatMap((c) => {
+  const parsed = DialogCitationSchema.safeParse(c);
+  return parsed.success ? [parsed.data] : [];
+}));
 // ToolCallSchema —— one tool call within the conversation aggregate.
 //
 // result **must be optional**: since F-A-28, results from the retrieval family
@@ -81,7 +91,7 @@ const AggDialogSchema = z.object({
   question: z.string(),
   answer: z.string(),
   ghosts: z.array(GhostSchema),
-  citations: z.array(DialogCitationSchema),
+  citations: CitationsSchema,
   tool_calls: z.array(ToolCallSchema),
 });
 // ConvEventSchema —— a record of an in-card action. It isn't anyone's spoken

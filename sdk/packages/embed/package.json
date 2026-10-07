@@ -8,6 +8,13 @@
   "main": "./dist/esm/embed.js",
   "module": "./dist/esm/embed.js",
   "types": "./dist/esm/embed.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/esm/embed.d.ts",
+      "import": "./dist/esm/embed.js"
+    },
+    "./loader": "./dist/loader.global.js"
+  },
   "files": [
     "dist",
     "README.md"
@@ -17,16 +24,14 @@
     "dev": "tsup --watch",
     "lint": "eslint src/ && tsc --noEmit"
   },
-  "dependencies": {
+  "devDependencies": {
     "@standmeet/sdk": "workspace:*",
     "@standmeet/sdk-core": "workspace:*",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
-  },
-  "devDependencies": {
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "eslint": "^9.39.3",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
     "tsup": "^8.3.0",
     "typescript": "^5.7.0",
     "typescript-eslint": "^8.56.1"

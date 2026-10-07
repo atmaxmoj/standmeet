@@ -59,7 +59,8 @@ func CorpusSearch(deps usecase.Deps) []fp.Op {
 			"title with q), which is slow for finding one note by content. This is a lexical " +
 			"index: substrings inside a word, terms glued to punctuation, and CJK tokenize " +
 			"badly, so an empty result does NOT mean the corpus lacks the material — retry " +
-			"with a distinctive whole word before concluding it isn't there.",
+			"with a distinctive whole word, or use corpus.grep (literal, never misses), before " +
+			"concluding it isn't there. To see where things live first, call corpus.map.",
 		InputSchema: corpusSearchSchema,
 		Kind:        fp.Read,
 		Reach:       fp.OwnerRead(),
