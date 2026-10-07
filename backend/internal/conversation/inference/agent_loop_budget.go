@@ -35,6 +35,22 @@ import (
 // (handleTerminalError → forceFinalAnswer), which synthesizes from whatever WAS gathered.
 const maxAgentIterations = 24
 
+// visitorAgentIterations —— the budget for a visitor's turn (agent speedup W2). Visitors ask
+// interview-sized questions; on the full 24 a broad one crawled 13 retrievals and 40–60 s
+// before the first word (sijie.xyz, 2026-10-07). Past this budget the turn closes through the
+// same exhaustion synthesis, answering from what it gathered. The full budget stays for drivers
+// with no visitor session (the eval harness, the owner's own tools).
+const visitorAgentIterations = 8
+
+// iterationBudget —— the rounds this turn may take: visitor sessions (code / public / byoai)
+// get the visitor budget, everything else the full one.
+func iterationBudget(mode string) int {
+	if mode == "" {
+		return maxAgentIterations
+	}
+	return visitorAgentIterations
+}
+
 // Evidence budget for the exhaustion synthesis. The fallback is ONE model call, so the material
 // carried into it must be bounded. WHICH results we keep is a real design choice: pure
 // recent-bias is wrong. The chain-exhaustion eval caught it — a 33-hop crawl pushed the chain's

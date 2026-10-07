@@ -129,7 +129,7 @@ func BuildAgentIterator(
 			ToolsNodeConfig: compose.ToolsNodeConfig{Tools: guardRepeats(ctx, in.Tools)},
 			ReturnDirectly:  in.ReturnDirectly,
 		},
-		MaxIterations: maxAgentIterations,
+		MaxIterations: iterationBudget(in.Mode),
 		Handlers:      []adk.ChatModelAgentMiddleware{mw},
 	})
 	if aerr != nil {
