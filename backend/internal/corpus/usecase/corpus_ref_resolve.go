@@ -51,7 +51,7 @@ func (r *RefResolver) ResolvesRef(ctx context.Context, ownerID, uri string) bool
 // NoteText —— the note this ref names, read the same way: exact genre and tree path. Like
 // ResolvesRef it does not check ACL; the caller decides with the note's Published flag.
 func (r *RefResolver) NoteText(ctx context.Context, ownerID, uri string) (RefNote, bool) {
-	ref, err := entity.ParseURI(uri)
+	ref, err := entity.ParseNoteURI(uri)
 	if err != nil {
 		return RefNote{}, false
 	}

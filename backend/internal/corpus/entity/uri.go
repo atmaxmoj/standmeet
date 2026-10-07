@@ -54,6 +54,17 @@ func ParseURI(s string) (URIRef, error) {
 	return URIRef{Genre: genre, Path: s[idx+len(uriSep):]}, nil
 }
 
+// ParseNoteURI —— ParseURI that also accepts `subjectivity://<path>`. Subjectivity stays out of
+// AllGenres (the 4-genre dispatch does not cover it), but a ref that names one note — a role's
+// fact note, a waypoint's evidence — may point there.
+func ParseNoteURI(s string) (URIRef, error) {
+	prefix := string(GenreSubjectivity) + uriSep
+	if strings.HasPrefix(s, prefix) {
+		return URIRef{Genre: GenreSubjectivity, Path: s[len(prefix):]}, nil
+	}
+	return ParseURI(s)
+}
+
 // FormatURI —— URIRef → `<genre>://<path>`. An empty path formats as `<genre>://`.
 // Callers usually go through `Document.URI()` rather than calling this directly, but
 // admin / migration tools call it directly when assembling from Genre + path.

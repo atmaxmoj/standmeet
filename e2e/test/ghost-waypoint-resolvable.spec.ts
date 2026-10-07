@@ -29,7 +29,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { seedWiki } from '@/fixtures/corpus';
 import { findSetupToken, resetInstance } from '@/fixtures/instance';
-import { initMCP } from '@/fixtures/mcp';
+import { callTool, initMCP } from '@/fixtures/mcp';
 import { createRole } from '@/fixtures/roles';
 import { issueSession } from '@/fixtures/visitor';
 
@@ -46,7 +46,7 @@ const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 // authorized glob. The **only** thing separating them is "does the note exist"; the
 // authorization layer is deliberately made indistinguishable in this spec so what it proves
 // is reachability, not authorization.
-const CORPUS_GLOBS = ['wiki://**'];
+const CORPUS_GLOBS = ['wiki://**', 'subjectivity://standpoint'];
 
 // Real evidence: this note gets seeded below. title 'Alpha' + path 'alpha' -> URI wiki://alpha.
 const REAL_TITLE = 'Alpha';
@@ -81,6 +81,17 @@ const WP_TERMINAL = {
   is_terminal: true,
 };
 
+// Real evidence in subjectivity: the note exists (seeded below). The ref parser only knew the
+// four library genres, so a subjectivity ref never resolved and this waypoint was dropped as if
+// its note did not exist (found 2026-10-07 through the role fact notes, which read the same way).
+const WP_SELF = {
+  waypoint_id: 'read-own-standpoint',
+  description: 'read the owner\'s standpoint',
+  weight: 6,
+  evidence_refs: ['subjectivity://standpoint'],
+  is_terminal: false,
+};
+
 interface SnapshotWaypoint {
   waypoint_id: string;
   evidence_refs: string[];
@@ -113,6 +124,13 @@ test.describe('ghost waypoint · 可行性下限要解析得出证据 · F-A-26'
     expect(real, '指向真实笔记的 waypoint 必须存活').toBeDefined();
     expect(real!.evidence_refs, '证据 ref 冻结保真').toContain('wiki://alpha');
   });
+
+  test('evidence in a real subjectivity note resolves, so the waypoint is kept',
+    async ({ playwright }) => {
+      const wps = await frozenWaypoints(await freshCtx(playwright), sessionToken);
+      expect(wps.some((w) => w.waypoint_id === WP_SELF.waypoint_id),
+        'subjectivity://standpoint exists: the waypoint must survive the freeze').toBe(true);
+    });
 
   test('证据全解析不出的非终点 waypoint,冻结时被丢弃', async ({ playwright }) => {
     const wps = await frozenWaypoints(await freshCtx(playwright), sessionToken);
@@ -159,10 +177,12 @@ async function setup(playwright: Playwright): Promise<string> {
   await seedWiki(request, apiToken, sid, {
     title: REAL_TITLE, body: 'Alpha shipped last quarter.', path: REAL_PATH,
   });
+  await callTool(request, apiToken, sid, 'subjectivity_write',
+    { title: 'standpoint', body: 'Where I stand.' });
   const role = await createRole(request, csrf, {
     name: 'wp-reach-role', description: 'waypoint resolvability spec',
     corpus_uris: CORPUS_GLOBS,
-    waypoints: [WP_REAL, WP_PHANTOM, WP_TERMINAL],
+    waypoints: [WP_REAL, WP_PHANTOM, WP_TERMINAL, WP_SELF],
   });
   await createCode(request, csrf, {
     code: CODE, label: 'wpreach', assumed_role_id: role.id,

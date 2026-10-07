@@ -41,8 +41,10 @@ func dispatchTurn(
 	// The time before "agent turn start": a turn that sat 8-11s here (dev under load) logged
 	// nothing, so the slot wait and the block assembly (per-session plugin dials) were
 	// indistinguishable.
+	facts := profileFactsForTurn(r, h, auth)
 	h.Log.Info("agent turn prepared", "slot_wait_ms", slot.waited.Milliseconds(),
-		"assemble_ms", time.Since(assembling).Milliseconds(), "tools", len(ts.Tools))
+		"assemble_ms", time.Since(assembling).Milliseconds(), "tools", len(ts.Tools),
+		"fact_notes_chars", len(facts))
 	inference.RunAgentTurn(r.Context(), h.Log, teeTurn(h, r, w, req), &inference.AgentTurnInput{
 		Cred: cred, Req: req,
 		Tools:            ts.Tools,
@@ -53,7 +55,7 @@ func dispatchTurn(
 		Persist:          buildAgentTurnPersist(h, auth, req.ConversationID),
 		RecordUsage:      buildAgentTurnUsage(h, auth),
 		CrossConvContext: buildCrossConvForTurn(r, h, auth, req.ConversationID),
-		ProfileFacts:     profileFactsForTurn(r, h, auth),
+		ProfileFacts:     facts,
 		PageText:         pageTextForTurn(r, h, req.DocContext),
 		OwnerTimezone:    ownerTZForTurn(r, h, auth.Data.OwnerID),
 		VisitorTimezone:  req.VisitorTimezone,
