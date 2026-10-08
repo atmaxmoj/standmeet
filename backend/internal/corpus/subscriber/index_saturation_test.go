@@ -51,8 +51,8 @@ func (m *meili) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	if r.Method == http.MethodPost && r.URL.Path == docsPath {
-		m.add(w, r)
+	if r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, docsPath) {
+		m.write(w, r)
 		return
 	}
 	uid, isTask := strings.CutPrefix(r.URL.Path, taskPath)
@@ -72,15 +72,20 @@ func reply(_ int, err error) {
 	}
 }
 
-func (m *meili) add(w http.ResponseWriter, r *http.Request) {
+// write —— an add (POST …/documents) or a delete by filter (POST …/documents/delete). A note's
+// old chunks are dropped before its new ones go in; the rig only counts what was added, so a
+// delete is just a task.
+func (m *meili) write(w http.ResponseWriter, r *http.Request) {
 	var docs []search.Doc
-	if err := json.NewDecoder(r.Body).Decode(&docs); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+	if r.URL.Path == docsPath {
+		if err := json.NewDecoder(r.Body).Decode(&docs); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 	}
 	m.mu.Lock()
 	for i := range docs {
-		m.docs[docs[i].ID] = docs[i]
+		m.docs[docs[i].NoteID] = docs[i] // a note's chunks: the note counts as indexed
 	}
 	m.mu.Unlock()
 	w.WriteHeader(http.StatusAccepted)

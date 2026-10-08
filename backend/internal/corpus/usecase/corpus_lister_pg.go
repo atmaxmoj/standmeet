@@ -78,7 +78,7 @@ func (l *pgCorpusLister) Search(
 func (l *pgCorpusLister) meiliSearch(
 	ctx context.Context, ownerID string, scope access.CorpusScope, query string,
 ) ([]Meta, bool) {
-	docs, err := l.searcher.Search(ctx, ownerID, query)
+	docs, err := l.searcher.Search(ctx, ownerID, meiliScope(scope), query)
 	if err != nil {
 		// Logged: a silent fallback reads as "Meili found nothing" (CJK and typo-tolerant queries
 		// then miss on Postgres), and nothing says why.
@@ -91,7 +91,7 @@ func (l *pgCorpusLister) meiliSearch(
 			continue
 		}
 		out = append(out, Meta{
-			ID: docs[i].ID, Path: docs[i].Path, Title: docs[i].Title,
+			ID: docs[i].NoteID, Path: docs[i].Path, Title: docs[i].Title,
 			Genre: docs[i].Genre, Snippet: Snippet(docs[i].Body),
 		})
 	}

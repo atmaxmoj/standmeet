@@ -1,12 +1,16 @@
 // Package search — the Meilisearch wrapper for corpus lexical search (1b crawl face).
 //
-// Postgres is the source of truth; meili is a derived projection: the write path
-// upserts/deletes in sync (see index propagation in usecases), the read path goes through
-// Search. Every write WaitForTask's, so "written = immediately searchable" holds as strong
-// consistency (no polling, no e2e flakiness). ACL doesn't live at this layer — this layer only
-// filters by owner_id; fine-grained path-glob ACL is applied row-by-row by the caller
-// (pgCorpusLister), reusing the existing allowsCorpusURI so admission matches corpus_read
-// exactly.
+// Postgres is the source of truth; meili is a derived projection: the index jobs upsert/delete,
+// the read path goes through Search. Every write WaitForTask's, so "written = immediately
+// searchable" holds as strong consistency (no polling, no e2e flakiness).
+//
+// One document per (note, language face, heading section) — a chunk — not one per note: a long
+// note's matching section is what a hit carries, and an English query is answered from English
+// faces first. Search collapses chunks back to notes for its callers.
+//
+// Scope: the caller passes a filter expression (built from the visitor's ACL) that runs INSIDE
+// Meili, so the result limit applies to what the caller may read; the caller still checks every
+// row against the exact glob ACL (the filter is a superset).
 package search
 
 import (
@@ -20,23 +24,28 @@ import (
 const (
 	corpusIndex  = "corpus_notes"
 	waitInterval = 20 * time.Millisecond
-	// defaultLimit — the cap on what one Search call pulls from meili (the candidate
-	// pool before ACL filtering).
+	// defaultLimit — chunks pulled per pass, after the scope filter.
 	defaultLimit = 100
 )
 
-// Doc — the shape of one corpus note in the meili index. id = corpus_notes.id (raw
-// uses the raw id). searchable: title/body/tags; filterable: owner_id/genre/published.
+// Doc — one chunk. ID = NoteID + lang + section index. URI is the note's corpus URI;
+// URIPrefixes are its ancestor URIs (genre root included), the handle a scope filter matches on.
 type Doc struct {
-	ID        string   `json:"id"`
-	OwnerID   string   `json:"owner_id"`
-	Genre     string   `json:"genre"`
-	Path      string   `json:"path"`
-	Title     string   `json:"title"`
-	Body      string   `json:"body"`
-	ParentID  string   `json:"parent_id"`
-	Tags      []string `json:"tags"`
-	Published bool     `json:"published"`
+	ID          string   `json:"id"`
+	NoteID      string   `json:"note_id"`
+	OwnerID     string   `json:"owner_id"`
+	Genre       string   `json:"genre"`
+	Path        string   `json:"path"`
+	URI         string   `json:"uri"`
+	URIPrefixes []string `json:"uri_prefixes"`
+	Lang        string   `json:"lang"`
+	Title       string   `json:"title"`
+	Aliases     []string `json:"aliases"`
+	Heading     string   `json:"heading"`
+	Body        string   `json:"body"`
+	ParentID    string   `json:"parent_id"`
+	Tags        []string `json:"tags"`
+	Published   bool     `json:"published"`
 }
 
 // Client — the meili wrapper. Search/Index/Delete all WaitForTask for strong consistency.
@@ -60,22 +69,31 @@ func New(host, apiKey string) *Client {
 
 // EnsureIndex — creates the index (primaryKey=id) + configures searchable/filterable
 // attributes. Called once at startup; idempotent (CreateIndex errors harmlessly when the
-// index already exists, so that error is ignored).
+// index already exists, so that error is ignored). The searchable order is the ranking order.
 func (c *Client) EnsureIndex(ctx context.Context) error {
 	idxCfg := &meilisearch.IndexConfig{Uid: corpusIndex, PrimaryKey: "id"}
 	if _, err := c.mgr.CreateIndexWithContext(ctx, idxCfg); err != nil {
 		_ = err // already-exists and the like → harmless
 	}
-	searchable := []string{"title", "body", "tags"}
+	searchable := []string{"title", "aliases", "heading", "body", "tags"}
 	if _, err := c.index.UpdateSearchableAttributesWithContext(ctx, &searchable); err != nil {
 		return fmt.Errorf("meili searchable attrs: %w", err)
 	}
-	filterable := []any{"owner_id", "genre", "published"}
+	filterable := []any{"owner_id", "note_id", "genre", "published", "lang", "uri", "uri_prefixes"}
 	task, err := c.index.UpdateFilterableAttributesWithContext(ctx, &filterable)
 	if err != nil {
 		return fmt.Errorf("meili filterable attrs: %w", err)
 	}
 	return c.wait(ctx, task.TaskUID)
+}
+
+// ReplaceNotes —— drops every chunk of these notes, then writes docs: a note re-chunked into
+// fewer sections must not keep its old tail.
+func (c *Client) ReplaceNotes(ctx context.Context, noteIDs []string, docs []Doc) error {
+	if err := c.DeleteNotes(ctx, noteIDs); err != nil {
+		return err
+	}
+	return c.Index(ctx, docs)
 }
 
 // Index — upserts a batch of docs (primaryKey=id → same id overwrites). WaitForTask
@@ -95,35 +113,61 @@ func (c *Client) Index(ctx context.Context, docs []Doc) error {
 	return c.wait(ctx, task.TaskUID)
 }
 
-// Delete — removes docs by id (when a note is deleted/archived).
-func (c *Client) Delete(ctx context.Context, ids []string) error {
-	if len(ids) == 0 {
+// DeleteNotes — removes every chunk of these notes.
+func (c *Client) DeleteNotes(ctx context.Context, noteIDs []string) error {
+	if len(noteIDs) == 0 {
 		return nil
 	}
-	task, err := c.index.DeleteDocumentsWithContext(ctx, ids, nil)
+	task, err := c.index.DeleteDocumentsByFilterWithContext(ctx, InFilter("note_id", noteIDs), nil)
 	if err != nil {
-		return fmt.Errorf("meili delete docs: %w", err)
+		return fmt.Errorf("meili delete notes: %w", err)
 	}
 	return c.wait(ctx, task.TaskUID)
 }
 
 // DeleteOwner — clears every doc for one owner (cleared before a reindex backfill, to
-// prevent stale drift from sticking around).
+// prevent stale drift — including documents in an older index shape — from sticking around).
 func (c *Client) DeleteOwner(ctx context.Context, ownerID string) error {
-	filter := fmt.Sprintf("owner_id = %q", ownerID)
-	task, err := c.index.DeleteDocumentsByFilterWithContext(ctx, filter, nil)
+	task, err := c.index.DeleteDocumentsByFilterWithContext(ctx, Eq("owner_id", ownerID), nil)
 	if err != nil {
 		return fmt.Errorf("meili delete owner: %w", err)
 	}
 	return c.wait(ctx, task.TaskUID)
 }
 
-// Search — lexical search over one owner's corpus. Filters only by owner_id;
-// fine-grained ACL (glob/published) is applied row-by-row by the caller. Returns the hit
-// Docs (with path/genre so the caller can judge ACL and build CorpusMeta).
-func (c *Client) Search(ctx context.Context, ownerID, query string) ([]Doc, error) {
+// Search — lexical search over one owner's corpus, inside scope (a filter expression; "" = the
+// whole owner). Two passes: chunks in the query's language first, then the rest; the chunks
+// collapse to one Doc per note, in rank order.
+func (c *Client) Search(ctx context.Context, ownerID, scope, query string) ([]Doc, error) {
+	base := Eq("owner_id", ownerID)
+	if scope != "" {
+		base += " AND (" + scope + ")"
+	}
+	lang := QueryLang(query)
+	first, err := c.pass(ctx, query, base+" AND "+Eq("lang", lang))
+	if err != nil {
+		return nil, err
+	}
+	rest, err := c.pass(ctx, query, base+" AND "+Ne("lang", lang))
+	if err != nil {
+		return nil, err
+	}
+	return collapse(append(first, rest...)), nil
+}
+
+// Healthy — a live health ping. err != nil = degraded (used for the admin panel
+// display and by reconcile's decision).
+func (c *Client) Healthy(ctx context.Context) error {
+	if _, err := c.mgr.HealthWithContext(ctx); err != nil {
+		return fmt.Errorf("meili health: %w", err)
+	}
+	return nil
+}
+
+// pass —— one filtered query.
+func (c *Client) pass(ctx context.Context, query, filter string) ([]Doc, error) {
 	resp, err := c.index.SearchWithContext(ctx, query, &meilisearch.SearchRequest{
-		Filter: fmt.Sprintf("owner_id = %q", ownerID),
+		Filter: filter,
 		Limit:  defaultLimit,
 		// frequency (not default "last"): a query like "tell me about X" keeps the high-signal
 		// term instead of dropping it off the end, so the topic matches.
@@ -139,13 +183,18 @@ func (c *Client) Search(ctx context.Context, ownerID, query string) ([]Doc, erro
 	return out, nil
 }
 
-// Healthy — a live health ping. err != nil = degraded (used for the admin panel
-// display and by reconcile's decision).
-func (c *Client) Healthy(ctx context.Context) error {
-	if _, err := c.mgr.HealthWithContext(ctx); err != nil {
-		return fmt.Errorf("meili health: %w", err)
+// collapse —— the best-ranked chunk of each note, in rank order.
+func collapse(docs []Doc) []Doc {
+	seen := make(map[string]bool, len(docs))
+	out := make([]Doc, 0, len(docs))
+	for i := range docs {
+		if seen[docs[i].NoteID] {
+			continue
+		}
+		seen[docs[i].NoteID] = true
+		out = append(out, docs[i])
 	}
-	return nil
+	return out
 }
 
 func (c *Client) wait(ctx context.Context, taskUID int64) error {

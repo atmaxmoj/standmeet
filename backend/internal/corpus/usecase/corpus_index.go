@@ -75,13 +75,9 @@ func (x *meiliCorpusIndexer) IndexNote(ctx context.Context, ownerID, noteID stri
 	if skipFromMeili(note.Genre) {
 		return nil
 	}
-	doc := search.Doc{
-		ID: note.ID, OwnerID: ownerID, Genre: note.Genre,
-		Path:  SyncNotePath(note.Title, note.ParentID, DBParentOf(ctx, x.notes, ownerID)),
-		Title: note.Title, Body: note.Body,
-		Tags: note.Tags, Published: note.Published, ParentID: note.ParentID,
-	}
-	if err = x.client.Index(ctx, []search.Doc{doc}); err != nil {
+	path := SyncNotePath(note.Title, note.ParentID, DBParentOf(ctx, x.notes, ownerID))
+	docs := noteDocs(ownerID, &note, path)
+	if err = x.client.ReplaceNotes(ctx, []string{note.ID}, docs); err != nil {
 		return fmt.Errorf("index note push: %w", err)
 	}
 	return nil
@@ -93,29 +89,37 @@ func (x *meiliCorpusIndexer) IndexSubtree(ctx context.Context, ownerID, noteID s
 	if err != nil {
 		return err
 	}
-	sub := subtreeDocs(docs, noteID)
+	sub, ids := subtreeDocs(docs, noteID)
 	if len(sub) == 0 {
 		return x.IndexNote(ctx, ownerID, noteID) // raw/writing, or gone: the single path decides
 	}
-	if err = x.client.Index(ctx, sub); err != nil {
+	if err = x.client.ReplaceNotes(ctx, ids, sub); err != nil {
 		return fmt.Errorf("index subtree push: %w", err)
 	}
 	return nil
 }
 
-// subtreeDocs —— the docs whose parent chain reaches rootID (rootID's own doc included).
-func subtreeDocs(docs []search.Doc, rootID string) []search.Doc {
+// subtreeDocs —— the chunks whose note's parent chain reaches rootID (rootID's own included),
+// and those notes' ids.
+func subtreeDocs(docs []search.Doc, rootID string) ([]search.Doc, []string) {
 	parent := make(map[string]string, len(docs))
 	for i := range docs {
-		parent[docs[i].ID] = docs[i].ParentID
+		parent[docs[i].NoteID] = docs[i].ParentID
 	}
 	sub := make([]search.Doc, 0, len(docs))
+	ids := make([]string, 0, len(parent))
+	seen := make(map[string]bool, len(parent))
 	for i := range docs {
-		if withinSubtree(parent, docs[i].ID, rootID) {
-			sub = append(sub, docs[i])
+		if !withinSubtree(parent, docs[i].NoteID, rootID) {
+			continue
+		}
+		sub = append(sub, docs[i])
+		if !seen[docs[i].NoteID] {
+			seen[docs[i].NoteID] = true
+			ids = append(ids, docs[i].NoteID)
 		}
 	}
-	return sub
+	return sub, ids
 }
 
 // withinSubtree —— whether walking id's parent chain (at most TreeMaxDepth steps) reaches rootID.
@@ -131,7 +135,7 @@ func withinSubtree(parent map[string]string, id, rootID string) bool {
 
 // DeleteNote —— removes one entry from Meili (note deleted/archived).
 func (x *meiliCorpusIndexer) DeleteNote(ctx context.Context, noteID string) error {
-	if err := x.client.Delete(ctx, []string{noteID}); err != nil {
+	if err := x.client.DeleteNotes(ctx, []string{noteID}); err != nil {
 		return fmt.Errorf("delete note: %w", err)
 	}
 	return nil
@@ -170,11 +174,7 @@ func (x *meiliCorpusIndexer) ownerDocs(ctx context.Context, ownerID string) ([]s
 			continue
 		}
 		path := SyncNotePath(notes[i].Title, notes[i].ParentID, mapParentOf(byID))
-		docs = append(docs, search.Doc{
-			ID: notes[i].ID, OwnerID: ownerID, Genre: notes[i].Genre,
-			Path: path, Title: notes[i].Title, Body: notes[i].Body,
-			Tags: notes[i].Tags, Published: notes[i].Published, ParentID: notes[i].ParentID,
-		})
+		docs = append(docs, noteDocs(ownerID, &notes[i], path)...)
 	}
 	return docs, nil
 }

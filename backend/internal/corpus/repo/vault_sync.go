@@ -323,6 +323,9 @@ func syncNoteFromRow(n *db.CorpusNote) SyncNote {
 	out := SyncNote{
 		ID: pgstore.FormatUUID(n.ID), Genre: n.Genre, Title: n.Title, Body: n.Body,
 		Excerpt: n.Excerpt, Published: n.Published, Tags: n.Tags,
+		// The search index reads a single note through here: without these two, every live index
+		// write lost the note's aliases and declared language (only the boot rebuild had them).
+		Aliases: n.Aliases, Lang: n.Lang,
 	}
 	if n.ParentID.Valid {
 		out.ParentID = pgstore.FormatUUID(n.ParentID)
