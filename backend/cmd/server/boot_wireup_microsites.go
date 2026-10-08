@@ -189,20 +189,30 @@ func serveAssetBlob(
 	return publicroutes.AssetBlob{Data: data, ContentType: asset.ContentType}, true
 }
 
-// micrositeReferencesAsset —— true iff a microsite references this asset, i.e. it is public (a
-// microsite is a public page). Those serve on a bare id; a corpus-only asset returns false and must
-// instead carry a signature. Any error → false (fail closed, rendered as 404).
+// micrositeReferencesAsset —— true iff a page an anonymous reader can open (live, open without a
+// code) references this asset. Those serve on a bare id; any other asset — corpus-only, or used
+// only by a closed or taken-down page — must carry a signature. Counting ANY microsite reference
+// made a closed page's images world-readable by id (2026-10-08). Any error → false (fail closed,
+// rendered as 404).
 func micrositeReferencesAsset(ctx context.Context, d *deps.Runtime, id string) bool {
 	refs, err := d.AssetRepo.ReferencesOf(ctx, id)
 	if err != nil {
 		return false
 	}
 	for i := range refs {
-		if refs[i].Kind == corpus.RefKindMicrosite {
+		if refs[i].Kind == corpus.RefKindMicrosite && pageOpenToPublic(ctx, d, refs[i].ReferrerID) {
 			return true
 		}
 	}
 	return false
+}
+
+// pageOpenToPublic —— could a stranger open this page now (live + open without a code). Any
+// error → false.
+func pageOpenToPublic(ctx context.Context, d *deps.Runtime, pageID string) bool {
+	pages := owner.MicrositeDeps{Pages: d.MicrositeRepo, Builds: d.MicrositeBuildRepo}
+	open, err := owner.PageOpenToPublic(ctx, pages, pageID)
+	return err == nil && open
 }
 
 // awaitBuildSettled —— the admin preview long-poll's wait: the owner domain's answer, over the

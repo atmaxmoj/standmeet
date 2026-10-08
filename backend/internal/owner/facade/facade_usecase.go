@@ -131,6 +131,7 @@ var (
 	RemoveAllowedDomain       = usecase.RemoveAllowedDomain
 	ResolveLiveBuild          = usecase.ResolveLiveBuild
 	CodeOpensPage             = usecase.CodeOpensPage
+	PageOpenToPublic          = usecase.PageOpenToPublic
 	ResolveOpenBuild          = usecase.ResolveOpenBuild
 	LiveMicrositeText         = usecase.LiveMicrositeText
 	LiveMicrosites            = usecase.LiveMicrosites

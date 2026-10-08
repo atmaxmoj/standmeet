@@ -170,6 +170,25 @@ func CodeOpensPage(ctx context.Context, deps MicrositeDeps, codeID, pageID strin
 	return ok, nil
 }
 
+// PageOpenToPublic —— could a reader with no code and no owner session open this page right now:
+// it is live (has a live build; GetByID never returns a deleted page) and opens without a code
+// (the database's one definition). What the page lets a stranger see, its assets may show a
+// stranger on a bare id.
+func PageOpenToPublic(ctx context.Context, deps MicrositeDeps, pageID string) (bool, error) {
+	page, err := deps.Pages.GetByID(ctx, pageID)
+	if err != nil {
+		return false, fmt.Errorf("get page: %w", err)
+	}
+	if page.LiveBuildID == nil {
+		return false, nil
+	}
+	open, err := deps.Pages.OpensWithoutCode(ctx, pageID)
+	if err != nil {
+		return false, fmt.Errorf("opens without code: %w", err)
+	}
+	return open, nil
+}
+
 // ResolvePreviewBuild — the version used **for owner preview**: this page's most
 // recently successful build.
 //
