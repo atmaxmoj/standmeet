@@ -21,10 +21,15 @@ func TestJobsMCPSchemasAreValidJSON(t *testing.T) {
 	fibers := []registry.Fiber{
 		jobsmcp.NewJobsFiber(nil, log),
 		jobsmcp.NewResumeFiber(nil, log),
-		jobsmcp.NewApplicationsFiber(nil, log),
 	}
 	for _, c := range fibers {
 		assertSchemasValid(t, c)
+	}
+	// applications.commit is a dispatcher op now (R2); its schema sits in the same tools/list.
+	for _, op := range jobsmcp.ApplicationOps(nil, log) {
+		if !json.Valid(op.InputSchema) {
+			t.Errorf("op %q has INVALID InputSchema JSON:\n%s", op.ID, string(op.InputSchema))
+		}
 	}
 }
 

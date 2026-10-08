@@ -58,7 +58,8 @@ interface RegistryListResp { blocks: Cap[] }
 const GOLDEN_OUTWARD: readonly Cap[] = [
   { id: 'jobs.bundle', shape: 'owner_only', origin: 'builtin' },
   { id: 'resume.bundle', shape: 'owner_only', origin: 'builtin' },
-  { id: 'applications.bundle', shape: 'owner_only', origin: 'builtin' },
+  // applications.bundle left (R2, layer2-externalize-jobs.md step 1): applications.commit is a
+  // dispatcher op now; the tool itself is still on the owner MCP face (norm-outward-toolset).
   // The screen assistant's owner tools (assistant.push, e215acb8a) — owner-only by design.
   { id: 'assistant.bundle', shape: 'owner_only', origin: 'builtin' },
 ];

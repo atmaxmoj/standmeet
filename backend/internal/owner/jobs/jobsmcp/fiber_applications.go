@@ -1,10 +1,12 @@
-// fiber_applications.go —— Phase E-12: the applications.commit fiber.
-// owner-only. Returns multi-content [text(JSON), embed(PDF blob)]; the PDF
-// is rendered by gotenberg hitting the admin /print route, pixel-identical
-// to the owner's live preview (see docs/design/job-loop.md).
+// fiber_applications.go —— applications.commit, a dispatcher op (refactor ledger R2;
+// docs/design/layer2-externalize-jobs.md step 1). It was an owner-only fiber binding; it is the
+// product's deterministic state holder (issues an AccessCode, renders the PDF, writes the
+// application atomically), so it stays host-owned Go, declared once like every other owner op.
 //
-// MCPResult.Embeddings (a Phase E-12 extension) lets the adapter fold the
-// PDF blob into CallToolResult.Content[] alongside the text.
+// The result is the commit view plus `_embeds` with the final PDF: the MCP face sends it as an
+// embedded resource after the text (facadeparity.Invoke), the same [text, PDF] shape the fiber
+// returned. The PDF is rendered by gotenberg hitting the admin /print route, pixel-identical to
+// the owner's live preview (see docs/design/job-loop.md).
 
 package jobsmcp
 
@@ -14,130 +16,99 @@ import (
 	"errors"
 	"log/slog"
 
+	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmodel"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc"
-	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
 )
 
 const (
-	applicationsBundleID = "applications.bundle"
 	applicationMIMEPDF   = "application/pdf"
 	applicationURIScheme = "standmeet://application/"
 )
 
-type applicationsFiber struct {
-	apps *jobsuc.ApplicationsDeps
-	log  *slog.Logger
-}
+var commitSchema = json.RawMessage(`{
+	"type":"object",
+	"properties":{
+		"draft_id":{"type":"string","description":"draft id from resume.draft"}
+	},
+	"required":["draft_id"]
+}`)
 
-// NewApplicationsFiber —— exposed to the composition root as of J.3.
-func NewApplicationsFiber(
-	apps *jobsuc.ApplicationsDeps, log *slog.Logger,
-) registry.Fiber {
-	return &applicationsFiber{apps: apps, log: log}
-}
-
-func (*applicationsFiber) ID() string            { return applicationsBundleID }
-func (*applicationsFiber) Shape() registry.Shape { return registry.ShapeOwnerOnly }
-func (*applicationsFiber) VisitorBinding(
-	_ context.Context, _ *registry.AssembleInput,
-) (*registry.Binding, error) {
-	return nil, registry.ErrHidden
-}
-
-func (*applicationsFiber) SystemPromptFragment(
-	_ context.Context, _ *registry.AssembleInput,
-) string {
-	return ""
-}
-
-func (*applicationsFiber) SystemPromptFragmentID(
-	_ context.Context, _ *registry.AssembleInput,
-) string {
-	return ""
-}
-
-func (c *applicationsFiber) OwnerMCPBindings() []*registry.MCPBinding {
-	return []*registry.MCPBinding{c.commitBinding()}
-}
-
-// ───── applications.commit ──────────────────────────────────────
-
-func (c *applicationsFiber) commitBinding() *registry.MCPBinding {
-	return &registry.MCPBinding{
-		Name: "applications.commit", Danger: "authority", // issues an access code
+// ApplicationOps —— applications.commit.
+func ApplicationOps(apps *jobsuc.ApplicationsDeps, log *slog.Logger) []fp.Op {
+	return []fp.Op{{
+		ID: "applications.commit", Kind: fp.Action, Danger: fp.DangerAuthority,
+		// MCP only, as the fiber was: the admin composer commits through jobsadmin's
+		// /api/admin/applications route, which runs the same CommitApplication.
+		Reach:       fp.Only("the panel commits through jobsadmin's applications route", "mcp"),
+		InputSchema: commitSchema,
 		Description: "Promote a resume draft to a persistent application: atomically " +
 			"issues a 180-day AccessCode (10 sessions / 50 turns per member), writes " +
 			"the application row, and deletes the draft. Returns application_id, the " +
 			"plaintext access_code, the QR URL printed on the resume, and the final " +
 			"PDF (base64) ready for Playwright submission.",
-		InputSchema: json.RawMessage(`{
-			"type":"object",
-			"properties":{
-				"draft_id":{"type":"string","description":"draft id from resume.draft"}
-			},
-			"required":["draft_id"]
-		}`),
-		Handler: c.handleCommit,
-	}
+		Invoke: commitInvoke(apps, log),
+	}}
 }
 
 type commitArgsWire struct {
 	DraftID string `json:"draft_id"`
 }
 
-func (c *applicationsFiber) handleCommit(
-	ctx context.Context, ownerID string, raw json.RawMessage,
-) registry.MCPResult {
-	var args commitArgsWire
-	if err := json.Unmarshal(raw, &args); err != nil {
-		return registry.MCPError("invalid arguments: " + err.Error())
-	}
-	if args.DraftID == "" {
-		return registry.MCPError("draft_id is required")
-	}
-	committed, err := jobsuc.CommitApplication(
-		ctx, c.apps, ownerID, args.DraftID, jobsuc.CommitOptions{},
-	)
-	if err != nil {
-		return applicationsCapErrToResult(c.log, err, "commit")
-	}
-	return buildCommitResult(c.log, &committed)
+type embedWire struct {
+	URI      string `json:"uri"`
+	MIMEType string `json:"mime_type"`
+	Blob     []byte `json:"blob"`
 }
 
-func buildCommitResult(
-	log *slog.Logger, committed *jobsmodel.CommittedApplication,
-) registry.MCPResult {
-	view := committedApplicationView(committed)
-	jsonBytes, err := json.Marshal(view)
-	if err != nil {
-		log.Error("cap applications.commit marshal view", "err", err)
-		return registry.MCPError("encode view: " + err.Error())
+type commitResult struct {
+	committedApplicationViewT
+
+	Embeds []embedWire `json:"_embeds"`
+}
+
+func commitInvoke(apps *jobsuc.ApplicationsDeps, log *slog.Logger) fp.Invoke {
+	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
+		var args commitArgsWire
+		if err := json.Unmarshal(raw, &args); err != nil {
+			return nil, errors.New("invalid arguments: " + err.Error())
+		}
+		if args.DraftID == "" {
+			return nil, errors.New("draft_id is required")
+		}
+		committed, err := jobsuc.CommitApplication(
+			ctx, apps, ownerID, args.DraftID, jobsuc.CommitOptions{},
+		)
+		if err != nil {
+			return nil, commitErr(log, err)
+		}
+		return commitOut(&committed)
 	}
-	return registry.MCPSuccessWithEmbeddings(
-		string(jsonBytes),
-		[]registry.MCPEmbedded{{
-			URI:      applicationURIScheme + committed.Application.ID,
-			MIMEType: applicationMIMEPDF,
-			Blob:     committed.PDF,
+}
+
+// commitOut —— the commit view, with the final PDF in `_embeds`.
+func commitOut(c *jobsmodel.CommittedApplication) (json.RawMessage, error) {
+	out, err := json.Marshal(commitResult{
+		committedApplicationViewT: committedApplicationView(c),
+		Embeds: []embedWire{{
+			URI: applicationURIScheme + c.Application.ID, MIMEType: applicationMIMEPDF, Blob: c.PDF,
 		}},
-	)
+	})
+	if err != nil {
+		return nil, errors.New("encode view: " + err.Error())
+	}
+	return out, nil
 }
 
-// ───── error mapping ────────────────────────────────────────────
-
-func applicationsCapErrToResult(
-	log *slog.Logger, err error, op string,
-) registry.MCPResult {
+// commitErr —— the sentence the owner's AI client reads.
+func commitErr(log *slog.Logger, err error) error {
 	switch {
 	case errors.Is(err, jobsmodel.ErrResumeDraftNotFound):
-		return registry.MCPError("draft not found (expired or wrong owner)")
-	case errors.Is(err, jobsmodel.ErrApplicationNotFound):
-		return registry.MCPError("application not found")
+		return errors.New("draft not found (expired or wrong owner)")
 	case errors.Is(err, owner.ErrOwnerNotFound):
-		return registry.MCPError("owner not found")
+		return errors.New("owner not found")
 	}
-	log.Error("cap applications."+op, "err", err)
-	return registry.MCPError("applications." + op + " failed")
+	log.Error("applications.commit", "err", err)
+	return errors.New("applications.commit failed")
 }

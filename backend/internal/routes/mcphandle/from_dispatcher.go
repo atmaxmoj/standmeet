@@ -55,13 +55,14 @@ func registerDispatcherOps(
 
 // mcpHandlerFor —— converts the protocol-agnostic Invoke into MCP's handler
 // shape. error → an isError result; a success payload passes through as-is
-// (the convergence point's output is already JSON).
+// (the convergence point's output is already JSON), except `_embeds`, which
+// become embedded resources after the text (embeds.go).
 func mcpHandlerFor(invoke dispatcher.Invoke) registry.MCPHandler {
 	return func(ctx context.Context, ownerID string, raw json.RawMessage) registry.MCPResult {
 		out, err := invoke(ctx, ownerID, raw)
 		if err != nil {
 			return registry.MCPError(err.Error())
 		}
-		return registry.MCPSuccess(string(out))
+		return successOf(out)
 	}
 }

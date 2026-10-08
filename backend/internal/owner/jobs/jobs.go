@@ -23,6 +23,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/events"
+	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 	infrajobs "github.com/atmaxmoj/standmeet/internal/infra/jobs"
 	"github.com/atmaxmoj/standmeet/internal/infra/periodic"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/cues"
@@ -106,17 +107,21 @@ func (*Plugin) EventTypes() []events.Type { return jobsuc.FetchEventTypes() }
 // Name — matches the plugin registry.
 func (*Plugin) Name() string { return Name }
 
-// OwnerFibers — the owner-MCP block-fibers this module PROVIDES (jobs / resume /
-// applications). It hands them up; the registration door (internal/routes/blockload) is
-// what puts them in the registry. A domain does not register its own blocks — registration
-// converges on one door (docs/design/plugin/everything-is-a-block.md, rule 2).
+// OwnerFibers — the owner-MCP block-fibers this module PROVIDES (jobs / resume / assistant).
+// It hands them up; the registration door (internal/routes/blockload) is what puts them in the
+// registry. A domain does not register its own blocks — registration converges on one door
+// (docs/design/plugin/everything-is-a-block.md, rule 2).
 func (p *Plugin) OwnerFibers() []registry.Fiber {
 	return []registry.Fiber{
 		jobsmcp.NewJobsFiber(p.deps.Jobs, p.deps.Log),
 		jobsmcp.NewResumeFiber(p.deps.Resume, p.deps.Log),
-		jobsmcp.NewApplicationsFiber(p.deps.Applications, p.deps.Log),
 		jobsmcp.NewAssistantFiber(p.deps.Cues, p.deps.Log),
 	}
+}
+
+// ApplicationOps — applications.commit, a dispatcher op (layer2-externalize-jobs.md step 1).
+func (p *Plugin) ApplicationOps() []fp.Op {
+	return jobsmcp.ApplicationOps(p.deps.Applications, p.deps.Log)
 }
 
 // MountAdminRoutes — the AdminRouter role: mounts

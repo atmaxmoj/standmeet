@@ -16,6 +16,8 @@ import (
 // Invoke —— what an operation actually does. Both input and output are opaque JSON: this
 // vocabulary is protocol-agnostic, so it can name an operation without needing to know whether
 // the caller comes from MCP, HTTP, or something not written yet.
+// A result object MAY carry `_embeds: [{uri, mime_type, blob(base64)}]` — binary attachments
+// (a PDF). The MCP face sends them as embedded resources after the text; JSON faces pass it on.
 type Invoke func(ctx context.Context, ownerID string, args json.RawMessage) (json.RawMessage, error)
 
 // NoArgs —— the input schema for an operation that takes no parameters.
