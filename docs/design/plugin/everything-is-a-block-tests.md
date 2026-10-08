@@ -227,9 +227,11 @@ never "the code looks folded."
 2. **Host-blind to zero.** The `smtp` block literal is gone (SMTP externalization). What remains is the
    `case "calendar"` / `case "mail"` **seam** literals (seam names, not block names — a seam is a
    swappable capability), plus the dead protocol-create path retired in §2.
-3. **credential-manager (credmgr) — largely done.** Secrets are sealed in credmgr's own db-block schema,
-   block_connections is metadata-only, a legacy row self-heals via `resolveCreds` (§G). *Remaining:*
-   confirm no bespoke-vault path still writes/reads credentials outside credmgr.
+3. **✅ credential-manager (credmgr) (2026-10-08).** Secrets are sealed in credmgr's own db-block
+   schema and block_connections is metadata-only. A legacy row no longer self-heals on read: the boot
+   moves every value left in `credentials_enc` into credmgr once and empties the column
+   (`credentials.MigrateLegacyCredentials`), and `resolveCreds` reads credmgr only.
+   `upgrade-credmgr-legacy-creds` proves it on an old volume.
 4. **✅ ACL additive bundles (2026-09-17) — as coexistence, not a collapse.** See §C: `acl-bundle-
    additive` green; the subtractive `acl-block-matrix` / `block-enable-disable` stay unchanged (a
    bundle-less code falls back to its role), so no ~600-spec rewrite. Upgrade-path proven by

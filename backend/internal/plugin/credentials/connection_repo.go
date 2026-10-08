@@ -25,7 +25,7 @@ import (
 // (everything-is-a-block.md rule 3). block_connections keeps the connection METADATA (seam, kind,
 // connected/active, oauth tokens); only the credential value moves here. The composition root wires
 // the concrete credmgr store; Get returns ("", nil) when there is no stored value (absent, not an
-// error) so the repo can fall back to a legacy row.
+// error).
 type SecretStore interface {
 	Set(ctx context.Context, owner, name, value string) error
 	Get(ctx context.Context, owner, name string) (string, error)
@@ -93,8 +93,8 @@ func (r *Repo) SaveCredentials(ctx context.Context, in *SaveCredentialsInput) er
 	}
 	// The credential VALUE goes to the credential-manager (credmgr), sealed there. The
 	// block_connections row keeps only the metadata; its credentials_enc column is left empty —
-	// credmgr is now the single source for the value. (A legacy row still carrying a value is read
-	// via the fallback in resolveCreds and self-heals to credmgr.)
+	// credmgr is the single source for the value (a legacy row's value is moved there at boot, see
+	// MigrateLegacyCredentials).
 	if serr := r.secrets.Set(ctx, in.OwnerID, in.BlockID, string(in.Credentials)); serr != nil {
 		return fmt.Errorf("store credentials: %w", serr)
 	}

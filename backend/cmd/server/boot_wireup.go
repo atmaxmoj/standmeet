@@ -197,6 +197,12 @@ func registerAgentSkills(ctx context.Context, d *deps.Runtime) {
 	// Builtin roles must be backfilled for pre-existing owners too: the new `invited`
 	// role is the default profile for issuing codes, so an old instance missing it can't.
 	wire.BuiltinRoles(ctx, d)
+	// Supplier credentials still in the retired block_connections column move into credmgr once
+	// (a no-op after). Block storage is provisioned by now. A failure leaves the rest of the rows
+	// untouched for the next boot; it never blocks startup.
+	if merr := d.Credentials.MigrateLegacyCredentials(ctx); merr != nil {
+		d.Log.Error("move legacy supplier credentials into credmgr", "err", merr)
+	}
 	// Gated by what a block declares it calls (host_ops: corpus_*), not by its id — the
 	// composition root does not hold a list of which blocks ship.
 	hooks := blockwire.CorpusScopeHooks(blockload.CorpusScopeVisible)

@@ -29,6 +29,28 @@ func (q *Queries) ClearBlockTokens(ctx context.Context, arg ClearBlockTokensPara
 	return err
 }
 
+const clearLegacyCredentials = `-- name: ClearLegacyCredentials :exec
+UPDATE block_connections
+SET credentials_enc = '\x'::bytea,
+    connected_at = CASE WHEN $1::boolean THEN NULL ELSE connected_at END,
+    active = active AND NOT $1::boolean,
+    updated_at = now()
+WHERE owner_id = $2 AND block_id = $3
+`
+
+type ClearLegacyCredentialsParams struct {
+	Disconnect bool
+	OwnerID    pgtype.UUID
+	BlockID    string
+}
+
+// Empty one row's legacy column. disconnect = the blob would not decrypt (the instance secret
+// rotated): it held no usable credential, so the row reads not connected and the owner reconnects.
+func (q *Queries) ClearLegacyCredentials(ctx context.Context, arg ClearLegacyCredentialsParams) error {
+	_, err := q.db.Exec(ctx, clearLegacyCredentials, arg.Disconnect, arg.OwnerID, arg.BlockID)
+	return err
+}
+
 const deleteBlockConnection = `-- name: DeleteBlockConnection :exec
 DELETE FROM block_connections
 WHERE owner_id = $1 AND block_id = $2
@@ -289,6 +311,40 @@ func (q *Queries) ListBlockConnectionsBySeam(ctx context.Context, arg ListBlockC
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLegacyCredentialRows = `-- name: ListLegacyCredentialRows :many
+SELECT owner_id, block_id, credentials_enc
+FROM block_connections
+WHERE octet_length(credentials_enc) > 0
+`
+
+type ListLegacyCredentialRowsRow struct {
+	OwnerID        pgtype.UUID
+	BlockID        string
+	CredentialsEnc []byte
+}
+
+// The rows still carrying a credential value in the retired credentials_enc column (written before
+// the value moved to credmgr). The boot moves each into credmgr once and empties the column.
+func (q *Queries) ListLegacyCredentialRows(ctx context.Context) ([]ListLegacyCredentialRowsRow, error) {
+	rows, err := q.db.Query(ctx, listLegacyCredentialRows)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListLegacyCredentialRowsRow
+	for rows.Next() {
+		var i ListLegacyCredentialRowsRow
+		if err := rows.Scan(&i.OwnerID, &i.BlockID, &i.CredentialsEnc); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

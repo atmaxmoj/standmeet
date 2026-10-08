@@ -131,6 +131,23 @@ FROM block_connections
 WHERE length(spec) > 0 OR kind = 'protocol'
 ORDER BY block_id, updated_at DESC;
 
+-- name: ListLegacyCredentialRows :many
+-- The rows still carrying a credential value in the retired credentials_enc column (written before
+-- the value moved to credmgr). The boot moves each into credmgr once and empties the column.
+SELECT owner_id, block_id, credentials_enc
+FROM block_connections
+WHERE octet_length(credentials_enc) > 0;
+
+-- name: ClearLegacyCredentials :exec
+-- Empty one row's legacy column. disconnect = the blob would not decrypt (the instance secret
+-- rotated): it held no usable credential, so the row reads not connected and the owner reconnects.
+UPDATE block_connections
+SET credentials_enc = '\x'::bytea,
+    connected_at = CASE WHEN sqlc.arg(disconnect)::boolean THEN NULL ELSE connected_at END,
+    active = active AND NOT sqlc.arg(disconnect)::boolean,
+    updated_at = now()
+WHERE owner_id = sqlc.arg(owner_id) AND block_id = sqlc.arg(block_id);
+
 -- name: DeleteUploadedBlock :exec
 -- Delete an owner-authored block (row delete). The seam it supplied goes empty (the seam store reads
 -- nothing → every consumer re-gates).

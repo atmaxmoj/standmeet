@@ -1,12 +1,10 @@
-// upgrade_internal_test.go — the vault→credmgr migration's upgrade path (item 10).
-// Credentials moved off the block_connections.credentials_enc column into the credential-manager
-// (credmgr). An existing owner's value still sits in the legacy column with nothing in credmgr
-// yet; resolveCreds must fall back to the legacy blob AND self-heal it into credmgr so the next
-// read hits the new source. When credmgr already has the value it wins and the legacy blob is
-// ignored.
+// upgrade_internal_test.go — the vault→credmgr move's per-row decision (moveLegacyValue).
+// A legacy value sitting in block_connections.credentials_enc goes into credmgr once at boot; a
+// value credmgr already holds wins; a blob that won't decrypt is reported as "disconnect", not
+// copied. The end-to-end proof (a real old volume + a deploy) is
+// upgrade-credmgr-legacy-creds.spec.ts.
 //
-// White-box (resolveCreds is unexported) with a fake SecretStore — no DB, so the fallback logic is
-// pinned fast. Not parallel: t.Setenv (INSTANCE_SECRET) forbids it.
+// White-box with a fake SecretStore — no DB. Not parallel: t.Setenv (INSTANCE_SECRET) forbids it.
 
 package credentials
 
@@ -47,71 +45,51 @@ func (f *fakeSecrets) Delete(_ context.Context, owner, name string) error {
 	return nil
 }
 
-func TestResolveCreds_LegacyFallbackSelfHeals(t *testing.T) {
-	t.Setenv("INSTANCE_SECRET", upgradeSecret)
-	aad := []byte(upgradeOwner)
-	legacyEnc, err := encBytes([]byte(upgradeValue), aad)
-	if err != nil {
-		t.Fatalf("seal legacy: %v", err)
-	}
-	fake := newFakeSecrets() // credmgr empty → must fall back
-	r := &Repo{secrets: fake}
-
-	got, rerr := r.resolveCreds(context.Background(), upgradeOwner, upgradeBlock, legacyEnc, aad)
-	if rerr != nil {
-		t.Fatalf("resolveCreds: %v", rerr)
-	}
-	assertHealed(t, fake, string(got))
-}
-
-// assertHealed — the fallback returned the legacy value and self-healed it into credmgr.
-func assertHealed(t *testing.T, fake *fakeSecrets, got string) {
+func sealLegacy(t *testing.T, value string) []byte {
 	t.Helper()
-	if got != upgradeValue {
-		t.Fatalf("fallback value = %q, want %q", got, upgradeValue)
-	}
-	if fake.sets != 1 {
-		t.Fatalf("expected one self-heal Set, got %d", fake.sets)
-	}
-	healed, gerr := fake.Get(context.Background(), upgradeOwner, upgradeBlock)
-	if gerr != nil || healed != upgradeValue {
-		t.Fatalf("self-healed value = %q (err %v), want %q", healed, gerr, upgradeValue)
-	}
-}
-
-func TestResolveCreds_CredmgrWinsOverLegacy(t *testing.T) {
-	t.Setenv("INSTANCE_SECRET", upgradeSecret)
-	aad := []byte(upgradeOwner)
-	legacyEnc, err := encBytes([]byte(`{"token":"stale-legacy"}`), aad)
+	enc, err := encBytes([]byte(value), []byte(upgradeOwner))
 	if err != nil {
 		t.Fatalf("seal legacy: %v", err)
 	}
+	return enc
+}
+
+func TestMoveLegacyValue_MovesIntoEmptyCredmgr(t *testing.T) {
+	t.Setenv("INSTANCE_SECRET", upgradeSecret)
 	fake := newFakeSecrets()
-	seedCredmgr(t, fake)
-	r := &Repo{secrets: fake}
-
-	got, rerr := r.resolveCreds(context.Background(), upgradeOwner, upgradeBlock, legacyEnc, aad)
-	if rerr != nil {
-		t.Fatalf("resolveCreds: %v", rerr)
+	disconnect, err := moveLegacyValue(context.Background(), fake, upgradeOwner, upgradeBlock,
+		sealLegacy(t, upgradeValue))
+	if err != nil || disconnect {
+		t.Fatalf("move: disconnect=%v err=%v, want false/nil", disconnect, err)
 	}
-	assertCredmgrWon(t, fake, string(got))
+	got, gerr := fake.Get(context.Background(), upgradeOwner, upgradeBlock)
+	if gerr != nil || got != upgradeValue {
+		t.Fatalf("credmgr value = %q (err %v), want %q", got, gerr, upgradeValue)
+	}
 }
 
-func seedCredmgr(t *testing.T, fake *fakeSecrets) {
-	t.Helper()
+func TestMoveLegacyValue_CredmgrValueWins(t *testing.T) {
+	t.Setenv("INSTANCE_SECRET", upgradeSecret)
+	fake := newFakeSecrets()
 	if err := fake.Set(context.Background(), upgradeOwner, upgradeBlock, upgradeValue); err != nil {
-		t.Fatalf("seed credmgr: %v", err)
+		t.Fatal(err)
 	}
 	fake.sets = 0
+	disconnect, err := moveLegacyValue(context.Background(), fake, upgradeOwner, upgradeBlock,
+		sealLegacy(t, `{"token":"stale-legacy"}`))
+	if err != nil || disconnect || fake.sets != 0 {
+		t.Fatalf("credmgr hit: disconnect=%v err=%v sets=%d, want false/nil/0",
+			disconnect, err, fake.sets)
+	}
 }
 
-// assertCredmgrWon — credmgr's value was returned and the legacy blob was ignored (no self-heal).
-func assertCredmgrWon(t *testing.T, fake *fakeSecrets, got string) {
-	t.Helper()
-	if got != upgradeValue {
-		t.Fatalf("credmgr value = %q, want %q (legacy must be ignored)", got, upgradeValue)
-	}
-	if fake.sets != 0 {
-		t.Fatalf("credmgr hit must not self-heal; got %d Sets", fake.sets)
+func TestMoveLegacyValue_RotatedBlobDisconnects(t *testing.T) {
+	t.Setenv("INSTANCE_SECRET", upgradeSecret)
+	fake := newFakeSecrets()
+	disconnect, err := moveLegacyValue(context.Background(), fake, upgradeOwner, upgradeBlock,
+		[]byte("not-a-sealed-blob-at-all"))
+	if err != nil || !disconnect || fake.sets != 0 {
+		t.Fatalf("rotated blob: disconnect=%v err=%v sets=%d, want true/nil/0",
+			disconnect, err, fake.sets)
 	}
 }

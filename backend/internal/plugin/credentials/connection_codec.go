@@ -14,7 +14,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/cryptobox"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
@@ -103,60 +102,33 @@ type secrets struct {
 	Unreadable bool
 }
 
-// errCredsUnreadable — the legacy credential blob failed to decrypt (key rotated / tampered —
+// errCredsUnreadable — the stored credential failed to decrypt (key rotated / tampered —
 // AES-GCM can't tell these apart). A sentinel so resolveCreds stays a two-result function.
 var errCredsUnreadable = errors.New("credentials unreadable")
 
-// resolveCreds — the credential VALUE for one row, from the credential-manager (credmgr) first,
-// falling back to the legacy block_connections.credentials_enc column. A legacy value found this
-// way self-heals: it is written into credmgr so future reads hit the new source. Returns
-// errCredsUnreadable when the legacy blob won't decrypt.
-func (r *Repo) resolveCreds(
-	ctx context.Context, ownerID, blockID string, legacyEnc, aad []byte,
-) ([]byte, error) {
+// resolveCreds — the credential VALUE for one row. credmgr is the one source: the retired
+// block_connections.credentials_enc column is emptied at boot (MigrateLegacyCredentials), so
+// there is no second place to fall back to.
+func (r *Repo) resolveCreds(ctx context.Context, ownerID, blockID string) ([]byte, error) {
 	v, gerr := r.secrets.Get(ctx, ownerID, blockID)
-	// A credmgr value that won't decrypt (the instance key rotated) is "unreadable", not a hard
-	// error — same as a rotated legacy blob: the owner is asked to reconnect, and one unreadable
-	// supplier must not sink the whole list.
+	// A value that won't decrypt (the instance key rotated) is "unreadable", not a hard error: the
+	// owner is asked to reconnect, and one unreadable supplier must not sink the whole list.
 	if errors.Is(gerr, cryptobox.ErrTampered) {
 		return nil, errCredsUnreadable
 	}
 	if gerr != nil {
 		return nil, fmt.Errorf("read credentials: %w", gerr)
 	}
-	if v != "" {
-		return []byte(v), nil
-	}
-	return r.legacyCreds(ctx, ownerID, blockID, legacyEnc, aad)
+	return []byte(v), nil
 }
 
-// legacyCreds — the fallback: decrypt the row's legacy credentials_enc, and self-heal it into
-// credmgr so the next read hits the new source. errCredsUnreadable on an auth failure.
-func (r *Repo) legacyCreds(
-	ctx context.Context, ownerID, blockID string, legacyEnc, aad []byte,
-) ([]byte, error) {
-	legacy, derr := decBytes(legacyEnc, aad)
-	if errors.Is(derr, cryptobox.ErrTampered) {
-		return nil, errCredsUnreadable
-	}
-	if derr != nil {
-		return nil, derr
-	}
-	if len(legacy) > 0 {
-		if serr := r.secrets.Set(ctx, ownerID, blockID, string(legacy)); serr != nil {
-			slog.Default().Warn("credential self-heal failed", "block", blockID, "err", serr)
-		}
-	}
-	return legacy, nil
-}
-
-// decodeRowSecrets — creds (credmgr/legacy) + tokens (row) for one row. Only an auth failure
+// decodeRowSecrets — creds (credmgr) + tokens (row) for one row. Only an auth failure
 // counts as "can't be read" (key rotated / tampered); a JSON decode failure is a real error.
 func (r *Repo) decodeRowSecrets(
 	ctx context.Context, row *db.BlockConnection, aad []byte,
 ) (secrets, error) {
 	owner := pgstore.FormatUUID(row.OwnerID)
-	creds, cerr := r.resolveCreds(ctx, owner, row.BlockID, row.CredentialsEnc, aad)
+	creds, cerr := r.resolveCreds(ctx, owner, row.BlockID)
 	if errors.Is(cerr, errCredsUnreadable) {
 		return secrets{Unreadable: true}, nil
 	}
