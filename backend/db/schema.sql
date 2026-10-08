@@ -649,10 +649,14 @@ CREATE TABLE assets (
     size_bytes         bigint        NOT NULL DEFAULT 0,
     sha256             text          NOT NULL DEFAULT '',
     original_filename  text          NOT NULL DEFAULT '',
-    created_at         timestamptz   NOT NULL DEFAULT now()
+    created_at         timestamptz   NOT NULL DEFAULT now(),
+    -- deleted_at —— in the trash since (NULL = live): not served, not listed; blob and row are
+    -- purged 90 days on (migrations/2026-10-08-asset-trash.sql).
+    deleted_at         timestamptz   NULL
 );
 
 CREATE INDEX assets_owner_idx ON assets(owner_id);
+CREATE INDEX assets_trash_idx ON assets(owner_id, deleted_at) WHERE deleted_at IS NOT NULL;
 
 -- asset_references —— every live use of a pool asset. A corpus entry references an
 -- asset (cover or body 'standmeet-asset:<id>'), a microsite references one from its

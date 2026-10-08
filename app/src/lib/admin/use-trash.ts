@@ -142,6 +142,49 @@ export function useMicrositesTrash(): MicrositesTrashHook {
   };
 }
 
+// ─── asset pool files ──────────────────────────────────────────
+// GET /asset-trash: a trashed file keeps its blob until it is purged.
+
+const TrashedAssetSchema = z.object({
+  asset_id: z.string(),
+  original_filename: z.string(),
+  deleted_at: z.string(),
+  purge_at: z.string(),
+});
+
+// TrashedFile —— a trashed pool file in the shape the trash rows read (id + name).
+export interface TrashedFile { id: string; name: string; deleted_at: string; purge_at: string }
+
+const assetsTrashStore = createResourceStore<TrashedFile[]>({
+  name: 'assets-trash',
+  fetcher: () => adminAPI.get('/asset-trash', z.object({ items: z.array(TrashedAssetSchema) }))
+    .then((r) => r.items.map((a) => ({
+      id: a.asset_id, name: a.original_filename, deleted_at: a.deleted_at, purge_at: a.purge_at,
+    }))),
+});
+
+export interface AssetsTrashHook {
+  items: readonly TrashedFile[];
+  status: ResourceStatus;
+  error: string | null;
+  refresh: () => Promise<void>;
+  restore: (id: string) => Promise<void>;
+}
+
+export function useAssetsTrash(): AssetsTrashHook {
+  const { data, status, error, refresh } = assetsTrashStore();
+  return {
+    items: data ?? [],
+    status,
+    error,
+    refresh,
+    restore: async (id) => {
+      await adminAPI.postVoid(`/asset-trash/${encodeURIComponent(id)}/restore`, {});
+      await refresh();
+    },
+  };
+}
+
 // trashDate —— the day part of an RFC 3339 timestamp.
 export function trashDate(iso: string): string {
   return iso.slice(0, 10);

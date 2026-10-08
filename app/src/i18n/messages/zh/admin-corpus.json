@@ -230,6 +230,7 @@
     "empty": "回收站是空的。",
     "masters": "简历母版",
     "microsites": "微站",
+    "assets": "文件",
     "restore": "恢复",
     "restored": "已恢复「{title}」",
     "deletedOn": "{date} 删除",

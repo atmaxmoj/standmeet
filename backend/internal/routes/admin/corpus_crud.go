@@ -50,6 +50,10 @@ func (h *Handlers) MountCorpusCRUD(r chi.Router) {
 	r.Post("/assets", h.uploadPoolAsset())
 	r.Delete("/assets/{asset_id}",
 		h.dispatchOp(face, "assets.pool_delete", assetPoolIDArgs, noContent))
+	// The pool's trash, under its own prefix: /assets/trash would sit beside /assets/{asset_id}.
+	r.Get("/asset-trash", h.dispatchOp(face, "assets.trash", emptyArgs, jsonOK))
+	r.Post("/asset-trash/{asset_id}/restore",
+		h.dispatchOp(face, "assets.restore", assetPoolIDArgs, jsonOK))
 	r.Get("/assets/{asset_id}/references",
 		h.dispatchOp(face, "assets.references", assetPoolIDArgs, jsonOK))
 }

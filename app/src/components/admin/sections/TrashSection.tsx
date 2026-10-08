@@ -1,6 +1,7 @@
 // TrashSection —— /admin/trash. Every delete of an owner asset lands here for 90 days (the server
 // purges it after): corpus entries (restored with the descendants deleted with them and their
-// links), résumé masters, and microsites (restored with their builds and store).
+// links), résumé masters, microsites (restored with their builds and store) and asset pool files
+// (restored with their blob).
 
 'use client';
 
@@ -11,7 +12,7 @@ import { ListPane } from '@/components/admin/ListPane';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import styles from '@/components/admin/sections/TrashSection.module.css';
 import {
-  trashDate, useMastersTrash, useMicrositesTrash, useTrash, type TrashItem,
+  trashDate, useAssetsTrash, useMastersTrash, useMicrositesTrash, useTrash, type TrashItem,
 } from '@/lib/admin/use-trash';
 import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 
@@ -20,21 +21,25 @@ export function TrashSection() {
   const hook = useTrash();
   const masters = useMastersTrash();
   const sites = useMicrositesTrash();
+  const files = useAssetsTrash();
+  const all = [hook, masters, sites, files];
   const { refresh } = hook;
   const refreshMasters = masters.refresh;
   const refreshSites = sites.refresh;
+  const refreshFiles = files.refresh;
   // Always re-read on entry: deletes happen in other sections (and over MCP).
   useEffect(() => {
-    void refresh(); void refreshMasters(); void refreshSites();
-  }, [refresh, refreshMasters, refreshSites]);
-  useEffectErrorToast(hook.error ?? masters.error ?? sites.error);
+    void refresh(); void refreshMasters(); void refreshSites(); void refreshFiles();
+  }, [refresh, refreshMasters, refreshSites, refreshFiles]);
+  useEffectErrorToast(firstError(all));
+  const count = all.reduce((n, g) => n + g.items.length, 0);
   return (
     <>
       <SectionHeader kicker={t('kicker')} slug="trash" />
       <p className={`reading ${styles.intro}`}>{t('intro')}</p>
       {/* Empty only when every trash is: "the trash is empty" over a trashed page would lie. */}
       <ListPane
-        status={hook.status} count={hook.items.length + masters.items.length + sites.items.length}
+        status={hook.status} count={count}
         empty={<p className="sm-empty-hint reading" data-testid="trash-empty">{t('empty')}</p>}
       >
         <div className={styles.list}>
@@ -45,9 +50,15 @@ export function TrashSection() {
           kind="microsite" label={t('microsites')} restore={sites.restore}
           items={sites.items.map((p) => ({ ...p, name: `/p/${p.slug}` }))}
         />
+        <NamedGroup kind="asset" label={t('assets')} items={files.items} restore={files.restore} />
       </ListPane>
     </>
   );
+}
+
+// firstError —— the first trash that failed to load, if any.
+function firstError(groups: readonly { error: string | null }[]): string | null {
+  return groups.find((g) => g.error !== null)?.error ?? null;
 }
 
 // useRestore —— runs a restore and says how it went.

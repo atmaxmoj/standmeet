@@ -230,6 +230,7 @@
     "empty": "La papelera está vacía.",
     "masters": "currículums base",
     "microsites": "micrositios",
+    "assets": "archivos",
     "restore": "restaurar",
     "restored": "«{title}» restaurado",
     "deletedOn": "eliminado {date}",

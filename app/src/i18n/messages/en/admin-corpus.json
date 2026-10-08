@@ -230,6 +230,7 @@
     "empty": "The trash is empty.",
     "masters": "résumé masters",
     "microsites": "microsites",
+    "assets": "files",
     "restore": "restore",
     "restored": "Restored \"{title}\"",
     "deletedOn": "deleted {date}",

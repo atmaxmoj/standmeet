@@ -1,6 +1,7 @@
 // asset_pool.go —— the owner-facing global asset pool (Resources → Assets).
 // docs/design/global-assets.md. List the pool, see who references an asset, and delete —
-// but only an asset nothing references. The whole point is the delete guard.
+// but only an asset nothing references. The whole point is the delete guard. A delete lands
+// in the trash for 90 days (migrations/2026-10-08-asset-trash.sql).
 
 package usecase
 
@@ -8,10 +9,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus/entity"
 	"github.com/atmaxmoj/standmeet/internal/corpus/repo"
 	"github.com/atmaxmoj/standmeet/internal/infra/paging"
+	"github.com/atmaxmoj/standmeet/internal/infra/periodic"
 )
 
 // ErrAssetReferenced —— refuse to delete an asset a corpus entry or microsite still
@@ -78,19 +81,45 @@ func DeletePoolAsset(
 	if n > 0 {
 		return ErrAssetReferenced
 	}
-	return deleteUnreferenced(ctx, deps, ownerID, &asset)
+	// Into the trash, blob kept: the purge (AssetTrashPeriodicJobs) drops both 90 days on.
+	return deps.Repo.Trash(ctx, asset.ID, ownerID)
 }
 
-// deleteUnreferenced —— remove an asset already confirmed owned + unreferenced: blob
-// first (avoid an orphan blob), then the row.
-func deleteUnreferenced(
-	ctx context.Context, deps AssetsDeps, ownerID string, asset *entity.Asset,
-) error {
-	if berr := DeleteBlobsStrict(ctx, deps, []string{asset.StorageKey}); berr != nil {
-		return berr
+// TrashedAssets —— the owner's files in the trash.
+func TrashedAssets(
+	ctx context.Context, deps AssetsDeps, ownerID string,
+) ([]repo.TrashedAsset, error) {
+	return deps.Repo.ListTrash(ctx, ownerID)
+}
+
+// RestoreAsset —— takes a file out of the trash; its blob was never dropped.
+func RestoreAsset(ctx context.Context, deps AssetsDeps, ownerID, assetID string) error {
+	return deps.Repo.Restore(ctx, assetID, ownerID)
+}
+
+// AssetTrashPeriodicJobs —— the daily purge of files trashed longer than entity.TrashRetention:
+// blob first (no orphan blob is left behind a deleted row), then the row. A nil repo or storage
+// exposes none: a panel must not show a job that reports "ok" while doing nothing.
+func AssetTrashPeriodicJobs(deps AssetsDeps) []periodic.Job {
+	if deps.Repo == nil || deps.Storage == nil {
+		return []periodic.Job{}
 	}
-	if _, derr := deps.Repo.DeleteByID(ctx, asset.ID, ownerID); derr != nil {
-		return fmt.Errorf("delete asset: %w", derr)
+	return []periodic.Job{periodic.Named("asset trash purge", trashPurgeEvery,
+		func(ctx context.Context) error { return purgeAssetTrash(ctx, deps) })}
+}
+
+func purgeAssetTrash(ctx context.Context, deps AssetsDeps) error {
+	due, err := deps.Repo.Purgeable(ctx, time.Now().UTC().Add(-entity.TrashRetention))
+	if err != nil {
+		return err
+	}
+	for i := range due {
+		if berr := DeleteBlobsStrict(ctx, deps, []string{due[i].StorageKey}); berr != nil {
+			return berr
+		}
+		if _, derr := deps.Repo.DeleteByID(ctx, due[i].ID, due[i].OwnerID); derr != nil {
+			return fmt.Errorf("purge asset: %w", derr)
+		}
 	}
 	return nil
 }

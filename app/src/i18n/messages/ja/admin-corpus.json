@@ -230,6 +230,7 @@
     "empty": "ゴミ箱は空です。",
     "masters": "履歴書マスター",
     "microsites": "マイクロサイト",
+    "assets": "ファイル",
     "restore": "復元",
     "restored": "「{title}」を復元しました",
     "deletedOn": "{date} に削除",

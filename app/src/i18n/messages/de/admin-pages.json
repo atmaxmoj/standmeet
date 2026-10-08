@@ -222,7 +222,7 @@
     "error": "Assets konnten nicht geladen werden – lade neu, um es erneut zu versuchen.",
     "empty": "Noch keine Assets. Füge eines im Korpus-Editor oder über das Asset-Widget einer Microsite hinzu.",
     "delete": "löschen",
-    "deleted": "Asset gelöscht",
+    "deleted": "für 90 Tage in den Papierkorb verschoben",
     "upload": "Asset hinzufügen",
     "uploaded": "Asset hinzugefügt",
     "kicker": "ressourcen · assets"

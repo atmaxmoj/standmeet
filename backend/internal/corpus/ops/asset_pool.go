@@ -29,10 +29,10 @@ type assetIDArgs struct {
 
 // AssetPoolOps — the pool operation family (list / pool-upload / delete-guarded / references).
 func AssetPoolOps(deps usecase.Deps) []fp.Op {
-	return []fp.Op{
+	return append([]fp.Op{
 		assetsListOp(deps), assetsPoolUploadOp(deps),
 		assetsPoolDeleteOp(deps), assetsReferencesOp(deps),
-	}
+	}, assetTrashOps(&deps)...)
 }
 
 var poolUploadSchema = json.RawMessage(`{
@@ -181,8 +181,9 @@ func assetListErr(err error) error {
 func assetsPoolDeleteOp(deps usecase.Deps) fp.Op {
 	return fp.Op{
 		ID: "assets.pool_delete", Danger: fp.DangerDestructive,
-		Description: "Permanently delete one asset from your pool. Refused, naming who uses " +
-			"it, while any corpus entry or microsite still references it — remove those first.",
+		Description: "Delete one asset from your pool: it waits in the trash for 90 days " +
+			"(assets.restore brings it back). Refused, naming who uses it, while any corpus " +
+			"entry or microsite still references it — remove those first.",
 		InputSchema: assetIDSchema,
 		Kind:        fp.Action,
 		Reach:       fp.OwnerAction(),

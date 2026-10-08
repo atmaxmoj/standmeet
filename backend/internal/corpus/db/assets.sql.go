@@ -27,7 +27,7 @@ const createAsset = `-- name: CreateAsset :one
 
 INSERT INTO assets (id, owner_id, holder_id, storage_key, content_type, size_bytes, sha256, original_filename, kind)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, owner_id, holder_id, kind, storage_key, content_type, size_bytes, sha256, original_filename, created_at
+RETURNING id, owner_id, holder_id, kind, storage_key, content_type, size_bytes, sha256, original_filename, created_at, deleted_at
 `
 
 type CreateAssetParams struct {
@@ -69,6 +69,7 @@ func (q *Queries) CreateAsset(ctx context.Context, arg CreateAssetParams) (Asset
 		&i.Sha256,
 		&i.OriginalFilename,
 		&i.CreatedAt,
+		&i.DeletedAt,
 	)
 	return i, err
 }
@@ -84,9 +85,8 @@ type DeleteAssetByIDParams struct {
 	OwnerID pgtype.UUID
 }
 
-// Pool delete of a single asset the caller has already confirmed is unreferenced
-// (see CountAssetReferences). Scoped to owner. Returns storage_key so the caller
-// drops the MinIO blob afterward.
+// Hard delete of one asset: the purge of a trashed file, or the rollback of a failed upload.
+// Scoped to owner. Returns storage_key so the caller drops the MinIO blob.
 func (q *Queries) DeleteAssetByID(ctx context.Context, arg DeleteAssetByIDParams) (string, error) {
 	row := q.db.QueryRow(ctx, deleteAssetByID, arg.ID, arg.OwnerID)
 	var storage_key string
@@ -130,7 +130,7 @@ func (q *Queries) DeleteAssetReferencesByReferrer(ctx context.Context, arg Delet
 
 const filterOwnedAssetIDs = `-- name: FilterOwnedAssetIDs :many
 SELECT id FROM assets
-WHERE owner_id = $1 AND id = ANY($2::uuid[])
+WHERE owner_id = $1 AND id = ANY($2::uuid[]) AND deleted_at IS NULL
 `
 
 type FilterOwnedAssetIDsParams struct {
@@ -163,8 +163,8 @@ func (q *Queries) FilterOwnedAssetIDs(ctx context.Context, arg FilterOwnedAssetI
 }
 
 const findAssetByContentKey = `-- name: FindAssetByContentKey :many
-SELECT id, owner_id, holder_id, kind, storage_key, content_type, size_bytes, sha256, original_filename, created_at FROM assets
-WHERE owner_id = $1 AND original_filename = $2 AND sha256 = $3
+SELECT id, owner_id, holder_id, kind, storage_key, content_type, size_bytes, sha256, original_filename, created_at, deleted_at FROM assets
+WHERE owner_id = $1 AND original_filename = $2 AND sha256 = $3 AND deleted_at IS NULL
 ORDER BY created_at ASC, id ASC
 LIMIT 1
 `
@@ -197,6 +197,7 @@ func (q *Queries) FindAssetByContentKey(ctx context.Context, arg FindAssetByCont
 			&i.Sha256,
 			&i.OriginalFilename,
 			&i.CreatedAt,
+			&i.DeletedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -209,10 +210,11 @@ func (q *Queries) FindAssetByContentKey(ctx context.Context, arg FindAssetByCont
 }
 
 const getAssetByID = `-- name: GetAssetByID :one
-SELECT id, owner_id, holder_id, kind, storage_key, content_type, size_bytes, sha256, original_filename, created_at FROM assets
-WHERE id = $1
+SELECT id, owner_id, holder_id, kind, storage_key, content_type, size_bytes, sha256, original_filename, created_at, deleted_at FROM assets
+WHERE id = $1 AND deleted_at IS NULL
 `
 
+// A file in the trash is not served and not found (only the trash queries below see it).
 func (q *Queries) GetAssetByID(ctx context.Context, id pgtype.UUID) (Asset, error) {
 	row := q.db.QueryRow(ctx, getAssetByID, id)
 	var i Asset
@@ -227,6 +229,7 @@ func (q *Queries) GetAssetByID(ctx context.Context, id pgtype.UUID) (Asset, erro
 		&i.Sha256,
 		&i.OriginalFilename,
 		&i.CreatedAt,
+		&i.DeletedAt,
 	)
 	return i, err
 }
@@ -284,7 +287,7 @@ func (q *Queries) ListAssetReferencesByAsset(ctx context.Context, assetID pgtype
 }
 
 const listAssetsByReferrer = `-- name: ListAssetsByReferrer :many
-SELECT a.id, a.owner_id, a.holder_id, a.kind, a.storage_key, a.content_type, a.size_bytes, a.sha256, a.original_filename, a.created_at FROM assets a
+SELECT a.id, a.owner_id, a.holder_id, a.kind, a.storage_key, a.content_type, a.size_bytes, a.sha256, a.original_filename, a.created_at, a.deleted_at FROM assets a
 JOIN asset_references r ON r.asset_id = a.id
 WHERE r.referrer_kind = $1 AND r.referrer_id = $2
 ORDER BY a.created_at
@@ -317,6 +320,7 @@ func (q *Queries) ListAssetsByReferrer(ctx context.Context, arg ListAssetsByRefe
 			&i.Sha256,
 			&i.OriginalFilename,
 			&i.CreatedAt,
+			&i.DeletedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -329,12 +333,12 @@ func (q *Queries) ListAssetsByReferrer(ctx context.Context, arg ListAssetsByRefe
 }
 
 const listAssetsPage = `-- name: ListAssetsPage :many
-SELECT a.id, a.owner_id, a.holder_id, a.kind, a.storage_key, a.content_type, a.size_bytes, a.sha256, a.original_filename, a.created_at,
-  (SELECT COUNT(*) FROM assets a2 WHERE a2.owner_id = $1
+SELECT a.id, a.owner_id, a.holder_id, a.kind, a.storage_key, a.content_type, a.size_bytes, a.sha256, a.original_filename, a.created_at, a.deleted_at,
+  (SELECT COUNT(*) FROM assets a2 WHERE a2.owner_id = $1 AND a2.deleted_at IS NULL
     AND ($2::text = '' OR a2.kind = $2)
     AND ($3::text = '' OR a2.original_filename ILIKE '%' || $3 || '%'))::int AS total
 FROM assets a
-WHERE a.owner_id = $1
+WHERE a.owner_id = $1 AND a.deleted_at IS NULL
   AND ($2::text = '' OR a.kind = $2)
   AND ($3::text = '' OR a.original_filename ILIKE '%' || $3 || '%')
   AND ($4::timestamptz IS NULL
@@ -387,6 +391,7 @@ func (q *Queries) ListAssetsPage(ctx context.Context, arg ListAssetsPageParams) 
 			&i.Asset.Sha256,
 			&i.Asset.OriginalFilename,
 			&i.Asset.CreatedAt,
+			&i.Asset.DeletedAt,
 			&i.Total,
 		); err != nil {
 			return nil, err
@@ -397,4 +402,107 @@ func (q *Queries) ListAssetsPage(ctx context.Context, arg ListAssetsPageParams) 
 		return nil, err
 	}
 	return items, nil
+}
+
+const listPurgeableAssets = `-- name: ListPurgeableAssets :many
+SELECT id, owner_id, storage_key FROM assets
+WHERE deleted_at < $1::timestamptz
+`
+
+type ListPurgeableAssetsRow struct {
+	ID         pgtype.UUID
+	OwnerID    pgtype.UUID
+	StorageKey string
+}
+
+// Trashed before the cutoff: the purge drops each blob, then its row.
+func (q *Queries) ListPurgeableAssets(ctx context.Context, before pgtype.Timestamptz) ([]ListPurgeableAssetsRow, error) {
+	rows, err := q.db.Query(ctx, listPurgeableAssets, before)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPurgeableAssetsRow
+	for rows.Next() {
+		var i ListPurgeableAssetsRow
+		if err := rows.Scan(&i.ID, &i.OwnerID, &i.StorageKey); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTrashedAssets = `-- name: ListTrashedAssets :many
+SELECT id, original_filename, deleted_at::timestamptz AS deleted_at FROM assets
+WHERE owner_id = $1 AND deleted_at IS NOT NULL
+ORDER BY deleted_at DESC, id DESC
+`
+
+type ListTrashedAssetsRow struct {
+	ID               pgtype.UUID
+	OriginalFilename string
+	DeletedAt        pgtype.Timestamptz
+}
+
+func (q *Queries) ListTrashedAssets(ctx context.Context, ownerID pgtype.UUID) ([]ListTrashedAssetsRow, error) {
+	rows, err := q.db.Query(ctx, listTrashedAssets, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTrashedAssetsRow
+	for rows.Next() {
+		var i ListTrashedAssetsRow
+		if err := rows.Scan(&i.ID, &i.OriginalFilename, &i.DeletedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const restoreAsset = `-- name: RestoreAsset :execrows
+UPDATE assets SET deleted_at = NULL
+WHERE id = $1 AND owner_id = $2 AND deleted_at IS NOT NULL
+`
+
+type RestoreAssetParams struct {
+	ID      pgtype.UUID
+	OwnerID pgtype.UUID
+}
+
+func (q *Queries) RestoreAsset(ctx context.Context, arg RestoreAssetParams) (int64, error) {
+	result, err := q.db.Exec(ctx, restoreAsset, arg.ID, arg.OwnerID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const trashAssetByID = `-- name: TrashAssetByID :execrows
+
+UPDATE assets SET deleted_at = now()
+WHERE id = $1 AND owner_id = $2 AND deleted_at IS NULL
+`
+
+type TrashAssetByIDParams struct {
+	ID      pgtype.UUID
+	OwnerID pgtype.UUID
+}
+
+// ── trash (migrations/2026-10-08-asset-trash.sql) ───────────────────────────────
+// Pool delete of an asset the caller has already confirmed is unreferenced: into the trash, blob kept.
+func (q *Queries) TrashAssetByID(ctx context.Context, arg TrashAssetByIDParams) (int64, error) {
+	result, err := q.db.Exec(ctx, trashAssetByID, arg.ID, arg.OwnerID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

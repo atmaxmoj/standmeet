@@ -97,6 +97,7 @@ type Asset struct {
 	Sha256           string
 	OriginalFilename string
 	CreatedAt        pgtype.Timestamptz
+	DeletedAt        pgtype.Timestamptz
 }
 
 type AssetReference struct {

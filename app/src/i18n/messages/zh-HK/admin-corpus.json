@@ -234,6 +234,7 @@
     "empty": "回收站是空的。",
     "masters": "履歷母版",
     "microsites": "微站",
+    "assets": "檔案",
     "restore": "恢復",
     "restored": "已恢復「{title}」",
     "deletedOn": "{date} 刪除",

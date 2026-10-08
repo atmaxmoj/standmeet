@@ -62,6 +62,10 @@ var ErrEntryNotFound = errors.New("corpus entry not found")
 // ErrAssetNotFound —— the asset id doesn't exist / doesn't belong to this owner.
 var ErrAssetNotFound = errors.New("asset not found")
 
+// ErrAssetNotInTrash —— restore of a file the trash does not hold: never deleted, already
+// restored, or purged.
+var ErrAssetNotInTrash = errors.New("asset is not in the trash")
+
 // NoteHero —— a note's hero section, plus its body (which carries
 // standmeet-asset references inline).
 //
