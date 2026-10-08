@@ -21,6 +21,7 @@ transcript says whether it moved somewhere sensible.
 import json
 import os
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from speed import frames, post, system_of  # noqa: E402  (same wire, one implementation)
@@ -49,7 +50,10 @@ def turn(host, session, system, history, question):
 def main():
     host = os.environ.get('EVAL_HOST', 'http://localhost:8000').rstrip('/')
     session = json.loads(post(f'{host}/api/v1/sessions', {
-        'mode': 'code', 'code': os.environ['EVAL_CODE'], 'visitor_name': 'ghost-eval',
+        # A fresh name per run: the same name on the same code resumes the earlier conversation,
+        # whose visited set (and waypoint snapshot) would leak into this run.
+        'mode': 'code', 'code': os.environ['EVAL_CODE'],
+        'visitor_name': f'ghost-eval-{int(time.time())}',
     }).read())
     system = system_of(host, session)
     terminal = set(filter(None, os.environ.get('EVAL_GHOST_TERMINAL', '').split(',')))
