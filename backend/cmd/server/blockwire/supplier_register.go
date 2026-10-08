@@ -98,20 +98,26 @@ func assembleBuiltinSupplier(m *plugin.Manifest, adeps *assembleDeps) (adapters.
 	return assembleSupplier(&thin, adeps)
 }
 
-// blockSeamSupplier — build the MCP-block-backed supplier for the seam a sandbox_stdio block
-// provides. calendar (the CalDAV block) and mail (the SMTP block) today; a new seam adds a case
-// with its own contract proxy over the block's tools. Names the SEAM (a swappable capability),
-// never a block id.
-func blockSeamSupplier(m *plugin.Manifest, adeps *assembleDeps) (adapters.Supplier, error) {
-	switch m.Provides {
-	case "calendar":
-		return blockCalendarSupplier(m, adeps)
-	case "mail":
+// blockSeamProxies —— seam → the MCP-block-backed supplier for a sandbox_stdio block that provides
+// it: calendar (the CalDAV block, google-calendar) and mail (the SMTP block) today. A new seam is
+// one row with its own contract proxy over the block's tools. Keyed by the SEAM (a swappable
+// capability), never a block id.
+var blockSeamProxies = map[string]func(*plugin.Manifest, *assembleDeps) (adapters.Supplier, error){
+	"calendar": blockCalendarSupplier,
+	"mail": func(m *plugin.Manifest, adeps *assembleDeps) (adapters.Supplier, error) {
 		return newBlockMailProxy(m, adeps.credVault), nil
-	default:
+	},
+}
+
+// blockSeamSupplier — build the MCP-block-backed supplier for the seam a sandbox_stdio block
+// provides (blockSeamProxies).
+func blockSeamSupplier(m *plugin.Manifest, adeps *assembleDeps) (adapters.Supplier, error) {
+	build, ok := blockSeamProxies[m.Provides]
+	if !ok {
 		return nil, fmt.Errorf("sandbox_stdio supplier %q provides seam %q, "+
 			"which has no block-backed proxy", m.ID, m.Provides)
 	}
+	return build(m, adeps)
 }
 
 // blockCalendarSupplier — a calendar block. A spec+oauth one (google-calendar: sandbox_stdio
@@ -288,22 +294,27 @@ func loadBuiltinSupplierManifests(_ *deps.Runtime) []adapters.Manifest {
 	return supplierManifests()
 }
 
-// assembleSupplier —— builds a Supplier from a manifest by kind; built-in/uploaded share it.
-func assembleSupplier(m *adapters.Manifest, d *assembleDeps) (adapters.Supplier, error) {
-	switch m.Kind {
-	case "openapi":
-		return assembleOpenAPISupplier(m, d)
-	case "credential":
-		// A credential-only supplier: the owner stores a credential and something else consumes it
-		// out of band (the `im` seam's token, read by im-bridge). No host client, no protocol name;
-		// the manifest declaring `kind: credential` is the whole selection, so the host stays blind
-		// to which block this is. telegram lives here now (it was a `case "telegram"`).
+// supplierKinds —— manifest kind → how a Supplier is assembled from it; built-in and uploaded share
+// it. A sandbox_stdio block never reaches here (blockSeamSupplier), and there is no "protocol" row:
+// SMTP was the sole protocol supplier and is now a block, like CalDAV.
+var supplierKinds = map[string]func(*adapters.Manifest, *assembleDeps) (adapters.Supplier, error){
+	"openapi": assembleOpenAPISupplier,
+	// A credential-only supplier: the owner stores a credential and something else consumes it out
+	// of band (the `im` seam's token, read by im-bridge). No host client, no protocol name; the
+	// manifest declaring `kind: credential` is the whole selection, so the host stays blind to
+	// which block this is (telegram used to be a `case "telegram"`).
+	"credential": func(m *adapters.Manifest, d *assembleDeps) (adapters.Supplier, error) {
 		return adapters.NewCredentialOnlySupplier(m.ID, d.credVault, m.Check, d.doer), nil
-	default:
-		// No `case "protocol"` any more: SMTP was the sole protocol supplier and is now a block
-		// (assembled by blockSeamSupplier, like CalDAV). A sandbox_stdio block never reaches here.
+	},
+}
+
+// assembleSupplier —— builds a Supplier from a manifest by its kind (supplierKinds).
+func assembleSupplier(m *adapters.Manifest, d *assembleDeps) (adapters.Supplier, error) {
+	build, ok := supplierKinds[m.Kind]
+	if !ok {
 		return nil, fmt.Errorf("unknown supplier kind %q for %q", m.Kind, m.ID)
 	}
+	return build(m, d)
 }
 
 // assembleOpenAPISupplier —— the openapi arm of assembleSupplier: the host-side behavior, with

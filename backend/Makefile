@@ -7,7 +7,7 @@
 # (no `wire-check` / `wire` targets). schema lives in db/schema.sql
 # applied at db volume init—no goose migration runner.
 
-.PHONY: lint build test arch fmt-check max-lines routes-cyclo boundary-thin no-nil-container sql-constant build-check secrets golangci-config escape-lint supplier-boundary core-agnostic core-seals-only internal-dirs domain-acyclic infra-not-domain routes-not-imported domain-facade-boundary domain-layering hostops-via-desk periodic-via-scheduler blocks-declare-in-data host-blind-to-blocks register-via-door native-key-confined event-bus-gates
+.PHONY: lint build test arch fmt-check max-lines routes-cyclo boundary-thin no-nil-container sql-constant build-check secrets golangci-config escape-lint supplier-boundary core-agnostic core-seals-only internal-dirs domain-acyclic infra-not-domain routes-not-imported domain-facade-boundary domain-layering hostops-via-desk periodic-via-scheduler blocks-declare-in-data connector-kinds-in-data host-blind-to-blocks register-via-door native-key-confined event-bus-gates
 
 # sqlc generation lives in the root Makefile (`make sqlc-gen`) so it works
 # the same way for app/sdk/backend devs. Don't duplicate it here.
@@ -17,7 +17,7 @@
 # typo dies before the slow arch scan.  Everything that gates a
 # commit lives here — there are no "also run X" steps anywhere else,
 # so the lefthook pre-commit and CI both just call `make lint`.
-lint: fmt-check golangci-config max-lines routes-cyclo routes-via-dispatcher hostops-via-desk periodic-via-scheduler event-bus-gates blocks-declare-in-data boundary-thin no-nil-container sql-constant no-raw-http arch supplier-boundary core-agnostic host-blind-to-blocks register-via-door native-key-confined core-seals-only internal-dirs domain-acyclic infra-not-domain routes-not-imported domain-facade-boundary domain-layering build-check golangci escape-lint
+lint: fmt-check golangci-config max-lines routes-cyclo routes-via-dispatcher hostops-via-desk periodic-via-scheduler event-bus-gates blocks-declare-in-data connector-kinds-in-data boundary-thin no-nil-container sql-constant no-raw-http arch supplier-boundary core-agnostic host-blind-to-blocks register-via-door native-key-confined core-seals-only internal-dirs domain-acyclic infra-not-domain routes-not-imported domain-facade-boundary domain-layering build-check golangci escape-lint
 
 # gofmt diff is instant — anything malformed fails here first.
 fmt-check:
@@ -100,6 +100,12 @@ event-bus-gates:
 blocks-declare-in-data:
 	@bash ../infra/scripts/check-blocks-declare-in-data.sh
 	@bash ../infra/scripts/check-blocks-declare-in-data-test.sh
+
+# connector-kinds-in-data —— a connector kind, a provided seam, an auth field type: a table row,
+# never a switch case (refactor ledger R12).
+connector-kinds-in-data:
+	@bash ../infra/scripts/check-connector-kinds-in-data.sh
+	@bash ../infra/scripts/check-connector-kinds-in-data-test.sh
 
 # Boundaries only declare and hand over: a facade re-exports its domain, and the
 # dispatcher aggregates facades. Payload shapes, op schemas and reaching past a

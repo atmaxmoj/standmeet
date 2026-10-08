@@ -123,22 +123,28 @@ type Source struct {
 // unconditionally → a spec-less supplier got a 400 "unsupported openapi version", and the
 // configure form couldn't render at all).
 func DeriveCredentialForm(m *Source) (CredentialForm, error) {
-	switch m.Kind {
-	case "credential":
-		// A credential-only supplier holds one opaque secret (a bot token, a webhook secret) and
-		// does nothing itself — some other service consumes it (the `im` seam's token, read by
-		// im-bridge). One generic field, and the host names no specific block: this is where the
-		// telegram case used to live (`case "telegram"` → {token}). AuthType "credential" renders
-		// the frontend's generic-field branch, same as the protocol names did.
-		return CredentialForm{AuthType: "credential", Fields: []string{credentialTokenField}}, nil
-	case "block":
-		// A block that supplies a seam (CalDAV for calendar, SMTP for mail). The owner-connect
-		// fields come from the block's declared `config:` (Source.Fields), so the host names no
-		// block-specific form. AuthType "block" renders the generic-field branch, like credential.
-		return CredentialForm{AuthType: "block", Fields: m.Fields}, nil
-	default:
-		return openapiCredentialForm(m)
+	if derive, ok := credFormKinds[m.Kind]; ok {
+		return derive(m), nil
 	}
+	return openapiCredentialForm(m)
+}
+
+// credFormKinds —— supplier kind → its form, for the kinds that have no spec to derive one from.
+// Every other kind is openapi: the form comes from its spec's securityScheme.
+var credFormKinds = map[string]func(*Source) CredentialForm{
+	// A credential-only supplier holds one opaque secret (a bot token, a webhook secret) and does
+	// nothing itself — some other service consumes it (the `im` seam's token, read by im-bridge).
+	// One generic field, and the host names no specific block (telegram used to be a case here).
+	// AuthType "credential" renders the frontend's generic-field branch.
+	"credential": func(*Source) CredentialForm {
+		return CredentialForm{AuthType: "credential", Fields: []string{credentialTokenField}}
+	},
+	// A block that supplies a seam (CalDAV for calendar, SMTP for mail). The owner-connect fields
+	// come from the block's declared `config:` (Source.Fields), so the host names no
+	// block-specific form. AuthType "block" renders the generic-field branch, like credential.
+	"block": func(m *Source) CredentialForm {
+		return CredentialForm{AuthType: "block", Fields: m.Fields}
+	},
 }
 
 // openapiCredentialForm — derive the form for an openapi supplier from its spec's securityScheme.
@@ -180,20 +186,24 @@ func pickAuthForm(forms []openapi.AuthSchemeForm, picked string) (openapi.AuthSc
 // fields the owner fills in (text/password); scope checkboxes go into Scopes; readonly fields
 // (redirect_uri) don't go into fields (the frontend renders those separately).
 func credFormFromAuth(f *openapi.AuthSchemeForm) CredentialForm {
-	fields := make([]string, 0, len(f.Fields))
-	var scopes []string
+	form := CredentialForm{AuthType: f.Type, Fields: make([]string, 0, len(f.Fields))}
 	for i := range f.Fields {
-		switch f.Fields[i].Type {
-		case "text", "password":
-			fields = append(fields, f.Fields[i].Key)
-		case "scopes":
-			scopes = f.Fields[i].Scopes
-		default:
-			// readonly (redirect_uri) etc.: don't go into the owner-filled fields
+		if take, ok := authFieldRoles[f.Fields[i].Type]; ok {
+			take(&form, &f.Fields[i])
 		}
 	}
-	return CredentialForm{AuthType: f.Type, Fields: fields, Scopes: scopes}
+	return form
 }
+
+// authFieldRoles —— auth form field type → where it lands in the credential form. A type with no
+// row (readonly: redirect_uri) is shown by the frontend but is not something the owner fills in.
+var authFieldRoles = map[string]func(*CredentialForm, *openapi.AuthFieldForm){
+	"text":     ownerFilled,
+	"password": ownerFilled,
+	"scopes":   func(c *CredentialForm, f *openapi.AuthFieldForm) { c.Scopes = f.Scopes },
+}
+
+func ownerFilled(c *CredentialForm, f *openapi.AuthFieldForm) { c.Fields = append(c.Fields, f.Key) }
 
 // schemeNames — every securityScheme name the spec declares (sorted). Lets the owner pick when
 // admin exposes multiple schemes.
