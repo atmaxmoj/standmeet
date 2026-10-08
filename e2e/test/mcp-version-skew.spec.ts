@@ -41,7 +41,7 @@ const INIT = JSON.stringify({
 // buildClient — rebuild the real bin stamped with `version` via STANDMEET_VERSION (the fix: the
 // client version follows that single source, the same the server uses).
 function buildClient(version: string): void {
-  const r = spawnSync('pnpm', ['-F', '@standmeet/mcp-client', 'build'], {
+  const r = spawnSync('pnpm', ['-F', 'standmeet-mcp', 'build'], {
     cwd: REPO, env: { ...process.env, STANDMEET_VERSION: version }, encoding: 'utf8',
   });
   expect(r.status, `client build (v=${version}) failed: ${r.stderr}`).toBe(0);

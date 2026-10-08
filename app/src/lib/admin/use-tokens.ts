@@ -192,7 +192,7 @@ export const MCP_CLIENTS: readonly MCPClient[] = [
   "mcpServers": {
     "standmeet": {
       "command": "npx",
-      "args": ["-y", "@standmeet/mcp-client@latest"],
+      "args": ["-y", "standmeet-mcp@latest"],
       "env": {
         "STANDMEET_HOST": "${host}",
         "STANDMEET_CREDS_PATH": "${credsPath}"
@@ -208,7 +208,7 @@ export const MCP_CLIENTS: readonly MCPClient[] = [
     snippet: (host) => `{
   "standmeet": {
     "command": "npx",
-    "args": ["-y", "@standmeet/mcp-client@latest"],
+    "args": ["-y", "standmeet-mcp@latest"],
     "env": {
       "STANDMEET_HOST": "${host}",
       "STANDMEET_CREDS_PATH": "${credsPath}"

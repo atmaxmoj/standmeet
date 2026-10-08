@@ -7,7 +7,7 @@
 # incremental development.
 
 .PHONY: lint secrets secrets-image release-build release-assert-stripped release-assert-multiarch release-assert-version release-push release-gc release-repro release-repro-logs release-repro-down backend-lint backend-test ut-db ut-db-down backend-no-mock app-lint sdk-lint e2e-lint env-lint updater-e2e im-bridge-lint im-bridge-test im-bridge-up im-bridge-logs
-.PHONY: npm-stamp npm-pack npm-publish npm-unstamp eval-speed
+.PHONY: npm-stamp npm-pack npm-publish npm-publish-here npm-unstamp eval-speed
 .PHONY: deps stackstack-init stack-ready stack-test stack-retire dev dev-up dev-rebuild dev-down dev-remove-orphans prod-up prod-down prod-logs build clean test test-fresh test-only test-asis dsh-plugin-test test-red test-boundary test-dsh-live mobile-shots mobile-shots-asis archive-failures sdk-build builder-vendor dev-rebuild-builder dev-restart-gotenberg app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-blocks eval-owner-mcp verify-round schema-drift i18n-keys
 
 # ── per-checkout dev stack ──────────────────────────────────────
@@ -343,7 +343,7 @@ sdk-build: deps
 	@# Stamp the mcp-client version from the SAME git tag the server uses (never a frozen 0.0.0), so
 	@# the version-skew advisory is meaningful. Then assert the built client self-reports it — the
 	@# client-side of release-assert-version.
-	@STANDMEET_VERSION=$(TAG) pnpm -F @standmeet/mcp-client build
+	@STANDMEET_VERSION=$(TAG) pnpm -F standmeet-mcp build
 	@got=$$(node sdk/packages/mcp-client/bin/standmeet-mcp --version); \
 	  test "$$got" = "$(TAG)" || { \
 	    echo "sdk-build: mcp-client self-reports '$$got', but this build is '$(TAG)' — the version stopped following the tag"; \
@@ -1929,7 +1929,9 @@ release-assert-multiarch:
 # without its v (v0.1.130 → 0.1.130), written into each package.json for the publish only — the
 # repo keeps 0.0.0, so the tag stays the one place a version lives. pnpm publish turns workspace:*
 # into that same version. Built with STRIP_TEST_HOOKS=1, like the release images.
-NPM_PACKAGES := mcp-client core agent-core react embed
+# Only the MCP client publishes (as `standmeet-mcp`, under the owner's personal npm account). The
+# @standmeet/* SDK packages would need an npm organisation named standmeet; not set up.
+NPM_PACKAGES := mcp-client
 NPM_VERSION   = $(patsubst v%,%,$(TAG))
 
 # npm-stamp —— build the SDK as released and write the tag's version into the five package.json.
@@ -1972,3 +1974,13 @@ npm-publish:
 # npm-unstamp —— put the repo's 0.0.0 back (the tag is the version's one home).
 npm-unstamp:
 	@for p in $(NPM_PACKAGES); do (cd sdk/packages/$$p && npm pkg set version=0.0.0); done
+
+# npm-publish-here —— publish from this machine with its own `npm login` (no token):
+#   make npm-publish-here TAG=v0.1.138
+npm-publish-here:
+	@npm whoami >/dev/null 2>&1 || { echo "npm: run 'npm login' first"; exit 2; }
+	@$(MAKE) npm-stamp || exit 1; \
+	rc=0; for p in $(NPM_PACKAGES); do \
+	  (cd sdk/packages/$$p && pnpm publish --access public --no-git-checks) || { rc=1; break; }; \
+	done; \
+	$(MAKE) npm-unstamp; exit $$rc

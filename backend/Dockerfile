@@ -148,7 +148,7 @@ RUN mkdir -p /srv/stt /tmp/sv \
     && cp /tmp/sv/model.int8.onnx /tmp/sv/tokens.txt /srv/stt/ \
     && rm -rf /tmp/sv /tmp/sv.tar.bz2
 
-# Stage 2c: the owner MCP client tarball (@standmeet/mcp-client) → /srv/mcp-client.tgz.
+# Stage 2c: the owner MCP client tarball (npm package standmeet-mcp) → /srv/mcp-client.tgz.
 # The client is a SEPARATE artifact the owner installs on their own machine; it does NOT ride the
 # instance's upgrade. Its update_self tool pulls the pinned tarball from GET /api/mcp-package, which
 # serves this baked file. tsup bundles @standmeet/sdk-core into dist/, so the packed tarball has no
@@ -162,11 +162,11 @@ RUN corepack enable
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 COPY sdk/packages/core sdk/packages/core
 COPY sdk/packages/mcp-client sdk/packages/mcp-client
-RUN pnpm install --filter @standmeet/mcp-client... --frozen-lockfile
+RUN pnpm install --filter standmeet-mcp... --frozen-lockfile
 # Build sdk-core first — its dist/ is dockerignored, so tsup can't resolve @standmeet/sdk-core to
 # bundle it until it exists (same ordering as im-bridge/Dockerfile).
 RUN pnpm -F @standmeet/sdk-core build \
-    && STANDMEET_VERSION="$STANDMEET_VERSION" pnpm -F @standmeet/mcp-client build \
+    && STANDMEET_VERSION="$STANDMEET_VERSION" pnpm -F standmeet-mcp build \
     && mkdir -p /srv \
     && cd sdk/packages/mcp-client \
     && npm pack --pack-destination /srv \

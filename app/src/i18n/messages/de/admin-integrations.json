@@ -90,7 +90,7 @@
     "heading": "verbinden Sie Ihren mcp-client",
     "badge": "Sigv1 · /mcp",
     "intro": "Zeigen Sie Ihren KI-Client auf den MCP-Endpunkt Ihrer Instanz. Auth ist das Ed25519-Keypair, das Sie oben generieren (Sigv1). Der Endpunkt aggregiert Ihre Owner-Tools über MCP-over-HTTP.",
-    "note": "Claude Desktop / Cursor verbinden sich über den stdio-Client in der obigen Config (npx @standmeet/mcp-client), der hinten Meile spricht MCP-over-HTTP mit Sigv1 zu diesem Endpunkt.",
+    "note": "Claude Desktop / Cursor verbinden sich über den stdio-Client in der obigen Config (npx standmeet-mcp), der im Hintergrund MCP-over-HTTP mit Sigv1 zu diesem Endpunkt spricht.",
     "endpointLabel": "mcp endpunkt"
   },
   "mcpServers": {

@@ -4,7 +4,7 @@
 // nonexistent github.com/standmeet/mcp-client, the filename/size (11 MB etc.)
 // were all made up, and clicking them was a dead link. The endpoint itself
 // is real (#143 as-MCP-server facade: /mcp, Sigv1 auth). The stdio client
-// (npx @standmeet/mcp-client) is already published and used by the config in
+// (npx standmeet-mcp) is published on npm and used by the config in
 // MCPClientPanel above, so the note now honestly says that's the actual path
 // (F-M-1: the old copy said "wrapper not yet published", contradicting the
 // config served on the same page).

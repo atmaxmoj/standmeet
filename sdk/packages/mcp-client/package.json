@@ -1,5 +1,5 @@
 {
-  "name": "@standmeet/mcp-client",
+  "name": "standmeet-mcp",
   "version": "0.0.0",
   "description": "StandMeet MCP client — stdio JSON-RPC ↔ streamable HTTP bridge, Ed25519 sigv1 signed per request. Drop into Claude Desktop / Cursor via STANDMEET_CREDS_PATH.",
   "type": "module",

@@ -90,7 +90,7 @@
     "heading": "conecte su cliente mcp",
     "badge": "Sigv1 · /mcp",
     "intro": "Apunte su cliente de IA al punto final MCP de su instancia. Auth es el par de claves Ed25519 que genera arriba (Sigv1). El punto final agrega sus herramientas de propietario sobre MCP-over-HTTP.",
-    "note": "Claude Desktop / Cursor se conectan a través del cliente stdio en la configuración anterior (npx @standmeet/mcp-client), que habla MCP-over-HTTP con Sigv1 a este punto final bajo el capó.",
+    "note": "Claude Desktop / Cursor se conectan a través del cliente stdio en la configuración anterior (npx standmeet-mcp), que habla MCP-over-HTTP con Sigv1 a este punto final bajo el capó.",
     "endpointLabel": "punto final mcp"
   },
   "mcpServers": {

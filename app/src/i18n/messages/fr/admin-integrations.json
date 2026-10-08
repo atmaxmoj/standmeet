@@ -90,7 +90,7 @@
     "heading": "connecter votre client mcp",
     "badge": "Sigv1 · /mcp",
     "intro": "Pointez votre client IA vers le point de terminaison MCP de votre instance. L'authentification est la paire de clés Ed25519 que vous générez ci-dessus (Sigv1). Le point de terminaison agrège vos outils propriétaire sur MCP-over-HTTP.",
-    "note": "Claude Desktop / Cursor se connectent via le client stdio dans la config ci-dessus (npx @standmeet/mcp-client), qui parle MCP-over-HTTP avec Sigv1 à ce point de terminaison en arrière-plan.",
+    "note": "Claude Desktop / Cursor se connectent via le client stdio dans la config ci-dessus (npx standmeet-mcp), qui parle MCP-over-HTTP avec Sigv1 à ce point de terminaison en arrière-plan.",
     "endpointLabel": "point de terminaison mcp"
   },
   "mcpServers": {

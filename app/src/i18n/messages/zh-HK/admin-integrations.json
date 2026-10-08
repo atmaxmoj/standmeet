@@ -90,7 +90,7 @@
     "heading": "連接你的 mcp 客户端",
     "badge": "Sigv1 · /mcp",
     "intro": "把你的 AI 客户端指向你實例的 MCP 端點。認證用你在上方生成的 Ed25519 密鑰對（Sigv1）。該端點透過 MCP-over-HTTP 聚合你的主理人工具。",
-    "note": "Claude Desktop / Cursor 透過上方設定中的 stdio 客户端（npx @standmeet/mcp-client）連接，它在底層用 Sigv1 以 MCP-over-HTTP 與此端點通訊。",
+    "note": "Claude Desktop / Cursor 透過上方設定中的 stdio 客户端（npx standmeet-mcp）連接，它在底層用 Sigv1 以 MCP-over-HTTP 與此端點通訊。",
     "endpointLabel": "mcp 端點"
   },
   "mcpServers": {

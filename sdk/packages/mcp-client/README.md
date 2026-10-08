@@ -1,4 +1,4 @@
-# @standmeet/mcp-client
+# standmeet-mcp
 
 MCP client for StandMeet. Spawned by Claude Desktop / Cursor / any MCP client;
 bridges stdio JSON-RPC to the StandMeet backend's streamable HTTP `/mcp`
@@ -9,13 +9,16 @@ captured header is useless on any other request.
 ## Install
 
 ```sh
-npm i -g @standmeet/mcp-client
+npm i -g standmeet-mcp
 ```
+
+or let the MCP client run it with `npx` (below).
 
 ## Onboard (one-time)
 
 1. Sign in to your StandMeet instance → `/admin/api-mcp` → **Generate** →
-   download `standmeet-key-<…>.pem`.
+   download `standmeet-key-<…>.pem`. Pick what the key may do (everything,
+   read only, or read + write content).
 
 2. Save credentials at `~/.standmeet/credentials.json` (mode `0600`):
 
@@ -33,7 +36,7 @@ npm i -g @standmeet/mcp-client
      "mcpServers": {
        "standmeet": {
          "command": "npx",
-         "args": ["-y", "@standmeet/mcp-client@latest"],
+         "args": ["-y", "standmeet-mcp@latest"],
          "env": {
            "STANDMEET_HOST": "https://your-standmeet-host",
            "STANDMEET_CREDS_PATH": "~/.standmeet/credentials.json"
@@ -45,8 +48,9 @@ npm i -g @standmeet/mcp-client
 
 ## How auth works
 
-- Each outbound HTTP signs a fresh `Authorization: Sigv1 keyId=X,ts=N,sig=base64`
-  header (ed25519 over `standmeet-sigv1\n<keyId>\n<ts>`).
-- Server verifies in a 5-minute clock-skew window. No replay protection beyond
-  that — keep credentials.json mode `0600` and don't ship the PEM off-machine.
-- Revoke from the admin UI → next request from this device returns 401.
+- Each outbound HTTP request carries a fresh
+  `Authorization: Sigv1 keyId=X,ts=N,nonce=…,v=2,sig=base64` header: Ed25519 over
+  the key id, timestamp, nonce, method, path and the SHA-256 of the body.
+- The server accepts a 5-minute clock-skew window and each nonce once.
+- The key's scopes decide which tools it lists and may call.
+- Revoke from the admin UI → the next request from this device returns 401.
