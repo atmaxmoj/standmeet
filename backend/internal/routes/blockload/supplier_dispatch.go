@@ -4,9 +4,10 @@
 // holder (the Suppliers table + the Dispatcher over it) used to be allocated in the composition
 // root (blockwire's EnsureBlockDispatch called adapters.NewSuppliers / NewDispatcher directly) —
 // the reified supplier layer wired outside the door, the forbidden second path. Now the door owns
-// that construction, the same shape as RegisterOwnerFibers / RegisterSeamProviders: the composition
-// root ASSEMBLES the concrete suppliers (credential deps, egress — root work) and populates the
-// table; the door OWNS the holder's lifecycle. One reference chain, facade→core (rule 2).
+// that construction, the same shape as RegisterVisitorSkills / RegisterSeamProviders: the
+// composition root ASSEMBLES the concrete suppliers (credential deps, egress — root work) and
+// populates the table; the door OWNS the holder's lifecycle. One reference chain, facade→core
+// (rule 2).
 //
 // The dispatch subsystem stays substrate (Go belongs in the substrate); what moved behind the door
 // is who allocates and wires it.

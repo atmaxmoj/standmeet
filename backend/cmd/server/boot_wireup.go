@@ -184,11 +184,6 @@ func registerAgentSkills(ctx context.Context, d *deps.Runtime) {
 	skills := buildVisitorSkillsDeps(d)
 	skills.DepConnected = depReg
 	blockload.RegisterVisitorSkills(d.AgentSkills, &skills, d.ChatRepo)
-	// Owner-side block-fibers: the module PROVIDES them, the door registers them (one door,
-	// no domain self-registers — everything-is-a-block.md rule 2). Duplicate IDs backstopped by
-	// a panic in MustRegister. Each op is declared by its own domain, projected onto MCP via
-	// convergence.
-	blockload.RegisterOwnerFibers(d.AgentSkills, d.JobsModule.OwnerFibers())
 	// Inbound convergence point: each block orders by name from its own manifest,
 	// dispatched here. Replaces four hand-written gateways (summarize / booker /
 	// mail-sender / retrieval), each of which stood up its own socket and verbs.

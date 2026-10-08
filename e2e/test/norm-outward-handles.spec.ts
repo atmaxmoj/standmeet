@@ -1,15 +1,18 @@
-// norm-outward-handles.spec.ts —— the 【outward】 self-managed MCP handles golden
-// snapshot.
+// norm-outward-handles.spec.ts —— the 【outward】 boundary: the block registry holds no owner_only
+// entries at all.
 //
-// Outward handles = MCP tools StandMeet exposes to the owner where **StandMeet is the
-// managed object itself** (the owner connects in from their own Claude Code / Desktop
-// to manage StandMeet: manage codes, edit the corpus, configure roles, and so on;
-// Shape=owner_only). This is StandMeet's **as-MCP-server direction**, and is **not** a
-// block loaded into the agent — **this round of normalization does not touch
-// it**.
+// Outward handles = MCP tools StandMeet exposes to the owner where **StandMeet is the managed
+// object itself** (the owner connects in from their own Claude Code / Desktop to manage
+// StandMeet: codes, corpus, roles, the job loop…). Those never belonged in the block registry —
+// that registry declares "what this instance's agent can load", a different axis. They live in the
+// outbound choke point (backend/internal/routes/dispatcher), projected onto the MCP face from
+// there; a tool the panel reaches by other routes says so with Reach = Only(reason, "mcp").
 //
-// This is locked down here to prove "normalization only touches inward blocks,
-// and never accidentally hits this batch of outward handles".
+// This spec used to be a golden list of the owner_only entries still left, shrinking one line per
+// move. The last three — jobs.bundle, resume.bundle, assistant.bundle — became dispatcher ops in
+// refactor ledger R1 (layer2-externalize-jobs.md), so it is now the boundary assertion its old
+// comment promised: zero owner_only entries. The tools themselves are still on the owner MCP face
+// (norm-outward-toolset), and check-no-core-capability-fibers.sh holds the Go side.
 // Inward blocks live in norm-inward-blocks.spec.ts — don't mix the two.
 
 import { test, expect } from '@/fixtures/test';
@@ -22,59 +25,18 @@ const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 interface Cap { id: string; shape: string; origin: string }
 interface RegistryListResp { blocks: Cap[] }
 
-// GOLDEN (outward) — all owner_only, untouched by this round, origin all builtin.
-// Note: jobs/resume/applications also belong here — they're owner-facing
-// self-managed MCP, the same category as codes/seo, not inward blocks.
-//
-// **This golden list will shrink as ownercore gets dissolved.** An owner's
-// self-managed tools were never meant to register into capreg in the first place
-// (capreg is the declarative registry for "what this instance's agent can load" —
-// a different axis entirely); they're being moved into the outbound choke point
-// (backend/internal/routes/dispatcher), projected onto the MCP surface from there.
-// Move one out, delete one line here. Once it's empty, this golden list flips into a
-// boundary assertion: capreg should have **no** owner_only entries at all.
-//
-// Already moved (-> dispatcher): ip_bans, domains, access_requests, skills,
-// marketplace, prompts, mcp_servers, roles, blocks, instance, appearance,
-// account/me, byoai + ai_provider, seo, page, microsite, chat,
-// corpus.subjectivity, api_keys, suppliers (the generic registry belongs to the
-// supplier axis; mail_test_send belongs to the smtp supplier's own manifest), and
-// the four corpus operations (genre collapsed from three tool sets into one
-// parameter, filling in the four cells MCP used to be missing along the way).
-// booking's policy goes a step further: it's the booker externalized block's
-// own configuration, going through the generic block_config surface.
-//
-// writings was moved too (ownercore was deleted along with it). The reason it was
-// originally kept here said "a byte stream can't fit into a JSON op", and that
-// reasoning was wrong: the MCP path has only ever taken a string of https URLs, and
-// the server fetches them itself. What genuinely couldn't be moved was **merging two
-// surfaces into one op** (the panel uses multipart), so writing_create now lives in
-// the corpus domain with Reach = Only(reason, "mcp") — the difference is written into
-// the declaration, instead of hiding a package outside the choke point.
-//
-// So this golden list is down to just the three jobs plugin entries.
-// **Once all three are moved out**, this golden list flips into a boundary
-// assertion: capreg should have **no** owner_only entries at all.
-const GOLDEN_OUTWARD: readonly Cap[] = [
-  { id: 'jobs.bundle', shape: 'owner_only', origin: 'builtin' },
-  { id: 'resume.bundle', shape: 'owner_only', origin: 'builtin' },
-  // applications.bundle left (R2, layer2-externalize-jobs.md step 1): applications.commit is a
-  // dispatcher op now; the tool itself is still on the owner MCP face (norm-outward-toolset).
-  // The screen assistant's owner tools (assistant.push, e215acb8a) — owner-only by design.
-  { id: 'assistant.bundle', shape: 'owner_only', origin: 'builtin' },
-];
-
-test.describe('能力归一化 · 【对外】自管理 MCP handles 黄金快照(本次不碰)', () => {
+test.describe('能力归一化 · 【对外】block registry 里没有 owner_only', () => {
   test.beforeAll(() => { resetInstance(); });
 
-  test('outward(owner_only)handles 的 id + origin + 顺序逐字等于 golden',
-    async ({ playwright }) => {
-      const request = await playwright.request.newContext();
-      const outward = (await fetchRegistry(request))
-        .blocks.filter((c) => c.shape === 'owner_only');
-      expect(outward).toEqual(GOLDEN_OUTWARD);
-      await request.dispose();
-    });
+  test('the registry lists its blocks, and none of them is owner_only', async ({ playwright }) => {
+    const request = await playwright.request.newContext();
+    const { blocks } = await fetchRegistry(request);
+    // Read the list first: an empty answer would make "none is owner_only" true for nothing.
+    expect(blocks.length, 'the registry answers with its blocks').toBeGreaterThan(0);
+    expect(blocks.filter((c) => c.shape === 'owner_only'), 'owner tools live in the dispatcher')
+      .toEqual([]);
+    await request.dispose();
+  });
 });
 
 async function fetchRegistry(request: APIRequestContext): Promise<RegistryListResp> {

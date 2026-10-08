@@ -1,6 +1,6 @@
 // seam_providers.go —— the door for SEAM dependency providers.
 //
-// The fiber registry has its door (RegisterOwnerFibers / RegisterVisitorSkills above); the SEAM
+// The fiber registry has its door (RegisterVisitorSkills, register_mechanisms.go); the SEAM
 // dependency registry (registry.DepRegistry — "is this seam supplied for this owner") had none: the
 // composition root reached into it directly (blockwire's registerBaseSeams / registerSeams called
 // depReg.Register). That was the forbidden second path — two answers to "where is a provider

@@ -1,6 +1,16 @@
 # Layer ② — retire the last in-core capability fibers (roadmap Block 2 layer ②)
 
-> **Status:** design, red-first tests owed. Grounds the 🟡 in roadmap Block 2 layer ②.
+> **Status: done 2026-10-08 (refactor ledger R1).** Steps 1 and 4 landed as written. Steps 2–3
+> took the other exit this document allows: `jobs.*`, `resume.*` and `assistant.push` are
+> dispatcher `fp.Op`s (`jobsmcp/ops.go`), like `applications.commit`, not JS blocks — the plan
+> below predates three facts that pin them to host state: `applications.commit` reads and deletes
+> the draft inside its own atomic transaction (so `resume_drafts` cannot be a block store, and the
+> admin composer and résumé masters read the same rows); `jobs.fetch_new` runs as durable host jobs
+> (`jobs.fetch_source`) that record `jobs.fetched`, which a block cannot enqueue; `assistant.push`
+> writes the in-process cue store. "Route by what host state the tool touches" sends all three to
+> an `fp.Op`. `resume_read` stays: it is a loader (it reads whichever application a code is bound
+> to — `register_mechanisms.go`). Guard B is `check-no-core-capability-fibers.sh`, wired into
+> `make lint`. The text below is the original plan.
 > **One line:** the everything-is-a-block migration externalized every
 > visitor/leaf capability and every connector; the only feature-named things
 > still `MustRegister`ed into the in-process registry are the job-loop trio

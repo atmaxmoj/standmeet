@@ -13,30 +13,10 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
 )
 
+// assistantFiber —— assistant.push; OwnerOps (ops.go) lifts it into a dispatcher op.
 type assistantFiber struct {
 	store *cues.Store
 	log   *slog.Logger
-}
-
-// NewAssistantFiber —— the screen assistant's owner-MCP fiber.
-func NewAssistantFiber(store *cues.Store, log *slog.Logger) registry.Fiber {
-	return &assistantFiber{store: store, log: log}
-}
-
-func (*assistantFiber) ID() string            { return "assistant.bundle" }
-func (*assistantFiber) Shape() registry.Shape { return registry.ShapeOwnerOnly }
-func (*assistantFiber) VisitorBinding(
-	_ context.Context, _ *registry.AssembleInput,
-) (*registry.Binding, error) {
-	return nil, registry.ErrHidden
-}
-
-func (*assistantFiber) SystemPromptFragment(_ context.Context, _ *registry.AssembleInput) string {
-	return ""
-}
-
-func (*assistantFiber) SystemPromptFragmentID(_ context.Context, _ *registry.AssembleInput) string {
-	return ""
 }
 
 func (c *assistantFiber) OwnerMCPBindings() []*registry.MCPBinding {

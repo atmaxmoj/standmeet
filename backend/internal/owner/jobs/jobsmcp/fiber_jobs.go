@@ -1,11 +1,10 @@
-// fiber_jobs.go —— Phase E-10: the owner-side jobs.* fiber.
+// fiber_jobs.go —— the owner-side jobs.* tools.
 // 7 tools: register_source / list_sources / unregister_source / fetch_new /
 // fetch_result / show / discard. owner-only. See docs/design/job-loop.md for details.
 
-// Package jobsmcp —— J.3: the jobs plugin's MCP blocks + result wire.
-// owner-only, 6+5+1 = 12 tools (jobs.* + resume.* + applications.commit).
-// Moved out of internal/mcp; the package is named jobsmcp to avoid colliding
-// with internal/mcp — external callers write jobsmcp.NewJobsFiber(deps, log).
+// Package jobsmcp —— the job loop's owner tools (jobs.* + resume.* + assistant.push +
+// applications.commit) as dispatcher ops, and their result wire. Named jobsmcp to avoid
+// colliding with internal/mcp; callers write jobsmcp.OwnerOps / jobsmcp.ApplicationOps.
 package jobsmcp
 
 import (
@@ -20,37 +19,10 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
 )
 
-const jobsBundleID = "jobs.bundle"
-
+// jobsFiber —— the jobs.* tools; OwnerOps (ops.go) lifts them into dispatcher ops.
 type jobsFiber struct {
 	jobs *jobsuc.JobsDeps
 	log  *slog.Logger
-}
-
-// NewJobsFiber —— exposed to the composition root as of J.3 (the
-// jobs plugin is registered into registry.Registry across a package boundary).
-func NewJobsFiber(jobs *jobsuc.JobsDeps, log *slog.Logger) registry.Fiber {
-	return &jobsFiber{jobs: jobs, log: log}
-}
-
-func (*jobsFiber) ID() string            { return jobsBundleID }
-func (*jobsFiber) Shape() registry.Shape { return registry.ShapeOwnerOnly }
-func (*jobsFiber) VisitorBinding(
-	_ context.Context, _ *registry.AssembleInput,
-) (*registry.Binding, error) {
-	return nil, registry.ErrHidden
-}
-
-func (*jobsFiber) SystemPromptFragment(
-	_ context.Context, _ *registry.AssembleInput,
-) string {
-	return ""
-}
-
-func (*jobsFiber) SystemPromptFragmentID(
-	_ context.Context, _ *registry.AssembleInput,
-) string {
-	return ""
 }
 
 func (c *jobsFiber) OwnerMCPBindings() []*registry.MCPBinding {

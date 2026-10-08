@@ -6,42 +6,21 @@ import (
 	"testing"
 
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmcp"
-	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
 )
 
-// TestJobsMCPSchemasAreValidJSON — the InputSchema of all three owner-MCP tool sets
-// (jobs/resume/applications) must be valid JSON. They sit in the same live tools/list
-// as the built-in owner tools, so one bad schema equally makes mcp-go's serialization
-// of the whole table fail → real clients discover zero tools.
-// Same guard as internal/mcp's TestOwnerToolSchemasAreValidJSON, covering the plugin side.
+// TestJobsMCPSchemasAreValidJSON — the InputSchema of every job-loop owner tool (jobs / resume /
+// assistant / applications) must be valid JSON. They sit in the same live tools/list as the
+// built-in owner tools, so one bad schema equally makes mcp-go's serialization of the whole table
+// fail → real clients discover zero tools.
 func TestJobsMCPSchemasAreValidJSON(t *testing.T) {
 	t.Parallel()
 
 	log := slog.Default()
-	fibers := []registry.Fiber{
-		jobsmcp.NewJobsFiber(nil, log),
-		jobsmcp.NewResumeFiber(nil, log),
-	}
-	for _, c := range fibers {
-		assertSchemasValid(t, c)
-	}
-	// applications.commit is a dispatcher op now (R2); its schema sits in the same tools/list.
-	for _, op := range jobsmcp.ApplicationOps(nil, log) {
-		if !json.Valid(op.InputSchema) {
-			t.Errorf("op %q has INVALID InputSchema JSON:\n%s", op.ID, string(op.InputSchema))
-		}
-	}
-}
-
-func assertSchemasValid(t *testing.T, c registry.Fiber) {
-	t.Helper()
-	for _, b := range c.OwnerMCPBindings() {
-		if len(b.InputSchema) == 0 {
-			continue
-		}
-		if !json.Valid(b.InputSchema) {
-			t.Errorf("tool %q (block %s) has INVALID InputSchema JSON:\n%s",
-				b.Name, c.ID(), string(b.InputSchema))
+	ops := append(jobsmcp.OwnerOps(nil, nil, nil, log), jobsmcp.ApplicationOps(nil, log)...)
+	for i := range ops {
+		if len(ops[i].InputSchema) > 0 && !json.Valid(ops[i].InputSchema) {
+			t.Errorf("op %q has INVALID InputSchema JSON:\n%s",
+				ops[i].ID, string(ops[i].InputSchema))
 		}
 	}
 }

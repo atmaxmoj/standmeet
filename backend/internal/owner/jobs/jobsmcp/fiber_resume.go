@@ -1,4 +1,4 @@
-// fiber_resume.go —— Phase E-11: the owner-side resume.* fiber.
+// fiber_resume.go —— the owner-side resume.* tools.
 // 3 tools: draft / update_draft / discard_draft. owner-only.
 //
 // draft / update_draft return text-only JSON (draft id + job_snapshot etc.);
@@ -20,38 +20,10 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
 )
 
-const resumeBundleID = "resume.bundle"
-
+// resumeFiber —— the resume.* tools; OwnerOps (ops.go) lifts them into dispatcher ops.
 type resumeFiber struct {
 	resume *jobsuc.ResumeDeps
 	log    *slog.Logger
-}
-
-// NewResumeFiber —— exposed to the composition root as of J.3.
-func NewResumeFiber(
-	resume *jobsuc.ResumeDeps, log *slog.Logger,
-) registry.Fiber {
-	return &resumeFiber{resume: resume, log: log}
-}
-
-func (*resumeFiber) ID() string            { return resumeBundleID }
-func (*resumeFiber) Shape() registry.Shape { return registry.ShapeOwnerOnly }
-func (*resumeFiber) VisitorBinding(
-	_ context.Context, _ *registry.AssembleInput,
-) (*registry.Binding, error) {
-	return nil, registry.ErrHidden
-}
-
-func (*resumeFiber) SystemPromptFragment(
-	_ context.Context, _ *registry.AssembleInput,
-) string {
-	return ""
-}
-
-func (*resumeFiber) SystemPromptFragmentID(
-	_ context.Context, _ *registry.AssembleInput,
-) string {
-	return ""
 }
 
 func (c *resumeFiber) OwnerMCPBindings() []*registry.MCPBinding {

@@ -1,12 +1,9 @@
-// b5-owner-only-isolation.spec.ts —— Phase B-5: verifies that every owner-only
-// block (owner.me / seo.bundle / and the jobs / resume / applications /
-// microsite ones migrated in later) is absent from a visitor session's
-// block map and tool_specs.
+// b5-owner-only-isolation.spec.ts —— Phase B-5: nothing the owner can call through a real MCP
+// client shows up in a visitor session's tool_specs.
 //
-// The existing registry-invariants spec already covers the visitor_only ↔ no
-// owner MCP side. This spec hardens the reverse direction: enumerate every
-// owner-only ID and every tool name its OwnerMCPBinding exposes, and make
-// sure none of them leaked to the visitor side.
+// The existing registry-invariants spec already covers the visitor_only ↔ no owner MCP side. This
+// spec hardens the reverse direction over the whole owner tool surface — the dispatcher ops and
+// whatever blocks the owner face lists — so a tool moving between the two changes nothing here.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, PlaywrightWorkerArgs } from '@playwright/test';
@@ -32,11 +29,7 @@ const CODE = 'B5-001';
 // parameter is TestDetails, and the whole file then types as `never`.
 type PW = PlaywrightWorkerArgs['playwright'];
 
-interface RegCap { id: string; shape: string }
-interface RegistryListResp { blocks: RegCap[] }
-interface VisitorCap { id: string }
 interface VisitorBlocksResp {
-  blocks: VisitorCap[];
   tool_specs: Array<{ name: string }>;
 }
 
@@ -67,22 +60,10 @@ test.describe('Phase B-5 owner-only block isolation', () => {
   test('the whole owner tool surface is disjoint from the visitor tool surface',
     ownerSurfaceStaysOwnerSide);
 
-  test('none of the owner-only block IDs appear in a visitor session',
-    async ({ playwright }) => {
-      const request = await playwright.request.newContext();
-      const ownerOnlyIDs = await fetchOwnerOnlyIDs(request);
-      const sess = await issueSession(request, {
-        handle: OWNER.handle, code: CODE, visitor_name: 'V',
-      });
-      const body = await fetchVisitorBlocks(request, sess.session_token);
-      const visitorCapIDs = new Set(body.blocks.map((c) => c.id));
-      for (const id of ownerOnlyIDs) {
-        expect(visitorCapIDs.has(id),
-          `owner-only ${id} must not appear in visitor block map`).toBe(false);
-      }
-      await request.dispose();
-    });
-
+  // A second case used to loop over the registry's owner_only block IDs. The last of them (jobs /
+  // resume / assistant) became dispatcher ops in refactor ledger R1, so that loop now runs over
+  // nothing and would pass whatever leaked; the whole-surface case above is what guards the leak,
+  // and norm-outward-handles asserts the registry holds no owner_only block at all.
 });
 
 // ownerSurfaceStaysOwnerSide —— every tool the owner can call through a real MCP client
@@ -108,13 +89,6 @@ async function ownerSurfaceStaysOwnerSide(
       `owner tool ${name} must not be exposed to a visitor`).toBe(false);
   }
   await request.dispose();
-}
-
-async function fetchOwnerOnlyIDs(request: APIRequestContext): Promise<string[]> {
-  const res = await request.get(`${BACKEND}/internal/diag/registry`);
-  if (res.status() !== 200) throw new Error(`registry-list: ${res.status()}`);
-  const body = await res.json() as RegistryListResp;
-  return body.blocks.filter((c) => c.shape === 'owner_only').map((c) => c.id);
 }
 
 async function fetchVisitorBlocks(

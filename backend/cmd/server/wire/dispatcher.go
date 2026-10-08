@@ -121,8 +121,8 @@ func BuildDispatcher(d *deps.Runtime) *dispatcher.Dispatcher {
 			System: port.NewSysInfoProvider(d), UpgradeSources: d.Upgrade, Events: d.Recorder(),
 		},
 	})
-	apps := dispatcher.Resource{Name: "applications", Ops: d.JobsModule.ApplicationOps()}
-	return dispatcher.New(append(append(resources, apps), blockModelResources(d)...)...)
+	jobLoop := dispatcher.Resource{Name: "job-loop", Ops: d.JobsModule.Ops()}
+	return dispatcher.New(append(append(resources, jobLoop), blockModelResources(d)...)...)
 }
 
 // blockModelResources — the resources belonging to the block model itself.

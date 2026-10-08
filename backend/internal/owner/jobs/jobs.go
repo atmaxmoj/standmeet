@@ -30,7 +30,6 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsadmin"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmcp"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc"
-	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
 )
 
 // Name — Plugin.Name implementation. Fixed to "jobs".
@@ -110,21 +109,14 @@ func (*Plugin) EventTypes() []events.Type { return jobsuc.FetchEventTypes() }
 // Name — matches the plugin registry.
 func (*Plugin) Name() string { return Name }
 
-// OwnerFibers — the owner-MCP block-fibers this module PROVIDES (jobs / resume / assistant).
-// It hands them up; the registration door (internal/routes/blockload) is what puts them in the
-// registry. A domain does not register its own blocks — registration converges on one door
-// (docs/design/plugin/everything-is-a-block.md, rule 2).
-func (p *Plugin) OwnerFibers() []registry.Fiber {
-	return []registry.Fiber{
-		jobsmcp.NewJobsFiber(p.deps.Jobs, p.deps.Log),
-		jobsmcp.NewResumeFiber(p.deps.Resume, p.deps.Log),
-		jobsmcp.NewAssistantFiber(p.deps.Cues, p.deps.Log),
-	}
-}
-
-// ApplicationOps — applications.commit, a dispatcher op (layer2-externalize-jobs.md step 1).
-func (p *Plugin) ApplicationOps() []fp.Op {
-	return jobsmcp.ApplicationOps(p.deps.Applications, p.deps.Log)
+// Ops — every job-loop owner tool, as dispatcher ops: jobs.*, resume.*, assistant.push and
+// applications.commit (layer2-externalize-jobs.md; refactor ledger R1). None is a fiber in the
+// in-process registry — the core holds no Go capability fibers.
+func (p *Plugin) Ops() []fp.Op {
+	return append(
+		jobsmcp.OwnerOps(p.deps.Jobs, p.deps.Resume, p.deps.Cues, p.deps.Log),
+		jobsmcp.ApplicationOps(p.deps.Applications, p.deps.Log)...,
+	)
 }
 
 // MountAdminRoutes — the AdminRouter role: mounts
