@@ -311,15 +311,18 @@ test.describe('everything the code carries, carries onto the page', () => {
     await expect(sm(page, 'answer')).toContainText('still allowed', { timeout: 30_000 });
 
     // The owner revokes the grant -- the page's side must stop immediately. **There is
-    // no cached access.**
+    // no cached access.** The refused turn ends the reader's visit: the page is bound to that
+    // code, so it is closed to them now, and the SDK takes them to the gate (session-gone.ts,
+    // 2026-10-05). It used to print an in-page error; the gate is the stronger stop.
     await revokeCode(admin.request, admin.csrf, code.id);
 
     const after = await scriptMockReplyText(admin.request, 'must not answer after revoke');
     await askOnPage(page, `after ${after}`);
-    await expect(sm(page, 'error'), 'a revoked code stops the page’s agent')
-      .not.toHaveText('', { timeout: 30_000 });
-    await expect(sm(page, 'answer'))
-      .not.toContainText('must not answer after revoke');
+    await expect.poll(() => new URL(page.url()).pathname, {
+      timeout: 30_000, message: 'a revoked code takes the reader off the page',
+    }).not.toBe('/p/revoked');
+    await expect(page.getByText('must not answer after revoke'), 'and no answer was given')
+      .toHaveCount(0);
   });
 });
 
