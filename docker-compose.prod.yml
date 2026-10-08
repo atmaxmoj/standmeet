@@ -172,10 +172,11 @@ services:
     restart: unless-stopped
     environment:
       - BACKEND_INTERNAL_URL=http://backend:8000
-    # The builder runs the owner's code. It keeps only what its entrypoint's one root step needs
-    # (hand old files to its user, then drop to it); the server runs as uid 1001 with none.
+    # The builder runs the owner's code. The daemon keeps four capabilities: CHOWN, SETUID / SETGID
+    # to run the owner's code as uid 1002 (which then holds none and cannot write the output
+    # volume), DAC_OVERRIDE to write a finished build into that volume (builder/entrypoint.sh).
     cap_drop: [ALL]
-    cap_add: [CHOWN, SETUID, SETGID]
+    cap_add: [CHOWN, SETUID, SETGID, DAC_OVERRIDE]
     security_opt: ["no-new-privileges:true"]
     # The page's own code runs here at build time (the prerender imports it), so the box is the
     # boundary (refactor ledger R20; e2e microsite-builder-sandbox). Writable: /tmp (the work dir,

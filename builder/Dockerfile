@@ -24,10 +24,12 @@ COPY template ./template
 COPY runner.mjs ./runner.mjs
 COPY entrypoint.sh ./entrypoint.sh
 
-# The builder runs as `standmeet` (uid 1001, the backend's); entrypoint.sh explains the one root
-# step before it.
-RUN apk add --no-cache su-exec && \
-    addgroup -S -g 1001 standmeet && adduser -S -u 1001 -G standmeet -H standmeet && \
+# Two users. `standmeet` (uid 1001, the backend's) owns the shared output volume. `sm-build`
+# (uid 1002) runs the owner's code — both vite builds and the prerender — with no capabilities and
+# no write access to that volume. The daemon in between (runner.mjs) is root with four capabilities
+# (compose `cap_add`); entrypoint.sh and runner.mjs explain why.
+RUN addgroup -S -g 1001 standmeet && adduser -S -u 1001 -G standmeet -H standmeet && \
+    addgroup -S -g 1002 sm-build && adduser -S -u 1002 -G sm-build -H sm-build && \
     mkdir -p /tmp/work /srv/microsites && chown standmeet:standmeet /tmp/work /srv/microsites && \
     chmod +x /opt/builder/entrypoint.sh
 

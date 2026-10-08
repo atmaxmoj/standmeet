@@ -405,9 +405,10 @@ services:
     environment:
       - BACKEND_INTERNAL_URL=http://backend:8000
       - MICROSITES_ROOT=/srv/microsites
-    # Same as prod: only the entrypoint's root step's capabilities; the server runs as uid 1001.
+    # Same as prod: the daemon's four capabilities; the owner's code runs as uid 1002 with none
+    # (builder/entrypoint.sh).
     cap_drop: [ALL]
-    cap_add: [CHOWN, SETUID, SETGID]
+    cap_add: [CHOWN, SETUID, SETGID, DAC_OVERRIDE]
     security_opt: ["no-new-privileges:true"]
     # Same box as prod (read-only root, /tmp work dir, memory / cpu / pid limits; the reasoning
     # is there), so the e2e suite builds every page inside it.

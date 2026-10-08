@@ -17,7 +17,7 @@
 // The child processes run async, never execFileSync: a sync child blocks the event loop, and a
 // blocked loop sends no lease renewals — a long build would then look like a dead builder.
 
-import { mkdirSync, writeFileSync, readFileSync, readdirSync, cpSync, existsSync, rmSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, readdirSync, cpSync, existsSync, rmSync, chownSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -45,6 +45,14 @@ const PRERENDER_TIMEOUT_MS = 60_000;
 // VITE_TIMEOUT_MS —— the client build is not best-effort, but it must be bounded too: a hung vite
 // holds the single lane forever. On timeout the build is marked failed with the reason.
 const VITE_TIMEOUT_MS = 300_000;
+// Two users, two jobs (builder/Dockerfile). This daemon owns the shared output volume and writes a
+// finished build into it; every process that runs the owner's code (both vite builds and the
+// prerender, which imports the page) runs as SANDBOX: no capabilities (the kernel clears them on the
+// switch away from root) and no write access to the volume, so one page's build-time code cannot
+// rewrite another page's published files. Outside the container (not root) there is nobody to
+// switch to and the children run as this process.
+const OUTPUT_OWNER = { uid: 1001, gid: 1001 };
+const SANDBOX = process.getuid?.() === 0 ? { uid: 1002, gid: 1002 } : {};
 
 console.log(`[builder] starting; backend=${BACKEND} shared=${SHARED_ROOT}`);
 
@@ -92,6 +100,7 @@ async function processJob(job) {
     const outDir = `${SHARED_ROOT}/${page_id}/${build_id}/dist`;
     mkdirSync(dirname(outDir), { recursive: true });
     cpSync(join(workDir, 'dist'), outDir, { recursive: true });
+    await handToOutputOwner(`${SHARED_ROOT}/${page_id}`);
     await markBuilt(build_id, `${page_id}/${build_id}/dist`);
     console.log(`[builder] build ${build_id} OK ${JSON.stringify(ms)}`);
   } catch (e) {
@@ -140,6 +149,18 @@ function setupViteProject(workDir, files, entry, packages) {
     `export { default } from './owner/${entryBase}';\n`,
     'utf8',
   );
+  // The sandboxed builds write dist/, dist-server/ and vite's temp files under node_modules/.
+  if (SANDBOX.uid !== undefined) {
+    chownSync(workDir, SANDBOX.uid, SANDBOX.gid);
+    chownSync(join(workDir, 'node_modules'), SANDBOX.uid, SANDBOX.gid);
+  }
+}
+
+// handToOutputOwner —— a build written by this (root) daemon goes to the backend's user, which
+// serves it and removes it when the page is purged.
+async function handToOutputOwner(pageDir) {
+  if (SANDBOX.uid === undefined) return;
+  await run('chown', ['-R', `${OUTPUT_OWNER.uid}:${OUTPUT_OWNER.gid}`, pageDir]);
 }
 
 // addWrappedPackage —— a block that carries an npm package was installed once, scripts off, into
@@ -173,6 +194,7 @@ async function runViteBuild(workDir) {
       'node',
       [join(workDir, 'node_modules', 'vite', 'bin', 'vite.js'), 'build', '--logLevel', 'error'],
       {
+        ...SANDBOX,
         cwd: workDir,
         encoding: 'utf8',
         timeout: VITE_TIMEOUT_MS,
@@ -199,7 +221,7 @@ async function runViteBuild(workDir) {
 async function prerender(workDir) {
   const vite = join(workDir, 'node_modules', 'vite', 'bin', 'vite.js');
   const opts = {
-    cwd: workDir, encoding: 'utf8', timeout: PRERENDER_TIMEOUT_MS, maxBuffer: 16 * 1024 * 1024,
+    ...SANDBOX, cwd: workDir, encoding: 'utf8', timeout: PRERENDER_TIMEOUT_MS, maxBuffer: 16 * 1024 * 1024,
   };
   try {
     await run(
