@@ -123,7 +123,7 @@ func liveCredOrSkip(t *testing.T) agentcore.Cred {
 	if cd.Key == "" || cd.Key == "dev-llm-gateway-dummy-key" {
 		t.Skip("failure-mode probes need a real LLM (set EVAL_KEY); skipping")
 	}
-	return agentcore.Cred{Provider: cd.Provider, Key: cd.Key, Endpoint: cd.Endpoint, Model: cd.Model}
+	return cd.cred()
 }
 
 // ① scale —— real corpus, a lazy question. Wording doesn't overlap with the notes, and

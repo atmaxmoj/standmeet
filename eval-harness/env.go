@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/atmaxmoj/standmeet/agentcore"
 )
 
 // loadDotenv makes the harness self-configuring: on startup it reads a .env
@@ -54,6 +56,27 @@ func applyDotenv(path string) bool {
 // credDefaults —— resolved LLM cred for flag defaults.
 type credDefaults struct {
 	Provider, Key, Endpoint, Model string
+}
+
+// refCred —— the reference model that plays the interviewer or grades answers: EVAL_REF_KEY /
+// EVAL_REF_ENDPOINT / EVAL_REF_MODEL (OpenAI-compatible), falling back to the candidate's own.
+// Set it to compare candidate models under one fixed judge.
+func refCred(c credDefaults) credDefaults {
+	if k := os.Getenv("EVAL_REF_KEY"); k != "" {
+		return credDefaults{
+			Provider: "openai-compatible", Key: k,
+			Endpoint: envOr("EVAL_REF_ENDPOINT", "https://api.deepseek.com"),
+			Model:    envOr("EVAL_REF_MODEL", "deepseek-chat"),
+		}
+	}
+	return c
+}
+
+// cred —— the agentcore credential these defaults describe.
+func (c credDefaults) cred() agentcore.Cred {
+	return agentcore.Cred{
+		Provider: c.Provider, Key: agentcore.SecretKey(c.Key), Endpoint: c.Endpoint, Model: c.Model,
+	}
 }
 
 // resolveCredDefaults makes the harness self-configuring about WHICH LLM to

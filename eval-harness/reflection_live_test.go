@@ -71,7 +71,7 @@ func TestReflection_LiveFabricationAB(t *testing.T) {
 	if cd.Key == "" || cd.Key == "dev-llm-gateway-dummy-key" {
 		t.Skip("reflection A/B needs a real LLM (set EVAL_KEY / provider key); skipping")
 	}
-	cred := agentcore.Cred{Provider: cd.Provider, Key: cd.Key, Endpoint: cd.Endpoint, Model: cd.Model}
+	cred := cd.cred()
 
 	arms := []struct{ name, preamble string }{
 		{"A baseline", ""},

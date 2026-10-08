@@ -27,7 +27,7 @@ func TestCrawlRetrieval_LiveAgentCrawls(t *testing.T) {
 	if cd.Key == "" || cd.Key == "dev-llm-gateway-dummy-key" {
 		t.Skip("live crawl eval needs a real LLM (set EVAL_KEY / provider key); skipping")
 	}
-	cred := agentcore.Cred{Provider: cd.Provider, Key: cd.Key, Endpoint: cd.Endpoint, Model: cd.Model}
+	cred := cd.cred()
 
 	ctx := context.Background()
 	driver := &EvalDriver{cred: cred, corpus: linkedCorpus()}

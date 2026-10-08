@@ -46,9 +46,13 @@ def load_dotenv(path=".env"):
 
 
 load_dotenv()
-KEY = os.environ.get("EVAL_KEY", "")
-ENDPOINT = os.environ.get("EVAL_ENDPOINT", "https://api.deepseek.com").rstrip("/")
-MODEL = os.environ.get("EVAL_MODEL", "deepseek-chat")
+# The interviewer is an OpenAI-compatible chat model. EVAL_REF_* (the reference model, also the
+# Go judges' — env.go refCred) set it apart from the candidate (EVAL_*, the model under test), so
+# a candidate on another provider keeps the same interviewer; unset, it uses EVAL_* as before.
+KEY = os.environ.get("EVAL_REF_KEY") or os.environ.get("EVAL_KEY", "")
+ENDPOINT = (os.environ.get("EVAL_REF_ENDPOINT")
+            or os.environ.get("EVAL_ENDPOINT", "https://api.deepseek.com")).rstrip("/")
+MODEL = os.environ.get("EVAL_REF_MODEL") or os.environ.get("EVAL_MODEL", "deepseek-chat")
 
 INTERVIEWER_SYSTEM = (
     "You are a sharp, experienced engineering hiring manager running a long, "

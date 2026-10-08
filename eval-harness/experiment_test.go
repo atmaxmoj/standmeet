@@ -201,7 +201,7 @@ func TestExperiment(t *testing.T) {
 	if cd.Key == "" || cd.Key == "dev-llm-gateway-dummy-key" {
 		t.Skip("experiment rig needs a real LLM key; skipping")
 	}
-	cred := agentcore.Cred{Provider: cd.Provider, Key: cd.Key, Endpoint: cd.Endpoint, Model: cd.Model}
+	cred := cd.cred()
 
 	shape := shapeByName(t, envOrDefault("EVAL_SHAPE", "chain"))
 	runs := envInt("EVAL_RUNS", 3)

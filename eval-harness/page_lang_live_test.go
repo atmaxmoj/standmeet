@@ -74,7 +74,7 @@ func TestPageLangLive(t *testing.T) {
 	if cd.Key == "" || cd.Key == "dev-llm-gateway-dummy-key" {
 		t.Skip("page-language live eval needs a real LLM key (EVAL_KEY / provider key); skipping")
 	}
-	cred := agentcore.Cred{Provider: cd.Provider, Key: cd.Key, Endpoint: cd.Endpoint, Model: cd.Model}
+	cred := cd.cred()
 	rounds := evalRounds()
 	wrong := 0
 	for i := range rounds {

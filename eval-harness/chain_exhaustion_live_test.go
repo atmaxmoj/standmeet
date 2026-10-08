@@ -42,7 +42,7 @@ func TestChainExhaustionLive_BoundaryStillAnswersGrounded(t *testing.T) {
 	if cd.Key == "" || cd.Key == "dev-llm-gateway-dummy-key" {
 		t.Skip("chain-exhaustion eval needs a real LLM key (EVAL_KEY / provider key); skipping")
 	}
-	cred := agentcore.Cred{Provider: cd.Provider, Key: cd.Key, Endpoint: cd.Endpoint, Model: cd.Model}
+	cred := cd.cred()
 
 	p, perr := loadPersona("fixtures/personas/chain-vault")
 	if perr != nil {

@@ -27,7 +27,7 @@ import (
 )
 
 func evalCred() agentcore.Cred {
-	return agentcore.Cred{Provider: "x", Key: "k", Endpoint: "http://unused", Model: "m"}
+	return agentcore.Cred{Provider: "x", Key: agentcore.SecretKey("k"), Endpoint: "http://unused", Model: "m"}
 }
 
 // T.8 —— a standalone launch yields the REAL composed prompt: the owner persona body

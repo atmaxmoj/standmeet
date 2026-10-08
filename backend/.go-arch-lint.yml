@@ -795,6 +795,8 @@ deps:
   # agentic feature set, only the injected repo changes. Nobody inside backend imports it.
   agentcore:
     mayDependOn:
+      # secret — Cred.Key is a secret.String; a driver outside the module wraps its key with it.
+      - secret
       - blockload
       - mount
       - conversation

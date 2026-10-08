@@ -19,6 +19,7 @@ import (
 	"github.com/cloudwego/eino/adk"
 
 	"github.com/atmaxmoj/standmeet/internal/conversation/inference"
+	"github.com/atmaxmoj/standmeet/internal/infra/secret"
 )
 
 // Re-exported types. These are aliases (=), not new definitions, so a
@@ -41,6 +42,10 @@ type (
 	// a slice of these.
 	ChatRequestMsg = inference.ChatRequestMsg
 )
+
+// SecretKey —— wraps a plaintext provider key for Cred.Key (a secret.String, which never prints
+// itself). A driver outside the module cannot import internal/infra/secret, so it is exposed here.
+var SecretKey = secret.New
 
 // CompactionLogMsg — the line the kernel logs when context compaction
 // actually fires. eval asserts on it to prove compaction happened, so that

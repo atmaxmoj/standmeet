@@ -7,7 +7,7 @@
 # incremental development.
 
 .PHONY: lint secrets secrets-image release-build release-assert-stripped release-assert-multiarch release-assert-version release-push release-gc release-repro release-repro-logs release-repro-down backend-lint backend-test ut-db ut-db-down backend-no-mock app-lint sdk-lint e2e-lint env-lint updater-e2e im-bridge-lint im-bridge-test im-bridge-up im-bridge-logs
-.PHONY: npm-stamp npm-pack npm-publish npm-publish-here npm-unstamp eval-speed
+.PHONY: npm-stamp npm-pack npm-publish npm-publish-here npm-unstamp eval-speed eval-vet
 .PHONY: deps stackstack-init stack-ready stack-test stack-retire dev dev-up dev-rebuild dev-down dev-remove-orphans prod-up prod-down prod-logs build clean test test-fresh test-only test-asis dsh-plugin-test test-red test-boundary test-dsh-live mobile-shots mobile-shots-asis archive-failures sdk-build builder-vendor dev-rebuild-builder dev-restart-gotenberg app-build sqlc-gen gateway-up eval-smoke eval-ghost eval-ask eval-compaction eval-doc-context eval-cross-conversation eval-interview eval-summary eval-blocks eval-owner-mcp verify-round schema-drift i18n-keys
 
 # ── per-checkout dev stack ──────────────────────────────────────
@@ -125,7 +125,12 @@ export VERIFY_BASE
 # Order: env-lint is fastest, so it runs first; backend's own `make lint` chain is
 # already rich; the frontends each run eslint + tsc + knip. backend-no-mock is the
 # G-Y-mandated "backend must not contain mock-only code" constraint.
-lint: secrets env-lint backend-lint backend-no-mock app-lint sdk-lint e2e-lint im-bridge-lint verify-items
+lint: secrets env-lint backend-lint backend-no-mock app-lint sdk-lint e2e-lint im-bridge-lint verify-items eval-vet
+
+# eval-vet —— the eval harness is its own Go module, so backend-lint never compiles it; a backend
+# type change once left every eval unable to build, unnoticed (2026-10-08).
+eval-vet:
+	@cd eval-harness && go vet ./...
 
 # secrets —— secret scan, runs first: it takes 5 seconds, and what it guards against has no undo.
 #

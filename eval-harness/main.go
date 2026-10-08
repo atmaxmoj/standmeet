@@ -87,7 +87,9 @@ func main() {
 	// tool-leg assertion judges exactly this ordering ([[no-diagnosis-by-experiment]]: either
 	// read the log, or don't reason about it at all).
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: evalLogLevel()}))
-	cred := agentcore.Cred{Provider: *provider, Key: *key, Endpoint: *endpoint, Model: *model}
+	cred := agentcore.Cred{
+		Provider: *provider, Key: agentcore.SecretKey(*key), Endpoint: *endpoint, Model: *model,
+	}
 	// Transparency: show which LLM this run hits (never the key) so real-vs-mock
 	// is obvious. localhost:9300 = deterministic mock gateway.
 	fmt.Fprintf(os.Stderr, "eval: provider=%s endpoint=%s model=%s\n", cred.Provider, cred.Endpoint, cred.Model)
