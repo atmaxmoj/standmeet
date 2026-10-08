@@ -19,6 +19,7 @@
     "eslint": "^9.39.3",
     "eslint-plugin-sonarjs": "^4.2.0",
     "fflate": "^0.8.3",
+    "jsqr": "^1.4.0",
     "knip": "^6.0.5",
     "pdf-to-img": "^7.0.0",
     "pdfjs-dist": "~6.2.108",

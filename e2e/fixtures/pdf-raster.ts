@@ -2,6 +2,7 @@
 // pdf-parse can't see (e.g. a background filling the page). pdf-to-img rasterizes to PNG, pngjs
 // decodes to RGBA. pdf-to-img is ESM-only, hence the dynamic import() below.
 
+import jsQR from 'jsqr';
 import { PNG } from 'pngjs';
 
 export interface RasterPage {
@@ -10,10 +11,7 @@ export interface RasterPage {
   rgba(x: number, y: number): { r: number; g: number; b: number; a: number };
 }
 
-// Decode page `pageNum` (1-based) of `buf` to an RGBA raster at `scale`.
-export async function rasterizePDFPage(
-  buf: Buffer, pageNum: number, scale = 2,
-): Promise<RasterPage> {
+async function pagePNG(buf: Buffer, pageNum: number, scale: number): Promise<PNG> {
   const { pdf } = await import('pdf-to-img');
   const doc = await pdf(buf, { scale });
   let idx = 0;
@@ -23,7 +21,24 @@ export async function rasterizePDFPage(
     if (idx === pageNum) { target = image; break; }
   }
   if (target === undefined) throw new Error(`PDF has no page ${pageNum} (rendered ${idx})`);
-  const png = PNG.sync.read(target);
+  return PNG.sync.read(target);
+}
+
+// decodeQROnPage —— what a phone camera reads off the printed page: the page is rasterized and the
+// QR decoded from the pixels, so the assertion sees the drawn code, not the URL the server meant.
+// Scale 4: the résumé's QR is ~46 px wide on the page; smaller rasters lose its modules.
+export async function decodeQROnPage(buf: Buffer, pageNum = 1, scale = 4): Promise<string> {
+  const png = await pagePNG(buf, pageNum, scale);
+  const found = jsQR(new Uint8ClampedArray(png.data), png.width, png.height);
+  if (found === null) throw new Error(`no readable QR code on page ${pageNum}`);
+  return found.data;
+}
+
+// Decode page `pageNum` (1-based) of `buf` to an RGBA raster at `scale`.
+export async function rasterizePDFPage(
+  buf: Buffer, pageNum: number, scale = 2,
+): Promise<RasterPage> {
+  const png = await pagePNG(buf, pageNum, scale);
   return {
     width: png.width,
     height: png.height,

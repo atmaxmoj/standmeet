@@ -174,6 +174,12 @@ export async function openReader(page: Page, path: string): Promise<void> {
   await goto(page, path);
 }
 
+// openScannedURL —— a recruiter's phone opening what it read off a printed QR: the whole URL, host
+// included, exactly as scanned (a QR that names the wrong host has to fail here, not be rebased).
+export async function openScannedURL(page: Page, url: string): Promise<void> {
+  await page.goto(url);
+}
+
 // openGate —— a code-less visitor lands on the gate (optionally carrying ?q=… / ?code=… in `path`).
 // openHome —— the owner's public home page at `/`, as a visitor lands on it.
 export async function openHome(page: Page): Promise<void> {

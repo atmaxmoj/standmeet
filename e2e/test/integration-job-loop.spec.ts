@@ -14,9 +14,13 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { seedPublicWiki } from '@/fixtures/corpus';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { gotoAdminSection, enterCodeSession } from '@/fixtures/navigate';
+import { gotoAdminSection, openScannedURL } from '@/fixtures/navigate';
 import { jobsFetchNew, jobsRegisterSource } from '@/fixtures/jobs';
-import { applicationsCommit, resumeDraft, sampleResumeContent } from '@/fixtures/resume';
+import { scriptMockReplyText } from '@/fixtures/mock-llm-script';
+import { decodeQROnPage } from '@/fixtures/pdf-raster';
+import {
+  applicationsCommit, resumeDraft, sampleResumeContent, type CommittedApplication,
+} from '@/fixtures/resume';
 import { issueSession } from '@/fixtures/visitor';
 
 const OWNER = {
@@ -29,24 +33,47 @@ const OWNER = {
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 test.describe('job loop end-to-end integration', () => {
   let accessCode: string;
+  let committed: CommittedApplication;
 
   test.beforeAll(async ({ playwright }) => {
+    test.setTimeout(240_000);
     resetInstance();
     const request = await playwright.request.newContext();
     await claim(request, findSetupToken(), {
       email: OWNER.email, password: OWNER.password,
       handle: OWNER.handle, fullName: OWNER.fullName,
     });
-    const code = await runJobLoop(request);
-    accessCode = code;
+    committed = await runJobLoop(request);
+    accessCode = committed.view.access_code;
     await request.dispose();
   });
 
-  test('recruiter scans QR code → lands in ChatRoom',
-    async ({ page }) => {
-      await enterCodeSession(page, accessCode);
-      await expect(page.getByTestId('session-strip')).toBeVisible({ timeout: 5_000 });
-      await expect(page.getByTestId('chat-input')).toBeVisible();
+  // R19: the chain as one run. The recruiter has only the PDF: the QR is read off its pixels (not
+  // taken from the server's qr_url), followed in a browser with no session, and must open the
+  // application's own chat — not the gate — where a question gets an answer.
+  test('recruiter scans the QR on the PDF → the code\'s chat → asks → gets an answer',
+    async ({ browser, playwright }) => {
+      const scanned = await decodeQROnPage(committed.pdf);
+      expect(scanned, 'the PDF draws the URL the commit returned').toBe(committed.view.qr_url);
+      expect(scanned, 'the QR carries this application\'s code').toContain(`?code=${accessCode}`);
+
+      const recruiter = await browser.newContext();
+      const page = await recruiter.newPage();
+      await openScannedURL(page, scanned);
+      expect(new URL(page.url()).pathname, 'the QR does not route through the gate').not.toBe('/gate');
+      await page.getByTestId('visitor-name-input').fill('Recruiter');
+      await page.getByTestId('visitor-name-submit').click();
+      await expect(page.getByTestId('session-strip'), 'the session is the committed code\'s')
+        .toContainText(accessCode, { timeout: 15_000 });
+
+      const request = await playwright.request.newContext();
+      const tag = await scriptMockReplyText(request, 'JOBLOOP-ANSWER-REACHED-THE-RECRUITER');
+      await page.getByTestId('chat-input-field').fill(`what do you build? ${tag}`);
+      await page.getByTestId('chat-input-field').press('Enter');
+      await expect(page.getByTestId('answer-body').last())
+        .toContainText('JOBLOOP-ANSWER-REACHED-THE-RECRUITER', { timeout: 20_000 });
+      await request.dispose();
+      await recruiter.close();
     });
 
   test('owner sees the application in admin',
@@ -79,7 +106,7 @@ test.describe('job loop end-to-end integration', () => {
     });
 });
 
-async function runJobLoop(request: APIRequestContext): Promise<string> {
+async function runJobLoop(request: APIRequestContext): Promise<CommittedApplication> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   const token = await createAPIToken(request, csrf, 'jobloop-token');
   const sid = await initMCP(request, token);
@@ -100,6 +127,5 @@ async function runJobLoop(request: APIRequestContext): Promise<string> {
     request, token, sid, jobs[0]!.cache_id, sampleResumeContent(),
   );
   // Commit application
-  const committed = await applicationsCommit(request, token, sid, view.draft_id);
-  return committed.view.access_code;
+  return await applicationsCommit(request, token, sid, view.draft_id);
 }
