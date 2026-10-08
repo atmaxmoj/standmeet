@@ -5,8 +5,7 @@ package paritymanifest
 // intentional
 // asymmetries — those are Only(...) in the manifest with a written reason. These are genuine gaps
 // toward "the owner can drive everything from their AI client", tracked here so the conformance
-// test
-// (ownercore) can RATCHET them: MCPMissing(live) must equal this set exactly, so
+// test can RATCHET them: MCPMissing(live) must equal this set exactly, so
 // - a NEW admin route without an MCP twin → MCPMissing grows → test RED (no silent new drift),
 // and
 //   - filling a gap (adding the MCP tool) → delete its line here → test stays GREEN.

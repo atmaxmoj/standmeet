@@ -12,7 +12,7 @@
 # set grows automatically as each domain is converted -- no name-list to maintain.
 #
 # Exempt: sub-modules that keep their OWN boundary and their own external entry points
-# (owner/ownercore is the owner-MCP cap bundle, owner/jobs the job loop, corpus/obsidian the vault
+# (owner/jobs is the job loop, corpus/obsidian the vault
 # import/export sub-system, conversation/inference the agent engine) -- none is the domain's guts.
 #
 # The logic is Go (backend/tools/archcheck): it parses imports with go/parser rather than a regex,

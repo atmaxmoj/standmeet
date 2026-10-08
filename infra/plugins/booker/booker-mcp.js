@@ -545,8 +545,12 @@ async function resolveConvBooking(s, eventID) {
   const rec = recs.find((r) => r.doc === latest)
   return { booking: latest, bookingID: rec ? rec.id : '' }
 }
+// deleteEvent —— withdraws a booking's calendar event (the one place the owner's calendar is told).
+function deleteEvent(ownerID, b) {
+  return gwSupplierInvoke(ownerID, 'calendar', 'delete_event', { event_id: b.google_event_id, attendee_email: b.visitor_email })
+}
 async function deleteBooking(ownerID, b) {
-  await gwSupplierInvoke(ownerID, 'calendar', 'delete_event', { event_id: b.google_event_id, attendee_email: b.visitor_email })
+  await deleteEvent(ownerID, b)
   await gwBlockstoreDelete(bookingsColl, { conversation_id: b.conversation_id, google_event_id: b.google_event_id })
 }
 async function doCancel(s, args) {
@@ -591,7 +595,7 @@ async function doCancelByID(s, args) {
   if (!rec) return bookErr('not_found', 'booking not found')
   const doc = rec.doc
   try {
-    await gwSupplierInvoke(s.ownerID, 'calendar', 'delete_event', { event_id: doc.google_event_id, attendee_email: doc.visitor_email })
+    await deleteEvent(s.ownerID, doc)
     await gwBlockstoreDeleteByID(bookingsColl, rec.id)
   } catch (e) { return bookErr('cancel_failed', e.message) }
   await recordQuietly(s, 'cancelled', rec.id)

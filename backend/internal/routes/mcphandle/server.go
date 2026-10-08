@@ -30,9 +30,9 @@ type ctxKey struct{ name string }
 
 var ctxKeyOwnerID = ctxKey{name: "mcpOwnerID"}
 
-// Deps —— the business dependencies the MCP server needs. Since #135, owner
-// tools are all externalized into ownercore plugins, and registerTools only
-// walks AgentSkills (reg.OwnerMCPBindings()), so the core server only needs:
+// Deps —— the business dependencies the MCP server needs. Owner tools come from
+// the dispatcher's projection and the blocks, and registerTools only walks
+// AgentSkills (reg.OwnerMCPBindings()), so the core server only needs:
 //   - Keypairs: Sigv1 signature verification
 //   - AgentSkills: the owner MCP facade's sole tool source (core caps + plugin
 //     owner tools converge into a single endpoint)
@@ -207,10 +207,6 @@ func OwnerIDFrom(ctx context.Context) string {
 //     (owner tools declared by plugins, etc.);
 //   - dispatcher —— the outbound convergence point; the MCP face is its
 //     projection (generated, see from_dispatcher.go).
-//
-// During the migration both coexist: every resource moved into the
-// convergence point means ownercore registers one fewer, until ownercore
-// is deleted entirely.
 func registerTools(mcpSrv *server.MCPServer, deps *Deps, dangers toolDangers) {
 	registerBlocks(mcpSrv, deps.AgentSkills, dangers, deps.Log)
 	registerDispatcherOps(mcpSrv, deps.Dispatcher, dangers, deps.Log)

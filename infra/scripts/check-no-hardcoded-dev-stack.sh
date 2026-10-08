@@ -33,10 +33,6 @@
 
 set -eu
 
-# The legacy standmeet-* reference trees are deleted. The pattern still excludes them, so a
-# checkout that has an old copy lying around does not go red over code nobody runs.
-EXCLUDE='^\(standmeet-client\|standmeet-server\|standmeet-e2e\)/'
-
 # ADDRESSING —— the two shapes that actually POINT AT a stack:
 #
 #   standmeet-dev-<svc>   a container name, for `docker exec`
@@ -55,8 +51,7 @@ ADDRESSING='standmeet-dev-[a-z]\|-p standmeet-dev'
 # `git grep` walks tracked files only, so build output and node_modules cannot produce noise.
 scan() {
   git grep -n -e 'standmeet-dev-[a-z]' -e '\-p standmeet-dev' \
-    -- . ":!infra/scripts/check-no-hardcoded-dev-stack.sh" \
-    | grep -v "$EXCLUDE" || true
+    -- . ":!infra/scripts/check-no-hardcoded-dev-stack.sh" || true
 }
 
 # self-test: BOTH violation shapes must go red, and every defaulting syntax must stay green.

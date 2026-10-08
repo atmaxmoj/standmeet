@@ -22,7 +22,7 @@
 #
 # Excluded: _test.go, and comment lines starting with `//` or `*`. CORE_DIRS holds only the three
 # kernel packages; the supplier layer (plugin adapters), postgres, mailer, the composition
-# root (cmd/server), the owner-side cap bundles (internal/owner/{ownercore,jobs}), and the node
+# root (cmd/server), the owner-side job loop (internal/owner/jobs), and the node
 # blocks under infra/plugins/ are **not** the kernel —— block names there are legal.
 #
 # Usage:
