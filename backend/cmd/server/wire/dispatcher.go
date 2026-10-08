@@ -72,6 +72,7 @@ func BuildDispatcher(d *deps.Runtime) *dispatcher.Dispatcher {
 			// the root side (same rule as MCP probe), so it comes in via deps (F-R-11).
 			ModelLister: d.ProviderModels,
 		},
+		Keypairs: port.KeypairDeps(d),
 		Account: owner.OpsAccountDeps{
 			Account:     owner.AccountDeps{Owners: d.OwnerRepo},
 			Recovery:    port.RecoveryDeps(d),

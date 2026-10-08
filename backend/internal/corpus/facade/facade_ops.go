@@ -21,6 +21,7 @@ type (
 var (
 	AssetOps        = ops.AssetOps
 	CorpusReadOps   = ops.CorpusReads
+	CorpusTreeOps   = ops.CorpusTree
 	CorpusSearchOps = ops.CorpusSearch
 	CorpusNavOps    = ops.CorpusNav
 	CorpusWriteOps  = ops.CorpusWrites

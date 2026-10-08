@@ -1,177 +1,24 @@
-// keypairs.go —— /api/admin/keypairs CRUD endpoints。
-// POST → returns {key_id, private_key_pem, label, created_at} once, only at creation
-// GET → list metadata only
-// DELETE /:key_id → hard delete (revoke)
+// keypairs.go —— /api/admin/keypairs: list / create (the private key is returned once) / delete.
+// The ops are declared in the owner domain (internal/owner/ops/keypairs.go), panel-only; this
+// facade only decides the REST shape.
 
 package admin
 
 import (
-	"encoding/json"
-	"errors"
-	"log/slog"
-	"net/http"
-	"time"
-
 	"github.com/go-chi/chi/v5"
 
-	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
-	"github.com/atmaxmoj/standmeet/internal/infra/middleware"
-	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
+	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// KeypairsAdminDeps — dependencies the admin keypairs handlers need.
+// KeypairsAdminDeps — op source for the admin keypairs handlers.
 type KeypairsAdminDeps struct {
-	Deps owner.KeypairDeps
-	Log  *slog.Logger
-}
-
-type createKeypairRequest struct {
-	Label  string   `json:"label"`
-	Scopes []string `json:"scopes"` // danger classes; omitted = every class
-}
-
-type createKeypairResponse struct {
-	KeyID         string   `json:"key_id"`
-	PrivateKeyPEM string   `json:"private_key_pem"`
-	Label         string   `json:"label"`
-	CreatedAt     string   `json:"created_at"`
-	Scopes        []string `json:"scopes"`
-}
-
-type listKeypairItem struct {
-	LastUsedAt        *string  `json:"last_used_at"`
-	LastUsedIP        *string  `json:"last_used_ip"`
-	LastUsedUserAgent *string  `json:"last_used_user_agent"`
-	KeyID             string   `json:"key_id"`
-	Label             string   `json:"label"`
-	CreatedAt         string   `json:"created_at"`
-	Scopes            []string `json:"scopes"`
+	Face *dispatcher.Face
 }
 
 // MountKeypairs mounts the /api/admin/keypairs subrouter.
 func (h *Handlers) MountKeypairs(r chi.Router) {
-	r.Get("/", h.listKeypairs())
-	r.Post("/", h.createKeypair())
-	r.Delete("/{key_id}", h.deleteKeypair())
-}
-
-func (h *Handlers) listKeypairs() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ownerID := middleware.OwnerIDFrom(r.Context())
-		list, err := owner.ListKeypairs(r.Context(), h.KeypairsAdmin.Deps, ownerID)
-		if err != nil {
-			h.Log.Error("list keypairs", "err", err)
-			writeError(h.Log, w, serverErr())
-			return
-		}
-		writeKeypairsList(h.Log, w, list)
-	}
-}
-
-func writeKeypairsList(
-	log *slog.Logger, w http.ResponseWriter, list []owner.KeypairMetadata,
-) {
-	items := make([]listKeypairItem, 0, len(list))
-	for i := range list {
-		items = append(items, toListKeypairItem(&list[i]))
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(items); err != nil {
-		log.Error("encode keypairs list", "err", err)
-	}
-}
-
-func toListKeypairItem(k *owner.KeypairMetadata) listKeypairItem {
-	item := listKeypairItem{
-		KeyID:             k.KeyID,
-		Label:             k.Label,
-		Scopes:            k.Scopes,
-		CreatedAt:         k.CreatedAt.Format(time.RFC3339),
-		LastUsedIP:        k.LastUsedIP,
-		LastUsedUserAgent: k.LastUsedUserAgent,
-	}
-	if k.LastUsedAt != nil {
-		s := k.LastUsedAt.Format(time.RFC3339)
-		item.LastUsedAt = &s
-	}
-	return item
-}
-
-func (h *Handlers) createKeypair() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var req createKeypairRequest
-		if derr := json.NewDecoder(r.Body).Decode(&req); derr != nil {
-			writeError(h.Log, w, apierr.Envelope{
-				Status: http.StatusBadRequest, Code: "invalid_body",
-				Message: "invalid json body",
-			})
-			return
-		}
-		ownerID := middleware.OwnerIDFrom(r.Context())
-		created, err := owner.CreateKeypair(r.Context(), h.KeypairsAdmin.Deps,
-			&owner.CreateKeypairInputReq{OwnerID: ownerID, Label: req.Label, Scopes: req.Scopes})
-		if err != nil {
-			writeError(h.Log, w, createKeypairEnv(err))
-			return
-		}
-		writeCreatedKeypair(h.Log, w, &created)
-	}
-}
-
-func createKeypairEnv(err error) apierr.Envelope {
-	if errors.Is(err, apierr.ErrEmptyField) {
-		return apierr.Envelope{
-			Status: http.StatusBadRequest, Code: "label_required",
-			Message: "label is required",
-		}
-	}
-	if errors.Is(err, owner.ErrUnknownScope) {
-		return apierr.Envelope{
-			Status: http.StatusBadRequest, Code: "unknown_scope",
-			Message: "a scope must be one of: read, write, destructive, credential, authority, " +
-				"spend, egress",
-		}
-	}
-	return serverErr()
-}
-
-func writeCreatedKeypair(
-	log *slog.Logger, w http.ResponseWriter, c *owner.CreatedKeypair,
-) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	resp := createKeypairResponse{
-		KeyID:         c.Record.KeyID,
-		PrivateKeyPEM: c.PrivateKeyPEM,
-		Label:         c.Record.Label,
-		Scopes:        c.Record.Scopes,
-		CreatedAt:     c.Record.CreatedAt.Format(time.RFC3339),
-	}
-	if err := json.NewEncoder(w).Encode(&resp); err != nil {
-		log.Error("encode created keypair", "err", err)
-	}
-}
-
-func (h *Handlers) deleteKeypair() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ownerID := middleware.OwnerIDFrom(r.Context())
-		keyID := chi.URLParam(r, "key_id")
-		err := owner.DeleteKeypair(r.Context(), h.KeypairsAdmin.Deps, ownerID, keyID)
-		if err != nil {
-			writeError(h.Log, w, deleteKeypairEnv(err))
-			return
-		}
-		w.WriteHeader(http.StatusNoContent)
-	}
-}
-
-func deleteKeypairEnv(err error) apierr.Envelope {
-	if errors.Is(err, owner.ErrKeypairUnauthorized) {
-		return apierr.Envelope{
-			Status: http.StatusNotFound, Code: "keypair_not_found",
-			Message: "keypair not found",
-		}
-	}
-	return serverErr()
+	face := h.KeypairsAdmin.Face
+	r.Get("/", h.dispatchOp(face, "keypairs.list", emptyArgs, jsonOK))
+	r.Post("/", h.dispatchOp(face, "keypairs.create", bodyArgs, jsonCreated))
+	r.Delete("/{key_id}", h.dispatchOp(face, "keypairs.delete", urlParamArgs("key_id"), noContent))
 }

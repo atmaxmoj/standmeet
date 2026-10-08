@@ -5,9 +5,8 @@
 // internal/corpus/ops); this layer keeps only the REST shape: genre in the path, id in
 // the path, everything else in the body, and whether a success returns 200, 201, or 204.
 //
-// The tree view (/tree) is a browsing shape **unique to the panel** and doesn't go through
-// the convergence point: it returns tree nodes, not "one corpus entry". The grid pages through
-// corpus.list like every other owner list (docs/design/paging.md).
+// The tree view (/tree) and the tag row (/tags) are panel-only ops (Only "admin"); the grid
+// pages through corpus.list like every other owner list (docs/design/paging.md).
 
 package admin
 
@@ -19,18 +18,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
-	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
-// CorpusDeps — dependencies for the admin corpus handlers.
-//
-// Face — corpus ability is taken through the convergence point. Corpus is only kept
-// for the tree view and the tag row, the panel-unique views that still connect directly.
+// CorpusDeps — op source for the admin corpus handlers.
 type CorpusDeps struct {
-	Corpus corpus.Deps
-	Face   *dispatcher.Face
+	Face *dispatcher.Face
 }
 
 const (
@@ -51,34 +44,16 @@ func (h *Handlers) MountCorpus(r chi.Router) {
 	// owner's corpus runs to thousands of entries: "open my good-regulator-theorem entry"
 	// used to be impossible on this facade (F-L-39).
 	r.Get("/corpus/{genre}/search", h.dispatchOp(face, "corpus.search", corpusSearchArgs, jsonOK))
-	r.Get("/corpus/{genre}/tree", h.byGenre(map[string]http.HandlerFunc{
-		"raw": h.treeRaw(), "wiki": h.treeWiki(), "output": h.treeOutput(),
-		"subjectivity": h.treeSubjectivity(),
-	}))
-	// tags — every tag this genre has ever used (corpus-wide). The panel's tag row reads
-	// this.
-	r.Get("/corpus/{genre}/tags", h.byGenre(map[string]http.HandlerFunc{
-		"wiki": h.tagsWiki(),
-	}))
+	// tree — one lazily loaded layer (?parent=; empty = the roots). tags — every tag this genre
+	// has ever used; the panel's tag row reads it. Both panel-only ops (corpus/ops/corpus_tree.go).
+	r.Get("/corpus/{genre}/tree", h.dispatchOp(face, "corpus.tree",
+		pagedWithURLParam(paramGenre, "parent"), jsonOK))
+	r.Get("/corpus/{genre}/tags", h.dispatchOp(face, "corpus.tags",
+		pagedWithURLParam(paramGenre), jsonOK))
 	// check-i18n — read-only (it's a POST because the payload goes in the body, not
 	// because it changes anything). The panel's editor calls this once before saving, and
 	// gets back the same diagnostics the MCP write entrypoint would reject on.
 	r.Post("/corpus/check-i18n", h.dispatchOp(face, "corpus.check_i18n", bodyArgs, jsonOK))
-}
-
-// byGenre — the genre dispatch the tree/page routes still use: the URL's {genre} picks
-// the matching handler. An unknown genre, or one this view doesn't support, → 404
-// unknown_genre.
-func (h *Handlers) byGenre(m map[string]http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if handler, ok := m[chi.URLParam(r, paramGenre)]; ok {
-			handler(w, r)
-			return
-		}
-		writeError(h.Log, w, apierr.Envelope{
-			Status: http.StatusNotFound, Code: "unknown_genre", Message: "unknown corpus genre",
-		})
-	}
 }
 
 // corpusSearchArgs — genre in the path, the query term and pagination in the query

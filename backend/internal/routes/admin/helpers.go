@@ -25,8 +25,14 @@ func serverErr() apierr.Envelope {
 // a named shape instead of `any`.
 type jsonBody interface {
 	recoverResponse | confirmEmailResponse | []sessionView | credFormResp | connectInitResp |
-		vaultStateView | genreTagsResponse | []subjectivityListItem | apierr.Envelope |
-		map[string]bool | map[string]int64
+		vaultStateView | apierr.Envelope | map[string]bool | map[string]int64
+}
+
+// logEncodeErr — the slog line for a JSON encode error; each caller supplies its msg.
+func logEncodeErr(log *slog.Logger, msg string, err error) {
+	if err != nil {
+		log.Error(msg, logErrKey, err)
+	}
 }
 
 // writeJSON — 200 + JSON body.

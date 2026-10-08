@@ -40,6 +40,7 @@ type WritingsDeps struct {
 func Writings(deps WritingsDeps) []fp.Op {
 	return []fp.Op{
 		writingsCreateOp(deps),
+		writingsTreeOp(deps),
 		{
 			ID: "writings.list",
 			Description: "List writings, drafts and published, newest first, one page at a time " +
@@ -106,6 +107,7 @@ type writingOut struct {
 	CrossRefs         []string          `json:"cross_refs"`
 	ReadMinutes       int32             `json:"read_minutes"`
 	Published         bool              `json:"published"`
+	HasChildren       bool              `json:"has_children,omitempty"` // tree rows only
 }
 
 func (d WritingsDeps) toWritingOut(ctx context.Context, wg *entity.Writing) writingOut {

@@ -91,25 +91,14 @@ const modulePrefix = "github.com/atmaxmoj/standmeet/internal/"
 // convergence point, delete that file's line. Don't add lines: adding one means
 // another path around the convergence point was just created.
 var baseline = map[string]bool{
-	"internal/routes/admin/auth.go":  true,
-	"internal/routes/admin/claim.go": true,
-	// corpus.go / corpus_crud.go: only the tree and pagination views, unique to the
-	// panel, still connect directly; list / detail / create / edit / delete / promote
-	// all go through the convergence point now. corpus_detail.go and corpus_output.go
-	// disappeared entirely.
-	"internal/routes/admin/corpus.go":                   true,
-	"internal/routes/admin/corpus_tree.go":              true,
-	"internal/routes/admin/corpus_tree_subjectivity.go": true,
-	"internal/routes/admin/corpus_views.go":             true,
-	"internal/routes/admin/keypairs.go":                 true,
-	"internal/routes/admin/obsidian.go":                 true,
-	"internal/routes/admin/recovery.go":                 true,
-	// writings.go / writings_multipart.go finished migrating — now that the
-	// convergence point has a channel for carrying bytes, the save path goes through
-	// Face.OpFiles, the same op as the MCP path. The remaining writings_tree.go: tree
-	// and pagination are views unique to the panel (a lazy-load layer / a keyset page),
-	// and don't have a matching op yet.
-	"internal/routes/admin/writings_tree.go": true,
+	// auth / claim / recovery: the browser session lifecycle (login, refresh, claim, password
+	// reset) — cookies and session tokens, not driveable blocks. obsidian: the multipart vault
+	// import / zip export routes. The corpus and writings trees and the keypairs moved onto
+	// the convergence point (R9, 2026-10-07).
+	"internal/routes/admin/auth.go":     true,
+	"internal/routes/admin/claim.go":    true,
+	"internal/routes/admin/obsidian.go": true,
+	"internal/routes/admin/recovery.go": true,
 	// The block-vocabulary rename renamed this package and some of its files; the rows
 	// below are the same debt under new names. One sibling row is gone because that file
 	// left routes/ entirely — the mount machinery lives in internal/plugin/mount now,

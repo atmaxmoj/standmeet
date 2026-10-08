@@ -11,6 +11,8 @@
 package dispatcher
 
 import (
+	"slices"
+
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
@@ -58,6 +60,7 @@ type Deps struct {
 	APIKeys        access.OpsAPIKeys
 	Conversations  conversation.OpsConversations
 	Providers      owner.OpsProviders
+	Keypairs       owner.KeypairDeps
 	Prompts        owner.PromptsDeps
 	Settings       owner.SettingsDeps
 }
@@ -67,11 +70,11 @@ type Deps struct {
 func Collect(d *Deps) []Resource {
 	return []Resource{
 		{Name: "subjectivity", Ops: corpus.SubjectivityOps(d.Corpus)},
-		{Name: "corpus", Ops: append(append(append(
-			corpus.CorpusReadOps(d.Corpus), corpus.CorpusSearchOps(d.Corpus)...,
-		),
-			corpus.CorpusWriteOps(d.Corpus)...),
-			corpus.CorpusI18nOps()...)},
+		{Name: "corpus", Ops: slices.Concat(
+			corpus.CorpusReadOps(d.Corpus), corpus.CorpusSearchOps(d.Corpus),
+			corpus.CorpusWriteOps(d.Corpus), corpus.CorpusI18nOps(),
+			corpus.CorpusTreeOps(d.Corpus),
+		)},
 		{Name: "corpus_nav", Ops: corpus.CorpusNavOps(d.CorpusIndex)},
 		{Name: "assets", Ops: corpus.AssetOps(d.Corpus)},
 		{Name: "ip_bans", Ops: security.IPBanOps(d.BannedIPs)},
@@ -86,6 +89,7 @@ func Collect(d *Deps) []Resource {
 		{Name: "settings", Ops: owner.SettingsOps(&d.Settings)},
 		{Name: "providers", Ops: owner.ProviderOps(d.Providers)},
 		{Name: "account", Ops: owner.AccountOps(&d.Account)},
+		{Name: "keypairs", Ops: owner.KeypairOps(d.Keypairs)},
 		{Name: "microsites", Ops: owner.MicrositeOps(d.Microsites)},
 		{Name: "writings", Ops: corpus.WritingOps(d.Writings)},
 		{Name: "obsidian", Ops: corpus.ObsidianSyncOps(d.ObsidianIngest)},

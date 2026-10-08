@@ -24,9 +24,9 @@ func concat(groups ...[]Entry) []Entry {
 	return out
 }
 
-// session / keypairs —— the account block itself has moved into the outbound convergence
-// point (dispatcher.Account); what's left is the browser session lifecycle and the credential
-// bootstrap face, which were always admin-only.
+// session —— the account block and the keypairs have moved into the outbound convergence point
+// (dispatcher.Account, owner/ops/keypairs.go); what's left is the browser session lifecycle,
+// which was always admin-only.
 func accountEntries() []Entry {
 	return []Entry{
 		{
@@ -36,18 +36,6 @@ func accountEntries() []Entry {
 		{
 			Op:    read("session.csrf", fp.Only("browser CSRF bootstrap, not a block", FacadeAdmin)),
 			Admin: []string{"GET /api/admin/csrf"},
-		},
-		{
-			Op:    act("keypairs.create", fp.Only("issues a raw private key (Ed25519 PEM), shown once", FacadeAdmin)),
-			Admin: []string{"POST /api/admin/keypairs/"},
-		},
-		{
-			Op:    read("keypairs.list", fp.Only("credential bootstrap surface", FacadeAdmin)),
-			Admin: []string{"GET /api/admin/keypairs/"},
-		},
-		{
-			Op:    act("keypairs.delete", fp.Only("credential bootstrap surface", FacadeAdmin)),
-			Admin: []string{"DELETE /api/admin/keypairs/{key_id}"},
 		},
 	}
 }

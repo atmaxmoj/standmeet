@@ -40,4 +40,5 @@ var (
 	SEOOps        = ops.SEO
 	SettingsOps   = ops.Settings
 	ProviderOps   = ops.Providers
+	KeypairOps    = ops.Keypairs
 )

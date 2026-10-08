@@ -264,13 +264,9 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		Auth: adminroutes.AuthDeps{
 			Login: deps.Admin.Login, Sessions: deps.Admin.Sessions, Refresh: deps.Admin.Refresh,
 		},
-		KeypairsAdmin: adminroutes.KeypairsAdminDeps{
-			Deps: deps.Admin.Keypairs, Log: deps.Log,
-		},
-		Corpus: adminroutes.CorpusDeps{
-			Corpus: deps.Admin.Corpus, Face: wire.AdminFace(deps.Dispatch),
-		},
-		CodesAdmin: adminroutes.CodesDeps{Face: wire.AdminFace(deps.Dispatch)},
+		KeypairsAdmin: adminroutes.KeypairsAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
+		Corpus:        adminroutes.CorpusDeps{Face: wire.AdminFace(deps.Dispatch)},
+		CodesAdmin:    adminroutes.CodesDeps{Face: wire.AdminFace(deps.Dispatch)},
 		// APIKeysAdmin —— outbound-key panel (F-K-1). Same AdminFace gates it by an op's reach;
 		// those ops now declare OwnerRead/OwnerAction on both owner faces, no longer mcp-only.
 		APIKeysAdmin:   adminroutes.APIKeysAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
@@ -295,18 +291,11 @@ func buildAdminHandlers(deps *Deps) *adminroutes.Handlers {
 		},
 		// Preview goes through the domain, not the dispatcher: it hands back **file bytes**, and
 		// the convergence path is JSON ops. Same reasoning as the public-side /p/{slug}.
-		SkillsAdmin:     adminroutes.SkillsAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
-		PromptsAdmin:    adminroutes.PromptsAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
-		RolesAdmin:      adminroutes.RolesAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
-		MCPServersAdmin: adminroutes.MCPServersAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
-		WritingsAdmin: adminroutes.WritingsAdminDeps{
-			Face: wire.AdminFace(deps.Dispatch),
-			WritingsTx: corpus.WritingsTxDeps{
-				Writings: deps.Admin.Writings.Writings, WritingRefs: deps.Admin.WritingRefs,
-				Assets: deps.Admin.Assets,
-			},
-			Tree: deps.Admin.Writings.Writings,
-		},
+		SkillsAdmin:      adminroutes.SkillsAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
+		PromptsAdmin:     adminroutes.PromptsAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
+		RolesAdmin:       adminroutes.RolesAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
+		MCPServersAdmin:  adminroutes.MCPServersAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
+		WritingsAdmin:    adminroutes.WritingsAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
 		Obsidian:         obsidianDeps(deps),
 		MarketplaceAdmin: adminroutes.MarketplaceAdminDeps{Face: wire.AdminFace(deps.Dispatch)},
 		// One block screen where there were three: the supplier panel, the
