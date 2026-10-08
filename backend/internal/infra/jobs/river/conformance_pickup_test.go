@@ -11,6 +11,7 @@ package river_test
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -21,10 +22,9 @@ import (
 )
 
 const (
-	// pickupBound —— insert to completed for a waited-on job: the awaited-queue poll (100 ms) plus
-	// River's batch completer, which records completions every 250 ms (jobcompleter
-	// job_completer.go, not configurable), plus slack. The swallowed-notification case took ~1 s.
-	pickupBound = 600 * time.Millisecond
+	// pickupBound —— insert to the handler starting, for a waited-on job: the awaited-queue poll
+	// (100 ms) plus slack. The swallowed-notification case took ~1 s (the default poll).
+	pickupBound = 400 * time.Millisecond
 	// insertGap —— the gap between a write's two index jobs (raw, then wiki), as measured.
 	insertGap = 5 * time.Millisecond
 )
@@ -53,7 +53,9 @@ func pickupWithinBound(t *testing.T, pool *pgxpool.Pool, q string) {
 	t.Helper()
 	ctx := context.Background()
 	k := "k-" + q
-	rt, err := jobsriver.New(pool, []jobs.Kind{kind(k, q, 1, noop)}, nil, jobsriver.Options{})
+	started := make(chan struct{}, 2)
+	run := func(context.Context, json.RawMessage) error { started <- struct{}{}; return nil }
+	rt, err := jobsriver.New(pool, []jobs.Kind{kind(k, q, 1, run)}, nil, jobsriver.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,11 +66,26 @@ func pickupWithinBound(t *testing.T, pool *pgxpool.Pool, q string) {
 	for range 3 {
 		enqueue(t, rt, k) // its notification wakes the worker, which fetches it
 		time.Sleep(insertGap)
-		start := time.Now()
-		waitState(t, rt, enqueue(t, rt, k), jobs.StateCompleted) // sends no notification
-		if took := time.Since(start); took > pickupBound {
-			t.Errorf("queue %s: a job inside the notify window ran after %v, want < %v",
-				q, took, pickupBound)
+		begin := time.Now()
+		enqueue(t, rt, k) // sends no notification
+		if took := secondStart(t, started); took.Sub(begin) > pickupBound {
+			t.Errorf("queue %s: a job inside the notify window started after %v, want < %v",
+				q, took.Sub(begin), pickupBound)
 		}
 	}
+}
+
+// secondStart —— when the second of the two jobs began running. Timed at the handler, not at
+// "completed": River records completions in 250 ms batches, and under -race on a loaded CI box
+// that batch was the whole margin (864 ms observed against a 600 ms bound).
+func secondStart(t *testing.T, started <-chan struct{}) time.Time {
+	t.Helper()
+	for i := range 2 {
+		select {
+		case <-started:
+		case <-time.After(10 * time.Second):
+			t.Fatalf("job %d of 2 never started", i+1)
+		}
+	}
+	return time.Now()
 }
