@@ -45,9 +45,10 @@ func NewWaypointLedger(
 	return &WaypointLedger{deps: &WaypointLedgerDeps{Notes: notes, Sessions: sessions, Log: log}}
 }
 
-// Mark —— marks visited at the end of a turn (delegates to MarkWaypointsVisited).
-func (l *WaypointLedger) Mark(ctx context.Context, in *MarkWaypointsInput) {
-	MarkWaypointsVisited(ctx, l.deps, in)
+// Mark —— marks visited at the end of a turn (delegates to MarkWaypointsVisited) and returns
+// the visited set after this turn, for whatever runs after it in the same turn (the ghost).
+func (l *WaypointLedger) Mark(ctx context.Context, in *MarkWaypointsInput) []string {
+	return MarkWaypointsVisited(ctx, l.deps, in)
 }
 
 // MarkWaypointsInput —— one turn's ledger input. Data is passed by value (mutated
@@ -60,21 +61,24 @@ type MarkWaypointsInput struct {
 }
 
 // MarkWaypointsVisited —— see file header. Marks on any hit, saves only if something
-// changed.
-func MarkWaypointsVisited(ctx context.Context, deps *WaypointLedgerDeps, in *MarkWaypointsInput) {
+// changed. Returns the visited set after this turn (unchanged when nothing was hit).
+func MarkWaypointsVisited(
+	ctx context.Context, deps *WaypointLedgerDeps, in *MarkWaypointsInput,
+) []string {
 	waypoints, ok := ledgerWaypoints(in)
 	if !ok {
-		return
+		return in.Data.VisitedWaypoints
 	}
 	visited := newStringSet(in.Data.VisitedWaypoints)
 	cited := deps.resolveURIs(ctx, in.Data.OwnerID, in.CitedNoteIDs)
 	if !markAll(in, waypoints, cited, visited) {
-		return
+		return in.Data.VisitedWaypoints
 	}
 	in.Data.VisitedWaypoints = visited.sorted()
 	if err := deps.Sessions.Save(ctx, in.Token, &in.Data); err != nil {
 		deps.Log.Warn("waypoint ledger save", "err", err)
 	}
+	return in.Data.VisitedWaypoints
 }
 
 // ledgerWaypoints —— only proceeds through the ledger when there's a RoleSnapshot with

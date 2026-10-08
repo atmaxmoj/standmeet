@@ -141,15 +141,15 @@ func (gr *ghostRun) persist(
 }
 
 // buildAgentTurnLedger —— ghost-steering ledger port injected into inference. At turn end,
-// resolves this turn's citations + booking hits into waypoint-visited and stores it back to
-// the session. Wired only in code mode with frozen waypoints (nil otherwise, inference skips
-// it). best-effort: a marking failure only warns, never suppresses this turn's reply.
+// resolves this turn's citations + booking hits into waypoint-visited and stores it to the
+// session AND this turn's data — the ghost runs after it and must see this turn's visits. Code
+// mode with frozen waypoints only (else nil). best-effort: a failure only warns.
 func buildAgentTurnLedger(h *Handlers, auth authedVisitor) inference.MarkWaypointsFunc {
 	if !hasFrozenWaypoints(auth) {
 		return nil
 	}
 	return func(ctx context.Context, citedNoteIDs, successfulTools []string) {
-		h.Ledger.Mark(ctx, &conversation.MarkWaypointsInput{
+		auth.Data.VisitedWaypoints = h.Ledger.Mark(ctx, &conversation.MarkWaypointsInput{
 			Token: auth.Token, Data: *auth.Data,
 			CitedNoteIDs: citedNoteIDs, TerminalOK: terminalToolHit(successfulTools),
 		})

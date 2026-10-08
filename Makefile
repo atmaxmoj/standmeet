@@ -839,6 +839,13 @@ eval-ask:
 eval-speed:
 	@python3 eval-harness/speed.py
 
+# eval-ghost-live —— ghost steering on a REAL instance + real model (eval-harness/ghost_live.py):
+# a visitor that follows every ghost must be led through ≥3 distinct waypoints without repeats,
+# and the ghost must go silent once the terminal waypoint is reached. Needs EVAL_HOST, EVAL_CODE
+# (a code whose role carries waypoints), EVAL_GHOST_TERMINAL (the terminal waypoint ids).
+eval-ghost-live:
+	@python3 eval-harness/ghost_live.py
+
 # eval-ghost —— Ghost steering judgment, deterministic eval: inject each ghost scenario's
 # waypoints into the frozen RoleSnapshot, run the SAME prod loop via the agentcore facade,
 # assert the emitted ghost hits gold (target_waypoint / silence). Steering judgment = the
