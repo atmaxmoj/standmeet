@@ -125,7 +125,7 @@
     },
     "deleteConfirm": {
       "title": "Supprimer cette page ?",
-      "body": "Supprime /p/{slug} et son build. Action irréversible.",
+      "body": "Retire /p/{slug}. La page, ses builds et son stockage restent 90 jours dans la corbeille, d'où vous pouvez les restaurer.",
       "homeTitle": "Réinitialiser votre page d'accueil ?",
       "homeBody": "Rétablit / sur la page d'accueil par défaut. Votre brouillon personnalisé est conservé — modifiable et republiable à tout moment.",
       "cancel": "Annuler",

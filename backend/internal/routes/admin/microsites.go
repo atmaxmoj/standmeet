@@ -56,6 +56,11 @@ func (h *Handlers) MountMicrosites(r chi.Router) {
 			h.dispatchOp(face, "microsite.get_build", urlParamArgs("build_id"), jsonOK))
 		h.mountMicrositeItem(r, face)
 	})
+	// The trash a delete lands in, and the way back. Its own prefix: under /microsites a static
+	// "trash" segment would shadow a page whose slug is "trash".
+	r.Get("/microsite-trash", h.dispatchOp(face, "microsite.trash", emptyArgs, jsonOK))
+	r.Post("/microsite-trash/{id}/restore",
+		h.dispatchOp(face, "microsite.restore", urlParamArgs("id"), jsonOK))
 }
 
 // micrositesWait — long-poll the preview state. The client passes the version it last

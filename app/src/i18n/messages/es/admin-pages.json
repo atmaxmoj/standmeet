@@ -125,7 +125,7 @@
     },
     "deleteConfirm": {
       "title": "¿Eliminar esta página?",
-      "body": "Elimina /p/{slug} y su compilación. No se puede deshacer.",
+      "body": "Retira /p/{slug}. La página, sus compilaciones y su almacén quedan 90 días en la papelera, donde puedes restaurarlos.",
       "homeTitle": "¿Restablecer tu página de inicio?",
       "homeBody": "Restablece / a la página de inicio predeterminada. Tu borrador personalizado se conserva: edítalo y vuelve a publicarlo cuando quieras.",
       "cancel": "Cancelar",

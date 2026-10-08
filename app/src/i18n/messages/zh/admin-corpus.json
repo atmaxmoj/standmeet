@@ -229,6 +229,7 @@
     "intro": "删除的条目在这里保留 90 天，之后彻底清除。恢复一条时，和它一起删除的子条目以及它的链接也会回到原处。",
     "empty": "回收站是空的。",
     "masters": "简历母版",
+    "microsites": "微站",
     "restore": "恢复",
     "restored": "已恢复「{title}」",
     "deletedOn": "{date} 删除",

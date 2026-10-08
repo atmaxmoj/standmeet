@@ -14,5 +14,7 @@ type (
 var (
 	OwnerEventTypes       = usecase.OwnerEventTypes
 	GasRefillPeriodicJobs = usecase.GasRefillPeriodicJobs
-	NoteGasExhausted      = usecase.NoteGasExhausted
+	// MicrositeTrashPeriodicJobs —— the daily purge of pages deleted more than 90 days ago.
+	MicrositeTrashPeriodicJobs = usecase.MicrositeTrashPeriodicJobs
+	NoteGasExhausted           = usecase.NoteGasExhausted
 )

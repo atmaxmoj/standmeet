@@ -125,7 +125,7 @@
     },
     "deleteConfirm": {
       "title": "Diese Seite löschen?",
-      "body": "Entfernt /p/{slug} und den Build. Kann nicht rückgängig gemacht werden.",
+      "body": "Nimmt /p/{slug} offline. Seite, Builds und Speicher bleiben 90 Tage im Papierkorb und lassen sich dort wiederherstellen.",
       "homeTitle": "Startseite zurücksetzen?",
       "homeBody": "Setzt / auf die eingebaute Standard-Startseite zurück. Dein eigener Startseiten-Entwurf bleibt erhalten – jederzeit bearbeit- und neu veröffentlichbar.",
       "cancel": "Abbrechen",

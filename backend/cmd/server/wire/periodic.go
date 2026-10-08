@@ -193,6 +193,8 @@ func collectPeriodicJobs(d *deps.Runtime) []periodic.Job {
 	out = append(out, conversation.PrunePeriodicJobs(d.ChatRepo, d.Log, d.Recorder())...)
 	out = append(out, monitor.PeriodicJobs(d.MonitorRepo)...)
 	out = append(out, corpus.TrashPeriodicJobs(corpus.NewTrashRepo(d.DB))...)
+	out = append(out, owner.MicrositeTrashPeriodicJobs(
+		owner.MicrositeDeps{Pages: d.MicrositeRepo, Docs: d.MicrositeDocs}, d.BuildsRoot, d.Log)...)
 	if d.SandboxWorkspaces != nil {
 		out = append(out, d.SandboxWorkspaces.PeriodicJobs()...)
 	}

@@ -180,9 +180,33 @@ RETURNING id, owner_id, slug, title, status,
           allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at;
 
 -- name: SoftDeleteMicrosite :exec
+-- Into the trash. updated_at is the deletion time from here on: no write reaches a deleted page
+-- (every lookup filters status), so the trash and its purge read it as such.
 UPDATE microsites
 SET status = 'deleted', updated_at = now()
 WHERE id = $1;
+
+-- name: ListTrashedMicrosites :many
+-- The trash, newest delete first. The homepage is never here: it cannot be deleted.
+SELECT id, slug::text AS slug, title, updated_at AS deleted_at
+FROM microsites
+WHERE owner_id = $1 AND status = 'deleted'
+ORDER BY updated_at DESC, id DESC;
+
+-- name: GetTrashedMicrositeSlug :one
+SELECT slug::text AS slug FROM microsites WHERE id = $1 AND owner_id = $2 AND status = 'deleted';
+
+-- name: RestoreTrashedMicrosite :execrows
+-- A unique violation here means a live page took the slug since (microsites_owner_slug_idx).
+UPDATE microsites SET status = 'active', updated_at = now()
+WHERE id = $1 AND owner_id = $2 AND status = 'deleted';
+
+-- name: ExpiredTrashedMicrosites :many
+SELECT id FROM microsites WHERE status = 'deleted' AND updated_at < sqlc.arg('before')::timestamptz;
+
+-- name: PurgeTrashedMicrosite :execrows
+-- Builds cascade (microsite_builds.page_id ON DELETE CASCADE); their files are the caller's.
+DELETE FROM microsites WHERE id = $1 AND status = 'deleted';
 
 -- name: CreateMicrositeBuild :one
 INSERT INTO microsite_builds (page_id, source_files)

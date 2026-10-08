@@ -196,6 +196,7 @@ const GOLDEN_TOOLSET: readonly string[] = [
   // microsite
   'microsite.create', 'microsite.list', 'microsite.get_build',
   'microsite.write_file', 'microsite.get_draft', 'microsite.build', 'microsite.delete',
+  'microsite.trash', 'microsite.restore',
   'microsite.promote_to_staging', 'microsite.promote_to_live',
   'microsite.rollback',
   'microsite.unpublish',

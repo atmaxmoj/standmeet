@@ -229,6 +229,7 @@
     "intro": "Gelöschte Einträge bleiben 90 Tage hier, danach sind sie endgültig weg. Beim Wiederherstellen kommen die mitgelöschten Einträge und ihre Links an derselben Stelle zurück.",
     "empty": "Der Papierkorb ist leer.",
     "masters": "Lebenslauf-Vorlagen",
+    "microsites": "Microsites",
     "restore": "wiederherstellen",
     "restored": "„{title}“ wiederhergestellt",
     "deletedOn": "gelöscht {date}",

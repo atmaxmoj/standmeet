@@ -125,7 +125,7 @@
     },
     "deleteConfirm": {
       "title": "Delete this page?",
-      "body": "This removes /p/{slug} and its build. It can't be undone.",
+      "body": "This takes /p/{slug} down. The page, its builds and its store stay in the trash for 90 days, where you can restore them.",
       "homeTitle": "Reset your homepage?",
       "homeBody": "This reverts / to the built-in default homepage. Your custom homepage draft is kept — edit and re-publish it any time.",
       "cancel": "Cancel",

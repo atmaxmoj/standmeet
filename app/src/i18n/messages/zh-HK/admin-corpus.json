@@ -233,6 +233,7 @@
     "intro": "刪除的條目在這裏保留 90 天，之後徹底清除。恢復一條時，和它一起刪除的子條目以及它的連結也會回到原處。",
     "empty": "回收站是空的。",
     "masters": "履歷母版",
+    "microsites": "微站",
     "restore": "恢復",
     "restored": "已恢復「{title}」",
     "deletedOn": "{date} 刪除",

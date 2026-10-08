@@ -313,6 +313,9 @@ var micrositeErrClasses = []struct {
 	{entity.ErrMicrositeSlugTaken, func() error {
 		return fp.Coded(fp.Conflict("slug already taken"), "slug_taken")
 	}},
+	{entity.ErrMicrositeNotInTrash, func() error {
+		return fp.Coded(fp.NotFound("this page is not in the trash"), "not_in_trash")
+	}},
 	{entity.ErrMicrositeHomeReserved, func() error {
 		return fp.Coded(fp.BadInput("the homepage slug is reserved"), "home_reserved")
 	}},

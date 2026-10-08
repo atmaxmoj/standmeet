@@ -217,12 +217,9 @@ func DeletePage(ctx context.Context, deps MicrositeDeps, ownerID, slug string) e
 	if lerr != nil {
 		return lerr
 	}
-	// Drop the page's document schema FIRST (DROP SCHEMA CASCADE — the visitor data goes with it).
-	// Before the soft-delete so a drop failure leaves the page intact and the caller can retry;
-	// dropping after would risk a wiped store under a still-live page. No-leak is the invariant.
-	if derr := dropPageStore(ctx, deps, page.ID); derr != nil {
-		return derr
-	}
+	// Into the trash. The page's document store stays with it (no lookup reaches a deleted page's
+	// store), so a restore brings back what visitors left there; the purge drops it
+	// (microsite_trash.go).
 	if derr := deps.Pages.Delete(ctx, page.ID); derr != nil {
 		return fmt.Errorf("delete page: %w", derr)
 	}

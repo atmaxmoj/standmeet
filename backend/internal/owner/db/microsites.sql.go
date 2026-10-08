@@ -170,6 +170,30 @@ func (q *Queries) CreateMicrositeBuild(ctx context.Context, arg CreateMicrositeB
 	return i, err
 }
 
+const expiredTrashedMicrosites = `-- name: ExpiredTrashedMicrosites :many
+SELECT id FROM microsites WHERE status = 'deleted' AND updated_at < $1::timestamptz
+`
+
+func (q *Queries) ExpiredTrashedMicrosites(ctx context.Context, before pgtype.Timestamptz) ([]pgtype.UUID, error) {
+	rows, err := q.db.Query(ctx, expiredTrashedMicrosites, before)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []pgtype.UUID
+	for rows.Next() {
+		var id pgtype.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getLatestBuiltMicrositeBuild = `-- name: GetLatestBuiltMicrositeBuild :one
 SELECT id, page_id, status, source_files, output_path,
        error_message, created_at, built_at, claimed_at
@@ -376,6 +400,22 @@ func (q *Queries) GetMicrositeStorePolicy(ctx context.Context, pageID pgtype.UUI
 	return i, err
 }
 
+const getTrashedMicrositeSlug = `-- name: GetTrashedMicrositeSlug :one
+SELECT slug::text AS slug FROM microsites WHERE id = $1 AND owner_id = $2 AND status = 'deleted'
+`
+
+type GetTrashedMicrositeSlugParams struct {
+	ID      pgtype.UUID
+	OwnerID pgtype.UUID
+}
+
+func (q *Queries) GetTrashedMicrositeSlug(ctx context.Context, arg GetTrashedMicrositeSlugParams) (string, error) {
+	row := q.db.QueryRow(ctx, getTrashedMicrositeSlug, arg.ID, arg.OwnerID)
+	var slug string
+	err := row.Scan(&slug)
+	return slug, err
+}
+
 const listMicrositesByOwner = `-- name: ListMicrositesByOwner :many
 SELECT cp.id, cp.owner_id, cp.slug, cp.title, cp.status,
        cp.live_build_id, cp.staging_build_id, cp.previous_live_build_id,
@@ -570,6 +610,46 @@ func (q *Queries) ListMicrositesPage(ctx context.Context, arg ListMicrositesPage
 	return items, nil
 }
 
+const listTrashedMicrosites = `-- name: ListTrashedMicrosites :many
+SELECT id, slug::text AS slug, title, updated_at AS deleted_at
+FROM microsites
+WHERE owner_id = $1 AND status = 'deleted'
+ORDER BY updated_at DESC, id DESC
+`
+
+type ListTrashedMicrositesRow struct {
+	ID        pgtype.UUID
+	Slug      string
+	Title     string
+	DeletedAt pgtype.Timestamptz
+}
+
+// The trash, newest delete first. The homepage is never here: it cannot be deleted.
+func (q *Queries) ListTrashedMicrosites(ctx context.Context, ownerID pgtype.UUID) ([]ListTrashedMicrositesRow, error) {
+	rows, err := q.db.Query(ctx, listTrashedMicrosites, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTrashedMicrositesRow
+	for rows.Next() {
+		var i ListTrashedMicrositesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Slug,
+			&i.Title,
+			&i.DeletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const micrositeOpensWithoutCode = `-- name: MicrositeOpensWithoutCode :one
 SELECT microsite_opens_without_code($1)::boolean AS open_without_code
 `
@@ -579,6 +659,19 @@ func (q *Queries) MicrositeOpensWithoutCode(ctx context.Context, pageID pgtype.U
 	var open_without_code bool
 	err := row.Scan(&open_without_code)
 	return open_without_code, err
+}
+
+const purgeTrashedMicrosite = `-- name: PurgeTrashedMicrosite :execrows
+DELETE FROM microsites WHERE id = $1 AND status = 'deleted'
+`
+
+// Builds cascade (microsite_builds.page_id ON DELETE CASCADE); their files are the caller's.
+func (q *Queries) PurgeTrashedMicrosite(ctx context.Context, id pgtype.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, purgeTrashedMicrosite, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const renameMicrosite = `-- name: RenameMicrosite :one
@@ -674,6 +767,25 @@ func (q *Queries) RestoreMicrosite(ctx context.Context, arg RestoreMicrositePara
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const restoreTrashedMicrosite = `-- name: RestoreTrashedMicrosite :execrows
+UPDATE microsites SET status = 'active', updated_at = now()
+WHERE id = $1 AND owner_id = $2 AND status = 'deleted'
+`
+
+type RestoreTrashedMicrositeParams struct {
+	ID      pgtype.UUID
+	OwnerID pgtype.UUID
+}
+
+// A unique violation here means a live page took the slug since (microsites_owner_slug_idx).
+func (q *Queries) RestoreTrashedMicrosite(ctx context.Context, arg RestoreTrashedMicrositeParams) (int64, error) {
+	result, err := q.db.Exec(ctx, restoreTrashedMicrosite, arg.ID, arg.OwnerID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const rollbackMicrositeLive = `-- name: RollbackMicrositeLive :one
@@ -967,6 +1079,8 @@ SET status = 'deleted', updated_at = now()
 WHERE id = $1
 `
 
+// Into the trash. updated_at is the deletion time from here on: no write reaches a deleted page
+// (every lookup filters status), so the trash and its purge read it as such.
 func (q *Queries) SoftDeleteMicrosite(ctx context.Context, id pgtype.UUID) error {
 	_, err := q.db.Exec(ctx, softDeleteMicrosite, id)
 	return err

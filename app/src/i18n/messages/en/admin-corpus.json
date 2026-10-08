@@ -229,6 +229,7 @@
     "intro": "Deleted entries wait here for 90 days, then they are gone for good. Restoring one brings back the entries deleted with it and its links, in the same place.",
     "empty": "The trash is empty.",
     "masters": "résumé masters",
+    "microsites": "microsites",
     "restore": "restore",
     "restored": "Restored \"{title}\"",
     "deletedOn": "deleted {date}",
