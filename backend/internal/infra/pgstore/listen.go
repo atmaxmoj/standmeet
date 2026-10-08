@@ -32,6 +32,7 @@ type Listener struct {
 	mu      sync.Mutex
 	n       int
 	max     int
+	live    bool
 }
 
 // Waiter — one registered waiter: Wake fires on a NOTIFY of its key; call Release when done.
@@ -110,12 +111,21 @@ func (l *Listener) Waiting() int {
 	return l.n
 }
 
+// Live —— LISTEN is active and the catch-up wake after it has gone out: from here on a NOTIFY
+// reaches a registered waiter, and no catch-up wake is still to come.
+func (l *Listener) Live() bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.live
+}
+
 func (l *Listener) listenOnce(ctx context.Context) error {
 	conn, err := l.pool.Acquire(ctx)
 	if err != nil {
 		return fmt.Errorf("acquire: %w", err)
 	}
 	defer conn.Release()
+	defer l.setLive(false)
 	if _, err = conn.Exec(ctx, sqltext.Format("LISTEN %s", l.channel)); err != nil {
 		return fmt.Errorf("listen: %w", err)
 	}
@@ -125,10 +135,17 @@ func (l *Listener) listenOnce(ctx context.Context) error {
 	return l.dispatch(ctx, conn)
 }
 
-// wakeAll —— wakes every registered waiter (without blocking).
+func (l *Listener) setLive(v bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.live = v
+}
+
+// wakeAll —— wakes every registered waiter (without blocking), and marks the listener live.
 func (l *Listener) wakeAll() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	l.live = true
 	for _, chs := range l.byKey {
 		for _, ch := range chs {
 			select {

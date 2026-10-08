@@ -14,7 +14,6 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/infra/events"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
-	"github.com/atmaxmoj/standmeet/internal/infra/sqltext"
 	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 	"github.com/atmaxmoj/standmeet/internal/owner/repo"
 	"github.com/atmaxmoj/standmeet/internal/owner/usecase"
@@ -179,7 +178,7 @@ func TestAwaitBuildSettled_wakesOnlyItsOwner(t *testing.T) {
 	sb := f.pendingBuild(t, "bravo", "b-page")
 	l := pgstore.NewListener(f.pool, usecase.BuildSettledChannel, maxTestWaiters, nil)
 	go l.Run(ctx)
-	f.awaitListening(t)
+	awaitListening(t, l)
 	wd := usecase.BuildWaitDeps{Builds: f.builds, Settled: l}
 	a, b := wait(ctx, wd, sa.owner), wait(ctx, wd, sb.owner)
 	// Both waiters register first thing; give their goroutines time to get there, or a waiter
@@ -237,26 +236,17 @@ func answerWithin(t *testing.T, ch <-chan answer, who string) answer {
 	}
 }
 
-// awaitListening —— until the listener's LISTEN is live (a NOTIFY before it would be missed).
-func (f *settleFixture) awaitListening(t *testing.T) {
+// awaitListening —— until the listener is live: LISTEN is active AND its catch-up wake-all has
+// gone out. Watching LISTEN in pg_stat_activity was not enough: the wake-all lands just after
+// it, and on a slow box it woke waiters registered in between — B answered at A's settle (CI).
+func awaitListening(t *testing.T, l *pgstore.Listener) {
 	t.Helper()
 	deadline := time.Now().Add(settleWake)
 	for time.Now().Before(deadline) {
-		if f.listening() {
+		if l.Live() {
 			return
 		}
 		time.Sleep(registerGrace / 10)
 	}
 	t.Fatal("the listener never started listening")
-}
-
-// listening —— the listener's LISTEN shows up in pg_stat_activity. The statement text is built by
-// the same sqltext.Format the listener uses (it quotes the channel); comparing against a
-// hand-written "LISTEN <channel>" never matched once the name started being quoted.
-func (f *settleFixture) listening() bool {
-	var n int
-	err := f.pool.QueryRow(context.Background(), `SELECT count(*) FROM pg_stat_activity
-		WHERE datname = current_database() AND query = $1`,
-		sqltext.Format("LISTEN %s", usecase.BuildSettledChannel)).Scan(&n)
-	return err == nil && n > 0
 }
