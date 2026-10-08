@@ -409,6 +409,15 @@ services:
     cap_drop: [ALL]
     cap_add: [CHOWN, SETUID, SETGID]
     security_opt: ["no-new-privileges:true"]
+    # Same box as prod (read-only root, /tmp work dir, memory / cpu / pid limits; the reasoning
+    # is there), so the e2e suite builds every page inside it.
+    read_only: true
+    tmpfs:
+      - /tmp:size=512m,mode=1777,exec
+    mem_limit: 1536m
+    memswap_limit: 1536m
+    cpus: 2
+    pids_limit: 256
     depends_on:
       backend:
         condition: service_healthy

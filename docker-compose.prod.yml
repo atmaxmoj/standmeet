@@ -177,6 +177,20 @@ services:
     cap_drop: [ALL]
     cap_add: [CHOWN, SETUID, SETGID]
     security_opt: ["no-new-privileges:true"]
+    # The page's own code runs here at build time (the prerender imports it), so the box is the
+    # boundary (refactor ledger R20; e2e microsite-builder-sandbox). Writable: /tmp (the work dir,
+    # one build's copy ≈ 70 MB) and the output volume; nothing else. A normal build peaks near
+    # 190 MiB and 41 pids: 1.5 GiB (tmpfs counts against it) and 256 pids leave a heavy page ~8×
+    # room and stop a hog or a fork bomb. Swap = memory, so a hog is killed rather than swapped.
+    # `exec` on /tmp is required: a tmpfs is noexec by default, and each build runs esbuild's binary
+    # and loads rollup's native addon from its copy of node_modules there.
+    read_only: true
+    tmpfs:
+      - /tmp:size=512m,mode=1777,exec
+    mem_limit: 1536m
+    memswap_limit: 1536m
+    cpus: 2
+    pids_limit: 256
     depends_on:
       backend:
         condition: service_healthy

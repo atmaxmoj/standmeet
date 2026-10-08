@@ -256,8 +256,12 @@ test.describe('microsites · withdrawal is not a snapshot (I-3)', () => {
     const live = await liveAt(request, csrf, 'openpage');
     expect(live.status()).toBe(200);
     const h = live.headers();
+    // The page does carry a CSP since R20 (frame-ancestors / object-src / base-uri, spec
+    // microsite-csp) — none of it is about loading media. A fetch directive would be: any of
+    // these here silently kills remote img/video/audio/fonts/iframes on every microsite.
     expect(h['content-security-policy'] ?? '',
-      'a CSP here would silently kill remote img/video/audio on every microsite').toBe('');
+      'a CSP fetch directive here would silently kill remote media on every microsite')
+      .not.toMatch(/(^|;)\s*(default|img|media|font|frame|child|connect|style|script)-src\b/);
     expect(h['content-security-policy-report-only'] ?? '').toBe('');
     // A third-party iframe is **this page embedding someone else**, the opposite direction
     // from X-Frame-Options (someone else embedding this page), so this only asserts that

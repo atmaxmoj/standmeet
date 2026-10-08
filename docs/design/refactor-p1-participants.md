@@ -48,8 +48,16 @@ against that list, and the list is the regression set. Measured 2026-10-07 on ma
   base-uri 'self'`. **P0 found and fixed on the way:** the app proxied `/internal/*` to the
   backend, so every instance served its internal endpoints on the public origin (IM bot token,
   supplier invoke, builder claim) — closed, spec `internal-not-public`, verified 404 on
-  sijie.xyz. Not done: a build-endpoint secret (owner code runs in the same container, so it
-  would not hold), read_only and resource limits.
+  sijie.xyz. Not done, by decision: a build-endpoint secret (owner code runs in the same
+  container, so it would not hold).
+- **R20 done (2026-10-08).** The builder box, in both compose files: `read_only` root, a 512 MB
+  `/tmp` tmpfs (`exec` — esbuild's binary and rollup's native addon run from each build's copy
+  of node_modules there; noexec broke every build), 1.5 GiB memory with swap equal to it, 2 CPUs,
+  256 pids. Sized from a measured normal build (≈190 MiB, 41 pids). Spec
+  `microsite-builder-sandbox`: owner code at prerender time tries a write to /var/tmp, a 2.5 GB
+  allocation and 400 processes → refused / SIGKILL / 236 started; the next page still builds.
+  Red on the old compose (the write went through). Still open, outside R20: owner code at
+  prerender can write the shared `microsites_data` volume (other pages' builds).
 - Found on the way and fixed: a NOTIFY lost before LISTEN (`pgstore.Listener`); a boot failure
   that hung silently on `pool.Close` (`cmd/server/main.go closePool`); `norm-outward-toolset`
   missing the nav tools; gate scripts that only worked with macOS awk and a single-entry GOPATH.
