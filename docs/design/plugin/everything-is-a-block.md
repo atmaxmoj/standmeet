@@ -137,8 +137,11 @@ Order is bottom-up so the base lands first and leaf work is not reworked afterwa
 
 1. **The door + the lint.** Name the one interface in `blockload`. Add a guard (ratchet + self-test)
    that fails on any registry call outside it. Move composition-root registration behind the door.
-2. **The db block + native key + credential-manager block.** `blockstore` becomes a block (`provides`
-   db; not special-cased): direct-db over an encrypted channel authenticated by a backend-issued
+2. **The db block + native key + credential-manager block.** *(Retired 2026-10-08: blockstore stays a
+   host op the backend mediates. A direct-db channel would hand sandboxed code, marketplace blocks
+   included, a database connection; the per-fiber schema, native-key auth and drop-on-uninstall
+   below already hold over the host op — refactor-p1-participants.md, R13.)* `blockstore` becomes a
+   block (`provides` db; not special-cased): direct-db over an encrypted channel authenticated by a backend-issued
    native key; the key authorizes create and confines delete/bridge to its own schemas; schema per
    bundle/fiber, named by the fiber. Uninstall drops the schema (no leak) and a warning block reports
    the loss. The credential-manager becomes a block (`requires` db); credentials move off
