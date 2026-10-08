@@ -1976,11 +1976,12 @@ npm-unstamp:
 	@for p in $(NPM_PACKAGES); do (cd sdk/packages/$$p && npm pkg set version=0.0.0); done
 
 # npm-publish-here —— publish from this machine with its own `npm login` (no token):
-#   make npm-publish-here TAG=v0.1.138
+#   make npm-publish-here TAG=v0.1.138 NPM_OTP=<6 digits from the authenticator, if 2FA is on>
 npm-publish-here:
 	@npm whoami >/dev/null 2>&1 || { echo "npm: run 'npm login' first"; exit 2; }
 	@$(MAKE) npm-stamp || exit 1; \
 	rc=0; for p in $(NPM_PACKAGES); do \
-	  (cd sdk/packages/$$p && pnpm publish --access public --no-git-checks) || { rc=1; break; }; \
+	  (cd sdk/packages/$$p && pnpm publish --access public --no-git-checks \
+	    $(if $(NPM_OTP),--otp=$(NPM_OTP))) || { rc=1; break; }; \
 	done; \
 	$(MAKE) npm-unstamp; exit $$rc
