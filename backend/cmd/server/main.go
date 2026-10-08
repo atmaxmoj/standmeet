@@ -84,7 +84,7 @@ func runWithCfg(
 	if err != nil {
 		return fmt.Errorf("connect pg: %w", err)
 	}
-	defer db.Close()
+	defer closePool(log, db)
 	// **The upgrade happens right here**, not as a separate step someone must
 	// remember. Schema changes are compiled into this binary; deploying it *is*
 	// applying them. On failure we refuse to serve, rather than let a half-applied
@@ -261,6 +261,28 @@ func connectRedis(ctx context.Context, redisURL string, log *slog.Logger) (*redi
 		return nil, fmt.Errorf("redis ping: %w", perr)
 	}
 	return rdb, nil
+}
+
+// poolCloseGrace —— how long closing the pool waits for held connections on the way out.
+const poolCloseGrace = 5 * time.Second
+
+// closePool —— closes the pool, but gives up after poolCloseGrace. On a boot failure (a panic, or
+// an error returned after the background listeners started) a goroutine still holds a connection
+// on a context nothing cancels, and pgxpool.Close waits for it forever: the process neither exits
+// nor prints the panic (2026-10-07, a dispatcher conformance panic left the container unhealthy and
+// silent). The process is exiting anyway; the held connection dies with it.
+func closePool(log *slog.Logger, db *pgxpool.Pool) {
+	done := make(chan struct{})
+	go func() {
+		db.Close()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(poolCloseGrace):
+		log.Warn("pg pool: connections still held after the grace; exiting without them",
+			"grace", poolCloseGrace)
+	}
 }
 
 func closeRedis(log *slog.Logger, rdb *redis.Client) {
