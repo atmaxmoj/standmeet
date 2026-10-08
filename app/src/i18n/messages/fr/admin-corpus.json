@@ -228,6 +228,7 @@
     "kicker": "corpus · supprimé",
     "intro": "Les entrées supprimées attendent ici 90 jours, puis disparaissent définitivement. En restaurer une ramène aussi les entrées supprimées avec elle et ses liens, au même endroit.",
     "empty": "La corbeille est vide.",
+    "masters": "CV modèles",
     "restore": "restaurer",
     "restored": "« {title} » restauré",
     "deletedOn": "supprimé le {date}",

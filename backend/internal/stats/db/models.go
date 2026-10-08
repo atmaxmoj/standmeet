@@ -618,6 +618,7 @@ type ResumeMaster struct {
 	FromCompany   string
 	CreatedAt     pgtype.Timestamptz
 	UpdatedAt     pgtype.Timestamptz
+	DeletedAt     pgtype.Timestamptz
 }
 
 type Role struct {

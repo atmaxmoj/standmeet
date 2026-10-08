@@ -60,8 +60,8 @@ func (c *resumeFiber) masterBindings() []*registry.MCPBinding {
 		},
 		{
 			Name: "resume.master_delete", Danger: "destructive",
-			Description: "Delete a master (idempotent). Drafts based on it keep their content " +
-				"and stop naming it.",
+			Description: "Delete a master (idempotent). It waits in the trash for 90 days " +
+				"(resume.master_restore brings it back); drafts based on it keep their content.",
 			InputSchema: json.RawMessage(`{"type":"object","properties":{` + masterIDProp +
 				`},"required":["master_id"]}`),
 			Handler: c.handleMasterDelete,
@@ -157,6 +157,49 @@ func (c *resumeFiber) handleMasterDelete(
 	}
 	err := jobsuc.DeleteMaster(ctx, c.resume, ownerID, a.MasterID)
 	return masterResult(c, "master_delete", map[string]bool{"ok": true}, err)
+}
+
+// masterTrashBindings —— where resume.master_delete puts a master, and the way back.
+func (c *resumeFiber) masterTrashBindings() []*registry.MCPBinding {
+	return []*registry.MCPBinding{
+		{
+			Name: "resume.master_trash", Danger: "read",
+			Description: "List deleted masters still in the trash, newest first, with when " +
+				"each was deleted and when it will be purged.",
+			InputSchema: json.RawMessage(`{"type":"object","properties":{}}`),
+			Handler:     c.handleMasterTrash,
+		},
+		{
+			Name: "resume.master_restore", Danger: "write",
+			Description: "Restore a deleted master from the trash. It comes back as a plain " +
+				"(non-default) master with its content.",
+			InputSchema: json.RawMessage(`{"type":"object","properties":{` + masterIDProp +
+				`},"required":["master_id"]}`),
+			Handler: c.handleMasterRestore,
+		},
+	}
+}
+
+func (c *resumeFiber) handleMasterTrash(
+	ctx context.Context, ownerID string, _ json.RawMessage,
+) registry.MCPResult {
+	items, err := jobsuc.TrashedMasters(ctx, c.resume, ownerID)
+	if err != nil {
+		return resumeCapErrToResult(c.log, err, "master_trash")
+	}
+	return mcputil.MarshalResult(c.log, "resume.master_trash",
+		map[string][]jobsmodel.TrashedMaster{"items": items})
+}
+
+func (c *resumeFiber) handleMasterRestore(
+	ctx context.Context, ownerID string, raw json.RawMessage,
+) registry.MCPResult {
+	var a masterIDArgs
+	if err := json.Unmarshal(raw, &a); err != nil {
+		return registry.MCPError("invalid arguments: " + err.Error())
+	}
+	err := jobsuc.RestoreMaster(ctx, c.resume, ownerID, a.MasterID)
+	return masterResult(c, "master_restore", map[string]bool{"ok": true}, err)
 }
 
 type saveAsMasterArgs struct {

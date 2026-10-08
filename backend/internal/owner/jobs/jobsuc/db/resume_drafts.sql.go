@@ -83,7 +83,7 @@ func (q *Queries) DeleteResumeDraft(ctx context.Context, arg DeleteResumeDraftPa
 const getResumeDraft = `-- name: GetResumeDraft :one
 SELECT d.id, d.owner_id, d.job_cache_id, d.job_snapshot, d.resume_content, d.puck_data, d.template, d.expires_at, d.created_at, d.based_on_master_id, COALESCE(m.name, '')::text AS based_on_master_name
 FROM resume_drafts d
-LEFT JOIN resume_masters m ON m.id = d.based_on_master_id
+LEFT JOIN resume_masters m ON m.id = d.based_on_master_id AND m.deleted_at IS NULL
 WHERE d.id = $1 AND d.owner_id = $2 AND d.expires_at > now()
 `
 
@@ -119,7 +119,7 @@ func (q *Queries) GetResumeDraft(ctx context.Context, arg GetResumeDraftParams) 
 const listResumeDraftsPage = `-- name: ListResumeDraftsPage :many
 SELECT d.id, d.owner_id, d.job_cache_id, d.job_snapshot, d.resume_content, d.puck_data, d.template, d.expires_at, d.created_at, d.based_on_master_id, COALESCE(m.name, '')::text AS based_on_master_name
 FROM resume_drafts d
-LEFT JOIN resume_masters m ON m.id = d.based_on_master_id
+LEFT JOIN resume_masters m ON m.id = d.based_on_master_id AND m.deleted_at IS NULL
 WHERE d.owner_id = $1 AND d.expires_at > now()
   AND ($2::timestamptz IS NULL
     OR (d.created_at, d.id) < ($2, $3::uuid))

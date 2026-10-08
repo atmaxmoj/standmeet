@@ -153,24 +153,64 @@ func writeMaster(
 	writeJSON(log, w, status, m)
 }
 
+func trashedMasters(deps *Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		owner := authmw.OwnerIDFrom(r.Context())
+		items, err := jobsuc.TrashedMasters(r.Context(), deps.Resume, owner)
+		if err != nil {
+			writeMasterErr(deps.Log, w, err)
+			return
+		}
+		writeJSON(deps.Log, w, http.StatusOK, map[string][]jobsmodel.TrashedMaster{"items": items})
+	}
+}
+
+func restoreMaster(deps *Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if err := jobsuc.RestoreMaster(
+			r.Context(), deps.Resume, authmw.OwnerIDFrom(r.Context()), chi.URLParam(r, "id"),
+		); err != nil {
+			writeMasterErr(deps.Log, w, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
 func writeMasterNotFound(log *slog.Logger, w http.ResponseWriter) {
 	writeJSONErr(log, w, apierr.Envelope{
 		Status: http.StatusNotFound, Code: "master_not_found", Message: "master not found",
 	})
 }
 
+// masterRefusals —— the master errors the caller can act on, and the envelope each answers with.
+var masterRefusals = []struct {
+	err error
+	env apierr.Envelope
+}{
+	{jobsmodel.ErrResumeMasterNotFound, apierr.Envelope{
+		Status: http.StatusNotFound, Code: "master_not_found", Message: "master not found",
+	}},
+	{jobsmodel.ErrResumeMasterNotInTrash, apierr.Envelope{
+		Status: http.StatusNotFound, Code: "not_in_trash",
+		Message: "this master is not in the trash",
+	}},
+	{jobsmodel.ErrResumeMasterNameRequired, apierr.Envelope{
+		Status: http.StatusBadRequest, Code: "bad_request", Message: "name is required",
+	}},
+}
+
 func writeMasterErr(log *slog.Logger, w http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, jobsmodel.ErrResumeMasterNotFound):
-		writeMasterNotFound(log, w)
-	case errors.Is(err, jobsmodel.ErrResumeMasterNameRequired):
-		writeJSONErr(log, w, apierr.Envelope{
-			Status: http.StatusBadRequest, Code: "bad_request", Message: "name is required",
-		})
-	case errors.Is(err, jobsmodel.ErrResumeDraftNotFound):
-		handleDraftDetailErr(log, w, err)
-	default:
-		log.Error("resume master", logErrKey, err)
-		writeServerErr(log, w)
+	for _, r := range masterRefusals {
+		if errors.Is(err, r.err) {
+			writeJSONErr(log, w, r.env)
+			return
+		}
 	}
+	if errors.Is(err, jobsmodel.ErrResumeDraftNotFound) {
+		handleDraftDetailErr(log, w, err)
+		return
+	}
+	log.Error("resume master", logErrKey, err)
+	writeServerErr(log, w)
 }

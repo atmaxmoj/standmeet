@@ -228,6 +228,7 @@
     "kicker": "corpus · eliminado",
     "intro": "Las entradas eliminadas esperan aquí 90 días; después desaparecen para siempre. Al restaurar una, vuelven también las entradas eliminadas con ella y sus enlaces, en el mismo lugar.",
     "empty": "La papelera está vacía.",
+    "masters": "currículums base",
     "restore": "restaurar",
     "restored": "«{title}» restaurado",
     "deletedOn": "eliminado {date}",

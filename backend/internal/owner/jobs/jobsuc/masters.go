@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmodel"
@@ -133,6 +134,25 @@ func DeleteMaster(ctx context.Context, deps *ResumeDeps, ownerID, id string) err
 		return fmt.Errorf("delete master: %w", err)
 	}
 	return nil
+}
+
+// TrashedMasters — the owner's masters in the trash.
+func TrashedMasters(
+	ctx context.Context, deps *ResumeDeps, ownerID string,
+) ([]jobsmodel.TrashedMaster, error) {
+	return deps.Masters.Trash(ctx, ownerID)
+}
+
+// RestoreMaster — takes a master out of the trash; it comes back as a plain (non-default) master.
+func RestoreMaster(ctx context.Context, deps *ResumeDeps, ownerID, id string) error {
+	return deps.Masters.Restore(ctx, ownerID, id)
+}
+
+// MasterTrashPurge — the daily purge of masters trashed longer than MasterTrashRetention.
+func MasterTrashPurge(masters *ResumeMasterRepo) func(ctx context.Context) error {
+	return func(ctx context.Context) error {
+		return masters.Purge(ctx, time.Now().UTC().Add(-jobsmodel.MasterTrashRetention))
+	}
 }
 
 // SaveDraftAsMaster — copy a draft's content into a master: overwrite MasterID, or create one

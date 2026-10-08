@@ -95,7 +95,7 @@
     "renameTitle": "重新命名母版",
     "save": "儲存",
     "deleteTitle": "刪除這份母版？",
-    "deleteBody": "從它開始的草稿會保留內容，只是不再顯示基於它。",
+    "deleteBody": "它會在回收站保留 90 天，可以從那裏恢復。從它開始的草稿會保留內容。",
     "cancel": "取消",
     "deleted": "母版已刪除",
     "created": "母版已建立",

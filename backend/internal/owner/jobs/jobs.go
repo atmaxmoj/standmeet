@@ -95,6 +95,9 @@ func (p *Plugin) PeriodicJobs() []periodic.Job {
 			}
 			return nil
 		},
+	), periodic.Named(
+		// A day's slack on a 90-day window is noise.
+		"resume master trash purge", 24*time.Hour, jobsuc.MasterTrashPurge(p.deps.Resume.Masters),
 	)}
 }
 

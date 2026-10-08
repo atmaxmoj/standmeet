@@ -23,7 +23,7 @@ func (q *Queries) ClearDefaultResumeMaster(ctx context.Context, ownerID pgtype.U
 }
 
 const countResumeMasters = `-- name: CountResumeMasters :one
-SELECT COUNT(*)::int FROM resume_masters WHERE owner_id = $1
+SELECT COUNT(*)::int FROM resume_masters WHERE owner_id = $1 AND deleted_at IS NULL
 `
 
 func (q *Queries) CountResumeMasters(ctx context.Context, ownerID pgtype.UUID) (int32, error) {
@@ -37,7 +37,7 @@ const createResumeMaster = `-- name: CreateResumeMaster :one
 
 INSERT INTO resume_masters (owner_id, name, resume_content, from_company)
 VALUES ($1, $2, $3, $4)
-RETURNING id, owner_id, name, resume_content, is_default, from_company, created_at, updated_at
+RETURNING id, owner_id, name, resume_content, is_default, from_company, created_at, updated_at, deleted_at
 `
 
 type CreateResumeMasterParams struct {
@@ -47,7 +47,8 @@ type CreateResumeMasterParams struct {
 	FromCompany   string
 }
 
-// resume_masters —— named, persistent résumés (docs/design/resume-masters.md).
+// resume_masters —— named, persistent résumés (docs/design/resume-masters.md). A deleted master waits
+// in the trash (deleted_at set) for 90 days: every read below except the trash's own filters it.
 func (q *Queries) CreateResumeMaster(ctx context.Context, arg CreateResumeMasterParams) (ResumeMaster, error) {
 	row := q.db.QueryRow(ctx, createResumeMaster,
 		arg.OwnerID,
@@ -65,12 +66,14 @@ func (q *Queries) CreateResumeMaster(ctx context.Context, arg CreateResumeMaster
 		&i.FromCompany,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DeletedAt,
 	)
 	return i, err
 }
 
 const deleteResumeMaster = `-- name: DeleteResumeMaster :execrows
-DELETE FROM resume_masters WHERE id = $1 AND owner_id = $2
+UPDATE resume_masters SET deleted_at = now(), is_default = false
+WHERE id = $1 AND owner_id = $2 AND deleted_at IS NULL
 `
 
 type DeleteResumeMasterParams struct {
@@ -78,6 +81,7 @@ type DeleteResumeMasterParams struct {
 	OwnerID pgtype.UUID
 }
 
+// Into the trash: a trashed master is never the default (the index counts live masters only).
 func (q *Queries) DeleteResumeMaster(ctx context.Context, arg DeleteResumeMasterParams) (int64, error) {
 	result, err := q.db.Exec(ctx, deleteResumeMaster, arg.ID, arg.OwnerID)
 	if err != nil {
@@ -87,7 +91,7 @@ func (q *Queries) DeleteResumeMaster(ctx context.Context, arg DeleteResumeMaster
 }
 
 const getDefaultResumeMaster = `-- name: GetDefaultResumeMaster :one
-SELECT id, owner_id, name, resume_content, is_default, from_company, created_at, updated_at FROM resume_masters WHERE owner_id = $1 AND is_default
+SELECT id, owner_id, name, resume_content, is_default, from_company, created_at, updated_at, deleted_at FROM resume_masters WHERE owner_id = $1 AND is_default AND deleted_at IS NULL
 `
 
 func (q *Queries) GetDefaultResumeMaster(ctx context.Context, ownerID pgtype.UUID) (ResumeMaster, error) {
@@ -102,12 +106,13 @@ func (q *Queries) GetDefaultResumeMaster(ctx context.Context, ownerID pgtype.UUI
 		&i.FromCompany,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DeletedAt,
 	)
 	return i, err
 }
 
 const getResumeMaster = `-- name: GetResumeMaster :one
-SELECT id, owner_id, name, resume_content, is_default, from_company, created_at, updated_at FROM resume_masters WHERE id = $1 AND owner_id = $2
+SELECT id, owner_id, name, resume_content, is_default, from_company, created_at, updated_at, deleted_at FROM resume_masters WHERE id = $1 AND owner_id = $2 AND deleted_at IS NULL
 `
 
 type GetResumeMasterParams struct {
@@ -127,13 +132,14 @@ func (q *Queries) GetResumeMaster(ctx context.Context, arg GetResumeMasterParams
 		&i.FromCompany,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DeletedAt,
 	)
 	return i, err
 }
 
 const listResumeMastersPage = `-- name: ListResumeMastersPage :many
-SELECT id, owner_id, name, resume_content, is_default, from_company, created_at, updated_at FROM resume_masters
-WHERE owner_id = $1
+SELECT id, owner_id, name, resume_content, is_default, from_company, created_at, updated_at, deleted_at FROM resume_masters
+WHERE owner_id = $1 AND deleted_at IS NULL
   AND ($2::timestamptz IS NULL
     OR (created_at, id) < ($2, $3::uuid))
 ORDER BY created_at DESC, id DESC
@@ -171,6 +177,7 @@ func (q *Queries) ListResumeMastersPage(ctx context.Context, arg ListResumeMaste
 			&i.FromCompany,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.DeletedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -182,8 +189,71 @@ func (q *Queries) ListResumeMastersPage(ctx context.Context, arg ListResumeMaste
 	return items, nil
 }
 
+const listTrashedResumeMasters = `-- name: ListTrashedResumeMasters :many
+SELECT id, name, deleted_at::timestamptz AS deleted_at FROM resume_masters
+WHERE owner_id = $1 AND deleted_at IS NOT NULL
+ORDER BY deleted_at DESC, id DESC
+`
+
+type ListTrashedResumeMastersRow struct {
+	ID        pgtype.UUID
+	Name      string
+	DeletedAt pgtype.Timestamptz
+}
+
+// The trash: newest delete first. Small by nature (a handful of masters per owner, 90 days).
+func (q *Queries) ListTrashedResumeMasters(ctx context.Context, ownerID pgtype.UUID) ([]ListTrashedResumeMastersRow, error) {
+	rows, err := q.db.Query(ctx, listTrashedResumeMasters, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTrashedResumeMastersRow
+	for rows.Next() {
+		var i ListTrashedResumeMastersRow
+		if err := rows.Scan(&i.ID, &i.Name, &i.DeletedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const purgeTrashedResumeMasters = `-- name: PurgeTrashedResumeMasters :execrows
+DELETE FROM resume_masters WHERE deleted_at < $1::timestamptz
+`
+
+func (q *Queries) PurgeTrashedResumeMasters(ctx context.Context, before pgtype.Timestamptz) (int64, error) {
+	result, err := q.db.Exec(ctx, purgeTrashedResumeMasters, before)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const restoreResumeMaster = `-- name: RestoreResumeMaster :execrows
+UPDATE resume_masters SET deleted_at = NULL, updated_at = now()
+WHERE id = $1 AND owner_id = $2 AND deleted_at IS NOT NULL
+`
+
+type RestoreResumeMasterParams struct {
+	ID      pgtype.UUID
+	OwnerID pgtype.UUID
+}
+
+func (q *Queries) RestoreResumeMaster(ctx context.Context, arg RestoreResumeMasterParams) (int64, error) {
+	result, err := q.db.Exec(ctx, restoreResumeMaster, arg.ID, arg.OwnerID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const setDefaultResumeMaster = `-- name: SetDefaultResumeMaster :execrows
-UPDATE resume_masters SET is_default = true WHERE id = $1 AND owner_id = $2
+UPDATE resume_masters SET is_default = true WHERE id = $1 AND owner_id = $2 AND deleted_at IS NULL
 `
 
 type SetDefaultResumeMasterParams struct {
@@ -205,8 +275,8 @@ SET name           = COALESCE($1, name),
     resume_content = COALESCE($2, resume_content),
     from_company   = COALESCE($3, from_company),
     updated_at     = now()
-WHERE id = $4 AND owner_id = $5
-RETURNING id, owner_id, name, resume_content, is_default, from_company, created_at, updated_at
+WHERE id = $4 AND owner_id = $5 AND deleted_at IS NULL
+RETURNING id, owner_id, name, resume_content, is_default, from_company, created_at, updated_at, deleted_at
 `
 
 type UpdateResumeMasterParams struct {
@@ -236,6 +306,7 @@ func (q *Queries) UpdateResumeMaster(ctx context.Context, arg UpdateResumeMaster
 		&i.FromCompany,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DeletedAt,
 	)
 	return i, err
 }

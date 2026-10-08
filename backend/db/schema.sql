@@ -1031,11 +1031,17 @@ CREATE TABLE resume_masters (
     -- blank). A label, not a reference: the draft expires within a day.
     from_company   text        NOT NULL DEFAULT '',
     created_at     timestamptz NOT NULL DEFAULT now(),
-    updated_at     timestamptz NOT NULL DEFAULT now()
+    updated_at     timestamptz NOT NULL DEFAULT now(),
+    -- deleted_at —— in the trash since (NULL = live); purged 90 days on
+    -- (migrations/2026-10-08-resume-master-trash.sql).
+    deleted_at     timestamptz NULL
 );
 
 CREATE INDEX resume_masters_owner_page_idx ON resume_masters(owner_id, created_at DESC, id DESC);
-CREATE UNIQUE INDEX resume_masters_one_default ON resume_masters(owner_id) WHERE is_default;
+CREATE UNIQUE INDEX resume_masters_one_default
+    ON resume_masters(owner_id) WHERE is_default AND deleted_at IS NULL;
+CREATE INDEX resume_masters_trash_idx
+    ON resume_masters(owner_id, deleted_at) WHERE deleted_at IS NOT NULL;
 
 -- resume_drafts —— Phase 2 中间态：Claude 给出 resume_content 后 owner
 -- 还在 preview 看，没点头 commit。draft 1d TTL（跟 Redis job 池子同周期），

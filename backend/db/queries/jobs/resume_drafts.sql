@@ -9,7 +9,7 @@ RETURNING id, owner_id, job_cache_id, job_snapshot, resume_content, puck_data, t
 -- name: GetResumeDraft :one
 SELECT sqlc.embed(d), COALESCE(m.name, '')::text AS based_on_master_name
 FROM resume_drafts d
-LEFT JOIN resume_masters m ON m.id = d.based_on_master_id
+LEFT JOIN resume_masters m ON m.id = d.based_on_master_id AND m.deleted_at IS NULL
 WHERE d.id = $1 AND d.owner_id = $2 AND d.expires_at > now();
 
 -- name: UpdateResumeDraftContent :one
@@ -45,7 +45,7 @@ SELECT COUNT(*)::int FROM resume_drafts WHERE owner_id = $1 AND expires_at > now
 -- with the name of the master it came from ('' = none).
 SELECT sqlc.embed(d), COALESCE(m.name, '')::text AS based_on_master_name
 FROM resume_drafts d
-LEFT JOIN resume_masters m ON m.id = d.based_on_master_id
+LEFT JOIN resume_masters m ON m.id = d.based_on_master_id AND m.deleted_at IS NULL
 WHERE d.owner_id = sqlc.arg('owner_id') AND d.expires_at > now()
   AND (sqlc.narg('after_at')::timestamptz IS NULL
     OR (d.created_at, d.id) < (sqlc.narg('after_at'), sqlc.narg('after_id')::uuid))

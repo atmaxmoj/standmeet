@@ -55,9 +55,10 @@ func (*resumeFiber) SystemPromptFragmentID(
 }
 
 func (c *resumeFiber) OwnerMCPBindings() []*registry.MCPBinding {
-	return append([]*registry.MCPBinding{
+	out := append([]*registry.MCPBinding{
 		c.draftBinding(), c.updateDraftBinding(), c.discardDraftBinding(),
 	}, c.masterBindings()...)
+	return append(out, c.masterTrashBindings()...)
 }
 
 // ───── resume.draft ─────────────────────────────────────────────
@@ -223,6 +224,7 @@ var resumeClientErrs = []struct {
 	{jobsmodel.ErrResumeContentInvalid, "resume_content invalid"},
 	{jobsmodel.ErrResumeMasterNotFound, "master not found (wrong id or owner)"},
 	{jobsmodel.ErrResumeMasterNameRequired, "name is required"},
+	{jobsmodel.ErrResumeMasterNotInTrash, "this master is not in the trash"},
 	{jobsmodel.ErrResumeDraftIncomplete, jobsmodel.ErrResumeDraftIncomplete.Error()},
 }
 

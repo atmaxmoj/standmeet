@@ -318,6 +318,7 @@ const GOLDEN_TOOLSET: readonly string[] = [
   // résumé masters (docs/design/resume-masters.md)
   'resume.master_list', 'resume.master_get', 'resume.master_create', 'resume.master_update',
   'resume.master_delete', 'resume.draft_save_as_master',
+  'resume.master_trash', 'resume.master_restore',
   'applications.commit',
   // screen assistant -- the desktop cue app streams cards + heard lines to /admin/screen-assistant
   'assistant.push',

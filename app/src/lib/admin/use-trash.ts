@@ -10,6 +10,7 @@ import { z } from 'zod';
 import { onCorpusChanged } from '@/lib/admin/corpus-changed';
 import { outputPage } from '@/lib/admin/use-output';
 import { refreshRaw } from '@/lib/admin/use-raw';
+import { mastersPage } from '@/lib/admin/use-resume-masters';
 import { subjectivityPage } from '@/lib/admin/use-subjectivity';
 import { wikiPage } from '@/lib/admin/use-wiki';
 import { adminAPI } from '@/lib/api/admin';
@@ -57,6 +58,45 @@ export function useTrash(): TrashHook {
         refresh(), refreshRaw(),
         reloadIfLoaded(wikiPage), reloadIfLoaded(outputPage), reloadIfLoaded(subjectivityPage),
       ]);
+    },
+  };
+}
+
+// ─── résumé masters ────────────────────────────────────────────
+// Their own trash (GET /masters/trash): a master lives in the jobs module, not the corpus.
+
+const TrashedMasterSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  deleted_at: z.string(),
+  purge_at: z.string(),
+});
+export type TrashedMaster = z.infer<typeof TrashedMasterSchema>;
+
+const mastersTrashStore = createResourceStore<TrashedMaster[]>({
+  name: 'masters-trash',
+  fetcher: () => adminAPI.get('/masters/trash', z.object({ items: z.array(TrashedMasterSchema) }))
+    .then((r) => r.items),
+});
+
+export interface MastersTrashHook {
+  items: readonly TrashedMaster[];
+  status: ResourceStatus;
+  error: string | null;
+  refresh: () => Promise<void>;
+  restore: (id: string) => Promise<void>;
+}
+
+export function useMastersTrash(): MastersTrashHook {
+  const { data, status, error, refresh } = mastersTrashStore();
+  return {
+    items: data ?? [],
+    status,
+    error,
+    refresh,
+    restore: async (id) => {
+      await adminAPI.postVoid(`/masters/${encodeURIComponent(id)}/restore`, {});
+      await Promise.all([refresh(), reloadIfLoaded(mastersPage)]);
     },
   };
 }

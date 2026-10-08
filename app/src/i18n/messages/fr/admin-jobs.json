@@ -95,7 +95,7 @@
     "renameTitle": "Renommer le modèle",
     "save": "enregistrer",
     "deleteTitle": "Supprimer ce modèle ?",
-    "deleteBody": "Les brouillons issus de ce modèle gardent leur contenu ; ils ne le citent simplement plus.",
+    "deleteBody": "Il reste 90 jours dans la corbeille, d'où vous pouvez le restaurer. Les brouillons issus de ce modèle gardent leur contenu.",
     "cancel": "annuler",
     "deleted": "Modèle supprimé",
     "created": "Modèle créé",

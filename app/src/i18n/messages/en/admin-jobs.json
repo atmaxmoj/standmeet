@@ -95,7 +95,7 @@
     "renameTitle": "Rename master",
     "save": "save",
     "deleteTitle": "Delete this master?",
-    "deleteBody": "Drafts that started from it keep their content; they just stop naming it.",
+    "deleteBody": "It stays in the trash for 90 days, where you can restore it. Drafts that started from it keep their content.",
     "cancel": "cancel",
     "deleted": "Master deleted",
     "created": "Master created",

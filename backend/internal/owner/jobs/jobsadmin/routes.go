@@ -84,6 +84,8 @@ func Mount(r chi.Router, deps Deps) {
 		r.Get("/{id}", getMaster(&deps))
 		r.Patch("/{id}", patchMaster(&deps))
 		r.Delete("/{id}", deleteMaster(&deps))
+		r.Get("/trash", trashedMasters(&deps))
+		r.Post("/{id}/restore", restoreMaster(&deps))
 		r.Get("/{id}/preview.pdf", previewMaster(&deps))
 	})
 	r.Route("/applications", func(r chi.Router) {

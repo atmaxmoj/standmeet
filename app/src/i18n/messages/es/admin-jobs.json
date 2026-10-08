@@ -95,7 +95,7 @@
     "renameTitle": "Renombrar plantilla",
     "save": "guardar",
     "deleteTitle": "¿Eliminar esta plantilla?",
-    "deleteBody": "Los borradores que salieron de ella conservan su contenido; solo dejan de nombrarla.",
+    "deleteBody": "Quedará 90 días en la papelera, donde podrás restaurarla. Los borradores que salieron de ella conservan su contenido.",
     "cancel": "cancelar",
     "deleted": "Plantilla eliminada",
     "created": "Plantilla creada",

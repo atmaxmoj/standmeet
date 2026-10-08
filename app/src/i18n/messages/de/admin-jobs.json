@@ -95,7 +95,7 @@
     "renameTitle": "Vorlage umbenennen",
     "save": "speichern",
     "deleteTitle": "Diese Vorlage löschen?",
-    "deleteBody": "Entwürfe, die daraus entstanden sind, behalten ihren Inhalt; sie nennen sie nur nicht mehr.",
+    "deleteBody": "Sie bleibt 90 Tage im Papierkorb und lässt sich dort wiederherstellen. Entwürfe, die daraus entstanden sind, behalten ihren Inhalt.",
     "cancel": "abbrechen",
     "deleted": "Vorlage gelöscht",
     "created": "Vorlage erstellt",

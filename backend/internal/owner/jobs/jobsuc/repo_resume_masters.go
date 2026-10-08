@@ -159,8 +159,8 @@ func wellFormedKey(ownerID, id string) (draftKey, bool) {
 	return key, err == nil
 }
 
-// Delete — idempotent (an unknown or already-deleted master succeeds). Drafts based on it keep
-// their content and stop naming it (ON DELETE SET NULL).
+// Delete — into the trash; idempotent (an unknown or already-deleted master succeeds). Drafts
+// based on it keep their content and stop naming it while it is there (the name join skips it).
 func (r *ResumeMasterRepo) Delete(ctx context.Context, ownerID, id string) error {
 	key, ok := wellFormedKey(ownerID, id)
 	if !ok {

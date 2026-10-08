@@ -7,6 +7,14 @@
   color: var(--color-muted);
 }
 
+.group {
+  margin-top: 2.5rem;
+}
+
+.group > .list {
+  margin-top: 0.75rem;
+}
+
 .list {
   border-top: 1px solid var(--color-rule);
 }
