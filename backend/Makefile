@@ -66,9 +66,10 @@ hostops-via-desk:
 	@bash ../infra/scripts/check-hostops-via-desk-test.sh
 
 # Plugin registration converges on ONE door (internal/routes/blockload); no domain or the composition
-# root self-registers. WARN during the everything-is-a-block migration (flip to error at wrap-up).
+# root self-registers. ERROR; the self-test plants each registration verb in the root and wants red.
 register-via-door:
 	@bash ../infra/scripts/check-register-via-door.sh
+	@bash ../infra/scripts/check-register-via-door-test.sh
 
 # The native key is unwrapped (.Reveal()) only at the reach-back auth boundary; the redacting type
 # may travel freely. WARN during the migration (flip to error at wrap-up).

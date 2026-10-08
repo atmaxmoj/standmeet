@@ -14,18 +14,15 @@
 # everything else. It is NOT excused as "wiring": that carve-out is exactly how bespoke host Go
 # (blockstore/blockwarn/caldav) slipped in unseen. No exclusion list — every hit is reported.
 #
-# The block/fiber verbs (`.MustRegister(` / `.RegisterOrigin(`) are ERROR now (already converged on
-# the door). The second-path verbs are surfaced as WARNINGS — the debt to burn down — and flip to
-# ERROR once the fold lands (docs/design/plugin/everything-is-a-block.md wrap-up: warning→error).
-# The bare `.Register(` is not scanned by name alone (periodic.Board.Register etc. share it); the
-# seam registry is caught by its own receiver `depReg.Register(`.
-#
-# Baseline (.register-via-door-baseline) grandfathers pre-existing call-sites and only ever shrinks.
+# Every verb is ERROR: the block/fiber verbs (`.MustRegister(` / `.RegisterOrigin(`) and the former
+# second-path verbs (supplier construction, seam wiring) all converged on the door. The bare
+# `.Register(` is not scanned by name alone (a pgstore Listener's waiter Register, periodic boards
+# etc. share it); the seam registry is caught by its own receiver `depReg.Register(`.
+# check-register-via-door-test.sh plants each verb in the composition root and requires red.
 set -eu
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 BK="$ROOT/backend"
-BASELINE="$BK/.register-via-door-baseline"
 
 # goFiles —— find, not `grep --include`: BusyBox grep (alpine image lint) does not know that flag and
 # exits 2 with no output, which reads exactly like a clean tree.
@@ -61,14 +58,10 @@ while IFS= read -r f; do
 	[ -n "$f" ] || continue
 	rel="${f#"$BK"/}"
 	echo "$rel" | grep -qE "$ALLOWED" && continue
-	if [ -f "$BASELINE" ] && grep -qxF "$rel" "$BASELINE"; then continue; fi
 	echo "check-register-via-door: $rel registers a plugin outside the door (internal/routes/blockload). Move it behind the door."
 	fail=1
 done < <(printf '%s\n' "$hits")
 
-# ERROR mode: registration outside the door blocks the commit. The baseline above still grandfathers
-# pre-existing call-sites and only shrinks. The second-path verbs (supplier layer + seam wiring) were
-# folded behind the door, reached zero, and are now part of PAT above — no separate WARNING block.
 [ "$fail" -eq 0 ] || exit 1
 
 echo "check-register-via-door: plugin registration converges on internal/routes/blockload."
