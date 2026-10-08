@@ -145,6 +145,34 @@ func SessionOwnsConversation(
 	return ChatBelongsToMember(ctx, deps, data.OwnerID, convID, data.MemberID)
 }
 
+// ConvAccess —— how a session stands toward a conversation it names.
+type ConvAccess int
+
+const (
+	// ConvOwned —— the session owns it.
+	ConvOwned ConvAccess = iota
+	// ConvForeign —— someone else's, or no such conversation: refused like a missing one.
+	ConvForeign
+	// ConvSessionEnded —— a codeless session that owns no conversation at all: issued by a release
+	// before ownership was recorded (9289a3b88). It is dead, not forbidden — the visitor gets a
+	// fresh session (the SDK settles a 401 and asks again), rather than a refusal to read.
+	ConvSessionEnded
+)
+
+// ConversationAccessOf —— SessionOwnsConversation, told apart into the three cases above.
+func ConversationAccessOf(
+	ctx context.Context, deps *VisitorSessionDeps, data *access.VisitorSessionData, convID string,
+) (ConvAccess, error) {
+	if data.MemberID == "" && data.ConversationID == "" {
+		return ConvSessionEnded, nil
+	}
+	ok, err := SessionOwnsConversation(ctx, deps, data, convID)
+	if err != nil || !ok {
+		return ConvForeign, err
+	}
+	return ConvOwned, nil
+}
+
 // ChatBelongsToMember —— whether this conversation belongs to this member (loaded
 // owner-scoped). The code-session half of SessionOwnsConversation.
 func ChatBelongsToMember(

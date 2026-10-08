@@ -47,6 +47,14 @@ type (
 	VisitorSkillsDeps       = usecase.VisitorSkillsDeps
 	VisitorView             = usecase.VisitorView
 	WaypointLedger          = usecase.WaypointLedger
+	ConvAccess              = usecase.ConvAccess
+)
+
+// How a session stands toward a conversation it names (impl: usecase).
+const (
+	ConvOwned        = usecase.ConvOwned
+	ConvForeign      = usecase.ConvForeign
+	ConvSessionEnded = usecase.ConvSessionEnded
 )
 
 // Constructors/functions (impl: usecase).
@@ -62,6 +70,7 @@ var (
 	BuildGhostContext         = usecase.BuildGhostContext
 	ChatBelongsToMember       = usecase.ChatBelongsToMember
 	SessionOwnsConversation   = usecase.SessionOwnsConversation
+	ConversationAccessOf      = usecase.ConversationAccessOf
 	CodeIntro                 = usecase.CodeIntro
 	ComposeBasePersona        = usecase.ComposeBasePersona
 	ComposeDynamicPersona     = usecase.ComposeDynamicPersona

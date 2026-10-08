@@ -410,7 +410,9 @@ dev-up: app-build builder-vendor
 	# supplier specs whose mock behaviour changed on 2026-10-01 read as product reds on main. An
 	# unchanged mock is a layer-cache hit (~5 s for all four), so building them every loop costs
 	# nothing and nobody has to remember. `up` below swaps any container whose image changed.
-	@docker compose -f docker-compose.dev.yml build app backend mcp-server-mock external-mock llm-gateway mail-mock
+	# The builder too, for the same reason: a stack kept a builder from before db86b0a61 (no
+	# sm-build user), and microsite-builder-isolation read as a product red (2026-10-08).
+	@docker compose -f docker-compose.dev.yml build app backend builder mcp-server-mock external-mock llm-gateway mail-mock
 	@docker compose -f docker-compose.dev.yml up -d --wait
 	@echo "[dev] project=$(DEV_PROJECT) app=http://localhost:$${DEV_PORT_APP:-38127} backend=http://localhost:$${DEV_PORT_BACKEND:-8000}"
 

@@ -13,7 +13,7 @@
 //
 // The backend never restarts, so reset completes sub-second.
 
-import { execSync } from 'node:child_process';
+import { execFileSync, execSync } from 'node:child_process';
 
 // The compose project this run drives. One machine can hold several checkouts, each with its
 // own stack (see .dev-stack.env.example); the Makefile exports COMPOSE_PROJECT_NAME and every
@@ -231,6 +231,14 @@ function runPsql(sql: string): void {
     `docker exec ${DB_CONTAINER} psql -U standmeet -d standmeet -c "${sql}"`,
     { stdio: 'inherit' },
   );
+}
+
+// redisEval —— run a Lua script in the stack's Redis (no keys passed; the script finds its own).
+// Like execSQL: only to manufacture a precondition no API can create, e.g. a visitor session in
+// the shape an older release issued. The script travels as one argv entry (no shell quoting).
+export function redisEval(script: string): string {
+  return execFileSync('docker', ['exec', REDIS_CONTAINER, 'redis-cli', 'EVAL', script, '0'],
+    { encoding: 'utf-8' }).trim();
 }
 
 // execSQL —— run a statement without reading its result. Used to **manufacture a

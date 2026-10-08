@@ -18,6 +18,7 @@ import (
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
+	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 )
 
 // visitorToolResult —— what of a tool result the visitor's live stream may carry (F-A-28): no
@@ -42,19 +43,16 @@ func authOwningConversation(
 func (h *Handlers) ownsConversation(
 	w http.ResponseWriter, r *http.Request, data *access.VisitorSessionData, convID string,
 ) bool {
-	ok, err := conversation.SessionOwnsConversation(r.Context(), &h.Visitor, data, convID)
+	acc, err := conversation.ConversationAccessOf(r.Context(), &h.Visitor, data, convID)
 	if err != nil {
 		h.Log.Error("conversation ownership", "err", err)
 		writeError(h.Log, w, serverErr())
 		return false
 	}
-	if !ok {
-		writeToolErr(h.Log, w, toolErr{
-			Status: http.StatusNotFound, Reason: "conversation_not_found",
-			Detail: "conversation not found",
-		})
+	if acc != conversation.ConvOwned {
+		toolRouteRefusals[acc](h, w)
 	}
-	return ok
+	return acc == conversation.ConvOwned
 }
 
 // preflightAgentTurnQuota —— #28: now that persistence moved to /agent/turn, quota is
@@ -157,15 +155,38 @@ func enforceTurnQuotaOrWrite(
 func checkConvOwnership(
 	r *http.Request, h *Handlers, auth authedVisitor, w http.ResponseWriter, convID string,
 ) bool {
-	ok, err := conversation.SessionOwnsConversation(r.Context(), &h.Visitor, auth.Data, convID)
+	acc, err := conversation.ConversationAccessOf(r.Context(), &h.Visitor, auth.Data, convID)
 	if err != nil {
 		h.Log.Error("conv ownership check", "err", err)
 		writeError(h.Log, w, serverErr())
 		return false
 	}
-	if !ok {
-		writeError(h.Log, w, forbiddenEnv("conversation does not belong to this session"))
-		return false
+	if acc != conversation.ConvOwned {
+		writeError(h.Log, w, turnRefusals[acc])
 	}
-	return true
+	return acc == conversation.ConvOwned
+}
+
+// turnRefusals —— the agent turn's answer when the session does not own the conversation. A
+// session that ended (ConvSessionEnded: issued before ownership was recorded) gets a 401: the SDK
+// settles a dead session and asks the question again on a fresh one (agent-core
+// SESSION_GONE_CODE). A 403 carrying a JSON sentence would be shown to the visitor as the answer —
+// right for someone naming another's conversation, wrong for a visitor whose tab outlived a deploy.
+var turnRefusals = map[conversation.ConvAccess]apierr.Envelope{
+	conversation.ConvSessionEnded: unauthorizedEnv("this chat session has ended — start a new one"),
+	conversation.ConvForeign:      forbiddenEnv("this conversation isn't available"),
+}
+
+// toolRouteRefusals —— the same two refusals on the /sessions/{id}/... routes; a foreign id answers
+// exactly like a missing one.
+var toolRouteRefusals = map[conversation.ConvAccess]func(h *Handlers, w http.ResponseWriter){
+	conversation.ConvSessionEnded: func(h *Handlers, w http.ResponseWriter) {
+		writeError(h.Log, w, turnRefusals[conversation.ConvSessionEnded])
+	},
+	conversation.ConvForeign: func(h *Handlers, w http.ResponseWriter) {
+		writeToolErr(h.Log, w, toolErr{
+			Status: http.StatusNotFound, Reason: "conversation_not_found",
+			Detail: "conversation not found",
+		})
+	},
 }
