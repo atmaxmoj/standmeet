@@ -107,6 +107,8 @@ const GOLDEN_TOOLSET: readonly string[] = [
   'subjectivity_write',
   'corpus.list', 'corpus.get', 'corpus.search',
   'corpus.create', 'corpus.update', 'corpus.delete', 'corpus.promote',
+  // The navigation projection (v0.1.130): the visitor agent's read tools, for the owner too.
+  'corpus.map', 'corpus.resolve', 'corpus.peek', 'corpus.grep', 'corpus.links',
   // check_i18n -- inspects the multilingual structure without writing. The
   // owner's AI queries it once before writing a note with `> [!i18n]`, and
   // gets back the same diagnostic corpus.create would use to reject it (if
