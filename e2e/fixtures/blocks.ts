@@ -127,7 +127,8 @@ export async function callSessionTool(
 ): Promise<Record<string, unknown>> {
   const res = await request.post(
     `${BACKEND}/api/v1/sessions/${session.conversation_id}/tools/${tool}`,
-    { headers: { Authorization: `Bearer ${session.session_token}` }, data: args },
+    // 25s like runToolAndRead: each call cold-starts the block's sandbox, slow on a busy host.
+    { headers: { Authorization: `Bearer ${session.session_token}` }, data: args, timeout: 25_000 },
   );
   if (res.status() !== 200) throw new Error(`session tool ${tool}: ${res.status()} ${await res.text()}`);
   return ((await res.json()) as { result?: Record<string, unknown> }).result ?? {};

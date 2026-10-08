@@ -14,9 +14,11 @@ package port
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
+	"github.com/atmaxmoj/standmeet/internal/infra/hostop"
 	"github.com/atmaxmoj/standmeet/internal/infra/jobs"
 	"github.com/atmaxmoj/standmeet/internal/infra/mailthrottle"
 	"github.com/atmaxmoj/standmeet/internal/infra/sideeffect/mail"
@@ -34,6 +36,56 @@ var errThrottled = errors.New("too many messages to this address this hour — t
 // per-recipient cap (email-bomb defense in depth). Only subscribers and this root hold it.
 func MailSender(d *deps.Runtime) mail.Sender {
 	return mail.New(d.BlockDispatch, mailthrottle.New(mailthrottle.RedisCounter{RDB: d.RDB}))
+}
+
+// SupplierInvoker —— one supplier verb by seam; what a sandboxed block's supplier.invoke reaches.
+type SupplierInvoker interface {
+	Invoke(
+		ctx context.Context, ownerID, seam, verb string, args json.RawMessage,
+	) (json.RawMessage, error)
+}
+
+// ThrottledSupplier —— supplier.invoke for sandboxed blocks, with a block's mail send under the
+// same per-recipient cap as the host's own mail (email-recipient-throttle.md: one gate, no path
+// around it). send_email names any recipient the visitor asks for, so without this a code holder
+// could loop it at one victim.
+func ThrottledSupplier(d *deps.Runtime, inv SupplierInvoker) ThrottledSupplierInvoker {
+	return ThrottledSupplierInvoker{
+		inv: inv, throttle: mailthrottle.New(mailthrottle.RedisCounter{RDB: d.RDB}),
+	}
+}
+
+// ThrottledSupplierInvoker —— see ThrottledSupplier.
+type ThrottledSupplierInvoker struct {
+	inv      SupplierInvoker
+	throttle *mailthrottle.Throttle
+}
+
+// Invoke —— a mail send over its recipient's cap is refused as retryable; everything else passes.
+func (t ThrottledSupplierInvoker) Invoke(
+	ctx context.Context, ownerID, seam, verb string, args json.RawMessage,
+) (json.RawMessage, error) {
+	if t.overCap(ctx, seam, verb, args) {
+		return nil, &hostop.FaultError{Code: hostop.FaultUnavailable, Err: errThrottled}
+	}
+	out, err := t.inv.Invoke(ctx, ownerID, seam, verb, args)
+	if err != nil {
+		return nil, fmt.Errorf("supplier %s/%s: %w", seam, verb, err)
+	}
+	return out, nil
+}
+
+// overCap —— a mail send whose recipient has spent its window (counts this attempt).
+func (t ThrottledSupplierInvoker) overCap(
+	ctx context.Context, seam, verb string, args json.RawMessage,
+) bool {
+	if seam != "mail" || verb != "send" {
+		return false
+	}
+	var m struct {
+		To string `json:"to"`
+	}
+	return json.Unmarshal(args, &m) == nil && t.throttle.Wait(ctx, m.To) > 0
 }
 
 // OutboundSenderAdapter — the kernel-neutral owner.OutboundSender over the mail port.

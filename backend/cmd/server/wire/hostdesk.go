@@ -20,6 +20,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/cmd/server/blockwire"
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
+	"github.com/atmaxmoj/standmeet/cmd/server/port"
 
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
@@ -112,7 +113,7 @@ func sharedHostDeps(
 		Corpus:       CorpusIndexDeps(d),
 		Owners:       d.OwnerRepo,
 		Bookings:     owner.BookingRecorder{Owners: d.OwnerRepo, Events: d.Events.Recorder()},
-		Suppliers:    d.BlockDispatch,
+		Suppliers:    port.ThrottledSupplier(d, d.BlockDispatch),
 		SupplierJobs: supplierJobs(d),
 		PageStore: &owner.MicrositeDeps{
 			Pages: d.MicrositeRepo, Builds: d.MicrositeBuildRepo, Docs: d.MicrositeDocs,
