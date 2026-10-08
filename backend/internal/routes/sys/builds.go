@@ -1,6 +1,7 @@
 // builds.go —— /internal/builds/* —— internal endpoints for the builder service.
-// Not exposed to the public internet (mounted under /internal, Caddy blocks it);
-// no auth (internal-network trust).
+// Not reachable from the public origin: the reverse proxy sends everything to the app, and the app
+// has no /internal rewrite (it had one until 2026-10-07, which exposed all of /internal). Only the
+// services on the instance's network dial it; no auth beyond that.
 //
 // Three endpoints:
 //   POST /internal/builds/claim         —— builder polls for work (atomically marks it building

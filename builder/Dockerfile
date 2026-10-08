@@ -22,8 +22,14 @@ COPY vendor/@standmeet ./node_modules/@standmeet
 
 COPY template ./template
 COPY runner.mjs ./runner.mjs
+COPY entrypoint.sh ./entrypoint.sh
 
-RUN mkdir -p /tmp/work /srv/microsites
+# The builder runs as `standmeet` (uid 1001, the backend's); entrypoint.sh explains the one root
+# step before it.
+RUN apk add --no-cache su-exec && \
+    addgroup -S -g 1001 standmeet && adduser -S -u 1001 -G standmeet -H standmeet && \
+    mkdir -p /tmp/work /srv/microsites && chown standmeet:standmeet /tmp/work /srv/microsites && \
+    chmod +x /opt/builder/entrypoint.sh
 
 ENV BACKEND_INTERNAL_URL=http://backend:8000
 ENV MICROSITES_ROOT=/srv/microsites
@@ -40,4 +46,4 @@ ENV MICROSITES_ROOT=/srv/microsites
 ARG STANDMEET_VERSION=dev
 RUN echo "${STANDMEET_VERSION}" > /opt/builder/VERSION
 
-CMD ["node", "/opt/builder/runner.mjs"]
+CMD ["/opt/builder/entrypoint.sh"]

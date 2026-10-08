@@ -405,6 +405,10 @@ services:
     environment:
       - BACKEND_INTERNAL_URL=http://backend:8000
       - MICROSITES_ROOT=/srv/microsites
+    # Same as prod: only the entrypoint's root step's capabilities; the server runs as uid 1001.
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETUID, SETGID]
+    security_opt: ["no-new-privileges:true"]
     depends_on:
       backend:
         condition: service_healthy

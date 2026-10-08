@@ -98,7 +98,9 @@ const nextConfig: NextConfig = {
     ],
     afterFiles: [
       { source: '/api/:path*', destination: `${BACKEND_URL}/api/:path*` },
-      { source: '/internal/:path*', destination: `${BACKEND_URL}/internal/:path*` },
+      // No /internal here, ever: those endpoints are for the instance's own network (builder,
+      // im-bridge, this app's server side), and everything that reaches this app is public.
+      // A rewrite here once exposed them all (refactor ledger R20, 2026-10-07).
       { source: '/robots.txt', destination: `${BACKEND_URL}/robots.txt` },
       { source: '/sitemap.xml', destination: `${BACKEND_URL}/sitemap.xml` },
     ],

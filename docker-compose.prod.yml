@@ -172,6 +172,11 @@ services:
     restart: unless-stopped
     environment:
       - BACKEND_INTERNAL_URL=http://backend:8000
+    # The builder runs the owner's code. It keeps only what its entrypoint's one root step needs
+    # (hand old files to its user, then drop to it); the server runs as uid 1001 with none.
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETUID, SETGID]
+    security_opt: ["no-new-privileges:true"]
     depends_on:
       backend:
         condition: service_healthy

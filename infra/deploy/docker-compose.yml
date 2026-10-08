@@ -93,6 +93,10 @@ services:
     restart: unless-stopped
     environment:
       - BACKEND_INTERNAL_URL=http://backend:8000
+    # It runs the owner's code: only its entrypoint's root step's capabilities, then uid 1001.
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETUID, SETGID]
+    security_opt: ["no-new-privileges:true"]
     depends_on:
       backend:
         condition: service_healthy

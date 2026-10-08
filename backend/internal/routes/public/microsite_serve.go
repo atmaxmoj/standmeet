@@ -64,8 +64,16 @@ type BuildAssetReq struct {
 	BaseHref string
 }
 
+// micrositeCSP —— what a hosted page may never do: be framed by another site (clickjacking), embed
+// plugin objects, or point <base> off this origin (the server injects one). Scripts, styles,
+// images and connections stay open: the server injects an inline script, chat cards render in
+// srcdoc iframes that inherit this policy, and the owner's page may load from anywhere
+// (refactor ledger R20).
+const micrositeCSP = "frame-ancestors 'self'; object-src 'none'; base-uri 'self'"
+
 // ServeBuildAsset —— resolves the build → assembles a safe path → serves the file.
 func ServeBuildAsset(w http.ResponseWriter, _ *http.Request, req *BuildAssetReq) {
+	w.Header().Set("Content-Security-Policy", micrositeCSP)
 	asset, err := req.Resolve()
 	if err != nil {
 		writeAssetErr(req.Log, w, err)
