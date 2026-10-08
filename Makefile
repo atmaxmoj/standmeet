@@ -405,12 +405,12 @@ stack-test:
 
 dev-up: app-build builder-vendor
 	@infra/plugins/provision.sh
-	# Rebuild ONLY the services whose code changes every loop (app + backend). The mocks
-	# (mcp-server-mock / external-mock / llm-gateway / mail-mock) also have build: contexts but rarely
-	# change — `up` (without --build) reuses their existing images and builds them only the first time
-	# they're missing. This keeps the per-loop rebuild to app+backend instead of all 6 build contexts.
-	# If a mock's own code changes, run `make dev-rebuild-mocks` once.
-	@docker compose -f docker-compose.dev.yml build app backend
+	# Rebuild app + backend AND the mocks. The mocks used to be skipped ("they rarely change; run
+	# dev-rebuild-mocks when they do"): a stack kept a 2026-09-28 external-mock for a week, and three
+	# supplier specs whose mock behaviour changed on 2026-10-01 read as product reds on main. An
+	# unchanged mock is a layer-cache hit (~5 s for all four), so building them every loop costs
+	# nothing and nobody has to remember. `up` below swaps any container whose image changed.
+	@docker compose -f docker-compose.dev.yml build app backend mcp-server-mock external-mock llm-gateway mail-mock
 	@docker compose -f docker-compose.dev.yml up -d --wait
 	@echo "[dev] project=$(DEV_PROJECT) app=http://localhost:$${DEV_PORT_APP:-38127} backend=http://localhost:$${DEV_PORT_BACKEND:-8000}"
 
@@ -474,8 +474,8 @@ dev-rebuild-app: app-build
 	@docker compose -p $(DEV_PROJECT) -f docker-compose.dev.yml build --no-cache app
 	@docker compose -p $(DEV_PROJECT) -f docker-compose.dev.yml up -d --no-deps app
 
-# dev-rebuild-mocks —— force-rebuild the mock/support images (only needed when a mock's source
-# changed; the normal dev-up path reuses their cached images).
+# dev-rebuild-mocks —— rebuild and swap just the mock images, without the app build dev-up runs
+# first (dev-up builds them too, every loop).
 dev-rebuild-mocks:
 	@docker compose -f docker-compose.dev.yml build mcp-server-mock external-mock llm-gateway mail-mock
 	@# build only creates the image, **it does not swap the running container** — skip this step and,
