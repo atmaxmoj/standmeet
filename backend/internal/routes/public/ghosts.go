@@ -42,7 +42,7 @@ func (h *Handlers) postGhostShown() http.HandlerFunc {
 }
 
 func dispatchShown(h *Handlers, w http.ResponseWriter, r *http.Request) {
-	av, ok := authVisitorWithToken(h, w, r)
+	av, ok := authOwningConversation(h, w, r)
 	if !ok {
 		return
 	}
@@ -101,7 +101,7 @@ func (h *Handlers) postGhostAccept() http.HandlerFunc {
 }
 
 func dispatchAccept(h *Handlers, w http.ResponseWriter, r *http.Request) {
-	av, ok := authVisitorWithToken(h, w, r)
+	av, ok := authOwningConversation(h, w, r)
 	if !ok {
 		return
 	}

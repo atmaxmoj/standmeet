@@ -25,6 +25,7 @@ type (
 	CreatedKeypair             = usecase.CreatedKeypair
 	MicrositeDeps              = usecase.MicrositeDeps
 	MicrositeDocStore          = usecase.MicrositeDocStore
+	MicrositeTextInput         = usecase.MicrositeTextInput
 	DocWrite                   = usecase.DocWrite
 	DocQuery                   = usecase.DocQuery
 	DocRef                     = usecase.DocRef

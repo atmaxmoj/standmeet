@@ -63,6 +63,11 @@ type VisitorSessionData struct {
 	Mode         string               `json:"mode"`
 	CodeID       string               `json:"code_id"`
 	MemberID     string               `json:"member_id"`
+	// ConversationID —— the one conversation a member-less (public / BYOAI) session owns, set at
+	// issue. A code session owns its member's conversations instead (conversations.member_id);
+	// this is what lets a codeless session be checked at all — without it any conversation id
+	// it named was taken on trust.
+	ConversationID string `json:"conversation_id,omitempty"`
 	// ProviderID — which provider from the owner's book this session uses. Empty
 	// = the default one. **Resolved once at session-issue time and frozen**
 	// (code > role > default), same model as RoleSnapshot: if the owner changes

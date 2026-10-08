@@ -226,6 +226,14 @@ export async function setPageByoai(
   expect(res.status, 'set page byoai').toBe(200);
 }
 
+// setPageOpenWithoutCode —— whether a visitor without a code may open this page.
+export async function setPageOpenWithoutCode(
+  request: APIRequestContext, csrf: string, slug: string, open: boolean,
+): Promise<void> {
+  const res = await pageAPI(request, csrf, 'put', `/${slug}/open-without-code`, { open_without_code: open });
+  expect(res.status, 'set page open-without-code').toBe(200);
+}
+
 // bindCodeToPage —— point a code at a page; an empty slug = unbind.
 export async function bindCodeToPage(
   request: APIRequestContext, csrf: string, codeID: string, slug: string,

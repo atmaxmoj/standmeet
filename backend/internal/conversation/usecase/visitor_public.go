@@ -98,12 +98,13 @@ func finalizePublicSession(
 		return IssueCodeSessionResult{}, perr
 	}
 	issued, err := deps.Sessions.Issue(ctx, &access.VisitorSessionData{
-		OwnerID:      o.ID,
-		Mode:         mode,
-		Visitor:      access.VisitorProfile{Name: in.VisitorName, Email: in.VisitorEmail},
-		RoleSnapshot: &snapshot,
-		ProviderID:   providerID,
-		GasMetered:   snapshot.GasMetered(),
+		OwnerID:        o.ID,
+		Mode:           mode,
+		ConversationID: chat.ID,
+		Visitor:        access.VisitorProfile{Name: in.VisitorName, Email: in.VisitorEmail},
+		RoleSnapshot:   &snapshot,
+		ProviderID:     providerID,
+		GasMetered:     snapshot.GasMetered(),
 	})
 	if err != nil {
 		return IssueCodeSessionResult{}, fmt.Errorf("issue visitor session: %w", err)

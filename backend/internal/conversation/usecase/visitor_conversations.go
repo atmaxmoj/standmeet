@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"strings"
 
+	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	"github.com/atmaxmoj/standmeet/internal/conversation/entity"
 	"github.com/atmaxmoj/standmeet/internal/conversation/repo"
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
@@ -128,9 +129,24 @@ func capRunes(s string, n int) string {
 	return string(r[:n]) + "…"
 }
 
-// ChatBelongsToMember —— ownership check for the turn handler: whether this
-// conversation belongs to this member (loaded owner-scoped). Prevents a visitor from
-// borrowing someone else's conversation_id to send a turn.
+// SessionOwnsConversation —— the one ownership rule for a conversation id a visitor names: a code
+// session owns its member's conversations; a member-less (public / BYOAI) session owns exactly
+// the one it was issued with. Every door that takes a conversation id from the caller (agent
+// turn, the direct tool route) asks this — a foreign id is refused like a missing one.
+func SessionOwnsConversation(
+	ctx context.Context, deps *VisitorSessionDeps, data *access.VisitorSessionData, convID string,
+) (bool, error) {
+	if convID == "" {
+		return false, nil
+	}
+	if data.MemberID == "" {
+		return convID == data.ConversationID, nil
+	}
+	return ChatBelongsToMember(ctx, deps, data.OwnerID, convID, data.MemberID)
+}
+
+// ChatBelongsToMember —— whether this conversation belongs to this member (loaded
+// owner-scoped). The code-session half of SessionOwnsConversation.
 func ChatBelongsToMember(
 	ctx context.Context, deps *VisitorSessionDeps, ownerID, convID, memberID string,
 ) (bool, error) {

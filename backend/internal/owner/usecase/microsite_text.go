@@ -20,17 +20,26 @@ import (
 // book; past this the text is cut with a mark.
 const pageTextCap = 6000
 
-// LiveMicrositeText — the visible text of slug's live build, capped. A page that is not live has
-// no text (the resolve error). The prerendered file links its scripts and styles (vite output),
-// so stripping the tags leaves the prose. Page and build ids come from the database.
+// MicrositeTextInput —— which page's text, read from where, for whom.
+type MicrositeTextInput struct {
+	Granted    func(pageID string) bool
+	BuildsRoot string
+	Slug       string
+}
+
+// LiveMicrositeText — the visible text of slug's live build, capped, for a caller that may open
+// the page: granted(pageID) is the same grant /p/<slug> serves by (owner, or a code bound to the
+// page). A page closed to this caller, or not live, has no text (the resolve error) — the slug
+// comes from the browser, so naming a closed page must not read it to the model. The prerendered
+// file links its scripts and styles (vite output), so stripping the tags leaves the prose.
 func LiveMicrositeText(
-	ctx context.Context, deps MicrositeDeps, owners SoleOwnerLookup, buildsRoot, slug string,
+	ctx context.Context, deps MicrositeDeps, owners SoleOwnerLookup, in *MicrositeTextInput,
 ) (string, error) {
-	live, err := ResolveLiveBuild(ctx, deps, owners, slug)
+	live, err := ResolveOpenBuild(ctx, deps, owners, in.Slug, in.Granted)
 	if err != nil {
 		return "", err
 	}
-	fp := filepath.Join(buildsRoot, live.Build.PageID, live.Build.ID, "dist", "index.html")
+	fp := filepath.Join(in.BuildsRoot, live.Build.PageID, live.Build.ID, "dist", "index.html")
 	body, rerr := os.ReadFile(filepath.Clean(fp))
 	if rerr != nil {
 		return "", fmt.Errorf("read prerendered page: %w", rerr)

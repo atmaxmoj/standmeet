@@ -83,13 +83,21 @@ func embedSyncMode(d *deps.Runtime) func(ctx context.Context, kid string) (strin
 	}
 }
 
-// micrositeText —— a live microsite's published text by slug (owner.LiveMicrositeText).
-func micrositeText(d *deps.Runtime) func(ctx context.Context, slug string) (string, error) {
+// micrositeText —— a live microsite's published text by slug (owner.LiveMicrositeText), only for
+// a request that may open the page — the same grant the page itself is served by.
+func micrositeText(
+	d *deps.Runtime,
+) func(r *http.Request, visitorToken, slug string) (string, error) {
 	pages := owner.MicrositeDeps{
 		Pages: d.MicrositeRepo, Builds: d.MicrositeBuildRepo, Events: d.Recorder,
 	}
-	return func(ctx context.Context, slug string) (string, error) {
-		text, err := owner.LiveMicrositeText(ctx, pages, d.OwnerRepo, d.BuildsRoot, slug)
+	grant := micrositeGrant(d)
+	return func(r *http.Request, visitorToken, slug string) (string, error) {
+		in := &owner.MicrositeTextInput{
+			BuildsRoot: d.BuildsRoot, Slug: slug,
+			Granted: func(pageID string) bool { return grant(r, visitorToken, pageID) },
+		}
+		text, err := owner.LiveMicrositeText(r.Context(), pages, d.OwnerRepo, in)
 		if err != nil {
 			return "", fmt.Errorf("live microsite text: %w", err)
 		}

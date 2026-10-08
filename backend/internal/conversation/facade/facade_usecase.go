@@ -61,6 +61,7 @@ var (
 	BuildProfileFacts         = usecase.BuildProfileFacts
 	BuildGhostContext         = usecase.BuildGhostContext
 	ChatBelongsToMember       = usecase.ChatBelongsToMember
+	SessionOwnsConversation   = usecase.SessionOwnsConversation
 	CodeIntro                 = usecase.CodeIntro
 	ComposeBasePersona        = usecase.ComposeBasePersona
 	ComposeDynamicPersona     = usecase.ComposeDynamicPersona

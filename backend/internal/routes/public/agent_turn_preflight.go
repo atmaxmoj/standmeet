@@ -6,15 +6,56 @@
 // behind and consumes no quota.
 //
 // Split out of agent_turn.go: that file owns "how this turn runs", this file owns
-// "whether this turn may run".
+// "whether this turn may run" — and the same ownership rule for the /sessions/{id}/... routes
+// (the tool route, the ghost log), which name a conversation the same way.
 
 package public
 
 import (
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
+
+	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	conversation "github.com/atmaxmoj/standmeet/internal/conversation/facade"
 )
+
+// visitorToolResult —— what of a tool result the visitor's live stream may carry (F-A-28): no
+// raw retrieval text; a citable read keeps only its citation. Injected as ShowToolResult.
+var visitorToolResult = conversation.VisitorToolResult
+
+// authOwningConversation —— authenticate the visitor, then require that its session owns the
+// conversation named by the URL's {id}. Refusals are written; false = stop.
+func authOwningConversation(
+	h *Handlers, w http.ResponseWriter, r *http.Request,
+) (authedVisitor, bool) {
+	av, ok := authVisitorWithToken(h, w, r)
+	if !ok {
+		return av, false
+	}
+	return av, h.ownsConversation(w, r, av.Data, chi.URLParam(r, "id"))
+}
+
+// ownsConversation —— the conversation id in the URL is the caller's word: a tool runs against it
+// (summarize_conversation reads it), ghost records are written to it, so the session must own it.
+// A foreign id answers exactly like a missing one. Writes the refusal; false = stop.
+func (h *Handlers) ownsConversation(
+	w http.ResponseWriter, r *http.Request, data *access.VisitorSessionData, convID string,
+) bool {
+	ok, err := conversation.SessionOwnsConversation(r.Context(), &h.Visitor, data, convID)
+	if err != nil {
+		h.Log.Error("conversation ownership", "err", err)
+		writeError(h.Log, w, serverErr())
+		return false
+	}
+	if !ok {
+		writeToolErr(h.Log, w, toolErr{
+			Status: http.StatusNotFound, Reason: "conversation_not_found",
+			Detail: "conversation not found",
+		})
+	}
+	return ok
+}
 
 // preflightAgentTurnQuota —— #28: now that persistence moved to /agent/turn, quota is
 // also checked here (pre-stream, a clean 4xx, consistent with the old /dialogs). Skipped
@@ -110,27 +151,13 @@ func enforceTurnQuotaOrWrite(
 	return true
 }
 
-// checkConvOwnership —— multi-conversation model: a code visitor can have several
-// conversations and conversation_id is sent by the client, so this must verify the
-// conversation belongs to that member, guarding against borrowing someone else's id to
-// send a turn. With no member (public/byoai) there's no member to compare against, so it
-// falls back to the existing trust boundary (conversation is locked by the owner-scoped
-// session).
+// checkConvOwnership —— conversation_id is sent by the client, so verify the session owns it
+// (conversation.SessionOwnsConversation: a code member's conversations, or the one a codeless
+// session was issued with), guarding against borrowing someone else's id to send a turn.
 func checkConvOwnership(
 	r *http.Request, h *Handlers, auth authedVisitor, w http.ResponseWriter, convID string,
 ) bool {
-	if auth.Data.MemberID == "" {
-		return true
-	}
-	return verifyConvMember(r, h, auth, w, convID)
-}
-
-func verifyConvMember(
-	r *http.Request, h *Handlers, auth authedVisitor, w http.ResponseWriter, convID string,
-) bool {
-	ok, err := conversation.ChatBelongsToMember(
-		r.Context(), &h.Visitor, auth.Data.OwnerID, convID, auth.Data.MemberID,
-	)
+	ok, err := conversation.SessionOwnsConversation(r.Context(), &h.Visitor, auth.Data, convID)
 	if err != nil {
 		h.Log.Error("conv ownership check", "err", err)
 		writeError(h.Log, w, serverErr())

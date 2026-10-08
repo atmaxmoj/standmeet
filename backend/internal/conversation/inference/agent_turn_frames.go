@@ -5,23 +5,15 @@ package inference
 
 import "encoding/json"
 
-// shownResult —— can this tool call's result go out live, unchanged.
-//
-// **Right now it goes out unchanged — the half of F-A-28 still not closed.** The retrieval
-// result contains note body text (including private subjectivity); the persistence path already
-// strips it (history.go goes through VisitorToolCalls), the live path has not.
-//
-// Can't just strip it here: **the visitor's citation footnotes are computed by the frontend
-// from these results.** Stripping result would make the footer disappear entirely
-// (visitor-chat-tool-cards would go red immediately). So the show_as_source gate the design
-// relies on is really a browser-side filter over a payload that already contains private body
-// text — the server sends everything, the client decides what to display.
-//
-// To close this half, the server needs to emit citations as their own frame (already computed,
-// right there in history's return value), so the footer stops depending on raw result. That's a
-// streaming-protocol change, not an `if` added here.
-func shownResult(_, result string) string {
-	return result
+// shownResult —— what of this tool call's result goes out live: the caller's rule
+// (AgentTurnInput.ShowToolResult — the visitor route injects conversation.VisitorToolResult,
+// which closes F-A-28's live half: no raw retrieval text, a citable read keeps only its
+// citation). No rule injected → unchanged (an owner-side or test caller).
+func shownResult(show func(name, result string) string, name, result string) string {
+	if show == nil {
+		return result
+	}
+	return show(name, result)
 }
 
 type toolStartedPayload struct {

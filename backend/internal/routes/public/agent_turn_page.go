@@ -10,14 +10,17 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/conversation/inference"
 )
 
-// pageTextForTurn —— the microsite's published text when the turn is asked on one; "" otherwise.
-// A failure (the page was taken down, the build is unreadable) is logged and the turn runs
-// without page text: the page is context, not a precondition.
-func pageTextForTurn(r *http.Request, h *Handlers, doc *inference.AgentDocContext) string {
+// pageTextForTurn —— the microsite's published text when the turn is asked on one the session
+// may open; "" otherwise. The slug is the browser's word, so a page closed to this session reads
+// as no text. A failure (closed, taken down, unreadable) is logged and the turn runs without page
+// text: the page is context, not a precondition.
+func pageTextForTurn(
+	r *http.Request, h *Handlers, visitorToken string, doc *inference.AgentDocContext,
+) string {
 	if !onMicrosite(doc) {
 		return ""
 	}
-	text, err := h.MicrositeText(r.Context(), doc.Path)
+	text, err := h.MicrositeText(r, visitorToken, doc.Path)
 	if err != nil {
 		h.Log.Warn("microsite page text", "slug", doc.Path, logErr, err)
 		return ""

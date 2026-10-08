@@ -78,6 +78,9 @@ type AgentTurnInput struct {
 	// citations + booking hits; the route handler's closure marks waypoints visited and saves
 	// them to the session. nil = don't mark (not code / no waypoints).
 	MarkWaypoints MarkWaypointsFunc
+	// ShowToolResult —— what of a tool result the live stream may carry (shownResult). The
+	// visitor route injects conversation.VisitorToolResult; nil = unchanged.
+	ShowToolResult func(name, result string) string
 	// BuildGhost —— the ghost-steering policy port. After done, produces at most one steering
 	// ghost from this turn's final reply (a route closure: GhostPolicy LLM + writes to
 	// conversation_ghosts). nil = don't produce one (not code / no waypoints).
@@ -153,7 +156,7 @@ func RunAgentTurn(
 	log.Info("agent turn start", "model", credModel(in.Cred), "mode", in.Mode,
 		"tools", len(in.Tools), "timeout_s", int(timeout.Seconds()))
 
-	sink := &sseSink{log: log, w: w, flusher: pickFlusher(w)}
+	sink := &sseSink{log: log, w: w, flusher: pickFlusher(w), show: in.ShowToolResult}
 	// The retry notifier rides the ctx down to the transport (http_retry.go): before each
 	// backoff it calls sink.Retrying, emitting a `retrying` frame. Wired in before
 	// BuildAgentIterator, so the model call's ctx already carries the callback.
@@ -255,6 +258,7 @@ type sseSink struct {
 	log     *slog.Logger
 	w       http.ResponseWriter
 	flusher http.Flusher
+	show    func(name, result string) string
 	mu      sync.Mutex
 }
 
@@ -288,7 +292,7 @@ func (s *sseSink) ToolCompleted(name, result string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	body, err := json.Marshal(toolCompletedPayload{
-		Name: name, Result: shownResult(name, result),
+		Name: name, Result: shownResult(s.show, name, result),
 	})
 	if err != nil {
 		s.log.Error("agent turn marshal tool_completed", logErrKey, err)

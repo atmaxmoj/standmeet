@@ -51,15 +51,59 @@ func VisitorToolCalls(raw []byte) []byte {
 	return out
 }
 
-// VisitorToolResult -- the live-stream path: whether one tool call's result can be sent
-// to the visitor as-is. Retrieval-family calls return an empty string (the UI only
-// counts them); everything else passes through as-is -- those results are meant to be
-// rendered.
+// VisitorToolResult -- the live-stream path: what of one tool call's result may reach the
+// visitor. Retrieval-family calls send nothing, with one exception: a corpus_read of a citable
+// note keeps exactly its citation (genre, id, path, slug, title, body) — the footer and its
+// expand-on-click read that, and a citable note is one the visitor may be shown. A read the AI
+// may not cite (show_as_source=false, subjectivity) sends nothing. Everything else passes
+// through as-is -- those results are meant to be rendered.
 func VisitorToolResult(name, result string) string {
-	if isCorpusToolName(name) {
+	if !isCorpusToolName(name) {
+		return result
+	}
+	if name != "corpus_read" {
 		return ""
 	}
-	return result
+	return citationOf(result)
+}
+
+// readCitation -- the citation fields of a corpus_read result; nothing else of it.
+type readCitation struct {
+	ShowAsSource *bool  `json:"show_as_source,omitempty"`
+	Genre        string `json:"genre"`
+	ID           string `json:"id"`
+	Path         string `json:"path"`
+	Slug         string `json:"slug"`
+	Title        string `json:"title"`
+	Body         string `json:"body"`
+}
+
+// citationOf -- a citable read's citation as JSON, "" for anything else (unparseable included:
+// better a missing footnote than a leak of something not understood).
+func citationOf(result string) string {
+	var c readCitation
+	if json.Unmarshal([]byte(result), &c) != nil || !citable(&c) {
+		return ""
+	}
+	c.ShowAsSource = nil
+	out, err := json.Marshal(c)
+	if err != nil {
+		return ""
+	}
+	return string(out)
+}
+
+// citable -- the footer's rule (sdk corpus-read-wire.ts citableCorpusRead): wiki / output /
+// writing, minus wiki / output marked not-a-source. Subjectivity is never cited.
+func citable(c *readCitation) bool {
+	switch c.Genre {
+	case "writing":
+		return true
+	case "wiki", "output":
+		return c.ShowAsSource == nil || *c.ShowAsSource
+	default:
+		return false
+	}
 }
 
 func isCorpusToolName(name string) bool {

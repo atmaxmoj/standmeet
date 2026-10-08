@@ -57,9 +57,10 @@ type Handlers struct {
 	// EmbedSyncMode —— the embed's sync mode by its public key id (embed_sync.go). Wired at the
 	// composition root; its errors are already display errors.
 	EmbedSyncMode func(ctx context.Context, kid string) (string, error)
-	// MicrositeText —— a live microsite's published, prerendered text by slug (agent_turn_page.go).
-	// Wired at the composition root, which resolves the live build.
-	MicrositeText func(ctx context.Context, slug string) (string, error)
+	// MicrositeText —— a live microsite's published, prerendered text by slug (agent_turn_page.go),
+	// only when this request (owner, or the visitor token's code) may open the page. Wired at the
+	// composition root, which resolves the live build and the page grant.
+	MicrositeText func(r *http.Request, visitorToken, slug string) (string, error)
 	QueryQueue    *session.QueryQueue
 	Ledger        *conversation.WaypointLedger
 	Ghosts        conversation.GhostDeps

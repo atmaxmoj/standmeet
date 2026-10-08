@@ -74,12 +74,13 @@ func (h *Handlers) toolDispatch() http.HandlerFunc {
 	}
 }
 
-// admitToolCall —— authenticate the visitor, then apply the public-tier per-IP throttle. Returns
-// the session data + ok; on any refusal the response is already written.
+// admitToolCall —— authenticate the visitor and require it owns the URL's conversation, then
+// apply the public-tier per-IP throttle. Returns the session data + ok; on any refusal the
+// response is already written.
 func (h *Handlers) admitToolCall(
 	w http.ResponseWriter, r *http.Request,
 ) (*access.VisitorSessionData, bool) {
-	auth, ok := authVisitorWithToken(h, w, r)
+	auth, ok := authOwningConversation(h, w, r)
 	if !ok {
 		return nil, false
 	}

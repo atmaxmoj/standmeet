@@ -60,11 +60,12 @@ func dispatchTurn(
 		RecordUsage:      buildAgentTurnUsage(h, auth),
 		CrossConvContext: buildCrossConvForTurn(r, h, auth, req.ConversationID),
 		ProfileFacts:     facts,
-		PageText:         pageTextForTurn(r, h, req.DocContext),
+		PageText:         pageTextForTurn(r, h, auth.Token, req.DocContext),
 		OwnerTimezone:    ownerTZForTurn(r, h, auth.Data.OwnerID),
 		VisitorTimezone:  req.VisitorTimezone,
 		SessionNotes:     ts.SessionNotes,
 		MarkWaypoints:    buildAgentTurnLedger(h, auth),
+		ShowToolResult:   visitorToolResult,
 		Epilogue:         buildGhostForTurn(h, auth, cred, req.ConversationID),
 		TurnEnded:        slot.release,
 	})
