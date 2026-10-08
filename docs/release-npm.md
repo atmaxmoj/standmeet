@@ -29,6 +29,22 @@ make npm-publish-here TAG=vX.Y.Z
 It builds as released, stamps, publishes and unstamps. CI's `npm-publish` job does the same on a
 release tag when the project has an `NPM_TOKEN`; without one it prints that it skipped and passes.
 
+The owner's account requires 2FA for writes, with a **security key** (Touch ID / passkey), not
+an authenticator code — so `NPM_OTP` does not apply. Publish through npm's web check instead:
+run the publish under a pseudo-terminal so npm prints its approval link, open that link, and
+the owner touches the key.
+
+```sh
+make npm-stamp TAG=vX.Y.Z
+cd sdk/packages/mcp-client && script -q /tmp/npmweb.log npm publish --access public --auth-type=web
+# open the https://www.npmjs.com/auth/cli/… link from the log; the owner confirms with the key
+cd - && make npm-unstamp
+```
+
+The first version of a new package is held by npm's own review ("Temporary Holding Version",
+`0.0.0-stage`) and appeared as the real version a few minutes later; nothing to approve on the
+owner's side (Settings → Staged Packages stayed empty).
+
 ## Check before a release (no npm login needed)
 
 ```sh
