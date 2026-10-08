@@ -187,7 +187,9 @@ func buildWritingsPageResult(
 	return ListPublishedWritingsPageResult{Writings: page, NextCursor: cursor}
 }
 
-// GetWritingBySlug —— for the public article view.
+// GetWritingBySlug —— for the public article view. A draft answers exactly like a slug that
+// isn't there (ErrWritingNotFound): the repo lookup has no published filter, and this used to
+// hand a draft's whole body to anyone who guessed its slug.
 func GetWritingBySlug(
 	ctx context.Context, deps WritingsDeps, ownerID, slug string,
 ) (entity.Writing, error) {
@@ -197,6 +199,9 @@ func GetWritingBySlug(
 	p, err := deps.Writings.GetBySlug(ctx, ownerID, slug)
 	if err != nil {
 		return entity.Writing{}, fmt.Errorf("get writing: %w", err)
+	}
+	if !p.IsPublished() {
+		return entity.Writing{}, entity.ErrWritingNotFound
 	}
 	return p, nil
 }

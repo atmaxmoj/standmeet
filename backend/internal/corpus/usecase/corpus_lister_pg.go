@@ -198,8 +198,9 @@ func (l *pgCorpusLister) searchWritings(
 		// writing's Search returns only published rows (ports.go: writing is admitted
 		// by published), but ACL still needs that value passed in — the check is
 		// centralized in one place, not left to the verbal convention "this lister
-		// only ever gives published rows."
-		if !allowsCorpusEntry(scope, "writing", p, hits[i].IsPublished()) {
+		// only ever gives published rows." OpenToPublic, not IsPublished: a private
+		// writing is published but not the public identity's to read.
+		if !allowsCorpusEntry(scope, "writing", p, hits[i].OpenToPublic()) {
 			continue
 		}
 		out = append(out, Meta{

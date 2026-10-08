@@ -280,6 +280,13 @@ func toWritingViewResolved(
 	r *http.Request, h *WritingHandlers, wg *corpus.Writing,
 ) writingView {
 	v := toWritingView(wg)
+	if !wg.OpenToPublic() {
+		// A private writing on this anonymous route: title + teaser (locked_body) only — the
+		// reader shows its LockedView when the body is empty. A granted code reads the body
+		// through the visitor tools, where the role's globs decide.
+		v.BodyMD, v.AssetURLs = "", map[string]string{}
+		return v
+	}
 	v.AssetURLs = resolveWritingAssetURLs(r, h, wg)
 	return v
 }

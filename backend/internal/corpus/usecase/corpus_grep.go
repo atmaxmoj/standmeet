@@ -214,7 +214,7 @@ func grepWritingRow(
 	row *entity.Writing, scope access.CorpusScope, re *regexp.Regexp,
 ) (GrepHit, bool) {
 	p := row.Path()
-	if !allowsCorpusEntry(scope, "writing", p, row.IsPublished()) {
+	if !allowsCorpusEntry(scope, "writing", p, row.OpenToPublic()) {
 		return GrepHit{}, false
 	}
 	lines, total := GrepBody(re, row.Body())

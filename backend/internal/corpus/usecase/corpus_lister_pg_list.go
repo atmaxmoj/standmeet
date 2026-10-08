@@ -107,7 +107,7 @@ func (l *pgCorpusLister) listWritingRoots(
 	out := make([]Meta, 0, len(writings))
 	for i := range writings {
 		p := writings[i].Path()
-		if !allowsCorpusEntry(scope, "writing", p, writings[i].IsPublished()) {
+		if !allowsCorpusEntry(scope, "writing", p, writings[i].OpenToPublic()) {
 			continue
 		}
 		out = append(out, Meta{

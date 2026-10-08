@@ -111,12 +111,11 @@ func (l *pgCorpusLister) findWriting(
 	if err != nil {
 		return Entry{}, false
 	}
-	// GetPublishedByPath lives up to its name (only returns published entries), so
-	// Published is always true here — written as an explicit IsPublished() call
-	// rather than a literal true: the criterion still comes from that call, not
-	// from the promise implied by the function's name.
+	// GetPublishedByPath only returns published entries; Published still comes from
+	// the entity: OpenToPublic, so a private writing is not the public identity's to read
+	// (a code whose role grants it reads it through its globs).
 	return Entry{
 		ID: w.ID(), Path: path, Slug: w.Slug(), Title: w.Title(), Genre: "writing",
-		Body: writingBodyText(&w), Published: w.IsPublished(),
+		Body: writingBodyText(&w), Published: w.OpenToPublic(),
 	}, true
 }

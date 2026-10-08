@@ -159,6 +159,12 @@ func (w *Writing) PublishedAt() (time.Time, bool) {
 // IsPublished —— whether it has been published.
 func (w *Writing) IsPublished() bool { return w.timestamps.IsPublished() }
 
+// OpenToPublic —— published AND not private: what the public identity (anonymous readers,
+// codeless and BYOAI sessions) may read in full. This is the "published" the visitor ACL gets for
+// a writing; a private writing is published (it is listed, its teaser shows) but its body is for a
+// code whose role grants it. Passing IsPublished() there let a public session read private bodies.
+func (w *Writing) OpenToPublic() bool { return w.IsPublished() && !w.IsPrivate() }
+
 // Obsidian —— whether this writing was synced from an Obsidian vault; a
 // type-assert helper so callers don't have to Find + assert every time.
 // Returns (Obsidian{}, false) when it isn't from a vault.
