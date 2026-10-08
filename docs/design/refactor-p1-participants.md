@@ -30,6 +30,21 @@ against that list, and the list is the regression set. Measured 2026-10-07 on ma
 | R23 CI quality gates | **Done 2026-10-07**: workflow `quality` runs `make lint` and `make backend-test` on every push to main, with the dev box's tool versions. Its first runs found two real reds the dev box never showed (a lost NOTIFY before LISTEN in `pgstore.Listener`; a sleep-synchronised river test), both fixed in v0.1.136. Known cost: gitleaks' full-history scan takes ~12 min on the CI machine (4 s locally) | — | — | `make lint`, `make backend-test` | — |
 | R24 docs reconciliation | CLAUDE.md: says 6 admin sections (nav has 8 groups, 35 sections), names legacy dirs that no longer exist, describes Electron and the old tool list; `code-architecture.md` "Draft" since 2026-05-16, 2 of 5 open questions settled by building | — | — | `check-doc-make-targets` (make targets only); `check-no-hardcoded-dev-stack.sh` references the deleted legacy dirs | — |
 
+## Progress (2026-10-07, v0.1.137)
+
+- **R2 done.** `applications.commit` is a dispatcher op (`jobsmcp.ApplicationOps`, Danger
+  authority, MCP-only reach). An op result may carry `_embeds` (`facadeparity/embeds.go`); the
+  MCP face turns them into embedded resources, so the PDF still arrives as a resource block.
+- **R9 partly done.** keypairs, corpus trees and tags, writings tree go through admin-only
+  dispatcher ops; the baseline is 37 (from 43). auth / claim / recovery (browser session
+  lifecycle) and obsidian (multipart import, zip export) stay: they are not JSON-in / JSON-out.
+- **R21 done.** 14 unit tests on the turn state machine (`make test-unit`, CI); the
+  chat-only-in-sdk gate also catches a hand-written turn fetch, with a self-test.
+- **R23 done.** CI runs every lint gate, `backend-test` and `test-unit` in parallel on main.
+- Found on the way and fixed: a NOTIFY lost before LISTEN (`pgstore.Listener`); a boot failure
+  that hung silently on `pool.Close` (`cmd/server/main.go closePool`); `norm-outward-toolset`
+  missing the nav tools; gate scripts that only worked with macOS awk and a single-entry GOPATH.
+
 ## Order
 
 R24 first (small; a wrong map costs round trips on every task). Then the stale-but-done cleanup
