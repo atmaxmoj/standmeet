@@ -23,6 +23,7 @@ import { commitDraftAPI } from '@/fixtures/admin-mutations';
 import { createCode } from '@/fixtures/codes';
 
 const MIGRATION = '2026-09-29-resume-masters.sql';
+const LATER_MASTERS_MIGRATION = '2026-10-08-resume-master-trash.sql';
 
 const OWNER = {
   email: 'masters-upgrader@example.com', password: 'correct-horse-battery-staple',
@@ -67,6 +68,10 @@ test.describe('upgrade · deploying the new version adds résumé masters to a l
     execSQL('ALTER TABLE resume_drafts DROP COLUMN IF EXISTS based_on_master_id');
     execSQL('DROP TABLE IF EXISTS resume_masters');
     execSQL(`DELETE FROM schema_migrations WHERE name = '${MIGRATION}'`);
+    // A volume from before masters is also from before every later change to that table: forget
+    // those migrations too, or the deploy rebuilds resume_masters without their columns
+    // (2026-10-08-resume-master-trash.sql's deleted_at) and every masters read fails.
+    execSQL(`DELETE FROM schema_migrations WHERE name = '${LATER_MASTERS_MIGRATION}'`);
     expect(count(`SELECT count(*) FROM information_schema.tables WHERE table_name='resume_masters'`),
       'pre-state not built: the table is still there').toBe(0);
     expect(count(`SELECT count(*) FROM information_schema.columns
