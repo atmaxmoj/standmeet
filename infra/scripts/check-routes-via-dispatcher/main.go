@@ -84,21 +84,28 @@ const facadeSuffix = "/facade"
 // modulePrefix —— this repo's import path prefix.
 const modulePrefix = "github.com/atmaxmoj/standmeet/internal/"
 
+// allowed —— admin files that reach a domain directly BY DECISION, not as debt (R9, closed
+// 2026-10-08). A dispatcher Op is JSON in, JSON out, invoked for an owner who is already known;
+// none of these fits that shape. Each entry names why. An entry that stops offending is reported
+// so it can be deleted; a new entry needs the same kind of reason, written here.
+var allowed = map[string]string{
+	"internal/routes/admin/auth.go": "login / refresh / logout: runs before an owner is " +
+		"known and answers with session cookies, not JSON",
+	"internal/routes/admin/claim.go": "first-run claim: creates the owner, so there is no " +
+		"owner to invoke an op for; answers with session cookies",
+	"internal/routes/admin/recovery.go": "password recovery: unauthenticated by definition; " +
+		"its result is a new session",
+	"internal/routes/admin/obsidian.go": "vault import is a multipart upload and export a " +
+		"zip stream — bytes, not JSON",
+}
+
 // baseline —— files that already connected directly to a domain facade before the
-// migration (paths relative to backend/).
+// migration (paths relative to backend/). These are debt, unlike allowed.
 //
 // **This list may only shrink.** Every time a resource moves onto the outbound
 // convergence point, delete that file's line. Don't add lines: adding one means
 // another path around the convergence point was just created.
 var baseline = map[string]bool{
-	// auth / claim / recovery: the browser session lifecycle (login, refresh, claim, password
-	// reset) — cookies and session tokens, not driveable blocks. obsidian: the multipart vault
-	// import / zip export routes. The corpus and writings trees and the keypairs moved onto
-	// the convergence point (R9, 2026-10-07).
-	"internal/routes/admin/auth.go":     true,
-	"internal/routes/admin/claim.go":    true,
-	"internal/routes/admin/obsidian.go": true,
-	"internal/routes/admin/recovery.go": true,
 	// The block-vocabulary rename renamed this package and some of its files; the rows
 	// below are the same debt under new names. One sibling row is gone because that file
 	// left routes/ entirely — the mount machinery lives in internal/plugin/mount now,
@@ -155,7 +162,7 @@ func main() {
 
 	fresh := []string{}
 	for _, f := range files {
-		if !baseline[f] {
+		if _, ok := allowed[f]; !ok && !baseline[f] {
 			fresh = append(fresh, f)
 		}
 	}
@@ -177,10 +184,16 @@ func main() {
 			stale++
 		}
 	}
+	for f := range allowed {
+		if !contains(files, f) {
+			stale++
+		}
+	}
 	fmt.Printf("check-routes-via-dispatcher: faces reach operations only through the "+
-		"dispatcher (%d baselined files left to migrate", len(baseline)-stale)
+		"dispatcher (%d allowed by decision, %d baselined files left to migrate",
+		len(allowed), len(baseline))
 	if stale > 0 {
-		fmt.Printf(", %d already clean — delete them from the baseline", stale)
+		fmt.Printf(", %d already clean — delete them from the lists", stale)
 	}
 	fmt.Println(", ratchet holds).")
 }
