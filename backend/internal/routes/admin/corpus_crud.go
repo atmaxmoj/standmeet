@@ -4,9 +4,11 @@
 // Route table:
 //   GET    /corpus/{genre}/{id}          — detail (including body and outbound/backlinks)
 //   PATCH  /corpus/{genre}/{id}          — update
-//   DELETE /corpus/{genre}/{id}          — delete (raw means archive; subjectivity also
-//                                           goes through this route)
+//   DELETE /corpus/{genre}/{id}          — delete into the trash (subjectivity also goes
+//                                           through this route)
 //   POST   /corpus/{genre}/{id}/promote  — promote one step (genre names the **source**)
+//   GET    /corpus-trash                 — the trash
+//   POST   /corpus-trash/{id}/restore    — restore an entry with its subtree
 //   POST   /corpus/{genre}/{id}/assets   — attach an asset (image / attachment / hero image)
 //
 // All ability is taken through the convergence point; this layer only carries the
@@ -30,6 +32,10 @@ func (h *Handlers) MountCorpusCRUD(r chi.Router) {
 		h.dispatchOp(face, "corpus.delete", corpusIDArgs, noContent))
 	r.Post("/corpus/{genre}/{id}/promote",
 		h.dispatchOp(face, "corpus.promote", corpusEntryArgs, jsonOK))
+	// The trash a delete lands in, and the way back.
+	r.Get("/corpus-trash", h.dispatchOp(face, "corpus.trash", emptyArgs, jsonOK))
+	r.Post("/corpus-trash/{id}/restore",
+		h.dispatchOp(face, "corpus.restore", urlParamArgs("id"), jsonOK))
 	// An asset attaches under a corpus entry, so its address nests under it too. Both
 	// routes share one address: JSON hands over an https address (the server fetches it
 	// itself — the owner-via-AI usage), multipart hands over bytes (the panel's file

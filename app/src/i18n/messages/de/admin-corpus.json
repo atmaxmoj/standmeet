@@ -224,11 +224,21 @@
     "writingUnpublished": "Zurückgezogen",
     "writingSaved": "Schrift {slug} gespeichert"
   },
+  "trash": {
+    "kicker": "corpus · gelöscht",
+    "intro": "Gelöschte Einträge bleiben 90 Tage hier, danach sind sie endgültig weg. Beim Wiederherstellen kommen die mitgelöschten Einträge und ihre Links an derselben Stelle zurück.",
+    "empty": "Der Papierkorb ist leer.",
+    "restore": "wiederherstellen",
+    "restored": "„{title}“ wiederhergestellt",
+    "deletedOn": "gelöscht {date}",
+    "purgeOn": "endgültig gelöscht {date}",
+    "withChildren": "{n, plural, one {+ # Untereintrag} other {+ # Untereinträge}}"
+  },
   "confirm": {
-    "deleteWiki": "Wiki \"{title}\" löschen?{warn} Dies kann nicht rückgängig gemacht werden.",
+    "deleteWiki": "Wiki \"{title}\" löschen?{warn} Der Eintrag bleibt 90 Tage im Papierkorb und lässt sich dort wiederherstellen.",
     "deleteWikiChildren": "{n, plural, one { Dies löscht auch seinen # untergeordneten Eintrag.} other { Dies löscht auch seine # untergeordneten Einträge.}}",
-    "deleteOutput": "Output \"{title}\" löschen? Dies kann nicht rückgängig gemacht werden.",
-    "deleteRaw": "Diesen Raw-Eintrag löschen? Dies kann nicht rückgängig gemacht werden."
+    "deleteOutput": "Output \"{title}\" löschen? Der Eintrag bleibt 90 Tage im Papierkorb und lässt sich dort wiederherstellen.",
+    "deleteRaw": "Diesen Raw-Eintrag löschen? Er bleibt 90 Tage im Papierkorb und lässt sich dort wiederherstellen."
   },
   "savedLine": {
     "saved": "gespeichert",

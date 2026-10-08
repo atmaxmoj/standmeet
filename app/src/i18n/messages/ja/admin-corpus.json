@@ -224,11 +224,21 @@
     "writingUnpublished": "公開を取り消しました",
     "writingSaved": "記事 {slug} を保存しました"
   },
+  "trash": {
+    "kicker": "corpus · 削除済み",
+    "intro": "削除したエントリはここに 90 日間残り、その後完全に消えます。復元すると、一緒に削除されたエントリとリンクも元の場所に戻ります。",
+    "empty": "ゴミ箱は空です。",
+    "restore": "復元",
+    "restored": "「{title}」を復元しました",
+    "deletedOn": "{date} に削除",
+    "purgeOn": "{date} に完全削除",
+    "withChildren": "+ 子エントリ {n} 件"
+  },
   "confirm": {
-    "deleteWiki": "wiki「{title}」を削除しますか？{warn} この操作は元に戻せません。",
+    "deleteWiki": "wiki「{title}」を削除しますか？{warn} ゴミ箱に 90 日間残り、そこから復元できます。",
     "deleteWikiChildren": " これにより {n} 件の子エントリも削除されます。",
-    "deleteOutput": "output「{title}」を削除しますか？この操作は元に戻せません。",
-    "deleteRaw": "この raw エントリを削除しますか？この操作は元に戻せません。"
+    "deleteOutput": "output「{title}」を削除しますか？ゴミ箱に 90 日間残り、そこから復元できます。",
+    "deleteRaw": "この raw エントリを削除しますか？ゴミ箱に 90 日間残り、そこから復元できます。"
   },
   "savedLine": {
     "saved": "保存しました",

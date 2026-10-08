@@ -284,6 +284,16 @@ type CorpusNote struct {
 	UpdatedAt           pgtype.Timestamptz
 }
 
+type CorpusTrash struct {
+	ID        int64
+	OwnerID   pgtype.UUID
+	Tbl       string
+	NoteID    pgtype.UUID
+	Batch     int64
+	RowData   []byte
+	DeletedAt pgtype.Timestamptz
+}
+
 type Dialog struct {
 	ID             pgtype.UUID
 	ConversationID pgtype.UUID

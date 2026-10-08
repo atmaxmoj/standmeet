@@ -107,6 +107,8 @@ const GOLDEN_TOOLSET: readonly string[] = [
   'subjectivity_write',
   'corpus.list', 'corpus.get', 'corpus.search',
   'corpus.create', 'corpus.update', 'corpus.delete', 'corpus.promote',
+  // The trash a delete lands in (90 days), and the way back.
+  'corpus.trash', 'corpus.restore',
   // The navigation projection (v0.1.130): the visitor agent's read tools, for the owner too.
   'corpus.map', 'corpus.resolve', 'corpus.peek', 'corpus.grep', 'corpus.links',
   // check_i18n -- inspects the multilingual structure without writing. The

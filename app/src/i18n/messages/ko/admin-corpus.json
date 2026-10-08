@@ -224,11 +224,21 @@
     "writingUnpublished": "게시가 취소되었습니다",
     "writingSaved": "글 {slug}이(가) 저장되었습니다"
   },
+  "trash": {
+    "kicker": "corpus · 삭제됨",
+    "intro": "삭제한 항목은 여기에 90일 동안 남아 있다가 완전히 사라집니다. 복원하면 함께 삭제된 항목과 링크도 원래 자리로 돌아옵니다.",
+    "empty": "휴지통이 비어 있습니다.",
+    "restore": "복원",
+    "restored": "\"{title}\" 복원됨",
+    "deletedOn": "{date} 삭제",
+    "purgeOn": "{date} 영구 삭제",
+    "withChildren": "+ 하위 항목 {n}개"
+  },
   "confirm": {
-    "deleteWiki": "wiki \"{title}\"을(를) 삭제하시겠습니까?{warn} 이 작업은 되돌릴 수 없습니다.",
+    "deleteWiki": "wiki \"{title}\"을(를) 삭제하시겠습니까?{warn} 휴지통에 90일 동안 남아 있으며, 거기서 복원할 수 있습니다.",
     "deleteWikiChildren": " 이렇게 하면 하위 항목 {n}개도 삭제됩니다.",
-    "deleteOutput": "output \"{title}\"을(를) 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
-    "deleteRaw": "이 raw 항목을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다."
+    "deleteOutput": "output \"{title}\"을(를) 삭제하시겠습니까? 휴지통에 90일 동안 남아 있으며, 거기서 복원할 수 있습니다.",
+    "deleteRaw": "이 raw 항목을 삭제하시겠습니까? 휴지통에 90일 동안 남아 있으며, 거기서 복원할 수 있습니다."
   },
   "savedLine": {
     "saved": "저장됨",

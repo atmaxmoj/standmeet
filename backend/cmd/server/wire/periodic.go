@@ -192,6 +192,7 @@ func collectPeriodicJobs(d *deps.Runtime) []periodic.Job {
 	out = append(out, owner.GasRefillPeriodicJobs(d.OwnerRepo, d.Recorder())...)
 	out = append(out, conversation.PrunePeriodicJobs(d.ChatRepo, d.Log, d.Recorder())...)
 	out = append(out, monitor.PeriodicJobs(d.MonitorRepo)...)
+	out = append(out, corpus.TrashPeriodicJobs(corpus.NewTrashRepo(d.DB))...)
 	if d.SandboxWorkspaces != nil {
 		out = append(out, d.SandboxWorkspaces.PeriodicJobs()...)
 	}

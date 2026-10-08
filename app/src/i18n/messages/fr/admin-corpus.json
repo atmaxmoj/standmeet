@@ -224,11 +224,21 @@
     "writingUnpublished": "Dépublié",
     "writingSaved": "Écrit {slug} enregistré"
   },
+  "trash": {
+    "kicker": "corpus · supprimé",
+    "intro": "Les entrées supprimées attendent ici 90 jours, puis disparaissent définitivement. En restaurer une ramène aussi les entrées supprimées avec elle et ses liens, au même endroit.",
+    "empty": "La corbeille est vide.",
+    "restore": "restaurer",
+    "restored": "« {title} » restauré",
+    "deletedOn": "supprimé le {date}",
+    "purgeOn": "purgé le {date}",
+    "withChildren": "{n, plural, one {+ # entrée enfant} other {+ # entrées enfants}}"
+  },
   "confirm": {
-    "deleteWiki": "Supprimer le wiki « {title} » ?{warn} Cette action est irréversible.",
+    "deleteWiki": "Supprimer le wiki « {title} » ?{warn} L'entrée reste 90 jours dans la corbeille, d'où vous pouvez la restaurer.",
     "deleteWikiChildren": "{n, plural, one { Cela supprime aussi son # entrée enfant.} other { Cela supprime aussi ses # entrées enfants.}}",
-    "deleteOutput": "Supprimer l'output « {title} » ? Cette action est irréversible.",
-    "deleteRaw": "Supprimer cette entrée raw ? Cette action est irréversible."
+    "deleteOutput": "Supprimer l'output « {title} » ? L'entrée reste 90 jours dans la corbeille, d'où vous pouvez la restaurer.",
+    "deleteRaw": "Supprimer cette entrée raw ? Elle reste 90 jours dans la corbeille, d'où vous pouvez la restaurer."
   },
   "savedLine": {
     "saved": "enregistré",

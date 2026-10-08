@@ -25,7 +25,7 @@ import (
 
 // CorpusWrites — create / update / delete / promote.
 func CorpusWrites(deps usecase.Deps) []fp.Op {
-	return []fp.Op{
+	return append([]fp.Op{
 		{
 			ID: "corpus.create", Danger: fp.DangerWrite,
 			Description: "Create a corpus entry. genre 'raw' takes a body (a rough dump, no " +
@@ -50,7 +50,8 @@ func CorpusWrites(deps usecase.Deps) []fp.Op {
 		{
 			ID: "corpus.delete", Danger: fp.DangerDestructive,
 			Description: "Delete a corpus entry of any genre (raw / wiki / output / " +
-				"subjectivity), along with the files attached to it. This cannot be undone.",
+				"subjectivity) with its descendants. It waits in the trash for 90 days — " +
+				"corpus.restore brings it back — then it is purged.",
 			InputSchema: corpusGetSchema,
 			Kind:        fp.Action,
 			Reach:       fp.OwnerAction(),
@@ -66,7 +67,7 @@ func CorpusWrites(deps usecase.Deps) []fp.Op {
 			Reach:       fp.OwnerAction(),
 			Invoke:      promoteCorpus(deps),
 		},
-	}
+	}, trashOps(&deps)...)
 }
 
 var (

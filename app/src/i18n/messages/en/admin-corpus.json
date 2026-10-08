@@ -224,11 +224,21 @@
     "writingUnpublished": "Unpublished",
     "writingSaved": "Writing {slug} saved"
   },
+  "trash": {
+    "kicker": "corpus · deleted",
+    "intro": "Deleted entries wait here for 90 days, then they are gone for good. Restoring one brings back the entries deleted with it and its links, in the same place.",
+    "empty": "The trash is empty.",
+    "restore": "restore",
+    "restored": "Restored \"{title}\"",
+    "deletedOn": "deleted {date}",
+    "purgeOn": "purged {date}",
+    "withChildren": "{n, plural, one {+ # child entry} other {+ # child entries}}"
+  },
   "confirm": {
-    "deleteWiki": "Delete wiki \"{title}\"?{warn} This cannot be undone.",
+    "deleteWiki": "Delete wiki \"{title}\"?{warn} It stays in the trash for 90 days, where you can restore it.",
     "deleteWikiChildren": "{n, plural, one { This also deletes its # child entry.} other { This also deletes its # child entries.}}",
-    "deleteOutput": "Delete output \"{title}\"? This cannot be undone.",
-    "deleteRaw": "Delete this raw entry? This cannot be undone."
+    "deleteOutput": "Delete output \"{title}\"? It stays in the trash for 90 days, where you can restore it.",
+    "deleteRaw": "Delete this raw entry? It stays in the trash for 90 days, where you can restore it."
   },
   "savedLine": {
     "saved": "saved",

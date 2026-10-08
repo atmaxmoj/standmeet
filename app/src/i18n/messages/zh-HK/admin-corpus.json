@@ -228,11 +228,21 @@
     "writingUnpublished": "已取消發佈",
     "writingSaved": "已儲存文章 {slug}"
   },
+  "trash": {
+    "kicker": "corpus · 已刪除",
+    "intro": "刪除的條目在這裏保留 90 天，之後徹底清除。恢復一條時，和它一起刪除的子條目以及它的連結也會回到原處。",
+    "empty": "回收站是空的。",
+    "restore": "恢復",
+    "restored": "已恢復「{title}」",
+    "deletedOn": "{date} 刪除",
+    "purgeOn": "{date} 清除",
+    "withChildren": "+ {n} 個子條目"
+  },
   "confirm": {
-    "deleteWiki": "刪除 wiki「{title}」？{warn} 此操作無法撤銷。",
+    "deleteWiki": "刪除 wiki「{title}」？{warn} 它會在回收站保留 90 天，可以從那裏恢復。",
     "deleteWikiChildren": " 這也會刪除它的 {n} 個子條目。",
-    "deleteOutput": "刪除輸出「{title}」？此操作無法撤銷。",
-    "deleteRaw": "刪除這條 raw 條目？此操作無法撤銷。"
+    "deleteOutput": "刪除輸出「{title}」？它會在回收站保留 90 天，可以從那裏恢復。",
+    "deleteRaw": "刪除這條 raw 條目？它會在回收站保留 90 天，可以從那裏恢復。"
   },
   "savedLine": {
     "saved": "已儲存",

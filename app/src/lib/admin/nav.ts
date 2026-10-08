@@ -14,7 +14,7 @@ export type AdminSlug =
   | 'dashboard' | 'sources' | 'listings' | 'system'
   | 'preview' | 'obsidian' | 'embeds' | 'assets' | 'data'
   | 'roles' | 'prompts' | 'ip-bans' | 'monitor' | 'tasks' | 'webhooks' | 'notify' | 'blocks'
-  | 'blockMap';
+  | 'blockMap' | 'trash';
 
 export type NavGroupID =
   | 'overview' | 'corpus' | 'access' | 'resources' | 'jobs' | 'plugins' | 'integrations' | 'settings';
@@ -41,6 +41,8 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       { slug: 'subjectivity' },
       { slug: 'writings' },
       { slug: 'output' },
+      // trash —— where a delete of any genre waits 90 days, and the way back.
+      { slug: 'trash' },
     ],
   },
   {

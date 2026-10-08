@@ -224,11 +224,21 @@
     "writingUnpublished": "Despublicado",
     "writingSaved": "Escrito {slug} guardado"
   },
+  "trash": {
+    "kicker": "corpus · eliminado",
+    "intro": "Las entradas eliminadas esperan aquí 90 días; después desaparecen para siempre. Al restaurar una, vuelven también las entradas eliminadas con ella y sus enlaces, en el mismo lugar.",
+    "empty": "La papelera está vacía.",
+    "restore": "restaurar",
+    "restored": "«{title}» restaurado",
+    "deletedOn": "eliminado {date}",
+    "purgeOn": "se borra {date}",
+    "withChildren": "{n, plural, one {+ # entrada secundaria} other {+ # entradas secundarias}}"
+  },
   "confirm": {
-    "deleteWiki": "¿Eliminar el wiki \"{title}\"?{warn} Esto no se puede deshacer.",
+    "deleteWiki": "¿Eliminar el wiki \"{title}\"?{warn} Quedará 90 días en la papelera, donde podrás restaurarlo.",
     "deleteWikiChildren": "{n, plural, one { Esto también elimina su # entrada secundaria.} other { Esto también elimina sus # entradas secundarias.}}",
-    "deleteOutput": "¿Eliminar el output \"{title}\"? Esto no se puede deshacer.",
-    "deleteRaw": "¿Eliminar esta entrada raw? Esto no se puede deshacer."
+    "deleteOutput": "¿Eliminar el output \"{title}\"? Quedará 90 días en la papelera, donde podrás restaurarlo.",
+    "deleteRaw": "¿Eliminar esta entrada raw? Quedará 90 días en la papelera, donde podrás restaurarla."
   },
   "savedLine": {
     "saved": "guardado",

@@ -126,6 +126,7 @@ var (
 	WritingAssetIDs                = usecase.WritingAssetIDs
 	WritingNodeContext             = usecase.WritingNodeContext
 	WritingTreeChildren            = usecase.WritingTreeChildren
+	TrashPeriodicJobs              = usecase.TrashPeriodicJobs
 )
 
 // Constants (implemented in: usecase).

@@ -49,6 +49,7 @@ var (
 	NewWikiRepo       = repo.NewWikiRepo
 	NewWritingRefRepo = repo.NewWritingRefRepo
 	NewWritingRepo    = repo.NewWritingRepo
+	NewTrashRepo      = repo.NewTrashRepo
 )
 
 // Errors/variables (implemented in: repo).
