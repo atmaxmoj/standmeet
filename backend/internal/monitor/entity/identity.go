@@ -17,6 +17,7 @@ package entity
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"slices"
 	"time"
 )
 
@@ -45,13 +46,8 @@ func saltPeriod(at time.Time) string { return at.UTC().Format("2006-01") }
 // The secret matters: without it, anyone who knows a visitor's IP and user agent could compute
 // their id from a public leaderboard and confirm they visited.
 func ViewerID(secret []byte, ownerID, ip, userAgent string, at time.Time) string {
-	h := sha256.New()
-	h.Write(secret)
-	h.Write([]byte(saltPeriod(at)))
-	h.Write([]byte(ownerID))
-	h.Write([]byte(ip))
-	h.Write([]byte(userAgent))
-	return hex.EncodeToString(h.Sum(nil))[:idHexLen]
+	sum := sha256.Sum256(slices.Concat(secret, []byte(saltPeriod(at)+ownerID+ip+userAgent)))
+	return hex.EncodeToString(sum[:])[:idHexLen]
 }
 
 // VisitID —— a fresh sitting for a viewer.
@@ -61,11 +57,8 @@ func ViewerID(secret []byte, ownerID, ip, userAgent string, at time.Time) string
 // second-level bucket is what makes them agree; a visit opened a second later is a different
 // id, which is harmless because the caller only mints one when the lookup found nothing.
 func VisitID(secret []byte, viewerID string, at time.Time) string {
-	h := sha256.New()
-	h.Write(secret)
-	h.Write([]byte(viewerID))
-	h.Write([]byte(at.UTC().Format(time.RFC3339)))
-	return hex.EncodeToString(h.Sum(nil))[:idHexLen]
+	sum := sha256.Sum256(slices.Concat(secret, []byte(viewerID+at.UTC().Format(time.RFC3339))))
+	return hex.EncodeToString(sum[:])[:idHexLen]
 }
 
 // VisitExpired —— whether a visit last seen at `last` is over by `now`.

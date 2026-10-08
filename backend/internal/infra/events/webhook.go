@@ -28,6 +28,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -79,8 +80,8 @@ func SignWebhook(secret, id string, ts int64, body []byte) (string, error) {
 		return "", errors.New("webhook secret is not whsec_<base64>")
 	}
 	mac := hmac.New(sha256.New, key)
-	mac.Write([]byte(id + "." + strconv.FormatInt(ts, decimal) + "."))
-	mac.Write(body)
+	// hash.Hash.Write never returns an error (its documented contract).
+	_, _ = mac.Write(slices.Concat([]byte(id+"."+strconv.FormatInt(ts, decimal)+"."), body))
 	return "v1," + base64.StdEncoding.EncodeToString(mac.Sum(nil)), nil
 }
 
@@ -137,8 +138,8 @@ func signedRequest(ctx context.Context, url, secret string, ev *Event) (*http.Re
 	if err != nil {
 		return nil, err
 	}
-	ts := time.Now().Unix()
-	sig, err := SignWebhook(secret, ev.ID, ts, body)
+	tsSec := time.Now().Unix()
+	sig, err := SignWebhook(secret, ev.ID, tsSec, body)
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +149,7 @@ func signedRequest(ctx context.Context, url, secret string, ev *Event) (*http.Re
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Webhook-Id", ev.ID)
-	req.Header.Set("Webhook-Timestamp", strconv.FormatInt(ts, decimal))
+	req.Header.Set("Webhook-Timestamp", strconv.FormatInt(tsSec, decimal))
 	req.Header.Set("Webhook-Signature", sig)
 	return req, nil
 }

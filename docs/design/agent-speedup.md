@@ -61,4 +61,7 @@ cover work authorization". The corpus states it in `subjectivity://background`.
   records the time spent inside tools. On sijie.xyz (v0.1.136, pro) it was 0.4 s of 37 s for (b),
   0.1 s of 17 s for (c), 0.5 s of 33 s for (d). A cache saves at most that half second; the time
   is the model's own rounds. The lever is the model (W1), not retrieval.
-- **W5 (landing timings).** Not started.
+- **W5 (landing): measured, nothing to fix, 2026-10-07.** A code bound to a microsite, two fresh
+  browsers on sijie.xyz (v0.1.136): `/?code=` → name picker 0.8–0.9 s; name submitted → the
+  microsite's chat ready 1.0–1.3 s (`/codes/intro`, `/sessions`, `/session`, `/conversations`
+  each well under a second). The 35 s in the handoff does not reproduce.

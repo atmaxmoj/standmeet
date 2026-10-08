@@ -252,6 +252,15 @@ linters:
         # TS services.
         - name: argument-limit
           arguments: [5]
+        # strings.Builder's Write* methods never return a non-nil error (their documented
+        # contract). The official v2.14 build flags them; a locally patched one did not, so CI
+        # and the dev box disagreed (2026-10-07).
+        - name: unhandled-error
+          arguments:
+            - strings.Builder.WriteString
+            - strings.Builder.WriteByte
+            - strings.Builder.WriteRune
+            - strings.Builder.Write
         # Cap function outputs at 2 — anything beyond `(value, error)`
         # belongs in a result struct (named fields self-document) or
         # uses a sentinel error to encode the "not found" case in the

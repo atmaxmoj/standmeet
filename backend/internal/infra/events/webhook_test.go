@@ -93,10 +93,10 @@ func TestAMalformedSecretIsRefused(t *testing.T) {
 
 func TestWebhookBackoffFollowsTheSvixSchedule(t *testing.T) {
 	t.Parallel()
-	const tenHours = 10 * time.Hour
+	const longest = 10 * time.Hour
 	want := []time.Duration{
 		five * time.Second, five * time.Minute, time.Hour / 2, 2 * time.Hour, five * time.Hour,
-		tenHours, tenHours, tenHours,
+		longest, longest, longest,
 	}
 	for i, w := range want {
 		if got := events.WebhookBackoff(i + 1); got != w {
