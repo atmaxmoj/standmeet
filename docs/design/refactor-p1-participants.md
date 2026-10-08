@@ -41,6 +41,15 @@ against that list, and the list is the regression set. Measured 2026-10-07 on ma
 - **R21 done.** 14 unit tests on the turn state machine (`make test-unit`, CI); the
   chat-only-in-sdk gate also catches a hand-written turn fetch, with a self-test.
 - **R23 done.** CI runs every lint gate, `backend-test` and `test-unit` in parallel on main.
+- **R19 done.** `integration-job-loop` runs the chain end to end: the QR decoded from the PDF's
+  pixels, its URL opened as the recruiter, no /gate, the code's session, an answer.
+- **R20 done in part (v0.1.138).** Builder runs as uid 1001 with cap_drop ALL (+CHOWN, SETUID,
+  SETGID) and no-new-privileges; microsites carry `frame-ancestors 'self'; object-src 'none';
+  base-uri 'self'`. **P0 found and fixed on the way:** the app proxied `/internal/*` to the
+  backend, so every instance served its internal endpoints on the public origin (IM bot token,
+  supplier invoke, builder claim) — closed, spec `internal-not-public`, verified 404 on
+  sijie.xyz. Not done: a build-endpoint secret (owner code runs in the same container, so it
+  would not hold), read_only and resource limits.
 - Found on the way and fixed: a NOTIFY lost before LISTEN (`pgstore.Listener`); a boot failure
   that hung silently on `pool.Close` (`cmd/server/main.go closePool`); `norm-outward-toolset`
   missing the nav tools; gate scripts that only worked with macOS awk and a single-entry GOPATH.
