@@ -232,10 +232,12 @@ test('IM bridge on a hiring code: the private post never reaches the chat', asyn
   const tag = await readsTurn(r, [s.priv.id, s.hir.id]);
   const sent = await imVisitorAsks(r, IM_CHAT, o.codes.hiring, `what is new?${tag}`);
   expectNone(sent.map((m) => m.text).join('\n'), [s.m.priv], 'the Telegram chat');
-  // What the chat gets is the model's answer; the model's input is where the read lands.
-  expect(await modelSaw(r, tag, { hir: s.m.hir, priv: s.m.priv }),
-    'the turn behind the chat read the hiring post and not the private one')
-    .toEqual({ hir: true, priv: false });
+  // What the chat gets is the model's answer; the model's input is where the read lands. The bot
+  // may post before that answer (a late /start reply), so wait for the read to land, then check
+  // the private post never did.
+  await expect.poll(async () => (await modelSaw(r, tag, { hir: s.m.hir })).hir,
+    { timeout: 90_000, message: 'the turn behind the chat read the hiring post' }).toBe(true);
+  expect((await modelSaw(r, tag, { priv: s.m.priv })).priv, 'and not the private one').toBe(false);
 });
 
 test('across every row above, no model request ever carried the private post', async () => {
