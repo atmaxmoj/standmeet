@@ -8,6 +8,9 @@ time to the first answer token, and every tool the agent called; the answers go 
 for a person to read against each question's gold points. Speed is only a win if the answers hold.
 
   EVAL_HOST=https://sijie.xyz EVAL_CODE=SPEED-XXX make eval-speed
+
+With EVAL_POSTS_CREDS (the owner's standmeet-mcp creds file) it first runs the posts questions
+(speed_posts.py, posts-tests.md § M) on the same code, which must be a `hiring` code.
 """
 
 import json
@@ -16,6 +19,8 @@ import sys
 import time
 import urllib.parse
 import urllib.request
+
+import speed_posts
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 # The CDN in front of a real instance refuses urllib's default "Python-urllib" agent.
@@ -103,10 +108,17 @@ def main():
     os.makedirs(out, exist_ok=True)
     with open(os.path.join(HERE, 'fixtures/speed/questions.json')) as f:
         questions = [q for q in json.load(f) if not only or q['id'] in only]
-    session = json.loads(post(f'{host}/api/v1/sessions', {
-        'mode': 'code', 'code': code, 'visitor_name': os.environ.get('EVAL_NAME', 'speed-eval'),
-    }).read())
-    system = system_of(host, session)
+    def new_session():
+        s = json.loads(post(f'{host}/api/v1/sessions', {
+            'mode': 'code', 'code': code, 'visitor_name': os.environ.get('EVAL_NAME', 'speed-eval'),
+        }).read())
+        return s, system_of(host, s)
+
+    posts_ok = True
+    if os.environ.get('EVAL_POSTS_CREDS'):
+        posts_ok = speed_posts.run(host, code, new_session,
+                                   lambda s, system, q: ask(host, s, system, [], q))
+    session, system = new_session()
     history, rows = [], []
     for q in questions:
         r = ask(host, session, system, history, q['q'])
@@ -127,7 +139,7 @@ def main():
                     f"**Gold:** {r['gold']}\n\n{r['answer'] or '(no answer) ' + r['error']}\n\n")
     totals = sorted(r['total_s'] for r in rows)
     print(f"median total {totals[len(totals) // 2]}s · transcript {out}/{code}-{stamp}.md")
-    return 1 if any(r['error'] or not r['answer'] or r['missing'] for r in rows) else 0
+    return 1 if not posts_ok or any(r['error'] or not r['answer'] or r['missing'] for r in rows) else 0
 
 
 if __name__ == '__main__':

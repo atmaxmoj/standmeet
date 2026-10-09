@@ -24,10 +24,11 @@ Markers: each post's body carries a unique token (`PRIV_<rand>`, `PUB_<rand>`, `
 whole (answer text, `tool_completed` frames, JSON, HTML, mail bodies, IM messages, request bodies a
 mock recorded).
 
-## Mutation check — `make posts-mutation-check` (not built yet; after green, before merge)
+## Mutation check — `make posts-mutation-check` (after green, before merge)
 
 Each mutation is applied to a scratch copy of the tree, the named specs run, and the result is
-recorded in the merge commit. Every row must turn its spec red; a row that stays green means that
+recorded in the merge commit. The table lives as data in `infra/scripts/posts-mutations.tsv`; a row
+whose substitution matches nothing fails, and a red counts only when an assertion made it. Every row must turn its spec red; a row that stays green means that
 spec is decoration and is rewritten.
 
 | planted bug | must turn red |

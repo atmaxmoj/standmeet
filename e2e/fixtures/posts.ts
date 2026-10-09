@@ -22,13 +22,13 @@ import { randomBytes } from 'node:crypto';
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { findSetupToken, resetInstance } from '@/fixtures/instance';
-import { callTool, initMCP } from '@/fixtures/mcp';
+import { callTool, callToolOutcome, initMCP, type ToolOutcome } from '@/fixtures/mcp';
 import { createRole, getRoleByName } from '@/fixtures/roles';
 import type { VisitorSession } from '@/fixtures/visitor';
 
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 
-type Visibility = 'private' | 'public' | 'roles';
+export type Visibility = 'private' | 'public' | 'roles';
 
 export interface PostView {
   id: string;
@@ -39,14 +39,14 @@ export interface PostView {
   updated_at: string;
 }
 
-interface PublicPost {
+export interface PublicPost {
   id: string;
   body: string;
   created_at: string;
   edited: boolean;
 }
 
-interface Page<T> { items: T[]; next_cursor?: string; total?: number }
+export interface Page<T> { items: T[]; next_cursor?: string; total?: number }
 
 // ── owner ─────────────────────────────────────────────────────────────────────────────────────
 
@@ -97,12 +97,31 @@ export async function setupPostsOwner(playwright: Playwright, handle: string): P
   };
 }
 
-interface NewPost { body: string; visibility?: Visibility; visible_role_ids?: string[] }
+export interface NewPost { body: string; visibility?: Visibility; visible_role_ids?: string[] }
 
-// The other owner verbs (update / delete / get / refusals) are added here by the spec that first
-// uses them — knip refuses an export nothing reads.
-function createPost(o: PostsOwner, p: NewPost): Promise<PostView> {
+export function createPost(o: PostsOwner, p: NewPost): Promise<PostView> {
   return callTool<PostView>(o.request, o.apiToken, o.sid, 'corpus.create', { genre: 'post', ...p });
+}
+
+// createPostOutcome —— for refusals (D): the protocol answer without throwing.
+export function createPostOutcome(o: PostsOwner, p: Record<string, unknown>): Promise<ToolOutcome> {
+  return callToolOutcome(o.request, o.apiToken, o.sid, 'corpus.create', { genre: 'post', ...p });
+}
+
+export function updatePost(o: PostsOwner, id: string, patch: Record<string, unknown>): Promise<PostView> {
+  return callTool<PostView>(o.request, o.apiToken, o.sid, 'corpus.update', { genre: 'post', id, ...patch });
+}
+
+export function updatePostOutcome(o: PostsOwner, id: string, patch: Record<string, unknown>): Promise<ToolOutcome> {
+  return callToolOutcome(o.request, o.apiToken, o.sid, 'corpus.update', { genre: 'post', id, ...patch });
+}
+
+export function deletePost(o: PostsOwner, id: string): Promise<unknown> {
+  return callTool(o.request, o.apiToken, o.sid, 'corpus.delete', { genre: 'post', id });
+}
+
+export function getPost(o: PostsOwner, id: string): Promise<PostView> {
+  return callTool<PostView>(o.request, o.apiToken, o.sid, 'corpus.get', { genre: 'post', id });
 }
 
 export async function listAllPosts(o: PostsOwner, filter: Record<string, unknown> = {}): Promise<PostView[]> {
@@ -119,7 +138,7 @@ export async function listAllPosts(o: PostsOwner, filter: Record<string, unknown
 
 // ── markers + the matrix seed ─────────────────────────────────────────────────────────────────
 
-function marker(prefix: string): string {
+export function marker(prefix: string): string {
   return `${prefix}_${randomBytes(6).toString('hex')}`;
 }
 

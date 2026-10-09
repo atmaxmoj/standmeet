@@ -838,8 +838,16 @@ eval-ask:
 # a transcript to read against each question's gold points. Speed counts only if the answers hold.
 #   EVAL_HOST=https://sijie.xyz EVAL_CODE=<code> make eval-speed   (EVAL_ONLY=de for a subset)
 #   To compare models, point the code at another provider (codes.create provider_id).
+#   EVAL_POSTS_CREDS=<owner standmeet-mcp creds> on a `hiring` code adds the posts questions
+#   (posts-tests.md § M): four marker posts seeded, two questions × three runs, every answer printed.
 eval-speed:
 	@python3 eval-harness/speed.py
+
+# posts-mutation-check —— posts-tests.md § "Mutation check": every planted bug in
+# infra/scripts/posts-mutations.tsv must turn its specs red, in a scratch worktree of HEAD with its
+# own dev stack (commit first). ONLY=<id>[,<id>] for a subset. Run after green, before merge.
+posts-mutation-check:
+	@infra/scripts/posts-mutation-check.sh
 
 # eval-ghost-live —— ghost steering on a REAL instance + real model (eval-harness/ghost_live.py):
 # a visitor that follows every ghost must be led through ≥3 distinct waypoints without repeats,

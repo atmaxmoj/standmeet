@@ -1,0 +1,21 @@
+# posts-mutations.tsv —— the planted bugs of posts-tests.md § "Mutation check", as data.
+#
+# Columns (TAB-separated): id · file glob (repo-relative) · perl -0777 substitution · the commands
+# that must each go red, separated by ";;". A row whose substitution changes nothing is a FAILED
+# row, never a skipped one: the code it targeted moved, and the row must be pointed at the new line.
+#
+# The file/substitution columns bind to the implementation's names (backend/internal/corpus/posts:
+# canSee, VisibleTo, the index filter, the event payload, …). They were written with the tests, before
+# the code; when the implementation lands, each row is pointed at the real line it breaks.
+cansee-true	backend/internal/corpus/posts/visibility.go	s/(func canSee\([^)]*\) bool \{\n)/$1\treturn true\n/	make test-only SPEC=posts-visibility;;make test-only SPEC=posts-no-side-channel;;make test-only SPEC=posts-paging
+roles-as-public	backend/internal/corpus/posts/visibility.go	s/p\.Visibility == VisibilityPublic/(p.Visibility == VisibilityPublic || p.Visibility == VisibilityRoles)/	make test-only SPEC=posts-visibility
+roles-as-private	backend/internal/corpus/posts/visibility.go	s/p\.Visibility == VisibilityRoles &&/false \&\&/	make test-only SPEC=posts-visibility
+tool-skips-visibleto	backend/internal/corpus/usecase/*.go	s/posts\.VisibleTo\(ctx, viewer, /posts.ListAll(ctx, /	make test-only SPEC=posts-visibility;;make -C backend posts-one-reader
+private-indexed	backend/internal/corpus/posts/index.go	s/if p\.Visibility == VisibilityPrivate \{/if false {/	make test-only SPEC=posts-no-side-channel
+tool-frame-carries-body	backend/internal/corpus/posts/tool.go	s/(Excerpt:\s*)excerpt\(p\.Body\)/$1p.Body/	make test-only SPEC=posts-visibility
+event-carries-body	backend/internal/corpus/posts/events.go	s/("post_id":\s*p\.ID,)/$1 "body": p.Body,/	make test-only SPEC=posts-no-side-channel
+invisible-is-403	backend/internal/corpus/posts/visibility.go	s/return PostView\{\}, ErrPostNotFound \/\/ invisible/return PostView{}, ErrPostForbidden \/\/ invisible/	make test-only SPEC=posts-visibility
+default-public	backend/internal/corpus/posts/*.go	s/VisibilityDefault = VisibilityPrivate/VisibilityDefault = VisibilityPublic/	make test-only SPEC=posts-validation
+total-counts-all	backend/db/queries/posts/posts.sql	s/(-- name: CountVisiblePosts :one\n.*?)AND \(visibility = 'public'[^\n]*\n/$1/s	make test-only SPEC=posts-paging
+update-moves-created-at	backend/db/queries/posts/posts.sql	s/(-- name: UpdatePost :one\nUPDATE posts SET )/$1created_at = now(), /	make test-only SPEC=posts-lifecycle
+gate-patterns-emptied	infra/scripts/check-posts-one-reader.sh	s#internal/corpus/posts/\(db\|repo\)#NEVER_MATCHES#; s#\(from\|join\|into\|update\)\[\[:space:\]\]\+posts#NEVER_MATCHES#; s#search\\\.Doc\\\{#NEVER_MATCHES#	bash infra/scripts/check-posts-one-reader-test.sh
