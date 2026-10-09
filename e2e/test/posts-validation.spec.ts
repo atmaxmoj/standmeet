@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto';
 
 import { test, expect } from '@/fixtures/test';
 
+import { listTools } from '@/fixtures/mcp';
 import {
   createPost, createPostOutcome, getPost, has, listAllPosts, marker, setupPostsOwner, timelineText,
   updatePostOutcome, type PostsOwner,
@@ -82,4 +83,21 @@ test('an omitted visibility is private: the owner sees "private", an anonymous r
   const anon = (await timelineText(o.request)).text;
   expect(has(anon, pub.body), 'the anonymous timeline answers (presence)').toBe(true);
   expect(has(anon, m), 'and does not hold the default post').toBe(false);
+});
+
+// The owner's AI learns the verbs from tools/list alone: if the schema does not declare post's
+// fields, a client sends only what is declared and every post it writes is a private one.
+test('the owner MCP declares genre "post" and its fields on the corpus verbs', async () => {
+  const tools = await listTools(o.request, o.apiToken, o.sid);
+  const tool = (name: string) => tools.find((t) => t.name === name || t.name === name.replace('.', '_'));
+  for (const name of ['corpus.create', 'corpus.update']) {
+    const props = tool(name)?.inputSchema?.properties ?? {};
+    expect(Object.keys(props), `${name} declares the audience fields`).toEqual(
+      expect.arrayContaining(['visibility', 'visible_role_ids']));
+    expect(JSON.stringify(props['genre']), `${name} names the post genre`).toMatch(/post/);
+  }
+  for (const name of ['corpus.list', 'corpus.get', 'corpus.search', 'corpus.delete']) {
+    expect(JSON.stringify(tool(name)?.inputSchema?.properties?.['genre']), `${name} names the post genre`)
+      .toMatch(/post/);
+  }
 });

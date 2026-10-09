@@ -42,9 +42,9 @@ func CorpusReads(deps usecase.Deps) []fp.Op {
 			ID: "corpus.list",
 			Description: "List corpus entries of one genre, newest first, one page at a time " +
 				"({items, next_cursor, total}). genre is 'raw', 'wiki', 'output' or " +
-				"'subjectivity'. Filter by tag, title substring (q) or state. Raw items carry " +
-				"their body (the card edits it in place); the others carry a clean lead preview " +
-				"— fetch the body with corpus.get.",
+				"'subjectivity', or 'post' (the timeline; filter by visibility). Filter by tag, " +
+				"title substring (q) or state. Raw items and posts carry their body; the others " +
+				"carry a clean lead preview — fetch the body with corpus.get.",
 			InputSchema: paging.Schema(corpusListFilters),
 			Kind:        fp.Read,
 			Reach:       fp.OwnerRead(),
@@ -67,9 +67,11 @@ var (
 	corpusListFilters = json.RawMessage(`{
 		"type":"object",
 		"properties":{
-			"genre":{"type":"string","description":"'raw' | 'wiki' | 'output' | 'subjectivity'."},
+			"genre":{"type":"string",
+				"description":"'raw' | 'wiki' | 'output' | 'subjectivity' | 'post'."},
 			"tag":{"type":"string","description":"Only entries carrying this tag."},
 			"q":{"type":"string","description":"Case-insensitive substring of the title."},
+			"visibility":{"type":"string","description":"post: private|public|roles."},
 			"state":{"type":"string",
 				"enum":["","published","draft","unprocessed","promoted","flagged"],
 				"description":
@@ -82,7 +84,7 @@ var (
 		"type":"object",
 		"properties":{
 			"genre":{"type":"string",
-				"description":"'raw' | 'wiki' | 'output' | 'subjectivity'."},
+				"description":"'raw' | 'wiki' | 'output' | 'subjectivity' | 'post'."},
 			"id":{"type":"string","description":"Entry id."}
 		},
 		"required":["genre","id"]

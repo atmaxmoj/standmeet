@@ -30,7 +30,9 @@ func CorpusWrites(deps usecase.Deps) []fp.Op {
 			ID: "corpus.create", Danger: fp.DangerWrite,
 			Description: "Create a corpus entry. genre 'raw' takes a body (a rough dump, no " +
 				"title); 'wiki' and 'output' take a title plus body, and their address is " +
-				"derived from the title and the tree — never set by hand.",
+				"derived from the title and the tree — never set by hand. 'post' is a short " +
+				"untitled update on the owner's timeline: a body and its audience — visibility " +
+				"'private' (default), 'public', or 'roles' with visible_role_ids.",
 			InputSchema: corpusCreateSchema,
 			Kind:        fp.Action,
 			Reach:       fp.OwnerAction(),
@@ -75,14 +77,18 @@ var (
 		"type":"object",
 		"properties":{
 			"genre":{"type":"string",
-				"description":"'raw' | 'wiki' | 'output' | 'subjectivity'."},
+				"description":"'raw' | 'wiki' | 'output' | 'subjectivity' | 'post'."},
 			"title":{"type":"string","description":"Title (raw has none)."},
 			"body":{"type":"string","description":"Markdown body."},
 			"parent_id":{"type":"string","description":"Parent entry id; root if empty."},
 			"tags":{"type":"array","items":{"type":"string"},"description":"Tags."},
 			"source":{"type":"string",
 				"description":"raw only: where it came from (e.g. mcp:claude-desktop)."},
-			"flagged_private":{"type":"boolean","description":"raw only: private hint."}
+			"flagged_private":{"type":"boolean","description":"raw only: private hint."},
+			"visibility":{"type":"string","enum":["private","public","roles"],
+				"description":"post only: who sees it. Omitted = private."},
+			"visible_role_ids":{"type":"array","items":{"type":"string"},
+				"description":"post only, with visibility 'roles': the role ids that see it."}
 		},
 		"required":["genre","body"]
 	}`)
@@ -91,7 +97,7 @@ var (
 		"type":"object",
 		"properties":{
 			"genre":{"type":"string",
-				"description":"'raw' | 'wiki' | 'output' | 'subjectivity'."},
+				"description":"'raw' | 'wiki' | 'output' | 'subjectivity' | 'post'."},
 			"id":{"type":"string","description":"Entry id."},
 			"title":{"type":"string","description":"Title (wiki / output)."},
 			"body":{"type":"string","description":"Markdown body."},
@@ -106,7 +112,11 @@ var (
 			"cover_image_asset_id":{"type":"string",
 				"description":"Hero image: an asset_id from assets.upload; '' clears it."},
 			"cover_headline":{"type":"string","description":"The line laid over the hero image."},
-			"cover_hue":{"type":"string","description":"Hero hue: 'amber' | 'violet' | 'acid'."}
+			"cover_hue":{"type":"string","description":"Hero hue: 'amber' | 'violet' | 'acid'."},
+			"visibility":{"type":"string","enum":["private","public","roles"],
+				"description":"post only: a new audience; omitted = unchanged."},
+			"visible_role_ids":{"type":"array","items":{"type":"string"},
+				"description":"post only, with visibility 'roles': the role ids that see it."}
 		},
 		"required":["genre","id"]
 	}`)

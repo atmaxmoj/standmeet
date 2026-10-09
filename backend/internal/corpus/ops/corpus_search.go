@@ -32,7 +32,8 @@ import (
 var corpusSearchSchema = json.RawMessage(`{
 	"type":"object",
 	"properties":{
-		"genre":{"type":"string","description":"'raw' | 'wiki' | 'output' | 'subjectivity'."},
+		"genre":{"type":"string",
+			"description":"'raw' | 'wiki' | 'output' | 'subjectivity' | 'post'."},
 		"query":{"type":"string","description":"Words to look for in title and body."},
 		"limit":{"type":"integer","description":"Max rows (default 50, max 200)."},
 		"offset":{"type":"integer","description":"How many matches to skip — page with it."}
