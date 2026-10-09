@@ -46,6 +46,16 @@ default_of() { grep -E "^$1=" "$EXAMPLE" | head -1 | cut -d= -f2; }
 free_port() {
   python3 - "$1" <<'PY'
 import socket, sys
+# Something that answers is a holder. Checked first because the bind below cannot see it on macOS:
+# Docker Desktop publishes on *:PORT (IPv6, dual-stack), and a SO_REUSEADDR bind to 127.0.0.1
+# still succeeds beside it — so a port another project's container held read as free.
+probe = socket.socket()
+probe.settimeout(0.3)
+try:
+    if probe.connect_ex(("127.0.0.1", int(sys.argv[1]))) == 0:
+        sys.exit(1)
+finally:
+    probe.close()
 s = socket.socket()
 s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 try:
