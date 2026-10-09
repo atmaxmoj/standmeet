@@ -40,7 +40,7 @@ The rows live in `infra/scripts/posts-mutations.tsv`, each pointed at the line i
 | the rule reads `roles` as private | A (hiring rows' ✓ cells) |
 | the corpus tools read posts as the owner | A (paths 2–5) |
 | an event payload carries the body | B (webhooks / notify) |
-| an invisible id answers "denied" instead of "missing" | A (path 4) |
+| an invisible post answers differently from a missing one (an existence leak) | A (path 4) |
 | default visibility `public` | D (omitted visibility) |
 | `total` counts all posts | G |
 | update may change `created_at` | C |
