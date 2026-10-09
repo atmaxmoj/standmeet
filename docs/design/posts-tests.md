@@ -159,7 +159,11 @@ see the post on top with its visibility badge, change visibility inline, filter 
 search, delete → the trash section's "posts" group → restore. Empty and error states from
 `ListPane`; copy in 9 locales (i18n key gate).
 
-## J. SDK / microsite — `posts-in-microsite.spec.ts`
+## J. SDK / microsite — `posts-in-microsite.spec.ts`, `default-home-posts.spec.ts`
+
+The default homepage — `/` before the owner publishes their own, and the shipped `home` template
+built and published — shows the timeline: nothing at all before the first post (the timeline's
+fetch answered, empty), then the public post and never a narrower one, for an anonymous visitor.
 
 A microsite with `<Posts />`: anonymous sees the public timeline; opened with a `hiring` code it also
 shows the hiring posts; the home microsite the same. No visibility badge shown to a visitor. Times in

@@ -8,7 +8,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { adoptStoredSession, type Post } from '@standmeet/sdk-core';
 
-import { useStandMeet } from '../provider.js';
+import { useOptionalStandMeet } from '../provider.js';
+import { widgetClient } from '../widgets/client.js';
 
 const PAGE = 20;
 
@@ -22,7 +23,8 @@ export interface UsePosts {
 }
 
 export function usePosts(): UsePosts {
-  const client = useStandMeet();
+  // Outside a provider (the app's own pages) the same-origin client every drop-in widget uses.
+  const client = useOptionalStandMeet() ?? widgetClient;
   const [items, setItems] = useState<readonly Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);

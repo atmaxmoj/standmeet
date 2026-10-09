@@ -73,8 +73,9 @@ Readers, all through that function:
 2. **Visitor AI** — the agent's corpus tools (`corpus_search` / `corpus_read`) return the posts the
    session can see, so the stand-in can answer "what has he been up to lately". Private posts never
    reach the visitor index at all — no post does (see "Search" below).
-3. **Public timeline** — an SDK component `<Posts />` (+ `usePosts`); the owner places it on the home
-   microsite or any microsite. The API behind it answers with what the caller's session can see
+3. **Public timeline** — an SDK component `<Posts />` (+ `usePosts`). The default homepage (both the
+   `/` fallback and the shipped `home` template) carries it under "lately", hidden until there is a
+   post to show; the owner can place it on any microsite. The API behind it answers with what the caller's session can see
    (no session → public only). Same rule as chat: the feature lives in the SDK, surfaces embed it.
 
 ## Every outbound surface, and what it does with posts

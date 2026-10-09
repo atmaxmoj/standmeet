@@ -27,6 +27,12 @@ export function StandMeetProvider(props: ProviderProps): ReactNode {
   return <ClientContext.Provider value={value}>{props.children}</ClientContext.Provider>;
 }
 
+// useOptionalStandMeet —— the provider's client, or null outside one (a widget then uses the
+// same-origin widget client, as every drop-in widget does).
+export function useOptionalStandMeet(): StandMeetClient | null {
+  return useContext(ClientContext);
+}
+
 export function useStandMeet(): StandMeetClient {
   const c = useContext(ClientContext);
   if (!c) throw new Error('useStandMeet must be used inside <StandMeetProvider>');

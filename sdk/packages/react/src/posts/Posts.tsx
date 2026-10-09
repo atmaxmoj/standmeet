@@ -12,11 +12,21 @@ import { ChatMarkdown } from '../chat/markdown.js';
 import { resolveLocale, useT } from '../i18n.js';
 import { usePosts } from './use-posts.js';
 
-export function Posts(): React.ReactElement {
+export interface PostsProps {
+  // heading —— a section label above the timeline (none when omitted).
+  readonly heading?: string;
+  // quietWhenEmpty —— render nothing at all when there is nothing to show, instead of the empty
+  // state: for a page (a homepage) where an empty timeline is not news to a visitor.
+  readonly quietWhenEmpty?: boolean;
+}
+
+export function Posts({ heading, quietWhenEmpty = false }: PostsProps = {}): React.ReactElement | null {
   const t = useT();
   const { items, loading, error, hasMore, loadMore } = usePosts();
+  if (quietWhenEmpty && items.length === 0) return null;
   return (
     <section data-testid="posts-widget" className="smp">
+      {heading !== undefined && <div className="smp-heading">{heading}</div>}
       {items.map((p) => <PostItem key={p.id} post={p} />)}
       {!loading && error && <p data-testid="posts-error" className="smp-note">{t('postsError')}</p>}
       {!loading && !error && items.length === 0 && (

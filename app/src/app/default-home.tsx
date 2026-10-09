@@ -9,7 +9,7 @@
 
 'use client';
 
-import { AgentWidget, CorpusWidget, GateWidget, PageNavWidget } from '@standmeet/sdk';
+import { AgentWidget, CorpusWidget, GateWidget, PageNavWidget, Posts } from '@standmeet/sdk';
 
 import { LocaleSwitch } from '@/components/page/LocaleSwitch';
 
@@ -26,6 +26,9 @@ export function DefaultHome({ name, handle }: { name: string; handle: string }) 
       </section>
       <section className="mt-24">
         <CorpusWidget heading="things I’ve been thinking about" limit={6} />
+      </section>
+      <section className="mt-24">
+        <Posts heading="lately" quietWhenEmpty />
       </section>
       <section className="mt-24">
         <GateWidget />

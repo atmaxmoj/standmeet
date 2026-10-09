@@ -14,7 +14,7 @@
 
 import React, { useEffect, useState } from 'react';
 import {
-  AgentWidget, GateWidget, CorpusWidget, PageNavWidget,
+  AgentWidget, GateWidget, CorpusWidget, PageNavWidget, Posts,
 } from '@standmeet/sdk';
 
 interface Instance { handle: string; name: string }
@@ -86,6 +86,12 @@ export default function App() {
           the homepage to a handful (cards come newest-first); raise it, or add filtering, as you like. */}
       <section className="mt-24">
         <CorpusWidget heading="things I’ve been thinking about" limit={6} />
+      </section>
+
+      {/* LATELY — your posts: short dated updates, newest first, each reader seeing only the posts
+          addressed to them. Hidden until there is one to show. */}
+      <section className="mt-24">
+        <Posts heading="lately" quietWhenEmpty />
       </section>
 
       {/* PROJECTS — typography only. */}
