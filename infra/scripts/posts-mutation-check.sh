@@ -21,13 +21,6 @@ TREE="$WORK/tree"
 LOG="$WORK/logs"
 mkdir -p "$LOG"
 
-# The scratch stack shares the mocks' fixed host ports with any other dev stack: refuse up front
-# rather than run every command against a stack that never came up.
-if [ -n "$(docker ps -q --filter publish=9500)" ]; then
-  echo "posts-mutation-check: another dev stack holds the mocks' ports — stop it first (make dev-down)."
-  exit 1
-fi
-
 cleanup() {
   (cd "$TREE" && make clean >/dev/null 2>&1) || true
   git -C "$ROOT" worktree remove --force "$TREE" >/dev/null 2>&1 || true
