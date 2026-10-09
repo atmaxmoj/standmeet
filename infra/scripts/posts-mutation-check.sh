@@ -15,6 +15,12 @@
 set -eu
 
 ROOT="$(git rev-parse --show-toplevel)"
+
+# Run from `make`, this script inherits this checkout's stack settings (BACKEND_URL, …): every
+# `NAME ?=` in the Makefile would then keep OUR value in the scratch tree, and its specs would
+# drive this checkout's stack instead of their own. Drop them, and make's own hand-down.
+while read -r name; do unset "$name"; done < <(grep -oE '^[A-Z_]+ \?=' "$ROOT/Makefile" | cut -d' ' -f1)
+unset MAKEFLAGS MFLAGS MAKELEVEL
 TABLE="$ROOT/infra/scripts/posts-mutations.tsv"
 WORK="$(mktemp -d)"
 TREE="$WORK/tree"
