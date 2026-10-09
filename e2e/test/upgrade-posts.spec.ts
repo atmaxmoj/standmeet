@@ -7,8 +7,8 @@
 // "applied" against a table that no longer exists) — then restart the backend (= deploy).
 //
 // What the upgrade must keep: the corpus, the pool, its references and the trash, untouched. What it
-// must add: a working posts genre, the image guard for a post's image, and a boot index rebuild that
-// indexes public / roles posts and never a private one.
+// must add: a working posts genre, the image guard for a post's image, and posts that survive the
+// next deploy readable by their own audience only (and never in the search index).
 //
 // Serial: the DB is briefly in the old shape mid-run. Do not parallelize.
 
@@ -20,7 +20,10 @@ import path from 'node:path';
 import { execSQL, querySQL, restartBackend } from '@/fixtures/instance';
 import { callTool, callToolOutcome, initMCP } from '@/fixtures/mcp';
 import { MEDIA } from '@/fixtures/genre-assets';
-import { createPost, deletePost, marker, setupPostsOwner, type PostsOwner } from '@/fixtures/posts';
+import {
+  createPost, deletePost, has, marker, setupPostsOwner, timelineText, type PostsOwner,
+} from '@/fixtures/posts';
+import { issueSession } from '@/fixtures/visitor';
 
 const MIGRATION = '2026-10-08-posts.sql';
 const MIGRATIONS_DIR = path.resolve(__dirname, '../../backend/db/migrations');
@@ -37,16 +40,13 @@ function postsMigrations(): string[] {
     .filter((f) => f === MIGRATION || /\bposts\b/i.test(readFileSync(path.join(MIGRATIONS_DIR, f), 'utf-8')));
 }
 
-// meiliHits —— the hits (never the whole response: it echoes the query) of the visitor index for one
-// token, from inside its container.
-function meiliHits(q: string): string {
-  const raw = execSync(
-    `docker exec ${MEILI} curl -s -X POST -H 'Authorization: Bearer ${MEILI_KEY}' ` +
-    `-H 'Content-Type: application/json' -d '${JSON.stringify({ q })}' ` +
-    'http://localhost:7700/indexes/corpus_notes/search',
-    { encoding: 'utf-8' },
+// meiliDocs —— every document of the visitor index, from inside its container.
+function meiliDocs(): string {
+  return execSync(
+    `docker exec ${MEILI} curl -s -H 'Authorization: Bearer ${MEILI_KEY}' ` +
+    "'http://localhost:7700/indexes/corpus_notes/documents?limit=100000'",
+    { encoding: 'utf-8', maxBuffer: 512 * 1024 * 1024 },
   );
-  return JSON.stringify((JSON.parse(raw) as { hits?: unknown[] }).hits ?? []);
 }
 
 let o: PostsOwner;
@@ -101,17 +101,21 @@ test('…a post can cite a pre-upgrade image, and the pool refuses to delete it,
   await deletePost(o, post.id);
 });
 
-test('…the boot index rebuild indexes public and roles posts, never a private one', async () => {
+test('…posts written before a deploy are read after it, each by its own audience', async () => {
   const m = { pub: marker('UPGPUB'), hir: marker('UPGHIR'), priv: marker('UPGPRIV') };
   await createPost(o, { body: `public ${m.pub}`, visibility: 'public' });
   await createPost(o, { body: `hiring ${m.hir}`, visibility: 'roles', visible_role_ids: [o.roles.hiring] });
   await createPost(o, { body: `private ${m.priv}`, visibility: 'private' });
-  // Empty the index, then deploy: whatever is in it afterwards came from the boot rebuild.
-  execSync(`docker exec ${MEILI} curl -s -X DELETE -H 'Authorization: Bearer ${MEILI_KEY}' ` +
-    'http://localhost:7700/indexes/corpus_notes/documents');
   restartBackend();
 
-  await expect.poll(() => meiliHits(m.pub), { timeout: 60_000 }).toContain(m.pub);
-  await expect.poll(() => meiliHits(m.hir), { timeout: 60_000, message: 'a roles post is indexed' }).toContain(m.hir);
-  expect(meiliHits(m.priv), 'a private post is never indexed').not.toContain(m.priv);
+  const anon = (await timelineText(o.request)).text;
+  expect(has(anon, m.pub), 'the public post is on the timeline (presence)').toBe(true);
+  expect(has(anon, m.hir), 'a roles post is not public').toBe(false);
+  expect(has(anon, m.priv), 'a private post is not public').toBe(false);
+  const hiring = await issueSession(o.request, { handle: o.handle, code: o.codes.hiring, visitor_name: 'h' });
+  const seen = (await timelineText(o.request, hiring.session_token)).text;
+  expect(has(seen, m.hir), 'the hiring role still reads its post').toBe(true);
+  expect(has(seen, m.priv), 'nor does it read the private one').toBe(false);
+  const docs = meiliDocs();
+  expect(has(docs, m.priv) || has(docs, m.pub), 'the boot rebuild indexes no post').toBe(false);
 });

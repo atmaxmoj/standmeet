@@ -7,6 +7,7 @@
 
 import './chat/chat.css';
 import './lang-switch.css';
+import './posts/posts.css';
 
 export { StandMeetProvider, useStandMeet } from './provider.js';
 
@@ -79,6 +80,12 @@ export type {
   CorpusWidgetProps, AgentWidgetProps, GateWidgetProps, PageNavWidgetProps, AssetWidgetProps,
   BlockWidgetProps, UseBlockTool,
 } from './widgets/index.js';
+
+// Posts —— the owner's timeline: what the reader's session may see, newest first.
+export { Posts } from './posts/Posts.js';
+export { usePosts } from './posts/use-posts.js';
+export type { UsePosts } from './posts/use-posts.js';
+export type { Post } from '@standmeet/sdk-core';
 
 // agent-core React glue + browser adapters (H.10: the loop lives in the
 // backend; the browser only uses the prompt source + agent-turn streamer)

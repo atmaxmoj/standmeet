@@ -77,7 +77,11 @@ export function xssBody(mark: string): string {
     `Inline math $E = mc^2$ and the marker ${mark}.`,
     '',
     '<script>window.__postScript = true</script>',
+    '',
+    // A blank line after each payload: an HTML line opens a markdown HTML block that runs to the
+    // next blank line, and would swallow the link below it.
     '<img src="x" onerror="window.__postImg = true" />',
+    '',
     '[click me](javascript:window.__postLink=true)',
   ].join('\n');
 }

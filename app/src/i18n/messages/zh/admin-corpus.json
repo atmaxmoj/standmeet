@@ -224,6 +224,25 @@
     "writingUnpublished": "已取消发布",
     "writingSaved": "已保存文章 {slug}"
   },
+  "posts": {
+    "kicker": "corpus · 时间线",
+    "count": "{n} 条",
+    "placeholder": "在想什么？支持 Markdown。",
+    "poolShow": "+ 从素材库插图",
+    "poolHide": "收起素材库",
+    "submit": "发布",
+    "rolesLabel": "这些角色可见",
+    "vis": { "private": "私密", "public": "公开", "roles": "指定角色" },
+    "filterAll": "全部",
+    "search": "搜索动态",
+    "empty": "还没有动态。在上面写第一条——除非你另选，它默认私密。",
+    "edited": "已编辑",
+    "delete": "删除",
+    "confirmDelete": "删除这条动态？它会在回收站保留 90 天，期间可以恢复。",
+    "posted": "已发布",
+    "deleted": "动态已删除",
+    "trashGroup": "动态"
+  },
   "trash": {
     "kicker": "corpus · 已删除",
     "intro": "删除的条目在这里保留 90 天，之后彻底清除。恢复一条时，和它一起删除的子条目以及它的链接也会回到原处。",

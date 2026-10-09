@@ -1,0 +1,29 @@
+/* posts.css —— <Posts />, the owner's timeline. Self-contained: the timeline renders on microsites
+   and third-party pages whose CSS pipeline never scans the SDK, so every rule lives here with a
+   fallback for each token. Metadata is mono, the body is serif prose. */
+
+.smp { display: flex; flex-direction: column; width: 100%; }
+.smp-item { padding: 1.75rem 0; border-top: 1px solid var(--color-rule, #D9D2C4); }
+.smp-item:first-child { border-top: 0; }
+.smp-meta {
+  display: flex; align-items: baseline; gap: .75rem; margin-bottom: .6rem;
+  font-family: var(--smc-mono, 'JetBrains Mono', ui-monospace, monospace);
+  font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--color-faint, #9A9184);
+}
+.smp-time { font-family: var(--smc-mono, 'JetBrains Mono', ui-monospace, monospace); }
+.smp-edited { color: var(--color-muted, #7A7167); }
+.smp-body {
+  font-family: var(--smc-serif, 'Newsreader', Georgia, serif);
+  color: var(--color-ink, #1B1814);
+}
+.smp-note {
+  font-family: var(--smc-mono, 'JetBrains Mono', ui-monospace, monospace);
+  font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--color-muted, #7A7167);
+  padding: 1.5rem 0;
+}
+.smp-more {
+  align-self: flex-start; margin-top: 1rem; padding: 0; background: none; border: 0; cursor: pointer;
+  font-family: var(--smc-mono, 'JetBrains Mono', ui-monospace, monospace);
+  font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--color-accent, #B5391C);
+}
+.smp-more:disabled { color: var(--color-faint, #9A9184); cursor: default; }

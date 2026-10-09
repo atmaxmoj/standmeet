@@ -93,6 +93,7 @@ func mountPublicHandlers(r chi.Router, deps *Deps) {
 	(&deps.PublicAccessRequests).Mount(r)
 	(&deps.PublicPasswordReset).Mount(r)
 	(&deps.PublicWritings).Mount(r)
+	(&deps.PublicPosts).Mount(r)
 	// The fallback lets /prompts/{id} return the registry's externalized-block
 	// fragment text when the embedded .md is not found (blocks/<id> has moved
 	// into plugin instructions and has no .md).

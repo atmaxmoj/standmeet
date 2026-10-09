@@ -228,6 +228,25 @@
     "writingUnpublished": "已取消發佈",
     "writingSaved": "已儲存文章 {slug}"
   },
+  "posts": {
+    "kicker": "corpus · 時間線",
+    "count": "{n} 條",
+    "placeholder": "在想甚麼？支援 Markdown。",
+    "poolShow": "+ 從素材庫插圖",
+    "poolHide": "收起素材庫",
+    "submit": "發佈",
+    "rolesLabel": "這些角色可見",
+    "vis": { "private": "私密", "public": "公開", "roles": "指定角色" },
+    "filterAll": "全部",
+    "search": "搜尋動態",
+    "empty": "還沒有動態。在上面寫第一條——除非你另選，它預設私密。",
+    "edited": "已編輯",
+    "delete": "刪除",
+    "confirmDelete": "刪除這條動態？它會在回收站保留 90 天，期間可以恢復。",
+    "posted": "已發佈",
+    "deleted": "動態已刪除",
+    "trashGroup": "動態"
+  },
   "trash": {
     "kicker": "corpus · 已刪除",
     "intro": "刪除的條目在這裏保留 90 天，之後徹底清除。恢復一條時，和它一起刪除的子條目以及它的連結也會回到原處。",

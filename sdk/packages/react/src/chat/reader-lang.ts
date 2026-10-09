@@ -9,7 +9,7 @@
 
 import { createContext, useContext, useSyncExternalStore } from 'react';
 
-import { citationHref, type CorpusGenre } from './href.js';
+import { citationHref, type CitedGenre } from './href.js';
 
 const ReaderLangContext = createContext<string | null>(null);
 
@@ -47,7 +47,7 @@ export function withLang(href: string, lang: string): string {
 }
 
 // useCitationHref —— the citation shown under an answer, carrying the reader's language.
-export function useCitationHref(): (c: { genre: CorpusGenre; path: string; slug: string }) => string {
+export function useCitationHref(): (c: { genre: CitedGenre; path: string; slug: string }) => string {
   const lang = useReaderLang();
   return (c) => withLang(citationHref(c), lang);
 }

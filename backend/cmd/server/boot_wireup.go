@@ -43,6 +43,10 @@ func buildServerDeps(d *deps.Runtime) *Deps {
 		PublicMicrositePreview: buildPublicMicrositePreviewDeps(d),
 		PublicAccessRequests:   buildPublicAccessRequestsDeps(d),
 		PublicPasswordReset:    buildPublicPasswordResetDeps(d),
+		PublicPosts: publicroutes.PostsHandlers{
+			Posts: d.Posts, Sessions: d.VisitorStore,
+			Page: owner.PageDeps{Owners: d.OwnerRepo}, Log: d.Log,
+		},
 		PublicWritings: publicroutes.WritingHandlers{
 			Writings: corpus.WritingsDeps{Writings: d.WritingRepo, Events: d.Recorder()},
 			CrossLink: corpus.CrossLinkQueryDeps{

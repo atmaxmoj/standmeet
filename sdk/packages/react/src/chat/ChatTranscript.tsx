@@ -187,21 +187,40 @@ function CitationsList({ citations }: { citations?: readonly Citation[] }) {
   ) : null;
 }
 
+// EXCERPT_CHARS —— how much of an unaddressable citation (a post) shows in place of a link.
+const EXCERPT_CHARS = 120;
+
 function CitationRow({ c }: { c: Citation }) {
-  const href = useCitationHref();
+  const href = useCitationHref()(c);
+  const label = (
+    <>
+      <span data-testid={`citation-genre-${c.genre}`}>{c.genre}</span>
+      <span className="smc-faint">·</span>
+      <span>{c.title}</span>
+    </>
+  );
+  // No address (a post): the citation is its time and its opening words, not a link.
+  if (href === '') {
+    return (
+      <li>
+        <span className="smc-citation" data-testid="citation-row" data-citation-path={c.path}>
+          {label}
+          <span className="smc-faint">{c.body.slice(0, EXCERPT_CHARS)}</span>
+        </span>
+      </li>
+    );
+  }
   return (
     <li>
       <a
-        href={href(c)}
+        href={href}
         target="_blank"
         rel="noreferrer"
         className="smc-citation"
         data-testid="citation-row"
         data-citation-path={c.path}
       >
-        <span data-testid={`citation-genre-${c.genre}`}>{c.genre}</span>
-        <span className="smc-faint">·</span>
-        <span>{c.title}</span>
+        {label}
         <span className="smc-citation-out">↗</span>
       </a>
     </li>

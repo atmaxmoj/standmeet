@@ -76,6 +76,9 @@ func buildGlobRegex(pattern string) *regexp.Regexp {
 // The json tags are a **crossing-the-boundary contract**: this scope is serialized whole
 // and handed to the retrieval plugin inside the sandbox, then comes back to the host as-is.
 type CorpusScope struct {
+	// RoleID —— the reader's role, for what is addressed to a role rather than reached by a glob:
+	// a post's audience (docs/design/posts.md). "" = no role.
+	RoleID  string   `json:"role_id,omitempty"`
 	Granted []string `json:"granted"`
 	Denied  []string `json:"denied"`
 	// PublishedOnly —— this identity reads exactly **what the owner has published**,

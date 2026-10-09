@@ -37,6 +37,8 @@ type Asset struct {
 const (
 	AssetRefCorpus    = "corpus"
 	AssetRefMicrosite = "microsite"
+	// AssetRefPost —— a post's body cites the asset (corpus/posts keeps these rows).
+	AssetRefPost = "post"
 )
 
 // AssetReference —— one live use of a pool asset: which kind of thing references it

@@ -38,7 +38,7 @@ const (
 func (h *Handlers) MountCorpus(r chi.Router) {
 	face := h.Corpus.Face
 	r.Get("/corpus/{genre}", h.dispatchOp(face, "corpus.list",
-		pagedWithURLParam(paramGenre, "tag", "q", "state"), jsonOK))
+		pagedWithURLParam(paramGenre, "tag", "q", "state", "visibility"), jsonOK))
 	r.Post("/corpus/{genre}", h.dispatchOp(face, "corpus.create", corpusBodyArgs, jsonCreated))
 	// search — finds an entry by content. The list only gives the latest page, while an
 	// owner's corpus runs to thousands of entries: "open my good-regulator-theorem entry"

@@ -49,15 +49,29 @@ func rebuildAssetRefsOf(ctx context.Context, deps *Deps, ownerID string, ids []s
 
 // TrashPeriodicJobs —— the daily purge of trash older than entity.TrashRetention. A nil repo
 // exposes none: a panel must not show a job that reports "ok" while doing nothing.
-func TrashPeriodicJobs(trash *repo.TrashRepo) []periodic.Job {
+//
+// also —— the other corpus trashes this one purge empties (posts keep their own deleted_at).
+func TrashPeriodicJobs(
+	trash *repo.TrashRepo, also ...func(ctx context.Context, before time.Time) error,
+) []periodic.Job {
 	if trash == nil {
 		return []periodic.Job{}
 	}
+	notes := func(ctx context.Context, before time.Time) error {
+		_, err := trash.Purge(ctx, before)
+		return err
+	}
+	purges := append([]func(context.Context, time.Time) error{notes}, also...)
 	return []periodic.Job{periodic.Named(
 		"corpus trash purge", trashPurgeEvery,
 		func(ctx context.Context) error {
-			_, err := trash.Purge(ctx, time.Now().UTC().Add(-entity.TrashRetention))
-			return err
+			before := time.Now().UTC().Add(-entity.TrashRetention)
+			for _, purge := range purges {
+				if err := purge(ctx, before); err != nil {
+					return err
+				}
+			}
+			return nil
 		},
 	)}
 }

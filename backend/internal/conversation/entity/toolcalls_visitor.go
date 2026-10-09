@@ -94,10 +94,11 @@ func citationOf(result string) string {
 }
 
 // citable -- the footer's rule (sdk corpus-read-wire.ts citableCorpusRead): wiki / output /
-// writing, minus wiki / output marked not-a-source. Subjectivity is never cited.
+// writing / post, minus wiki / output marked not-a-source. Subjectivity is never cited. A post
+// read here was already admitted by its audience, so it is cited (time + excerpt, no link).
 func citable(c *readCitation) bool {
 	switch c.Genre {
-	case "writing":
+	case "writing", "post":
 		return true
 	case "wiki", "output":
 		return c.ShowAsSource == nil || *c.ShowAsSource
@@ -110,23 +111,28 @@ func isCorpusToolName(name string) bool {
 	return len(name) >= len(corpusToolPrefix) && name[:len(corpusToolPrefix)] == corpusToolPrefix
 }
 
-// stripCorpusResult -- for a retrieval call, drops the result but keeps name and ok
-// (the UI only uses those two to count).
+// stripCorpusResult -- for a retrieval call, the same rule as the live stream (VisitorToolResult):
+// a citable corpus_read keeps exactly its citation, every other retrieval result is dropped (name
+// and ok stay — the UI counts with them). So a replay shows what the visitor was shown live, a
+// post's citation included, and nothing more (docs/design/posts.md, "What a visitor was shown
+// stays in their own record").
 func stripCorpusResult(call map[string]json.RawMessage) {
-	if !isCorpusCall(call) {
+	name := callName(call)
+	if !isCorpusToolName(name) {
+		return
+	}
+	// The persisted result is the tool's JSON as it came back; the citation is the same kind.
+	if shown := VisitorToolResult(name, string(call["result"])); shown != "" {
+		call["result"] = json.RawMessage(shown)
 		return
 	}
 	delete(call, "result")
 }
 
-func isCorpusCall(call map[string]json.RawMessage) bool {
-	raw, ok := call["name"]
-	if !ok {
-		return false
-	}
+func callName(call map[string]json.RawMessage) string {
 	var name string
-	if json.Unmarshal(raw, &name) != nil {
-		return false
+	if json.Unmarshal(call["name"], &name) != nil {
+		return ""
 	}
-	return isCorpusToolName(name)
+	return name
 }

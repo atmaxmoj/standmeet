@@ -140,7 +140,8 @@ func (l *pgCorpusLister) Grep(
 	if nerr != nil {
 		return nil, nerr
 	}
-	return append(notes, l.grepWritings(ctx, ownerID, scope, re)...), nil
+	notes = append(notes, l.grepWritings(ctx, ownerID, scope, re)...)
+	return append(notes, l.grepPosts(ctx, ownerID, scope, re)...), nil
 }
 
 // grepNotes — pulls the three vault genres (wiki / output / subjectivity) all at once,

@@ -22,6 +22,9 @@ const corpusRootLimit = 50
 func (l *pgCorpusLister) List(
 	ctx context.Context, ownerID string, scope access.CorpusScope, parentPath string, page int,
 ) ([]Meta, error) {
+	if parentPath == postsDir {
+		return l.listPosts(ctx, ownerID, scope, page), nil
+	}
 	wikiRows, err := l.listWikiChildren(ctx, ownerID, scope, parentPath, page)
 	if err != nil {
 		return nil, err
@@ -33,7 +36,7 @@ func (l *pgCorpusLister) List(
 	out = append(out, wikiRows...)
 	out = append(out, l.listOutputRoots(ctx, ownerID, scope)...)
 	out = append(out, l.listWritingRoots(ctx, ownerID, scope)...)
-	return out, nil
+	return append(out, l.postsRoot(ctx, ownerID, scope)...), nil
 }
 
 func (l *pgCorpusLister) listWikiChildren(

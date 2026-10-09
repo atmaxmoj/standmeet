@@ -23,4 +23,6 @@ type IndexDeps struct {
 	// Media — assets (images / attachments / hero). Handed out alongside a corpus item when a
 	// visitor reads it — visibility is purely inherited.
 	Media *NoteAssetsDeps
+	// Posts —— the posts a session's role may see (corpus/posts); nil = posts unreachable.
+	Posts PostsReader
 }

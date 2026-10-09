@@ -1,6 +1,7 @@
 # Posts — a timeline of short updates, each with its own audience
 
-> Status: **design, not built** (2026-10-08). Owner's words: "和发微博一样 … 没有标题 … 能设置私密公开，或者某个
+> Status: **built** (2026-10-08) — `backend/internal/corpus/posts/`. One change from the first
+> draft: posts are not put in the Meili index (see "Search" below). Owner's words: "和发微博一样 … 没有标题 … 能设置私密公开，或者某个
 > role可见，和朋友圈一样". Supersedes the "journal" sketch from the same day (a private post is the journal).
 > Tests: [posts-tests.md](posts-tests.md) — written first; the implementation starts from their red.
 
@@ -47,8 +48,10 @@ posts
 ## Who reads what — the one rule
 
 Visibility belongs to the **post**, not to the role. A role's `corpus_uris` globs do not grant posts
-and cannot widen them; `post://` is not a glob a role can hold. One function decides it, used by
-every reader (admin is owner, so it sees all):
+and cannot widen them; `post://` is not a glob a role can hold. One rule decides it, used by every
+reader (admin is owner, so it sees all). It lives in SQL — `post_visible(visibility,
+visible_role_ids, role_id)` in `schema.sql` — and every posts query takes the reader as
+`(owner_view, role_id)`, so no query can serve a post without it:
 
 ```
 canSee(post, viewer) =
@@ -56,6 +59,9 @@ canSee(post, viewer) =
   || post.visibility == 'public'
   || (post.visibility == 'roles' && viewer.roleID ∈ post.visible_role_ids)
 ```
+
+The session's role reaches the corpus tools inside the scope they already carry
+(`CorpusScope.RoleID`); the timeline API reads it off the visitor session's RoleSnapshot.
 
 `viewer.roleID` comes from the visitor session's frozen RoleSnapshot (the code's assumed role); an
 anonymous reader and a BYOAI visitor have no role, so they see public posts only. An invisible post
@@ -66,9 +72,7 @@ Readers, all through that function:
 1. **Owner** — admin section + MCP (`corpus.list/get/search/create/update/delete`, `genre: "post"`).
 2. **Visitor AI** — the agent's corpus tools (`corpus_search` / `corpus_read`) return the posts the
    session can see, so the stand-in can answer "what has he been up to lately". Private posts never
-   reach the visitor index at all (only `public` / `roles` posts are indexed, each carrying
-   `visibility` + `visible_role_ids` as Meili filter fields — the ACL-before-limit filter from
-   09454b1b9 extends to them).
+   reach the visitor index at all — no post does (see "Search" below).
 3. **Public timeline** — an SDK component `<Posts />` (+ `usePosts`); the owner places it on the home
    microsite or any microsite. The API behind it answers with what the caller's session can see
    (no session → public only). Same rule as chat: the feature lives in the SDK, surfaces embed it.
@@ -76,10 +80,11 @@ Readers, all through that function:
 ## Every outbound surface, and what it does with posts
 
 Inventoried from the code on 2026-10-08 (not from docs). A post reaches a non-owner **only** through
-one read function — `posts.VisibleTo(viewer)` / `posts.GetVisible(viewer, id)` — and a gate
-(`check-posts-one-reader`, planted self-test, in `make lint`) refuses any other package that reads
-the `posts` table or the posts repo. Each surface below either calls that function or never sees
-posts at all; there is no third option.
+the posts service's two reads — `Service.List(viewer, …)` / `Service.Get(viewer, id)`, called
+`VisibleTo` below — and a gate (`check-posts-one-reader`, planted self-test, in `make lint`) refuses
+any other package that imports the posts DAO, any query outside `db/queries/posts/` that names the
+`posts` table, and any search document built for a post. Each surface below either calls those
+reads or never sees posts at all; there is no third option.
 
 | surface (who reaches it) | posts behaviour |
 |---|---|
@@ -96,8 +101,8 @@ posts at all; there is no third option.
 | `send_email`, `send_confirmation`, `ext_*`, `op_*` tools (LLM-chosen egress) | can only carry text the session could read; no posts-specific path |
 | webhooks, notify rules (email / IM), events list | `post.*` events carry `id` + `visibility` only — never a body, whatever the visibility |
 | `/sitemap.xml`, OG/SEO | nothing — a post has no URL of its own in v1 (see Decisions) |
-| prerendered microsite HTML (what a crawler gets) | public posts only (a microsite's prerender runs anonymous) |
-| Meili visitor index | public + roles posts only, with `visibility` / `visible_role_ids` filter fields; private never indexed |
+| prerendered microsite HTML (what a crawler gets) | no post — `<Posts />` loads in the reader's browser as that reader; a built page holding posts would keep one after it went private |
+| Meili visitor index | nothing — no post of any audience is indexed (see "Search") |
 | `/assets/{id}` | an image referenced only by private posts is never servable on a bare id |
 | owner `/mcp`, admin API (owner only) | everything |
 
@@ -136,11 +141,28 @@ Same verbs as every genre, `genre: "post"`:
 | `corpus.list` | cursor, `visibility?`, `q?` | read |
 | `corpus.get` / `corpus.search` | — | read |
 
-Changing visibility is an update — narrowing a public post to `roles` or `private` takes effect for
-the next read (and the index entry is rewritten / removed by the same event that indexes it).
+Changing visibility is an update — narrowing a public post to `roles` or `private` takes effect on
+the very next read.
 
-Events: `post.created` / `post.updated` / `post.deleted` on the outbox (index subscriber, webhooks,
-notify rules can use them); payload `id` + `visibility`.
+Events: `post.created` / `post.updated` (an edit, a new audience, or a restore) / `post.deleted` on
+the outbox (webhooks and notify rules can use them); payload `post_id` + `visibility`.
+
+## Search
+
+A visitor's `corpus_search` finds posts in Postgres (substring + `simple` full-text) through the
+same reads as everything else, appended after the note hits — the way writings are searched. The
+first draft put `public` / `roles` posts into Meili with `visibility` / `visible_role_ids` filter
+fields; it was dropped while building, for three reasons:
+
+- the index would hold a second copy of every roles post's text and audience, kept in step by an
+  event subscriber — a second place that can disagree with the post;
+- the note search's filter admits a `**` glob, so a post document in the shared index needs its own
+  exclusion there; a missed one serves a roles post to every `**` role;
+- a timeline is read newest-first, and a personal timeline is small: ranking and typo tolerance buy
+  little that `ILIKE` + full-text does not.
+
+So a change of audience needs no index write and shows on the next read. Add an index when posts
+outgrow Postgres search; it then needs its own index and its own filter, never the notes'.
 
 ## Admin
 

@@ -103,6 +103,7 @@ func collectEventTypes(d *deps.Runtime) []events.Type {
 func DeclaredEventTypes() []events.Type {
 	out := corpus.EventTypes()
 	out = append(out, corpus.WritingEventTypes()...)
+	out = append(out, corpus.PostEventTypes()...)
 	out = append(out, owner.WebhookEventTypes()...)
 	out = append(out, access.EventTypes()...)
 	out = append(out, conversation.EventTypes()...)
@@ -192,7 +193,7 @@ func collectPeriodicJobs(d *deps.Runtime) []periodic.Job {
 	out = append(out, owner.GasRefillPeriodicJobs(d.OwnerRepo, d.Recorder())...)
 	out = append(out, conversation.PrunePeriodicJobs(d.ChatRepo, d.Log, d.Recorder())...)
 	out = append(out, monitor.PeriodicJobs(d.MonitorRepo)...)
-	out = append(out, corpus.TrashPeriodicJobs(corpus.NewTrashRepo(d.DB))...)
+	out = append(out, corpus.TrashPeriodicJobs(corpus.NewTrashRepo(d.DB), d.Posts.Purge)...)
 	out = append(out, corpus.AssetTrashPeriodicJobs(
 		corpus.AssetsDeps{Repo: d.AssetRepo, Storage: d.StorageClient})...)
 	out = append(out, owner.MicrositeTrashPeriodicJobs(

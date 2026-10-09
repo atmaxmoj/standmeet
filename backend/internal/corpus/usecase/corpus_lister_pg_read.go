@@ -17,6 +17,16 @@ import (
 func (l *pgCorpusLister) Get(
 	ctx context.Context, ownerID string, scope access.CorpusScope, path string,
 ) (Entry, error) {
+	if id, ok := PostIDOf(path); ok {
+		return l.getPost(ctx, ownerID, scope, id)
+	}
+	return l.getNote(ctx, ownerID, scope, path)
+}
+
+// getNote —— a note genre's entry at this path (wiki → output → writing → subjectivity).
+func (l *pgCorpusLister) getNote(
+	ctx context.Context, ownerID string, scope access.CorpusScope, path string,
+) (Entry, error) {
 	foundAny := false
 	for _, find := range l.finders() {
 		entry, found := find(ctx, ownerID, path)

@@ -10,7 +10,7 @@
 export type AdminSlug =
   | 'raw' | 'wiki' | 'subjectivity' | 'output' | 'conversations' | 'codes' | 'requests'
   | 'suppliers' | 'microsites' | 'api-mcp' | 'providers' | 'account'
-  | 'skills' | 'writings' | 'drafts' | 'applications' | 'screen-assistant'
+  | 'skills' | 'writings' | 'posts' | 'drafts' | 'applications' | 'screen-assistant'
   | 'dashboard' | 'sources' | 'listings' | 'system'
   | 'preview' | 'obsidian' | 'embeds' | 'assets' | 'data'
   | 'roles' | 'prompts' | 'ip-bans' | 'monitor' | 'tasks' | 'webhooks' | 'notify' | 'blocks'
@@ -40,6 +40,8 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       // out loud, not filled in through a form). This entry exists for "visible + attachable".
       { slug: 'subjectivity' },
       { slug: 'writings' },
+      // posts (动态) —— short untitled updates, each with its own audience (posts.md).
+      { slug: 'posts' },
       { slug: 'output' },
       // trash —— where a delete of any genre waits 90 days, and the way back.
       { slug: 'trash' },

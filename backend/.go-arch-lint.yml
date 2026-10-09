@@ -296,6 +296,10 @@ components:
 
   corpusdb:
     in: internal/corpus/db                # #135: corpus's own sqlc DAO (each domain owns its repository); pure leaf, only pgx
+  corpusposts:
+    in: internal/corpus/posts             # corpus sub-module: posts — the one reader and writer of the posts table (check-posts-one-reader)
+  corpuspostsdb:
+    in: internal/corpus/posts/db          # posts' own sqlc DAO; pure leaf, only pgx
   conversationdb:
     in: internal/conversation/db                # #135: conversation's own sqlc DAO (each domain owns its repository); pure leaf, only pgx
   accessdb:
@@ -1136,6 +1140,22 @@ deps:
       - corpusops
       - corpusi18n
       - corpussubscriber
+      - corpusposts
+    anyVendorDeps: true
+  # corpusposts — posts (docs/design/posts.md): its own table and DAO, the corpus usecase types it
+  # answers the visitor tools in (usecase.PostsReader), the asset pool its images live in.
+  corpusposts:
+    mayDependOn:
+      - corpuspostsdb
+      - corpusentity
+      - corpusrepo
+      - corpususecase
+      - events
+      - paging
+      - pgstore
+    anyVendorDeps: true
+  corpuspostsdb:
+    mayDependOn: []
     anyVendorDeps: true
   # corpusops — this domain's outward operation declarations. It lives inside the domain (not at the
   # convergence point), so the domain can say what it can do itself; it knows only this domain's usecases
@@ -1145,6 +1165,7 @@ deps:
       - corpusentity
       - corpusrepo
       - corpususecase
+      - corpusposts   # genre "post" on the corpus.* verbs
       - facadeparity
       - apierr
       - corpusi18n

@@ -100,6 +100,7 @@ type Runtime struct {
 	AssetRepo          *corpus.AssetRepo
 	NoteHeroRepo       *corpus.NoteHeroRepo
 	WritingRepo        *corpus.WritingRepo
+	Posts              *corpus.PostsService
 	WritingRefRepo     *corpus.WritingRefRepo
 	BlockEnableRepo    *access.BlockEnableRepo
 	GhostRepo          *conversation.GhostRepo

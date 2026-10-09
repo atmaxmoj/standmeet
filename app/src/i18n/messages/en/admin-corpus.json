@@ -224,6 +224,25 @@
     "writingUnpublished": "Unpublished",
     "writingSaved": "Writing {slug} saved"
   },
+  "posts": {
+    "kicker": "corpus · timeline",
+    "count": "{n, plural, one {# post} other {# posts}}",
+    "placeholder": "What's on your mind? Markdown works.",
+    "poolShow": "+ image from the pool",
+    "poolHide": "hide the pool",
+    "submit": "post",
+    "rolesLabel": "visible to these roles",
+    "vis": { "private": "private", "public": "public", "roles": "roles" },
+    "filterAll": "all",
+    "search": "search posts",
+    "empty": "No posts yet. Write the first one above — it stays private unless you say otherwise.",
+    "edited": "edited",
+    "delete": "delete",
+    "confirmDelete": "Delete this post? It stays in the trash for 90 days, where you can restore it.",
+    "posted": "Posted",
+    "deleted": "Post deleted",
+    "trashGroup": "posts"
+  },
   "trash": {
     "kicker": "corpus · deleted",
     "intro": "Deleted entries wait here for 90 days, then they are gone for good. Restoring one brings back the entries deleted with it and its links, in the same place.",

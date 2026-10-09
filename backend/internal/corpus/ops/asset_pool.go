@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/corpus/entity"
 	"github.com/atmaxmoj/standmeet/internal/corpus/repo"
@@ -228,19 +229,21 @@ func poolDeleteErr(
 }
 
 func referencedMessage(refs []entity.AssetReference) string {
-	corpusN, siteN := 0, 0
+	by := map[string][]string{}
 	for i := range refs {
-		if refs[i].Kind == entity.AssetRefMicrosite {
-			siteN++
-			continue
-		}
-		corpusN++
+		by[refs[i].Kind] = append(by[refs[i].Kind], refs[i].ReferrerID)
 	}
-	return fmt.Sprintf(
-		"still used by %d corpus %s and %d %s — remove those first",
+	siteN, postIDs := len(by[entity.AssetRefMicrosite]), by[entity.AssetRefPost]
+	corpusN := len(refs) - siteN - len(postIDs)
+	msg := fmt.Sprintf("still used by %d corpus %s and %d %s",
 		corpusN, plural(corpusN, "entry", "entries"),
-		siteN, plural(siteN, "microsite", "microsites"),
-	)
+		siteN, plural(siteN, "microsite", "microsites"))
+	if len(postIDs) > 0 {
+		// A post has no title, so it is named by id — the owner finds it in the timeline.
+		msg += fmt.Sprintf(", and %s %s", plural(len(postIDs), "post", "posts"),
+			strings.Join(postIDs, ", "))
+	}
+	return msg + " — remove those first"
 }
 
 func plural(n int, one, many string) string {

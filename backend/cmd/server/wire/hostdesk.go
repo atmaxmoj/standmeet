@@ -153,5 +153,8 @@ func CorpusIndexDeps(d *deps.Runtime) *corpus.IndexDeps {
 			Assets: corpus.AssetsDeps{Repo: d.AssetRepo, Storage: d.StorageClient},
 			Hero:   d.NoteHeroRepo,
 		},
+		// Posts: a session reads the posts its role may see, by the post's audience — never by
+		// the role's globs (docs/design/posts.md).
+		Posts: corpus.NewPostsReader(d.Posts),
 	}
 }

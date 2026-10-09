@@ -239,6 +239,7 @@ func (s *RoleSnapshot) CorpusScope() CorpusScope {
 		Granted:       s.CorpusURIs(),
 		Denied:        s.DeniedCorpusURIs(),
 		PublishedOnly: ReadsPublishedSlice(s.roleName),
+		RoleID:        s.roleID,
 	}
 }
 

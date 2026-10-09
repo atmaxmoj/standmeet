@@ -224,6 +224,25 @@
     "writingUnpublished": "게시가 취소되었습니다",
     "writingSaved": "글 {slug}이(가) 저장되었습니다"
   },
+  "posts": {
+    "kicker": "corpus · 타임라인",
+    "count": "{n}개",
+    "placeholder": "무슨 생각을 하고 있나요? Markdown을 쓸 수 있어요.",
+    "poolShow": "+ 라이브러리 이미지",
+    "poolHide": "라이브러리 닫기",
+    "submit": "게시",
+    "rolesLabel": "이 역할에게 보이기",
+    "vis": { "private": "비공개", "public": "공개", "roles": "역할 지정" },
+    "filterAll": "전체",
+    "search": "게시물 검색",
+    "empty": "아직 게시물이 없어요. 위에서 첫 글을 써 보세요 — 따로 고르지 않으면 비공개예요.",
+    "edited": "수정됨",
+    "delete": "삭제",
+    "confirmDelete": "이 게시물을 삭제할까요? 휴지통에 90일 동안 남아 있고, 거기서 복원할 수 있어요.",
+    "posted": "게시했어요",
+    "deleted": "게시물을 삭제했어요",
+    "trashGroup": "게시물"
+  },
   "trash": {
     "kicker": "corpus · 삭제됨",
     "intro": "삭제한 항목은 여기에 90일 동안 남아 있다가 완전히 사라집니다. 복원하면 함께 삭제된 항목과 링크도 원래 자리로 돌아옵니다.",

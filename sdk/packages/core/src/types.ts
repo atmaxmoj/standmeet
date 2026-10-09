@@ -13,6 +13,24 @@ export interface CorpusCard {
   readonly path: string;
 }
 
+// Post —— one post on the owner's timeline, as a reader is given it (GET /api/v1/posts). Only the
+// posts the caller's session may see ever arrive, so a post carries no audience of its own.
+// asset_urls maps each `standmeet-asset:<id>` the body cites to a URL the reader can load.
+export interface Post {
+  readonly id: string;
+  readonly body: string;
+  readonly created_at: string;
+  readonly edited: boolean;
+  readonly asset_urls?: Readonly<Record<string, string>>;
+}
+
+// PostsPage —— one page of the timeline, newest first; next_cursor is absent on the last page.
+export interface PostsPage {
+  readonly items: readonly Post[];
+  readonly next_cursor?: string;
+  readonly total?: number;
+}
+
 // MicrositeLink —— one of the owner's published microsites, for a page to link the others
 // (slug + title, nothing more). Served keyless by GET /api/v1/microsites.
 export interface MicrositeLink {

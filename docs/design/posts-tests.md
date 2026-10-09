@@ -31,20 +31,25 @@ recorded in the merge commit. The table lives as data in `infra/scripts/posts-mu
 whose substitution matches nothing fails, and a red counts only when an assertion made it. Every row must turn its spec red; a row that stays green means that
 spec is decoration and is rewritten.
 
+The rows live in `infra/scripts/posts-mutations.tsv`, each pointed at the line it breaks.
+
 | planted bug | must turn red |
 |---|---|
-| `canSee` returns true | A (every ✗ cell), B, G |
-| `canSee` ignores `roles` (roles → public) | A (invited / `**` rows) |
-| `canSee` treats `roles` as private | A (hiring rows' ✓ cells) |
-| a corpus tool reads posts without `VisibleTo` | A (paths 2–5), K |
-| private posts are indexed | B (index) |
-| `tool_completed` frames carry the post body | A (path 2) |
+| the visibility rule (`post_visible`) returns true | A (every ✗ cell), G |
+| the rule reads `roles` as public | A (invited / `**` rows) |
+| the rule reads `roles` as private | A (hiring rows' ✓ cells) |
+| the corpus tools read posts as the owner | A (paths 2–5) |
 | an event payload carries the body | B (webhooks / notify) |
-| invisible id answers 403 instead of "missing" | A (path 4) |
+| an invisible id answers "denied" instead of "missing" | A (path 4) |
 | default visibility `public` | D (omitted visibility) |
 | `total` counts all posts | G |
 | update may change `created_at` | C |
 | the gate's pattern list emptied | K (self-test) |
+
+Two rows of the first draft have no code left to break: "private posts are indexed" (no post is
+indexed — B's index row is an absence with its presence, guarded by K's rule 3) and "`tool_completed`
+frames carry the post body" (a frame carries only what the reader may read; the row above that reads
+as the owner is the bug that would leak through it).
 
 ## A. The visibility matrix — `posts-visibility.spec.ts`
 
@@ -84,14 +89,14 @@ Each row: the private marker absent **and** the row's own presence check holding
 
 | channel | absent | presence check (same run) |
 |---|---|---|
-| Meili visitor index (queried directly) | `PRIV_` | `PUB_` and `HIR_` are hits |
+| Meili index, every document (queried directly) | every post marker | a note written after the posts is there |
 | public-tier chat on the home page + its citations | `PRIV_`, `HIR_` | `PUB_` cited |
 | a visitor turn's instruction (profile facts, cross-conversation digest, page text, ghost context; turn diagnostics) | every marker | the diagnostics carry the turn's own page text |
 | `summarize_conversation` report, `/report/{id}` + PDF, `/live/{token}` | `PRIV_` | the marker the conversation actually read is there |
 | webhook deliveries (mock receiver) for `post.created/updated/deleted` | every marker (no body at all) | a delivery exists for each post's id with its `visibility` |
 | notify-rule messages (Discord mock, owner email) | every marker | a message exists for the event |
 | `events.list` | every marker | the events exist |
-| microsite prerendered HTML / OG / `/sitemap.xml` | `PRIV_`, `HIR_` | `PUB_` in the prerendered timeline |
+| microsite prerendered HTML / OG / `/sitemap.xml` | every post marker (the timeline loads in the browser, as the reader) | the page's own text is prerendered; the sitemap lists pages |
 | IM-bridge visitor chat on a `hiring` code | `PRIV_` | `HIR_` in the answer |
 | BYOAI: the request the visitor-chosen endpoint received (BYOAI mock records it) | `PRIV_`, `HIR_` | `PUB_` in it |
 
@@ -99,16 +104,16 @@ Each row: the private marker absent **and** the row's own presence check holding
 
 - create → newest first; a tie on `created_at` ordered by id; update leaves `created_at` alone and
   the timeline shows "edited".
-- **narrow** public → private: gone from the anonymous timeline, search, `corpus_read` and the
-  index on the next read (wait on the index receipt, not a sleep); **widen** private → public:
+- **narrow** public → private: gone from the anonymous timeline, search and `corpus_read` on the
+  very next read (search reads Postgres; there is nothing to wait on); **widen** private → public:
   appears everywhere it should.
 - **narrowing is not retroactive**: a hiring visitor's conversation that quoted a roles post keeps
   that answer in its history, report and live replay after the post goes private; a new
   `corpus_read` in that same conversation is refused.
 - roles → another role list: the old role's session loses it, the new one gains it.
-- delete → gone from every reader in A and out of the index; it shows in `corpus.trash` (genre
-  `post`) and the admin trash; restore → back with the same visibility and timeline position;
-  purge after 90 days (clock wound back) → `not in the trash`, gone from the index.
+- delete → gone from every reader in A; it shows in `corpus.trash` (genre `post`) and the admin
+  trash; restore → back with the same visibility and timeline position; purge after 90 days (clock
+  wound back) → `not in the trash`.
 - delete a role a `roles` post names → the id leaves the list; delete its last role → private for
   everyone but the owner (never public); restoring a `roles` post whose role was deleted meanwhile
   → private.
@@ -171,8 +176,9 @@ red; clean tree → green.
 ## L. Upgrade — `upgrade-posts.spec.ts`
 
 Old volume → deploy: the table and the asset referrer kind arrive through the real migration;
-existing corpus, assets, references and trash are untouched; the boot index rebuild indexes public /
-roles posts and no private one. The rollback forgets every later migration touching the same tables.
+existing corpus, assets, references and trash are untouched; posts written before a deploy are read
+after it by their own audience only, and the boot index rebuild indexes none of them. The rollback
+forgets every later migration touching the same tables.
 
 ## M. Real model — two questions added to `make eval-speed` (read every answer)
 

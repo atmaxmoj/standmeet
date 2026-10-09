@@ -89,7 +89,7 @@ func BuildDispatcher(d *deps.Runtime) *dispatcher.Dispatcher {
 			PreviewSigningKey: d.SessionKey,
 			Events:            d.Recorder,
 		},
-		Writings: writingsDepsOf(d),
+		Writings: writingsDepsOf(d), Posts: d.Posts,
 		MCPServers: marketplace.MCPServersDeps{
 			Servers: d.MCPServerRepo, Codes: d.CodeRepo, Prober: d.MCPProber,
 		},

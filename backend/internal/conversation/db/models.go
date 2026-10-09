@@ -578,6 +578,17 @@ type PageContent struct {
 	UpdatedAt    pgtype.Timestamptz
 }
 
+type Post struct {
+	ID             pgtype.UUID
+	OwnerID        pgtype.UUID
+	Body           string
+	Visibility     string
+	VisibleRoleIds []pgtype.UUID
+	CreatedAt      pgtype.Timestamptz
+	UpdatedAt      pgtype.Timestamptz
+	DeletedAt      pgtype.Timestamptz
+}
+
 type Prompt struct {
 	ID          pgtype.UUID
 	OwnerID     pgtype.UUID

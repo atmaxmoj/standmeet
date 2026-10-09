@@ -117,7 +117,9 @@ function PoolReuse(
   );
 }
 
-function PoolList(
+// PoolList —— the pool, searchable, each asset one "insert" away (`${testid}-pool-insert-<id>`).
+// The posts composer reuses it: a post cites pool images only.
+export function PoolList(
   { onThisEntry, insertIntoBody, testid }: {
     onThisEntry: readonly string[];
     insertIntoBody: (markdown: string) => void;

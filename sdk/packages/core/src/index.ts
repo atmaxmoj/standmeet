@@ -8,6 +8,7 @@ export type {
   BYOAIHeaders,
   CallToolResult,
   ClientOptions,
+  FetchPostsOptions,
   InsertedDoc,
   IssueSessionInput,
   MicrositeDoc,
@@ -49,6 +50,8 @@ export type { SkewVerdict, SkewResult } from './version-skew.js';
 export type {
   CorpusCard,
   MicrositeLink,
+  Post,
+  PostsPage,
   PublicOwnerView,
   WikiLandingView,
   LanguageOption,

@@ -73,7 +73,13 @@ function stripLeadingSlash(s: string): string {
 // slug (the writings address); **picking which one to use is this
 // function's job**, not the rendering side's — it used to be a `/${genre}/${path}`
 // line on the rendering side, copy-pasted twice, and wrong both times.
-export function citationHref(c: { genre: CorpusGenre; path: string; slug: string }): string {
+//
+// A post is cited but has no page of its own (docs/design/posts.md, "No post URL in v1"), so
+// its citation has no address: '' — the citation renders as text, never a link.
+export type CitedGenre = CorpusGenre | 'post';
+
+export function citationHref(c: { genre: CitedGenre; path: string; slug: string }): string {
+  if (c.genre === 'post') return '';
   return c.genre === 'writing'
     ? corpusHref({ genre: 'writing', slug: c.slug })
     : corpusHref({ genre: c.genre, path: c.path });

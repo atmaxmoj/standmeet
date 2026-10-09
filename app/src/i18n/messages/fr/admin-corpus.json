@@ -224,6 +224,25 @@
     "writingUnpublished": "Dépublié",
     "writingSaved": "Écrit {slug} enregistré"
   },
+  "posts": {
+    "kicker": "corpus · fil",
+    "count": "{n, plural, one {# publication} other {# publications}}",
+    "placeholder": "Quoi de neuf ? Le Markdown fonctionne.",
+    "poolShow": "+ image de la bibliothèque",
+    "poolHide": "masquer la bibliothèque",
+    "submit": "publier",
+    "rolesLabel": "visible pour ces rôles",
+    "vis": { "private": "privé", "public": "public", "roles": "rôles" },
+    "filterAll": "tout",
+    "search": "chercher dans les publications",
+    "empty": "Aucune publication pour l’instant. Écrivez la première ci-dessus — elle reste privée sauf choix contraire.",
+    "edited": "modifié",
+    "delete": "supprimer",
+    "confirmDelete": "Supprimer cette publication ? Elle reste 90 jours dans la corbeille, d’où vous pouvez la restaurer.",
+    "posted": "Publié",
+    "deleted": "Publication supprimée",
+    "trashGroup": "publications"
+  },
   "trash": {
     "kicker": "corpus · supprimé",
     "intro": "Les entrées supprimées attendent ici 90 jours, puis disparaissent définitivement. En restaurer une ramène aussi les entrées supprimées avec elle et ses liens, au même endroit.",

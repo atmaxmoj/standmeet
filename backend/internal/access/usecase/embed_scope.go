@@ -60,6 +60,7 @@ func embedScope(
 	return entity.CorpusScope{
 		Granted: role.CorpusURIs(), Denied: denied,
 		PublishedOnly: entity.ReadsPublishedSlice(role.Name()),
+		RoleID:        role.ID(),
 	}, nil
 }
 

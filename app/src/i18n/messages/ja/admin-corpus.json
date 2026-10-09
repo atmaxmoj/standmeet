@@ -224,6 +224,25 @@
     "writingUnpublished": "公開を取り消しました",
     "writingSaved": "記事 {slug} を保存しました"
   },
+  "posts": {
+    "kicker": "corpus · タイムライン",
+    "count": "{n} 件",
+    "placeholder": "いま何を考えていますか？Markdown が使えます。",
+    "poolShow": "+ ライブラリの画像",
+    "poolHide": "ライブラリを閉じる",
+    "submit": "投稿",
+    "rolesLabel": "このロールに表示",
+    "vis": { "private": "非公開", "public": "公開", "roles": "ロール指定" },
+    "filterAll": "すべて",
+    "search": "投稿を検索",
+    "empty": "まだ投稿はありません。上で最初の一件を書きましょう — 選ばない限り非公開です。",
+    "edited": "編集済み",
+    "delete": "削除",
+    "confirmDelete": "この投稿を削除しますか？ゴミ箱に 90 日間残り、そこから復元できます。",
+    "posted": "投稿しました",
+    "deleted": "投稿を削除しました",
+    "trashGroup": "投稿"
+  },
   "trash": {
     "kicker": "corpus · 削除済み",
     "intro": "削除したエントリはここに 90 日間残り、その後完全に消えます。復元すると、一緒に削除されたエントリとリンクも元の場所に戻ります。",

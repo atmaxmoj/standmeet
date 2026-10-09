@@ -54,7 +54,7 @@ func newPGLister(deps *IndexDeps) *pgCorpusLister {
 	return &pgCorpusLister{
 		wiki: deps.Wiki, output: deps.Output, writing: deps.Writings,
 		subjectivity: deps.Subjectivity, queryRepo: deps.VaultSync,
-		noteRefs: deps.NoteRefs, searcher: deps.Searcher, media: deps.Media,
+		noteRefs: deps.NoteRefs, searcher: deps.Searcher, media: deps.Media, posts: deps.Posts,
 	}
 }
 

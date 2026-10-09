@@ -63,6 +63,7 @@ type Deps struct {
 	PublicAccessRequests   publicroutes.AccessRequestsHandlers
 	PublicPasswordReset    publicroutes.PasswordResetHandlers
 	PublicWritings         publicroutes.WritingHandlers
+	PublicPosts            publicroutes.PostsHandlers
 	Builds                 sysroutes.BuilderDeps
 	// AwaitBuild —— the admin preview long-poll's wait (owner.AwaitBuildSettled, closed over the
 	// build-settle listener).

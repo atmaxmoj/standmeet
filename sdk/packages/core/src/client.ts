@@ -21,6 +21,7 @@ import type {
   MicrositeLink,
   WikiLandingView,
   OutputLandingView,
+  PostsPage,
   PublicSessionResponse,
   SessionMode,
   SSEEvent,
@@ -96,6 +97,9 @@ export interface StandMeetClient {
   // fetchMicrosites —— the owner's OTHER published microsites (slug + title), so a page can
   // link the rest of the site without knowing their slugs. Empty on failure (degrade, no throw).
   fetchMicrosites(): Promise<MicrositeLink[]>;
+  // fetchPosts —— one page of the owner's timeline: what the session behind `sessionToken` may see,
+  // or the public posts with no token. Throws on a failed load (the timeline says so in words).
+  fetchPosts(opts?: FetchPostsOptions): Promise<PostsPage>;
   issueSession(input: IssueSessionInput): Promise<PublicSessionResponse>;
   streamMessage(
     conversationID: string,
@@ -204,6 +208,7 @@ export function createClient(opts: ClientOptions = {}): StandMeetClient {
     fetchOutputLanding: (slug) => fetchOutputLanding(f, baseURL, slug),
     fetchCorpusCards: () => fetchCorpusCards(f, baseURL),
     fetchMicrosites: () => fetchMicrosites(f, baseURL),
+    fetchPosts: (opts) => fetchPosts(f, baseURL, opts ?? {}),
     issueSession: (input) => issueSession(f, baseURL, input),
     streamMessage: (id, token, content, system, byoai, doc) =>
       streamMessage(f, baseURL, { id, token, content, system, byoai, doc }, histories),
@@ -383,6 +388,22 @@ async function fetchCorpusCards(f: typeof fetch, baseURL: string): Promise<Corpu
   if (!res.ok) throw new Error(`fetch corpus cards: ${res.status}`);
   const body = (await res.json()) as { cards?: CorpusCard[] };
   return body.cards ?? [];
+}
+
+export interface FetchPostsOptions {
+  cursor?: string;
+  limit?: number;
+  sessionToken?: string;
+}
+
+async function fetchPosts(f: typeof fetch, baseURL: string, opts: FetchPostsOptions): Promise<PostsPage> {
+  const q = new URLSearchParams();
+  if (opts.limit !== undefined) q.set('limit', String(opts.limit));
+  if (opts.cursor) q.set('cursor', opts.cursor);
+  const headers: Record<string, string> = opts.sessionToken ? { Authorization: `Bearer ${opts.sessionToken}` } : {};
+  const res = await f(`${baseURL}/api/v1/posts?${q.toString()}`, { cache: 'no-store', headers });
+  if (!res.ok) throw new Error(`fetch posts: ${res.status}`);
+  return (await res.json()) as PostsPage;
 }
 
 // fetchMicrosites —— the owner's published microsites. Degrades to [] on any failure (a

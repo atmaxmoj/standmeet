@@ -139,6 +139,8 @@ func wireAndServe(
 	// holds &rt, fetches the block + dependency registries only when invoked,
 	// since neither is complete until registerAgentSkills runs (F-F-4).
 	rt.SeamNeeds = &seamNeeds{rt: &rt}
+	// Holds &rt for its event recorder: the bus is built further down (BuildBackground).
+	rt.Posts = wire.Posts(&rt)
 	// must precede buildPluginRegistry: owner-MCP blocks capture the dispatcher there.
 	blockwire.EnsureBlockDispatch(&rt)
 	// Provisions each block's isolated storage once; the outbound convergence

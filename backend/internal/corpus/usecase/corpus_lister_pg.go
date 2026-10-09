@@ -40,6 +40,7 @@ type pgCorpusLister struct {
 	noteRefs *repo.NoteRefRepo
 	searcher *search.Client  // Meili lexical backend; nil (unconfigured) → falls back to PG
 	media    *NoteAssetsDeps // reading an entry brings its media (see corpus_assets_read.go)
+	posts    PostsReader     // the posts this session's role may see; nil = none
 }
 
 // allowsCorpusEntry —— the ONE readability test every visitor-facing corpus surface goes through:
@@ -65,12 +66,14 @@ func allowsCorpusEntry(scope access.CorpusScope, genre, path string, published b
 func (l *pgCorpusLister) Search(
 	ctx context.Context, ownerID string, scope access.CorpusScope, query string,
 ) ([]Meta, error) {
+	posts := l.searchPosts(ctx, ownerID, scope, query)
 	if l.searcher != nil {
 		if notes, ok := l.meiliSearch(ctx, ownerID, scope, query); ok {
-			return append(notes, l.searchWritings(ctx, ownerID, scope, query)...), nil
+			notes = append(notes, l.searchWritings(ctx, ownerID, scope, query)...)
+			return append(notes, posts...), nil
 		}
 	}
-	return l.pgSearch(ctx, ownerID, scope, query), nil
+	return append(l.pgSearch(ctx, ownerID, scope, query), posts...), nil
 }
 
 // meiliSearch —— Meili candidates (corpus_notes) → glob ACL filter → Meta. On error

@@ -149,7 +149,9 @@ test.describe.configure({ mode: 'serial', timeout: 300_000 });
         expect(turn.status, `${who} turn on ${c}`).toBe(200);
         stream += turn.text;
         if (SEES[who]!.includes(c)) {
-          expect(turn.text, `${who}: a read of a visible post yields a citation`).toMatch(/"citations?"/);
+          // The citation is the read's tool_completed frame: genre post, its id, time and text.
+          expect(turn.text, `${who}: a read of a visible post yields a citation`)
+            .toMatch(new RegExp(`\\\\"genre\\\\":\\\\"post\\\\",\\\\"id\\\\":\\\\"${s[c].id}`));
         }
       }
       // The whole stream — answer, tool_completed frames, citation frames — is one text here.

@@ -9,12 +9,13 @@ import { SESSION_GONE_CODE, type AgentEvent } from '@standmeet/agent-core';
 
 import { throbberLabel } from './throbber-label.js';
 import { pickCorpusReadShape, citableCorpusRead } from './corpus-read-wire.js';
+import type { CitedGenre } from './href.js';
 import { useBlockStore } from './block-store.js';
 import { useGhostsStore } from './ghosts-store.js';
 import { logger } from './log.js';
 
 export type Citation = {
-  genre: 'wiki' | 'output' | 'writing';
+  genre: CitedGenre;
   // id —— stable entry identifier, used for the cited_*_ids in the admin
   // transcript (not reverse-looked-up from path, which sidesteps a pitfall
   // where tree paths don't line up under an ACL subset). path is only for

@@ -13,7 +13,7 @@ import { test, expect } from '@/fixtures/test';
 import type { Browser, Page } from '@playwright/test';
 
 import { findCode } from '@/fixtures/codes';
-import { bindCodeToPage, publishPage } from '@/fixtures/microsite-rig';
+import { bindCodeToPage, publishPage, setPageOpenWithoutCode } from '@/fixtures/microsite-rig';
 import { enterCodeSession, openHome, openReader } from '@/fixtures/navigate';
 import { seedMatrix, setupPostsOwner, type PostsOwner, type Seeded } from '@/fixtures/posts';
 import { POSTS_PAGE, timelineItems } from '@/fixtures/posts-ui';
@@ -30,6 +30,8 @@ test.beforeAll(async ({ playwright }) => {
   test.setTimeout(900_000);
   o = await setupPostsOwner(playwright, 'postsms');
   await publishPage(o.request, o.csrf, SLUG, POSTS_PAGE);
+  // An anonymous reader must be able to open the page at all: the timeline is what it then shows.
+  await setPageOpenWithoutCode(o.request, o.csrf, SLUG, true);
   await publishPage(o.request, o.csrf, 'home', POSTS_PAGE, 300_000);
   const hiring = await findCode(o.request, o.csrf, o.codes.hiring);
   await bindCodeToPage(o.request, o.csrf, hiring.id, SLUG);

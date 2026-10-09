@@ -49,6 +49,10 @@ AssetWidget, BlockWidget } from '@standmeet/sdk'`:
   pool by id (an image, or a download link with `download="file.pdf"`). Pass the id exactly as
   `standmeet-asset:<id>`; that records the page as using the asset, so it can't be deleted from the
   pool while this page embeds it.
+- `<Posts />` — the owner's timeline of short posts, newest first, each in the reader's timezone and
+  the page's language. It shows only what the reader may see: public posts to anyone, plus the posts
+  addressed to the role of the reader's code once they hold one. Never a private post. For a custom
+  layout, `import { usePosts } from '@standmeet/sdk'` → `{ items, loading, error, hasMore, loadMore }`.
 - `<BlockWidget tool="…" args? runLabel? autoRun? />` — run ONE plugin (block) tool directly on the
   page, outside the chat loop: a booking action (`calendar_book`), a corpus search (`corpus_search`),
   an ask widget (`ask_visitor`). It runs the block over the visitor's own session (same grant as the

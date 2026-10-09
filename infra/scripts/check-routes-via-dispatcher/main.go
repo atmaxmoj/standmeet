@@ -97,6 +97,9 @@ var allowed = map[string]string{
 		"its result is a new session",
 	"internal/routes/admin/obsidian.go": "vault import is a multipart upload and export a " +
 		"zip stream — bytes, not JSON",
+	"internal/routes/public/posts.go": "the public timeline answers as the caller's visitor " +
+		"session or as nobody; the convergence point invokes ops for an owner and has no " +
+		"visitor plane to carry that reader",
 }
 
 // baseline —— files that already connected directly to a domain facade before the

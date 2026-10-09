@@ -11,6 +11,7 @@ import { onCorpusChanged } from '@/lib/admin/corpus-changed';
 import { outputPage } from '@/lib/admin/use-output';
 import { micrositesPage } from '@/lib/admin/use-microsites';
 import { refreshRaw } from '@/lib/admin/use-raw';
+import { postsPage } from '@/lib/admin/use-posts';
 import { mastersPage } from '@/lib/admin/use-resume-masters';
 import { subjectivityPage } from '@/lib/admin/use-subjectivity';
 import { wikiPage } from '@/lib/admin/use-wiki';
@@ -58,6 +59,7 @@ export function useTrash(): TrashHook {
       await Promise.all([
         refresh(), refreshRaw(),
         reloadIfLoaded(wikiPage), reloadIfLoaded(outputPage), reloadIfLoaded(subjectivityPage),
+        reloadIfLoaded(postsPage),
       ]);
     },
   };

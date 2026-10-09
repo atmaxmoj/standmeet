@@ -7,8 +7,10 @@
 //   • post.created / post.updated / post.deleted are webhook-exposed event types (a webhook endpoint
 //     and a notify rule may watch them); data is {post_id, visibility}; the subject names the post id.
 //   • A visible post read in a turn is cited like a writing: the citation frame carries its excerpt.
-//   • `<Posts />` from @standmeet/sdk prerenders the anonymous timeline into a microsite's built HTML.
-//   • The index is read whole (every document of every Meili index), so no index name is contract.
+//   • `<Posts />` from @standmeet/sdk loads in the reader's browser: a microsite's built HTML holds
+//     no post (a build would freeze a copy that outlives a post going private).
+//   • Posts are not indexed at all (posts.md): the index is read whole (every document of every
+//     Meili index) and carries no post marker, while a note written after them is there.
 // Notify cards render one way for every channel (subscriber/notify.go renderCard), so the email
 // channel stands for the IM one; the turn-diagnostics view is owner-only and not a visitor egress.
 
@@ -100,17 +102,18 @@ async function seedFactsRole(): Promise<void> {
   })).id;
 }
 
-test('Meili: public and roles posts are indexed, the private one never is', async () => {
-  // A public sentinel written last: once it is in the index, every earlier write has been handled.
+test('Meili: no post of any audience is in the index — posts are searched through their audience', async () => {
+  // Presence: a wiki note written after every post reaches the index, so the index is live and has
+  // handled every earlier write.
   const sent = marker('SENT');
-  await createPost(o, { body: `Sentinel ${sent}.`, visibility: 'public' });
+  await callTool(o.request, o.apiToken, o.sid, 'corpus.create',
+    { genre: 'wiki', title: `Sentinel ${sent}`, body: `Sentinel note ${sent}.` });
   let text = '';
   await expect.poll(() => {
     text = meiliText();
-    return [sent, s.m.pub, s.m.hir, s.m.hirInv].every((m) => has(text, m));
-  }, { timeout: 60_000, intervals: [1_000], message: 'the public and roles posts reach the index' }).toBe(true);
-  expect(has(text, s.m.priv), 'the private post is never indexed').toBe(false);
-  expect(has(text, X.extra2), 'a deleted post leaves the index').toBe(false);
+    return has(text, sent);
+  }, { timeout: 60_000, intervals: [1_000], message: 'the sentinel note reaches the index' }).toBe(true);
+  expectNone(text, postMarks(), 'the search index');
 });
 
 test('public-tier chat on the home page: the public post is cited, nothing narrower is read', async () => {
@@ -120,7 +123,9 @@ test('public-tier chat on the home page: the public post is cited, nothing narro
   const turn = await turnRaw(r, sess, `what has he been up to?${tag}`);
   expect(turn.status).toBe(200);
   expect(has(turn.text, s.m.pub), 'presence: the public post is in the stream').toBe(true);
-  expect(turn.text, 'presence: it is cited').toMatch(/"citations?"/);
+  // The citation is the read's tool_completed frame: genre post, its id, time and text.
+  expect(turn.text, 'presence: it is cited')
+    .toMatch(new RegExp(`\\\\"genre\\\\":\\\\"post\\\\",\\\\"id\\\\":\\\\"${s.pub.id}`));
   expectNone(turn.text, [s.m.priv, s.m.hir, s.m.hirInv], 'the public-tier stream');
   expect(await modelSaw(r, tag, { pub: s.m.pub, priv: s.m.priv, hir: s.m.hir, hirInv: s.m.hirInv }),
     'the model got the public post and nothing narrower')
@@ -206,11 +211,14 @@ test('webhooks, notify mail and events.list name each post and its visibility, n
   expectNone(evs, postMarks(), 'events.list');
 });
 
-test('microsite prerender, OG and sitemap: the public post only', async () => {
+// The prerendered HTML carries no post at all: the timeline loads in the reader's browser as that
+// reader, so a page built before a post went private can never serve it (posts.md). What a reader
+// then sees is posts-in-microsite.spec's.
+test('microsite prerender, OG and sitemap: no post', async () => {
   await publishPage(o.request, o.csrf, 'updates', POSTS_PAGE, 300_000);
   const html = await (await o.request.get(`${APP_BASE}/p/updates`)).text();
-  expect(has(html, s.m.pub), 'presence: the prerendered timeline has the public post').toBe(true);
-  expectNone(html, [s.m.priv, s.m.hir, s.m.hirInv, X.factPost], 'the prerendered HTML + OG');
+  expect(html, 'presence: the prerender carries the page\'s own text').toContain('Updates');
+  expectNone(html, postMarks(), 'the prerendered HTML + OG');
 
   const sitemap = await (await o.request.get(`${APP_BASE}/sitemap.xml`)).text();
   expect(sitemap, 'presence: the sitemap lists the owner\'s pages').toContain('<loc>');

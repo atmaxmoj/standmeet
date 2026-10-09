@@ -2,9 +2,9 @@
 // delete, restore, purge — and what each step does to every reader.
 //
 // Contract choices (posts.md leaves them open; these follow the existing genres):
-//   • corpus.update / corpus.create on a post return the same write receipt as the other genres
-//     (`indexed: true` once the visitor index agrees with the write), so "gone from the index on the
-//     next read" waits on that receipt, never on a sleep.
+//   • posts are not in the search index: a visitor's corpus_search reads them from Postgres through
+//     the post's audience (posts.md, "Who reads what"), so a change shows on the very next read —
+//     there is no receipt to wait on, and no sleep.
 //   • corpus.trash lists trashed posts with `genre: "post"`; corpus.restore takes {genre:'post', id}.
 //   • the daily purge is the existing `corpus trash purge` periodic task; it drops posts too.
 //   • a role deleted while a `roles` post names it leaves the list (role_delete over MCP).
@@ -28,7 +28,6 @@ import { issueSession, type VisitorSession } from '@/fixtures/visitor';
 const BACKEND = process.env['BACKEND_URL'] ?? 'http://localhost:8000';
 const TRASH_DAYS = 90;
 
-interface Receipt extends PostView { indexed?: boolean }
 interface TrashItem { id: string; genre: string }
 
 let o: PostsOwner;
@@ -44,9 +43,8 @@ function session(code = ''): Promise<VisitorSession> {
     : { handle: o.handle, mode: 'public', visitor_name: 'v' });
 }
 
-async function update(id: string, patch: Record<string, unknown>): Promise<Receipt> {
-  const r: Receipt = await updatePost(o, id, patch);
-  return r;
+function update(id: string, patch: Record<string, unknown>): Promise<PostView> {
+  return updatePost(o, id, patch);
 }
 
 // searchText —— a session's corpus_search for one term, raw.
@@ -75,7 +73,8 @@ test('newest first, a created_at tie ordered by id, and an edit keeps the time a
   expect(ids.indexOf(c.id), 'newest first').toBeLessThan(ids.indexOf(b.id));
   expect(ids.indexOf(b.id)).toBeLessThan(ids.indexOf(a.id));
 
-  execSQL(`UPDATE posts SET created_at = '2026-01-01T00:00:00Z' WHERE id IN ('${a.id}', '${b.id}')`);
+  // Two posts made in the same instant: both times move together, so neither reads as edited.
+  execSQL(`UPDATE posts SET created_at = '2026-01-01T00:00:00Z', updated_at = '2026-01-01T00:00:00Z' WHERE id IN ('${a.id}', '${b.id}')`);
   ids = (await timelineItems(o.request)).map((p) => p.id);
   const [hi, lo] = [a.id, b.id].sort().reverse();
   expect(ids.indexOf(hi!), 'a tie on created_at: the larger id first').toBeLessThan(ids.indexOf(lo!));
@@ -97,17 +96,15 @@ test('narrow public → private: gone from every anonymous path; widen private �
   const pub = await session();
   expect(has(await searchText(pub, kw), p.id), 'searchable while public (presence)').toBe(true);
 
-  const r = await update(p.id, { visibility: 'private' });
-  expect(r.indexed, 'the receipt says the index agrees').toBe(true);
+  await update(p.id, { visibility: 'private' });
   const sentinel = await createPost(o, { body: `Still public ${kw}`, visibility: 'public' });
   const found = await searchText(pub, kw);
   expect(has(found, sentinel.id), 'the same search still answers (presence)').toBe(true);
-  expect(has(found, p.id), 'the narrowed post is out of the index').toBe(false);
+  expect(has(found, p.id), 'the narrowed post is out of search').toBe(false);
   expect(has((await timelineText(o.request)).text, p.body), 'out of the anonymous timeline').toBe(false);
   expect(has(await readText(pub, p.id), p.body), 'corpus_read refuses it').toBe(false);
 
-  const w = await update(p.id, { visibility: 'public' });
-  expect(w.indexed).toBe(true);
+  await update(p.id, { visibility: 'public' });
   expect(has(await searchText(pub, kw), p.id), 'widened: searchable again').toBe(true);
   expect(has((await timelineText(o.request)).text, p.body), 'widened: on the timeline').toBe(true);
   expect(has(await readText(pub, p.id), p.body), 'widened: readable').toBe(true);
@@ -160,7 +157,7 @@ test('delete → gone from readers, in the trash; restore → same audience and 
 
   const found = await searchText(pub, kw);
   expect(has(found, after.id), 'the search answers (presence)').toBe(true);
-  expect(has(found, p.id), 'the deleted post is out of the index').toBe(false);
+  expect(has(found, p.id), 'the deleted post is out of search').toBe(false);
   expect(has((await timelineText(o.request)).text, p.body), 'off the timeline').toBe(false);
   expect(has(await readText(pub, p.id), p.body), 'not readable').toBe(false);
   await expect(getPost(o, p.id), 'the owner gets "not found" too').rejects.toThrow(/not found/i);
@@ -171,7 +168,7 @@ test('delete → gone from readers, in the trash; restore → same audience and 
   expect((await getPost(o, p.id)).visibility, 'restored with its audience').toBe('public');
   const back = (await timelineItems(o.request)).map((x) => x.id);
   expect(back.indexOf(p.id), 'back in its old place, not on top').toBe(order.indexOf(p.id));
-  expect(has(await searchText(pub, kw), p.id), 'back in the index').toBe(true);
+  expect(has(await searchText(pub, kw), p.id), 'back in search').toBe(true);
   expect(await postsInTrash()).not.toContain(p.id);
 });
 

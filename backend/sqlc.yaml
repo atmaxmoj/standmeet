@@ -21,6 +21,17 @@ sql:
             nullable: true
   - engine: postgresql
     schema: db/schema.sql
+    queries: db/queries/posts
+    gen:
+      go:
+        package: db
+        out: internal/corpus/posts/db
+        sql_package: pgx/v5
+        emit_json_tags: false
+        emit_db_tags: false
+        emit_pointers_for_null_types: true
+  - engine: postgresql
+    schema: db/schema.sql
     queries: db/queries/conversation
     gen:
       go:

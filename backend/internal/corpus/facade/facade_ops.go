@@ -5,7 +5,10 @@
 
 package corpus
 
-import "github.com/atmaxmoj/standmeet/internal/corpus/ops"
+import (
+	"github.com/atmaxmoj/standmeet/internal/corpus/ops"
+	"github.com/atmaxmoj/standmeet/internal/corpus/posts"
+)
 
 // Types needed when declaring operations (implemented in: ops).
 type (
@@ -29,4 +32,25 @@ var (
 	SubjectivityOps = ops.Subjectivity
 	WritingOps      = ops.Writings
 	ObsidianSyncOps = ops.ObsidianSync
+	// WithPostOps —— the corpus ops with genre "post" routed to the posts service.
+	WithPostOps = ops.WithPosts
+)
+
+// Posts (implemented in: posts).
+type (
+	PostsService = posts.Service
+	PostsDeps    = posts.Deps
+	PostsViewer  = posts.Viewer
+	PostView     = posts.PublicView
+	PostsPage    = posts.TimelinePage
+	PostsArgs    = posts.TimelineArgs
+)
+
+// Posts constructors and declarations (implemented in: posts).
+var (
+	NewPosts       = posts.New
+	NewPostsReader = posts.NewReader
+	PostEventTypes = posts.EventTypes
+	PostRetention  = posts.Retention
+	ErrPostsCursor = posts.ErrBadCursor
 )

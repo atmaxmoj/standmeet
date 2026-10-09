@@ -40,9 +40,12 @@ export function pickCorpusReadShape(raw: unknown): CorpusReadWire | null {
 // show_as_source=false (readCollector gate, matching the backend) are
 // excluded; writing is a public blog, always included. Narrows genre for
 // the caller to use directly.
+// A post is cited too (its audience already admitted the read); it has no address, so its
+// citation carries its time (the title) and text, never a link.
 export function citableCorpusRead(
   r: CorpusReadWire,
-): r is CorpusReadWire & { genre: 'wiki' | 'output' | 'writing' } {
+): r is CorpusReadWire & { genre: 'wiki' | 'output' | 'writing' | 'post' } {
+  if (r.genre === 'post') return true;
   if (r.genre !== 'wiki' && r.genre !== 'output' && r.genre !== 'writing') return false;
   return !((r.genre === 'wiki' || r.genre === 'output') && !r.showAsSource);
 }

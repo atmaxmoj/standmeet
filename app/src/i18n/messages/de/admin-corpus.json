@@ -224,6 +224,25 @@
     "writingUnpublished": "Zurückgezogen",
     "writingSaved": "Schrift {slug} gespeichert"
   },
+  "posts": {
+    "kicker": "corpus · Verlauf",
+    "count": "{n, plural, one {# Beitrag} other {# Beiträge}}",
+    "placeholder": "Was gibt’s Neues? Markdown funktioniert.",
+    "poolShow": "+ Bild aus der Mediathek",
+    "poolHide": "Mediathek ausblenden",
+    "submit": "posten",
+    "rolesLabel": "sichtbar für diese Rollen",
+    "vis": { "private": "privat", "public": "öffentlich", "roles": "Rollen" },
+    "filterAll": "alle",
+    "search": "Beiträge durchsuchen",
+    "empty": "Noch keine Beiträge. Schreib oben den ersten — er bleibt privat, wenn du nichts anderes wählst.",
+    "edited": "bearbeitet",
+    "delete": "löschen",
+    "confirmDelete": "Diesen Beitrag löschen? Er bleibt 90 Tage im Papierkorb und lässt sich dort wiederherstellen.",
+    "posted": "Gepostet",
+    "deleted": "Beitrag gelöscht",
+    "trashGroup": "Beiträge"
+  },
   "trash": {
     "kicker": "corpus · gelöscht",
     "intro": "Gelöschte Einträge bleiben 90 Tage hier, danach sind sie endgültig weg. Beim Wiederherstellen kommen die mitgelöschten Einträge und ihre Links an derselben Stelle zurück.",

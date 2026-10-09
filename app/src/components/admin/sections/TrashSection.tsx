@@ -18,6 +18,7 @@ import { useEffectErrorToast, useToast } from '@/lib/ui/toast';
 
 export function TrashSection() {
   const t = useTranslations('adminCorpus.trash');
+  const tp = useTranslations('adminCorpus.posts');
   const hook = useTrash();
   const masters = useMastersTrash();
   const sites = useMicrositesTrash();
@@ -33,6 +34,10 @@ export function TrashSection() {
   }, [refresh, refreshMasters, refreshSites, refreshFiles]);
   useEffectErrorToast(firstError(all));
   const count = all.reduce((n, g) => n + g.items.length, 0);
+  // Posts come back from the corpus trash like any genre, but have no title or tree: they read as
+  // their own group, each named by its text.
+  const notes = hook.items.filter((i) => i.genre !== 'post');
+  const posts = hook.items.filter((i) => i.genre === 'post').map((i) => ({ ...i, name: i.title }));
   return (
     <>
       <SectionHeader kicker={t('kicker')} slug="trash" />
@@ -43,8 +48,9 @@ export function TrashSection() {
         empty={<p className="sm-empty-hint reading" data-testid="trash-empty">{t('empty')}</p>}
       >
         <div className={styles.list}>
-          {hook.items.map((item) => <TrashRow key={item.id} item={item} restore={hook.restore} />)}
+          {notes.map((item) => <TrashRow key={item.id} item={item} restore={hook.restore} />)}
         </div>
+        <NamedGroup kind="post" label={tp('trashGroup')} items={posts} restore={hook.restore} />
         <NamedGroup kind="master" label={t('masters')} items={masters.items} restore={masters.restore} />
         <NamedGroup
           kind="microsite" label={t('microsites')} restore={sites.restore}

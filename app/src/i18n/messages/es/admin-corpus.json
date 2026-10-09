@@ -224,6 +224,25 @@
     "writingUnpublished": "Despublicado",
     "writingSaved": "Escrito {slug} guardado"
   },
+  "posts": {
+    "kicker": "corpus · cronología",
+    "count": "{n, plural, one {# publicación} other {# publicaciones}}",
+    "placeholder": "¿Qué tienes en mente? Admite Markdown.",
+    "poolShow": "+ imagen de la biblioteca",
+    "poolHide": "ocultar la biblioteca",
+    "submit": "publicar",
+    "rolesLabel": "visible para estos roles",
+    "vis": { "private": "privada", "public": "pública", "roles": "roles" },
+    "filterAll": "todas",
+    "search": "buscar publicaciones",
+    "empty": "Todavía no hay publicaciones. Escribe la primera arriba: queda privada salvo que elijas otra cosa.",
+    "edited": "editada",
+    "delete": "eliminar",
+    "confirmDelete": "¿Eliminar esta publicación? Se queda 90 días en la papelera, desde donde puedes restaurarla.",
+    "posted": "Publicada",
+    "deleted": "Publicación eliminada",
+    "trashGroup": "publicaciones"
+  },
   "trash": {
     "kicker": "corpus · eliminado",
     "intro": "Las entradas eliminadas esperan aquí 90 días; después desaparecen para siempre. Al restaurar una, vuelven también las entradas eliminadas con ella y sus enlaces, en el mismo lugar.",
