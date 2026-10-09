@@ -94,8 +94,9 @@ posts at all; there is no third option.
 | profile facts, cross-conversation digest, page text, ghost policy | posts are **not** injected into any instruction context; they arrive only through tools |
 | `summarize_conversation` / `/report/{id}` / PDF, `/live/{token}` | they replay the conversation, so they hold only what the session was already shown |
 | `send_email`, `send_confirmation`, `ext_*`, `op_*` tools (LLM-chosen egress) | can only carry text the session could read; no posts-specific path |
-| webhooks, notify rules (email / IM), events list | `post.*` events carry `id` + `visibility` only, never the body of a non-public post |
-| `/sitemap.xml`, OG/SEO, prerendered microsite HTML | public posts only (a microsite's prerender runs anonymous) |
+| webhooks, notify rules (email / IM), events list | `post.*` events carry `id` + `visibility` only — never a body, whatever the visibility |
+| `/sitemap.xml`, OG/SEO | nothing — a post has no URL of its own in v1 (see Decisions) |
+| prerendered microsite HTML (what a crawler gets) | public posts only (a microsite's prerender runs anonymous) |
 | Meili visitor index | public + roles posts only, with `visibility` / `visible_role_ids` filter fields; private never indexed |
 | `/assets/{id}` | an image referenced only by private posts is never servable on a bare id |
 | owner `/mcp`, admin API (owner only) | everything |
@@ -103,6 +104,25 @@ posts at all; there is no third option.
 The same inventory surfaced pre-existing leak candidates outside posts (writings by slug, closed
 microsite page text, conversation ids on the tool route, …); they are tracked and verified by test
 separately — posts must not be built on top of an open one.
+
+## Decisions
+
+- **No post URL in v1.** A post lives in a timeline (`<Posts />` on a microsite) and nowhere else —
+  no `/posts/<id>` page, not in the sitemap, no per-post OG. One fewer surface to gate. Add a
+  permalink when a post needs to be shared on its own.
+- **Posts are citable.** When the visitor AI answers from a post, the citation shows the post's
+  time and an excerpt — inline, no link (there is no URL). A citation is produced only from a read
+  that `VisibleTo` allowed, so it can never name an invisible post.
+- **What a visitor was shown stays in their own record.** Narrowing a post (public → private)
+  takes effect on every *new* read; a conversation that already quoted it keeps its transcript,
+  report and live replay as they were — those are that visitor's record of what they were told,
+  the same rule as an edited wiki note today. No retroactive redaction.
+- **A code cannot narrow posts.** Per-code corpus denials (`code_corpus_denials`) govern corpus
+  globs; posts are governed by the post's own audience only. One control per thing — if a code
+  should see less, the post's role list is where to say it.
+- **Events never carry a body** (any visibility): the existing "thin events" rule, with no exception.
+- **Default visibility `private`; `created_at` immutable; a session's role is the one frozen at
+  session start; an invisible post answers exactly like a missing one.**
 
 ## Verbs
 
@@ -127,7 +147,11 @@ notify rules can use them); payload `id` + `visibility`.
 A "posts" (动态) section in the corpus group: a composer at the top (text, an image from the pool,
 and a visibility picker: 私密 / 公开 / 指定角色 with a multi-select of roles), the timeline below with
 each post's visibility shown, edit / change visibility / delete inline, a filter by visibility and a
-search box. 9 locales. Trashed posts appear in the existing trash section.
+search box. 9 locales. Trashed posts appear in the existing trash section (a "posts" group) and in
+`corpus.trash` / `corpus.restore` with `genre: "post"`.
+
+The SDK `<Posts />` shows each post's time in the reader's timezone and the page's language
+(`<html lang>`); it shows no visibility badge to visitors (a visitor only ever sees what it may).
 
 ## Out (until asked)
 
