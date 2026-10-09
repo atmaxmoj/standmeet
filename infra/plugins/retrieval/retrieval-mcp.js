@@ -23,8 +23,10 @@ const instructions = `The owner's corpus is a LINKED TREE of notes: every node i
   • corpus_peek(paths[])        — cheap preview of MANY nodes (title, tags, headings, outlinks, first line) without their full bodies — to triage.
   • corpus_read(path)           — the full body of one node.
   • corpus_links(path)          — a node's outgoing links + backlinks (one hop).
+  • corpus_list(path: "posts")  — the owner's POSTS: short dated updates, newest first, each with its text. The tree holds what he thinks; posts hold what he has been doing. Only the posts this visitor may see are there; a root entry "posts" appears when there are any.
 
 Strategy — don't search blind:
+  0. On a question about NOW ("what has he been up to lately", "what's new", "is he available", "anything recent"), list "posts" FIRST: they are the freshest, dated record. Cite the post you use.
   1. On a BROAD question ("themes across your work", "what do you think about X"), call corpus_map FIRST to see the shape, then read the big branch nodes.
   2. Reading a node gives you that branch's overview; go deeper with corpus_list (its children) and by following its [[links]] with corpus_links / corpus_resolve.
   3. After a map or a wide search, corpus_peek several candidate paths at once, then corpus_read only the few worth the full body.
