@@ -13,11 +13,6 @@ import { createPagedStore, usePaged, type PagedState } from '@/lib/state/create-
 export const VISIBILITIES = ['private', 'public', 'roles'] as const;
 export type Visibility = (typeof VISIBILITIES)[number];
 
-// asVisibility —— a <select>'s value back to the union (anything else reads as the safe default).
-export function asVisibility(v: string): Visibility {
-  return VISIBILITIES.find((x) => x === v) ?? 'private';
-}
-
 export const PostViewSchema = z.object({
   id: z.string(),
   body: z.string(),

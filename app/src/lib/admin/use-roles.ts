@@ -58,6 +58,15 @@ export const RoleViewSchema = z.object({
 });
 export type RoleView = z.infer<typeof RoleViewSchema>;
 
+// PUBLIC_ROLE_NAME —— the builtin public role (backend access.PublicRoleName; cannot be renamed):
+// the role of every visitor without a code.
+export const PUBLIC_ROLE_NAME = 'public';
+
+// isPublicRole —— the builtin public role.
+export function isPublicRole(role: Pick<RoleView, 'name' | 'is_builtin'>): boolean {
+  return role.is_builtin && role.name === PUBLIC_ROLE_NAME;
+}
+
 export interface WriteRoleInput {
   name: string;
   description: string;

@@ -1,74 +1,110 @@
-/* PostsSection —— the composer, then one ruled row per post. */
+/* PostsSection —— a composer card, the timeline's toolbar, then one ruled row per post. */
 
+/* The composer reads as a place to write: a bordered card, the text first, its controls on a bar
+   along the bottom (who sees it on the left, image + post on the right). */
 .composer {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  margin-bottom: 2rem;
+  border: 1px solid var(--color-rule);
+  background: var(--color-surface);
+  border-radius: 2px;
+  margin-bottom: 2.5rem;
+  transition: border-color 120ms ease;
+}
+
+.composer:focus-within {
+  border-color: var(--color-muted);
 }
 
 .body {
+  display: block;
   width: 100%;
-  min-height: 6rem;
+  min-height: 5.5rem;
+  padding: 1rem 1.1rem 0.75rem;
+  background: transparent;
+  border: 0;
+  outline: none;
+  resize: vertical;
   font-family: var(--font-serif);
   font-size: 17px;
-  resize: vertical;
-}
-
-.controls,
-.filters {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.filters {
-  margin-bottom: 1rem;
-}
-
-.pool {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.link {
-  align-self: flex-start;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  color: var(--color-faint);
-}
-
-.link:hover {
-  color: var(--color-accent);
-}
-
-.roles {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem 1.25rem;
-  border: 0;
-  padding: 0;
-  margin: 0;
-}
-
-.role {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-family: var(--font-mono);
-  font-size: 11px;
+  line-height: 1.55;
   color: var(--color-ink);
 }
 
+.body::placeholder {
+  color: var(--color-faint);
+}
+
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.25rem;
+  padding: 0.7rem 1.1rem;
+  border-top: 1px dashed var(--color-rule);
+}
+
+.audience {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.label {
+  margin-right: 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.roles {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: 0.5rem;
+  padding-left: 0.75rem;
+  border-left: 1px solid var(--color-rule);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-left: auto;
+}
+
+.pool {
+  padding: 0.75rem 1.1rem 1rem;
+  border-top: 1px dashed var(--color-rule);
+}
+
+/* The timeline's own controls, set apart from the composer by the rule under them. */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+  padding-bottom: 0.9rem;
+  margin-bottom: 0.25rem;
+  border-bottom: 1px solid var(--color-rule);
+}
+
+.search {
+  flex: 0 1 16rem;
+  min-width: 12rem;
+}
+
 .list {
-  border-top: 1px solid var(--color-rule);
+  display: flex;
+  flex-direction: column;
 }
 
 .row {
-  padding: 1.1rem 0;
+  padding: 1.25rem 0;
   border-bottom: 1px solid var(--color-rule);
 }
 
@@ -76,8 +112,8 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem 1rem;
-  margin-bottom: 0.5rem;
+  gap: 0.4rem 0.9rem;
+  margin-bottom: 0.55rem;
   font-family: var(--font-mono);
   font-size: 10.5px;
   letter-spacing: 0.12em;
@@ -87,4 +123,24 @@
 
 .badge {
   color: var(--color-accent);
+}
+
+/* Present but quiet until the row is in hand (hover, or keyboard focus inside it). */
+.rowActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+  opacity: 0.55;
+  transition: opacity 120ms ease;
+}
+
+.row:hover .rowActions,
+.row:focus-within .rowActions {
+  opacity: 1;
+}
+
+.text {
+  font-family: var(--font-serif);
+  color: var(--color-ink);
 }

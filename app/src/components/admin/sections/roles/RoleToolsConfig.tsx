@@ -26,17 +26,14 @@ import { useTranslations } from 'next-intl';
 
 import { RoleMultiSelect } from '@/components/admin/sections/roles/RoleMultiSelect';
 import { useMCPServers } from '@/lib/admin/use-mcp-servers';
-import { roleUpdatePayload, useRoles, type RoleView } from '@/lib/admin/use-roles';
+import { isPublicRole, roleUpdatePayload, useRoles, type RoleView } from '@/lib/admin/use-roles';
 import { useSkills } from '@/lib/admin/use-skills';
 import { useAction } from '@/lib/ui/use-action';
 
-// PUBLIC_ROLE_NAME —— the builtin public role's name. It **has no tools by definition**
-// (the card's own words: "No skills, no MCP"), so this slot isn't an editor for it — the
-// same branch as RoleCorpusConfig.
-const PUBLIC_ROLE_NAME = 'public';
-
+// The builtin public role **has no tools by definition** (the card's own words: "No skills, no
+// MCP"), so this slot isn't an editor for it — the same branch as RoleCorpusConfig.
 export function RoleToolsConfig({ role }: { role: RoleView }) {
-  return role.name === PUBLIC_ROLE_NAME ? null : <EditableToolsConfig role={role} />;
+  return isPublicRole(role) ? null : <EditableToolsConfig role={role} />;
 }
 
 function EditableToolsConfig({ role }: { role: RoleView }) {

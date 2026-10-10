@@ -23,7 +23,7 @@ import { SelectField } from '@/components/atoms/SelectField';
 import { totalLabel } from '@/lib/state/create-paged-store';
 import { usePrompts, type PromptView } from '@/lib/admin/use-prompts';
 import {
-  roleUpdatePayload, useRoles, type RolesHook, type RoleView, type WriteRoleInput,
+  isPublicRole, roleUpdatePayload, useRoles, type RolesHook, type RoleView, type WriteRoleInput,
 } from '@/lib/admin/use-roles';
 import { useAction } from '@/lib/ui/use-action';
 import { useReportError } from '@/lib/ui/use-report-error';
@@ -254,9 +254,6 @@ function RoleDeleteBtn({
   );
 }
 
-// PUBLIC_ROLE_NAME —— the name of the builtin public role (backend access.PublicRoleName, cannot be renamed).
-const PUBLIC_ROLE_NAME = 'public';
-
 // corpusMetaOf —— the "corpus" line on the card.
 //
 // The public identity **has no explicit list**: what it reads is whatever the owner has
@@ -269,7 +266,7 @@ function RoleMetaGrid({ role }: { role: RoleView }) {
   // label and value — decoupling the two so a translated label can't shift a testid (F-N-3).
   const cells: ReadonlyArray<readonly [string, string, string, boolean]> = [
     ['corpus', t('roles.meta.corpus'),
-      role.name === PUBLIC_ROLE_NAME
+      isPublicRole(role)
         ? t('roles.meta.published')
         : t('roles.meta.uris', { n: role.corpus_uris.length }),
       false],

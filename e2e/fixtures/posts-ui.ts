@@ -14,18 +14,19 @@
 //     usePosts() → { items, loading, error, hasMore, loadMore }
 //   Admin, section slug `posts` (/admin/posts, nav testid admin-nav-posts; zh label 动态):
 //     posts-composer-body                    textarea
-//     posts-composer-visibility              <select> private | public | roles (default private)
-//     posts-composer-roles                   the role multi-select; rendered only for `roles`
-//     posts-composer-role-<roleID>           one role checkbox in it
+//     posts-composer-vis-<v>                 audience chip, v = private | public | roles;
+//                                            aria-pressed on the chosen one (default private)
+//     posts-composer-roles                   the role chips; rendered only for `roles`
+//     posts-composer-role-<roleID>           one role chip in it (aria-pressed when chosen)
 //     posts-composer-pool-toggle / -pool-list / -pool-insert-<assetID>   cite a pool image
 //     posts-composer-submit
 //     posts-list                             the owner timeline (ListPane: section-load-failed /
 //                                            posts-empty)
 //     post-row-<id>                          one post, rendered body inside
 //     post-visibility-<id>                   its badge: private | public | roles
-//     post-visibility-edit-<id>              inline <select> that changes it
+//     post-visibility-set-<id>-<v>           make it v (one chip per other audience)
 //     post-delete-<id>                       delete (confirm prompt names the trash)
-//     posts-filter-visibility                <select> '' (all) | private | public | roles
+//     posts-filter-all / posts-filter-<v>    the timeline's audience chips
 //     posts-search                           search box
 //   Trash section: group `trash-posts`, rows `trash-post-row-<id>`, `trash-post-restore-<id>`.
 

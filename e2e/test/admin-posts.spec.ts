@@ -36,11 +36,16 @@ const rows = (page: Page) => page.locator('[data-testid^="post-row-"]');
 // compose —— write one post in the composer; returns its id (read back over the owner's MCP).
 async function compose(page: Page, body: string, mark: string, vis: Visibility, roleIDs: string[] = []): Promise<string> {
   await page.getByTestId('posts-composer-body').fill(body);
-  await page.getByTestId('posts-composer-visibility').selectOption(vis);
+  await page.getByTestId(`posts-composer-vis-${vis}`).click();
+  await expect(page.getByTestId(`posts-composer-vis-${vis}`), `${vis} is the chosen audience`).toHaveAttribute('aria-pressed', 'true');
   const roles = page.getByTestId('posts-composer-roles');
   if (vis === 'roles') {
     await expect(roles, 'the role multi-select appears for roles').toBeVisible();
-    for (const id of roleIDs) await page.getByTestId(`posts-composer-role-${id}`).check();
+    await expect(page.getByTestId('posts-composer-submit'), 'roles with no role chosen cannot be posted').toBeDisabled();
+    for (const id of roleIDs) {
+      await page.getByTestId(`posts-composer-role-${id}`).click();
+      await expect(page.getByTestId(`posts-composer-role-${id}`)).toHaveAttribute('aria-pressed', 'true');
+    }
   } else {
     await expect(roles, `no role multi-select for ${vis}`).toHaveCount(0);
   }
@@ -58,7 +63,8 @@ async function compose(page: Page, body: string, mark: string, vis: Visibility, 
 test('empty first; compose private / public / roles — each lands on top with its badge', async ({ adminPage: page }) => {
   await gotoAdminSection(page, 'posts');
   await expect(page.getByTestId('posts-empty'), 'a fresh instance has no posts').toBeVisible({ timeout: 15_000 });
-  await expect(page.getByTestId('posts-composer-visibility'), 'private is the default').toHaveValue('private');
+  await expect(page.getByTestId('posts-composer-vis-private'), 'private is the default').toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('posts-composer-submit'), 'nothing written, nothing to post').toBeDisabled();
   for (const vis of ['private', 'public', 'roles'] as const) {
     const mark = marker(`ADM${vis.toUpperCase()}`);
     const roleIDs = vis === 'roles' ? [o.roles.hiring] : [];
@@ -93,21 +99,21 @@ test('change visibility inline: private → public reaches the anonymous timelin
   const { id, mark } = made.private;
   expect(has((await timelineText(o.request)).text, mark), 'before: not public').toBe(false);
   await gotoAdminSection(page, 'posts');
-  await page.getByTestId(`post-visibility-edit-${id}`).selectOption('public');
+  await page.getByTestId(`post-visibility-set-${id}-public`).click();
   await expect(page.getByTestId(`post-visibility-${id}`)).toContainText('public', { timeout: 15_000 });
   expect((await getPost(o, id)).visibility, 'receipt').toBe('public');
   expect(has((await timelineText(o.request)).text, mark), 'after: on the anonymous timeline').toBe(true);
-  await page.getByTestId(`post-visibility-edit-${id}`).selectOption('private');
+  await page.getByTestId(`post-visibility-set-${id}-private`).click();
   await expect(page.getByTestId(`post-visibility-${id}`)).toContainText('private', { timeout: 15_000 });
 });
 
 test('filter by visibility and search narrow the timeline', async ({ adminPage: page }) => {
   await gotoAdminSection(page, 'posts');
-  await page.getByTestId('posts-filter-visibility').selectOption('roles');
+  await page.getByTestId('posts-filter-roles').click();
   await expect(page.getByTestId(`post-row-${made.roles.id}`), 'the roles post stays').toBeVisible({ timeout: 15_000 });
   await expect(page.getByTestId(`post-row-${made.public.id}`), 'the public post is filtered out').toHaveCount(0);
   await expect(rows(page)).toHaveCount(1);
-  await page.getByTestId('posts-filter-visibility').selectOption('');
+  await page.getByTestId('posts-filter-all').click();
   await expect(page.getByTestId(`post-row-${made.public.id}`), 'all again').toBeVisible({ timeout: 15_000 });
 
   await page.getByTestId('posts-search').fill(made.public.mark);

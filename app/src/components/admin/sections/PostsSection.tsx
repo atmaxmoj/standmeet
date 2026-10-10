@@ -1,6 +1,7 @@
-// PostsSection —— /admin/posts (动态): the owner's timeline. A composer on top (text, a pool image,
-// who may see it), the posts below newest first, each with its audience shown and changeable in
-// place. Visibility is the post's own (posts.md): private = the owner only, public = everyone,
+// PostsSection —— /admin/posts (动态): the owner's timeline. A composer card on top (text, a pool
+// image, who may see it, post), then the timeline with its own toolbar (show which audience, search),
+// one ruled row per post with its audience and, on hover, the other audiences and delete.
+// Visibility is the post's own (posts.md): private = the owner only, public = everyone,
 // roles = visitors whose code carries one of the listed roles.
 
 'use client';
@@ -9,17 +10,19 @@ import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 import { ChatMarkdown } from '@standmeet/sdk';
 
+import { Btn } from '@/components/admin/atoms/Btn';
+import { Chip } from '@/components/admin/atoms/Chip';
 import { ListPane } from '@/components/admin/ListPane';
 import { LoadMore } from '@/components/admin/LoadMore';
 import { PickerSearchField } from '@/components/admin/PickerSearchField';
 import { SectionHeader } from '@/components/admin/SectionHeader';
 import { PoolList } from '@/components/admin/sections/corpus/CorpusAssetsPanel';
 import styles from '@/components/admin/sections/PostsSection.module.css';
-import { SelectField } from '@/components/atoms/SelectField';
 import {
-  asVisibility, usePosts, VISIBILITIES, type PostsHook, type PostView, type Visibility,
+  usePosts, VISIBILITIES, type PostsHook, type PostView, type Visibility,
 } from '@/lib/admin/use-posts';
-import { useRoles } from '@/lib/admin/use-roles';
+import { usePostComposer } from '@/lib/admin/use-post-composer';
+import { isPublicRole, useRoles } from '@/lib/admin/use-roles';
 import { totalLabel } from '@/lib/state/create-paged-store';
 import { DANGER_ACTION_CLASS } from '@/lib/ui/danger-action';
 import { useToast } from '@/lib/ui/toast';
@@ -36,7 +39,7 @@ export function PostsSection() {
         count={totalLabel(hook.page.total, (n) => t('count', { n }))}
       />
       <Composer hook={hook} />
-      <Filters hook={hook} />
+      <Toolbar hook={hook} />
       <ListPane
         status={hook.page.status} count={hook.page.items.length}
         empty={<p className="sm-empty-hint reading" data-testid="posts-empty">{t('empty')}</p>}
@@ -54,123 +57,131 @@ function Composer({ hook }: { hook: PostsHook }) {
   const t = useTranslations('adminCorpus.posts');
   const toast = useToast();
   const report = useReportError();
-  const [body, setBody] = useState('');
-  const [vis, setVis] = useState<Visibility>('private');
-  const [roleIDs, setRoleIDs] = useState<string[]>([]);
-  const [busy, setBusy] = useState(false);
-  const submit = () => {
-    setBusy(true);
-    hook.create({ body, visibility: vis, visible_role_ids: vis === 'roles' ? roleIDs : [] })
-      .then(() => { setBody(''); setRoleIDs([]); toast.success(t('posted')); }, report)
-      .finally(() => setBusy(false));
-  };
+  const c = usePostComposer(hook, () => toast.success(t('posted')), report);
+  const [pool, setPool] = useState(false);
   return (
     <div className={styles.composer}>
       <textarea
-        className={`sm-field-input ${styles.body}`} value={body} rows={4}
-        placeholder={t('placeholder')} aria-label={t('placeholder')}
-        onChange={(e) => setBody(e.target.value)} data-testid="posts-composer-body"
+        className={styles.body} value={c.body} rows={3}
+        placeholder={t('placeholder')} aria-label={t('placeholder')} aria-keyshortcuts="Control+Enter Meta+Enter"
+        onChange={(e) => c.setBody(() => e.target.value)} onKeyDown={c.onKey} data-testid="posts-composer-body"
       />
-      <PoolPicker insert={(md) => setBody((b) => `${b}${md}\n`)} />
-      <div className={styles.controls}>
-        <VisibilitySelect value={vis} onChange={setVis} testid="posts-composer-visibility" />
-        <button
-          type="button" className="sm-btn sm-btn-sm" onClick={submit}
-          disabled={busy || body.trim() === ''} data-testid="posts-composer-submit"
-        >
-          {t('submit')}
-        </button>
+      <div className={styles.bar}>
+        <Audience value={c.vis} onChange={c.setVis} roleIDs={c.roleIDs} onRoles={c.setRoleIDs} />
+        <div className={styles.actions}>
+          <Chip onClick={() => setPool((v) => !v)} active={pool} testid="posts-composer-pool-toggle">
+            {pool ? t('poolHide') : t('poolShow')}
+          </Chip>
+          <Btn kind="solid" onClick={c.submit} disabled={!c.ready} testid="posts-composer-submit">{t('submit')}</Btn>
+        </div>
       </div>
-      {vis === 'roles' && <RolePicker chosen={roleIDs} onChange={setRoleIDs} />}
+      {pool && (
+        <div className={styles.pool}>
+          <PoolList onThisEntry={[]} insertIntoBody={(md) => c.setBody((b) => `${b}${md}\n`)} testid="posts-composer" />
+        </div>
+      )}
     </div>
   );
 }
 
-function PoolPicker({ insert }: { insert: (markdown: string) => void }) {
+// Audience —— who will see the post being written: three chips, and the roles when "roles".
+function Audience({ value, onChange, roleIDs, onRoles }: {
+  value: Visibility; onChange: (v: Visibility) => void;
+  roleIDs: readonly string[]; onRoles: (ids: string[]) => void;
+}) {
   const t = useTranslations('adminCorpus.posts');
-  const [open, setOpen] = useState(false);
   return (
-    <div className={styles.pool}>
-      <button
-        type="button" className={styles.link} onClick={() => setOpen((v) => !v)}
-        data-testid="posts-composer-pool-toggle"
-      >
-        {open ? t('poolHide') : t('poolShow')}
-      </button>
-      {open && <PoolList onThisEntry={[]} insertIntoBody={insert} testid="posts-composer" />}
+    <div className={styles.audience}>
+      <span className={styles.label}>{t('audience')}</span>
+      {VISIBILITIES.map((v) => (
+        <Chip key={v} active={value === v} onClick={() => onChange(v)} testid={`posts-composer-vis-${v}`}>
+          {t(`vis.${v}`)}
+        </Chip>
+      ))}
+      {value === 'roles' && <RolePicker chosen={roleIDs} onChange={onRoles} />}
     </div>
   );
 }
 
 function RolePicker({ chosen, onChange }: { chosen: readonly string[]; onChange: (ids: string[]) => void }) {
   const t = useTranslations('adminCorpus.posts');
-  const { roles } = useRoles();
-  const toggle = (id: string, on: boolean) =>
-    onChange(on ? [...chosen, id] : chosen.filter((x) => x !== id));
+  // Not the builtin public role: "every visitor without a code" is the public audience already.
+  const roles = useRoles().roles.filter((r) => !isPublicRole(r));
+  const toggle = (id: string) =>
+    onChange(chosen.includes(id) ? chosen.filter((x) => x !== id) : [...chosen, id]);
   return (
-    <fieldset className={styles.roles} data-testid="posts-composer-roles">
-      <legend className="sm-smallcaps">{t('rolesLabel')}</legend>
+    <span className={styles.roles} role="group" aria-label={t('rolesLabel')} data-testid="posts-composer-roles">
       {roles.map((r) => (
-        <label key={r.id} className={styles.role}>
-          <input
-            type="checkbox" checked={chosen.includes(r.id)}
-            onChange={(e) => toggle(r.id, e.target.checked)} data-testid={`posts-composer-role-${r.id}`}
-          />
+        <Chip key={r.id} active={chosen.includes(r.id)} onClick={() => toggle(r.id)} testid={`posts-composer-role-${r.id}`}>
           {r.name}
-        </label>
+        </Chip>
       ))}
-    </fieldset>
+    </span>
   );
 }
 
-function VisibilitySelect({ value, onChange, testid }: {
-  value: Visibility; onChange: (v: Visibility) => void; testid: string;
-}) {
-  const t = useTranslations('adminCorpus.posts');
-  return (
-    <SelectField mono value={value} onChange={(e) => onChange(asVisibility(e.target.value))} testid={testid}>
-      {VISIBILITIES.map((v) => <option key={v} value={v}>{t(`vis.${v}`)}</option>)}
-    </SelectField>
-  );
-}
-
-function Filters({ hook }: { hook: PostsHook }) {
+// Toolbar —— the timeline's own controls: which audience to show, and a search.
+function Toolbar({ hook }: { hook: PostsHook }) {
   const t = useTranslations('adminCorpus.posts');
   const { params, setParams } = hook.page;
+  const shown = params.visibility ?? '';
   return (
-    <div className={styles.filters}>
-      <SelectField
-        mono value={params.visibility ?? ''} onChange={(e) => setParams({ visibility: e.target.value })}
-        testid="posts-filter-visibility"
-      >
-        <option value="">{t('filterAll')}</option>
-        {VISIBILITIES.map((v) => <option key={v} value={v}>{t(`vis.${v}`)}</option>)}
-      </SelectField>
-      <PickerSearchField
-        value={params.q ?? ''} onChange={(q) => setParams({ q })}
-        placeholder={t('search')} testid="posts-search"
-      />
+    <div className={styles.toolbar}>
+      <div className={styles.audience}>
+        <span className={styles.label}>{t('show')}</span>
+        <Chip active={shown === ''} onClick={() => setParams({ visibility: '' })} testid="posts-filter-all">
+          {t('filterAll')}
+        </Chip>
+        {VISIBILITIES.map((v) => (
+          <Chip key={v} active={shown === v} onClick={() => setParams({ visibility: v })} testid={`posts-filter-${v}`}>
+            {t(`vis.${v}`)}
+          </Chip>
+        ))}
+      </div>
+      <div className={styles.search}>
+        <PickerSearchField
+          value={params.q ?? ''} onChange={(q) => setParams({ q })}
+          placeholder={t('search')} testid="posts-search"
+        />
+      </div>
     </div>
   );
 }
 
 function PostRow({ post, hook }: { post: PostView; hook: PostsHook }) {
   const t = useTranslations('adminCorpus.posts');
-  const report = useReportError();
   return (
     <article className={styles.row} data-testid={`post-row-${post.id}`}>
       <div className={styles.meta}>
         <time dateTime={post.created_at}>{post.created_at.slice(0, 16).replace('T', ' ')}</time>
         {post.updated_at !== post.created_at && <span>{t('edited')}</span>}
         <span className={styles.badge} data-testid={`post-visibility-${post.id}`}>{t(`vis.${post.visibility}`)}</span>
-        <VisibilitySelect
-          value={post.visibility} testid={`post-visibility-edit-${post.id}`}
-          onChange={(v) => { hook.setVisibility(post, v).catch(report); }}
-        />
-        <DeleteBtn id={post.id} hook={hook} />
+        <RowActions post={post} hook={hook} />
       </div>
-      <ChatMarkdown source={expandURIsForReader(post.body, post.asset_urls)} />
+      <div className={styles.text}>
+        <ChatMarkdown source={expandURIsForReader(post.body, post.asset_urls)} />
+      </div>
     </article>
+  );
+}
+
+// RowActions —— change the audience to another one, or delete. "roles" is offered only to a post
+// that already names roles (a role list is chosen in the composer, not guessed here).
+function RowActions({ post, hook }: { post: PostView; hook: PostsHook }) {
+  const t = useTranslations('adminCorpus.posts');
+  const report = useReportError();
+  const others = VISIBILITIES.filter((v) => v !== post.visibility
+    && (v !== 'roles' || post.visible_role_ids.length > 0));
+  return (
+    <span className={styles.rowActions}>
+      <span className={styles.label}>{t('changeTo')}</span>
+      {others.map((v) => (
+        <Chip key={v} onClick={() => { hook.setVisibility(post, v).catch(report); }} testid={`post-visibility-set-${post.id}-${v}`}>
+          {t(`vis.${v}`)}
+        </Chip>
+      ))}
+      <DeleteBtn id={post.id} hook={hook} />
+    </span>
   );
 }
 

@@ -23,6 +23,7 @@ type Props = {
   size?: BtnSize;
   disabled?: boolean;
   type?: 'button' | 'submit';
+  testid?: string;
 };
 
 export function Btn(props: Props) {
@@ -33,6 +34,7 @@ export function Btn(props: Props) {
       onClick={props.onClick}
       disabled={props.disabled}
       className={cls}
+      data-testid={props.testid}
     >
       {props.children}
     </button>
