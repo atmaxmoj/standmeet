@@ -28,13 +28,19 @@
 // that fails is the current behavior: clicking lights up `offer` (looking saved), reload
 // reverts to `silent` — the modal claimed a status the instance never stored. Current
 // code → not equal → RED.
+//
+// 2026-10-10, roadmap 1.3.c: **withdrawn left the status axis.** Withdrawing is the owner's
+// decision, not how far the submission got, so it is an outcome now (application-outcomes.spec):
+// the status segments are committed / submitted / failed, and a withdrawn application keeps its
+// submission status while its outcome label reads "withdrawn". This spec used to list
+// `withdrawn` as a status segment; it now asserts the segment is gone and the label carries it.
 
 import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext, Locator, Page, Playwright } from '@playwright/test';
 
 import { createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { claimFreshOwner } from '@/fixtures/seed';
-import { initMCP } from '@/fixtures/mcp';
+import { callTool, initMCP } from '@/fixtures/mcp';
 import { gotoAdminSection } from '@/fixtures/navigate';
 import { jobsFetchNew, jobsRegisterSource } from '@/fixtures/jobs';
 import { applicationsCommit, resumeDraft, sampleResumeContent } from '@/fixtures/resume';
@@ -57,7 +63,7 @@ const OWNER = {
 // returned an empty string, and this spec has been red ever since, for a reason
 // unrelated to what it's meant to guard
 // ([[harness-drifts-when-vocabulary-changes]]).
-const STATUSES = ['committed', 'submitted', 'failed', 'withdrawn'] as const;
+const STATUSES = ['committed', 'submitted', 'failed'] as const;
 
 // The real application_id obtained after commit — the list row's testid is
 // `application-row-<id>`.
@@ -73,7 +79,25 @@ test.describe('admin /applications · the status control must not claim a status
   test('private notes do not accept an edit they cannot keep', notesDoNotPretendToSave);
   test('no control in the modal promises something nothing can perform', modalActionsAreHonest);
   test('「我到底发出去了什么」在这张卡上答得出来', snapshotShowsWhatWasSent);
+  test('withdrawn is an outcome, not a status (roadmap 1.3.c)', withdrawnIsAnOutcome);
 });
+
+// withdrawnIsAnOutcome —— withdraw through the owner's MCP; the row's outcome label says so, the
+// status pill still shows how far the submission got, and the modal has no `withdrawn` status.
+async function withdrawnIsAnOutcome({ adminPage: page }: { adminPage: Page }): Promise<void> {
+  await callTool(seeded.request, seeded.token, seeded.sid, 'applications.update_outcome',
+    { application_id: appId, outcome: 'withdrawn', note: 'took another offer' });
+  await gotoAdminSection(page, 'applications');
+  const row = page.getByTestId(`application-row-${appId}`);
+  await expect(row.getByTestId(`application-outcome-${appId}`), 'the outcome label says withdrawn')
+    .toContainText(/withdrawn/i, { timeout: 15_000 });
+  await expect(row.getByTestId(`application-state-${appId}`), 'presence: the status pill').toBeVisible();
+  await expect(row.getByTestId(`application-state-${appId}`), 'the status is not "withdrawn"')
+    .not.toContainText(/withdrawn/i);
+  const modal = await openApplication(page);
+  expect(STATUSES, 'presence: a status segment is lit').toContain(await litStatus(modal));
+  await expect(modal.getByTestId('status-withdrawn'), 'no withdrawn status segment').toHaveCount(0);
+}
 
 // snapshotShowsWhatWasSent —— F-E-23. **The "RESUME SENT · SNAPSHOT" block must actually
 // show that resume.**
@@ -274,18 +298,21 @@ async function litStatus(modal: Locator): Promise<string> {
 // seed —— claims a fresh owner, then lands a real application through MCP
 // (jobs.fetch_new → resume.draft → applications.commit), and returns its
 // application_id. The list's GET /api/admin/applications can read this row.
+// seeded —— the owner's MCP session, kept for the withdraw step (disposed by the worker).
+const seeded = { request: undefined as unknown as APIRequestContext, token: '', sid: '' };
+
 async function seed(playwright: Playwright): Promise<string> {
   await claimFreshOwner(playwright, OWNER);
-  const request = await playwright.request.newContext();
-  const id = await seedApplication(request);
-  await request.dispose();
-  return id;
+  seeded.request = await playwright.request.newContext();
+  return seedApplication(seeded.request);
 }
 
 async function seedApplication(request: APIRequestContext): Promise<string> {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   const token = await createAPIToken(request, csrf, 'app-status-seed');
   const sid = await initMCP(request, token);
+  seeded.token = token;
+  seeded.sid = sid;
   const src = await jobsRegisterSource(request, token, sid, {
     kind: 'greenhouse', label: 'App Status Board', config: { company: 'anthropic' },
   });

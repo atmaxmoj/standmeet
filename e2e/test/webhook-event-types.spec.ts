@@ -13,6 +13,9 @@
 // Already covered elsewhere, so not repeated: corpus.note.changed and webhook.test (webhooks.spec),
 // microsite.build.settled (events-build-settled.spec), booking.* (booking-owner-notify.spec),
 // jobs.fetched (jobs specs).
+//
+// Job-loop roadmap rows (1.2.d): application.followup_due drives the follow-up task by name
+// (`application followups`, contract for 3.1.a) after winding next_followup_at back with SQL.
 
 import type { APIRequestContext } from '@playwright/test';
 
@@ -54,7 +57,9 @@ let O: RetrievalOwner;
 let visitor: APIRequestContext;
 let csrf = '';
 // What earlier rows made and later rows act on.
-const S = { requestID: '', codeID: '', code: '', keyID: '', writingID: '', providerID: '', ownerID: '' };
+const S = {
+  requestID: '', codeID: '', code: '', keyID: '', writingID: '', providerID: '', ownerID: '', appID: '', appCode: '',
+};
 let sess: VisitorSession;
 
 async function mcp<T>(tool: string, args: Record<string, unknown>): Promise<T> {
@@ -102,7 +107,22 @@ async function commitApplication(): Promise<void> {
   const first = (await jobsFetchNew(O.request, O.apiToken, O.sid, source.id)).jobs[0];
   expect(first, 'the mock board has a job to apply to').toBeDefined();
   const drafted = await resumeDraft(O.request, O.apiToken, O.sid, first!.cache_id, sampleResumeContent());
-  await applicationsCommit(O.request, O.apiToken, O.sid, drafted.view.draft_id);
+  const c = await applicationsCommit(O.request, O.apiToken, O.sid, drafted.view.draft_id);
+  S.appID = c.view.application_id;
+  S.appCode = c.view.access_code;
+}
+
+// followupDue —— roadmap 3.1.a: the application's next follow-up is due (its clock wound back, as
+// no endpoint should move it) and the daily follow-up task runs.
+async function followupDue(): Promise<void> {
+  execSQL(`UPDATE applications SET next_followup_at = now() - interval '1 minute' WHERE id = '${S.appID}'`);
+  await mcp('tasks.run_periodic', { name: 'application followups' });
+}
+
+// engageApplication —— the first conversation on the application's code (roadmap 1.2.b).
+async function engageApplication(): Promise<void> {
+  const s = await issueSession(visitor, { handle: O.handle, mode: 'code', code: S.appCode, visitor_name: 'Rec' });
+  expect((await sendMessage(visitor, s, 'tell me about the role')).status()).toBe(200);
 }
 
 async function rollBack(): Promise<void> {
@@ -180,6 +200,12 @@ const ROWS: Row[] = [
     act: async () => { await mcp('blocks.install', { manifest: BROKEN_MANIFEST }); } },
   { type: 'block.failed', subject: () => `block/${BROKEN_ID}`, act: failBlock },
   { type: 'application.committed', subject: () => 'application/', act: commitApplication, timeout: 180_000 },
+  // Due before engaged: a follow-up nudge is only for an application nobody has opened (3.1).
+  { type: 'application.followup_due', subject: () => `application/${S.appID}`, act: followupDue },
+  { type: 'application.engaged', subject: () => `application/${S.appID}`, act: engageApplication },
+  { type: 'application.outcome_changed', subject: () => `application/${S.appID}`, act: async () => {
+    await mcp('applications.update_outcome', { application_id: S.appID, outcome: 'interview' });
+  } },
   { type: 'page.promoted_live', subject: () => `microsite/${PAGE}`,
     act: () => publishPage(O.request, csrf, PAGE), timeout: 300_000 },
   { type: 'page.rolled_back', subject: () => `microsite/${PAGE}`, act: rollBack },
