@@ -131,7 +131,7 @@ func authMiddleware(deps *Deps, next http.Handler) http.Handler {
 			return
 		}
 		ctx := context.WithValue(r.Context(), ctxKeyOwnerID, key.OwnerID)
-		ctx = context.WithValue(ctx, ctxKeyScopes, key.Scopes)
+		ctx = context.WithValue(ctx, ctxKeyScopes, keyLimits{scopes: key.Scopes, tools: key.Tools})
 		extendMCPWriteDeadline(deps.Log, w)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
@@ -188,7 +188,7 @@ func propagateOwnerCtx(ctx context.Context, r *http.Request) context.Context {
 	if !ok {
 		return ctx
 	}
-	ctx = context.WithValue(ctx, ctxKeyScopes, scopesFrom(r.Context()))
+	ctx = context.WithValue(ctx, ctxKeyScopes, limitsFrom(r.Context()))
 	return context.WithValue(ctx, ctxKeyOwnerID, v)
 }
 

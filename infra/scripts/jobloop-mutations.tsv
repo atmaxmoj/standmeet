@@ -14,3 +14,10 @@ e1-withdraw-keeps-code	backend/internal/owner/jobs/jobsuc/outcomes.go	s/return d
 # E7 —— 7.1 untrusted job text.
 e7-show-unfenced	backend/internal/owner/jobs/jobsmcp/jobs_views.go	s/view\.BodyText = untrusted\.Fence\("job posting", view\.BodyText\)/_ = untrusted.Rule/	make clean && make test-only SPEC=untrusted-job-text
 e7-briefing-unfenced	backend/internal/owner/jobs/jobsuc/repo_applications.go	s/return untrusted\.Inline\(postingSource, s\)/return s/	make clean && make test-only SPEC=untrusted-job-text
+#
+# E4 + E8 —— the seen ledger, annotations, company marks.
+e4-ledger-forgets	backend/internal/owner/jobs/jobsuc/repo_job_seen.go	s/if !hit\.fresh && hit\.row\.FirstRun != run \{/if false \&\& hit.row.FirstRun != run {/	make clean && make test-only SPEC="job-seen-ledger jobs-record"
+e4-discard-unledgered	backend/internal/owner/jobs/jobsuc/jobs.go	s/discarded := seenStatus\{Status: jobsmodel\.SeenStatusDiscarded\}/discarded := seenStatus{Status: jobsmodel.SeenStatusSeen}/	make clean && make test-only SPEC=job-seen-ledger
+e4-score-in-briefing	backend/internal/owner/jobs/jobsuc/resume.go	s/\tsnap\.Flags = nil\n/\tif row, e := deps.Seen.Get(ctx, ownerID, snap.SeenID); e == nil {\n\t\tsnap.Title += " " + row.Annotations.Reason\n\t}\n\tsnap.Flags = nil\n/	make clean && make test-only SPEC=jobs-annotate
+e4-mark-ignored	backend/internal/owner/jobs/jobsuc/resume.go	s/if !in\.Override && slices\.Contains/if false \&\& slices.Contains/	make clean && make test-only SPEC=company-marks
+e8-tool-list-ignored	backend/internal/routes/mcphandle/scopes.go	s/return len\(l\.tools\) == 0 \|\| slices\.Contains\(l\.tools, tool\)/return len(l.tools) >= 0 || slices.Contains(l.tools, tool)/	make clean && make test-only SPEC=owner-key-tool-allowlist

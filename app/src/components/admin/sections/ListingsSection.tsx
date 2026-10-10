@@ -9,12 +9,14 @@
 
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useTranslations } from 'next-intl';
 
+import { ListingsHistory } from '@/components/admin/ListingsHistory';
 import { SectionHeader } from '@/components/admin/SectionHeader';
+import { Chip } from '@/components/admin/atoms/Chip';
 import { ListSkeleton } from '@/components/skeletons/ListSkeleton';
 import {
   useAdminListings, pickListingsBodyState, type AdminListingRow,
@@ -22,9 +24,12 @@ import {
 
 const ROW_PX = 64;
 
+type ListingsView = 'pool' | 'history';
+
 export function ListingsSection() {
   const t = useTranslations('adminJobs');
   const hook = useAdminListings();
+  const [view, setView] = useState<ListingsView>('pool');
   return (
     <>
       <SectionHeader
@@ -33,9 +38,29 @@ export function ListingsSection() {
         count={hook.loading ? '' : t('listings.titleInPool', { count: hook.rows.length })}
       />
       <Intro />
-      <FetchBar fetching={hook.fetching} pending={hook.pendingSources} onFetch={hook.fetchNow} />
-      <Body rows={hook.rows} loading={hook.loading} error={hook.error} />
+      <ViewChips view={view} onChange={setView} />
+      {view === 'pool' ? (
+        <>
+          <FetchBar fetching={hook.fetching} pending={hook.pendingSources} onFetch={hook.fetchNow} />
+          <Body rows={hook.rows} loading={hook.loading} error={hook.error} />
+        </>
+      ) : <ListingsHistory />}
     </>
+  );
+}
+
+// ViewChips —— today's pool, or everything seen (the ledger, roadmap 8.3.b).
+function ViewChips({ view, onChange }: { view: ListingsView; onChange: (v: ListingsView) => void }) {
+  const t = useTranslations('adminJobs');
+  return (
+    <div className="flex gap-1.5 mb-4">
+      <Chip active={view === 'pool'} onClick={() => onChange('pool')} testid="listings-view-pool">
+        {t('listings.viewPool')}
+      </Chip>
+      <Chip active={view === 'history'} onClick={() => onChange('history')} testid="listings-view-history">
+        {t('listings.viewHistory')}
+      </Chip>
+    </div>
   );
 }
 

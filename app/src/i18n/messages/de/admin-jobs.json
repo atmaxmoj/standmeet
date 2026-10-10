@@ -37,7 +37,11 @@
     "fetching": "wird abgerufen…",
     "pendingSources": "{count, plural, one {# Quelle wird noch im Hintergrund abgerufen — die Liste aktualisiert sich danach} other {# Quellen werden noch im Hintergrund abgerufen — die Liste aktualisiert sich danach}}",
     "kicker": "jobs · anzeigen",
-    "titleInPool": "{count, plural, one {# im Pool} other {# im Pool}}"
+    "titleInPool": "{count, plural, one {# im Pool} other {# im Pool}}",
+    "viewPool": "heutiger pool",
+    "viewHistory": "alles gesehene",
+    "historyEmpty": "Noch nichts gesehen — abgerufene oder erfasste Stellen landen hier, nach Tag.",
+    "historyNoNotes": "keine notizen"
   },
   "drafts": {
     "intro": "Maßgeschneiderte Lebensläufe, die Claude für Jobs entworfen hat, denen Sie zugestimmt haben. Öffnen Sie den Composer zum Bearbeiten + Vorschau; <ink>senden</ink> friert den Snapshot ein, rendern den endgültigen PDF (mit QR) und stellen automatisch einen AccessCode aus.",

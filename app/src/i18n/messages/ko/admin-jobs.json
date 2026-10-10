@@ -37,7 +37,11 @@
     "fetching": "가져오는 중…",
     "pendingSources": "{count, plural, other {소스 #개를 백그라운드에서 아직 가져오는 중 — 끝나면 목록이 갱신됩니다}}",
     "kicker": "채용 · 목록",
-    "titleInPool": "{count}건 풀에 있음"
+    "titleInPool": "{count}건 풀에 있음",
+    "viewPool": "오늘의 풀",
+    "viewHistory": "본 것 전체",
+    "historyEmpty": "아직 없음 — 가져오거나 기록한 공고가 날짜별로 여기에 쌓입니다.",
+    "historyNoNotes": "메모 없음"
   },
   "drafts": {
     "intro": "Tailored resumes Claude drafted for jobs you said yes to. Open the composer to edit + preview; <ink>send</ink> freezes the snapshot, renders the final PDF (with QR), and auto-issues an AccessCode.",

@@ -53,6 +53,15 @@ func Apply(jobs []jobsmodel.FetchedJob) []jobsmodel.FetchedJob {
 	return out
 }
 
+// Keys —— a posting's two identity keys (L1, L2), as the owner's seen ledger stores them (job-loop
+// roadmap 4.1). Either may be "" (it then matches nothing).
+func Keys(j *jobsmodel.FetchedJob) [2]string {
+	return [2]string{canonicalURL(j.URL), compositeKey(j)}
+}
+
+// CompanyKey —— a company name the way L2 compares it: what a company mark is keyed on (4.1.e).
+func CompanyKey(name string) string { return normalizeCompany(name) }
+
 // dropDuplicate —— per-entry decision: drop if L1 or L2 was already seen;
 // otherwise record it in both sets. Split out to keep Apply's cognitive
 // complexity ≤ 5.

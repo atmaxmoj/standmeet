@@ -223,7 +223,7 @@ func runCommitTx(
 		AssumedRoleID:      hiring.ID(),
 		// reuse != nil → link to that existing code instead of issuing a fresh one.
 		ReuseCode: rp.reuse,
-		OnCommit:  commitEvents(deps.Events, ownerID, rp.reuse),
+		OnCommit:  commitWrites(deps.Events, ownerID, rp.reuse, &rp.renderApp.JobSnapshot),
 	}
 	out, err := deps.Apps.Commit(ctx, in)
 	if err != nil {

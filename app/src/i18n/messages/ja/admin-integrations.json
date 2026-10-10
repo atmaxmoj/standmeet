@@ -122,7 +122,8 @@
     "scope": "このキーでできること",
     "scopeFull": "すべて",
     "scopeRead": "読み取りのみ",
-    "scopeContent": "内容の読み書き — 削除・鍵・共有・外部送信は不可"
+    "scopeContent": "内容の読み書き — 削除・鍵・共有・外部送信は不可",
+    "scopeJobScout": "Job Scout — 求人ツールのみ（記録・評価・履歴・取得・表示）"
   },
   "newlyCreated": {
     "warning": "save these now — the private key is shown only once",
@@ -137,6 +138,7 @@
     "lastFrom": "{device} · {ip}",
     "algo": "ed25519",
     "scopes": "可能: {list}",
+    "tools": "限定: {list}",
     "revoke": "revoke",
     "keyId": "key id",
     "deletedToast": "キーを削除しました"

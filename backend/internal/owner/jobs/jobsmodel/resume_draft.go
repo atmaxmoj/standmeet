@@ -64,5 +64,5 @@ var (
 	ErrResumeContentInvalid = errors.New("resume content invalid")
 	// ErrResumeDraftIncomplete — resume.draft needs a job, and content or a master to copy it from.
 	ErrResumeDraftIncomplete = errors.New(
-		"job_cache_id, and resume_content or master_id, are required")
+		"job_cache_id or job_seen_id, and resume_content or master_id, are required")
 )

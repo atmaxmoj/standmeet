@@ -37,7 +37,11 @@
     "fetching": "拉取中…",
     "pendingSources": "{count, plural, other {还有 # 个来源在后台拉取 —— 完成后列表会自动更新}}",
     "kicker": "工作 · 职位列表",
-    "titleInPool": "{count} 个在池中"
+    "titleInPool": "{count} 个在池中",
+    "viewPool": "今天的池子",
+    "viewHistory": "见过的全部",
+    "historyEmpty": "还没有 —— 抓到或记录的职位会按天出现在这里。",
+    "historyNoNotes": "这条没有备注"
   },
   "drafts": {
     "intro": "Claude 为你说 yes 的职位起草的定制简历。打开编辑器编辑并预览；<ink>发送</ink>会冻结快照、渲染最终 PDF（带二维码），并自动签发一个访问码。",

@@ -304,10 +304,13 @@ export async function createAPIToken(
   // scopes —— the danger classes this key may use (read / write / destructive / credential /
   // authority / spend / egress). Omitted = every class (what a key always was).
   scopes?: string[],
+  // tools —— the only tools this key may call (job-loop roadmap 8.5.a). Omitted = every tool its
+  // scopes cover.
+  tools?: string[],
 ): Promise<string> {
   const res = await request.post(`${BACKEND}/api/admin/keypairs`, {
     headers: { 'X-Csrftoken': csrf },
-    data: scopes === undefined ? { label: name } : { label: name, scopes },
+    data: { label: name, ...(scopes ? { scopes } : {}), ...(tools ? { tools } : {}) },
   });
   if (res.status() !== 201) {
     throw new Error(`create keypair failed: ${res.status()} ${await res.text()}`);

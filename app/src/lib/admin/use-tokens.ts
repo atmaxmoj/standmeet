@@ -29,6 +29,8 @@ const KeypairListItemSchema = z.object({
   last_used_ip: z.string().nullish(),
   last_used_user_agent: z.string().nullish(),
   scopes: z.array(z.string()),
+  // tools —— the only tools the key may call (job-loop roadmap 8.5.a); [] = every tool in scope.
+  tools: z.array(z.string()).default([]),
 });
 type KeypairListItem = z.infer<typeof KeypairListItemSchema>;
 
@@ -38,21 +40,34 @@ const CreatedKeypairSchema = z.object({
   private_key_pem: z.string(),
   created_at: z.string(),
   scopes: z.array(z.string()),
+  tools: z.array(z.string()).default([]),
 });
 
+// JOB_SCOUT_TOOLS —— what the owner's Job Scout routine calls: the ledger, the boards, and reading
+// the corpus it scores against. Nothing that deletes, sends or commits.
+const JOB_SCOUT_TOOLS = [
+  'jobs.record', 'jobs.annotate', 'jobs.history', 'jobs.fetch_new', 'jobs.fetch_result',
+  'jobs.show', 'jobs.list_sources', 'corpus.search', 'corpus.get',
+] as const;
+
 // KEY_SCOPE_PRESETS —— the choices the create form offers. A scope is a danger class the backend
-// declares on every owner tool; `full` sends none, which the backend reads as every class.
+// declares on every owner tool; `full` sends none, which the backend reads as every class. A preset
+// with tools also names the only tools the key may call.
 export const KEY_SCOPE_PRESETS = {
-  full: undefined,
-  read: ['read'],
-  content: ['read', 'write'],
-} as const satisfies Record<string, readonly string[] | undefined>;
+  full: { scopes: undefined, tools: undefined },
+  read: { scopes: ['read'], tools: undefined },
+  content: { scopes: ['read', 'write'], tools: undefined },
+  jobscout: { scopes: ['read', 'write'], tools: JOB_SCOUT_TOOLS },
+} as const satisfies Record<string, { scopes?: readonly string[]; tools?: readonly string[] }>;
 export type KeyScopePreset = keyof typeof KEY_SCOPE_PRESETS;
 
 // keyScopePresetOf —— a <select> value back to a preset; anything unknown is the full key.
 export function keyScopePresetOf(v: string): KeyScopePreset {
-  return v === 'read' || v === 'content' ? v : 'full';
+  return KEY_SCOPE_PRESET_NAMES.find((p) => p === v) ?? 'full';
 }
+
+// KEY_SCOPE_PRESET_NAMES —— the presets in the order the form offers them.
+export const KEY_SCOPE_PRESET_NAMES: readonly KeyScopePreset[] = ['full', 'read', 'content', 'jobscout'];
 type CreatedKeypair = z.infer<typeof CreatedKeypairSchema>;
 
 // TokenItem —— the UI shape. id ← key_id; name ← label; other fields match keypair.
@@ -64,6 +79,7 @@ export interface TokenItem {
   last_used_ip: string | null;
   last_used_user_agent: string | null;
   scopes: readonly string[];
+  tools: readonly string[];
 }
 
 interface CreatedToken {
@@ -72,6 +88,7 @@ interface CreatedToken {
   plaintext: string;
   created_at: string;
   scopes: readonly string[];
+  tools: readonly string[];
 }
 
 export interface TokensHook {
@@ -113,7 +130,7 @@ function toTokenItemFromList(k: KeypairListItem): TokenItem {
     created_at: k.created_at, last_used_at: k.last_used_at,
     last_used_ip: k.last_used_ip ?? null,
     last_used_user_agent: k.last_used_user_agent ?? null,
-    scopes: k.scopes,
+    scopes: k.scopes, tools: k.tools,
   };
 }
 
@@ -144,8 +161,8 @@ export function useTokens(): TokensHook {
 // Throws (no longer swallowed): the success path reveals the private key; on
 // failure the caller reports it and the form is kept (don't lose the label the owner just typed).
 async function createToken(name: string, preset: KeyScopePreset = 'full'): Promise<void> {
-  const scopes = KEY_SCOPE_PRESETS[preset];
-  const kp = await adminAPI.post('/keypairs', { label: name, scopes }, CreatedKeypairSchema);
+  const { scopes, tools } = KEY_SCOPE_PRESETS[preset];
+  const kp = await adminAPI.post('/keypairs', { label: name, scopes, tools }, CreatedKeypairSchema);
   const created = toCreatedToken(kp);
   tokensStore.getState().mutate((prev) => [toListItem(created), ...(prev ?? [])]);
   justCreatedStore.getState().set(created);
@@ -160,7 +177,7 @@ async function deleteToken(id: string): Promise<void> {
 function toCreatedToken(k: CreatedKeypair): CreatedToken {
   return {
     id: k.key_id, name: k.label, plaintext: k.private_key_pem, created_at: k.created_at,
-    scopes: k.scopes,
+    scopes: k.scopes, tools: k.tools,
   };
 }
 
@@ -168,6 +185,7 @@ function toListItem(c: CreatedToken): TokenItem {
   return {
     id: c.id, name: c.name, created_at: c.created_at,
     last_used_at: null, last_used_ip: null, last_used_user_agent: null, scopes: c.scopes,
+    tools: c.tools,
   };
 }
 

@@ -119,6 +119,7 @@ func (*Plugin) Name() string { return Name }
 func (p *Plugin) Ops() []fp.Op {
 	ops := jobsmcp.OwnerOps(p.deps.Jobs, p.deps.Resume, p.deps.Cues, p.deps.Log)
 	ops = append(ops, jobsmcp.ApplicationOps(p.deps.Applications, p.deps.Log)...)
+	ops = append(ops, jobsmcp.LedgerOps(p.deps.Jobs, p.deps.Log)...)
 	return append(ops, jobsmcp.OutcomeOps(p.deps.Outcomes, p.deps.Log)...)
 }
 

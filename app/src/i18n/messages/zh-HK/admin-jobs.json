@@ -37,7 +37,11 @@
     "fetching": "拉取中…",
     "pendingSources": "{count, plural, other {還有 # 個來源在後台拉取 —— 完成後列表會自動更新}}",
     "kicker": "工作 · 職位列表",
-    "titleInPool": "{count} 個在池中"
+    "titleInPool": "{count} 個在池中",
+    "viewPool": "今日的池",
+    "viewHistory": "見過的全部",
+    "historyEmpty": "仲未有 —— 抓到或記錄的職位會按日出現在這裡。",
+    "historyNoNotes": "呢條冇備註"
   },
   "drafts": {
     "intro": "Claude 為你説 yes 的職位起草的訂製簡歷。開啓編輯器編輯並預覽；<ink>發送</ink>會凍結快照、渲染最終 PDF（帶QR 碼），並自動簽發一個存取碼。",

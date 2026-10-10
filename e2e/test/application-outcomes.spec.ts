@@ -61,11 +61,14 @@ test('interview then offer: two journal rows in order, the list shows offer, one
   ]);
   expect((await applicationRow(o, app.applicationID)).outcome).toBe('offer');
 
+  // One event per change. Webhook deliveries run as parallel jobs, so their arrival order is not
+  // the order of the changes — the journal above holds the order; each event carries its from/to.
   const got = changes(await awaitSink(o.request, SINK, (ds) => changes(ds).length >= 2));
-  expect(got.map((d) => d.body.data)).toEqual([
+  expect(got).toHaveLength(2);
+  expect(got.map((d) => d.body.data)).toEqual(expect.arrayContaining([
     { application_id: app.applicationID, from: 'none', to: 'interview', note: 'phone screen booked' },
     { application_id: app.applicationID, from: 'interview', to: 'offer', note: 'verbal offer' },
-  ]);
+  ]));
 });
 
 test('the admin path runs the same use case: one more journal row and one more event', async () => {

@@ -37,7 +37,11 @@
     "fetching": "fetching…",
     "pendingSources": "{count, plural, one {# source still fetching in the background — the list updates when it is done} other {# sources still fetching in the background — the list updates when they are done}}",
     "kicker": "jobs · listings",
-    "titleInPool": "{count, plural, one {# in pool} other {# in pool}}"
+    "titleInPool": "{count, plural, one {# in pool} other {# in pool}}",
+    "viewPool": "today's pool",
+    "viewHistory": "everything seen",
+    "historyEmpty": "Nothing seen yet — fetched or recorded postings land here, by day.",
+    "historyNoNotes": "no notes on this one"
   },
   "drafts": {
     "intro": "Tailored resumes Claude drafted for jobs you said yes to. Open the composer to edit + preview; <ink>send</ink> freezes the snapshot, renders the final PDF (with QR), and auto-issues an AccessCode.",

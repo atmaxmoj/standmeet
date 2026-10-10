@@ -56,6 +56,7 @@ type CreateKeypairInputReq struct {
 	OwnerID string
 	Label   string
 	Scopes  []string // danger classes; empty = every class
+	Tools   []string // the only tools it may call; empty = every tool in its scopes
 }
 
 // CreatedKeypair — Create's result (includes PrivateKeyPEM, **returned only once, at
@@ -81,6 +82,7 @@ func CreateKeypair(
 	rec, err := deps.Repo.Create(ctx, &repo.CreateKeypairInput{
 		OwnerID: in.OwnerID, KeyID: uuid.NewString(),
 		PublicKeyPEM: pems.PublicPEM, Label: in.Label, Scopes: scopes,
+		Tools: normalizeTools(in.Tools),
 	})
 	if err != nil {
 		return CreatedKeypair{}, fmt.Errorf("persist keypair: %w", err)

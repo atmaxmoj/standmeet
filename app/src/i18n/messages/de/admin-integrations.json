@@ -122,7 +122,8 @@
     "scope": "was dieser schlüssel darf",
     "scopeFull": "alles",
     "scopeRead": "nur lesen",
-    "scopeContent": "inhalte lesen und schreiben — kein löschen, keine schlüssel, kein teilen oder senden"
+    "scopeContent": "inhalte lesen und schreiben — kein löschen, keine schlüssel, kein teilen oder senden",
+    "scopeJobScout": "Job Scout — nur die Job-Werkzeuge (erfassen, bewerten, verlauf, abrufen, ansehen)"
   },
   "newlyCreated": {
     "warning": "speichern Sie diese jetzt — der private schlüssel wird nur einmal angezeigt",
@@ -137,6 +138,7 @@
     "lastFrom": "{device} · {ip}",
     "algo": "ed25519",
     "scopes": "darf: {list}",
+    "tools": "nur: {list}",
     "revoke": "widerrufen",
     "keyId": "schlüssel id",
     "deletedToast": "Schlüssel gelöscht"

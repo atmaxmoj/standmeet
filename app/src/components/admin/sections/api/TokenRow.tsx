@@ -46,11 +46,26 @@ function TokenRowHead({ token, deleteToken }: Props) {
         >
           {t('scopes', { list: token.scopes.join(' · ') })}
         </div>
+        <ToolList token={token} />
       </div>
       <div className="flex items-center gap-2 shrink-0">
         <Chip>{t('algo')}</Chip>
         <RevokeBtn token={token} deleteToken={deleteToken} />
       </div>
+    </div>
+  );
+}
+
+// ToolList — the only tools the key may call (job-loop roadmap 8.5.a); a key without a list says
+// nothing here, its scopes line already says what it may do.
+function ToolList({ token }: { token: TokenItem }) {
+  const t = useTranslations('adminIntegrations.tokenRow');
+  return token.tools.length === 0 ? null : (
+    <div
+      data-testid={`token-tools-${token.name}`}
+      className="mono text-[10px] tracking-[0.04em] text-(--color-faint) mt-0.5"
+    >
+      {t('tools', { list: token.tools.join(' · ') })}
     </div>
   );
 }

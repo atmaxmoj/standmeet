@@ -74,8 +74,11 @@ test.describe('jobs.fetch_new across multiple registered sources', () => {
       const token = await createAPIToken(request, csrf, 'isolation-spec');
       const sid = await initMCP(request, token);
 
+      // A board this owner never fetched before: the first test in this file already pooled
+      // airbnb, and since the seen ledger (roadmap 4.1.a) a posting seen on an earlier fetch is
+      // not pooled again from any source — an airbnb GoodBoard would pool nothing on a healthy run.
       const good = await jobsRegisterSource(request, token, sid, {
-        kind: 'greenhouse', label: 'GoodBoard', config: { company: 'airbnb' },
+        kind: 'greenhouse', label: 'GoodBoard', config: { company: 'betalabs' },
       });
       // Registered and then referred to by its label below, not by this handle: the
       // assertions name 'BadToken' because that is the string the owner sees in

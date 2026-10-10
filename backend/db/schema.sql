@@ -205,6 +205,9 @@ CREATE TABLE owner_keypairs (
     -- scopes —— the danger classes (facadeparity.Danger) this key may use on the owner MCP face.
     scopes          text[]        NOT NULL
                     DEFAULT '{read,write,destructive,credential,authority,spend,egress}',
+    -- tools —— the only tools this key may call (job-loop roadmap 8.5.a); empty = every tool its
+    -- scopes cover.
+    tools           text[]        NOT NULL DEFAULT '{}',
     created_at      timestamptz   NOT NULL DEFAULT now()
 );
 
@@ -1118,6 +1121,42 @@ CREATE TABLE application_outcomes (
     created_at     timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX application_outcomes_app_idx ON application_outcomes(application_id, created_at);
+
+-- job_seen —— the owner's seen ledger (job-loop roadmap 4.1, E8): every posting a board or Job Scout
+-- showed, keyed on the canonical URL and on company::title::location. Not tied to job_sources:
+-- removing a source keeps what was seen. first_run names the fetch (or jobs.record call) that first
+-- saw it. See migrations/2026-10-10-job-seen.sql.
+-- events: none (the owner's working ledger)
+CREATE TABLE job_seen (
+    id             uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id       uuid        NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    url_key        text        NOT NULL DEFAULT '',
+    composite_key  text        NOT NULL DEFAULT '',
+    first_run      text        NOT NULL DEFAULT '',
+    source         text        NOT NULL DEFAULT '',
+    status         text        NOT NULL DEFAULT 'seen'
+                               CHECK (status IN ('seen', 'discarded', 'applied')),
+    application_id uuid        NULL REFERENCES applications(id) ON DELETE SET NULL,
+    snapshot       jsonb       NOT NULL,
+    annotations    jsonb       NOT NULL DEFAULT '{}',
+    first_seen_at  timestamptz NOT NULL DEFAULT now(),
+    last_seen_at   timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX job_seen_url_uniq ON job_seen (owner_id, url_key) WHERE url_key <> '';
+CREATE UNIQUE INDEX job_seen_key_uniq ON job_seen (owner_id, composite_key) WHERE composite_key <> '';
+CREATE INDEX job_seen_owner_time_idx ON job_seen (owner_id, first_seen_at DESC, id DESC);
+
+-- company_marks —— companies the owner will not apply to (roadmap 4.1.e), on the dedup layer's
+-- normalized name. A posting's flag is read from here, never stored on the posting.
+-- events: none (owner configuration)
+CREATE TABLE company_marks (
+    owner_id    uuid        NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    company_key text        NOT NULL,
+    mark        text        NOT NULL CHECK (mark IN ('do_not_apply')),
+    note        text        NOT NULL DEFAULT '',
+    created_at  timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (owner_id, company_key)
+);
 
 CREATE INDEX applications_owner_idx ON applications(owner_id);
 -- 唯一：一张 access code 最多绑一个 application。访客侧简历工具按码反查(:one)"这一份"，

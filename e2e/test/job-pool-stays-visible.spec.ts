@@ -17,7 +17,7 @@ import { test, expect } from '@/fixtures/test';
 import type { APIRequestContext } from '@playwright/test';
 
 import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
-import { REDIS_CONTAINER, findSetupToken, resetInstance } from '@/fixtures/instance';
+import { REDIS_CONTAINER, execSQL, findSetupToken, resetInstance } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
 import {
   jobsDiscard, jobsFetchNew, jobsRegisterSource, jobsShow,
@@ -187,10 +187,13 @@ async function ownerWithBoard(request: APIRequestContext, label: string) {
 }
 
 // clearPool —— delete all job:* keys (safe under the single-owner v1). Same path as
-// job-fetch-ttl-eviction.spec.ts.
+// job-fetch-ttl-eviction.spec.ts. And the seen ledger with it (roadmap 4.1.a): each case fetches the
+// same fixture from a fresh source, and a ledger that remembers the last case would keep every
+// posting out of this one — "an empty pool" now means the owner has seen nothing yet.
 function clearPool(): void {
   const script = 'for k in $(redis-cli --scan --pattern "job:*"); do redis-cli DEL "$k"; done';
   execSync(`docker exec ${REDIS_CONTAINER} sh -c '${script}'`, { stdio: 'pipe' });
+  execSQL('DELETE FROM job_seen');
 }
 
 // ageOneKey —— push one pool record's remaining lifetime down to seconds, equivalent to "it entered

@@ -122,7 +122,8 @@
     "scope": "这个 key 能做什么",
     "scopeFull": "全部",
     "scopeRead": "只读",
-    "scopeContent": "读写内容 —— 不能删除、管密钥、分享或外发"
+    "scopeContent": "读写内容 —— 不能删除、管密钥、分享或外发",
+    "scopeJobScout": "Job Scout —— 只有求职工具（记录、评分、历史、抓取、查看）"
   },
   "newlyCreated": {
     "warning": "现在就保存——私钥只展示一次",
@@ -137,6 +138,7 @@
     "lastFrom": "{device} · {ip}",
     "algo": "ed25519",
     "scopes": "可以：{list}",
+    "tools": "仅限：{list}",
     "revoke": "吊销",
     "keyId": "密钥 id",
     "deletedToast": "已删除密钥"

@@ -122,7 +122,8 @@
     "scope": "이 키로 할 수 있는 일",
     "scopeFull": "전부",
     "scopeRead": "읽기 전용",
-    "scopeContent": "콘텐츠 읽기·쓰기 — 삭제, 키, 공유, 외부 전송 불가"
+    "scopeContent": "콘텐츠 읽기·쓰기 — 삭제, 키, 공유, 외부 전송 불가",
+    "scopeJobScout": "Job Scout — 채용 도구만 (기록, 평가, 기록 보기, 가져오기, 보기)"
   },
   "newlyCreated": {
     "warning": "save these now — the private key is shown only once",
@@ -137,6 +138,7 @@
     "lastFrom": "{device} · {ip}",
     "algo": "ed25519",
     "scopes": "가능: {list}",
+    "tools": "한정: {list}",
     "revoke": "revoke",
     "keyId": "key id",
     "deletedToast": "키를 삭제했습니다"

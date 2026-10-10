@@ -36,7 +36,7 @@ func verifyParsedSig(
 	}
 	warnUnbound(deps.Log, p, kp.Label)
 	deps.Repo.Touch(ctx, deps.Log, kp.ID, req.ClientIP, req.UserAgent)
-	return VerifiedKey{OwnerID: kp.OwnerID, Scopes: kp.Scopes}, nil
+	return VerifiedKey{OwnerID: kp.OwnerID, Scopes: kp.Scopes, Tools: kp.Tools}, nil
 }
 
 // warnUnbound —— a client still signing the unbound form: say which key, so the owner can update it

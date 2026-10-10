@@ -42,6 +42,8 @@ type JobsDeps struct {
 	Events func() events.Recorder
 	// Apps —— jobs.show lists the earlier applications to the posting's company (roadmap 1.5.a).
 	Apps *ApplicationRepo
+	// Seen —— the owner's seen ledger and company marks (roadmap 4.1).
+	Seen *JobSeenRepo
 	// Wait —— how long jobs.fetch_new waits for its source jobs (FetchWait).
 	Wait time.Duration
 }
@@ -144,8 +146,10 @@ func selectSourcesToFetch(
 	return list, nil
 }
 
+// fetchOneSourceAndDedup —— fetch, drop what this source already returned, drop what the owner's
+// ledger holds from an earlier run (any source, roadmap 4.1.a), pool the rest.
 func fetchOneSourceAndDedup(
-	ctx context.Context, deps JobsDeps, src *jobsmodel.JobSource,
+	ctx context.Context, deps JobsDeps, src *jobsmodel.JobSource, run string,
 ) (sourceRun, error) {
 	acc, err := fetchAndStampSourceID(ctx, deps, src)
 	if err != nil {
@@ -155,13 +159,18 @@ func fetchOneSourceAndDedup(
 	if err != nil {
 		return sourceRun{}, err
 	}
-	pooled, err := persistNewJobs(ctx, deps, src, newJobs)
+	admitted, err := deps.Seen.Admit(ctx, src.OwnerID, run, newJobs)
+	if err != nil {
+		return sourceRun{}, err
+	}
+	pooled, err := persistNewJobs(ctx, deps, src, admitted)
 	if err != nil {
 		return sourceRun{}, err
 	}
 	return sourceRun{jobs: pooled, tally: SourceTally{
 		SourceID: src.ID, Label: src.Label, Kind: src.Kind,
 		Seen: len(acc.Jobs), Pooled: len(pooled), Duplicate: len(acc.Jobs) - len(newJobs),
+		AlreadySeen: len(newJobs) - len(admitted),
 		// The adapter's own bookkeeping (only sources that fetch item-by-item have this):
 		// how many the upstream reported total, how many we actually read, how many were
 		// skipped and why, and whether we hit the cap and got truncated.
@@ -258,23 +267,55 @@ func ShowJob(
 	if ownerID == "" || cacheID == "" {
 		return jobsmodel.FetchedJob{}, apierr.ErrEmptyField
 	}
-	job, err := deps.Cache.Get(ctx, ownerID, cacheID)
+	job, err := pooledJob(ctx, deps.Cache, ownerID, cacheID)
 	if err != nil {
-		if errors.Is(err, jobcache.ErrCacheMiss) {
-			return jobsmodel.FetchedJob{}, jobsmodel.ErrJobCacheMiss
-		}
+		return jobsmodel.FetchedJob{}, err
+	}
+	if ferr := deps.Seen.FlagMarked(ctx, ownerID, []*jobsmodel.FetchedJob{&job}); ferr != nil {
+		return jobsmodel.FetchedJob{}, ferr
+	}
+	return job, nil
+}
+
+// pooledJob —— one job from the pool; ErrJobCacheMiss once expired or discarded.
+func pooledJob(
+	ctx context.Context, cache *jobcache.Pool, ownerID, cacheID string,
+) (jobsmodel.FetchedJob, error) {
+	job, err := cache.Get(ctx, ownerID, cacheID)
+	if errors.Is(err, jobcache.ErrCacheMiss) {
+		return jobsmodel.FetchedJob{}, jobsmodel.ErrJobCacheMiss
+	}
+	if err != nil {
 		return jobsmodel.FetchedJob{}, fmt.Errorf("cache get: %w", err)
 	}
 	return job, nil
 }
 
-// DiscardJob — actively removes a job from the owner's view.
+// DiscardJob — actively removes a job from the owner's view, and marks its ledger row discarded
+// (roadmap 4.1.c).
 func DiscardJob(ctx context.Context, deps JobsDeps, ownerID, cacheID string) error {
 	if ownerID == "" || cacheID == "" {
 		return apierr.ErrEmptyField
+	}
+	if err := discardInLedger(ctx, &deps, ownerID, cacheID); err != nil {
+		return err
 	}
 	if err := deps.Cache.Discard(ctx, ownerID, cacheID); err != nil {
 		return fmt.Errorf("cache discard: %w", err)
 	}
 	return nil
+}
+
+// discardInLedger —— the pooled posting's ledger row reads discarded. A job the pool already
+// forgot has nothing to discard.
+func discardInLedger(ctx context.Context, deps *JobsDeps, ownerID, cacheID string) error {
+	job, err := deps.Cache.Get(ctx, ownerID, cacheID)
+	if errors.Is(err, jobcache.ErrCacheMiss) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("cache get: %w", err)
+	}
+	discarded := seenStatus{Status: jobsmodel.SeenStatusDiscarded}
+	return deps.Seen.SetStatus(ctx, ownerID, &job, discarded)
 }

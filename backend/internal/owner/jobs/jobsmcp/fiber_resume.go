@@ -53,14 +53,19 @@ func (c *resumeFiber) draftBinding() *registry.MCPBinding {
 			"type":"object",
 			"properties":{
 				"job_cache_id":{"type":"string","description":"cache_id from jobs.fetch_new"},
+				"job_seen_id":{"type":"string",
+					"description":"In place of job_cache_id: a ledger row (jobs.history, ` +
+			`jobs.record), for a posting the pool no longer holds."},
+				"override":{"type":"boolean",
+					"description":"Draft even though the company is marked do_not_apply ` +
+			`(jobs.mark_company)."},
 				"resume_content":{"type":"object",
 					"description":"Structured resume content. Optional when master_id is given."},
 				"master_id":{"type":"string",
 					"description":"The master this draft starts from (its based_on)."},
 				"template":{"type":"string",
 					"description":"Layout: 'classic' or 'compact' (ATS). Empty=classic."}
-			},
-			"required":["job_cache_id"]
+			}
 		}`),
 		Handler: c.handleDraft,
 	}
@@ -69,8 +74,10 @@ func (c *resumeFiber) draftBinding() *registry.MCPBinding {
 type resumeDraftArgsWire struct {
 	ResumeContent *jobsmodel.ResumeContent `json:"resume_content"`
 	JobCacheID    string                   `json:"job_cache_id"`
+	JobSeenID     string                   `json:"job_seen_id"`
 	Template      string                   `json:"template"`
 	MasterID      string                   `json:"master_id"`
+	Override      bool                     `json:"override"`
 }
 
 func (c *resumeFiber) handleDraft(
@@ -80,9 +87,9 @@ func (c *resumeFiber) handleDraft(
 	if err := json.Unmarshal(raw, &args); err != nil {
 		return registry.MCPError("invalid arguments: " + err.Error())
 	}
-	drafted, err := jobsuc.DraftResume(ctx, *c.resume, ownerID, jobsuc.DraftInput{
-		Content: args.ResumeContent, JobCacheID: args.JobCacheID, Template: args.Template,
-		MasterID: args.MasterID,
+	drafted, err := jobsuc.DraftResume(ctx, *c.resume, ownerID, &jobsuc.DraftInput{
+		Content: args.ResumeContent, JobCacheID: args.JobCacheID, JobSeenID: args.JobSeenID,
+		Template: args.Template, MasterID: args.MasterID, Override: args.Override,
 	})
 	if err != nil {
 		return resumeCapErrToResult(c.log, err, "draft")
@@ -198,10 +205,16 @@ var resumeClientErrs = []struct {
 	{jobsmodel.ErrResumeMasterNameRequired, "name is required"},
 	{jobsmodel.ErrResumeMasterNotInTrash, "this master is not in the trash"},
 	{jobsmodel.ErrResumeDraftIncomplete, jobsmodel.ErrResumeDraftIncomplete.Error()},
+	{jobsmodel.ErrSeenNotFound, "job_seen_id: " + jobsmodel.ErrSeenNotFound.Error()},
+	// The company is in the message, so the error is its own text.
+	{jobsmodel.ErrCompanyMarked, ""},
 }
 
 func resumeCapClientErr(err error) (string, bool) {
 	for _, e := range resumeClientErrs {
+		if errors.Is(err, e.err) && e.msg == "" {
+			return err.Error(), true
+		}
 		if errors.Is(err, e.err) {
 			return e.msg, true
 		}

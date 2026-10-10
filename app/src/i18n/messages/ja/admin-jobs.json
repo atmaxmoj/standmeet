@@ -37,7 +37,11 @@
     "fetching": "取得中…",
     "pendingSources": "{count, plural, other {# 件のソースをバックグラウンドで取得中 — 完了するとリストが更新されます}}",
     "kicker": "求人 · リスティング",
-    "titleInPool": "{count} 件プール内"
+    "titleInPool": "{count} 件プール内",
+    "viewPool": "今日のプール",
+    "viewHistory": "見たものすべて",
+    "historyEmpty": "まだ何もありません — 取得・記録した求人が日ごとにここに並びます。",
+    "historyNoNotes": "メモなし"
   },
   "drafts": {
     "intro": "Tailored resumes Claude drafted for jobs you said yes to. Open the composer to edit + preview; <ink>send</ink> freezes the snapshot, renders the final PDF (with QR), and auto-issues an AccessCode.",

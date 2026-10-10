@@ -7,6 +7,7 @@ package usecase
 import (
 	"errors"
 	"slices"
+	"strings"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
@@ -15,10 +16,24 @@ import (
 // ErrUnknownScope —— a requested scope is not a danger class.
 var ErrUnknownScope = errors.New("keypair: unknown scope")
 
-// VerifiedKey —— who signed a request, and what that key may do.
+// VerifiedKey —— who signed a request, and what that key may do: the classes, and when set, the
+// only tools (job-loop roadmap 8.5.a).
 type VerifiedKey struct {
 	OwnerID string
 	Scopes  []string
+	Tools   []string
+}
+
+// normalizeTools —— trimmed, without blanks or repeats, in the order given; never nil (the column
+// is NOT NULL, and empty means "every tool in scope").
+func normalizeTools(in []string) []string {
+	out := make([]string, 0, len(in))
+	for _, t := range in {
+		if t = strings.TrimSpace(t); t != "" && !slices.Contains(out, t) {
+			out = append(out, t)
+		}
+	}
+	return out
 }
 
 // normalizeScopes —— none asked for = every class (what a key always was); otherwise each must be a

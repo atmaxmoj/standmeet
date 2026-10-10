@@ -28,6 +28,9 @@ type Keypair struct {
 	Label        string
 	// Scopes —— the danger classes (facadeparity.Danger) this key may use on the owner MCP face.
 	Scopes []string
+	// Tools —— the only tools this key may call (job-loop roadmap 8.5.a); empty = every tool its
+	// scopes cover.
+	Tools []string
 }
 
 // KeypairMetadata —— for the admin list: drops PEM + ownerID, keeps only
@@ -45,4 +48,5 @@ type KeypairMetadata struct {
 	KeyID             string
 	Label             string
 	Scopes            []string
+	Tools             []string
 }

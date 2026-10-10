@@ -50,7 +50,9 @@ var (
 		"properties":{
 			"label":{"type":"string"},
 			"scopes":{"type":"array","items":{"type":"string"},
-				"description":"Danger classes the key may use; omitted = every class."}
+				"description":"Danger classes the key may use; omitted = every class."},
+			"tools":{"type":"array","items":{"type":"string"},
+				"description":"The only tools the key may call; omitted = all in its scopes."}
 		},
 		"required":["label"]
 	}`)
@@ -67,6 +69,7 @@ type keypairOut struct {
 	Label             string   `json:"label"`
 	CreatedAt         string   `json:"created_at"`
 	Scopes            []string `json:"scopes"`
+	Tools             []string `json:"tools"`
 }
 
 type keypairCreatedOut struct {
@@ -75,6 +78,7 @@ type keypairCreatedOut struct {
 	Label         string   `json:"label"`
 	CreatedAt     string   `json:"created_at"`
 	Scopes        []string `json:"scopes"`
+	Tools         []string `json:"tools"`
 }
 
 func listKeypairs(d usecase.KeypairDeps) fp.Invoke {
@@ -93,7 +97,7 @@ func listKeypairs(d usecase.KeypairDeps) fp.Invoke {
 
 func keypairView(k *entity.KeypairMetadata) keypairOut {
 	v := keypairOut{
-		KeyID: k.KeyID, Label: k.Label, Scopes: k.Scopes,
+		KeyID: k.KeyID, Label: k.Label, Scopes: k.Scopes, Tools: k.Tools,
 		CreatedAt:  k.CreatedAt.Format(time.RFC3339),
 		LastUsedIP: k.LastUsedIP, LastUsedUserAgent: k.LastUsedUserAgent,
 	}
@@ -109,19 +113,21 @@ func createKeypair(d usecase.KeypairDeps) fp.Invoke {
 		var in struct {
 			Label  string   `json:"label"`
 			Scopes []string `json:"scopes"`
+			Tools  []string `json:"tools"`
 		}
 		if err := json.Unmarshal(raw, &in); err != nil {
 			return nil, fp.Coded(fp.BadInput("invalid json body"), "invalid_body")
 		}
 		c, err := usecase.CreateKeypair(ctx, d, &usecase.CreateKeypairInputReq{
-			OwnerID: ownerID, Label: in.Label, Scopes: in.Scopes,
+			OwnerID: ownerID, Label: in.Label, Scopes: in.Scopes, Tools: in.Tools,
 		})
 		if err != nil {
 			return nil, keypairErr(err)
 		}
 		return json.Marshal(keypairCreatedOut{
 			KeyID: c.Record.KeyID, PrivateKeyPEM: c.PrivateKeyPEM, Label: c.Record.Label,
-			Scopes: c.Record.Scopes, CreatedAt: c.Record.CreatedAt.Format(time.RFC3339),
+			Scopes: c.Record.Scopes, Tools: c.Record.Tools,
+			CreatedAt: c.Record.CreatedAt.Format(time.RFC3339),
 		})
 	}
 }

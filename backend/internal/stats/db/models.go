@@ -233,6 +233,14 @@ type CodeWaypoint struct {
 	IsTerminal   bool
 }
 
+type CompanyMark struct {
+	OwnerID    pgtype.UUID
+	CompanyKey string
+	Mark       string
+	Note       string
+	CreatedAt  pgtype.Timestamptz
+}
+
 type Conversation struct {
 	ID          pgtype.UUID
 	OwnerID     pgtype.UUID
@@ -398,6 +406,21 @@ type JobFingerprint struct {
 	FirstSeenAt pgtype.Timestamptz
 }
 
+type JobSeen struct {
+	ID            pgtype.UUID
+	OwnerID       pgtype.UUID
+	UrlKey        string
+	CompositeKey  string
+	FirstRun      string
+	Source        string
+	Status        string
+	ApplicationID pgtype.UUID
+	Snapshot      []byte
+	Annotations   []byte
+	FirstSeenAt   pgtype.Timestamptz
+	LastSeenAt    pgtype.Timestamptz
+}
+
 type JobSource struct {
 	ID              pgtype.UUID
 	OwnerID         pgtype.UUID
@@ -559,6 +582,7 @@ type OwnerKeypair struct {
 	LastUsedIp        *string
 	LastUsedUserAgent *string
 	Scopes            []string
+	Tools             []string
 	CreatedAt         pgtype.Timestamptz
 }
 

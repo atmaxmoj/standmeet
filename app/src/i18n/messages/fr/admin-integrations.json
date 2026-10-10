@@ -122,7 +122,8 @@
     "scope": "ce que cette clé peut faire",
     "scopeFull": "tout",
     "scopeRead": "lecture seule",
-    "scopeContent": "lire et écrire le contenu — sans suppression, clés, partage ni envoi"
+    "scopeContent": "lire et écrire le contenu — sans suppression, clés, partage ni envoi",
+    "scopeJobScout": "Job Scout — seulement les outils d'emploi (enregistrer, annoter, historique, récupérer, voir)"
   },
   "newlyCreated": {
     "warning": "enregistrez-les maintenant — la clé privée n'est affichée qu'une seule fois",
@@ -137,6 +138,7 @@
     "lastFrom": "{device} · {ip}",
     "algo": "ed25519",
     "scopes": "peut : {list}",
+    "tools": "seulement : {list}",
     "revoke": "révoquer",
     "keyId": "id de clé",
     "deletedToast": "Clé supprimée"

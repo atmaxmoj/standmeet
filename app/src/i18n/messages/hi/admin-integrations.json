@@ -122,7 +122,8 @@
     "scope": "यह key क्या कर सकती है",
     "scopeFull": "सब कुछ",
     "scopeRead": "सिर्फ़ पढ़ना",
-    "scopeContent": "कंटेंट पढ़ना और लिखना — हटाना, keys, शेयर करना या भेजना नहीं"
+    "scopeContent": "कंटेंट पढ़ना और लिखना — हटाना, keys, शेयर करना या भेजना नहीं",
+    "scopeJobScout": "Job Scout — सिर्फ़ नौकरी के टूल (दर्ज, आकलन, इतिहास, लाना, देखना)"
   },
   "newlyCreated": {
     "warning": "save these now — the private key is shown only once",
@@ -137,6 +138,7 @@
     "lastFrom": "{device} · {ip}",
     "algo": "ed25519",
     "scopes": "कर सकती है: {list}",
+    "tools": "सिर्फ़: {list}",
     "revoke": "revoke",
     "keyId": "key id",
     "deletedToast": "कुंजी हटाई गई"

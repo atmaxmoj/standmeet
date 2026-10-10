@@ -251,14 +251,16 @@ func setRuntimeRepos(rt *deps.Runtime, repos *repoSet) {
 // complete after assembleRuntimeDeps finishes, so this function is called once more,
 // after assemble.
 func buildJobsModule(d *deps.Runtime) *pluginjobs.Plugin {
+	seen := jobsuc.NewJobSeenRepo(d.DB)
 	jobsDeps := jobsuc.JobsDeps{
 		Sources: d.JobSourceRepo, Cache: d.JobCachePool, Registry: d.JobFetchRegistry,
-		Pool: d.DB, Wait: jobsuc.FetchWait, Apps: d.ApplicationRepo,
+		Pool: d.DB, Wait: jobsuc.FetchWait, Apps: d.ApplicationRepo, Seen: seen,
 		// Read at call time: the job runtime and the bus are built after this module.
 		Queue: wire.JobsQueue(d), Events: wire.EventsRecorder(d),
 	}
 	resumeDeps := jobsuc.ResumeDeps{
 		Drafts: d.ResumeDraftRepo, Masters: jobsuc.NewResumeMasterRepo(d.DB), Cache: d.JobCachePool,
+		Seen: seen,
 	}
 	appsDeps := jobsuc.ApplicationsDeps{
 		Apps: d.ApplicationRepo, Owners: d.OwnerRepo,

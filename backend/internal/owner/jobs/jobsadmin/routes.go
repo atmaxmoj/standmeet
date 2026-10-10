@@ -104,6 +104,7 @@ func Mount(r chi.Router, deps Deps) {
 		r.Get("/", listListings(deps))
 		r.Post("/fetch", fetchNow(deps))
 		r.Get("/fetch-result", fetchResult(deps))
+		r.Get("/history", listHistory(deps))
 	})
 }
 

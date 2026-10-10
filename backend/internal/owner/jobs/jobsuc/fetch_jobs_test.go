@@ -60,7 +60,7 @@ func newFetchRig(t *testing.T, h http.HandlerFunc, wait time.Duration) *fetchRig
 	r.deps = jobsuc.JobsDeps{
 		Sources: jobsuc.NewJobSourceRepo(pool), Cache: jobcache.New(rdb, 0),
 		Registry: jobfetch.New(&jobfetch.BaseURLs{RemoteOK: srv.URL}),
-		Pool:     pool, Wait: wait, Events: bus.Recorder,
+		Pool:     pool, Wait: wait, Events: bus.Recorder, Seen: jobsuc.NewJobSeenRepo(pool),
 	}
 	rt := startRuntime(t, pool, jobsuc.FetchKinds(&r.deps))
 	r.deps.Queue = func() jobs.Runtime { return rt }

@@ -37,7 +37,11 @@
     "fetching": "obteniendo…",
     "pendingSources": "{count, plural, one {# fuente sigue obteniéndose en segundo plano — la lista se actualiza al terminar} other {# fuentes siguen obteniéndose en segundo plano — la lista se actualiza al terminar}}",
     "kicker": "empleos · listados",
-    "titleInPool": "{count, plural, one {# en el grupo} other {# en el grupo}}"
+    "titleInPool": "{count, plural, one {# en el grupo} other {# en el grupo}}",
+    "viewPool": "el grupo de hoy",
+    "viewHistory": "todo lo visto",
+    "historyEmpty": "Aún no hay nada — las ofertas buscadas o registradas aparecen aquí, por día.",
+    "historyNoNotes": "sin notas"
   },
   "drafts": {
     "intro": "Currículos personalizados que Claude redactó para empleos a los que dijo que sí. Abra el compositor para editar + vista previa; <ink>enviar</ink> congela la instantánea, representa el PDF final (con QR) e emite automáticamente un AccessCode.",

@@ -30,7 +30,12 @@ type FetchedJob struct {
 	Location    string    `json:"location"`
 	URL         string    `json:"url"`
 	BodyText    string    `json:"body_text"`
-	Tags        []string  `json:"tags"`
+	// SeenID —— the owner's ledger row for this posting (roadmap 4.1), set when it was pooled.
+	SeenID string   `json:"job_seen_id,omitempty"`
+	Tags   []string `json:"tags"`
+	// Flags —— signals about the posting, derived when it is read (a do_not_apply company mark,
+	// 4.1.e); never stored on it.
+	Flags []string `json:"flags,omitempty"`
 }
 
 // ErrJobCacheMiss — cache_id lookup in the pool missed (expired / never existed / discarded).

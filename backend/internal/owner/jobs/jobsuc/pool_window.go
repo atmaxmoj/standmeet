@@ -59,7 +59,16 @@ func poolWindow(
 			New:          isNew[pooled[i].Job.CacheID],
 		})
 	}
-	return rows, nil
+	return rows, flagRows(ctx, deps, ownerID, rows)
+}
+
+// flagRows —— the owner's company marks, as flags on the rows they cover (roadmap 4.1.e).
+func flagRows(ctx context.Context, deps JobsDeps, ownerID string, rows []PoolRow) error {
+	jobs := make([]*jobsmodel.FetchedJob, 0, len(rows))
+	for i := range rows {
+		jobs = append(jobs, &rows[i].Job)
+	}
+	return deps.Seen.FlagMarked(ctx, ownerID, jobs)
 }
 
 // crossSourceSurvivors — cross-source dedup **must also apply to this pool-side view**.

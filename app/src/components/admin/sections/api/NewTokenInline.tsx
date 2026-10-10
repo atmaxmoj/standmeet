@@ -7,7 +7,9 @@ import { useCallback, useState } from 'react';
 import { useTranslations } from 'next-intl';
 
 import { SelectField } from '@/components/atoms/SelectField';
-import { keyScopePresetOf, type KeyScopePreset } from '@/lib/admin/use-tokens';
+import {
+  KEY_SCOPE_PRESET_NAMES, keyScopePresetOf, type KeyScopePreset,
+} from '@/lib/admin/use-tokens';
 import { useReportError } from '@/lib/ui/use-report-error';
 
 type CreateToken = (name: string, preset?: KeyScopePreset) => Promise<void>;
@@ -71,8 +73,10 @@ function NameField({ name, onChange }: { name: string; onChange: (v: string) => 
   );
 }
 
-const PRESETS: readonly KeyScopePreset[] = ['full', 'read', 'content'];
-const PRESET_LABEL = { full: 'scopeFull', read: 'scopeRead', content: 'scopeContent' } as const;
+const PRESETS = KEY_SCOPE_PRESET_NAMES;
+const PRESET_LABEL = {
+  full: 'scopeFull', read: 'scopeRead', content: 'scopeContent', jobscout: 'scopeJobScout',
+} as const;
 
 function ScopeField(
   { preset, onChange }: { preset: KeyScopePreset; onChange: (p: KeyScopePreset) => void },

@@ -23,8 +23,8 @@ ROOT="$(git rev-parse --show-toplevel)"
 # drive this checkout's stack instead of their own. Drop them, and make's own hand-down.
 while read -r name; do unset "$name"; done < <(grep -oE '^[A-Z_]+ \?=' "$ROOT/Makefile" | cut -d' ' -f1)
 unset MAKEFLAGS MFLAGS MAKELEVEL
-TABLE="$ROOT/infra/scripts/${1:?usage: mutation-check.sh <table.tsv>}"
-NAME="$(basename "$TABLE" .tsv)"
+TABLE_NAME="${1:?usage: mutation-check.sh <table.tsv>}"
+NAME="$(basename "$TABLE_NAME" .tsv)"
 WORK="$(mktemp -d)"
 TREE="$WORK/tree"
 LOG="$WORK/logs"
@@ -38,6 +38,9 @@ cleanup() {
 trap cleanup EXIT
 
 git -C "$ROOT" worktree add --detach "$TREE" HEAD >/dev/null
+# The table is read from HEAD too, beside the code its rows point at: an edit to the working copy
+# mid-run changes neither.
+TABLE="$TREE/infra/scripts/$TABLE_NAME"
 (cd "$TREE" && pnpm install --frozen-lockfile --prefer-offline >/dev/null && make stack-init >/dev/null)
 
 rows() {

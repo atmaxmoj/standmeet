@@ -122,7 +122,8 @@
     "scope": "what this key may do",
     "scopeFull": "everything",
     "scopeRead": "read only",
-    "scopeContent": "read and write content — no deleting, keys, sharing or sending"
+    "scopeContent": "read and write content — no deleting, keys, sharing or sending",
+    "scopeJobScout": "Job Scout — only the job tools (record, annotate, history, fetch, show)"
   },
   "newlyCreated": {
     "warning": "save these now — the private key is shown only once",
@@ -137,6 +138,7 @@
     "lastFrom": "{device} · {ip}",
     "algo": "ed25519",
     "scopes": "may: {list}",
+    "tools": "only: {list}",
     "revoke": "revoke",
     "keyId": "key id",
     "deletedToast": "Key deleted"

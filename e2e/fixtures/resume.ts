@@ -67,8 +67,15 @@ export async function resumeDraft(
 ): Promise<DraftedResume> {
   const args: Record<string, unknown> = { job_cache_id: jobCacheID, resume_content: content };
   if (template) args['template'] = template;
-  const parts = await callToolMulti(request, bearer, sid, 'resume.draft', args);
-  return extractDrafted(parts);
+  return resumeDraftWith(request, bearer, sid, args);
+}
+
+// resumeDraftWith —— resume.draft with any arguments (job_seen_id in place of job_cache_id,
+// override for a marked company: fixtures/job-ledger.ts).
+export async function resumeDraftWith(
+  request: APIRequestContext, bearer: string, sid: string, args: Record<string, unknown>,
+): Promise<DraftedResume> {
+  return extractDrafted(await callToolMulti(request, bearer, sid, 'resume.draft', args));
 }
 
 export async function resumeUpdateDraft(

@@ -37,7 +37,11 @@
     "fetching": "récupération…",
     "pendingSources": "{count, plural, one {# source encore en cours de récupération en arrière-plan — la liste se met à jour une fois terminé} other {# sources encore en cours de récupération en arrière-plan — la liste se met à jour une fois terminé}}",
     "kicker": "emplois · annonces",
-    "titleInPool": "{count, plural, one {# dans le pool} other {# dans le pool}}"
+    "titleInPool": "{count, plural, one {# dans le pool} other {# dans le pool}}",
+    "viewPool": "le lot du jour",
+    "viewHistory": "tout ce qui a été vu",
+    "historyEmpty": "Rien vu pour l'instant — les offres récupérées ou enregistrées arrivent ici, par jour.",
+    "historyNoNotes": "aucune note"
   },
   "drafts": {
     "intro": "CV adaptés que Claude a rédigés pour les emplois auxquels vous avez dit oui. Ouvrez le compositeur pour modifier + prévisualiser ; <ink>envoyer</ink> gèle l'instantané, rend le PDF final (avec QR), et émet automatiquement un CodeAccès.",

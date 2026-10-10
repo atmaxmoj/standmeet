@@ -9,6 +9,8 @@ import (
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	"github.com/atmaxmoj/standmeet/internal/infra/events"
+	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmodel"
+	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc/db"
 )
 
 // Application event types. Thin: subject application/<id>.
@@ -35,6 +37,20 @@ func ApplicationEventTypes() []events.Type {
 			"(data.application_id, data.code_id, data.conversation_id).", "code_id"),
 		t(ApplicationOutcomeChanged, "The owner set an application's outcome "+
 			"(data.application_id, data.from, data.to, data.note)."),
+	}
+}
+
+// commitWrites —— what a commit writes beside the application, on its transaction: the events, and
+// the posting's ledger row marked applied (roadmap 8.4.b).
+func commitWrites(
+	rec events.Recorder, ownerID string, reuse *access.Code, job *jobsmodel.FetchedJob,
+) func(context.Context, pgx.Tx, *CommitOutput) error {
+	recordEvents := commitEvents(rec, ownerID, reuse)
+	return func(ctx context.Context, tx pgx.Tx, out *CommitOutput) error {
+		if err := recordEvents(ctx, tx, out); err != nil {
+			return err
+		}
+		return markApplied(ctx, db.New(tx), ownerID, job, out.Application.ID)
 	}
 }
 

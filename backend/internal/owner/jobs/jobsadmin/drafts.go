@@ -213,7 +213,8 @@ type jsonBody interface {
 	draftView | paging.Page[draftView] |
 		*jobsmodel.ResumeMaster | paging.Page[jobsmodel.ResumeMaster] |
 		map[string][]jobsmodel.TrashedMaster |
-		jobsmodel.ApplicationRow | paging.Page[jobsmodel.ApplicationRow] | applicationDetail
+		jobsmodel.ApplicationRow | paging.Page[jobsmodel.ApplicationRow] | applicationDetail |
+		paging.Page[jobsmodel.SeenWire]
 }
 
 // writeJSON — one encoded response body with its status.

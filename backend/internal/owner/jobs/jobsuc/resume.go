@@ -17,8 +17,8 @@ package jobsuc
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	jobcache "github.com/atmaxmoj/standmeet/internal/owner/jobs/cache"
@@ -30,6 +30,8 @@ type ResumeDeps struct {
 	Drafts  *ResumeDraftRepo
 	Masters *ResumeMasterRepo
 	Cache   *jobcache.Pool
+	// Seen —— a draft can start from a ledger row (8.4.a); company marks gate drafting (4.1.e).
+	Seen *JobSeenRepo
 }
 
 // DraftedResume — the return value of resume.draft / update_draft. Structured
@@ -45,20 +47,25 @@ type DraftedResume struct {
 type DraftInput struct {
 	Content    *jobsmodel.ResumeContent
 	JobCacheID string
-	Template   string
-	MasterID   string
+	// JobSeenID —— the posting's ledger row, in place of JobCacheID: the draft outlives the pool
+	// (roadmap 8.4.a).
+	JobSeenID string
+	Template  string
+	MasterID  string
+	// Override —— draft even for a company the owner marked do_not_apply (4.1.e).
+	Override bool
 }
 
 // DraftResume — Claude calls resume.draft: pulls the job snapshot from the
 // Redis pool and writes the draft row.
 func DraftResume(
-	ctx context.Context, deps ResumeDeps, ownerID string, in DraftInput,
+	ctx context.Context, deps ResumeDeps, ownerID string, in *DraftInput,
 ) (DraftedResume, error) {
-	seed, err := draftContent(ctx, &deps, ownerID, &in)
+	seed, err := draftContent(ctx, &deps, ownerID, in)
 	if err != nil {
 		return DraftedResume{}, err
 	}
-	snapshot, err := loadJobSnapshot(ctx, deps, ownerID, in.JobCacheID)
+	snapshot, err := draftSnapshot(ctx, &deps, ownerID, in)
 	if err != nil {
 		return DraftedResume{}, err
 	}
@@ -149,7 +156,42 @@ func draftContent(
 
 // draftInputComplete — resume.draft needs an owner, a job, and content or a master to copy it from.
 func draftInputComplete(ownerID string, in *DraftInput) bool {
-	return ownerID != "" && in.JobCacheID != "" && (in.Content != nil || in.MasterID != "")
+	hasJob := in.JobCacheID != "" || in.JobSeenID != ""
+	return ownerID != "" && hasJob && (in.Content != nil || in.MasterID != "")
+}
+
+// draftSnapshot —— the posting the draft is for: from the ledger row when named, else from the
+// pool; refused for a company the owner marked, unless the call overrides (4.1.e).
+func draftSnapshot(
+	ctx context.Context, deps *ResumeDeps, ownerID string, in *DraftInput,
+) (jobsmodel.FetchedJob, error) {
+	snap, err := postingOf(ctx, deps, ownerID, in)
+	if err != nil {
+		return jobsmodel.FetchedJob{}, err
+	}
+	if ferr := deps.Seen.FlagMarked(ctx, ownerID, []*jobsmodel.FetchedJob{&snap}); ferr != nil {
+		return jobsmodel.FetchedJob{}, ferr
+	}
+	if !in.Override && slices.Contains(snap.Flags, jobsmodel.FlagDoNotApply) {
+		return jobsmodel.FetchedJob{}, fmt.Errorf("%w: %s — pass override: true to draft anyway",
+			jobsmodel.ErrCompanyMarked, snap.Company)
+	}
+	snap.Flags = nil
+	return snap, nil
+}
+
+func postingOf(
+	ctx context.Context, deps *ResumeDeps, ownerID string, in *DraftInput,
+) (jobsmodel.FetchedJob, error) {
+	if in.JobSeenID == "" {
+		return loadJobSnapshot(ctx, *deps, ownerID, in.JobCacheID)
+	}
+	row, err := deps.Seen.Get(ctx, ownerID, in.JobSeenID)
+	if err != nil {
+		return jobsmodel.FetchedJob{}, err
+	}
+	row.Snapshot.SeenID = row.ID
+	return row.Snapshot, nil
 }
 
 // UpdateResumeDraft — Claude calls resume.update_draft to adjust content.
@@ -207,14 +249,7 @@ func requireFields(s1, s2 string, content *jobsmodel.ResumeContent) error {
 func loadJobSnapshot(
 	ctx context.Context, deps ResumeDeps, ownerID, jobCacheID string,
 ) (jobsmodel.FetchedJob, error) {
-	snapshot, err := deps.Cache.Get(ctx, ownerID, jobCacheID)
-	if err != nil {
-		if errors.Is(err, jobcache.ErrCacheMiss) {
-			return jobsmodel.FetchedJob{}, jobsmodel.ErrJobCacheMiss
-		}
-		return jobsmodel.FetchedJob{}, fmt.Errorf("cache get: %w", err)
-	}
-	return snapshot, nil
+	return pooledJob(ctx, deps.Cache, ownerID, jobCacheID)
 }
 
 // DiscardResumeDraft — resume.discard_draft; idempotent (a mismatched owner
