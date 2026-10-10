@@ -15,6 +15,10 @@ WHERE e.key_id = $1;
 -- name: GetEmbed :one
 SELECT * FROM embeds WHERE id = $1 AND owner_id = $2;
 
+-- name: ListEmbedIDsByCode :many
+-- The embeds that expose one code: what revoking it cuts off (job-loop roadmap 1.4.b).
+SELECT id FROM embeds WHERE owner_id = $1 AND code_id = $2 ORDER BY created_at;
+
 -- name: ListEmbedsPage :many
 -- One page of the owner's embeds, newest first (docs/design/paging.md), each with the code
 -- string it exposes: the paged codes list can no longer answer "which string is code_id X".

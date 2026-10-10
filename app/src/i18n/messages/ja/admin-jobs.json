@@ -136,7 +136,15 @@
     "stateCommitted": "確定",
     "stateSubmitted": "送信済み",
     "stateFailed": "失敗",
-    "stateWithdrawn": "取り下げ"
+    "outcomeHead": "結果",
+    "outcomeNone": "まだ連絡なし",
+    "outcomeResponded": "返信あり",
+    "outcomeInterview": "面接",
+    "outcomeOffer": "オファー",
+    "outcomeRejected": "不採用",
+    "outcomeHired": "採用",
+    "outcomeWithdrawn": "取り下げ",
+    "metaOpened": "{date} に開封 · 質問 {count} 件"
   },
   "detail": {
     "kicker": "application · {id}",

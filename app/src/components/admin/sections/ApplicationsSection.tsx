@@ -16,6 +16,8 @@ import { totalLabel } from '@/lib/state/create-paged-store';
 import { ApplicationDetailModal } from '@/components/admin/ApplicationDetailModal';
 import { toDraftModel } from '@/lib/admin/draft-wire';
 import {
+  openedStamp,
+  outcomeLabelKey,
   pillToneFor,
   submissionLabel,
   type Application,
@@ -51,7 +53,10 @@ export function ApplicationsSection() {
       />
       <LoadMore page={hook.page} testid="applications-load-more" />
       {opened && (
-        <ApplicationDetailModal app={opened} onClose={() => setOpened(null)} />
+        <ApplicationDetailModal
+          app={opened} onClose={() => setOpened(null)}
+          onSaved={(row) => hook.page.patch(row.id, () => row)}
+        />
       )}
     </>
   );
@@ -187,6 +192,7 @@ function toDetailApp(row: AdminApplicationRow): Application {
     contact: '',
     notes: '',
     state: submissionLabel(row.status),
+    outcome: row.outcome,
     resumeContent: toDraftModel({
       id: row.id, company: row.company, role: row.role,
       resume_content: row.resume_content,
@@ -270,8 +276,21 @@ function RowHead({ row }: { row: AdminApplicationRow }) {
           · {row.role}
         </span>
       </div>
-      <StatusPill id={row.id} wire={row.status} />
+      <div className="flex items-baseline gap-2">
+        <OutcomeLabel id={row.id} wire={row.outcome} />
+        <StatusPill id={row.id} wire={row.status} />
+      </div>
     </div>
+  );
+}
+
+// OutcomeLabel —— what came of it, beside how far the submission got (roadmap 1.3.d).
+function OutcomeLabel({ id, wire }: { id: string; wire: string }) {
+  const t = useTranslations('adminJobs');
+  return (
+    <span className="sm-pill" data-testid={`application-outcome-${id}`}>
+      {t(outcomeLabelKey(wire))}
+    </span>
   );
 }
 
@@ -285,7 +304,19 @@ function RowMeta({ row }: { row: AdminApplicationRow }) {
       <span>{t('applications.metaCommitted', { date: formatDate(row.created_at) })}</span>
       <span className="text-(--color-faint)">·</span>
       <SubmittedMeta iso={realDate(row.submitted_at)} />
+      <OpenedMeta id={row.id} stamp={openedStamp(row.opened_at)} questions={row.questions} />
     </div>
+  );
+}
+
+// OpenedMeta —— the recruiter opened it: when first, and how many questions so far (roadmap 1.1.c).
+// An unopened application says nothing — no inferred progress.
+function OpenedMeta({ id, stamp, questions }: { id: string; stamp: string; questions: number }) {
+  const t = useTranslations('adminJobs');
+  return stamp === '' ? null : (
+    <span className="text-(--color-accent)" data-testid={`application-opened-${id}`}>
+      {t('applications.metaOpened', { date: stamp, count: questions })}
+    </span>
   );
 }
 

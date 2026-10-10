@@ -169,9 +169,11 @@ func (c *jobsFiber) handleUnregisterSource(
 
 func (c *jobsFiber) showBinding() *registry.MCPBinding {
 	return &registry.MCPBinding{
-		Name:        "jobs.show",
-		Danger:      "read",
-		Description: "Look up a job by cache_id; returns full JD body.",
+		Name:   "jobs.show",
+		Danger: "read",
+		Description: "Look up a job by cache_id; returns full JD body, and " +
+			"previous_applications: the owner's earlier applications to the same company " +
+			"(date, outcome, opened_at).",
 		InputSchema: json.RawMessage(`{
 			"type":"object",
 			"properties":{
@@ -201,7 +203,11 @@ func (c *jobsFiber) handleShow(
 	if err != nil {
 		return jobsCapErrToResult(c.log, err, "show")
 	}
-	return mcputil.MarshalResult(c.log, "jobs.show", fetchedJobToView(&job))
+	prev, err := c.jobs.Apps.ByCompany(ctx, ownerID, job.Company)
+	if err != nil {
+		return jobsCapErrToResult(c.log, err, "show")
+	}
+	return mcputil.MarshalResult(c.log, "jobs.show", shownJob(&job, prev))
 }
 
 // ───── jobs.discard ─────────────────────────────────────────────

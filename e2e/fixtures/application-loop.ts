@@ -17,7 +17,7 @@
 //   Events (webhook-exposed, filterable by code_id):
 //     application.engaged          {application_id, code_id, conversation_id} —— once per application
 //     application.outcome_changed  {application_id, from, to, note}
-//     application.followup_due     (declared in E1, fired in E3)
+//     application.followup_due     (declared with its trigger, E3)
 
 import type { APIRequestContext, Playwright } from '@playwright/test';
 

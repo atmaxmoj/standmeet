@@ -129,6 +129,36 @@ func (q *Queries) GetEmbedSyncModeByKeyID(ctx context.Context, keyID pgtype.UUID
 	return sync_mode, err
 }
 
+const listEmbedIDsByCode = `-- name: ListEmbedIDsByCode :many
+SELECT id FROM embeds WHERE owner_id = $1 AND code_id = $2 ORDER BY created_at
+`
+
+type ListEmbedIDsByCodeParams struct {
+	OwnerID pgtype.UUID
+	CodeID  pgtype.UUID
+}
+
+// The embeds that expose one code: what revoking it cuts off (job-loop roadmap 1.4.b).
+func (q *Queries) ListEmbedIDsByCode(ctx context.Context, arg ListEmbedIDsByCodeParams) ([]pgtype.UUID, error) {
+	rows, err := q.db.Query(ctx, listEmbedIDsByCode, arg.OwnerID, arg.CodeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []pgtype.UUID
+	for rows.Next() {
+		var id pgtype.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listEmbedsPage = `-- name: ListEmbedsPage :many
 SELECT e.id, e.owner_id, e.code_id, e.label, e.allowed_origins, e.key_id, e.public_key, e.sync_mode, e.created_at, e.updated_at, ac.code AS code_value
 FROM embeds e

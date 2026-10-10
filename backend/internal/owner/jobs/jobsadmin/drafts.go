@@ -212,7 +212,8 @@ func handleDraftDetailErr(log *slog.Logger, w http.ResponseWriter, err error) {
 type jsonBody interface {
 	draftView | paging.Page[draftView] |
 		*jobsmodel.ResumeMaster | paging.Page[jobsmodel.ResumeMaster] |
-		map[string][]jobsmodel.TrashedMaster
+		map[string][]jobsmodel.TrashedMaster |
+		jobsmodel.ApplicationRow | paging.Page[jobsmodel.ApplicationRow] | applicationDetail
 }
 
 // writeJSON — one encoded response body with its status.

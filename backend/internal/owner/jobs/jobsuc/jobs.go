@@ -40,6 +40,8 @@ type JobsDeps struct {
 	// this module).
 	Queue  func() jobs.Runtime
 	Events func() events.Recorder
+	// Apps —— jobs.show lists the earlier applications to the posting's company (roadmap 1.5.a).
+	Apps *ApplicationRepo
 	// Wait —— how long jobs.fetch_new waits for its source jobs (FetchWait).
 	Wait time.Duration
 }

@@ -1,0 +1,12 @@
+# jobloop-mutations.tsv —— the planted bugs of the job-loop test plan's mutation table, as data.
+#
+# Columns (TAB-separated): id · file glob(s), space-separated (repo-relative) · perl -0777
+# substitution · the commands that must each go red, separated by ";;". A row whose substitution
+# changes nothing is a FAILED row, never a skipped one: the code it targeted moved, and the row must
+# follow it. Ids carry their epic (e1-…) so `ONLY=` can run one epic.
+#
+# E1 —— applications: opened, engaged, outcomes, withdraw.
+e1-engaged-unguarded	backend/internal/owner/jobs/jobsuc/db/applications.sql.go	s/WHERE access_code_id = \$1 AND engaged_at IS NULL/WHERE access_code_id = \$1/	make clean && make test-only SPEC=application-engaged-notify
+e1-opened-latest	backend/db/schema.sql backend/db/migrations/2026-10-10-application-outcomes.sql	s/SELECT LEAST\(/SELECT GREATEST(/	make clean && make test-only SPEC=application-opened
+e1-outcome-no-journal	backend/internal/owner/jobs/jobsuc/repo_application_outcomes.go	s/\tif err := q\.InsertApplicationOutcome\(.*?\n\t\}\n//s	make clean && make test-only SPEC=application-outcomes
+e1-withdraw-keeps-code	backend/internal/owner/jobs/jobsuc/outcomes.go	s/return d\.Revoke\(ctx, ev\.OwnerID, app\.AccessCodeID\)/_ = app\n\treturn nil/	make clean && make test-only SPEC=application-withdraw-revokes

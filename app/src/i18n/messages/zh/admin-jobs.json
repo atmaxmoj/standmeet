@@ -136,7 +136,15 @@
     "stateCommitted": "已提交",
     "stateSubmitted": "已递交",
     "stateFailed": "失败",
-    "stateWithdrawn": "已撤回"
+    "outcomeHead": "结果",
+    "outcomeNone": "还没消息",
+    "outcomeResponded": "已回复",
+    "outcomeInterview": "面试",
+    "outcomeOffer": "offer",
+    "outcomeRejected": "被拒",
+    "outcomeHired": "已录用",
+    "outcomeWithdrawn": "已撤回",
+    "metaOpened": "{date} 已打开 · {count} 个问题"
   },
   "detail": {
     "kicker": "申请 · {id}",

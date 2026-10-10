@@ -11,9 +11,32 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/events"
 )
 
-// ApplicationCommitted —— an application was committed. Thin: subject application/<id>, data
-// {application_id, code_id}.
-const ApplicationCommitted = "application.committed"
+// Application event types. Thin: subject application/<id>.
+const (
+	// ApplicationCommitted —— committed with its code: {application_id, code_id}.
+	ApplicationCommitted = "application.committed"
+	// ApplicationEngaged —— the recruiter's first conversation on the code, once per application:
+	// {application_id, code_id, conversation_id}.
+	ApplicationEngaged = "application.engaged"
+	// ApplicationOutcomeChanged —— the owner set a new outcome: {application_id, from, to, note}.
+	ApplicationOutcomeChanged = "application.outcome_changed"
+)
+
+// ApplicationEventTypes —— the application lifecycle's events, beside application.committed.
+func ApplicationEventTypes() []events.Type {
+	t := func(typ, desc string, filterable ...string) events.Type {
+		return events.Type{
+			Type: typ, Description: desc, Subject: "application/<application id>",
+			Exposure: events.Webhook, Filterable: filterable,
+		}
+	}
+	return []events.Type{
+		t(ApplicationEngaged, "The recruiter talked on an application's code for the first time "+
+			"(data.application_id, data.code_id, data.conversation_id).", "code_id"),
+		t(ApplicationOutcomeChanged, "The owner set an application's outcome "+
+			"(data.application_id, data.from, data.to, data.note)."),
+	}
+}
 
 // commitEvents —— what a commit records on its transaction: code.issued when it issued a fresh
 // code (not when it reused one), then application.committed.

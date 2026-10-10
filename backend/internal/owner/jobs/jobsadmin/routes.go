@@ -61,7 +61,9 @@ type Deps struct {
 	// owner / role). **Shared with** the applications.commit path, so the
 	// two surfaces cannot diverge on what happens for the same commit.
 	Commit *jobsuc.ApplicationsDeps
-	Log    *slog.Logger
+	// Outcomes —— the outcome use case, SHARED with MCP applications.update_outcome.
+	Outcomes *jobsuc.OutcomeDeps
+	Log      *slog.Logger
 }
 
 // Mount hangs /drafts + /applications + /job-sources off the given router.
@@ -90,6 +92,8 @@ func Mount(r chi.Router, deps Deps) {
 	})
 	r.Route("/applications", func(r chi.Router) {
 		r.Get("/", listApplications(deps))
+		r.Get("/{id}", getApplication(deps))
+		r.Post("/{id}/outcome", setOutcome(deps))
 	})
 	r.Route("/job-sources", func(r chi.Router) {
 		r.Get("/", listSources(deps))
@@ -237,45 +241,6 @@ func sourceViewOf(s *jobsmodel.JobSource) sourceView {
 //
 // The drafts family lives in drafts.go (this file hit the 350-line cap).
 
-// ───── applications ──────────────────────────────────────────
-
-// applicationView — a single submitted application. **Carries
-// resume_content**: the "RESUME SENT · SNAPSHOT" block on the detail card
-// exists precisely to answer "what did I actually send", and it used to
-// render an empty delta line — even though the content was persisted right
-// there on the application row (the PDF rendered at commit time came from
-// it), the panel just couldn't see it (F-E-23). This adds no extra query:
-// the row `ListByOwner` fetches already carries it.
-type applicationView struct {
-	SubmittedAt   time.Time               `json:"submitted_at"`
-	CreatedAt     time.Time               `json:"created_at"`
-	ID            string                  `json:"id"`
-	Company       string                  `json:"company"`
-	Role          string                  `json:"role"`
-	Status        string                  `json:"status"`
-	ResumeContent jobsmodel.ResumeContent `json:"resume_content"`
-}
-
-func listApplications(deps Deps) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ownerID := authmw.OwnerIDFrom(r.Context())
-		req, perr := pageRequest(r)
-		if perr != nil {
-			writeJSONErr(deps.Log, w, apierr.Envelope{
-				Status: http.StatusBadRequest, Code: "bad_request", Message: "bad cursor",
-			})
-			return
-		}
-		page, err := deps.Apps.ListPage(r.Context(), ownerID, r.URL.Query().Get("q"), req)
-		if err != nil {
-			deps.Log.Error("list applications", logErrKey, err)
-			writeServerErr(deps.Log, w)
-			return
-		}
-		writeApplicationsPage(deps.Log, w, page)
-	}
-}
-
 // pageRequest —— ?cursor= and ?limit= as a page request (docs/design/paging.md).
 func pageRequest(r *http.Request) (paging.Request, error) {
 	limit, lerr := strconv.Atoi(r.URL.Query().Get("limit"))
@@ -288,27 +253,6 @@ func pageRequest(r *http.Request) (paging.Request, error) {
 		return paging.Request{}, fmt.Errorf("page request: %w", err)
 	}
 	return req, nil
-}
-
-func writeApplicationsPage(
-	log *slog.Logger, w http.ResponseWriter, page paging.Page[jobsmodel.Application],
-) {
-	out := paging.Each(page, func(a *jobsmodel.Application) applicationView {
-		return applicationView{
-			ID:            a.ID,
-			Company:       a.JobSnapshot.Company,
-			Role:          a.JobSnapshot.Title,
-			Status:        a.Status,
-			SubmittedAt:   nullTime(a.SubmittedAt),
-			CreatedAt:     a.CreatedAt,
-			ResumeContent: a.ResumeContent,
-		}
-	})
-	w.Header().Set(ctHeader, ctJSON)
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(out); err != nil {
-		log.Error("encode applications", logErrKey, err)
-	}
 }
 
 // ───── shared helpers ────────────────────────────────────────
@@ -328,11 +272,4 @@ func writeJSONErr(log *slog.Logger, w http.ResponseWriter, env apierr.Envelope) 
 	if err := json.NewEncoder(w).Encode(payload); err != nil {
 		log.Error("encode error response", logErrKey, err)
 	}
-}
-
-func nullTime(t *time.Time) time.Time {
-	if t == nil {
-		return time.Time{}
-	}
-	return *t
 }

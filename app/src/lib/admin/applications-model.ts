@@ -24,20 +24,42 @@ import type { DraftModel } from '@/lib/admin/draft-model';
 
 // SubmissionState —— the values that database column takes (see
 // jobsmodel/application.go). 'pending' is called committed on the UI: the
-// owner has already nodded, it just hasn't been submitted yet.
-export type SubmissionState = 'committed' | 'submitted' | 'failed' | 'withdrawn';
+// owner has already nodded, it just hasn't been submitted yet. Withdrawn is
+// not a submission state: it is the owner's decision, an outcome (roadmap 1.3.c).
+export type SubmissionState = 'committed' | 'submitted' | 'failed';
 
-export const SUBMISSION_STATES: readonly SubmissionState[] = [
-  'committed', 'submitted', 'failed', 'withdrawn',
-];
+export const SUBMISSION_STATES: readonly SubmissionState[] = ['committed', 'submitted', 'failed'];
 
 // STATE_BY_WIRE —— backend literal → UI word. Absence isn't an error state, it's "an unrecognized value", see submissionLabel.
 const STATE_BY_WIRE: Record<string, SubmissionState> = {
   pending: 'committed',
   submitted: 'submitted',
   failed: 'failed',
-  withdrawn: 'withdrawn',
 };
+
+// Outcome —— what came of an application, set by the owner (roadmap 1.3). The column's CHECK
+// holds exactly these.
+export const OUTCOMES = ['none', 'responded', 'interview', 'offer', 'rejected', 'hired', 'withdrawn'] as const;
+
+const OUTCOME_LABEL_KEY: Record<string, string> = {
+  none: 'applications.outcomeNone',
+  responded: 'applications.outcomeResponded',
+  interview: 'applications.outcomeInterview',
+  offer: 'applications.outcomeOffer',
+  rejected: 'applications.outcomeRejected',
+  hired: 'applications.outcomeHired',
+  withdrawn: 'applications.outcomeWithdrawn',
+};
+
+// outcomeLabelKey —— the adminJobs sub-key for an outcome's word.
+export function outcomeLabelKey(wire: string): string {
+  return OUTCOME_LABEL_KEY[wire] ?? 'applications.outcomeNone';
+}
+
+// openedStamp —— "YYYY-MM-DD HH:MM" of the first open, or '' when nobody has opened it (1.1.c).
+export function openedStamp(iso: string | null): string {
+  return iso === null ? '' : iso.slice(0, 16).replace('T', ' ');
+}
 
 // submissionLabel —— returns an unrecognized value as-is. Better for the owner to see an unfamiliar string than for it to be labeled as some specific status.
 export function submissionLabel(wire: string): string {
@@ -54,6 +76,8 @@ export interface Application {
   submittedAt: string;
   // state —— the display submission-status word; may be an unrecognized raw value.
   state: string;
+  // outcome —— what came of it (none until the owner records something).
+  outcome: string;
   method: string;
   contact: string;
   notes: string;
@@ -91,7 +115,6 @@ export const STATE_LABEL_KEY: Record<SubmissionState, string> = {
   committed: 'applications.stateCommitted',
   submitted: 'applications.stateSubmitted',
   failed: 'applications.stateFailed',
-  withdrawn: 'applications.stateWithdrawn',
 };
 
 // pillToneFor —— the tone class for a list row's status pill. Pulled out
@@ -105,5 +128,4 @@ const STATE_PILL_TONE: Record<string, string> = {
   committed: '',
   submitted: 'is-accent',
   failed: 'is-violet',
-  withdrawn: 'is-violet',
 };

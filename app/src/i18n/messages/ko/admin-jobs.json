@@ -136,7 +136,15 @@
     "stateCommitted": "확정",
     "stateSubmitted": "제출됨",
     "stateFailed": "실패",
-    "stateWithdrawn": "철회됨"
+    "outcomeHead": "결과",
+    "outcomeNone": "아직 소식 없음",
+    "outcomeResponded": "응답 받음",
+    "outcomeInterview": "면접",
+    "outcomeOffer": "오퍼",
+    "outcomeRejected": "불합격",
+    "outcomeHired": "채용됨",
+    "outcomeWithdrawn": "철회됨",
+    "metaOpened": "{date} 열람 · 질문 {count}개"
   },
   "detail": {
     "kicker": "application · {id}",

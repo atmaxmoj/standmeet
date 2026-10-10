@@ -136,7 +136,15 @@
     "stateCommitted": "begangen",
     "stateSubmitted": "eingereicht",
     "stateFailed": "fehlgeschlagen",
-    "stateWithdrawn": "zurückgezogen"
+    "outcomeHead": "Ergebnis",
+    "outcomeNone": "noch nichts",
+    "outcomeResponded": "geantwortet",
+    "outcomeInterview": "Interview",
+    "outcomeOffer": "Angebot",
+    "outcomeRejected": "abgelehnt",
+    "outcomeHired": "eingestellt",
+    "outcomeWithdrawn": "zurückgezogen",
+    "metaOpened": "geöffnet {date} · {count, plural, one {# Frage} other {# Fragen}}"
   },
   "detail": {
     "kicker": "anwendung · {id}",

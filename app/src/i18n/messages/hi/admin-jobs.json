@@ -136,7 +136,15 @@
     "stateCommitted": "प्रतिबद्ध",
     "stateSubmitted": "सबमिट",
     "stateFailed": "विफल",
-    "stateWithdrawn": "वापस लिया"
+    "outcomeHead": "परिणाम",
+    "outcomeNone": "अभी कोई खबर नहीं",
+    "outcomeResponded": "जवाब मिला",
+    "outcomeInterview": "इंटरव्यू",
+    "outcomeOffer": "ऑफ़र",
+    "outcomeRejected": "अस्वीकृत",
+    "outcomeHired": "चयनित",
+    "outcomeWithdrawn": "वापस लिया",
+    "metaOpened": "{date} को खोला · {count} प्रश्न"
   },
   "detail": {
     "kicker": "application · {id}",

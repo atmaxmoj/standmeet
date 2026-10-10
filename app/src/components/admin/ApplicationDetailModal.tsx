@@ -10,27 +10,35 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 
+import { Chip } from '@/components/admin/atoms/Chip';
 import { ResumePage } from '@/components/admin/resume-page/ResumePage';
 import {
+  OUTCOMES,
   STATE_LABEL_KEY,
   SUBMISSION_STATES,
+  openedStamp,
+  outcomeLabelKey,
   timelineFor,
   type Application,
   type TimelineEvent,
 } from '@/lib/admin/applications-model';
 import { draftToJobContext, draftToResumeContent } from '@/lib/admin/draft-model';
+import type { AdminApplicationRow } from '@/lib/admin/use-admin-applications';
+import {
+  useApplicationOutcome, type ApplicationOutcome, type OutcomeRow,
+} from '@/lib/admin/use-application-outcome';
 
 interface Props {
   app: Application;
   onClose: () => void;
+  onSaved: (row: AdminApplicationRow) => void;
 }
 
-// status is **read-only** (rot-C1): it reflects the real lifecycle of the backend application
-// row, and this modal has no persistence path (/applications is GET-only, writes only go
-// through MCP applications.commit). It used to be a clickable local-useState segmented control —
-// looked editable and saved, but reverted on reload. That was the "looks saved but isn't" lie.
-// Now it's read-only display.
-export function ApplicationDetailModal({ app, onClose }: Props) {
+// status is **read-only** (rot-C1): it reflects how far the submission got, and nothing the owner
+// clicks here changes that. The outcome is the owner's to set (roadmap 1.3.d): its chips write
+// through the same use case as applications.update_outcome, and the journal shows every change.
+export function ApplicationDetailModal({ app, onClose, onSaved }: Props) {
+  const oc = useApplicationOutcome(app.id, app.outcome, onSaved);
   return (
     <div className="sm-app-modal-overlay sm-fadein" onClick={onClose}>
       <div
@@ -39,8 +47,8 @@ export function ApplicationDetailModal({ app, onClose }: Props) {
         data-testid="application-detail-modal"
       >
         <ModalHeader app={app} onClose={onClose} />
-        <ModalBody app={app} state={app.state} notes={app.notes} />
-        <ModalFooter app={app} onClose={onClose} />
+        <ModalBody app={app} state={app.state} notes={app.notes} oc={oc} />
+        <ModalFooter app={app} onClose={onClose} oc={oc} />
       </div>
     </div>
   );
@@ -71,28 +79,31 @@ interface BodyProps {
   app: Application;
   state: string;
   notes: string;
+  oc: ApplicationOutcome;
 }
 
 function ModalBody(props: BodyProps) {
   return (
     <div className="sm-app-modal-body">
-      <LeftCol app={props.app} notes={props.notes} />
-      <RightCol app={props.app} state={props.state} />
+      <LeftCol app={props.app} notes={props.notes} journal={props.oc.journal} />
+      <RightCol app={props.app} state={props.state} oc={props.oc} />
     </div>
   );
 }
 
-function LeftCol({ app, notes }: { app: Application; notes: string }) {
+function LeftCol(
+  { app, notes, journal }: { app: Application; notes: string; journal: readonly OutcomeRow[] },
+) {
   return (
     <div>
-      <Timeline events={timelineFor(app)} />
+      <Timeline events={timelineFor(app)} journal={journal} />
       <ContactBlock contact={app.contact} />
       <NotesBlock notes={notes} />
     </div>
   );
 }
 
-function Timeline({ events }: { events: TimelineEvent[] }) {
+function Timeline({ events, journal }: { events: TimelineEvent[]; journal: readonly OutcomeRow[] }) {
   const t = useTranslations('adminJobs');
   return (
     <section>
@@ -100,8 +111,24 @@ function Timeline({ events }: { events: TimelineEvent[] }) {
       <div className="sm-app-timeline">
         <div className="sm-app-timeline-rail" />
         {events.map((e, i) => <TimelineRow key={i} event={e} />)}
+        {journal.map((r) => <JournalRow key={r.created_at + r.to_outcome} row={r} />)}
       </div>
     </section>
+  );
+}
+
+// JournalRow —— one recorded change of the outcome: when, from → to, and the owner's note.
+function JournalRow({ row }: { row: OutcomeRow }) {
+  const t = useTranslations('adminJobs');
+  return (
+    <div className="sm-app-timeline-row" data-testid="application-timeline-row">
+      <span className="sm-app-timeline-dot is-accent" />
+      <div className="mono text-[9.5px] tracking-[0.06em] text-(--color-faint)">{openedStamp(row.created_at)}</div>
+      <div className="font-serif text-[15px] mt-0.5 text-(--color-ink)">
+        {t(outcomeLabelKey(row.from_outcome))} → {t(outcomeLabelKey(row.to_outcome))}
+      </div>
+      <div className="font-serif italic text-[13px] text-(--color-muted)">{row.note}</div>
+    </div>
   );
 }
 
@@ -173,10 +200,11 @@ const SNAPSHOT_SCALE_SMALL = 0.42;
 const SNAPSHOT_SCALE_FULL = 0.92;
 
 function RightCol({
-  app, state,
+  app, state, oc,
 }: {
   app: Application;
   state: string;
+  oc: ApplicationOutcome;
 }) {
   const [full, setFull] = useState(false);
   return (
@@ -184,7 +212,30 @@ function RightCol({
       <ResumeSnapshot app={app} scale={full ? SNAPSHOT_SCALE_FULL : SNAPSHOT_SCALE_SMALL} />
       <SnapshotActions full={full} onToggle={() => { setFull(!full); }} />
       <StatusBlock state={state} />
+      <OutcomeBlock oc={oc} />
     </div>
+  );
+}
+
+// OutcomeBlock —— one chip per outcome; the lit one is what is stored (it lights after the write
+// comes back, not on the click). A refusal is shown, not swallowed.
+function OutcomeBlock({ oc }: { oc: ApplicationOutcome }) {
+  const t = useTranslations('adminJobs');
+  return (
+    <section className="mt-4 px-3 py-2.5 border border-(--color-rule) rounded-[3px] bg-(--color-surface)/50">
+      <div className="sm-smallcaps">{t('applications.outcomeHead')}</div>
+      <div className="flex flex-wrap gap-1.5 mt-1.5">
+        {OUTCOMES.map((o) => (
+          <Chip
+            key={o} active={oc.outcome === o} testid={`application-outcome-set-${o}`}
+            onClick={() => oc.set(o)}
+          >
+            {t(outcomeLabelKey(o))}
+          </Chip>
+        ))}
+      </div>
+      <p className="mono text-[10px] text-(--color-accent) mt-1" role="alert">{oc.error}</p>
+    </section>
   );
 }
 
@@ -279,21 +330,25 @@ function StatusSegmented({ value }: { value: string }) {
   );
 }
 
-function ModalFooter({ app, onClose }: { app: Application; onClose: () => void }) {
+function ModalFooter(
+  { app, onClose, oc }: { app: Application; onClose: () => void; oc: ApplicationOutcome },
+) {
   const t = useTranslations('adminJobs');
   return (
     <div className="sm-app-modal-foot">
       <span className="mono text-[10px] text-(--color-faint) tracking-[0.06em]">
         {t('detail.footMeta', { committedAt: app.committedAt, method: app.method })}
       </span>
-      {/* withdraw / log update are disabled: both need `applications.update_status`, and that
-          write path isn't built yet (it's in the design: `docs/design/job-loop.md`, L.7
-          deferred it). They used to be **clickable** — clicking did nothing: state unchanged,
-          no request sent, not even a message — while withdraw still looked like a destructive
-          action, so an owner who clicked it would believe the application was withdrawn
-          (F-E-12). The day the write path is built, drop disabled **and** wire it up. */}
+      {/* withdraw sets the outcome to withdrawn, which also revokes the application's code
+          (roadmap 1.4). log update stays disabled: nothing stores a free-form update (F-E-12). */}
       <div className="flex items-baseline gap-2">
-        <button type="button" disabled title={t('detail.needsWriter')} className="sm-btn sm-btn-danger sm-btn-sm">{t('detail.withdraw')}</button>
+        <button
+          type="button" onClick={() => oc.set('withdrawn')}
+          disabled={oc.busy || oc.outcome === 'withdrawn'}
+          className="sm-btn sm-btn-danger sm-btn-sm"
+        >
+          {t('detail.withdraw')}
+        </button>
         <button type="button" disabled title={t('detail.needsWriter')} className="sm-btn sm-btn-outline sm-btn-sm">{t('detail.logUpdate')}</button>
         <button type="button" onClick={onClose} className="sm-btn sm-btn-solid sm-btn-sm">{t('detail.closeAction')}</button>
       </div>

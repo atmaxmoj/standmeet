@@ -61,10 +61,10 @@ func codeCoreOps(d *CodesDeps) []fp.Op {
 			Invoke:      createCode(d.Codes, extras),
 		},
 		{
-			ID: "codes.revoke", Danger: fp.DangerDestructive,
-			Description: "Revoke an access code. Existing sessions keep their frozen snapshot.",
+			ID: "codes.revoke", Danger: fp.DangerDestructive, Kind: fp.Action,
+			Description: "Revoke an access code. Its open sessions end with it: the next turn " +
+				"on one is refused, and the code opens nothing new.",
 			InputSchema: codeIDSchema,
-			Kind:        fp.Action,
 			Reach:       fp.OwnerAction(),
 			Invoke:      revokeCode(d.Codes),
 		},

@@ -84,6 +84,17 @@ type Application struct {
 	Status        string
 	SubmittedAt   pgtype.Timestamptz
 	CreatedAt     pgtype.Timestamptz
+	Outcome       string
+	EngagedAt     pgtype.Timestamptz
+}
+
+type ApplicationOutcome struct {
+	ID            pgtype.UUID
+	ApplicationID pgtype.UUID
+	FromOutcome   string
+	ToOutcome     string
+	Note          string
+	CreatedAt     pgtype.Timestamptz
 }
 
 type Asset struct {

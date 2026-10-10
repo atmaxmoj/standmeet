@@ -42,10 +42,12 @@ type Deps struct {
 	Jobs         *jobsuc.JobsDeps
 	Resume       *jobsuc.ResumeDeps
 	Applications *jobsuc.ApplicationsDeps
-	DraftsRepo   *jobsuc.ResumeDraftRepo
-	AppsRepo     *jobsuc.ApplicationRepo
-	SourcesRepo  *jobsuc.JobSourceRepo
-	Log          *slog.Logger
+	// Outcomes —— an application's outcome and its reactions (roadmap E1).
+	Outcomes    *jobsuc.OutcomeDeps
+	DraftsRepo  *jobsuc.ResumeDraftRepo
+	AppsRepo    *jobsuc.ApplicationRepo
+	SourcesRepo *jobsuc.JobSourceRepo
+	Log         *slog.Logger
 	// Cues —— the screen assistant's live feed (assistant.push writes, the admin page reads).
 	Cues *cues.Store
 	// Seed — the repositories needed to seed the builtins (hiring prompt + role, plus the default
@@ -103,8 +105,10 @@ func (p *Plugin) PeriodicJobs() []periodic.Job {
 // JobKinds — this module's durable job kinds: one source's fetch (jobs.fetch_source).
 func (p *Plugin) JobKinds() []infrajobs.Kind { return jobsuc.FetchKinds(p.deps.Jobs) }
 
-// EventTypes — the event types this module records (jobs.fetched).
-func (*Plugin) EventTypes() []events.Type { return jobsuc.FetchEventTypes() }
+// EventTypes — the event types this module records (jobs.fetched, application.*).
+func (*Plugin) EventTypes() []events.Type {
+	return append(jobsuc.FetchEventTypes(), jobsuc.ApplicationEventTypes()...)
+}
 
 // Name — matches the plugin registry.
 func (*Plugin) Name() string { return Name }
@@ -113,10 +117,15 @@ func (*Plugin) Name() string { return Name }
 // applications.commit (layer2-externalize-jobs.md; refactor ledger R1). None is a fiber in the
 // in-process registry — the core holds no Go capability fibers.
 func (p *Plugin) Ops() []fp.Op {
-	return append(
-		jobsmcp.OwnerOps(p.deps.Jobs, p.deps.Resume, p.deps.Cues, p.deps.Log),
-		jobsmcp.ApplicationOps(p.deps.Applications, p.deps.Log)...,
-	)
+	ops := jobsmcp.OwnerOps(p.deps.Jobs, p.deps.Resume, p.deps.Cues, p.deps.Log)
+	ops = append(ops, jobsmcp.ApplicationOps(p.deps.Applications, p.deps.Log)...)
+	return append(ops, jobsmcp.OutcomeOps(p.deps.Outcomes, p.deps.Log)...)
+}
+
+// Subscriptions —— what the job loop does when events arrive: the first conversation on an
+// application's code marks it engaged (once), a withdrawal revokes the code (roadmap E1).
+func (p *Plugin) Subscriptions() []events.Subscription {
+	return jobsuc.Subscriptions(p.deps.Outcomes)
 }
 
 // MountAdminRoutes — the AdminRouter role: mounts
@@ -130,7 +139,8 @@ func (p *Plugin) MountAdminRoutes(r chi.Router) {
 		// Commit — the panel's SEND button calls the **same** usecase, sharing
 		// this deps with the applications.commit path (F-E-9). Assembling a
 		// separate copy for admin would be a second source of truth.
-		Commit: p.deps.Applications,
+		Commit:   p.deps.Applications,
+		Outcomes: p.deps.Outcomes,
 	})
 	jobsadmin.MountScreenAssistant(r, p.deps.Cues, p.deps.Log)
 }

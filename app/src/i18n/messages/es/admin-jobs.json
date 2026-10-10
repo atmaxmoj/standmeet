@@ -136,7 +136,15 @@
     "stateCommitted": "comprometido",
     "stateSubmitted": "enviado",
     "stateFailed": "fallido",
-    "stateWithdrawn": "retirado"
+    "outcomeHead": "resultado",
+    "outcomeNone": "sin noticias",
+    "outcomeResponded": "respondieron",
+    "outcomeInterview": "entrevista",
+    "outcomeOffer": "oferta",
+    "outcomeRejected": "rechazada",
+    "outcomeHired": "contratado",
+    "outcomeWithdrawn": "retirada",
+    "metaOpened": "abierta {date} · {count, plural, one {# pregunta} other {# preguntas}}"
   },
   "detail": {
     "kicker": "solicitud · {id}",

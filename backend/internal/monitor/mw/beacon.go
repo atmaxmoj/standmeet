@@ -26,6 +26,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/url"
 	"slices"
 	"strings"
 
@@ -138,7 +139,23 @@ func (c *Config) recordBeacon(r *http.Request, body *beaconBody) {
 	}
 	c.fillBeaconEntity(r, body, &in)
 	c.fillCode(r, &in)
+	c.fillCodeFromPage(r, body.URL, &in)
 	ops.RecordRequest(r.Context(), c.Deps, r, &in)
+}
+
+// fillCodeFromPage —— a visit carrying `?code=` in the page's address is a visit on that code
+// even before the page has a session to send (roadmap 1.1.a: the recruiter opened the link).
+// Resolved server-side, like every other code on this path.
+func (c *Config) fillCodeFromPage(r *http.Request, page string, in *ops.Input) {
+	if in.CodeID != "" || c.Resolver == nil {
+		return
+	}
+	u, err := url.Parse(page)
+	if err != nil || u.Query().Get("code") == "" {
+		return
+	}
+	code := c.Resolver.Code(r.Context(), u.Query().Get("code"))
+	in.CodeID, in.CodeLabel = code.ID, code.Label
 }
 
 // fillBeaconEntity —— the entity comes from the slug the page is on, resolved server-side.

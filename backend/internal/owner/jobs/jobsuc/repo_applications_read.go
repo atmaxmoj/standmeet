@@ -11,6 +11,7 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/paging"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
@@ -18,29 +19,46 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc/db"
 )
 
-// GetByID — looks up by (id, owner_id).
-func (r *ApplicationRepo) GetByID(
-	ctx context.Context, ownerID, id string,
+// reachRow —— one application row as a read returns it, with its reach.
+type reachRow struct {
+	app       db.Application
+	openedAt  pgtype.Timestamptz
+	questions int32
+}
+
+// getOne —— the shared shape of a single-application read: parse the two ids, run the query,
+// map no-row to ErrApplicationNotFound.
+func (r *ApplicationRepo) getOne(
+	ownerID, key, what string,
+	get func(q *db.Queries, owner, key pgtype.UUID) (reachRow, error),
 ) (jobsmodel.Application, error) {
 	owner, err := pgstore.ParseUUID(ownerID)
 	if err != nil {
 		return jobsmodel.Application{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
-	appUUID, err := pgstore.ParseUUID(id)
+	k, err := pgstore.ParseUUID(key)
 	if err != nil {
-		return jobsmodel.Application{}, fmt.Errorf("parse application id: %w", err)
+		return jobsmodel.Application{}, fmt.Errorf("parse %s: %w", what, err)
 	}
-	q := db.New(r.pool)
-	row, err := q.GetApplication(ctx, db.GetApplicationParams{
-		ID: appUUID, OwnerID: owner,
-	})
+	row, err := get(db.New(r.pool), owner, k)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return jobsmodel.Application{}, jobsmodel.ErrApplicationNotFound
+	}
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return jobsmodel.Application{}, jobsmodel.ErrApplicationNotFound
-		}
-		return jobsmodel.Application{}, fmt.Errorf("get application: %w", err)
+		return jobsmodel.Application{}, fmt.Errorf("get application by %s: %w", what, err)
 	}
-	return toDomainApplication(&row)
+	return withReach(&row.app, row.openedAt, row.questions)
+}
+
+// GetByID — looks up by (id, owner_id).
+func (r *ApplicationRepo) GetByID(
+	ctx context.Context, ownerID, id string,
+) (jobsmodel.Application, error) {
+	return r.getOne(ownerID, id, "application id",
+		func(q *db.Queries, owner, key pgtype.UUID) (reachRow, error) {
+			row, err := q.GetApplication(ctx, db.GetApplicationParams{ID: key, OwnerID: owner})
+			return reachRow{row.Application, row.OpenedAt, row.Questions}, err
+		})
 }
 
 // GetByAccessCode — looks up the application bound to a session's access code.
@@ -51,25 +69,13 @@ func (r *ApplicationRepo) GetByID(
 func (r *ApplicationRepo) GetByAccessCode(
 	ctx context.Context, ownerID, codeID string,
 ) (jobsmodel.Application, error) {
-	owner, err := pgstore.ParseUUID(ownerID)
-	if err != nil {
-		return jobsmodel.Application{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
-	}
-	code, err := pgstore.ParseUUID(codeID)
-	if err != nil {
-		return jobsmodel.Application{}, fmt.Errorf("parse access code id: %w", err)
-	}
-	q := db.New(r.pool)
-	row, err := q.GetApplicationByAccessCode(ctx, db.GetApplicationByAccessCodeParams{
-		AccessCodeID: code, OwnerID: owner,
-	})
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return jobsmodel.Application{}, jobsmodel.ErrApplicationNotFound
-		}
-		return jobsmodel.Application{}, fmt.Errorf("get application by access code: %w", err)
-	}
-	return toDomainApplication(&row)
+	return r.getOne(ownerID, codeID, "access code id",
+		func(q *db.Queries, owner, key pgtype.UUID) (reachRow, error) {
+			row, err := q.GetApplicationByAccessCode(ctx, db.GetApplicationByAccessCodeParams{
+				AccessCodeID: key, OwnerID: owner,
+			})
+			return reachRow{row.Application, row.OpenedAt, row.Questions}, err
+		})
 }
 
 // ListPage — one page of the admin "what have I applied to" view, newest first; the page reports
@@ -106,7 +112,7 @@ func applicationsPage(
 ) (paging.Page[jobsmodel.Application], error) {
 	out := make([]jobsmodel.Application, 0, len(rows))
 	for i := range rows {
-		app, terr := toDomainApplication(&rows[i].Application)
+		app, terr := withReach(&rows[i].Application, rows[i].OpenedAt, rows[i].Questions)
 		if terr != nil {
 			return paging.Page[jobsmodel.Application]{}, terr
 		}
@@ -115,6 +121,15 @@ func applicationsPage(
 	return paging.Cut(out, req, func(a *jobsmodel.Application) paging.Cursor {
 		return paging.Cursor{At: a.CreatedAt, ID: a.ID}
 	}), nil
+}
+
+// withReach —— the row as a domain application, with the reach the read computed beside it.
+func withReach(
+	row *db.Application, openedAt pgtype.Timestamptz, questions int32,
+) (jobsmodel.Application, error) {
+	app, err := toDomainApplication(row)
+	app.OpenedAt, app.Questions = pgstore.OptTime(openedAt), int(questions)
+	return app, err
 }
 
 func toDomainApplication(row *db.Application) (jobsmodel.Application, error) {
@@ -131,6 +146,7 @@ func toDomainApplication(row *db.Application) (jobsmodel.Application, error) {
 		OwnerID:       pgstore.FormatUUID(row.OwnerID),
 		AccessCodeID:  pgstore.FormatUUID(row.AccessCodeID),
 		Status:        row.Status,
+		Outcome:       row.Outcome,
 		JobSnapshot:   snapshot,
 		ResumeContent: content,
 		CreatedAt:     row.CreatedAt.Time,
@@ -138,6 +154,31 @@ func toDomainApplication(row *db.Application) (jobsmodel.Application, error) {
 	if row.SubmittedAt.Valid {
 		t := row.SubmittedAt.Time
 		out.SubmittedAt = &t
+	}
+	return out, nil
+}
+
+// ByCompany —— the owner's earlier applications to one company, newest first (roadmap 1.5.a).
+func (r *ApplicationRepo) ByCompany(
+	ctx context.Context, ownerID, company string,
+) ([]jobsmodel.Application, error) {
+	owner, err := pgstore.ParseUUID(ownerID)
+	if err != nil {
+		return nil, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
+	}
+	rows, err := db.New(r.pool).ListApplicationsByCompany(ctx, db.ListApplicationsByCompanyParams{
+		OwnerID: owner, Company: company,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("applications by company: %w", err)
+	}
+	out := make([]jobsmodel.Application, 0, len(rows))
+	for i := range rows {
+		app, terr := withReach(&rows[i].Application, rows[i].OpenedAt, rows[i].Questions)
+		if terr != nil {
+			return nil, terr
+		}
+		out = append(out, app)
 	}
 	return out, nil
 }

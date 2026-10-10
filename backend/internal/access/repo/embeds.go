@@ -149,6 +149,21 @@ func (r *EmbedRepo) Get(ctx context.Context, ownerID, id string) (entity.Embed, 
 	return embedFromRow(&row), nil
 }
 
+// IDsByCode —— the embeds exposing one code.
+func (r *EmbedRepo) IDsByCode(ctx context.Context, ownerID, codeID string) ([]string, error) {
+	ids, err := twoUUIDs(ownerID, codeID)
+	if err != nil {
+		return nil, err
+	}
+	rows, qerr := db.New(r.pool).ListEmbedIDsByCode(ctx, db.ListEmbedIDsByCodeParams{
+		OwnerID: ids[0], CodeID: ids[1],
+	})
+	if qerr != nil {
+		return nil, fmt.Errorf("embeds by code: %w", qerr)
+	}
+	return pgstore.FormatUUIDList(rows), nil
+}
+
 // ListPage —— one page of an owner's embeds, newest first, each with its code string.
 func (r *EmbedRepo) ListPage(
 	ctx context.Context, ownerID string, req paging.Request,

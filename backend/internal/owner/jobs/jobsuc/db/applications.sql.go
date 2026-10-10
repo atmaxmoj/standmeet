@@ -27,8 +27,7 @@ func (q *Queries) CountApplications(ctx context.Context, ownerID pgtype.UUID) (i
 const createApplication = `-- name: CreateApplication :one
 INSERT INTO applications (id, owner_id, access_code_id, job_snapshot, resume_content)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, owner_id, access_code_id, job_snapshot, resume_content,
-          status, submitted_at, created_at
+RETURNING id, owner_id, access_code_id, job_snapshot, resume_content, status, submitted_at, created_at, outcome, engaged_at
 `
 
 type CreateApplicationParams struct {
@@ -60,15 +59,18 @@ func (q *Queries) CreateApplication(ctx context.Context, arg CreateApplicationPa
 		&i.Status,
 		&i.SubmittedAt,
 		&i.CreatedAt,
+		&i.Outcome,
+		&i.EngagedAt,
 	)
 	return i, err
 }
 
 const getApplication = `-- name: GetApplication :one
-SELECT id, owner_id, access_code_id, job_snapshot, resume_content,
-       status, submitted_at, created_at
-FROM applications
-WHERE id = $1 AND owner_id = $2
+SELECT a.id, a.owner_id, a.access_code_id, a.job_snapshot, a.resume_content, a.status, a.submitted_at, a.created_at, a.outcome, a.engaged_at,
+       application_opened_at(a.access_code_id) AS opened_at,
+       application_questions(a.access_code_id) AS questions
+FROM applications a
+WHERE a.id = $1 AND a.owner_id = $2
 `
 
 type GetApplicationParams struct {
@@ -76,27 +78,40 @@ type GetApplicationParams struct {
 	OwnerID pgtype.UUID
 }
 
-func (q *Queries) GetApplication(ctx context.Context, arg GetApplicationParams) (Application, error) {
+type GetApplicationRow struct {
+	Application Application
+	OpenedAt    pgtype.Timestamptz
+	Questions   int32
+}
+
+// One application with its reach: opened_at / questions come from where those facts already are
+// (visits, conversations, messages — application_opened_at / application_questions), never a column.
+func (q *Queries) GetApplication(ctx context.Context, arg GetApplicationParams) (GetApplicationRow, error) {
 	row := q.db.QueryRow(ctx, getApplication, arg.ID, arg.OwnerID)
-	var i Application
+	var i GetApplicationRow
 	err := row.Scan(
-		&i.ID,
-		&i.OwnerID,
-		&i.AccessCodeID,
-		&i.JobSnapshot,
-		&i.ResumeContent,
-		&i.Status,
-		&i.SubmittedAt,
-		&i.CreatedAt,
+		&i.Application.ID,
+		&i.Application.OwnerID,
+		&i.Application.AccessCodeID,
+		&i.Application.JobSnapshot,
+		&i.Application.ResumeContent,
+		&i.Application.Status,
+		&i.Application.SubmittedAt,
+		&i.Application.CreatedAt,
+		&i.Application.Outcome,
+		&i.Application.EngagedAt,
+		&i.OpenedAt,
+		&i.Questions,
 	)
 	return i, err
 }
 
 const getApplicationByAccessCode = `-- name: GetApplicationByAccessCode :one
-SELECT id, owner_id, access_code_id, job_snapshot, resume_content,
-       status, submitted_at, created_at
-FROM applications
-WHERE access_code_id = $1 AND owner_id = $2
+SELECT a.id, a.owner_id, a.access_code_id, a.job_snapshot, a.resume_content, a.status, a.submitted_at, a.created_at, a.outcome, a.engaged_at,
+       application_opened_at(a.access_code_id) AS opened_at,
+       application_questions(a.access_code_id) AS questions
+FROM applications a
+WHERE a.access_code_id = $1 AND a.owner_id = $2
 `
 
 type GetApplicationByAccessCodeParams struct {
@@ -104,32 +119,163 @@ type GetApplicationByAccessCodeParams struct {
 	OwnerID      pgtype.UUID
 }
 
+type GetApplicationByAccessCodeRow struct {
+	Application Application
+	OpenedAt    pgtype.Timestamptz
+	Questions   int32
+}
+
 // Look up the application bound to a session's access code. owner-scoped (defense in depth;
 // access_code_id is already globally unique). The visitor-side resume tool uses it to lock "which one" to this code.
-func (q *Queries) GetApplicationByAccessCode(ctx context.Context, arg GetApplicationByAccessCodeParams) (Application, error) {
+func (q *Queries) GetApplicationByAccessCode(ctx context.Context, arg GetApplicationByAccessCodeParams) (GetApplicationByAccessCodeRow, error) {
 	row := q.db.QueryRow(ctx, getApplicationByAccessCode, arg.AccessCodeID, arg.OwnerID)
-	var i Application
+	var i GetApplicationByAccessCodeRow
 	err := row.Scan(
-		&i.ID,
-		&i.OwnerID,
-		&i.AccessCodeID,
-		&i.JobSnapshot,
-		&i.ResumeContent,
-		&i.Status,
-		&i.SubmittedAt,
-		&i.CreatedAt,
+		&i.Application.ID,
+		&i.Application.OwnerID,
+		&i.Application.AccessCodeID,
+		&i.Application.JobSnapshot,
+		&i.Application.ResumeContent,
+		&i.Application.Status,
+		&i.Application.SubmittedAt,
+		&i.Application.CreatedAt,
+		&i.Application.Outcome,
+		&i.Application.EngagedAt,
+		&i.OpenedAt,
+		&i.Questions,
 	)
 	return i, err
 }
 
+const insertApplicationOutcome = `-- name: InsertApplicationOutcome :exec
+INSERT INTO application_outcomes (application_id, from_outcome, to_outcome, note)
+VALUES ($1, $2, $3, $4)
+`
+
+type InsertApplicationOutcomeParams struct {
+	ApplicationID pgtype.UUID
+	FromOutcome   string
+	ToOutcome     string
+	Note          string
+}
+
+func (q *Queries) InsertApplicationOutcome(ctx context.Context, arg InsertApplicationOutcomeParams) error {
+	_, err := q.db.Exec(ctx, insertApplicationOutcome,
+		arg.ApplicationID,
+		arg.FromOutcome,
+		arg.ToOutcome,
+		arg.Note,
+	)
+	return err
+}
+
+const listApplicationOutcomes = `-- name: ListApplicationOutcomes :many
+SELECT from_outcome, to_outcome, note, created_at FROM application_outcomes
+WHERE application_id = $1
+ORDER BY created_at, id
+`
+
+type ListApplicationOutcomesRow struct {
+	FromOutcome string
+	ToOutcome   string
+	Note        string
+	CreatedAt   pgtype.Timestamptz
+}
+
+// The timeline of one application's outcome, oldest first.
+func (q *Queries) ListApplicationOutcomes(ctx context.Context, applicationID pgtype.UUID) ([]ListApplicationOutcomesRow, error) {
+	rows, err := q.db.Query(ctx, listApplicationOutcomes, applicationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListApplicationOutcomesRow
+	for rows.Next() {
+		var i ListApplicationOutcomesRow
+		if err := rows.Scan(
+			&i.FromOutcome,
+			&i.ToOutcome,
+			&i.Note,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listApplicationsByCompany = `-- name: ListApplicationsByCompany :many
+SELECT a.id, a.owner_id, a.access_code_id, a.job_snapshot, a.resume_content, a.status, a.submitted_at, a.created_at, a.outcome, a.engaged_at,
+       application_opened_at(a.access_code_id) AS opened_at,
+       application_questions(a.access_code_id) AS questions
+FROM applications a
+WHERE a.owner_id = $1
+  AND lower(btrim(a.job_snapshot->>'company')) = lower(btrim($2::text))
+ORDER BY a.created_at DESC, a.id DESC
+LIMIT 20
+`
+
+type ListApplicationsByCompanyParams struct {
+	OwnerID pgtype.UUID
+	Company string
+}
+
+type ListApplicationsByCompanyRow struct {
+	Application Application
+	OpenedAt    pgtype.Timestamptz
+	Questions   int32
+}
+
+// The owner's earlier applications to one company (roadmap 1.5.a), matched on the trimmed,
+// lower-cased company name the job snapshot carries. Newest first.
+func (q *Queries) ListApplicationsByCompany(ctx context.Context, arg ListApplicationsByCompanyParams) ([]ListApplicationsByCompanyRow, error) {
+	rows, err := q.db.Query(ctx, listApplicationsByCompany, arg.OwnerID, arg.Company)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListApplicationsByCompanyRow
+	for rows.Next() {
+		var i ListApplicationsByCompanyRow
+		if err := rows.Scan(
+			&i.Application.ID,
+			&i.Application.OwnerID,
+			&i.Application.AccessCodeID,
+			&i.Application.JobSnapshot,
+			&i.Application.ResumeContent,
+			&i.Application.Status,
+			&i.Application.SubmittedAt,
+			&i.Application.CreatedAt,
+			&i.Application.Outcome,
+			&i.Application.EngagedAt,
+			&i.OpenedAt,
+			&i.Questions,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listApplicationsPage = `-- name: ListApplicationsPage :many
-SELECT a.id, a.owner_id, a.access_code_id, a.job_snapshot, a.resume_content, a.status, a.submitted_at, a.created_at
+SELECT a.id, a.owner_id, a.access_code_id, a.job_snapshot, a.resume_content, a.status, a.submitted_at, a.created_at, a.outcome, a.engaged_at,
+       application_opened_at(a.access_code_id) AS opened_at,
+       application_questions(a.access_code_id) AS questions
 FROM applications a
 WHERE a.owner_id = $1
   AND ($2::text = ''
     OR (a.job_snapshot->>'company') ILIKE '%' || $2 || '%'
     OR (a.job_snapshot->>'title') ILIKE '%' || $2 || '%'
-    OR a.status ILIKE '%' || $2 || '%')
+    OR a.status ILIKE '%' || $2 || '%'
+    OR a.outcome ILIKE '%' || $2 || '%')
   AND ($3::timestamptz IS NULL
     OR (a.created_at, a.id) < ($3, $4::uuid))
 ORDER BY a.created_at DESC, a.id DESC
@@ -146,12 +292,14 @@ type ListApplicationsPageParams struct {
 
 type ListApplicationsPageRow struct {
 	Application Application
+	OpenedAt    pgtype.Timestamptz
+	Questions   int32
 }
 
 // One page of the owner's applications, newest first (docs/design/paging.md). q: case-insensitive
-// substring of the company, the role or the status (the recruiter calls; the owner types the
-// company). The page's total comes from CountApplications, not a column here: a search that
-// matches nothing returns no rows to carry it.
+// substring of the company, the role, the status or the outcome (the recruiter calls; the owner
+// types the company). The page's total comes from CountApplications, not a column here: a search
+// that matches nothing returns no rows to carry it.
 func (q *Queries) ListApplicationsPage(ctx context.Context, arg ListApplicationsPageParams) ([]ListApplicationsPageRow, error) {
 	rows, err := q.db.Query(ctx, listApplicationsPage,
 		arg.OwnerID,
@@ -176,6 +324,10 @@ func (q *Queries) ListApplicationsPage(ctx context.Context, arg ListApplications
 			&i.Application.Status,
 			&i.Application.SubmittedAt,
 			&i.Application.CreatedAt,
+			&i.Application.Outcome,
+			&i.Application.EngagedAt,
+			&i.OpenedAt,
+			&i.Questions,
 		); err != nil {
 			return nil, err
 		}
@@ -185,4 +337,63 @@ func (q *Queries) ListApplicationsPage(ctx context.Context, arg ListApplications
 		return nil, err
 	}
 	return items, nil
+}
+
+const lockApplicationOutcome = `-- name: LockApplicationOutcome :one
+SELECT outcome, access_code_id FROM applications
+WHERE id = $1 AND owner_id = $2
+FOR UPDATE
+`
+
+type LockApplicationOutcomeParams struct {
+	ID      pgtype.UUID
+	OwnerID pgtype.UUID
+}
+
+type LockApplicationOutcomeRow struct {
+	Outcome      string
+	AccessCodeID pgtype.UUID
+}
+
+// The current outcome, row locked for the change that follows in the same transaction.
+func (q *Queries) LockApplicationOutcome(ctx context.Context, arg LockApplicationOutcomeParams) (LockApplicationOutcomeRow, error) {
+	row := q.db.QueryRow(ctx, lockApplicationOutcome, arg.ID, arg.OwnerID)
+	var i LockApplicationOutcomeRow
+	err := row.Scan(&i.Outcome, &i.AccessCodeID)
+	return i, err
+}
+
+const markApplicationEngaged = `-- name: MarkApplicationEngaged :one
+UPDATE applications SET engaged_at = now()
+WHERE access_code_id = $1 AND engaged_at IS NULL
+RETURNING id, owner_id
+`
+
+type MarkApplicationEngagedRow struct {
+	ID      pgtype.UUID
+	OwnerID pgtype.UUID
+}
+
+// The guard that makes application.engaged fire once: only the first conversation on the code
+// changes a row (engaged_at was NULL); every later one updates nothing and returns no row.
+func (q *Queries) MarkApplicationEngaged(ctx context.Context, accessCodeID pgtype.UUID) (MarkApplicationEngagedRow, error) {
+	row := q.db.QueryRow(ctx, markApplicationEngaged, accessCodeID)
+	var i MarkApplicationEngagedRow
+	err := row.Scan(&i.ID, &i.OwnerID)
+	return i, err
+}
+
+const setApplicationOutcome = `-- name: SetApplicationOutcome :exec
+UPDATE applications SET outcome = $3 WHERE id = $1 AND owner_id = $2
+`
+
+type SetApplicationOutcomeParams struct {
+	ID      pgtype.UUID
+	OwnerID pgtype.UUID
+	Outcome string
+}
+
+func (q *Queries) SetApplicationOutcome(ctx context.Context, arg SetApplicationOutcomeParams) error {
+	_, err := q.db.Exec(ctx, setApplicationOutcome, arg.ID, arg.OwnerID, arg.Outcome)
+	return err
 }

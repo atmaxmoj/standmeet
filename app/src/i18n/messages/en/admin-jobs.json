@@ -136,7 +136,15 @@
     "stateCommitted": "committed",
     "stateSubmitted": "submitted",
     "stateFailed": "failed",
-    "stateWithdrawn": "withdrawn"
+    "outcomeHead": "outcome",
+    "outcomeNone": "no word yet",
+    "outcomeResponded": "responded",
+    "outcomeInterview": "interview",
+    "outcomeOffer": "offer",
+    "outcomeRejected": "rejected",
+    "outcomeHired": "hired",
+    "outcomeWithdrawn": "withdrawn",
+    "metaOpened": "opened {date} · {count, plural, one {# question} other {# questions}}"
   },
   "detail": {
     "kicker": "application · {id}",

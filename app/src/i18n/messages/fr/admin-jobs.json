@@ -136,7 +136,15 @@
     "stateCommitted": "engagée",
     "stateSubmitted": "soumis",
     "stateFailed": "échouée",
-    "stateWithdrawn": "retirée"
+    "outcomeHead": "résultat",
+    "outcomeNone": "pas de nouvelles",
+    "outcomeResponded": "ont répondu",
+    "outcomeInterview": "entretien",
+    "outcomeOffer": "offre",
+    "outcomeRejected": "refusée",
+    "outcomeHired": "embauché",
+    "outcomeWithdrawn": "retirée",
+    "metaOpened": "ouverte {date} · {count, plural, one {# question} other {# questions}}"
   },
   "detail": {
     "kicker": "candidature · {id}",

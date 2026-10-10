@@ -22,19 +22,26 @@ import (
 
 // Application — DB-backed application row.
 type Application struct {
-	CreatedAt    time.Time
-	SubmittedAt  *time.Time
+	CreatedAt   time.Time
+	SubmittedAt *time.Time
+	// OpenedAt / Questions —— the application's reach, read from visits and conversations on its
+	// code (roadmap 1.1.b): when the recruiter first opened it, how many questions they asked.
+	OpenedAt     *time.Time
 	ID           string
 	OwnerID      string
 	AccessCodeID string
 	Status       string
+	// Outcome —— what came of it, set by the owner: none / responded / interview / offer /
+	// rejected / hired / withdrawn (roadmap 1.3). Status is how the sending went.
+	Outcome string
 	// Template — which Typst layout this resume uses ('' = default classic).
 	// A customization option.
 	Template    string
 	JobSnapshot FetchedJob
-	// ResumeContent is last: its trailing float64 (FontScale) keeps the struct's pointer-scan
+	// ResumeContent then Questions last: no pointers after them keeps the struct's pointer-scan
 	// prefix minimal (fieldalignment).
 	ResumeContent ResumeContent
+	Questions     int
 }
 
 // CreateApplicationInput — usecase-layer input for application.commit.

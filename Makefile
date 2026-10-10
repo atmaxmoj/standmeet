@@ -847,7 +847,12 @@ eval-speed:
 # infra/scripts/posts-mutations.tsv must turn its specs red, in a scratch worktree of HEAD with its
 # own dev stack (commit first). ONLY=<id>[,<id>] for a subset. Run after green, before merge.
 posts-mutation-check:
-	@infra/scripts/posts-mutation-check.sh
+	@infra/scripts/mutation-check.sh posts-mutations.tsv
+
+# jobloop-mutation-check —— the job-loop test plan's mutation table (infra/scripts/jobloop-mutations.tsv),
+# run the same way. ONLY=<id>[,<id>] for one epic's rows. Run after an epic is green, before release.
+jobloop-mutation-check:
+	@infra/scripts/mutation-check.sh jobloop-mutations.tsv
 
 # eval-ghost-live —— ghost steering on a REAL instance + real model (eval-harness/ghost_live.py):
 # a visitor that follows every ghost must be led through ≥3 distinct waypoints without repeats,

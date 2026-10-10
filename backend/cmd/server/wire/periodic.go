@@ -126,6 +126,7 @@ func collectSubscriptions(
 	out = append(out, owner.NotifySubscriptions(notifyDeliveryDeps(d), types)...)
 	out = append(out, owner.MailSubscriptions(mailDeps(d))...)
 	out = append(out, owner.BuildSettledSubscriptions(buildSettledDeps(d))...)
+	out = append(out, d.JobsModule.Subscriptions()...)
 	return out
 }
 

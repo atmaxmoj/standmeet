@@ -9,9 +9,11 @@ import { createPagedStore, usePaged, type PagedState } from '@/lib/state/create-
 // resume_content —— this is what the detail card's snapshot block renders
 // (F-E-23: that block used to be just a title and blank space, and nowhere
 // else in the product could answer "what did I actually send").
-const AdminApplicationRowSchema = z.object({
+// opened_at / questions —— the application's reach (roadmap 1.1); outcome —— what came of it (1.3).
+export const AdminApplicationRowSchema = z.object({
   id: z.string(), company: z.string(), role: z.string(), status: z.string(),
   submitted_at: z.string(), created_at: z.string(),
+  opened_at: z.string().nullable(), questions: z.number(), outcome: z.string(),
   resume_content: ResumeContentSchema,
 });
 export type AdminApplicationRow = z.infer<typeof AdminApplicationRowSchema>;

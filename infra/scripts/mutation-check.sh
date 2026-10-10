@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# posts-mutation-check —— posts-tests.md § "Mutation check": each planted bug must turn its specs red.
+# mutation-check <table.tsv> —— each planted bug in the table must turn its specs red.
+# Tables: posts-mutations.tsv (posts-tests.md § "Mutation check"), jobloop-mutations.tsv (the
+# job-loop test plan's mutation table, one block of rows per epic).
 #
-# A privacy spec that stays green on a broken rule is decoration. For every row of
-# posts-mutations.tsv this script, in a scratch worktree of HEAD with its own dev stack:
+# A spec that stays green on a broken rule is decoration. For every row of the table this
+# script, in a scratch worktree of HEAD with its own dev stack:
 #   1. resets the tree, applies the row's substitution, and FAILS the row if nothing changed;
 #   2. runs each of the row's commands and wants each one red — and red from a failed assertion
 #      (a Playwright "N failed" summary, a gate's refusal or its "self-test: FAILED"), never from a
@@ -21,7 +23,8 @@ ROOT="$(git rev-parse --show-toplevel)"
 # drive this checkout's stack instead of their own. Drop them, and make's own hand-down.
 while read -r name; do unset "$name"; done < <(grep -oE '^[A-Z_]+ \?=' "$ROOT/Makefile" | cut -d' ' -f1)
 unset MAKEFLAGS MFLAGS MAKELEVEL
-TABLE="$ROOT/infra/scripts/posts-mutations.tsv"
+TABLE="$ROOT/infra/scripts/${1:?usage: mutation-check.sh <table.tsv>}"
+NAME="$(basename "$TABLE" .tsv)"
 WORK="$(mktemp -d)"
 TREE="$WORK/tree"
 LOG="$WORK/logs"
@@ -30,7 +33,7 @@ mkdir -p "$LOG"
 cleanup() {
   (cd "$TREE" && make clean >/dev/null 2>&1) || true
   git -C "$ROOT" worktree remove --force "$TREE" >/dev/null 2>&1 || true
-  echo "posts-mutation-check: logs kept in $LOG"
+  echo "$NAME: logs kept in $LOG"
 }
 trap cleanup EXIT
 
@@ -55,7 +58,7 @@ run_cmd() {
 each_cmd() { printf '%s\n' "$1" | awk 'BEGIN{RS=";;"} {gsub(/^[ \n]+|[ \n]+$/, ""); if ($0 != "") print}'; }
 
 fail=0
-echo "posts-mutation-check: baseline — every named command green on the clean tree"
+echo "$NAME: baseline — every named command green on the clean tree"
 rows | cut -f4 | while read -r c; do each_cmd "$c"; done | sort -u >"$WORK/cmds"
 while read -r cmd; do
   log="$LOG/baseline-$(printf '%s' "$cmd" | tr -c 'a-zA-Z0-9' '_').log"
@@ -64,7 +67,7 @@ while read -r cmd; do
     fail=1
   fi
 done <"$WORK/cmds"
-[ "$fail" -eq 0 ] || { echo "posts-mutation-check: the clean tree is red; fix that first."; exit 1; }
+[ "$fail" -eq 0 ] || { echo "$NAME: the clean tree is red; fix that first."; exit 1; }
 
 rows | while IFS=$'\t' read -r id glob expr cmds; do
   git -C "$TREE" checkout -q -- .
@@ -88,7 +91,7 @@ done
 git -C "$TREE" checkout -q -- .
 
 if [ -f "$LOG/failed" ]; then
-  echo "posts-mutation-check: $(wc -l <"$LOG/failed" | tr -d ' ') row result(s) failed."
+  echo "$NAME: $(wc -l <"$LOG/failed" | tr -d ' ') row result(s) failed."
   exit 1
 fi
-echo "posts-mutation-check: every planted bug turned its specs red."
+echo "$NAME: every planted bug turned its specs red."

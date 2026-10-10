@@ -135,3 +135,38 @@ func fetchedJobToView(j *jobsmodel.FetchedJob) fetchedJobView {
 	}
 	return v
 }
+
+// shownJobView —— jobs.show: the posting, and what already happened with its company. Facts only:
+// the history does not touch scoring (roadmap 1.5.a).
+type shownJobView struct {
+	*fetchedJobView
+
+	PreviousApplications []previousApplicationView `json:"previous_applications"`
+}
+
+type previousApplicationView struct {
+	OpenedAt      *string `json:"opened_at"`
+	ApplicationID string  `json:"application_id"`
+	AppliedAt     string  `json:"applied_at"`
+	Outcome       string  `json:"outcome"`
+}
+
+func shownJob(j *jobsmodel.FetchedJob, prev []jobsmodel.Application) shownJobView {
+	view := fetchedJobToView(j)
+	out := shownJobView{
+		fetchedJobView:       &view,
+		PreviousApplications: make([]previousApplicationView, 0, len(prev)),
+	}
+	for i := range prev {
+		p := previousApplicationView{
+			ApplicationID: prev[i].ID, AppliedAt: prev[i].CreatedAt.Format(time.RFC3339),
+			Outcome: prev[i].Outcome,
+		}
+		if prev[i].OpenedAt != nil {
+			s := prev[i].OpenedAt.Format(time.RFC3339)
+			p.OpenedAt = &s
+		}
+		out.PreviousApplications = append(out.PreviousApplications, p)
+	}
+	return out
+}

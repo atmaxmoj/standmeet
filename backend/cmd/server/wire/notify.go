@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -47,6 +48,9 @@ func notifyDeliveryDeps(d *deps.Runtime) *owner.NotifyDeliveryDeps {
 // and the live-transcript link. Other events: their type and subject are the card.
 func cardFacts(d *deps.Runtime) owner.NotifyCardFacts {
 	return func(ctx context.Context, ev *events.Event) (owner.NotifyCardInfo, error) {
+		if strings.HasPrefix(ev.Type, "application.") {
+			return applicationFacts(ctx, d, ev)
+		}
 		if ev.Type != conversationStart {
 			return owner.NotifyCardInfo{}, nil
 		}
@@ -85,6 +89,34 @@ func conversationFacts(
 		Link: o.PublicURL + "/live/" +
 			owner.NewLiveToken(d.SessionKey, ownerID, convID, time.Now()),
 	}, nil
+}
+
+// applicationFacts —— an application's event names the job it was sent to: {company}, {role} and
+// {code}; when it carries a conversation (application.engaged), the live-transcript link too.
+func applicationFacts(
+	ctx context.Context, d *deps.Runtime, ev *events.Event,
+) (owner.NotifyCardInfo, error) {
+	var data struct {
+		ApplicationID  string `json:"application_id"`
+		ConversationID string `json:"conversation_id"`
+	}
+	if err := json.Unmarshal(ev.Data, &data); err != nil {
+		return owner.NotifyCardInfo{}, jobs.Discard(fmt.Errorf("%s data: %w", ev.Type, err))
+	}
+	app, err := d.ApplicationRepo.GetByID(ctx, ev.OwnerID, data.ApplicationID)
+	if err != nil {
+		return owner.NotifyCardInfo{}, fmt.Errorf("card: application: %w", err)
+	}
+	info := owner.NotifyCardInfo{Vars: map[string]string{}}
+	if data.ConversationID != "" {
+		info, err = conversationFacts(ctx, d, ev.OwnerID, data.ConversationID, app.AccessCodeID)
+		if err != nil {
+			return owner.NotifyCardInfo{}, err
+		}
+	}
+	info.Vars["company"], info.Vars["role"] = app.JobSnapshot.Company, app.JobSnapshot.Title
+	info.Vars["code"] = codeString(ctx, d, app.AccessCodeID)
+	return info, nil
 }
 
 func codeString(ctx context.Context, d *deps.Runtime, codeID string) string {

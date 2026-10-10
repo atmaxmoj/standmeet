@@ -253,7 +253,7 @@ func setRuntimeRepos(rt *deps.Runtime, repos *repoSet) {
 func buildJobsModule(d *deps.Runtime) *pluginjobs.Plugin {
 	jobsDeps := jobsuc.JobsDeps{
 		Sources: d.JobSourceRepo, Cache: d.JobCachePool, Registry: d.JobFetchRegistry,
-		Pool: d.DB, Wait: jobsuc.FetchWait,
+		Pool: d.DB, Wait: jobsuc.FetchWait, Apps: d.ApplicationRepo,
 		// Read at call time: the job runtime and the bus are built after this module.
 		Queue: wire.JobsQueue(d), Events: wire.EventsRecorder(d),
 	}
@@ -273,10 +273,14 @@ func buildJobsModule(d *deps.Runtime) *pluginjobs.Plugin {
 		Jobs:         &jobsDeps,
 		Resume:       &resumeDeps,
 		Applications: &appsDeps,
-		DraftsRepo:   d.ResumeDraftRepo,
-		AppsRepo:     d.ApplicationRepo,
-		SourcesRepo:  d.JobSourceRepo,
-		Cues:         cues.New(d.RDB),
+		Outcomes: &jobsuc.OutcomeDeps{
+			Apps: d.ApplicationRepo, Events: d.Recorder(),
+			BoundTo: port.CodeBound(d), Revoke: port.RevokeCode(d),
+		},
+		DraftsRepo:  d.ResumeDraftRepo,
+		AppsRepo:    d.ApplicationRepo,
+		SourcesRepo: d.JobSourceRepo,
+		Cues:        cues.New(d.RDB),
 		// The two builtins this plugin itself seeds (hiring prompt + role) go
 		// through OwnerSeeder.
 		Seed: jobsuc.SeedDeps{

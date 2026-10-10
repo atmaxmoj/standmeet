@@ -38,6 +38,20 @@ export function send(event: BeaconEvent): void {
   }
 }
 
+// landed —— the address this document was loaded with, before any in-page rewrite. A code
+// landing strips `?code=` from the address bar (code-landing.ts), often before consent lets the
+// view go out; the view still came in on that code (roadmap 1.1.a). The first view sent uses it.
+let landed: string | null = typeof window === 'undefined'
+  ? null : window.location.pathname + window.location.search;
+
+function pageURL(event: BeaconEvent): string {
+  const here = window.location.pathname + window.location.search;
+  const isView = (event.name ?? '') === '';
+  const url = isView && landed !== null ? landed : here;
+  landed = isView ? null : landed;
+  return url;
+}
+
 function body(event: BeaconEvent): Record<string, unknown> {
   return {
     surface: event.surface,
@@ -45,7 +59,7 @@ function body(event: BeaconEvent): Record<string, unknown> {
     entity_kind: event.entityKind ?? '',
     entity_slug: event.entitySlug ?? '',
     props: event.props ?? {},
-    url: window.location.pathname + window.location.search,
+    url: pageURL(event),
     referrer: document.referrer,
     title: document.title,
     screen: `${window.screen.width}x${window.screen.height}`,
