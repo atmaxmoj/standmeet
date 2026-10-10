@@ -22,6 +22,7 @@ import (
 
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
+	"github.com/atmaxmoj/standmeet/internal/infra/untrusted"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmodel"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc/db"
 )
@@ -251,14 +252,16 @@ func recruiterBriefing(jobSnapshotJSON []byte) string {
 		return arrivedVia
 	}
 	return "You are speaking with a recruiter who received your job application for " + role +
-		". They reached you through that application — answer as the candidate, about that role."
+		". They reached you through that application — answer as the candidate, about that role. " +
+		untrusted.Rule
 }
 
 // describeRole — describes the role. When title is empty but company is present, it can
 // still state the source ("a role at MockCo"); an empty string means neither is present.
+// Both come from the posting, so each is fenced (roadmap 7.1): a title can carry instructions.
 func describeRole(title, company string) string {
-	title = strings.TrimSpace(title)
-	company = strings.TrimSpace(company)
+	title = posted(title)
+	company = posted(company)
 	switch {
 	case title == "":
 		return roleAtCompany(company)
@@ -276,6 +279,17 @@ func roleAtCompany(company string) string {
 		return ""
 	}
 	return "a role at " + company
+}
+
+// postingSource —— how a fence names a job posting.
+const postingSource = "job posting"
+
+// posted —— a field the posting wrote, fenced; empty stays empty.
+func posted(s string) string {
+	if s = strings.TrimSpace(s); s == "" {
+		return ""
+	}
+	return untrusted.Inline(postingSource, s)
 }
 
 // appInsert —— insertApplication args packed (keeps it within the argument limit).

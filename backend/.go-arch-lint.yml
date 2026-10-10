@@ -87,6 +87,8 @@ components:
     in: internal/owner/jobs/jobsmcp     # J.3: jobs plugin MCP ops + views + helpers
   mcputil:
     in: internal/infra/mcputil                  # shared owner-MCP result marshaller (mcphandle + owner-side blocks)
+  untrusted:
+    in: internal/infra/untrusted                # the one fence around outside text (job postings, roadmap 7.1); leaf, stdlib only
   jobsadmin:
     in: internal/owner/jobs/jobsadmin   # J.4: jobs plugin admin REST routes (drafts / applications list)
   jobcache:
@@ -880,6 +882,7 @@ deps:
       - jobs             # a fetch runs as one jobs.fetch_source job per source
       - events           # … and records jobs.fetched (Recorder only)
       - paging           # the applications list reads one page at a time
+      - untrusted        # the recruiter's briefing fences the posting's title and company (7.1)
     anyVendorDeps: true
 
   # jobdedup — J.6c: cross-source dedup (canonical URL + composite key).
@@ -902,12 +905,17 @@ deps:
       - jobcues          # assistant.push writes the cue feed
       - paging           # resume.master_list takes cursor/limit and answers a page (the one paginator)
       - facadeparity     # applications.commit is declared as a dispatcher op (R2)
+      - untrusted        # jobs.show fences the posting body (7.1)
     anyVendorDeps: true
 
   # mcputil — shared owner-MCP result marshaller. Leaf: only registry (for MCPResult).
   mcputil:
     mayDependOn:
       - registry
+    anyVendorDeps: true
+
+  untrusted:
+    mayDependOn: []
     anyVendorDeps: true
 
   # jobsadmin — J.4: jobs plugin admin REST routes (drafts / applications list).

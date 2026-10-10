@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/atmaxmoj/standmeet/internal/infra/untrusted"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmodel"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc"
 )
@@ -153,6 +154,8 @@ type previousApplicationView struct {
 
 func shownJob(j *jobsmodel.FetchedJob, prev []jobsmodel.Application) shownJobView {
 	view := fetchedJobToView(j)
+	// The body is the posting's own words: fenced, so the owner's agent reads it as data (7.1).
+	view.BodyText = untrusted.Fence("job posting", view.BodyText)
 	out := shownJobView{
 		fetchedJobView:       &view,
 		PreviousApplications: make([]previousApplicationView, 0, len(prev)),

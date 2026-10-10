@@ -10,3 +10,7 @@ e1-engaged-unguarded	backend/internal/owner/jobs/jobsuc/db/applications.sql.go	s
 e1-opened-latest	backend/db/schema.sql backend/db/migrations/2026-10-10-application-outcomes.sql	s/SELECT LEAST\(/SELECT GREATEST(/	make clean && make test-only SPEC=application-opened
 e1-outcome-no-journal	backend/internal/owner/jobs/jobsuc/repo_application_outcomes.go	s/\tif err := q\.InsertApplicationOutcome\(.*?\n\t\}\n//s	make clean && make test-only SPEC=application-outcomes
 e1-withdraw-keeps-code	backend/internal/owner/jobs/jobsuc/outcomes.go	s/return d\.Revoke\(ctx, ev\.OwnerID, app\.AccessCodeID\)/_ = app\n\treturn nil/	make clean && make test-only SPEC=application-withdraw-revokes
+#
+# E7 —— 7.1 untrusted job text.
+e7-show-unfenced	backend/internal/owner/jobs/jobsmcp/jobs_views.go	s/view\.BodyText = untrusted\.Fence\("job posting", view\.BodyText\)/_ = untrusted.Rule/	make clean && make test-only SPEC=untrusted-job-text
+e7-briefing-unfenced	backend/internal/owner/jobs/jobsuc/repo_applications.go	s/return untrusted\.Inline\(postingSource, s\)/return s/	make clean && make test-only SPEC=untrusted-job-text

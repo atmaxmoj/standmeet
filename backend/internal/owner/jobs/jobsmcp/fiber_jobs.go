@@ -14,6 +14,7 @@ import (
 	"log/slog"
 
 	"github.com/atmaxmoj/standmeet/internal/infra/mcputil"
+	"github.com/atmaxmoj/standmeet/internal/infra/untrusted"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmodel"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc"
 	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
@@ -173,7 +174,7 @@ func (c *jobsFiber) showBinding() *registry.MCPBinding {
 		Danger: "read",
 		Description: "Look up a job by cache_id; returns full JD body, and " +
 			"previous_applications: the owner's earlier applications to the same company " +
-			"(date, outcome, opened_at).",
+			"(date, outcome, opened_at). body_text is fenced. " + untrusted.Rule,
 		InputSchema: json.RawMessage(`{
 			"type":"object",
 			"properties":{
