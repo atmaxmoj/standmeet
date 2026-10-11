@@ -140,7 +140,7 @@ test.describe('resume PDF render contract (Typst)', () => {
     async ({ request }) => {
       const content = sampleResumeContent();
       const committed = await commitResume(request, {
-        kind: 'ashby', label: 'AshbyDemo', config: { company: 'ashbydemo' },
+        kind: 'ashby', label: 'PostHog', config: { company: 'posthog' },
       }, content, 'compact');
 
       const info = await inspectPDF(committed.pdf);
