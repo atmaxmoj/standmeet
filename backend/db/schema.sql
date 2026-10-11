@@ -1107,7 +1107,7 @@ CREATE TABLE applications (
     outcome        text          NOT NULL DEFAULT 'none',
     engaged_at     timestamptz,
     -- next_followup_at / followup_nudges —— when a follow-up is next due, and how many the owner was
-    -- reminded of (roadmap 3.1; migrations/2026-10-10-application-followups.sql). NULL = none due.
+    -- reminded of (roadmap 3.1; migrations/2026-10-11-application-followups.sql). NULL = none due.
     next_followup_at timestamptz DEFAULT now() + interval '7 days',
     followup_nudges  int         NOT NULL DEFAULT 0,
     CONSTRAINT applications_outcome_check CHECK (outcome IN

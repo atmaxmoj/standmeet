@@ -1,5 +1,5 @@
 // upgrade-application-followups.spec.ts —— old volume + new code: the deploy brings follow-ups
-// (`2026-10-10-application-followups.sql`: applications.next_followup_at + followup_nudges,
+// (`2026-10-11-application-followups.sql`: applications.next_followup_at + followup_nudges,
 // roadmap 3.1.a).
 //
 // "Done" (test plan): next_followup_at is backfilled from the commit time (+7 days): an application
@@ -9,6 +9,11 @@
 // Method (as upgrade-application-outcomes): applications committed on the new code and backdated,
 // the columns dropped and the migration ledger forgetting it (and every later migration naming
 // them), then exactly one action: restart the backend (= deploy).
+//
+// The old volume is the one the last release left (v0.1.150): it has neither follow-ups nor
+// outcomes, so both are rolled back together. Rolling back follow-ups alone left `outcome` in place
+// and hid that the follow-ups backfill reads it — on the real v0.1.150 volume the migration ran
+// before outcomes existed and the backend crash-looped (v0.1.151 on sijie.xyz).
 
 import { test, expect } from '@/fixtures/test';
 import { readdirSync, readFileSync } from 'node:fs';
@@ -18,8 +23,10 @@ import { commitApplication, setupLoopOwner, type Committed, type LoopOwner } fro
 import { execSQL, querySQL, restartBackend } from '@/fixtures/instance';
 import { callTool, initMCP } from '@/fixtures/mcp';
 
-const MIGRATION = '2026-10-10-application-followups.sql';
 const MIGRATIONS_DIR = path.resolve(__dirname, '../../backend/db/migrations');
+// The release before both: every migration since then that touches what they bring is forgotten.
+const SINCE = '2026-10-10';
+const BROUGHT = /\b(next_followup_at|followup_nudges|outcome|engaged_at|application_outcomes)\b/;
 
 let o: LoopOwner;
 let old: Committed;
@@ -27,8 +34,8 @@ let recent: Committed;
 const count = (sql: string): number => Number(querySQL(sql));
 
 function laterMigrations(): string[] {
-  return readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql') && f >= MIGRATION)
-    .filter((f) => f === MIGRATION || /\b(next_followup_at|followup_nudges)\b/.test(readFileSync(path.join(MIGRATIONS_DIR, f), 'utf-8')));
+  return readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql') && f >= SINCE)
+    .filter((f) => BROUGHT.test(readFileSync(path.join(MIGRATIONS_DIR, f), 'utf-8')));
 }
 
 test.describe.configure({ mode: 'serial', timeout: 300_000 });
@@ -46,7 +53,12 @@ test.afterAll(async () => {
 });
 
 test('an old volume + a deploy → follow-ups backfilled from the commit time', async () => {
-  execSQL('ALTER TABLE applications DROP COLUMN IF EXISTS next_followup_at, DROP COLUMN IF EXISTS followup_nudges');
+  execSQL('DROP TABLE IF EXISTS application_outcomes');
+  execSQL(`ALTER TABLE applications DROP CONSTRAINT IF EXISTS applications_outcome_check,
+    DROP COLUMN IF EXISTS outcome, DROP COLUMN IF EXISTS engaged_at,
+    DROP COLUMN IF EXISTS next_followup_at, DROP COLUMN IF EXISTS followup_nudges`);
+  expect(laterMigrations(), 'presence: both migrations are rolled back').toEqual(
+    expect.arrayContaining(['2026-10-10-application-outcomes.sql']));
   execSQL(`UPDATE applications SET created_at = now() - interval '10 days' WHERE id = '${old.applicationID}'`);
   execSQL(`UPDATE applications SET created_at = now() - interval '3 days' WHERE id = '${recent.applicationID}'`);
   execSQL(`DELETE FROM schema_migrations WHERE name IN (${laterMigrations().map((f) => `'${f}'`).join(',')})`);
