@@ -97,7 +97,7 @@ func (c *DraftCheck) Unaccepted(accept []string) []Finding {
 
 func changed(key, master, draft string) []Finding {
 	if strings.TrimSpace(master) == strings.TrimSpace(draft) {
-		return nil
+		return []Finding{}
 	}
 	return []Finding{{Key: key, Kind: FindingChanged, Master: master, Draft: draft}}
 }
@@ -185,7 +185,7 @@ func orderFindings(d *ResumeContent) []Finding {
 func orderFinding(key string, starts []string) []Finding {
 	newest := func(a, b string) int { return strings.Compare(b, a) }
 	if slices.IsSortedFunc(starts, newest) {
-		return nil
+		return []Finding{}
 	}
 	return []Finding{{Key: key, Kind: FindingOrder, Draft: strings.Join(starts, ", ")}}
 }

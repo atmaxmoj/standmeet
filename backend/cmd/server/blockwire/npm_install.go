@@ -20,7 +20,7 @@ import (
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
 
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
-	market "github.com/atmaxmoj/standmeet/internal/marketplace/usecase"
+	market "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 	"github.com/atmaxmoj/standmeet/internal/plugin"
 	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
 )

@@ -27,6 +27,8 @@ var (
 	// to state which kind it is (F-D-15).
 	ErrMCPServerRefusedAuth = usecase.ErrMCPServerRefusedAuth
 	ErrMCPServerNoAnswer    = usecase.ErrMCPServerNoAnswer
+	// ErrIntegrityMismatch —— a downloaded block package is not the one the registry published.
+	ErrIntegrityMismatch = usecase.ErrIntegrityMismatch
 
 	CreateMCPServer    = usecase.CreateMCPServer
 	CreateSkill        = usecase.CreateSkill

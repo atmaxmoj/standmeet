@@ -21,6 +21,7 @@ import (
 
 	"github.com/mark3labs/mcp-go/server"
 
+	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
@@ -134,7 +135,8 @@ func authMiddleware(deps *Deps, next http.Handler) http.Handler {
 			return
 		}
 		ctx := context.WithValue(r.Context(), ctxKeyOwnerID, key.OwnerID)
-		ctx = context.WithValue(ctx, ctxKeyScopes, keyLimits{scopes: key.Scopes, tools: key.Tools})
+		reach := fp.KeyReach{Scopes: key.Scopes, Tools: key.Tools}
+		ctx = context.WithValue(ctx, ctxKeyScopes, reach)
 		extendMCPWriteDeadline(deps.Log, w)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
@@ -191,7 +193,7 @@ func propagateOwnerCtx(ctx context.Context, r *http.Request) context.Context {
 	if !ok {
 		return ctx
 	}
-	ctx = context.WithValue(ctx, ctxKeyScopes, limitsFrom(r.Context()))
+	ctx = context.WithValue(ctx, ctxKeyScopes, reachFrom(r.Context()))
 	return context.WithValue(ctx, ctxKeyOwnerID, v)
 }
 

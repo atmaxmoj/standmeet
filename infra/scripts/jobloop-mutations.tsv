@@ -20,7 +20,7 @@ e4-ledger-forgets	backend/internal/owner/jobs/jobsuc/repo_job_seen.go	s/if !hit\
 e4-discard-unledgered	backend/internal/owner/jobs/jobsuc/jobs.go	s/discarded := seenStatus\{Status: jobsmodel\.SeenStatusDiscarded\}/discarded := seenStatus{Status: jobsmodel.SeenStatusSeen}/	make clean && make test-only SPEC=job-seen-ledger
 e4-score-in-briefing	backend/internal/owner/jobs/jobsuc/resume.go	s/\tsnap\.Flags = nil\n/\tif row, e := deps.Seen.Get(ctx, ownerID, snap.SeenID); e == nil {\n\t\tsnap.Title += " " + row.Annotations.Reason\n\t}\n\tsnap.Flags = nil\n/	make clean && make test-only SPEC=jobs-annotate
 e4-mark-ignored	backend/internal/owner/jobs/jobsuc/resume.go	s/if !in\.Override && slices\.Contains/if false \&\& slices.Contains/	make clean && make test-only SPEC=company-marks
-e8-tool-list-ignored	backend/internal/routes/mcphandle/scopes.go	s/return len\(l\.tools\) == 0 \|\| slices\.Contains\(l\.tools, tool\)/return len(l.tools) >= 0 || slices.Contains(l.tools, tool)/	make clean && make test-only SPEC=owner-key-tool-allowlist
+e8-tool-list-ignored	backend/internal/infra/facadeparity/reach.go	s/if len\(k\.Tools\) > 0 && !slices\.Contains\(k\.Tools, tool\) \{/if false \&\& len(k.Tools) > 0 {/	make clean && make test-only SPEC=owner-key-tool-allowlist
 #
 # E5 —— the server checks what the AI wrote into a draft.
 e5-commit-skips-check	backend/internal/owner/jobs/jobsuc/draft_check.go	s/\tif deps\.Masters == nil \{\n\t\treturn nil\n\t\}/\tif deps.Masters != nil {\n\t\treturn nil\n\t}/	make clean && make test-only SPEC=draft-check-vs-master
