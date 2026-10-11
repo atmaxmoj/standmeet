@@ -22,9 +22,9 @@ Use this guide when a recruiter engaged with an application, or before an interv
 
 ## Rehearse
 
-1. Create a code for the owner's own test with `codes.create`. Label it "selftest".
-2. Ask the posting's likely questions on that code, as a recruiter would.
-3. Read which answers did not ground. Fix them as gaps.
+1. Create a code for the owner's own test with `codes.create`. Label it "selftest". Give it the application's hiring prompt, so the agent answers as it will for the recruiter.
+2. Ask the posting's likely questions on that code, as a recruiter would. A selftest code is not the application's code: the rehearsal never marks the application opened.
+3. Read the rehearsal with `conversations.list` and `conversations.get`. An answer that cites no entry did not ground. Fix it as a gap.
 4. A strong spoken answer from the owner becomes a raw corpus entry. Save it with `corpus.create`.
 
 ## After the interview
