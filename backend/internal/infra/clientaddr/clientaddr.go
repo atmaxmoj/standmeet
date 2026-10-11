@@ -92,19 +92,17 @@ func (v verdict) worthWarning() bool {
 
 // resolve — three cases:
 //
-//	has forwarding header  → RealIP already resolved it, host is the visitor's address
-//	private/loopback peer  → with no forwarding header that can only be my own side's
-//	                          hop, treat as unknown
+//	private/loopback peer, no forwarding header → can only be my own side's hop, unknown
+//	has forwarding header  → RealIP already resolved it into host
 //	otherwise              → a public client connecting directly
+//
+// In the last two, a Cloudflare edge host is not the visitor; visitorBehind names who is.
 func resolve(r *http.Request) verdict {
 	host := hostOf(r.RemoteAddr)
-	if forwarded(r) {
-		return verdict{addr: host, peer: r.RemoteAddr}
-	}
-	if isInternalHop(host) {
+	if !forwarded(r) && isInternalHop(host) {
 		return verdict{peer: r.RemoteAddr, hidden: true}
 	}
-	return verdict{addr: host, peer: r.RemoteAddr}
+	return verdict{addr: visitorBehind(r, host), peer: r.RemoteAddr}
 }
 
 func forwarded(r *http.Request) bool {

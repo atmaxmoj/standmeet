@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/atmaxmoj/standmeet/internal/infra/clientaddr"
 	"github.com/atmaxmoj/standmeet/internal/monitor/entity"
 	"github.com/atmaxmoj/standmeet/internal/monitor/repo"
 )
@@ -292,18 +293,8 @@ func firstLanguage(reported, header string) string {
 	return strings.TrimSpace(tag)
 }
 
-// clientIP —— the caller's address, preferring the proxy headers a self-hosted instance sits
-// behind. Used only as hash input and, masked to its /24 or /48, as the network (NetworkOf).
+// clientIP —— the visitor's address as clientaddr decided it (empty = unknown). Used only as hash
+// input and, masked to its /24 or /48, as the network (NetworkOf).
 func clientIP(r *http.Request) string {
-	if f := r.Header.Get("X-Forwarded-For"); f != "" {
-		return strings.TrimSpace(strings.Split(f, ",")[0])
-	}
-	if ip := r.Header.Get("X-Real-IP"); ip != "" {
-		return strings.TrimSpace(ip)
-	}
-	host, _, found := strings.Cut(r.RemoteAddr, ":")
-	if !found {
-		return strings.TrimSpace(r.RemoteAddr)
-	}
-	return strings.TrimSpace(host)
+	return clientaddr.Of(r.Context())
 }

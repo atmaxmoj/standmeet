@@ -15,12 +15,12 @@ import (
 	"context"
 	"io"
 	"log/slog"
-	"net"
 	"net/http"
 	"time"
 
 	"github.com/mark3labs/mcp-go/server"
 
+	"github.com/atmaxmoj/standmeet/internal/infra/clientaddr"
 	fp "github.com/atmaxmoj/standmeet/internal/infra/facadeparity"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
@@ -173,16 +173,10 @@ func extendMCPWriteDeadline(log *slog.Logger, w http.ResponseWriter) {
 	}
 }
 
-// clientIP — the request's source address, recorded on the keypair as where it was last used.
-// chi's RealIP middleware has already folded X-Forwarded-For / X-Real-IP into RemoteAddr upstream,
-// so this just drops the port. (mcphandle sits across a component boundary from infra/clientaddr;
-// RemoteAddr post-RealIP is the same source address without the cross-package import.)
+// clientIP — the caller's address as clientaddr decided it, recorded on the keypair as where it was
+// last used (empty = unknown).
 func clientIP(r *http.Request) string {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
-	}
-	return host
+	return clientaddr.Of(r.Context())
 }
 
 // propagateOwnerCtx —— HTTPContextFunc: takes ownerID from the request ctx
