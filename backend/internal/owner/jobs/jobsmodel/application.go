@@ -26,11 +26,14 @@ type Application struct {
 	SubmittedAt *time.Time
 	// OpenedAt / Questions —— the application's reach, read from visits and conversations on its
 	// code (roadmap 1.1.b): when the recruiter first opened it, how many questions they asked.
-	OpenedAt     *time.Time
-	ID           string
-	OwnerID      string
-	AccessCodeID string
-	Status       string
+	OpenedAt *time.Time
+	// NextFollowupAt / FollowupNudges —— when a follow-up is next due (nil = none) and how many
+	// the owner was reminded of (roadmap 3.1).
+	NextFollowupAt *time.Time
+	ID             string
+	OwnerID        string
+	AccessCodeID   string
+	Status         string
 	// Outcome —— what came of it, set by the owner: none / responded / interview / offer /
 	// rejected / hired / withdrawn (roadmap 1.3). Status is how the sending went.
 	Outcome string
@@ -40,8 +43,9 @@ type Application struct {
 	JobSnapshot FetchedJob
 	// ResumeContent then Questions last: no pointers after them keeps the struct's pointer-scan
 	// prefix minimal (fieldalignment).
-	ResumeContent ResumeContent
-	Questions     int
+	ResumeContent  ResumeContent
+	Questions      int
+	FollowupNudges int
 }
 
 // CreateApplicationInput — usecase-layer input for application.commit.

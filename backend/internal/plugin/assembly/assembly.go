@@ -53,6 +53,9 @@ type InstalledBlock struct {
 	BlockID  string
 	Title    string
 	Manifest string
+	// Origin —— "owner" (pasted) or "marketplace". Integrity —— the approved npm digest, or "".
+	Origin    string
+	Integrity string
 }
 
 // Install — add or replace one owner-installed block.
@@ -66,11 +69,13 @@ func (r *Repo) Install(ctx context.Context, ownerID string, b *InstalledBlock) e
 		return fmt.Errorf("parse owner id: %w", err)
 	}
 	const q = `
-		INSERT INTO installed_blocks (owner_id, block_id, title, manifest)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO installed_blocks (owner_id, block_id, title, manifest, origin, integrity)
+		VALUES ($1, $2, $3, $4, COALESCE(NULLIF($5, ''), 'owner'), $6)
 		ON CONFLICT (owner_id, block_id)
-		DO UPDATE SET title = EXCLUDED.title, manifest = EXCLUDED.manifest, updated_at = now()`
-	if _, eerr := r.conn().Exec(ctx, q, ownerUUID, b.BlockID, b.Title, b.Manifest); eerr != nil {
+		DO UPDATE SET title = EXCLUDED.title, manifest = EXCLUDED.manifest,
+			origin = EXCLUDED.origin, integrity = EXCLUDED.integrity, updated_at = now()`
+	if _, eerr := r.conn().Exec(ctx, q, ownerUUID, b.BlockID, b.Title, b.Manifest,
+		b.Origin, b.Integrity); eerr != nil {
 		return fmt.Errorf("install block: %w", eerr)
 	}
 	return nil
@@ -108,6 +113,25 @@ func (r *Repo) TitleOf(ctx context.Context, ownerID, blockID string) string {
 	return title
 }
 
+// ApprovedIntegrity — the package digest the owner approved for this block, or "" when the block
+// is not installed or carries none (roadmap 7.2.a).
+func (r *Repo) ApprovedIntegrity(ctx context.Context, ownerID, blockID string) (string, error) {
+	ownerUUID, err := pgstore.ParseUUID(ownerID)
+	if err != nil {
+		return "", fmt.Errorf("parse owner id: %w", err)
+	}
+	var integrity string
+	const q = `SELECT integrity FROM installed_blocks WHERE owner_id = $1 AND block_id = $2`
+	serr := r.pool.QueryRow(ctx, q, ownerUUID, blockID).Scan(&integrity)
+	if errors.Is(serr, pgx.ErrNoRows) {
+		return "", nil
+	}
+	if serr != nil {
+		return "", fmt.Errorf("approved integrity: %w", serr)
+	}
+	return integrity, nil
+}
+
 // ListInstalled — every block this owner installed, oldest first.
 //
 // Oldest first because the list is read next to the built-ins, which are in
@@ -119,7 +143,7 @@ func (r *Repo) ListInstalled(ctx context.Context, ownerID string) ([]InstalledBl
 		return nil, fmt.Errorf("parse owner id: %w", err)
 	}
 	const q = `
-		SELECT block_id, title, manifest FROM installed_blocks
+		SELECT block_id, title, manifest, origin, integrity FROM installed_blocks
 		WHERE owner_id = $1 ORDER BY created_at ASC, block_id ASC`
 	rows, qerr := r.pool.Query(ctx, q, ownerUUID)
 	if qerr != nil {
@@ -133,7 +157,8 @@ func scanInstalled(rows pgx.Rows) ([]InstalledBlock, error) {
 	out := make([]InstalledBlock, 0)
 	for rows.Next() {
 		var b InstalledBlock
-		if serr := rows.Scan(&b.BlockID, &b.Title, &b.Manifest); serr != nil {
+		serr := rows.Scan(&b.BlockID, &b.Title, &b.Manifest, &b.Origin, &b.Integrity)
+		if serr != nil {
 			return nil, fmt.Errorf("scan installed block: %w", serr)
 		}
 		out = append(out, b)

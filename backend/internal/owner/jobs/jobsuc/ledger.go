@@ -5,6 +5,7 @@ package jobsuc
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -120,4 +121,29 @@ func MarkCompany(ctx context.Context, deps *JobsDeps, ownerID string, m *Company
 		return ErrBadMark
 	}
 	return deps.Seen.MarkCompany(ctx, ownerID, m)
+}
+
+// SuggestSources —— the ATS boards the ledger's posting links point at that the owner has not
+// registered (roadmap 4.3.d).
+func SuggestSources(
+	ctx context.Context, deps *JobsDeps, ownerID string,
+) ([]jobsmodel.DirectSource, error) {
+	urls, err := deps.Seen.URLs(ctx, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	sources, err := deps.Sources.ListByOwner(ctx, ownerID)
+	if err != nil {
+		return nil, fmt.Errorf("list sources: %w", err)
+	}
+	registered := make(map[string]bool, len(sources))
+	for i := range sources {
+		var cfg struct {
+			Company string `json:"company"`
+		}
+		if json.Unmarshal(sources[i].Config, &cfg) == nil {
+			registered[sources[i].Kind+"/"+strings.ToLower(cfg.Company)] = true
+		}
+	}
+	return jobsmodel.SuggestDirectSources(urls, registered), nil
 }

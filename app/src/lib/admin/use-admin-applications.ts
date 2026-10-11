@@ -14,6 +14,8 @@ export const AdminApplicationRowSchema = z.object({
   id: z.string(), company: z.string(), role: z.string(), status: z.string(),
   submitted_at: z.string(), created_at: z.string(),
   opened_at: z.string().nullable(), questions: z.number(), outcome: z.string(),
+  // followup —— 'due' | 'cold' | '' (roadmap 3.1.c).
+  followup: z.string().default(''),
   resume_content: ResumeContentSchema,
 });
 export type AdminApplicationRow = z.infer<typeof AdminApplicationRowSchema>;

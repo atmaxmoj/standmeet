@@ -1,0 +1,27 @@
+{
+  "apiVersion": "1",
+  "jobs": [
+    {"id": "paid-1", "title": "Staff Platform Engineer", "department": "Engineering", "team": "Platform",
+     "employmentType": "FullTime", "location": "Remote", "secondaryLocations": [],
+     "publishedAt": "2026-09-01T00:00:00.000+00:00", "isListed": true, "isRemote": true,
+     "workplaceType": "Remote", "jobUrl": "https://jobs.ashbyhq.com/paidco/paid-1",
+     "applyUrl": "https://jobs.ashbyhq.com/paidco/paid-1/application",
+     "descriptionHtml": "<p>Run the platform.</p>", "descriptionPlain": "Run the platform.",
+     "compensation": {
+       "compensationTierSummary": "$150K – $190K • Offers Equity",
+       "scrapeableCompensationSalarySummary": "$150K - $190K",
+       "summaryComponents": [
+         {"compensationType": "EquityPercentage", "interval": "NONE", "currencyCode": null,
+          "minValue": null, "maxValue": null},
+         {"compensationType": "Salary", "interval": "1 YEAR", "currencyCode": "USD",
+          "minValue": 150000, "maxValue": 190000}
+       ]
+     }},
+    {"id": "paid-2", "title": "Support Engineer", "department": "Support", "team": "Support",
+     "employmentType": "FullTime", "location": "Remote", "secondaryLocations": [],
+     "publishedAt": "2026-09-02T00:00:00.000+00:00", "isListed": true, "isRemote": true,
+     "workplaceType": "Remote", "jobUrl": "https://jobs.ashbyhq.com/paidco/paid-2",
+     "applyUrl": "https://jobs.ashbyhq.com/paidco/paid-2/application",
+     "descriptionHtml": "<p>Help customers.</p>", "descriptionPlain": "Help customers."}
+  ]
+}

@@ -11,6 +11,87 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const applicationExchanges = `-- name: ApplicationExchanges :many
+SELECT a.id AS application_id, c.id AS conversation_id, v.body AS question, v.created_at AS asked_at,
+       COALESCE((SELECT m.body FROM messages m
+                 WHERE m.dialog_id = d.id AND m.role = 'assistant'
+                 ORDER BY m.created_at DESC LIMIT 1), '')::text AS answer,
+       EXISTS (SELECT 1 FROM messages m
+               WHERE m.dialog_id = d.id AND m.role = 'assistant'
+                 AND (cardinality(m.cited_wiki_ids) + cardinality(m.cited_output_ids)
+                      + cardinality(m.cited_subjectivity_ids) + cardinality(m.cited_writing_ids)
+                      + cardinality(m.grounded_subjectivity_ids) > 0
+                   OR jsonb_path_exists(COALESCE(m.tool_calls, '[]'::jsonb),
+                        '$[*] ? (@.name == "corpus_read" && @.ok == true)'))) AS grounded
+FROM applications a
+JOIN conversations c ON c.code_id = a.access_code_id
+JOIN dialogs d ON d.conversation_id = c.id
+JOIN messages v ON v.dialog_id = d.id AND v.role = 'visitor'
+WHERE a.owner_id = $1
+  AND ($2::uuid IS NULL OR a.id = $2)
+ORDER BY v.created_at
+`
+
+type ApplicationExchangesParams struct {
+	OwnerID       pgtype.UUID
+	ApplicationID pgtype.UUID
+}
+
+type ApplicationExchangesRow struct {
+	ApplicationID  pgtype.UUID
+	ConversationID pgtype.UUID
+	Question       string
+	AskedAt        pgtype.Timestamptz
+	Answer         string
+	Grounded       bool
+}
+
+// Every question a recruiter asked on the owner's application codes, with the agent's answer and
+// whether it stood on the corpus (job-loop roadmap 2.1): a citation, a grounded subjectivity note,
+// or a corpus_read that succeeded. application_id narrows to one application.
+func (q *Queries) ApplicationExchanges(ctx context.Context, arg ApplicationExchangesParams) ([]ApplicationExchangesRow, error) {
+	rows, err := q.db.Query(ctx, applicationExchanges, arg.OwnerID, arg.ApplicationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ApplicationExchangesRow
+	for rows.Next() {
+		var i ApplicationExchangesRow
+		if err := rows.Scan(
+			&i.ApplicationID,
+			&i.ConversationID,
+			&i.Question,
+			&i.AskedAt,
+			&i.Answer,
+			&i.Grounded,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const applicationOwned = `-- name: ApplicationOwned :one
+SELECT EXISTS (SELECT 1 FROM applications WHERE id = $1 AND owner_id = $2)
+`
+
+type ApplicationOwnedParams struct {
+	ID      pgtype.UUID
+	OwnerID pgtype.UUID
+}
+
+func (q *Queries) ApplicationOwned(ctx context.Context, arg ApplicationOwnedParams) (bool, error) {
+	row := q.db.QueryRow(ctx, applicationOwned, arg.ID, arg.OwnerID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const countApplications = `-- name: CountApplications :one
 SELECT COUNT(*)::int FROM applications WHERE owner_id = $1
 `
@@ -27,7 +108,7 @@ func (q *Queries) CountApplications(ctx context.Context, ownerID pgtype.UUID) (i
 const createApplication = `-- name: CreateApplication :one
 INSERT INTO applications (id, owner_id, access_code_id, job_snapshot, resume_content)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, owner_id, access_code_id, job_snapshot, resume_content, status, submitted_at, created_at, outcome, engaged_at
+RETURNING id, owner_id, access_code_id, job_snapshot, resume_content, status, submitted_at, created_at, outcome, engaged_at, next_followup_at, followup_nudges
 `
 
 type CreateApplicationParams struct {
@@ -61,12 +142,14 @@ func (q *Queries) CreateApplication(ctx context.Context, arg CreateApplicationPa
 		&i.CreatedAt,
 		&i.Outcome,
 		&i.EngagedAt,
+		&i.NextFollowupAt,
+		&i.FollowupNudges,
 	)
 	return i, err
 }
 
 const getApplication = `-- name: GetApplication :one
-SELECT a.id, a.owner_id, a.access_code_id, a.job_snapshot, a.resume_content, a.status, a.submitted_at, a.created_at, a.outcome, a.engaged_at,
+SELECT a.id, a.owner_id, a.access_code_id, a.job_snapshot, a.resume_content, a.status, a.submitted_at, a.created_at, a.outcome, a.engaged_at, a.next_followup_at, a.followup_nudges,
        application_opened_at(a.access_code_id) AS opened_at,
        application_questions(a.access_code_id) AS questions
 FROM applications a
@@ -100,6 +183,8 @@ func (q *Queries) GetApplication(ctx context.Context, arg GetApplicationParams) 
 		&i.Application.CreatedAt,
 		&i.Application.Outcome,
 		&i.Application.EngagedAt,
+		&i.Application.NextFollowupAt,
+		&i.Application.FollowupNudges,
 		&i.OpenedAt,
 		&i.Questions,
 	)
@@ -107,7 +192,7 @@ func (q *Queries) GetApplication(ctx context.Context, arg GetApplicationParams) 
 }
 
 const getApplicationByAccessCode = `-- name: GetApplicationByAccessCode :one
-SELECT a.id, a.owner_id, a.access_code_id, a.job_snapshot, a.resume_content, a.status, a.submitted_at, a.created_at, a.outcome, a.engaged_at,
+SELECT a.id, a.owner_id, a.access_code_id, a.job_snapshot, a.resume_content, a.status, a.submitted_at, a.created_at, a.outcome, a.engaged_at, a.next_followup_at, a.followup_nudges,
        application_opened_at(a.access_code_id) AS opened_at,
        application_questions(a.access_code_id) AS questions
 FROM applications a
@@ -141,10 +226,37 @@ func (q *Queries) GetApplicationByAccessCode(ctx context.Context, arg GetApplica
 		&i.Application.CreatedAt,
 		&i.Application.Outcome,
 		&i.Application.EngagedAt,
+		&i.Application.NextFollowupAt,
+		&i.Application.FollowupNudges,
 		&i.OpenedAt,
 		&i.Questions,
 	)
 	return i, err
+}
+
+const insertApplicationAnswer = `-- name: InsertApplicationAnswer :exec
+INSERT INTO application_answers (owner_id, application_id, question_key, question, answer)
+VALUES ($1, $2, $3, $4, $5)
+`
+
+type InsertApplicationAnswerParams struct {
+	OwnerID       pgtype.UUID
+	ApplicationID pgtype.UUID
+	QuestionKey   string
+	Question      string
+	Answer        string
+}
+
+// One answer a form was filled with (roadmap 5.4.b).
+func (q *Queries) InsertApplicationAnswer(ctx context.Context, arg InsertApplicationAnswerParams) error {
+	_, err := q.db.Exec(ctx, insertApplicationAnswer,
+		arg.OwnerID,
+		arg.ApplicationID,
+		arg.QuestionKey,
+		arg.Question,
+		arg.Answer,
+	)
+	return err
 }
 
 const insertApplicationOutcome = `-- name: InsertApplicationOutcome :exec
@@ -167,6 +279,40 @@ func (q *Queries) InsertApplicationOutcome(ctx context.Context, arg InsertApplic
 		arg.Note,
 	)
 	return err
+}
+
+const latestApplicationAnswers = `-- name: LatestApplicationAnswers :many
+SELECT DISTINCT ON (question_key) question_key, answer, application_id
+FROM application_answers
+WHERE owner_id = $1
+ORDER BY question_key, created_at DESC
+`
+
+type LatestApplicationAnswersRow struct {
+	QuestionKey   string
+	Answer        string
+	ApplicationID pgtype.UUID
+}
+
+// The owner's latest answer per question.
+func (q *Queries) LatestApplicationAnswers(ctx context.Context, ownerID pgtype.UUID) ([]LatestApplicationAnswersRow, error) {
+	rows, err := q.db.Query(ctx, latestApplicationAnswers, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []LatestApplicationAnswersRow
+	for rows.Next() {
+		var i LatestApplicationAnswersRow
+		if err := rows.Scan(&i.QuestionKey, &i.Answer, &i.ApplicationID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listApplicationOutcomes = `-- name: ListApplicationOutcomes :many
@@ -209,7 +355,7 @@ func (q *Queries) ListApplicationOutcomes(ctx context.Context, applicationID pgt
 }
 
 const listApplicationsByCompany = `-- name: ListApplicationsByCompany :many
-SELECT a.id, a.owner_id, a.access_code_id, a.job_snapshot, a.resume_content, a.status, a.submitted_at, a.created_at, a.outcome, a.engaged_at,
+SELECT a.id, a.owner_id, a.access_code_id, a.job_snapshot, a.resume_content, a.status, a.submitted_at, a.created_at, a.outcome, a.engaged_at, a.next_followup_at, a.followup_nudges,
        application_opened_at(a.access_code_id) AS opened_at,
        application_questions(a.access_code_id) AS questions
 FROM applications a
@@ -252,6 +398,8 @@ func (q *Queries) ListApplicationsByCompany(ctx context.Context, arg ListApplica
 			&i.Application.CreatedAt,
 			&i.Application.Outcome,
 			&i.Application.EngagedAt,
+			&i.Application.NextFollowupAt,
+			&i.Application.FollowupNudges,
 			&i.OpenedAt,
 			&i.Questions,
 		); err != nil {
@@ -266,7 +414,7 @@ func (q *Queries) ListApplicationsByCompany(ctx context.Context, arg ListApplica
 }
 
 const listApplicationsPage = `-- name: ListApplicationsPage :many
-SELECT a.id, a.owner_id, a.access_code_id, a.job_snapshot, a.resume_content, a.status, a.submitted_at, a.created_at, a.outcome, a.engaged_at,
+SELECT a.id, a.owner_id, a.access_code_id, a.job_snapshot, a.resume_content, a.status, a.submitted_at, a.created_at, a.outcome, a.engaged_at, a.next_followup_at, a.followup_nudges,
        application_opened_at(a.access_code_id) AS opened_at,
        application_questions(a.access_code_id) AS questions
 FROM applications a
@@ -326,6 +474,8 @@ func (q *Queries) ListApplicationsPage(ctx context.Context, arg ListApplications
 			&i.Application.CreatedAt,
 			&i.Application.Outcome,
 			&i.Application.EngagedAt,
+			&i.Application.NextFollowupAt,
+			&i.Application.FollowupNudges,
 			&i.OpenedAt,
 			&i.Questions,
 		); err != nil {
@@ -384,16 +534,27 @@ func (q *Queries) MarkApplicationEngaged(ctx context.Context, accessCodeID pgtyp
 }
 
 const setApplicationOutcome = `-- name: SetApplicationOutcome :exec
-UPDATE applications SET outcome = $3 WHERE id = $1 AND owner_id = $2
+UPDATE applications
+SET outcome = $1, followup_nudges = 0,
+    next_followup_at = $2
+WHERE id = $3 AND owner_id = $4
 `
 
 type SetApplicationOutcomeParams struct {
-	ID      pgtype.UUID
-	OwnerID pgtype.UUID
-	Outcome string
+	Outcome        string
+	NextFollowupAt pgtype.Timestamptz
+	ID             pgtype.UUID
+	OwnerID        pgtype.UUID
 }
 
+// The outcome, and the follow-up its cadence sets (roadmap 3.1.b; jobsmodel.FollowupAfterOutcome):
+// a new outcome starts its nudges over.
 func (q *Queries) SetApplicationOutcome(ctx context.Context, arg SetApplicationOutcomeParams) error {
-	_, err := q.db.Exec(ctx, setApplicationOutcome, arg.ID, arg.OwnerID, arg.Outcome)
+	_, err := q.db.Exec(ctx, setApplicationOutcome,
+		arg.Outcome,
+		arg.NextFollowupAt,
+		arg.ID,
+		arg.OwnerID,
+	)
 	return err
 }

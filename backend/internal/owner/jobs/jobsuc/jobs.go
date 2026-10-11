@@ -48,19 +48,68 @@ type JobsDeps struct {
 	Wait time.Duration
 }
 
-// RegisterJobSource — validates kind/config, then writes to postgres.
+// RegisteredSource —— the new source and what one read of its board found (roadmap 4.3.b).
+type RegisteredSource struct {
+	Source jobsmodel.JobSource
+	Probe  SourceProbe
+}
+
+// SourceProbe —— one read of the board at registration. Error is a sentence for a board that
+// answered but not with jobs (busy, slow, a bad body); the source is still registered then.
+type SourceProbe struct {
+	Error        string   `json:"error,omitempty"`
+	SampleTitles []string `json:"sample_titles"`
+	Count        int      `json:"count"`
+}
+
+// probeTimeout / probeSamples —— how long registration waits for the board; how many titles it
+// shows back.
+const (
+	probeTimeout = 15 * time.Second
+	probeSamples = 3
+)
+
+// RegisterJobSource — validates kind/config, reads the board once, then writes to postgres. A
+// board that does not exist (a wrong slug) is refused at once instead of failing every fetch.
 func RegisterJobSource(
 	ctx context.Context, deps JobsDeps, in *jobsmodel.CreateJobSourceInput,
-) (jobsmodel.JobSource, error) {
+) (RegisteredSource, error) {
 	if err := validateRegisterInput(in); err != nil {
-		return jobsmodel.JobSource{}, err
+		return RegisteredSource{}, err
+	}
+	probe, err := probeSource(ctx, deps.Registry, in)
+	if err != nil {
+		return RegisteredSource{}, err
 	}
 	src, err := deps.Sources.Create(ctx, in)
 	if err != nil {
-		return jobsmodel.JobSource{}, fmt.Errorf("create source: %w", err)
+		return RegisteredSource{}, fmt.Errorf("create source: %w", err)
 	}
-	return src, nil
+	return RegisteredSource{Source: src, Probe: probe}, nil
 }
+
+func probeSource(
+	ctx context.Context, reg *jobfetch.Registry, in *jobsmodel.CreateJobSourceInput,
+) (SourceProbe, error) {
+	ctx, cancel := context.WithTimeout(ctx, probeTimeout)
+	defer cancel()
+	acc, err := reg.FetchAccounted(ctx, in.Kind, in.Config)
+	if errors.Is(err, jobfetch.ErrUpstreamNoBoard) {
+		return SourceProbe{}, fmt.Errorf("probe: %w", ErrNoSuchBoard)
+	}
+	if err != nil {
+		return SourceProbe{SampleTitles: []string{}, Error: sourceFailureSentence(err)}, nil
+	}
+	titles := make([]string, 0, probeSamples)
+	for i := 0; i < len(acc.Jobs) && len(titles) < probeSamples; i++ {
+		titles = append(titles, acc.Jobs[i].Title)
+	}
+	return SourceProbe{Count: len(acc.Jobs), SampleTitles: titles}, nil
+}
+
+// ErrNoSuchBoard —— registration found no board at the configured address.
+var ErrNoSuchBoard = errors.New(
+	"no such board at that address — check the company slug in the source's settings")
 
 func validateRegisterInput(in *jobsmodel.CreateJobSourceInput) error {
 	if in.OwnerID == "" || in.Kind == "" || in.Label == "" {
@@ -149,17 +198,18 @@ func selectSourcesToFetch(
 // fetchOneSourceAndDedup —— fetch, drop what this source already returned, drop what the owner's
 // ledger holds from an earlier run (any source, roadmap 4.1.a), pool the rest.
 func fetchOneSourceAndDedup(
-	ctx context.Context, deps JobsDeps, src *jobsmodel.JobSource, run string,
+	ctx context.Context, deps JobsDeps, src *jobsmodel.JobSource, a *fetchSourceArgs,
 ) (sourceRun, error) {
 	acc, err := fetchAndStampSourceID(ctx, deps, src)
 	if err != nil {
 		return sourceRun{}, err
 	}
-	newJobs, err := keepUnseen(ctx, deps, src.ID, acc.Jobs)
+	recent := jobsmodel.PublishedWithin(acc.Jobs, a.MaxAgeDays, time.Now())
+	newJobs, err := keepUnseen(ctx, deps, src.ID, recent)
 	if err != nil {
 		return sourceRun{}, err
 	}
-	admitted, err := deps.Seen.Admit(ctx, src.OwnerID, run, newJobs)
+	admitted, err := deps.Seen.Admit(ctx, src.OwnerID, a.RunID, newJobs)
 	if err != nil {
 		return sourceRun{}, err
 	}
@@ -169,8 +219,8 @@ func fetchOneSourceAndDedup(
 	}
 	return sourceRun{jobs: pooled, tally: SourceTally{
 		SourceID: src.ID, Label: src.Label, Kind: src.Kind,
-		Seen: len(acc.Jobs), Pooled: len(pooled), Duplicate: len(acc.Jobs) - len(newJobs),
-		AlreadySeen: len(newJobs) - len(admitted),
+		Seen: len(acc.Jobs), Pooled: len(pooled), Duplicate: len(recent) - len(newJobs),
+		AlreadySeen: len(newJobs) - len(admitted), TooOld: len(acc.Jobs) - len(recent),
 		// The adapter's own bookkeeping (only sources that fetch item-by-item have this):
 		// how many the upstream reported total, how many we actually read, how many were
 		// skipped and why, and whether we hit the cap and got truncated.

@@ -76,16 +76,28 @@ type ApiOpenBlock struct {
 }
 
 type Application struct {
+	ID             pgtype.UUID
+	OwnerID        pgtype.UUID
+	AccessCodeID   pgtype.UUID
+	JobSnapshot    []byte
+	ResumeContent  []byte
+	Status         string
+	SubmittedAt    pgtype.Timestamptz
+	CreatedAt      pgtype.Timestamptz
+	Outcome        string
+	EngagedAt      pgtype.Timestamptz
+	NextFollowupAt pgtype.Timestamptz
+	FollowupNudges int32
+}
+
+type ApplicationAnswer struct {
 	ID            pgtype.UUID
 	OwnerID       pgtype.UUID
-	AccessCodeID  pgtype.UUID
-	JobSnapshot   []byte
-	ResumeContent []byte
-	Status        string
-	SubmittedAt   pgtype.Timestamptz
+	ApplicationID pgtype.UUID
+	QuestionKey   string
+	Question      string
+	Answer        string
 	CreatedAt     pgtype.Timestamptz
-	Outcome       string
-	EngagedAt     pgtype.Timestamptz
 }
 
 type ApplicationOutcome struct {
@@ -419,6 +431,7 @@ type JobSeen struct {
 	Annotations   []byte
 	FirstSeenAt   pgtype.Timestamptz
 	LastSeenAt    pgtype.Timestamptz
+	Reposts       int32
 }
 
 type JobSource struct {

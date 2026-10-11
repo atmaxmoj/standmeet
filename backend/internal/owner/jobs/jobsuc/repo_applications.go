@@ -138,7 +138,9 @@ func onCommit(ctx context.Context, tx pgx.Tx, in *CommitInput, out *CommitOutput
 // irreversible commit tx (so a render failure persists nothing → retryable).
 type DraftRenderData struct {
 	Template string
-	Job      jobsmodel.FetchedJob
+	// BasedOnMasterID —— the master the draft is checked against at commit (roadmap 5.1).
+	BasedOnMasterID string
+	Job             jobsmodel.FetchedJob
 	// Resume last (its trailing non-pointer float64 keeps the pointer-scan prefix minimal).
 	Resume jobsmodel.ResumeContent
 }
@@ -158,6 +160,7 @@ func (r *ApplicationRepo) GetDraftRenderData(
 	}
 	var out DraftRenderData
 	out.Template = row.Template
+	out.BasedOnMasterID = pgstore.FormatUUID(row.BasedOnMasterID) // "" when none
 	if uerr := json.Unmarshal(row.ResumeContent, &out.Resume); uerr != nil {
 		return DraftRenderData{}, fmt.Errorf("unmarshal resume content: %w", uerr)
 	}

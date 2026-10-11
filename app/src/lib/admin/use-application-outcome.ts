@@ -15,11 +15,23 @@ const OutcomeRowSchema = z.object({
 });
 export type OutcomeRow = z.infer<typeof OutcomeRowSchema>;
 
-const DetailSchema = AdminApplicationRowSchema.extend({ outcomes: z.array(OutcomeRowSchema) });
+// QuestionSchema —— one thing the recruiter asked and the agent's answer (roadmap 2.1.c); grounded
+// false = a gap the corpus could not answer.
+const QuestionSchema = z.object({
+  conversation_id: z.string(), asked_at: z.string(), question: z.string(), answer: z.string(),
+  grounded: z.boolean(), topics: z.array(z.string()),
+});
+export type TheirQuestion = z.infer<typeof QuestionSchema>;
+
+const DetailSchema = AdminApplicationRowSchema.extend({
+  outcomes: z.array(OutcomeRowSchema),
+  questions: z.array(QuestionSchema).default([]),
+});
 
 export interface ApplicationOutcome {
   outcome: string;
   journal: readonly OutcomeRow[];
+  questions: readonly TheirQuestion[];
   busy: boolean;
   error: string;
   set: (outcome: string) => void;
@@ -30,11 +42,13 @@ export function useApplicationOutcome(
 ): ApplicationOutcome {
   const [outcome, setOutcome] = useState(initial);
   const [journal, setJournal] = useState<readonly OutcomeRow[]>([]);
+  const [questions, setQuestions] = useState<readonly TheirQuestion[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const load = useCallback(() => adminAPI.get(`/applications/${id}`, DetailSchema).then((d) => {
     setOutcome(d.outcome);
     setJournal(d.outcomes);
+    setQuestions(d.questions);
   }), [id]);
   useEffect(() => { load().catch((e: unknown) => setError(messageOf(e))); }, [load]);
   const set = (next: string) => {
@@ -45,7 +59,14 @@ export function useApplicationOutcome(
       .catch((e: unknown) => setError(messageOf(e)))
       .finally(() => setBusy(false));
   };
-  return { outcome, journal, busy, error, set };
+  return { outcome, journal, questions, busy, error, set };
+}
+
+// questionMeta —— a question row's marks: whether it is a gap, and the line under its answer (the
+// gap sentence, then the topics the answer touched).
+export function questionMeta(q: TheirQuestion, gapText: string): { gap: 'true' | 'false'; note: string } {
+  const parts = [q.grounded ? '' : gapText, ...q.topics].filter((p) => p !== '');
+  return { gap: q.grounded ? 'false' : 'true', note: parts.join(' · ') };
 }
 
 function messageOf(e: unknown): string {

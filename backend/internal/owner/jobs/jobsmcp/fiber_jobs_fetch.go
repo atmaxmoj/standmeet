@@ -45,7 +45,9 @@ func (c *jobsFiber) fetchNewBinding() *registry.MCPBinding {
 				"source_id":{"type":"string",
 					"description":"Optional specific source id (omit = all sources)."},
 				"since_hours":{"type":"number",
-					"description":"Hours back the pool reaches (default 24 = its own TTL)."}
+					"description":"Hours back the pool reaches (default 24 = its own TTL)."},
+				"max_age_days":{"type":"integer",
+					"description":"Skip postings older than this many days; undated ones pass."}
 			}
 		}`),
 		Handler: c.handleFetchNew,
@@ -104,6 +106,8 @@ func (c *jobsFiber) handleFetchResult(
 type fetchNewArgsWire struct {
 	SinceHours *float64 `json:"since_hours"`
 	SourceID   string   `json:"source_id"`
+	// MaxAgeDays —— skip postings published longer ago (roadmap 4.2.a; 0 = any age).
+	MaxAgeDays int `json:"max_age_days"`
 }
 
 const defaultPoolWindow = 24 * time.Hour
@@ -144,7 +148,9 @@ func (c *jobsFiber) handleFetchNew(
 	if serr != nil {
 		return registry.MCPError(serr.Error())
 	}
-	out, err := jobsuc.FetchNewJobs(ctx, *c.jobs, ownerID, args.source(), since)
+	out, err := jobsuc.FetchNewJobs(ctx, *c.jobs, ownerID, jobsuc.FetchRequest{
+		SourceID: args.source(), Since: since, MaxAgeDays: args.MaxAgeDays,
+	})
 	if err != nil {
 		return jobsCapErrToResult(c.log, err, "fetch_new")
 	}

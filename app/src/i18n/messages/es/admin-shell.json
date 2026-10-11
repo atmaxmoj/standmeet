@@ -126,7 +126,10 @@
     "freezeAndSend": "congelar + enviar",
     "confirmTitle": "¿Enviar este borrador a {company}?",
     "confirmBody": "El envío congelará la instantánea de currículum + carta de presentación, representará el PDF final (con QR) y escribirá una fila de solicitud. El AccessCode emitido automáticamente será 180 días, 10 sesiones, 50 turnos.",
-    "keepEditing": "← seguir editando"
+    "keepEditing": "← seguir editando",
+    "findingsHead": "difiere de tu plantilla — confirma cada una",
+    "findingMaster": "plantilla: {value}",
+    "findingDraft": "este borrador: {value}"
   },
   "codeModal": {
     "cancel": "cancelar",

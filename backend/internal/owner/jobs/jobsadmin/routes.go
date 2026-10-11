@@ -78,6 +78,7 @@ func Mount(r chi.Router, deps Deps) {
 		r.Delete("/{id}", discardDraft(deps))
 		r.Get("/{id}/preview.pdf", previewDraft(deps))
 		r.Post("/{id}/commit", commitDraft(deps))
+		r.Get("/{id}/check", draftCheck(deps))
 		r.Post("/{id}/save-as-master", saveDraftAsMaster(&deps))
 	})
 	r.Route("/masters", func(r chi.Router) {

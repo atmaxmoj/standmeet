@@ -41,7 +41,9 @@ func (c *jobsFiber) registerSourceBinding() *registry.MCPBinding {
 		Name: "jobs.register_source", Danger: "write",
 		Description: "Register a job source. kind ∈ greenhouse|lever|ashby|remoteok|wwr|" +
 			"hn_hiring|smartrecruiters|workable. config: {company} for ats; " +
-			"{categories:[]} for wwr; {} for remoteok / hn_hiring.",
+			"{categories:[]} for wwr; {} for remoteok / hn_hiring. Reads the board once: " +
+			"probe{count, sample_titles} shows it is the board you meant; a board that does " +
+			"not exist is refused.",
 		InputSchema: json.RawMessage(`{
 			"type":"object",
 			"properties":{
@@ -68,13 +70,23 @@ func (c *jobsFiber) handleRegisterSource(
 	if perr != nil {
 		return registry.MCPError(perr.Error())
 	}
-	src, err := jobsuc.RegisterJobSource(ctx, *c.jobs, &jobsmodel.CreateJobSourceInput{
+	reg, err := jobsuc.RegisterJobSource(ctx, *c.jobs, &jobsmodel.CreateJobSourceInput{
 		OwnerID: ownerID, Kind: args.Kind, Config: args.Config, Label: args.Label,
 	})
 	if err != nil {
 		return jobsCapErrToResult(c.log, err, "register_source")
 	}
-	return mcputil.MarshalResult(c.log, "jobs.register_source", jobSourceView(&src))
+	return mcputil.MarshalResult(c.log, "jobs.register_source", registeredView{
+		jobSourceViewT: jobSourceView(&reg.Source), Probe: reg.Probe,
+	})
+}
+
+// registeredView —— the source plus the probe: how many jobs its board lists now, and three titles
+// to show the owner it is the board they meant (roadmap 4.3.b).
+type registeredView struct {
+	jobSourceViewT
+
+	Probe jobsuc.SourceProbe `json:"probe"`
 }
 
 func parseRegisterSourceCapArgs(
@@ -208,7 +220,36 @@ func (c *jobsFiber) handleShow(
 	if err != nil {
 		return jobsCapErrToResult(c.log, err, "show")
 	}
-	return mcputil.MarshalResult(c.log, "jobs.show", shownJob(&job, prev))
+	out := shownJob(&job, prev)
+	out.Questions = c.formOf(ctx, ownerID, &job)
+	out.Reposts = c.repostsOf(ctx, ownerID, job.SeenID)
+	return mcputil.MarshalResult(c.log, "jobs.show", out)
+}
+
+// repostsOf —— the ledger's repost count for the posting (roadmap 1.5.b); 0 when it has no row.
+func (c *jobsFiber) repostsOf(ctx context.Context, ownerID, seenID string) int {
+	if seenID == "" {
+		return 0
+	}
+	row, err := c.jobs.Seen.Get(ctx, ownerID, seenID)
+	if err != nil {
+		c.log.Warn("jobs.show: ledger row not read", "err", err)
+		return 0
+	}
+	return row.Reposts
+}
+
+// formOf —— the posting's form (roadmap 5.4.a). A board that will not say is an empty form, not a
+// failed jobs.show: the posting itself is what was asked for.
+func (c *jobsFiber) formOf(
+	ctx context.Context, ownerID string, job *jobsmodel.FetchedJob,
+) []jobsmodel.FormQuestion {
+	qs, err := jobsuc.FormOf(ctx, c.jobs, ownerID, job)
+	if err != nil {
+		c.log.Warn("jobs.show: form not read", "err", err)
+		return []jobsmodel.FormQuestion{}
+	}
+	return qs
 }
 
 // ───── jobs.discard ─────────────────────────────────────────────
@@ -253,6 +294,9 @@ func jobsCapErrToResult(log *slog.Logger, err error, op string) registry.MCPResu
 	}
 	if errors.Is(err, jobsuc.ErrFetchNotFound) {
 		return registry.MCPError("no such fetch: pass the job_ids jobs.fetch_new returned")
+	}
+	if errors.Is(err, jobsuc.ErrNoSuchBoard) {
+		return registry.MCPError(jobsuc.ErrNoSuchBoard.Error())
 	}
 	log.Error("cap jobs."+op, "err", err)
 	return registry.MCPError("jobs." + op + " failed")

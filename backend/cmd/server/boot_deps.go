@@ -260,7 +260,7 @@ func buildJobsModule(d *deps.Runtime) *pluginjobs.Plugin {
 	}
 	resumeDeps := jobsuc.ResumeDeps{
 		Drafts: d.ResumeDraftRepo, Masters: jobsuc.NewResumeMasterRepo(d.DB), Cache: d.JobCachePool,
-		Seen: seen,
+		Seen: seen, Sources: d.JobSourceRepo, Registry: d.JobFetchRegistry,
 	}
 	appsDeps := jobsuc.ApplicationsDeps{
 		Apps: d.ApplicationRepo, Owners: d.OwnerRepo,
@@ -268,8 +268,9 @@ func buildJobsModule(d *deps.Runtime) *pluginjobs.Plugin {
 		CVCheck: port.SubjectivityPresence(d), Renderer: d.PdfRenderer,
 		// Codes — lets the composer's code picker reuse an existing active code (the access
 		// CodeRepo satisfies the narrow jobsuc.CodeLookup read).
-		Codes:  d.CodeRepo,
-		Events: d.Recorder(),
+		Codes:   d.CodeRepo,
+		Events:  d.Recorder(),
+		Masters: resumeDeps.Masters,
 	}
 	return pluginjobs.New(&pluginjobs.Deps{
 		Jobs:         &jobsDeps,

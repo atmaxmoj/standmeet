@@ -126,7 +126,10 @@
     "freezeAndSend": "geler + envoyer",
     "confirmTitle": "Envoyer ce brouillon à {company} ?",
     "confirmBody": "L'envoi gèlera l'instantané de CV + lettre de motivation, rendra le PDF final (avec QR), et écrira une ligne de candidature. Le CodeAccès auto-émis sera 180 jours, 10 sessions, 50 tours.",
-    "keepEditing": "← continuer la modification"
+    "keepEditing": "← continuer la modification",
+    "findingsHead": "diffère de ton modèle — confirme chaque écart",
+    "findingMaster": "modèle : {value}",
+    "findingDraft": "ce brouillon : {value}"
   },
   "codeModal": {
     "cancel": "annuler",

@@ -19,6 +19,8 @@ type SeenWire struct {
 	Location      string  `json:"location"`
 	URL           string  `json:"url"`
 	Source        string  `json:"source"`
+	// Reposts —— a fact, not a score: how often the company posted this job again (1.5.b).
+	Reposts int `json:"reposts"`
 }
 
 // SeenWireOf —— the row's wire shape; times in UTC.
@@ -28,6 +30,6 @@ func SeenWireOf(r *SeenRow) SeenWire {
 		FirstSeenAt: r.FirstSeenAt.UTC().Format(time.RFC3339Nano),
 		LastSeenAt:  r.LastSeenAt.UTC().Format(time.RFC3339Nano),
 		Status:      r.Status, Title: r.Snapshot.Title, Company: r.Snapshot.Company,
-		Location: r.Snapshot.Location, URL: r.Snapshot.URL, Source: r.Source,
+		Location: r.Snapshot.Location, URL: r.Snapshot.URL, Source: r.Source, Reposts: r.Reposts,
 	}
 }

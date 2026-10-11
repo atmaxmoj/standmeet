@@ -55,11 +55,13 @@ function downgrade(): void {
 test.describe.configure({ mode: 'serial', timeout: 300_000 });
 
 test.beforeAll(async ({ playwright }) => {
+  test.setTimeout(600_000);
   o = await setupLoopOwner(playwright, 'upgradeoutcomes');
   kept = await commitApplication(o, 0);
   withdrawn = await commitApplication(o, 1);
 });
 test.afterAll(async () => {
+  test.setTimeout(300_000);
   restartBackend();
   await o.request.dispose();
 });

@@ -4,24 +4,38 @@
 
 package jobsmcp
 
-import "github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmodel"
+import (
+	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmodel"
+	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc"
+)
 
 // resumeDraftViewT — the text part returned by draft / update_draft. The owner sees
 // this JSON plus an embedded PDF on the Claude side; the AI can use draft.id to call
 // update / commit. resume_content is the draft's content (a draft started from a
 // master carries the master's), so the AI tailors from what is actually there.
 type resumeDraftViewT struct {
-	ID              string                  `json:"draft_id"`
-	JobCacheID      string                  `json:"job_cache_id"`
-	ExpiresAt       string                  `json:"expires_at"`
-	CreatedAt       string                  `json:"created_at"`
-	BasedOnMasterID string                  `json:"based_on_master_id,omitempty"`
-	JobSnapshot     fetchedJobView          `json:"job_snapshot"`
-	ResumeContent   jobsmodel.ResumeContent `json:"resume_content"`
+	ID              string         `json:"draft_id"`
+	JobCacheID      string         `json:"job_cache_id"`
+	ExpiresAt       string         `json:"expires_at"`
+	CreatedAt       string         `json:"created_at"`
+	BasedOnMasterID string         `json:"based_on_master_id,omitempty"`
+	JobSnapshot     fetchedJobView `json:"job_snapshot"`
+	// Check —— the draft against the owner's master (roadmap 5.1): what commit will ask to be
+	// accepted by name.
+	Check jobsmodel.DraftCheck `json:"check"`
+	// Numbers —— figures in the draft the master does not state (roadmap 5.2).
+	Numbers jobsmodel.NumberCheck `json:"numbers"`
+	// Liveness —— is the posting still open on its board (roadmap 4.2.b): open, closed, unknown.
+	Liveness      string                  `json:"liveness"`
+	ResumeContent jobsmodel.ResumeContent `json:"resume_content"`
 }
 
-func resumeDraftView(d *jobsmodel.ResumeDraft) resumeDraftViewT {
+func resumeDraftView(dr *jobsuc.DraftedResume) resumeDraftViewT {
+	d := &dr.Draft
 	return resumeDraftViewT{
+		Check:           dr.Check,
+		Numbers:         dr.Numbers,
+		Liveness:        dr.Liveness,
 		ID:              d.ID,
 		JobCacheID:      d.JobCacheID,
 		JobSnapshot:     fetchedJobToView(&d.JobSnapshot),

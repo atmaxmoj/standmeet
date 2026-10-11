@@ -148,7 +148,9 @@
     "outcomeRejected": "refusée",
     "outcomeHired": "embauché",
     "outcomeWithdrawn": "retirée",
-    "metaOpened": "ouverte {date} · {count, plural, one {# question} other {# questions}}"
+    "metaOpened": "ouverte {date} · {count, plural, one {# question} other {# questions}}",
+    "followupDue": "relance à faire",
+    "followupCold": "froide — sans réponse après deux relances"
   },
   "detail": {
     "kicker": "candidature · {id}",
@@ -157,6 +159,8 @@
     "contact": "contact",
     "pingInChat": "pinger dans le chat ↗",
     "privateNotes": "notes privées",
+    "theirQuestions": "leurs questions",
+    "gap": "absent de tes notes — écris-le",
     "notesReadOnly": "lecture seule pour l'instant — rien n'enregistre les notes pour l'instant, donc cette boîte perdrait tout ce que vous tapiez",
     "needsWriter": "pas disponible pour l'instant — cette instance n'a aucun moyen d'enregistrer un changement de statut ; l'engagement est la seule écriture sur ce chemin",
     "pdfNotKept": "pas disponible ici — le PDF rendu est remis à votre client IA à l'engagement et n'est pas conservé sur la candidature, donc il n'y a rien pour ce panneau à ouvrir",

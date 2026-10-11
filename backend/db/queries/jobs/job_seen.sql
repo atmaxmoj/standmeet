@@ -15,7 +15,14 @@ ORDER BY first_seen_at
 LIMIT 1;
 
 -- name: TouchSeen :exec
-UPDATE job_seen SET last_seen_at = now() WHERE id = $1;
+-- The ledger saw the posting again. Under a new URL more than 7 days after it last saw it, the
+-- company posted it again (roadmap 1.5.b): reposts goes up.
+UPDATE job_seen
+SET reposts = reposts + (url_key <> '' AND sqlc.arg('url_key')::text <> ''
+        AND url_key <> sqlc.arg('url_key')::text
+        AND last_seen_at < now() - interval '7 days')::int,
+    last_seen_at = now()
+WHERE id = sqlc.arg('id');
 
 -- name: GetSeen :one
 SELECT * FROM job_seen WHERE id = $1 AND owner_id = $2;
@@ -57,3 +64,8 @@ DELETE FROM company_marks WHERE owner_id = $1 AND company_key = $2;
 
 -- name: ListCompanyMarks :many
 SELECT company_key FROM company_marks WHERE owner_id = $1 AND mark = 'do_not_apply';
+
+-- name: SeenURLs :many
+-- Every posting link in the owner's ledger: the boards they point at are suggested as direct
+-- sources (roadmap 4.3.d).
+SELECT COALESCE(snapshot->>'url', '')::text AS url FROM job_seen WHERE owner_id = $1;

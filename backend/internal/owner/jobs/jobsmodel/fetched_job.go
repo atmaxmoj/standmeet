@@ -30,12 +30,22 @@ type FetchedJob struct {
 	Location    string    `json:"location"`
 	URL         string    `json:"url"`
 	BodyText    string    `json:"body_text"`
+	// Salary —— the pay range, only when the board itself states one (4.3.e); never guessed.
+	Salary *Salary `json:"salary,omitempty"`
 	// SeenID —— the owner's ledger row for this posting (roadmap 4.1), set when it was pooled.
 	SeenID string   `json:"job_seen_id,omitempty"`
 	Tags   []string `json:"tags"`
 	// Flags —— signals about the posting, derived when it is read (a do_not_apply company mark,
 	// 4.1.e); never stored on it.
 	Flags []string `json:"flags,omitempty"`
+}
+
+// Salary —— a stated pay range. Interval is the board's own word ("1 YEAR", "1 HOUR").
+type Salary struct {
+	Currency string  `json:"currency"`
+	Interval string  `json:"interval,omitempty"`
+	Min      float64 `json:"min"`
+	Max      float64 `json:"max"`
 }
 
 // ErrJobCacheMiss — cache_id lookup in the pool missed (expired / never existed / discarded).

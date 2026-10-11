@@ -22,6 +22,7 @@ import (
 
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
 	jobcache "github.com/atmaxmoj/standmeet/internal/owner/jobs/cache"
+	jobfetch "github.com/atmaxmoj/standmeet/internal/owner/jobs/fetch"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmodel"
 )
 
@@ -32,13 +33,22 @@ type ResumeDeps struct {
 	Cache   *jobcache.Pool
 	// Seen —— a draft can start from a ledger row (8.4.a); company marks gate drafting (4.1.e).
 	Seen *JobSeenRepo
+	// Sources / Registry —— the posting's board says whether it is still open (4.2.b).
+	Sources  *JobSourceRepo
+	Registry *jobfetch.Registry
 }
 
 // DraftedResume — the return value of resume.draft / update_draft. Structured
 // view only; the PDF is rendered live by the admin browser (React
 // `ResumePage`), never by the server.
 type DraftedResume struct {
-	Draft jobsmodel.ResumeDraft
+	// Check —— the draft against the owner's master (roadmap 5.1): reported, never refused here.
+	Check jobsmodel.DraftCheck
+	// Numbers —— figures the master does not state (roadmap 5.2): a warning, never a refusal.
+	Numbers jobsmodel.NumberCheck
+	// Liveness —— open, closed or unknown: the posting as its board answers now (4.2.b).
+	Liveness string
+	Draft    jobsmodel.ResumeDraft
 }
 
 // DraftInput — the input to resume.draft (packed into a struct: content +
@@ -80,7 +90,24 @@ func DraftResume(
 	if err != nil {
 		return DraftedResume{}, fmt.Errorf("create draft: %w", err)
 	}
-	return DraftedResume{Draft: draft}, nil
+	out, err := withCheck(ctx, &deps, &draft)
+	out.Liveness = livenessOf(ctx, &deps, ownerID, &snapshot)
+	return out, err
+}
+
+// livenessOf —— whether the posting's board still serves it (roadmap 4.2.b). A posting from no
+// registered source (recorded by Job Scout, typed by hand) is unknown.
+func livenessOf(
+	ctx context.Context, deps *ResumeDeps, ownerID string, job *jobsmodel.FetchedJob,
+) string {
+	if deps.Sources == nil || job.SourceID == "" {
+		return jobsmodel.LivenessUnknown
+	}
+	src, err := deps.Sources.GetByID(ctx, ownerID, job.SourceID)
+	if err != nil {
+		return jobsmodel.LivenessUnknown
+	}
+	return deps.Registry.Liveness(ctx, src.Kind, src.Config, job.ExternalID)
 }
 
 // ManualDraftInput — the owner starts a draft by hand from the panel, with no
@@ -123,7 +150,7 @@ func CreateManualDraft(
 	if err != nil {
 		return DraftedResume{}, fmt.Errorf("create manual draft: %w", err)
 	}
-	return DraftedResume{Draft: draft}, nil
+	return withCheck(ctx, &deps, &draft)
 }
 
 // manualStart — a hand-made draft's content: blank when asked, else from a master.
@@ -207,7 +234,7 @@ func UpdateResumeDraft(
 	if err != nil {
 		return DraftedResume{}, fmt.Errorf("update draft: %w", err)
 	}
-	return DraftedResume{Draft: draft}, nil
+	return withCheck(ctx, &deps, &draft)
 }
 
 // SaveDraftInput — the admin composer's save payload (bundled to stay under the argument limit).
@@ -236,7 +263,7 @@ func SaveResumeDraft(
 	if err != nil {
 		return DraftedResume{}, fmt.Errorf("save draft: %w", err)
 	}
-	return DraftedResume{Draft: draft}, nil
+	return withCheck(ctx, &deps, &draft)
 }
 
 func requireFields(s1, s2 string, content *jobsmodel.ResumeContent) error {

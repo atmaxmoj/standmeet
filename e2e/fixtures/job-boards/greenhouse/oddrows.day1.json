@@ -1,0 +1,11 @@
+{
+  "jobs": [
+    {"id": 9101, "title": "Site Reliability Engineer", "company_name": "Odd Co",
+     "absolute_url": "https://boards.greenhouse.io/oddrows/jobs/9101",
+     "location": {"name": "Remote"}, "first_published": "1970-01-01T00:00:00Z",
+     "updated_at": "1970-01-01T00:00:00Z", "content": "Keep the lights on.",
+     "departments": [], "offices": []},
+    {"id": 0, "title": "", "company_name": "Odd Co", "absolute_url": "",
+     "location": {"name": ""}, "content": "", "departments": [], "offices": []}
+  ]
+}

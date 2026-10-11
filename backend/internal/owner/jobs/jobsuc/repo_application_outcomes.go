@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 
@@ -61,6 +62,7 @@ func writeOutcome(
 	app := pgstore.UUIDOrNull(c.ApplicationID)
 	if err := q.SetApplicationOutcome(ctx, db.SetApplicationOutcomeParams{
 		ID: app, OwnerID: pgstore.UUIDOrNull(c.OwnerID), Outcome: c.To,
+		NextFollowupAt: optTime(jobsmodel.FollowupAfterOutcome(c.To, time.Now())),
 	}); err != nil {
 		return fmt.Errorf("set outcome: %w", err)
 	}

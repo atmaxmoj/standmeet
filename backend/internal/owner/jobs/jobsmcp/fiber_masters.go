@@ -107,10 +107,10 @@ func (c *resumeFiber) handleMasterGet(
 }
 
 type masterCreateArgs struct {
-	Content   *jobsmodel.ResumeContent `json:"resume_content"`
-	Name      string                   `json:"name"`
-	DraftID   string                   `json:"draft_id"`
-	IsDefault bool                     `json:"is_default"`
+	Content   *strictContent `json:"resume_content"`
+	Name      string         `json:"name"`
+	DraftID   string         `json:"draft_id"`
+	IsDefault bool           `json:"is_default"`
 }
 
 func (c *resumeFiber) handleMasterCreate(
@@ -121,17 +121,17 @@ func (c *resumeFiber) handleMasterCreate(
 		return registry.MCPError("invalid arguments: " + err.Error())
 	}
 	m, err := jobsuc.CreateMaster(ctx, c.resume, &jobsuc.CreateMasterInput{
-		OwnerID: ownerID, Name: a.Name, Content: a.Content, DraftID: a.DraftID,
+		OwnerID: ownerID, Name: a.Name, Content: a.Content.content(), DraftID: a.DraftID,
 		IsDefault: a.IsDefault,
 	})
 	return masterResult(c, "master_create", m, err)
 }
 
 type masterUpdateArgs struct {
-	Name      *string                  `json:"name"`
-	Content   *jobsmodel.ResumeContent `json:"resume_content"`
-	IsDefault *bool                    `json:"is_default"`
-	MasterID  string                   `json:"master_id"`
+	Name      *string        `json:"name"`
+	Content   *strictContent `json:"resume_content"`
+	IsDefault *bool          `json:"is_default"`
+	MasterID  string         `json:"master_id"`
 }
 
 func (c *resumeFiber) handleMasterUpdate(
@@ -142,7 +142,7 @@ func (c *resumeFiber) handleMasterUpdate(
 		return registry.MCPError("invalid arguments: " + err.Error())
 	}
 	m, err := jobsuc.UpdateMaster(ctx, c.resume, &jobsuc.UpdateMasterInput{
-		OwnerID: ownerID, MasterID: a.MasterID, Name: a.Name, Content: a.Content,
+		OwnerID: ownerID, MasterID: a.MasterID, Name: a.Name, Content: a.Content.content(),
 		IsDefault: a.IsDefault,
 	})
 	return masterResult(c, "master_update", m, err)

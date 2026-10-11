@@ -9,7 +9,6 @@ package main
 
 import (
 	"archive/tar"
-	"bytes"
 	"compress/gzip"
 	"encoding/json"
 	"log/slog"
@@ -68,15 +67,20 @@ func (s *server) serveNpmPackage(w http.ResponseWriter, r *http.Request) {
 		s.serveNpmFixtureDoc(w, r, r.PathValue("id"))
 		return
 	}
-	if r.PathValue("id") != npmDemoPkg {
+	pkg := r.PathValue("id")
+	if !isNpmDemo(pkg) {
 		http.Error(w, "no such package", http.StatusNotFound)
 		return
 	}
+	_, integrity := s.npmDemoServed(pkg)
 	doc := map[string]any{
 		"dist-tags": map[string]any{"latest": npmDemoVersion},
 		"versions": map[string]any{
 			npmDemoVersion: map[string]any{
-				"dist": map[string]any{"tarball": "http://" + r.Host + "/npm/tarball/" + npmDemoPkg},
+				"dist": map[string]any{
+					"tarball":   "http://" + r.Host + "/npm/tarball/" + pkg,
+					"integrity": integrity,
+				},
 			},
 		},
 	}
@@ -91,19 +95,13 @@ func (s *server) serveNpmTarball(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	if r.PathValue("id") != npmDemoPkg {
+	if !isNpmDemo(r.PathValue("id")) {
 		http.Error(w, "no such tarball", http.StatusNotFound)
 		return
 	}
-	var buf bytes.Buffer
-	gz := gzip.NewWriter(&buf)
-	tw := tar.NewWriter(gz)
-	writeTarFile(s.log, tw, "package/package.json", npmDemoPkgJSON)
-	writeTarFile(s.log, tw, "package/standmeet.block.yaml", npmDemoManifest)
-	writeTarFile(s.log, tw, "package/cordis.patch.yml", "name: dshmarketdemo\n")
-	closeTar(s.log, tw, gz)
+	tarball, _ := s.npmDemoServed(r.PathValue("id"))
 	w.Header().Set("Content-Type", "application/gzip")
-	if _, err := w.Write(buf.Bytes()); err != nil {
+	if _, err := w.Write(tarball); err != nil {
 		s.log.Error("write npm tarball", "err", err)
 	}
 }

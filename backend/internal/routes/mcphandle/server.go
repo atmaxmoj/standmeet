@@ -74,7 +74,10 @@ func ServerInstructions(version string) string {
 		"- writings.* manage long-form published pieces; page.* manage the public page (pins, " +
 		"handle, URL).\n" +
 		"- microsite.* build hosted React pages. Before authoring one, call microsite.guide " +
-		"— the design system, the SDK widgets, and how to show corpus inline.\n\n" +
+		"— the design system, the SDK widgets, and how to show corpus inline.\n" +
+		"- jobs.*, resume.* and applications.* run the job search. Before reading a posting, " +
+		"tailoring a résumé, filling a form or preparing an interview, call workflow.guide " +
+		"and read that workflow.\n\n" +
 		"Version. This instance runs " + version + ". At the start of a session, call " +
 		"instance.upgrade_check to see whether a newer StandMeet was released and whether this " +
 		"instance can upgrade itself."

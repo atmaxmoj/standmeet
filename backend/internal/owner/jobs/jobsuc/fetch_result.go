@@ -87,6 +87,8 @@ type SourceTally struct {
 	// AlreadySeen —— new to this source, but the owner's ledger holds it from an earlier fetch or
 	// from Job Scout (roadmap 4.1.a): not pooled again.
 	AlreadySeen int `json:"already_seen"`
+	// TooOld —— published longer ago than the fetch's max_age_days (roadmap 4.2.a): not pooled.
+	TooOld int `json:"too_old"`
 	// Available / Read — how many the upstream says exist in total, vs how many we
 	// actually paged through. The two numbers disagreeing means **truncation** —
 	// and truncation looks identical to "that's just how many the upstream has" on `Seen`.

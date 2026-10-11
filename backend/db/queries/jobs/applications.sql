@@ -68,7 +68,12 @@ WHERE id = $1 AND owner_id = $2
 FOR UPDATE;
 
 -- name: SetApplicationOutcome :exec
-UPDATE applications SET outcome = $3 WHERE id = $1 AND owner_id = $2;
+-- The outcome, and the follow-up its cadence sets (roadmap 3.1.b; jobsmodel.FollowupAfterOutcome):
+-- a new outcome starts its nudges over.
+UPDATE applications
+SET outcome = sqlc.arg('outcome'), followup_nudges = 0,
+    next_followup_at = sqlc.narg('next_followup_at')
+WHERE id = sqlc.arg('id') AND owner_id = sqlc.arg('owner_id');
 
 -- name: InsertApplicationOutcome :exec
 INSERT INTO application_outcomes (application_id, from_outcome, to_outcome, note)
@@ -86,3 +91,41 @@ ORDER BY created_at, id;
 UPDATE applications SET engaged_at = now()
 WHERE access_code_id = $1 AND engaged_at IS NULL
 RETURNING id, owner_id;
+
+-- name: InsertApplicationAnswer :exec
+-- One answer a form was filled with (roadmap 5.4.b).
+INSERT INTO application_answers (owner_id, application_id, question_key, question, answer)
+VALUES ($1, $2, $3, $4, $5);
+
+-- name: LatestApplicationAnswers :many
+-- The owner's latest answer per question.
+SELECT DISTINCT ON (question_key) question_key, answer, application_id
+FROM application_answers
+WHERE owner_id = $1
+ORDER BY question_key, created_at DESC;
+
+-- name: ApplicationOwned :one
+SELECT EXISTS (SELECT 1 FROM applications WHERE id = $1 AND owner_id = $2);
+
+-- name: ApplicationExchanges :many
+-- Every question a recruiter asked on the owner's application codes, with the agent's answer and
+-- whether it stood on the corpus (job-loop roadmap 2.1): a citation, a grounded subjectivity note,
+-- or a corpus_read that succeeded. application_id narrows to one application.
+SELECT a.id AS application_id, c.id AS conversation_id, v.body AS question, v.created_at AS asked_at,
+       COALESCE((SELECT m.body FROM messages m
+                 WHERE m.dialog_id = d.id AND m.role = 'assistant'
+                 ORDER BY m.created_at DESC LIMIT 1), '')::text AS answer,
+       EXISTS (SELECT 1 FROM messages m
+               WHERE m.dialog_id = d.id AND m.role = 'assistant'
+                 AND (cardinality(m.cited_wiki_ids) + cardinality(m.cited_output_ids)
+                      + cardinality(m.cited_subjectivity_ids) + cardinality(m.cited_writing_ids)
+                      + cardinality(m.grounded_subjectivity_ids) > 0
+                   OR jsonb_path_exists(COALESCE(m.tool_calls, '[]'::jsonb),
+                        '$[*] ? (@.name == "corpus_read" && @.ok == true)'))) AS grounded
+FROM applications a
+JOIN conversations c ON c.code_id = a.access_code_id
+JOIN dialogs d ON d.conversation_id = c.id
+JOIN messages v ON v.dialog_id = d.id AND v.role = 'visitor'
+WHERE a.owner_id = sqlc.arg('owner_id')
+  AND (sqlc.narg('application_id')::uuid IS NULL OR a.id = sqlc.narg('application_id'))
+ORDER BY v.created_at;

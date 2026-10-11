@@ -25,7 +25,7 @@ import {
 import { draftToJobContext, draftToResumeContent } from '@/lib/admin/draft-model';
 import type { AdminApplicationRow } from '@/lib/admin/use-admin-applications';
 import {
-  useApplicationOutcome, type ApplicationOutcome, type OutcomeRow,
+  questionMeta, useApplicationOutcome, type ApplicationOutcome, type OutcomeRow, type TheirQuestion,
 } from '@/lib/admin/use-application-outcome';
 
 interface Props {
@@ -85,9 +85,38 @@ interface BodyProps {
 function ModalBody(props: BodyProps) {
   return (
     <div className="sm-app-modal-body">
-      <LeftCol app={props.app} notes={props.notes} journal={props.oc.journal} />
+      <div>
+        <LeftCol app={props.app} notes={props.notes} journal={props.oc.journal} />
+        <TheirQuestions questions={props.oc.questions} />
+      </div>
       <RightCol app={props.app} state={props.state} oc={props.oc} />
     </div>
+  );
+}
+
+// TheirQuestions —— what the recruiter asked and whether the corpus could answer it (roadmap
+// 2.1.c). A gap is marked: it is the note to write next.
+function TheirQuestions({ questions }: { questions: readonly TheirQuestion[] }) {
+  const t = useTranslations('adminJobs');
+  return questions.length === 0 ? null : (
+    <section className="mt-5 pt-3.5 border-t border-(--color-rule)">
+      <div className="sm-smallcaps">{t('detail.theirQuestions')}</div>
+      <ul className="mt-1.5 space-y-2">
+        {questions.map((q) => <QuestionRow key={q.conversation_id + q.asked_at} q={q} />)}
+      </ul>
+    </section>
+  );
+}
+
+function QuestionRow({ q }: { q: TheirQuestion }) {
+  const t = useTranslations('adminJobs');
+  const meta = questionMeta(q, t('detail.gap'));
+  return (
+    <li data-testid="application-question-row" data-gap={meta.gap}>
+      <div className="mono text-[11px] text-(--color-ink)">{q.question}</div>
+      <div className="reading text-[13px] text-(--color-muted) line-clamp-3">{q.answer}</div>
+      <div className="mono text-[10px] text-(--color-accent)">{meta.note}</div>
+    </li>
   );
 }
 

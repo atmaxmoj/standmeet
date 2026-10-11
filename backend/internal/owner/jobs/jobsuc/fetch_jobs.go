@@ -64,11 +64,21 @@ type FetchOutcome struct {
 	Result  FetchResult
 }
 
-// fetchSourceArgs — one source's job. RunID keys where its outcome is kept.
+// fetchSourceArgs — one source's job. RunID keys where its outcome is kept. MaxAgeDays: postings
+// published longer ago are not pooled (0 = no cutoff; roadmap 4.2.a).
 type fetchSourceArgs struct {
-	OwnerID  string `json:"owner_id"`
-	SourceID string `json:"source_id"`
-	RunID    string `json:"run_id"`
+	OwnerID    string `json:"owner_id"`
+	SourceID   string `json:"source_id"`
+	RunID      string `json:"run_id"`
+	MaxAgeDays int    `json:"max_age_days,omitempty"`
+}
+
+// FetchRequest —— what jobs.fetch_new asks for: one source (nil = all), the pool window, and the
+// oldest posting worth pooling (0 = any age).
+type FetchRequest struct {
+	SourceID   *string
+	Since      time.Duration
+	MaxAgeDays int
 }
 
 // sourceOutcome — what one source's job leaves for the assembler.
@@ -108,23 +118,24 @@ func FetchKinds(deps *JobsDeps) []jobs.Kind {
 // FetchNewJobs — the core call. sourceID==nil → every source the owner has; set → that one.
 // Enqueues one job per source, then waits up to deps.Wait: done → Result, else → Receipt.
 func FetchNewJobs(
-	ctx context.Context, deps JobsDeps, ownerID string, sourceID *string, since time.Duration,
+	ctx context.Context, deps JobsDeps, ownerID string, req FetchRequest,
 ) (FetchOutcome, error) {
 	if ownerID == "" {
 		return FetchOutcome{}, apierr.ErrEmptyField
 	}
-	sources, err := selectSourcesToFetch(ctx, deps, ownerID, sourceID)
+	sources, err := selectSourcesToFetch(ctx, deps, ownerID, req.SourceID)
 	if err != nil {
 		return FetchOutcome{}, err
 	}
-	ids, err := enqueueFetch(ctx, &deps, ownerID, sources)
+	args := fetchSourceArgs{OwnerID: ownerID, MaxAgeDays: req.MaxAgeDays}
+	ids, err := enqueueFetch(ctx, &deps, args, sources)
 	if err != nil {
 		return FetchOutcome{}, err
 	}
 	if !awaitFetch(ctx, &deps, ids) {
 		return receipt(ids), nil
 	}
-	return FetchResultOf(ctx, deps, ownerID, ids, since)
+	return FetchResultOf(ctx, deps, ownerID, ids, req.Since)
 }
 
 // FetchResultOf — the answer of the fetch whose jobs are ids: its Result once every job is done,
@@ -152,14 +163,15 @@ func receipt(ids []jobs.JobID) FetchOutcome {
 
 // enqueueFetch — one job per source, in one transaction: all of them exist, or none.
 func enqueueFetch(
-	ctx context.Context, deps *JobsDeps, ownerID string, sources []jobsmodel.JobSource,
+	ctx context.Context, deps *JobsDeps, base fetchSourceArgs, sources []jobsmodel.JobSource,
 ) ([]jobs.JobID, error) {
-	run := uuid.NewString()
+	base.RunID = uuid.NewString()
 	ids := make([]jobs.JobID, 0, len(sources))
 	err := pgstore.InTx(ctx, deps.Pool, func(tx pgstore.Tx) error {
 		q := deps.Queue().With(tx)
 		for i := range sources {
-			a := fetchSourceArgs{OwnerID: ownerID, SourceID: sources[i].ID, RunID: run}
+			a := base
+			a.SourceID = sources[i].ID
 			id, err := q.Enqueue(ctx, FetchSourceKind, a, jobs.EnqueueOpts{})
 			if err != nil {
 				return fmt.Errorf("enqueue fetch of source %s: %w", sources[i].ID, err)

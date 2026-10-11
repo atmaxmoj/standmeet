@@ -62,7 +62,7 @@ var markSchema = json.RawMessage(`{
 	"required":["company","mark"]
 }`)
 
-// LedgerOps —— jobs.record, jobs.annotate, jobs.history, jobs.mark_company.
+// LedgerOps —— jobs.record, jobs.annotate, jobs.history, jobs.mark_company, jobs.suggest_sources.
 func LedgerOps(d *jobsuc.JobsDeps, log *slog.Logger) []fp.Op {
 	op := func(
 		id string, danger fp.Danger, schema json.RawMessage, desc string, inv fp.Invoke,
@@ -90,6 +90,40 @@ func LedgerOps(d *jobsuc.JobsDeps, log *slog.Logger) []fp.Op {
 		op("jobs.mark_company", fp.DangerWrite, markSchema, "Mark a company the owner will not "+
 			"apply to (do_not_apply), or clear the mark (none). Its postings then carry the flag "+
 			"do_not_apply, and resume.draft for one needs override: true.", markInvoke(d, log)),
+		op("jobs.suggest_sources", fp.DangerRead, json.RawMessage(`{"type":"object"}`),
+			"Company boards (greenhouse, lever, ashby) that postings in the ledger link to and "+
+				"the owner has not registered, most postings first. Each one is the kind and "+
+				"company jobs.register_source takes.", suggestInvoke(d, log)),
+		op("applications.save_answers", fp.DangerWrite, answersSchema, "Keep the answers an "+
+			"application's form was filled with. jobs.show then offers the latest answer to the "+
+			"same question on the next posting (previous_answer); a question marked confirm "+
+			"still needs the owner's yes each time.", answersInvoke(d, log)),
+	}
+}
+
+var answersSchema = json.RawMessage(`{
+	"type":"object",
+	"properties":{
+		"application_id":{"type":"string"},
+		"answers":{"type":"array","items":{"type":"object","properties":{
+			"question":{"type":"string"},"answer":{"type":"string"}},
+			"required":["question","answer"]}}
+	},
+	"required":["application_id","answers"]
+}`)
+
+func answersInvoke(d *jobsuc.JobsDeps, log *slog.Logger) fp.Invoke {
+	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
+		var args struct {
+			ApplicationID string                 `json:"application_id"`
+			Answers       []jobsmodel.FormAnswer `json:"answers"`
+		}
+		if err := json.Unmarshal(raw, &args); err != nil {
+			return nil, errors.New("invalid arguments: " + err.Error())
+		}
+		err := jobsuc.SaveAnswers(ctx, d, ownerID, args.ApplicationID, args.Answers)
+		saved := map[string]int{"saved": len(args.Answers)}
+		return ledgerResult(log, "applications.save_answers", saved, err)
 	}
 }
 
@@ -158,6 +192,14 @@ func historyInvoke(d *jobsuc.JobsDeps, log *slog.Logger) fp.Invoke {
 	}
 }
 
+func suggestInvoke(d *jobsuc.JobsDeps, log *slog.Logger) fp.Invoke {
+	return func(ctx context.Context, ownerID string, _ json.RawMessage) (json.RawMessage, error) {
+		out, err := jobsuc.SuggestSources(ctx, d, ownerID)
+		return ledgerResult(log, "jobs.suggest_sources",
+			map[string][]jobsmodel.DirectSource{"suggestions": out}, err)
+	}
+}
+
 func markInvoke(d *jobsuc.JobsDeps, log *slog.Logger) fp.Invoke {
 	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
 		var args jobsuc.CompanyMark
@@ -174,6 +216,7 @@ func markInvoke(d *jobsuc.JobsDeps, log *slog.Logger) fp.Invoke {
 var ledgerErrs = []error{
 	jobsuc.ErrNoPostings, jobsuc.ErrPostingFields, jobsuc.ErrBadDay, jobsuc.ErrBadStatus,
 	jobsuc.ErrBadMark, jobsuc.ErrNothingToAnnotate, jobsmodel.ErrSeenNotFound, paging.ErrBadCursor,
+	jobsmodel.ErrNoAnswers, jobsmodel.ErrApplicationNotFound,
 }
 
 func ledgerResult(log *slog.Logger, op string, v any, err error) (json.RawMessage, error) {

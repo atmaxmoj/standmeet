@@ -165,6 +165,21 @@ export async function mockSetDelay(
   if (!res.ok()) throw new Error(`mock set_delay ${prefix}=${ms} failed: ${res.status()}`);
 }
 
+/** A board taken down after registration: `path` answers 404 until the mock's reset. */
+export async function mockGone(request: APIRequestContext, path: string): Promise<void> {
+  const res = await request.post(`${MOCK_BASE}/__mock/gone?path=${encodeURIComponent(path)}`);
+  if (!res.ok()) throw new Error(`mock gone ${path} failed: ${res.status()}`);
+}
+
+/** A busy board: the Workday page at `offset` answers 429 the next `times` requests. */
+export async function mockThrottle(
+  request: APIRequestContext, path: string, offset: number, times: number,
+): Promise<void> {
+  const q = `path=${encodeURIComponent(path)}&offset=${offset}&times=${times}`;
+  const res = await request.post(`${MOCK_BASE}/__mock/throttle?${q}`);
+  if (!res.ok()) throw new Error(`mock throttle ${path}@${offset} failed: ${res.status()}`);
+}
+
 // Synthetic day-2 external_id sentinels per source kind. Greenhouse uses
 // int64 upstream so synthetic ids are numeric strings (fetcher converts
 // via strconv at toDomain time); others use opaque strings.

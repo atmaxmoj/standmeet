@@ -53,14 +53,23 @@ func registerSource(deps Deps) http.HandlerFunc {
 			Label:   req.Label,
 			Config:  req.Config,
 		}
-		src, err := jobsuc.RegisterJobSource(r.Context(), *deps.Jobs, in)
+		reg, err := jobsuc.RegisterJobSource(r.Context(), *deps.Jobs, in)
 		if err != nil {
-			deps.Log.Error("register job source", logErrKey, err)
-			writeServerErr(deps.Log, w)
+			writeRegisterErr(deps, w, err)
 			return
 		}
-		writeCreatedSource(deps, w, &src)
+		writeCreatedSource(deps, w, &reg.Source)
 	}
+}
+
+// writeRegisterErr —— a wrong slug is the owner's to fix (400 with the sentence); the rest is ours.
+func writeRegisterErr(deps Deps, w http.ResponseWriter, err error) {
+	if errors.Is(err, jobsuc.ErrNoSuchBoard) {
+		writeBadRequest(deps, w, jobsuc.ErrNoSuchBoard.Error())
+		return
+	}
+	deps.Log.Error("register job source", logErrKey, err)
+	writeServerErr(deps.Log, w)
 }
 
 func writeCreatedSource(deps Deps, w http.ResponseWriter, src *jobsmodel.JobSource) {
@@ -136,7 +145,7 @@ func fetchNow(deps Deps) http.HandlerFunc {
 			return
 		}
 		ownerID := authmw.OwnerIDFrom(r.Context())
-		out, err := jobsuc.FetchNewJobs(r.Context(), *deps.Jobs, ownerID, nil, 0)
+		out, err := jobsuc.FetchNewJobs(r.Context(), *deps.Jobs, ownerID, jobsuc.FetchRequest{})
 		writeFetchAnswer(deps, w, &out, err)
 	}
 }

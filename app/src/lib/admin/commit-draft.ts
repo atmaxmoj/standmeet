@@ -28,10 +28,11 @@ export interface CodeChoice {
   codeId: string;
 }
 
-export function commitDraft(id: string, choice: CodeChoice): Promise<Committed> {
+// accept —— the draft findings the owner ticked in the send dialog (roadmap 5.1.d).
+export function commitDraft(id: string, choice: CodeChoice, accept: readonly string[]): Promise<Committed> {
   return adminAPI.post(
     `/drafts/${id}/commit`,
-    { code_mode: choice.mode, code_id: choice.codeId },
+    { code_mode: choice.mode, code_id: choice.codeId, accept },
     CommittedSchema,
   );
 }

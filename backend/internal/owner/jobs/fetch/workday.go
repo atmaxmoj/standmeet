@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -73,18 +74,28 @@ func newWorkdayFetcher(client *http.Client, envBase string) *workdayFetcher {
 func (f *workdayFetcher) Fetch(
 	ctx context.Context, cfgRaw []byte,
 ) ([]jobsmodel.FetchedJob, error) {
+	acc, err := f.FetchAccounted(ctx, cfgRaw)
+	return acc.Jobs, err
+}
+
+// FetchAccounted —— the walk, with its bookkeeping. A board that asks us to slow down mid-walk
+// (429) is asked again a bounded number of times; if it still refuses, the pages already read are
+// kept and the tally says truncated (job-loop roadmap 4.3.a) — one busy page no longer costs the
+// whole board.
+func (f *workdayFetcher) FetchAccounted(ctx context.Context, cfgRaw []byte) (Accounted, error) {
 	cfg, err := parseWorkdayConfig(cfgRaw)
 	if err != nil {
-		return nil, err
+		return Accounted{}, err
 	}
 	u := f.buildURL(&cfg)
 	walk := &workdayWalk{out: make([]jobsmodel.FetchedJob, 0, workdayPageLimit)}
 	for page := range workdayMaxPages {
-		if perr := f.walkPage(ctx, &u, cfg.Tenant, page, walk); perr != nil {
-			return nil, perr
+		perr := f.walkPageRetrying(ctx, &u, cfg.Tenant, page, walk)
+		if perr != nil {
+			return walk.stopped(ctx, u.jobsURL, page, perr)
 		}
 		if walk.done() {
-			return walk.out, nil
+			return Accounted{Jobs: walk.out, Read: len(walk.out), Available: walk.total}, nil
 		}
 	}
 	// Getting here means we hit the page cap before finishing. Return what
@@ -92,7 +103,28 @@ func (f *workdayFetcher) Fetch(
 	// "that's all there is" (no silent caps).
 	slog.WarnContext(ctx, "workday page cap reached; result is partial",
 		"url", u.jobsURL, "pages", workdayMaxPages, "fetched", len(walk.out))
-	return walk.out, nil
+	return Accounted{Jobs: walk.out, Read: len(walk.out), Truncated: true}, nil
+}
+
+// workdayRetries / workdayBackoff —— how often, and how patiently, a busy page is asked again.
+const (
+	workdayRetries = 2
+	workdayBackoff = 300 * time.Millisecond
+)
+
+func (f *workdayFetcher) walkPageRetrying(
+	ctx context.Context, u *workdayURL, tenant string, page int, walk *workdayWalk,
+) error {
+	err := f.walkPage(ctx, u, tenant, page, walk)
+	for attempt := 1; attempt <= workdayRetries && errors.Is(err, ErrUpstreamBusy); attempt++ {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("workday retry: %w", ctx.Err())
+		case <-time.After(time.Duration(attempt) * workdayBackoff):
+		}
+		err = f.walkPage(ctx, u, tenant, page, walk)
+	}
+	return err
 }
 
 // workdayWalk — state for one paging walk: what's collected so far, the row
@@ -101,6 +133,19 @@ type workdayWalk struct {
 	out   []jobsmodel.FetchedJob
 	got   int
 	total int
+}
+
+// stopped —— a page failed. A board still busy after the retries keeps the pages already read
+// (truncated); any other failure, or a busy first page, fails the source.
+func (w *workdayWalk) stopped(
+	ctx context.Context, url string, page int, err error,
+) (Accounted, error) {
+	if !errors.Is(err, ErrUpstreamBusy) || page == 0 {
+		return Accounted{}, err
+	}
+	slog.WarnContext(ctx, "workday kept asking us to slow down; result is partial",
+		"url", url, "page", page, "fetched", len(w.out))
+	return Accounted{Jobs: w.out, Read: len(w.out), Truncated: true}, nil
 }
 
 // done — have we reached the end. **A short page is the only reliable

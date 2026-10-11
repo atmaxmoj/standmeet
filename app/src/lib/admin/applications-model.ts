@@ -56,6 +56,16 @@ export function outcomeLabelKey(wire: string): string {
   return OUTCOME_LABEL_KEY[wire] ?? 'applications.outcomeNone';
 }
 
+// followupLabelKey —— the adminJobs sub-key for a row's follow-up state; '' = nothing to show.
+export function followupLabelKey(state: string): string {
+  return FOLLOWUP_LABEL_KEY[state] ?? '';
+}
+
+const FOLLOWUP_LABEL_KEY: Record<string, string> = {
+  due: 'applications.followupDue',
+  cold: 'applications.followupCold',
+};
+
 // openedStamp —— "YYYY-MM-DD HH:MM" of the first open, or '' when nobody has opened it (1.1.c).
 export function openedStamp(iso: string | null): string {
   return iso === null ? '' : iso.slice(0, 16).replace('T', ' ');

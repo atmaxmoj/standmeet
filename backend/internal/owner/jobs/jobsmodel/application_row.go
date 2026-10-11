@@ -10,14 +10,16 @@ import "time"
 type ApplicationRow struct {
 	// SubmittedAt —— the zero time while the application was never sent (the panel's schema reads
 	// a string; the zero time is its "not yet").
-	SubmittedAt   time.Time     `json:"submitted_at"`
-	CreatedAt     time.Time     `json:"created_at"`
-	OpenedAt      *time.Time    `json:"opened_at"`
-	ID            string        `json:"id"`
-	Company       string        `json:"company"`
-	Role          string        `json:"role"`
-	Status        string        `json:"status"`
-	Outcome       string        `json:"outcome"`
+	SubmittedAt time.Time  `json:"submitted_at"`
+	CreatedAt   time.Time  `json:"created_at"`
+	OpenedAt    *time.Time `json:"opened_at"`
+	ID          string     `json:"id"`
+	Company     string     `json:"company"`
+	Role        string     `json:"role"`
+	Status      string     `json:"status"`
+	Outcome     string     `json:"outcome"`
+	// Followup —— due, cold or "" (roadmap 3.1.c).
+	Followup      string        `json:"followup"`
 	ResumeContent ResumeContent `json:"resume_content"`
 	Questions     int           `json:"questions"`
 }
@@ -28,6 +30,7 @@ func RowOf(a *Application) ApplicationRow {
 		ID: a.ID, Company: a.JobSnapshot.Company, Role: a.JobSnapshot.Title,
 		Status: a.Status, Outcome: a.Outcome, CreatedAt: a.CreatedAt,
 		OpenedAt: a.OpenedAt, Questions: a.Questions, ResumeContent: a.ResumeContent,
+		Followup: FollowupState(a, time.Now()),
 	}
 	if a.SubmittedAt != nil {
 		row.SubmittedAt = *a.SubmittedAt

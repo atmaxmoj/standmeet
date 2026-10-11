@@ -1,0 +1,9 @@
+{
+  "jobs": [
+    {"id": 9201, "title": "Backend Engineer", "company_name": "Vanishing Co",
+     "absolute_url": "https://boards.greenhouse.io/vanishing/jobs/9201",
+     "location": {"name": "Remote"}, "first_published": "2026-09-01T00:00:00Z",
+     "updated_at": "2026-09-01T00:00:00Z", "content": "Build services.",
+     "departments": [], "offices": []}
+  ]
+}

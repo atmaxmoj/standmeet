@@ -21,3 +21,30 @@ e4-discard-unledgered	backend/internal/owner/jobs/jobsuc/jobs.go	s/discarded := 
 e4-score-in-briefing	backend/internal/owner/jobs/jobsuc/resume.go	s/\tsnap\.Flags = nil\n/\tif row, e := deps.Seen.Get(ctx, ownerID, snap.SeenID); e == nil {\n\t\tsnap.Title += " " + row.Annotations.Reason\n\t}\n\tsnap.Flags = nil\n/	make clean && make test-only SPEC=jobs-annotate
 e4-mark-ignored	backend/internal/owner/jobs/jobsuc/resume.go	s/if !in\.Override && slices\.Contains/if false \&\& slices.Contains/	make clean && make test-only SPEC=company-marks
 e8-tool-list-ignored	backend/internal/routes/mcphandle/scopes.go	s/return len\(l\.tools\) == 0 \|\| slices\.Contains\(l\.tools, tool\)/return len(l.tools) >= 0 || slices.Contains(l.tools, tool)/	make clean && make test-only SPEC=owner-key-tool-allowlist
+#
+# E5 —— the server checks what the AI wrote into a draft.
+e5-commit-skips-check	backend/internal/owner/jobs/jobsuc/draft_check.go	s/\tif deps\.Masters == nil \{\n\t\treturn nil\n\t\}/\tif deps.Masters != nil {\n\t\treturn nil\n\t}/	make clean && make test-only SPEC=draft-check-vs-master
+e5-immigration-blind	backend/internal/owner/jobs/jobsmodel/draft_check.go	s/if immigrationTerms\.MatchString\(f\.text\) \{/if false && immigrationTerms.MatchString(f.text) {/	make clean && make test-only SPEC=draft-check-vs-master
+e5-numbers-unread	backend/internal/owner/jobs/jobsmodel/number_check.go	s/if !known\[c\] \{/if false && !known[c] {/	make clean && make test-only SPEC=draft-check-numbers
+#
+# E5 —— 5.3.b: the PDF reads in order.
+e5-skills-first	app/src/components/admin/resume-page/ResumePage.tsx	s/<MainColumn works=\{content\.works\} \/>/<SkillsRail items={flattenSkills(content.skills)} \/>\n        <MainColumn works={content.works} \/>/	make clean && make test-only SPEC=resume-strict-fields
+#
+# E2 —— engagement.
+e2-grounded-citations-only	backend/internal/owner/jobs/jobsuc/db/applications.sql.go	s/\+ cardinality\(m\.grounded_subjectivity_ids\) > 0\n\s+OR jsonb_path_exists\(COALESCE\(m\.tool_calls, \x27\[\]\x27::jsonb\),\n\s+\x27\$\[\*\] \? \(@\.name == "corpus_read" && @\.ok == true\)\x27\)\)\)/> 0))/	make clean && make test-only SPEC=application-engagement
+#
+# E3 —— follow-ups and funnel.
+e3-followup-outside-tx	backend/internal/owner/jobs/jobsuc/followups.go	s/return rec\.With\(tx\)\.Record\(ctx, pgstore\.FormatUUID\(row\.OwnerID\),/_ = tx\n\t\treturn rec.Record(ctx, pgstore.FormatUUID(row.OwnerID),/	make clean && make test-only SPEC=application-followups
+e3-funnel-no-floor	backend/internal/owner/jobs/jobsmodel/funnel.go	s/if len\(xs\) < FunnelFloor \{/if len(xs) < 1 {/	make clean && make test-only SPEC=application-funnel
+#
+# E4 —— 4.2 freshness, 4.3 sources, 1.5.b reposts.
+e4-unknown-as-closed	backend/internal/owner/jobs/fetch/form_questions.go	s/if !ok \{\n\t\treturn jobsmodel\.LivenessUnknown/if !ok {\n\t\treturn jobsmodel.LivenessClosed/	make clean && make test-only SPEC=job-freshness
+e4-probe-registers-typo	backend/internal/owner/jobs/jobsuc/jobs.go	s/if errors\.Is\(err, jobfetch\.ErrUpstreamNoBoard\) \{/if false \&\& errors.Is(err, jobfetch.ErrUpstreamNoBoard) {/	make clean && make test-only SPEC=job-source-adapters
+e4-empty-board-is-zero	backend/internal/owner/jobs/fetch/greenhouse.go	s/if payload\.Jobs == nil \{/if false \&\& payload.Jobs == nil {/	make clean && make test-only SPEC=job-source-adapters
+e4-reposts-never-counted	backend/internal/owner/jobs/jobsuc/db/job_seen.sql.go	s/AND last_seen_at < now\(\) - interval \x277 days\x27\)::int/AND false)::int/	make clean && make test-only SPEC=job-reposts
+e4-suggest-registered	backend/internal/owner/jobs/jobsmodel/direct_source.go	s/ok && !registered\[s\.Kind\+"\/"\+s\.Company\]/ok/	make clean && make test-only SPEC=job-direct-sources
+#
+# E7 —— 7.2 block integrity, 7.5 export.
+e7-integrity-unchecked	backend/internal/marketplace/usecase/blockmarket.go	s/if dist\.Integrity != "" && dist\.Integrity != got \{/if false \&\& dist.Integrity != got {/	make clean && make test-only SPEC=block-integrity
+e7-change-unasked	backend/cmd/server/blockwire/npm_install.go	s/if in\.AcceptChange \|\| approved == ""/if true || approved == ""/	make clean && make test-only SPEC=block-integrity
+e7-export-no-questions	backend/internal/owner/jobs/jobsmodel/export.go	s/for _, q := range qs \{/for _, q := range qs[:0] {/	make clean && make test-only SPEC=application-export

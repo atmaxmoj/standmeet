@@ -33,6 +33,7 @@ test.describe.configure({ mode: 'serial', timeout: 300_000 });
 let key = '';
 
 test.beforeAll(async ({ playwright }) => {
+  test.setTimeout(600_000);
   await claimFreshOwner(playwright, OWNER);
 });
 test.afterAll(() => { restartBackend(); });

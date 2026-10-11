@@ -148,7 +148,9 @@
     "outcomeRejected": "不採用",
     "outcomeHired": "採用",
     "outcomeWithdrawn": "取り下げ",
-    "metaOpened": "{date} に開封 · 質問 {count} 件"
+    "metaOpened": "{date} に開封 · 質問 {count} 件",
+    "followupDue": "フォローアップ時期",
+    "followupCold": "冷えた — 2回催促しても返事なし"
   },
   "detail": {
     "kicker": "application · {id}",
@@ -157,6 +159,8 @@
     "contact": "contact",
     "pingInChat": "ping in chat ↗",
     "privateNotes": "private notes",
+    "theirQuestions": "相手の質問",
+    "gap": "ノートにない — 書いておく",
     "notesReadOnly": "read-only for now — nothing stores notes yet, so this box would lose whatever you typed",
     "needsWriter": "not available yet — this instance has no way to record a status change; commit is the only write on this path",
     "pdfNotKept": "not available here — the rendered PDF is handed to your AI client at commit and is not kept on the application, so there is nothing for this panel to open",

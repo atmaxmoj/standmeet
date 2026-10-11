@@ -45,6 +45,8 @@ type SeenRow struct {
 	Status        string
 	Source        string
 	Snapshot      FetchedJob
+	// Reposts —— times the company posted it again under a new URL (roadmap 1.5.b).
+	Reposts int
 }
 
 // Recorded —— what jobs.record says about one posting: its row, and whether it was new.

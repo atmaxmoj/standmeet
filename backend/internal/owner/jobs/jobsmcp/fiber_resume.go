@@ -72,12 +72,12 @@ func (c *resumeFiber) draftBinding() *registry.MCPBinding {
 }
 
 type resumeDraftArgsWire struct {
-	ResumeContent *jobsmodel.ResumeContent `json:"resume_content"`
-	JobCacheID    string                   `json:"job_cache_id"`
-	JobSeenID     string                   `json:"job_seen_id"`
-	Template      string                   `json:"template"`
-	MasterID      string                   `json:"master_id"`
-	Override      bool                     `json:"override"`
+	ResumeContent *strictContent `json:"resume_content"`
+	JobCacheID    string         `json:"job_cache_id"`
+	JobSeenID     string         `json:"job_seen_id"`
+	Template      string         `json:"template"`
+	MasterID      string         `json:"master_id"`
+	Override      bool           `json:"override"`
 }
 
 func (c *resumeFiber) handleDraft(
@@ -88,13 +88,14 @@ func (c *resumeFiber) handleDraft(
 		return registry.MCPError("invalid arguments: " + err.Error())
 	}
 	drafted, err := jobsuc.DraftResume(ctx, *c.resume, ownerID, &jobsuc.DraftInput{
-		Content: args.ResumeContent, JobCacheID: args.JobCacheID, JobSeenID: args.JobSeenID,
-		Template: args.Template, MasterID: args.MasterID, Override: args.Override,
+		Content: args.ResumeContent.content(), JobCacheID: args.JobCacheID,
+		JobSeenID: args.JobSeenID,
+		Template:  args.Template, MasterID: args.MasterID, Override: args.Override,
 	})
 	if err != nil {
 		return resumeCapErrToResult(c.log, err, "draft")
 	}
-	return mcputil.MarshalResult(c.log, "resume.draft", resumeDraftView(&drafted.Draft))
+	return mcputil.MarshalResult(c.log, "resume.draft", resumeDraftView(&drafted))
 }
 
 // ───── resume.update_draft ────────────────────────────────────
@@ -118,8 +119,8 @@ func (c *resumeFiber) updateDraftBinding() *registry.MCPBinding {
 }
 
 type resumeUpdateArgsWire struct {
-	ResumeContent *jobsmodel.ResumeContent `json:"resume_content"`
-	DraftID       string                   `json:"draft_id"`
+	ResumeContent *strictContent `json:"resume_content"`
+	DraftID       string         `json:"draft_id"`
 }
 
 func (c *resumeFiber) handleUpdateDraft(
@@ -136,13 +137,13 @@ func (c *resumeFiber) handleUpdateDraft(
 		return registry.MCPError("resume_content is required")
 	}
 	drafted, err := jobsuc.UpdateResumeDraft(
-		ctx, *c.resume, ownerID, args.DraftID, args.ResumeContent,
+		ctx, *c.resume, ownerID, args.DraftID, args.ResumeContent.content(),
 	)
 	if err != nil {
 		return resumeCapErrToResult(c.log, err, "update_draft")
 	}
 	return mcputil.MarshalResult(c.log, "resume.update_draft",
-		resumeDraftView(&drafted.Draft))
+		resumeDraftView(&drafted))
 }
 
 // ───── resume.discard_draft ───────────────────────────────────

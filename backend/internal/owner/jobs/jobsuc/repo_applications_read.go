@@ -21,8 +21,8 @@ import (
 
 // reachRow —— one application row as a read returns it, with its reach.
 type reachRow struct {
-	app       db.Application
 	openedAt  pgtype.Timestamptz
+	app       db.Application
 	questions int32
 }
 
@@ -57,7 +57,8 @@ func (r *ApplicationRepo) GetByID(
 	return r.getOne(ownerID, id, "application id",
 		func(q *db.Queries, owner, key pgtype.UUID) (reachRow, error) {
 			row, err := q.GetApplication(ctx, db.GetApplicationParams{ID: key, OwnerID: owner})
-			return reachRow{row.Application, row.OpenedAt, row.Questions}, err
+			rr := reachRow{openedAt: row.OpenedAt, app: row.Application, questions: row.Questions}
+			return rr, err
 		})
 }
 
@@ -74,7 +75,8 @@ func (r *ApplicationRepo) GetByAccessCode(
 			row, err := q.GetApplicationByAccessCode(ctx, db.GetApplicationByAccessCodeParams{
 				AccessCodeID: key, OwnerID: owner,
 			})
-			return reachRow{row.Application, row.OpenedAt, row.Questions}, err
+			rr := reachRow{openedAt: row.OpenedAt, app: row.Application, questions: row.Questions}
+			return rr, err
 		})
 }
 
@@ -142,14 +144,17 @@ func toDomainApplication(row *db.Application) (jobsmodel.Application, error) {
 		return jobsmodel.Application{}, fmt.Errorf("unmarshal resume content: %w", err)
 	}
 	out := jobsmodel.Application{
-		ID:            pgstore.FormatUUID(row.ID),
-		OwnerID:       pgstore.FormatUUID(row.OwnerID),
-		AccessCodeID:  pgstore.FormatUUID(row.AccessCodeID),
-		Status:        row.Status,
-		Outcome:       row.Outcome,
-		JobSnapshot:   snapshot,
-		ResumeContent: content,
-		CreatedAt:     row.CreatedAt.Time,
+		ID:           pgstore.FormatUUID(row.ID),
+		OwnerID:      pgstore.FormatUUID(row.OwnerID),
+		AccessCodeID: pgstore.FormatUUID(row.AccessCodeID),
+		Status:       row.Status,
+		Outcome:      row.Outcome,
+		// The follow-up (roadmap 3.1): due when, and how many nudges so far.
+		NextFollowupAt: pgstore.OptTime(row.NextFollowupAt),
+		FollowupNudges: int(row.FollowupNudges),
+		JobSnapshot:    snapshot,
+		ResumeContent:  content,
+		CreatedAt:      row.CreatedAt.Time,
 	}
 	if row.SubmittedAt.Valid {
 		t := row.SubmittedAt.Time

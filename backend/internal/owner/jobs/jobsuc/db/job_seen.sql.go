@@ -14,7 +14,7 @@ import (
 const annotateSeen = `-- name: AnnotateSeen :one
 UPDATE job_seen SET annotations = annotations || $1::jsonb
 WHERE id = $2 AND owner_id = $3
-RETURNING id, owner_id, url_key, composite_key, first_run, source, status, application_id, snapshot, annotations, first_seen_at, last_seen_at
+RETURNING id, owner_id, url_key, composite_key, first_run, source, status, application_id, snapshot, annotations, first_seen_at, last_seen_at, reposts
 `
 
 type AnnotateSeenParams struct {
@@ -40,6 +40,7 @@ func (q *Queries) AnnotateSeen(ctx context.Context, arg AnnotateSeenParams) (Job
 		&i.Annotations,
 		&i.FirstSeenAt,
 		&i.LastSeenAt,
+		&i.Reposts,
 	)
 	return i, err
 }
@@ -59,7 +60,7 @@ func (q *Queries) DeleteCompanyMark(ctx context.Context, arg DeleteCompanyMarkPa
 }
 
 const getSeen = `-- name: GetSeen :one
-SELECT id, owner_id, url_key, composite_key, first_run, source, status, application_id, snapshot, annotations, first_seen_at, last_seen_at FROM job_seen WHERE id = $1 AND owner_id = $2
+SELECT id, owner_id, url_key, composite_key, first_run, source, status, application_id, snapshot, annotations, first_seen_at, last_seen_at, reposts FROM job_seen WHERE id = $1 AND owner_id = $2
 `
 
 type GetSeenParams struct {
@@ -83,6 +84,7 @@ func (q *Queries) GetSeen(ctx context.Context, arg GetSeenParams) (JobSeen, erro
 		&i.Annotations,
 		&i.FirstSeenAt,
 		&i.LastSeenAt,
+		&i.Reposts,
 	)
 	return i, err
 }
@@ -91,7 +93,7 @@ const insertSeen = `-- name: InsertSeen :one
 INSERT INTO job_seen (owner_id, url_key, composite_key, first_run, source, snapshot)
 VALUES ($1, $2, $3, $4, $5, $6)
 ON CONFLICT DO NOTHING
-RETURNING id, owner_id, url_key, composite_key, first_run, source, status, application_id, snapshot, annotations, first_seen_at, last_seen_at
+RETURNING id, owner_id, url_key, composite_key, first_run, source, status, application_id, snapshot, annotations, first_seen_at, last_seen_at, reposts
 `
 
 type InsertSeenParams struct {
@@ -127,6 +129,7 @@ func (q *Queries) InsertSeen(ctx context.Context, arg InsertSeenParams) (JobSeen
 		&i.Annotations,
 		&i.FirstSeenAt,
 		&i.LastSeenAt,
+		&i.Reposts,
 	)
 	return i, err
 }
@@ -156,7 +159,7 @@ func (q *Queries) ListCompanyMarks(ctx context.Context, ownerID pgtype.UUID) ([]
 }
 
 const listSeenPage = `-- name: ListSeenPage :many
-SELECT id, owner_id, url_key, composite_key, first_run, source, status, application_id, snapshot, annotations, first_seen_at, last_seen_at FROM job_seen
+SELECT id, owner_id, url_key, composite_key, first_run, source, status, application_id, snapshot, annotations, first_seen_at, last_seen_at, reposts FROM job_seen
 WHERE owner_id = $1
   AND ($2::timestamptz IS NULL OR first_seen_at >= $2)
   AND ($3::timestamptz IS NULL OR first_seen_at < $3)
@@ -209,6 +212,7 @@ func (q *Queries) ListSeenPage(ctx context.Context, arg ListSeenPageParams) ([]J
 			&i.Annotations,
 			&i.FirstSeenAt,
 			&i.LastSeenAt,
+			&i.Reposts,
 		); err != nil {
 			return nil, err
 		}
@@ -221,7 +225,7 @@ func (q *Queries) ListSeenPage(ctx context.Context, arg ListSeenPageParams) ([]J
 }
 
 const seenByKeys = `-- name: SeenByKeys :one
-SELECT id, owner_id, url_key, composite_key, first_run, source, status, application_id, snapshot, annotations, first_seen_at, last_seen_at FROM job_seen
+SELECT id, owner_id, url_key, composite_key, first_run, source, status, application_id, snapshot, annotations, first_seen_at, last_seen_at, reposts FROM job_seen
 WHERE owner_id = $1
   AND ((url_key <> '' AND url_key = $2::text)
     OR (composite_key <> '' AND composite_key = $3::text))
@@ -252,8 +256,35 @@ func (q *Queries) SeenByKeys(ctx context.Context, arg SeenByKeysParams) (JobSeen
 		&i.Annotations,
 		&i.FirstSeenAt,
 		&i.LastSeenAt,
+		&i.Reposts,
 	)
 	return i, err
+}
+
+const seenURLs = `-- name: SeenURLs :many
+SELECT COALESCE(snapshot->>'url', '')::text AS url FROM job_seen WHERE owner_id = $1
+`
+
+// Every posting link in the owner's ledger: the boards they point at are suggested as direct
+// sources (roadmap 4.3.d).
+func (q *Queries) SeenURLs(ctx context.Context, ownerID pgtype.UUID) ([]string, error) {
+	rows, err := q.db.Query(ctx, seenURLs, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var url string
+		if err := rows.Scan(&url); err != nil {
+			return nil, err
+		}
+		items = append(items, url)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const setSeenStatus = `-- name: SetSeenStatus :exec
@@ -286,11 +317,23 @@ func (q *Queries) SetSeenStatus(ctx context.Context, arg SetSeenStatusParams) er
 }
 
 const touchSeen = `-- name: TouchSeen :exec
-UPDATE job_seen SET last_seen_at = now() WHERE id = $1
+UPDATE job_seen
+SET reposts = reposts + (url_key <> '' AND $1::text <> ''
+        AND url_key <> $1::text
+        AND last_seen_at < now() - interval '7 days')::int,
+    last_seen_at = now()
+WHERE id = $2
 `
 
-func (q *Queries) TouchSeen(ctx context.Context, id pgtype.UUID) error {
-	_, err := q.db.Exec(ctx, touchSeen, id)
+type TouchSeenParams struct {
+	UrlKey string
+	ID     pgtype.UUID
+}
+
+// The ledger saw the posting again. Under a new URL more than 7 days after it last saw it, the
+// company posted it again (roadmap 1.5.b): reposts goes up.
+func (q *Queries) TouchSeen(ctx context.Context, arg TouchSeenParams) error {
+	_, err := q.db.Exec(ctx, touchSeen, arg.UrlKey, arg.ID)
 	return err
 }
 

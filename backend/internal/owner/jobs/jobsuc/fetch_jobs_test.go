@@ -139,7 +139,7 @@ func TestFetchNew_inTime(t *testing.T) {
 	t.Parallel()
 	r := newFetchRig(t, func(w http.ResponseWriter, _ *http.Request) { serveBoard(w) }, settleBound)
 	r.source(t)
-	out, err := jobsuc.FetchNewJobs(context.Background(), r.deps, r.owner, nil, 0)
+	out, err := jobsuc.FetchNewJobs(context.Background(), r.deps, r.owner, jobsuc.FetchRequest{})
 	if err != nil || out.Receipt != nil {
 		t.Fatalf("a fast board must answer in full, got receipt %+v (%v)", out.Receipt, err)
 	}
@@ -179,7 +179,7 @@ func TestFetchResult_ownerOnly(t *testing.T) {
 	t.Parallel()
 	r := newFetchRig(t, func(w http.ResponseWriter, _ *http.Request) { serveBoard(w) }, settleBound)
 	r.source(t)
-	out, err := jobsuc.FetchNewJobs(context.Background(), r.deps, r.owner, nil, 0)
+	out, err := jobsuc.FetchNewJobs(context.Background(), r.deps, r.owner, jobsuc.FetchRequest{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -197,7 +197,7 @@ func TestFetchResult_ownerOnly(t *testing.T) {
 // receiptOfFetch —— fetch_new, which must answer with a pending receipt of one job.
 func (r *fetchRig) receiptOfFetch(t *testing.T) []jobs.JobID {
 	t.Helper()
-	out, err := jobsuc.FetchNewJobs(context.Background(), r.deps, r.owner, nil, 0)
+	out, err := jobsuc.FetchNewJobs(context.Background(), r.deps, r.owner, jobsuc.FetchRequest{})
 	if err != nil || out.Receipt == nil || len(out.Receipt.JobIDs) != 1 {
 		t.Fatalf("a slow board must answer with a receipt of 1 job, got %+v (%v)",
 			out.Receipt, err)

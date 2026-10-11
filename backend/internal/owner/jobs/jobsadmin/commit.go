@@ -33,6 +33,21 @@ import (
 type commitReq struct {
 	CodeMode string `json:"code_mode"`
 	CodeID   string `json:"code_id"`
+	// Accept —— the draft findings the owner ticked in the send dialog (roadmap 5.1.d).
+	Accept []string `json:"accept"`
+}
+
+// draftCheck —— GET /drafts/{id}/check: what the send dialog asks the owner to confirm.
+func draftCheck(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ownerID := authmw.OwnerIDFrom(r.Context())
+		check, err := jobsuc.CommitCheck(r.Context(), deps.Commit, ownerID, chi.URLParam(r, "id"))
+		if err != nil {
+			handleDraftDetailErr(deps.Log, w, err)
+			return
+		}
+		writeJSON(deps.Log, w, http.StatusOK, check)
+	}
 }
 
 func commitDraft(deps Deps) http.HandlerFunc {
@@ -49,7 +64,9 @@ func commitDraft(deps Deps) http.HandlerFunc {
 		}
 		committed, err := jobsuc.CommitApplication(
 			r.Context(), deps.Commit, ownerID, chi.URLParam(r, "id"),
-			jobsuc.CommitOptions{Mode: req.CodeMode, ExistingCodeID: req.CodeID},
+			jobsuc.CommitOptions{
+				Mode: req.CodeMode, ExistingCodeID: req.CodeID, Accept: req.Accept,
+			},
 		)
 		if err != nil {
 			handleCommitErr(deps.Log, w, err)
@@ -66,6 +83,12 @@ func handleCommitErr(log *slog.Logger, w http.ResponseWriter, err error) {
 		writeJSONErr(log, w, apierr.Envelope{
 			Status: http.StatusBadRequest, Code: "bad_code",
 			Message: "that code can't be used — pick an active one or issue a new one",
+		})
+		return
+	}
+	if errors.Is(err, jobsuc.ErrDraftFindings) {
+		writeJSONErr(log, w, apierr.Envelope{
+			Status: http.StatusBadRequest, Code: "draft_findings", Message: err.Error(),
 		})
 		return
 	}

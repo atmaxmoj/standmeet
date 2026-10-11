@@ -182,7 +182,9 @@ services:
 
   # gotenberg —— renders résumé PDFs. Its default deny-list blocks the docker network.
   gotenberg:
-    image: gotenberg/gotenberg:8
+    # 8.33.0+ stops its pinning proxy when Chromium fails to start; 8.32.0 leaked it and every
+    # later render failed with "pinning proxy already started" until a restart (E7 finding).
+    image: gotenberg/gotenberg:8.37.0
     restart: unless-stopped
     command:
       - gotenberg

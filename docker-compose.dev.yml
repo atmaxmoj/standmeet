@@ -542,7 +542,9 @@ services:
   # We don't expose it to the host — it's an internal service the backend
   # alone consumes. v8 is the LTS line at 2026-05; chromium bundled.
   gotenberg:
-    image: gotenberg/gotenberg:8
+    # 8.33.0+ stops its pinning proxy when Chromium fails to start; 8.32.0 leaked it and every
+    # later render failed with "pinning proxy already started" until a restart (E7 finding).
+    image: gotenberg/gotenberg:8.37.0
     restart: unless-stopped
     # Gotenberg 8 ships with a default deny-list that blocks private /
     # docker-compose IPs (172.x, 10.x, etc), which would 403 us on every

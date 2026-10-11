@@ -14,9 +14,8 @@
 // microsite.build.settled (events-build-settled.spec), booking.* (booking-owner-notify.spec),
 // jobs.fetched (jobs specs).
 //
-// Job-loop roadmap row 1.2.d: application.followup_due joins this list with its trigger (E3, 3.1.a):
-// it winds next_followup_at back with SQL and runs the `application followups` task by name. A type
-// is declared only once something records it.
+// Job-loop roadmap rows 1.2.d / 3.1.a: application.followup_due winds next_followup_at back with SQL
+// and runs the `application followups` task by name.
 
 import type { APIRequestContext } from '@playwright/test';
 
@@ -113,6 +112,12 @@ async function commitApplication(): Promise<void> {
   S.appCode = c.view.access_code;
 }
 
+// followupDue —— roadmap 3.1.a: the application's next follow-up is due (its clock wound back, as
+// no endpoint should move it) and the daily follow-up task runs.
+async function followupDue(): Promise<void> {
+  execSQL(`UPDATE applications SET next_followup_at = now() - interval '1 minute' WHERE id = '${S.appID}'`);
+  await mcp('tasks.run_periodic', { name: 'application followups' });
+}
 
 // engageApplication —— the first conversation on the application's code (roadmap 1.2.b).
 async function engageApplication(): Promise<void> {
@@ -196,6 +201,7 @@ const ROWS: Row[] = [
   { type: 'block.failed', subject: () => `block/${BROKEN_ID}`, act: failBlock },
   { type: 'application.committed', subject: () => 'application/', act: commitApplication, timeout: 180_000 },
   // Due before engaged: a follow-up nudge is only for an application nobody has opened (3.1).
+  { type: 'application.followup_due', subject: () => `application/${S.appID}`, act: followupDue },
   { type: 'application.engaged', subject: () => `application/${S.appID}`, act: engageApplication },
   { type: 'application.outcome_changed', subject: () => `application/${S.appID}`, act: async () => {
     await mcp('applications.update_outcome', { application_id: S.appID, outcome: 'interview' });

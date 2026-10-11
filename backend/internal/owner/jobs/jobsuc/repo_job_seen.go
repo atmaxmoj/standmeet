@@ -106,7 +106,7 @@ func matched(
 	if err != nil {
 		return seenHit{}, fmt.Errorf("ledger lookup: %w", err)
 	}
-	if err = q.TouchSeen(ctx, row.ID); err != nil {
+	if err = q.TouchSeen(ctx, db.TouchSeenParams{ID: row.ID, UrlKey: keys[0]}); err != nil {
 		return seenHit{}, fmt.Errorf("ledger touch: %w", err)
 	}
 	return seenHit{row: row}, nil
@@ -170,6 +170,15 @@ func (r *JobSeenRepo) Get(ctx context.Context, ownerID, id string) (jobsmodel.Se
 	return seenRowOf(&row, notFoundSeen(err))
 }
 
+// URLs —— every posting link in the owner's ledger (roadmap 4.3.d).
+func (r *JobSeenRepo) URLs(ctx context.Context, ownerID string) ([]string, error) {
+	urls, err := db.New(r.pool).SeenURLs(ctx, pgstore.UUIDOrNull(ownerID))
+	if err != nil {
+		return nil, fmt.Errorf("ledger urls: %w", err)
+	}
+	return urls, nil
+}
+
 // Page —— one page of the ledger, newest first.
 func (r *JobSeenRepo) Page(
 	ctx context.Context, ownerID string, f *jobsmodel.SeenFilter, req paging.Request,
@@ -216,6 +225,7 @@ func seenRowOf(row *db.JobSeen, err error) (jobsmodel.SeenRow, error) {
 	out := jobsmodel.SeenRow{
 		ID: pgstore.FormatUUID(row.ID), Status: row.Status, Source: row.Source,
 		FirstSeenAt: row.FirstSeenAt.Time, LastSeenAt: row.LastSeenAt.Time,
+		Reposts: int(row.Reposts),
 	}
 	if row.ApplicationID.Valid {
 		id := pgstore.FormatUUID(row.ApplicationID)

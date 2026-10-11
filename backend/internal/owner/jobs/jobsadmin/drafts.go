@@ -214,7 +214,7 @@ type jsonBody interface {
 		*jobsmodel.ResumeMaster | paging.Page[jobsmodel.ResumeMaster] |
 		map[string][]jobsmodel.TrashedMaster |
 		jobsmodel.ApplicationRow | paging.Page[jobsmodel.ApplicationRow] | applicationDetail |
-		paging.Page[jobsmodel.SeenWire]
+		paging.Page[jobsmodel.SeenWire] | jobsmodel.DraftCheck
 }
 
 // writeJSON — one encoded response body with its status.

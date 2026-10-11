@@ -20,6 +20,9 @@ import (
 type CommitOptions struct {
 	Mode           string
 	ExistingCodeID string
+	// Accept —— the draft findings the owner approved, by key (roadmap 5.1.c). Any other finding
+	// refuses the commit.
+	Accept []string
 }
 
 // ErrCodeNotUsable — the picked existing code isn't this owner's, or isn't active.

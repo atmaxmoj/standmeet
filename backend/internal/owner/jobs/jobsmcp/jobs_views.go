@@ -26,19 +26,20 @@ type jobSourceViewT struct {
 }
 
 type fetchedJobView struct {
-	PublishedAt string   `json:"published_at,omitempty"`
-	CacheID     string   `json:"cache_id"`
-	SourceID    string   `json:"source_id"`
-	SourceKind  string   `json:"source_kind"`
-	ExternalID  string   `json:"external_id"`
-	Title       string   `json:"title"`
-	Company     string   `json:"company"`
-	Location    string   `json:"location"`
-	URL         string   `json:"url"`
-	BodyText    string   `json:"body_text,omitempty"`
-	SeenID      string   `json:"job_seen_id,omitempty"`
-	Tags        []string `json:"tags"`
-	Flags       []string `json:"flags,omitempty"`
+	PublishedAt string            `json:"published_at,omitempty"`
+	CacheID     string            `json:"cache_id"`
+	SourceID    string            `json:"source_id"`
+	SourceKind  string            `json:"source_kind"`
+	ExternalID  string            `json:"external_id"`
+	Title       string            `json:"title"`
+	Company     string            `json:"company"`
+	Location    string            `json:"location"`
+	URL         string            `json:"url"`
+	BodyText    string            `json:"body_text,omitempty"`
+	Salary      *jobsmodel.Salary `json:"salary,omitempty"`
+	SeenID      string            `json:"job_seen_id,omitempty"`
+	Tags        []string          `json:"tags"`
+	Flags       []string          `json:"flags,omitempty"`
 }
 
 func jobSourceView(s *jobsmodel.JobSource) jobSourceViewT {
@@ -73,15 +74,16 @@ func jobSourceView(s *jobsmodel.JobSource) jobSourceViewT {
 // only needs title, company, location, tags — the same fields a human scans a job
 // board for. The picked ones get their full text via a follow-up `jobs.show`.
 type poolRowView struct {
-	PublishedAt string `json:"published_at,omitempty"`
-	CacheID     string `json:"cache_id"`
-	SourceID    string `json:"source_id"`
-	SourceKind  string `json:"source_kind"`
-	ExternalID  string `json:"external_id"`
-	Title       string `json:"title"`
-	Company     string `json:"company"`
-	Location    string `json:"location"`
-	URL         string `json:"url"`
+	PublishedAt string            `json:"published_at,omitempty"`
+	CacheID     string            `json:"cache_id"`
+	SourceID    string            `json:"source_id"`
+	SourceKind  string            `json:"source_kind"`
+	ExternalID  string            `json:"external_id"`
+	Title       string            `json:"title"`
+	Company     string            `json:"company"`
+	Location    string            `json:"location"`
+	URL         string            `json:"url"`
+	Salary      *jobsmodel.Salary `json:"salary,omitempty"`
 	// SeenID —— the posting's ledger row: jobs.annotate, and resume.draft once the pool forgot it.
 	SeenID string   `json:"job_seen_id,omitempty"`
 	Tags   []string `json:"tags"`
@@ -114,6 +116,7 @@ func poolRowToView(r *jobsuc.PoolRow) poolRowView {
 		Company:             r.Job.Company,
 		Location:            r.Job.Location,
 		URL:                 r.Job.URL,
+		Salary:              r.Job.Salary,
 		SeenID:              r.Job.SeenID,
 		Tags:                r.Job.Tags,
 		Flags:               r.Job.Flags,
@@ -137,6 +140,7 @@ func fetchedJobToView(j *jobsmodel.FetchedJob) fetchedJobView {
 		Location:   j.Location,
 		URL:        j.URL,
 		BodyText:   j.BodyText,
+		Salary:     j.Salary,
 		SeenID:     j.SeenID,
 		Tags:       j.Tags,
 		Flags:      j.Flags,
@@ -153,6 +157,10 @@ type shownJobView struct {
 	*fetchedJobView
 
 	PreviousApplications []previousApplicationView `json:"previous_applications"`
+	// Questions —— the posting's application form with previous answers (roadmap 5.4).
+	Questions []jobsmodel.FormQuestion `json:"questions"`
+	// Reposts —— how often the company posted this job again (1.5.b). A fact; it does not score.
+	Reposts int `json:"reposts"`
 }
 
 type previousApplicationView struct {
@@ -169,6 +177,7 @@ func shownJob(j *jobsmodel.FetchedJob, prev []jobsmodel.Application) shownJobVie
 	out := shownJobView{
 		fetchedJobView:       &view,
 		PreviousApplications: make([]previousApplicationView, 0, len(prev)),
+		Questions:            []jobsmodel.FormQuestion{},
 	}
 	for i := range prev {
 		p := previousApplicationView{

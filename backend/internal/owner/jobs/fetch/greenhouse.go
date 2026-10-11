@@ -53,15 +53,28 @@ func (f *greenhouseFetcher) Fetch(
 	if err != nil {
 		return nil, err
 	}
-	var payload greenhouseResp
-	if uerr := json.Unmarshal(body, &payload); uerr != nil {
-		return nil, fmt.Errorf("decode %s: %w: %w", url, ErrUpstreamSchema, uerr)
+	payload, err := decodeGreenhouse(body, url)
+	if err != nil {
+		return nil, err
 	}
 	out := make([]jobsmodel.FetchedJob, 0, len(payload.Jobs))
 	for i := range payload.Jobs {
 		out = append(out, greenhouseToDomain(&payload.Jobs[i]))
 	}
 	return out, nil
+}
+
+// decodeGreenhouse —— an empty board still sends "jobs":[]; a body without the key is not a board,
+// and says so instead of passing for zero jobs (roadmap 4.3.a).
+func decodeGreenhouse(body []byte, url string) (greenhouseResp, error) {
+	var payload greenhouseResp
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return payload, fmt.Errorf("decode %s: %w: %w", url, ErrUpstreamSchema, err)
+	}
+	if payload.Jobs == nil {
+		return payload, fmt.Errorf("decode %s: no jobs key: %w", url, ErrUpstreamSchema)
+	}
+	return payload, nil
 }
 
 // parseGreenhouseConfig unmarshals + validates the per-source config.

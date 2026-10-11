@@ -7,6 +7,7 @@
 package jobsadmin
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -26,6 +27,8 @@ type applicationDetail struct {
 	*jobsmodel.ApplicationRow
 
 	Outcomes []jobsmodel.OutcomeRow `json:"outcomes"`
+	// Questions —— what the recruiter asked, gaps marked (roadmap 2.1.c).
+	Questions []jobsmodel.Exchange `json:"questions"`
 }
 
 func listApplications(deps Deps) http.HandlerFunc {
@@ -54,16 +57,23 @@ func getApplication(deps Deps) http.HandlerFunc {
 			writeAppErr(deps.Log, w, err)
 			return
 		}
-		entries, err := deps.Apps.Outcomes(r.Context(), app.ID)
+		detail, err := detailOf(r.Context(), &deps, ownerID, &app)
 		if err != nil {
 			writeAppErr(deps.Log, w, err)
 			return
 		}
-		row := jobsmodel.RowOf(&app)
-		writeJSON(deps.Log, w, http.StatusOK, applicationDetail{
-			ApplicationRow: &row, Outcomes: jobsmodel.OutcomeRowsOf(entries),
-		})
+		writeJSON(deps.Log, w, http.StatusOK, detail)
 	}
+}
+
+// detailOf —— the row, its outcome journal, and the recruiter's questions.
+func detailOf(
+	ctx context.Context, deps *Deps, ownerID string, app *jobsmodel.Application,
+) (applicationDetail, error) {
+	d, err := jobsuc.DetailOf(ctx, deps.Apps, ownerID, app)
+	return applicationDetail{
+		ApplicationRow: &d.Row, Outcomes: d.Outcomes, Questions: d.Questions,
+	}, err
 }
 
 func setOutcome(deps Deps) http.HandlerFunc {

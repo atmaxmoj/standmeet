@@ -126,7 +126,10 @@
     "freezeAndSend": "freeze + send",
     "confirmTitle": "Send this draft to {company}?",
     "confirmBody": "Sending will freeze the resume + cover letter snapshot, render the final PDF (with QR), and write an application row. The auto-issued AccessCode will be 180 days, 10 sessions, 50 turns.",
-    "keepEditing": "← keep editing"
+    "keepEditing": "← keep editing",
+    "findingsHead": "마스터와 다른 부분 — 하나씩 확인",
+    "findingMaster": "마스터: {value}",
+    "findingDraft": "이 초안: {value}"
   },
   "codeModal": {
     "cancel": "cancel",

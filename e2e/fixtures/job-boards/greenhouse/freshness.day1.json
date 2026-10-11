@@ -1,0 +1,23 @@
+{
+  "jobs": [
+    {"id": 8101, "title": "Platform Engineer", "company_name": "Fresh Co",
+     "absolute_url": "https://boards.greenhouse.io/freshness/jobs/8101",
+     "location": {"name": "Remote"}, "first_published": "__DAYS_AGO_400__",
+     "updated_at": "__DAYS_AGO_400__", "content": "A role from last year's backlog.",
+     "departments": [], "offices": []},
+    {"id": 8102, "title": "Backend Engineer", "company_name": "Fresh Co",
+     "absolute_url": "https://boards.greenhouse.io/freshness/jobs/8102",
+     "location": {"name": "Remote"}, "first_published": "__DAYS_AGO_3__",
+     "updated_at": "__DAYS_AGO_3__", "content": "Build services. Apply via https://bit.ly/3xyzAbc today.",
+     "departments": [], "offices": []},
+    {"id": 8103, "title": "Data Engineer", "company_name": "Fresh Co",
+     "absolute_url": "https://boards.greenhouse.io/freshness/jobs/8103",
+     "location": {"name": "Remote"}, "first_published": "__DAYS_AGO_5__",
+     "updated_at": "__DAYS_AGO_5__", "content": "Own the pipelines. This position is US only.",
+     "departments": [], "offices": []},
+    {"id": 8104, "title": "Ops Engineer", "company_name": "Fresh Co",
+     "absolute_url": "https://boards.greenhouse.io/freshness/jobs/8104",
+     "location": {"name": "Remote"}, "content": "Keep it running.",
+     "departments": [], "offices": []}
+  ]
+}

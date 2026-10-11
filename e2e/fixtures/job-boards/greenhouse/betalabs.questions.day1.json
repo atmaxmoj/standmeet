@@ -1,0 +1,17 @@
+{
+  "id": 4001,
+  "title": "Backend Engineer (Go)",
+  "questions": [
+    {"required": true, "label": "First Name",
+     "fields": [{"name": "first_name", "type": "input_text", "values": []}]},
+    {"required": true, "label": "Resume/CV",
+     "fields": [{"name": "resume", "type": "input_file", "values": []}]},
+    {"required": true, "label": "Why do you want to work at Beta Labs?",
+     "fields": [{"name": "question_9001", "type": "textarea", "values": []}]},
+    {"required": true, "label": "Are you legally authorized to work in the United States?",
+     "fields": [{"name": "question_9002", "type": "multi_value_single_select",
+                 "values": [{"label": "Yes", "value": 1}, {"label": "No", "value": 0}]}]},
+    {"required": false, "label": "What are your salary expectations?",
+     "fields": [{"name": "question_9003", "type": "input_text", "values": []}]}
+  ]
+}

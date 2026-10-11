@@ -113,6 +113,16 @@ export async function initMCP(request: APIRequestContext, bearer: string): Promi
   return init.sessionId;
 }
 
+// serverInstructions —— what the owner's AI client is told at initialize (the MCP `instructions`).
+export async function serverInstructions(request: APIRequestContext, bearer: string): Promise<string> {
+  const init = await mcpCall(request, {
+    jsonrpc: '2.0', id: 1, method: 'initialize',
+    params: { protocolVersion: '2024-11-05', clientInfo: { name: 'e2e', version: '1' } },
+  }, bearer);
+  const result = init.body?.result as { instructions?: string } | undefined;
+  return result?.instructions ?? '';
+}
+
 // MCPToolDef —— one tool's metadata from tools/list (name + optional
 // description/schema). inputSchema is what the MCP client fills its args from —— if
 // a field drops, the client can never send that parameter again.

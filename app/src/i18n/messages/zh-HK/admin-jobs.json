@@ -148,7 +148,9 @@
     "outcomeRejected": "被拒",
     "outcomeHired": "已錄用",
     "outcomeWithdrawn": "已撤回",
-    "metaOpened": "{date} 已打開 · {count} 個問題"
+    "metaOpened": "{date} 已打開 · {count} 個問題",
+    "followupDue": "該跟進了",
+    "followupCold": "冷咗 —— 提醒兩次都冇回音"
   },
   "detail": {
     "kicker": "申請 · {id}",
@@ -157,6 +159,8 @@
     "contact": "聯絡人",
     "pingInChat": "在聊天中提及 ↗",
     "privateNotes": "私密備註",
+    "theirQuestions": "對方的問題",
+    "gap": "筆記裡冇 —— 補一條",
     "notesReadOnly": "暫時唯讀——目前沒有任何東西儲存備註，所以這個框會丟失你輸入的內容",
     "needsWriter": "暫不可用——本實例沒有辦法記錄狀態變更；提交是這條路徑上唯一的寫入",
     "pdfNotKept": "在此不可用——渲染的 PDF 在提交時交給你的 AI 客户端，不會留在申請上，因此此面板沒有可開啓的東西",

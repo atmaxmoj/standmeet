@@ -44,6 +44,7 @@ func (r *JobSeenRepo) FlagMarked(
 		marked[k] = true
 	}
 	for _, j := range jobs {
+		j.Flags = jobsmodel.ContentFlags(j)
 		if marked[dedup.CompanyKey(j.Company)] {
 			j.Flags = append(j.Flags, jobsmodel.FlagDoNotApply)
 		}

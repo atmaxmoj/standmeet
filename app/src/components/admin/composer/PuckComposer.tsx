@@ -22,6 +22,7 @@ import { SaveAsMasterPopover } from '@/components/admin/composer/SaveAsMasterPop
 import { ComposerCodeContext } from '@/lib/admin/composer-code-context';
 import { savePuckDraft, previewURL } from '@/lib/admin/save-draft';
 import { commitDraft } from '@/lib/admin/commit-draft';
+import { useDraftCheck, type DraftCheckHook } from '@/lib/admin/use-draft-check';
 import { useComposerCode, type ComposerCode } from '@/lib/admin/use-composer-code';
 import { hoursLeft } from '@/lib/admin/use-admin-drafts';
 import type { DraftContext } from '@/lib/admin/draft-detail';
@@ -86,7 +87,7 @@ export function PuckComposer({ model, context }: { model: DraftModel; context: D
   const [confirm, setConfirm] = useState(false);
   const [asMaster, setAsMaster] = useState(false);
 
-  const send = (): void => {
+  const send = (accept: readonly string[]): void => {
     setConfirm(false);
     // Default = auto-issue a fresh code (the confirm's promise); reuse an existing one only when the
     // owner picked it. mode 'existing' with an empty code is ErrCodeNotUsable (400).
@@ -94,19 +95,19 @@ export function PuckComposer({ model, context }: { model: DraftModel; context: D
       ? { mode: 'new' as const, codeId: '' }
       : { mode: 'existing' as const, codeId: code.codeId };
     void run(async () => {
-      // Persist the current edit first so the committed PDF matches what's on screen, then freeze.
-      await edits.saveNow();
-      const committed = await commitDraft(model.id, choice);
+      const committed = await commitDraft(model.id, choice, accept);
       router.push('/admin/drafts');
       return committed;
     }, { success: tJobs('drafts.committed') });
   };
+  // Persist the current edit first, so the dialog checks (and the PDF freezes) what's on screen.
+  const openConfirm = (): void => { void edits.saveNow().then(() => setConfirm(true)); };
 
   return (
     <div className="relative flex flex-col h-[calc(100vh-3.5rem)]" data-testid="puck-composer">
       <ComposerBar
         model={model} context={context} dirty={edits.dirty} onBack={edits.back} onSave={edits.save}
-        onSend={() => setConfirm(true)} onAsMaster={() => setAsMaster(true)} previewCode={code.selectedCodePlaintext}
+        onSend={openConfirm} onAsMaster={() => setAsMaster(true)} previewCode={code.selectedCodePlaintext}
       />
       <AsMasterSlot
         open={asMaster} draftId={model.id} context={context} beforeSave={edits.saveNow}
@@ -224,10 +225,42 @@ export function DiscardModal({ onKeep, onDiscard }: { onKeep: () => void; onDisc
   );
 }
 
+// FindingsList —— what this draft changes against the master (roadmap 5.1.d): one confirm box each,
+// master value beside draft value. Nothing to confirm says nothing.
+function FindingsList({ check }: { check: DraftCheckHook }) {
+  const t = useTranslations('adminShell.composer');
+  return check.findings.length === 0 ? null : (
+    <div className="mt-4">
+      <div className="sm-smallcaps">{t('findingsHead')}</div>
+      <ul className="mt-1.5 space-y-1.5">
+        {check.findings.map((f) => (
+          <li key={f.key} data-testid={`composer-finding-${f.key}`}>
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox" checked={check.accepted.has(f.key)} onChange={() => check.toggle(f.key)}
+                className="mt-1"
+              />
+              <span className="text-[13.5px]">
+                <span className="mono text-[11px] text-(--color-muted)">{f.key}</span>
+                <span className="block text-(--color-faint)">{t('findingMaster', { value: f.master })}</span>
+                <span className="block text-(--color-ink)">{t('findingDraft', { value: f.draft })}</span>
+              </span>
+            </label>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function ConfirmSend({
   model, code, onCancel, onSend,
-}: { model: DraftModel; code: CodeView | undefined; onCancel: () => void; onSend: () => void }) {
+}: {
+  model: DraftModel; code: CodeView | undefined; onCancel: () => void;
+  onSend: (accept: readonly string[]) => void;
+}) {
   const t = useTranslations('adminShell.composer');
+  const check = useDraftCheck(model.id);
   return (
     <div className="sm-fadein sm-composer-confirm-overlay" onClick={onCancel}>
       <div className="sm-composer-confirm-card sm-rise" onClick={(e) => e.stopPropagation()}>
@@ -239,9 +272,13 @@ function ConfirmSend({
         <p className="mono text-[11px] text-(--color-muted) mt-3" data-testid="composer-confirm-code">
           {code ? `${code.label} · ${code.code}` : t('codeNone')}
         </p>
+        <FindingsList check={check} />
         <div className="flex items-center justify-end gap-3 mt-5">
           <button type="button" onClick={onCancel} className="sm-btn sm-btn-ghost">{t('keepEditing')}</button>
-          <button type="button" onClick={onSend} className="sm-btn sm-btn-accent" data-testid="composer-confirm-send">
+          <button
+            type="button" onClick={() => onSend([...check.accepted])} disabled={!check.ready}
+            className="sm-btn sm-btn-accent" data-testid="composer-confirm-send"
+          >
             {t('send')}
           </button>
         </div>

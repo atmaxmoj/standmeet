@@ -30,7 +30,7 @@ func runFetchSource(ctx context.Context, deps *JobsDeps, raw json.RawMessage) er
 	if err != nil {
 		return fmt.Errorf("load source: %w", err)
 	}
-	return keepOutcome(ctx, deps, &a, fetchSource(ctx, deps, &src, a.RunID))
+	return keepOutcome(ctx, deps, &a, fetchSource(ctx, deps, &src, &a))
 }
 
 func parseFetchArgs(raw json.RawMessage) (fetchSourceArgs, error) {
@@ -62,9 +62,9 @@ func keepOutcome(
 // fetchSource — fetch, dedup against this source's seen ids, pool; the attempt is recorded on the
 // source row either way.
 func fetchSource(
-	ctx context.Context, deps *JobsDeps, src *jobsmodel.JobSource, runID string,
+	ctx context.Context, deps *JobsDeps, src *jobsmodel.JobSource, a *fetchSourceArgs,
 ) sourceOutcome {
-	run, ferr := fetchOneSourceAndDedup(ctx, *deps, src, runID)
+	run, ferr := fetchOneSourceAndDedup(ctx, *deps, src, a)
 	// Every attempt gets recorded, **success or failure**: /admin/sources shows it (F-E-18).
 	markAttempt(ctx, *deps, src.ID, ferr)
 	if ferr != nil {

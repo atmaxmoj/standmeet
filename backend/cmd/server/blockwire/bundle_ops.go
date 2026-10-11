@@ -21,6 +21,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/pgstore"
 	"github.com/atmaxmoj/standmeet/internal/plugin"
 	"github.com/atmaxmoj/standmeet/internal/plugin/assembly"
+	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
 	"github.com/atmaxmoj/standmeet/internal/routes/dispatcher"
 )
 
@@ -51,7 +52,10 @@ func BlockResource(d *deps.Runtime) dispatcher.Resource {
 			ID: "blocks.marketplace_install", Danger: fp.DangerAuthority,
 			Description: "Install a block from the dsh marketplace by its npm package id " +
 				"(optionally a version). Fetches the package, verifies it is a mountable dsh " +
-				"block, and mounts it through the same loader as any block, with no more trust.",
+				"block, checks its bytes against the registry's published integrity, stores " +
+				"it, and mounts it through the same loader as any block, with no more trust. " +
+				"Reinstalling a package whose contents changed since the owner approved it " +
+				"needs accept_change: true.",
 			InputSchema: marketInstallSchema,
 			Kind:        fp.Action,
 			Reach:       fp.OwnerAction(),
@@ -167,7 +171,9 @@ var (
 		"type":"object",
 		"properties":{
 			"id":{"type":"string","description":"npm package id, e.g. koishi-plugin-base64."},
-			"version":{"type":"string","description":"Package version (optional; default latest)."}
+			"version":{"type":"string","description":"Package version (optional; default latest)."},
+			"accept_change":{"type":"boolean",
+				"description":"Approve new contents; required when they changed since the install."}
 		},
 		"required":["id"]
 	}`)
@@ -275,7 +281,11 @@ type installedOut struct {
 // install path buys nothing.
 type parsedInstall struct {
 	text string
-	m    plugin.Manifest
+	// origin / integrity —— a marketplace package and the digest the owner approved; a pasted
+	// block leaves both empty (origin owner).
+	origin    registry.Origin
+	integrity string
+	m         plugin.Manifest
 }
 
 // parseInstallArgs — decode, require, and parse the manifest, in that order.
@@ -318,7 +328,10 @@ func persistAndMount(
 	if perr := beforePersist(ctx, d, ownerID, p); perr != nil {
 		return perr
 	}
-	rec := assembly.InstalledBlock{BlockID: p.m.ID, Title: p.m.Title, Manifest: p.text}
+	rec := assembly.InstalledBlock{
+		BlockID: p.m.ID, Title: p.m.Title, Manifest: p.text, Origin: string(p.origin),
+		Integrity: p.integrity,
+	}
 	serr := pgstore.InTx(ctx, d.Assembly.Pool(), func(tx pgstore.Tx) error {
 		if err := d.Assembly.With(tx).Install(ctx, ownerID, &rec); err != nil {
 			return err
@@ -335,7 +348,7 @@ func persistAndMount(
 	if cerr := d.Assembly.ClearFailure(ctx, ownerID, p.m.ID); cerr != nil {
 		d.Log.Warn("clear block failure on install", "id", p.m.ID, "err", cerr)
 	}
-	MountInstalledBlock(ctx, d, &p.m)
+	MountInstalledBlockAs(ctx, d, &p.m, originOr(p.origin))
 	return nil
 }
 

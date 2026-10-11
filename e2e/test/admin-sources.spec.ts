@@ -9,7 +9,7 @@ import { createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { claimFreshOwner } from '@/fixtures/seed';
 import { initMCP } from '@/fixtures/mcp';
 import { gotoAdminSection } from '@/fixtures/navigate';
-import { jobsFetchNew, jobsRegisterSource } from '@/fixtures/jobs';
+import { jobsFetchNew, jobsRegisterSource, mockGone } from '@/fixtures/jobs';
 
 const OWNER = {
   email: 'sources@example.com',
@@ -112,10 +112,12 @@ test.describe('admin sources list', () => {
       const token = await createAPIToken(request, csrf, 'sources-404');
       const sid = await initMCP(request, token);
       // The stand-in matches real Greenhouse: no such board returns 404 (verified against
-      // the real board on the spot).
+      // the real board on the spot). Rewritten for 4.3.b: a wrong slug is now refused at
+      // registration, so the board exists when registered and disappears afterwards.
       const src = await jobsRegisterSource(request, token, sid, {
-        kind: 'greenhouse', label: 'Ghost Board', config: { company: 'no-such-company-here' },
+        kind: 'greenhouse', label: 'Ghost Board', config: { company: 'vanishing' },
       });
+      await mockGone(request, '/greenhouse/v1/boards/vanishing/jobs');
       const out = await jobsFetchNew(request, token, sid, src.id);
       expect(
         (out.failed_sources ?? []).map((f) => f.source_id),

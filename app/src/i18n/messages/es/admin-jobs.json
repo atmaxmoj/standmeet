@@ -148,7 +148,9 @@
     "outcomeRejected": "rechazada",
     "outcomeHired": "contratado",
     "outcomeWithdrawn": "retirada",
-    "metaOpened": "abierta {date} · {count, plural, one {# pregunta} other {# preguntas}}"
+    "metaOpened": "abierta {date} · {count, plural, one {# pregunta} other {# preguntas}}",
+    "followupDue": "toca hacer seguimiento",
+    "followupCold": "fría — sin respuesta tras dos recordatorios"
   },
   "detail": {
     "kicker": "solicitud · {id}",
@@ -157,6 +159,8 @@
     "contact": "contacto",
     "pingInChat": "ping en chat ↗",
     "privateNotes": "notas privadas",
+    "theirQuestions": "sus preguntas",
+    "gap": "no está en tus notas — escríbelo",
     "notesReadOnly": "por ahora de solo lectura — nada almacena notas aún, así que esta caja perdería lo que escribiera",
     "needsWriter": "aún no disponible — esta instancia no tiene forma de grabar un cambio de estado; comprometer es la única escritura en este camino",
     "pdfNotKept": "no disponible aquí — el PDF representado se entrega a su cliente de IA en comprometerse y no se mantiene en la solicitud, así que no hay nada para que este panel abra",

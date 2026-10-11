@@ -1106,6 +1106,10 @@ CREATE TABLE applications (
     -- went. engaged_at —— only to make application.engaged fire once (a guarded update).
     outcome        text          NOT NULL DEFAULT 'none',
     engaged_at     timestamptz,
+    -- next_followup_at / followup_nudges —— when a follow-up is next due, and how many the owner was
+    -- reminded of (roadmap 3.1; migrations/2026-10-10-application-followups.sql). NULL = none due.
+    next_followup_at timestamptz DEFAULT now() + interval '7 days',
+    followup_nudges  int         NOT NULL DEFAULT 0,
     CONSTRAINT applications_outcome_check CHECK (outcome IN
         ('none', 'responded', 'interview', 'offer', 'rejected', 'hired', 'withdrawn'))
 );
@@ -1140,11 +1144,30 @@ CREATE TABLE job_seen (
     snapshot       jsonb       NOT NULL,
     annotations    jsonb       NOT NULL DEFAULT '{}',
     first_seen_at  timestamptz NOT NULL DEFAULT now(),
-    last_seen_at   timestamptz NOT NULL DEFAULT now()
+    last_seen_at   timestamptz NOT NULL DEFAULT now(),
+    -- reposts: the same company::title::location under a new URL, seen more than 7 days after the
+    -- ledger last saw it (1.5.b). See migrations/2026-10-11-job-seen-reposts.sql.
+    reposts        integer     NOT NULL DEFAULT 0
 );
 CREATE UNIQUE INDEX job_seen_url_uniq ON job_seen (owner_id, url_key) WHERE url_key <> '';
 CREATE UNIQUE INDEX job_seen_key_uniq ON job_seen (owner_id, composite_key) WHERE composite_key <> '';
 CREATE INDEX job_seen_owner_time_idx ON job_seen (owner_id, first_seen_at DESC, id DESC);
+
+-- application_answers —— the answers an application form was filled with (roadmap 5.4.b); the next
+-- posting asking the same question_key is offered the latest. See
+-- migrations/2026-10-10-application-answers.sql.
+-- events: none (owner's working data)
+CREATE TABLE application_answers (
+    id             uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id       uuid        NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    application_id uuid        NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
+    question_key   text        NOT NULL,
+    question       text        NOT NULL,
+    answer         text        NOT NULL,
+    created_at     timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX application_answers_owner_key_idx
+    ON application_answers (owner_id, question_key, created_at DESC);
 
 -- company_marks —— companies the owner will not apply to (roadmap 4.1.e), on the dedup layer's
 -- normalized name. A posting's flag is read from here, never stored on the posting.
@@ -1530,6 +1553,11 @@ CREATE TABLE installed_blocks (
     manifest    text        NOT NULL,
     created_at  timestamptz NOT NULL DEFAULT now(),
     updated_at  timestamptz NOT NULL DEFAULT now(),
+    -- origin: owner (pasted) or marketplace (from npm). integrity: the npm package's SRI digest
+    -- the owner approved ('' for a pasted block); new contents need the owner's yes again (7.2.a).
+    -- See migrations/2026-10-11-installed-blocks-integrity.sql.
+    origin      text        NOT NULL DEFAULT 'owner',
+    integrity   text        NOT NULL DEFAULT '',
     UNIQUE (owner_id, block_id)
 );
 

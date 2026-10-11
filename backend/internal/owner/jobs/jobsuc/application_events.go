@@ -22,6 +22,8 @@ const (
 	ApplicationEngaged = "application.engaged"
 	// ApplicationOutcomeChanged —— the owner set a new outcome: {application_id, from, to, note}.
 	ApplicationOutcomeChanged = "application.outcome_changed"
+	// ApplicationFollowupDue —— the follow-up task found it due: {application_id, code_id, nudge}.
+	ApplicationFollowupDue = "application.followup_due"
 )
 
 // ApplicationEventTypes —— the application lifecycle's events, beside application.committed.
@@ -37,6 +39,8 @@ func ApplicationEventTypes() []events.Type {
 			"(data.application_id, data.code_id, data.conversation_id).", "code_id"),
 		t(ApplicationOutcomeChanged, "The owner set an application's outcome "+
 			"(data.application_id, data.from, data.to, data.note)."),
+		t(ApplicationFollowupDue, "A follow-up on an application is due, once per due date "+
+			"(data.application_id, data.code_id, data.nudge).", "code_id"),
 	}
 }
 

@@ -45,6 +45,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -85,7 +86,36 @@ func main() {
 type state struct {
 	day   map[string]int
 	delay map[string]time.Duration
-	mu    sync.RWMutex
+	// throttle —— "<path>@<offset>" → how many more times that page answers 429 (job-loop
+	// roadmap 4.3.a: a board that asks us to slow down mid-walk).
+	throttle map[string]int
+	mu       sync.RWMutex
+}
+
+func (s *state) setThrottle(key string, times int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.throttle[key] = times
+}
+
+// takeThrottle —— whether this page answers 429 now (and one fewer time after).
+func (s *state) takeThrottle(key string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.throttle[key] <= 0 {
+		return false
+	}
+	s.throttle[key]--
+	return true
+}
+
+// goneKey —— the throttle-map key for a path that answers 404 until /__mock/reset.
+func goneKey(path string) string { return path + "@gone" }
+
+func (s *state) isGone(path string) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.throttle[goneKey(path)] > 0
 }
 
 func (s *state) setDelay(prefix string, d time.Duration) {
@@ -130,6 +160,7 @@ func (s *state) reset() {
 	defer s.mu.Unlock()
 	s.day = map[string]int{}
 	s.delay = map[string]time.Duration{}
+	s.throttle = map[string]int{}
 }
 
 func (s *state) snapshot() map[string]int {
@@ -152,7 +183,7 @@ type server struct {
 
 func newServer(root string, log *slog.Logger) *server {
 	return &server{
-		st:   &state{day: map[string]int{}, delay: map[string]time.Duration{}},
+		st:   &state{day: map[string]int{}, delay: map[string]time.Duration{}, throttle: map[string]int{}},
 		log:  log,
 		root: root,
 	}
@@ -169,6 +200,11 @@ func (s *server) logRequests(next http.Handler) http.Handler {
 			case <-r.Context().Done():
 				return
 			}
+		}
+		// A board taken down after it was registered (/__mock/gone).
+		if s.st.isGone(r.URL.Path) {
+			http.NotFound(w, r)
+			return
 		}
 		next.ServeHTTP(w, r)
 	})
@@ -208,6 +244,7 @@ func (s *server) routes(mux *http.ServeMux) {
 	webhookSinkRoutes(mux)
 	telegramRoutes(mux)
 	mux.HandleFunc("GET /greenhouse/v1/boards/{company}/jobs", s.serveGreenhouse)
+	mux.HandleFunc("GET /greenhouse/v1/boards/{company}/jobs/{id}", s.serveGreenhouseJob)
 	mux.HandleFunc("GET /lever/v0/postings/{company}", s.serveLever)
 	mux.HandleFunc("GET /ashby/posting-api/job-board/{slug}", s.serveAshby)
 	mux.HandleFunc("GET /remoteok/api", s.serveRemoteOK)
@@ -259,6 +296,10 @@ func (s *server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /__mock/set_delay", s.adminSetDelay)
 	mux.HandleFunc("GET /__mock/state", s.adminState)
 	mux.HandleFunc("POST /__mock/reset", s.adminReset)
+	mux.HandleFunc("POST /__mock/throttle", s.adminThrottle)
+	mux.HandleFunc("POST /__mock/gone", s.adminGone)
+	mux.HandleFunc("POST /__mock/npm/republish", s.adminNpmRepublish)
+	mux.HandleFunc("POST /__mock/npm/corrupt", s.adminNpmCorrupt)
 
 	// skill-marketplace mocks — the backend marketplace package's
 	// GitHub + SkillsMP clients point here in dev/e2e.
@@ -347,6 +388,53 @@ func (s *server) routes(mux *http.ServeMux) {
 
 func (s *server) serveGreenhouse(w http.ResponseWriter, r *http.Request) {
 	s.serveJSONKind(w, r, "greenhouse", r.PathValue("company"), greenhouseDay2)
+}
+
+// serveGreenhouseJob —— one posting (job-loop roadmap 4.2.b liveness, 5.4.a form): the posting as
+// the board lists it today — a posting the board no longer lists answers 404, as Greenhouse does
+// for a closed one — with the board's form ({company}.questions.day1.json, the same for every
+// posting on that board) when the board has one.
+func (s *server) serveGreenhouseJob(w http.ResponseWriter, r *http.Request) {
+	board, err := s.readFixture("greenhouse", r.PathValue("company"), jsonExt)
+	if err != nil {
+		s.notFound(w, r, err)
+		return
+	}
+	if s.st.get("greenhouse") == dayTwo {
+		board = greenhouseDay2(board)
+	}
+	job, ok := greenhouseJobByID(board, r.PathValue("id"))
+	if !ok {
+		s.notFound(w, r, fmt.Errorf("greenhouse job %s not on the board", r.PathValue("id")))
+		return
+	}
+	if form, ferr := s.readFixture("greenhouse", r.PathValue("company")+".questions", jsonExt); ferr == nil {
+		var q struct {
+			Questions json.RawMessage `json:"questions"`
+		}
+		if json.Unmarshal(form, &q) == nil {
+			job["questions"] = q.Questions
+		}
+	}
+	out, _ := json.Marshal(job)
+	w.Header().Set("Content-Type", jsonMIME)
+	writeBody(s.log, w, out)
+}
+
+// greenhouseJobByID —— the posting with this id on a board fixture.
+func greenhouseJobByID(board []byte, id string) (map[string]json.RawMessage, bool) {
+	var b struct {
+		Jobs []map[string]json.RawMessage `json:"jobs"`
+	}
+	if json.Unmarshal(board, &b) != nil {
+		return nil, false
+	}
+	for _, j := range b.Jobs {
+		if strings.Trim(string(j["id"]), `"`) == id {
+			return j, true
+		}
+	}
+	return nil, false
 }
 
 func (s *server) serveLever(w http.ResponseWriter, r *http.Request) {
@@ -605,6 +693,10 @@ func (s *server) serveWorkday(w http.ResponseWriter, r *http.Request) {
 		writeBody(s.log, w, []byte(`{"errorCode":"HTTP_400","error":"limit above maximum"}`))
 		return
 	}
+	if s.st.takeThrottle(r.URL.Path + "@" + strconv.Itoa(offset)) {
+		w.WriteHeader(http.StatusTooManyRequests)
+		return
+	}
 	slug := r.PathValue("tenant") + "-" + r.PathValue("site")
 	body, err := s.readFixture("workday", slug, jsonExt)
 	if err != nil {
@@ -704,7 +796,19 @@ func (s *server) readFixture(kind, slug, ext string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read fixture %s: %w", path, err)
 	}
-	return body, nil
+	return relativeDates(body, time.Now()), nil
+}
+
+// daysAgoRE —— a fixture date written as __DAYS_AGO_<n>__ (job-loop roadmap 4.2.a): a posting's
+// age is what a freshness spec asserts, and a fixed date would age past the cutoff as the calendar
+// moves on.
+var daysAgoRE = regexp.MustCompile(`__DAYS_AGO_(\d+)__`)
+
+func relativeDates(body []byte, now time.Time) []byte {
+	return daysAgoRE.ReplaceAllFunc(body, func(m []byte) []byte {
+		n, _ := strconv.Atoi(string(daysAgoRE.FindSubmatch(m)[1]))
+		return []byte(now.AddDate(0, 0, -n).UTC().Format(time.RFC3339))
+	})
 }
 
 func writeBody(log *slog.Logger, w http.ResponseWriter, body []byte) {
@@ -744,6 +848,32 @@ func (s *server) adminSetDelay(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.st.setDelay(prefix, time.Duration(ms)*time.Millisecond)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// adminThrottle POST /__mock/throttle?path=/workday/wday/cxs/acme/careers/jobs&offset=40&times=1
+// —— that page answers 429 the next `times` requests (/__mock/reset clears it).
+func (s *server) adminThrottle(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	times, terr := strconv.Atoi(q.Get("times"))
+	offset, oerr := strconv.Atoi(q.Get("offset"))
+	if q.Get("path") == "" || terr != nil || oerr != nil {
+		http.Error(w, "path, offset and times required", http.StatusBadRequest)
+		return
+	}
+	s.st.setThrottle(q.Get("path")+"@"+strconv.Itoa(offset), times)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// adminGone POST /__mock/gone?path=/greenhouse/v1/boards/acme/jobs —— that path answers 404 from
+// now on: a board that existed when the owner registered it, then disappeared (4.3.b).
+func (s *server) adminGone(w http.ResponseWriter, r *http.Request) {
+	path := r.URL.Query().Get("path")
+	if path == "" {
+		http.Error(w, "path required", http.StatusBadRequest)
+		return
+	}
+	s.st.setThrottle(goneKey(path), 1)
 	w.WriteHeader(http.StatusNoContent)
 }
 

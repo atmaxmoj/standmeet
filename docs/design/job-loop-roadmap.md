@@ -188,7 +188,11 @@ Done when: a job discarded from source A does not return through source B the ne
 
 - 4.1.a Owner-scoped seen ledger keyed on canonical URL and company::title::location, written at
   fetch, filtered before pooling.
-- 4.1.b Aggregators store the employer's ATS URL.
+- 4.1.b Aggregators store the employer's ATS URL. Checked against the recorded feeds (2026-10-10):
+  only Himalayas (`applicationLink`) and JBA (it passes the ATS URL through) carry one, and both
+  adapters store it. Remotive and Jobicy give only their own job page; WWR's "To apply" link points
+  back to WWR; Working Nomads gives a `/go/` redirect, which costs one request per posting to
+  resolve. For those, the ledger matches on company::title::location (4.1.a), not the URL.
 - 4.1.c `jobs.discard` marks the ledger row.
 - 4.1.d `jobs.annotate(score, reason)` on the same row; copied into the snapshot; never in a
   recruiter-visible read.
@@ -200,7 +204,9 @@ Done when: a job discarded from source A does not return through source B the ne
 Done when: a new board's year-old backlog is not "new"; a closed Greenhouse job reads "closed"
 before drafting; a URL-shortener posting is flagged, not dropped.
 
-- 4.2.a Posting-age cutoff on `PublishedAt`; undated passes.
+- 4.2.a Posting-age cutoff on `PublishedAt`; undated passes. Built as `jobs.fetch_new` `max_age_days`
+  (tally `too_old`): the pool window `since_hours` keeps meaning "entered the pool", so the existing
+  `job-pool-stays-visible` contract stands.
 - 4.2.b Liveness API check before `resume.draft` (unknown ≠ expired).
 - 4.2.c `flags[]` for demo/scam signals.
 - 4.2.d Country-eligibility phrases flagged. [C11, C12, F33, C14]
@@ -211,6 +217,8 @@ Done when: a board returning `{}` reports a schema error, not 0 jobs; a 429 on p
 retries and keeps pages 1–4; registering a wrong slug says "not found" at once.
 
 - 4.3.a Adapter contract audit: empty vs broken, bad row dropped, no 1970 dates, bounded retry.
+  A dropped row is one with no link (counted as `skipped.unusable_row`); a row with a link and no
+  title stays (`jobloop-code-never-ships-bare` relies on it). Dates before 1990 read as no date.
 - 4.3.b Probe at `register_source`: count + three sample titles.
 - 4.3.c New sources: Getro, Consider, Teamtailor hint, then Personio / Breezy / Pinpoint.
 - 4.3.d Suggest direct sources from companies seen on aggregators.
@@ -317,11 +325,15 @@ recruiter's briefing, and the agent does not follow it.
 
 ### Story 7.2 — Installed blocks are the ones I approved (~1 day)
 
-- 7.2.a Store npm `dist.integrity`, verify on load, re-consent on change. [D18]
+- 7.2.a Store npm `dist.integrity`, verify on load, re-consent on change. [D18] Marketplace
+  installs were not stored at all (mounted in memory, gone on restart); they are now stored like a
+  pasted block, with origin and the approved integrity. The bytes are checked at install; a restart
+  remounts the stored manifest, so no package bytes are loaded after the check.
 
 ### Story 7.3 — An upgrade never loses my data (~2–3 days)
 
-- 7.3.a Seed the last release, upgrade to HEAD, planted clobber goes red. [D19]
+- 7.3.a Seed the last release, upgrade to HEAD, planted clobber goes red. [D19] Served by the one
+  upgrade mechanism there is: an `upgrade-*.spec` per schema change. No separate gate.
 
 ### Story 7.4 — I know which model can hold the visitor role (~2 days)
 

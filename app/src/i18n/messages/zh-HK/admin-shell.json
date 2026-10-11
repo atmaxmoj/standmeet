@@ -126,7 +126,10 @@
     "freezeAndSend": "凍結 + 發送",
     "confirmTitle": "把這份草稿發送給 {company}？",
     "confirmBody": "發送會凍結簡歷 + 求職信快照、渲染最終 PDF（帶QR 碼），並寫入一條申請記錄。自動簽發的存取碼將是 180 天、10 次會話、50 輪。",
-    "keepEditing": "← 繼續編輯"
+    "keepEditing": "← 繼續編輯",
+    "findingsHead": "和母版不一樣的地方 —— 逐條確認",
+    "findingMaster": "母版：{value}",
+    "findingDraft": "這份草稿：{value}"
   },
   "codeModal": {
     "cancel": "取消",

@@ -126,7 +126,10 @@
     "freezeAndSend": "einfrieren + senden",
     "confirmTitle": "Diesen Entwurf an {company} senden?",
     "confirmBody": "Das Senden wird den Lebenslauf + Anschreiben-Snapshot einfrieren, das endgültige PDF rendern (mit QR) und eine Anwendungszeile schreiben. Der automatisch ausgegebene AccessCode wird 180 Tage, 10 Sitzungen, 50 Züge sein.",
-    "keepEditing": "← weiter bearbeiten"
+    "keepEditing": "← weiter bearbeiten",
+    "findingsHead": "weicht von deiner Vorlage ab — bestätige jede Abweichung",
+    "findingMaster": "Vorlage: {value}",
+    "findingDraft": "dieser Entwurf: {value}"
   },
   "codeModal": {
     "cancel": "abbrechen",

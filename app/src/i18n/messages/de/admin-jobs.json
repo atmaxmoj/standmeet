@@ -148,7 +148,9 @@
     "outcomeRejected": "abgelehnt",
     "outcomeHired": "eingestellt",
     "outcomeWithdrawn": "zurückgezogen",
-    "metaOpened": "geöffnet {date} · {count, plural, one {# Frage} other {# Fragen}}"
+    "metaOpened": "geöffnet {date} · {count, plural, one {# Frage} other {# Fragen}}",
+    "followupDue": "nachfassen fällig",
+    "followupCold": "kalt — keine Antwort nach zwei Erinnerungen"
   },
   "detail": {
     "kicker": "anwendung · {id}",
@@ -157,6 +159,8 @@
     "contact": "kontakt",
     "pingInChat": "ping in chat ↗",
     "privateNotes": "private notizen",
+    "theirQuestions": "ihre fragen",
+    "gap": "nicht in deinen notizen — schreib es auf",
     "notesReadOnly": "vorläufig schreibgeschützt — nichts speichert notizen noch, also würde dieses feld alles verlieren, das Sie tippen",
     "needsWriter": "noch nicht verfügbar — diese instanz hat keine möglichkeit um eine statusänderung aufzuzeichnen; commit ist der einzige schreibweg auf diesem pfad",
     "pdfNotKept": "hier nicht verfügbar — die gerendertes PDF wird Ihrem KI-Client beim commit übergeben und ist nicht in der Anwendung gespeichert, also gibt es nichts für dieses Panel zu öffnen",

@@ -148,7 +148,9 @@
     "outcomeRejected": "rejected",
     "outcomeHired": "hired",
     "outcomeWithdrawn": "withdrawn",
-    "metaOpened": "opened {date} · {count, plural, one {# question} other {# questions}}"
+    "metaOpened": "opened {date} · {count, plural, one {# question} other {# questions}}",
+    "followupDue": "follow-up due",
+    "followupCold": "cold — no answer after two nudges"
   },
   "detail": {
     "kicker": "application · {id}",
@@ -157,6 +159,8 @@
     "contact": "contact",
     "pingInChat": "ping in chat ↗",
     "privateNotes": "private notes",
+    "theirQuestions": "their questions",
+    "gap": "not in your notes — write it",
     "notesReadOnly": "read-only for now — nothing stores notes yet, so this box would lose whatever you typed",
     "needsWriter": "not available yet — this instance has no way to record a status change; commit is the only write on this path",
     "pdfNotKept": "not available here — the rendered PDF is handed to your AI client at commit and is not kept on the application, so there is nothing for this panel to open",

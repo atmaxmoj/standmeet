@@ -35,9 +35,11 @@ function laterMigrations(): string[] {
 test.describe.configure({ mode: 'serial', timeout: 300_000 });
 
 test.beforeAll(async ({ playwright }) => {
+  test.setTimeout(600_000);
   o = await setupLoopOwner(playwright, 'upgradeseen');
 });
 test.afterAll(async () => {
+  test.setTimeout(300_000);
   restartBackend();
   await o.request.dispose();
 });

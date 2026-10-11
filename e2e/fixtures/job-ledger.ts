@@ -56,6 +56,8 @@ export interface LedgerRow extends Annotations {
   url: string;
   source: string;
   application_id: string | null;
+  /** Times the company posted this job again under a new URL (roadmap 1.5.b). */
+  reposts: number;
 }
 
 export interface LedgerPage { items: LedgerRow[]; next_cursor?: string }

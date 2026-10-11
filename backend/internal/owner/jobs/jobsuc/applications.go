@@ -83,6 +83,8 @@ type ApplicationsDeps struct {
 	Codes CodeLookup
 	// Events —— application.committed (and code.issued for a fresh code) commit with the rows.
 	Events events.Recorder
+	// Masters —— the draft is checked against the owner's master before it commits (roadmap 5.1).
+	Masters *ResumeMasterRepo
 }
 
 // PromptLookup — fetches one prompt's id by name. Narrow, only as much as the job loop needs.
@@ -170,9 +172,9 @@ func prepareRender(
 	if ownerRow.PublicURL == "" {
 		return renderPrep{}, owner.ErrPublicURLNotSet
 	}
-	data, err := deps.Apps.GetDraftRenderData(ctx, ownerID, draftID)
+	data, err := checkedDraft(ctx, deps, ownerID, draftID, opts.Accept)
 	if err != nil {
-		return renderPrep{}, fmt.Errorf("get draft render data: %w", err)
+		return renderPrep{}, err
 	}
 	resolved, err := resolveCommitCode(ctx, deps, ownerID, ownerRow.PublicURL, opts)
 	if err != nil {

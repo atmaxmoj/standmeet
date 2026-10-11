@@ -99,6 +99,10 @@ func (p *Plugin) PeriodicJobs() []periodic.Job {
 	), periodic.Named(
 		// A day's slack on a 90-day window is noise.
 		"resume master trash purge", 24*time.Hour, jobsuc.MasterTrashPurge(p.deps.Resume.Masters),
+	), periodic.Named(
+		// Follow-ups are due by the day (roadmap 3.1); a rerun announces nothing twice.
+		jobsuc.FollowupTaskName, 24*time.Hour,
+		jobsuc.FollowupTask(p.deps.AppsRepo, p.deps.Jobs.Events),
 	)}
 }
 
@@ -120,6 +124,7 @@ func (p *Plugin) Ops() []fp.Op {
 	ops := jobsmcp.OwnerOps(p.deps.Jobs, p.deps.Resume, p.deps.Cues, p.deps.Log)
 	ops = append(ops, jobsmcp.ApplicationOps(p.deps.Applications, p.deps.Log)...)
 	ops = append(ops, jobsmcp.LedgerOps(p.deps.Jobs, p.deps.Log)...)
+	ops = append(ops, jobsmcp.GuideOps(p.deps.Applications)...)
 	return append(ops, jobsmcp.OutcomeOps(p.deps.Outcomes, p.deps.Log)...)
 }
 

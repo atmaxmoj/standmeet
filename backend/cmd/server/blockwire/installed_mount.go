@@ -22,6 +22,7 @@ import (
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
 
 	"github.com/atmaxmoj/standmeet/internal/plugin"
+	"github.com/atmaxmoj/standmeet/internal/plugin/assembly"
 	"github.com/atmaxmoj/standmeet/internal/plugin/mount"
 	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
 )
@@ -85,7 +86,7 @@ func RestoreInstalledBlocks(ctx context.Context, d *deps.Runtime, ownerID string
 		return
 	}
 	for i := range rows {
-		remountInstalled(ctx, d, rows[i].BlockID, rows[i].Manifest)
+		remountInstalled(ctx, d, &rows[i])
 	}
 }
 
@@ -93,11 +94,11 @@ func RestoreInstalledBlocks(ctx context.Context, d *deps.Runtime, ownerID string
 //
 // A manifest that stopped parsing is logged and skipped rather than aborting the loop: one
 // block the owner pasted badly must not take every other installed block down with it at boot.
-func remountInstalled(ctx context.Context, d *deps.Runtime, blockID, text string) {
-	m, perr := plugin.ParseManifest([]byte(text))
+func remountInstalled(ctx context.Context, d *deps.Runtime, row *assembly.InstalledBlock) {
+	m, perr := plugin.ParseManifest([]byte(row.Manifest))
 	if perr != nil {
-		d.Log.Error("installed block no longer parses", "id", blockID, "err", perr)
+		d.Log.Error("installed block no longer parses", "id", row.BlockID, "err", perr)
 		return
 	}
-	MountInstalledBlock(ctx, d, &m)
+	MountInstalledBlockAs(ctx, d, &m, originOr(registry.Origin(row.Origin)))
 }

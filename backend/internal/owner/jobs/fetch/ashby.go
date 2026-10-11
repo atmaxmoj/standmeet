@@ -45,7 +45,7 @@ func (f *ashbyFetcher) Fetch(
 	if err != nil {
 		return nil, err
 	}
-	url := fmt.Sprintf("%s/posting-api/job-board/%s", f.base, cfg.Company)
+	url := fmt.Sprintf("%s/posting-api/job-board/%s?includeCompensation=true", f.base, cfg.Company)
 	body, err := getBody(ctx, f.client, url)
 	if err != nil {
 		return nil, err
@@ -85,21 +85,23 @@ type ashbyResp struct {
 }
 
 type ashbyJob struct {
-	Department       *string `json:"department"`
-	Team             *string `json:"team"`
-	Location         *string `json:"location"`
-	ApplyURL         *string `json:"applyUrl"`
-	ID               string  `json:"id"`
-	Title            string  `json:"title"`
-	EmploymentType   string  `json:"employmentType"`
-	PublishedAt      string  `json:"publishedAt"`
-	JobURL           string  `json:"jobUrl"`
-	DescriptionPlain string  `json:"descriptionPlain"`
-	IsRemote         bool    `json:"isRemote"`
+	Department       *string            `json:"department"`
+	Team             *string            `json:"team"`
+	Location         *string            `json:"location"`
+	ApplyURL         *string            `json:"applyUrl"`
+	Compensation     *ashbyCompensation `json:"compensation"`
+	ID               string             `json:"id"`
+	Title            string             `json:"title"`
+	EmploymentType   string             `json:"employmentType"`
+	PublishedAt      string             `json:"publishedAt"`
+	JobURL           string             `json:"jobUrl"`
+	DescriptionPlain string             `json:"descriptionPlain"`
+	IsRemote         bool               `json:"isRemote"`
 }
 
 func ashbyToDomain(j *ashbyJob, company string) jobsmodel.FetchedJob {
 	return jobsmodel.FetchedJob{
+		Salary:      j.Compensation.salary(),
 		ExternalID:  j.ID,
 		Title:       j.Title,
 		Company:     company,
@@ -109,6 +111,43 @@ func ashbyToDomain(j *ashbyJob, company string) jobsmodel.FetchedJob {
 		Tags:        ashbyTags(j),
 		PublishedAt: parseISOTime(j.PublishedAt),
 		SourceKind:  KindAshby,
+	}
+}
+
+// ashbyCompensation —— sent only with ?includeCompensation=true. summaryComponents carries the
+// structured ranges; the salary one is the posting's stated pay (roadmap 4.3.e).
+type ashbyCompensation struct {
+	Components []ashbyPayComponent `json:"summaryComponents"`
+}
+
+type ashbyPayComponent struct {
+	MinValue *float64 `json:"minValue"`
+	MaxValue *float64 `json:"maxValue"`
+	Type     string   `json:"compensationType"`
+	Interval string   `json:"interval"`
+	Currency string   `json:"currencyCode"`
+}
+
+// salary —— the stated salary range, or nil when the posting states none.
+func (c *ashbyCompensation) salary() *jobsmodel.Salary {
+	if c == nil {
+		return nil
+	}
+	for i := range c.Components {
+		if s := c.Components[i].stated(); s != nil {
+			return s
+		}
+	}
+	return nil
+}
+
+// stated —— this component as a salary range, or nil when it is not one with both ends.
+func (p *ashbyPayComponent) stated() *jobsmodel.Salary {
+	if p.Type != "Salary" || p.MinValue == nil || p.MaxValue == nil {
+		return nil
+	}
+	return &jobsmodel.Salary{
+		Min: *p.MinValue, Max: *p.MaxValue, Currency: p.Currency, Interval: p.Interval,
 	}
 }
 

@@ -148,7 +148,9 @@
     "outcomeRejected": "अस्वीकृत",
     "outcomeHired": "चयनित",
     "outcomeWithdrawn": "वापस लिया",
-    "metaOpened": "{date} को खोला · {count} प्रश्न"
+    "metaOpened": "{date} को खोला · {count} प्रश्न",
+    "followupDue": "फ़ॉलो-अप का समय",
+    "followupCold": "ठंडी — दो याद दिलाने पर भी जवाब नहीं"
   },
   "detail": {
     "kicker": "application · {id}",
@@ -157,6 +159,8 @@
     "contact": "contact",
     "pingInChat": "ping in chat ↗",
     "privateNotes": "private notes",
+    "theirQuestions": "उनके सवाल",
+    "gap": "आपके नोट्स में नहीं — लिख लें",
     "notesReadOnly": "read-only for now — nothing stores notes yet, so this box would lose whatever you typed",
     "needsWriter": "not available yet — this instance has no way to record a status change; commit is the only write on this path",
     "pdfNotKept": "not available here — the rendered PDF is handed to your AI client at commit and is not kept on the application, so there is nothing for this panel to open",

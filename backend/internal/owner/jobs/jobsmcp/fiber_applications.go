@@ -30,7 +30,9 @@ const (
 var commitSchema = json.RawMessage(`{
 	"type":"object",
 	"properties":{
-		"draft_id":{"type":"string","description":"draft id from resume.draft"}
+		"draft_id":{"type":"string","description":"draft id from resume.draft"},
+		"accept":{"type":"array","items":{"type":"string"},
+			"description":"keys of the draft's check findings the owner approved"}
 	},
 	"required":["draft_id"]
 }`)
@@ -47,13 +49,16 @@ func ApplicationOps(apps *jobsuc.ApplicationsDeps, log *slog.Logger) []fp.Op {
 			"issues a 180-day AccessCode (10 sessions / 50 turns per member), writes " +
 			"the application row, and deletes the draft. Returns application_id, the " +
 			"plaintext access_code, the QR URL printed on the resume, and the final " +
-			"PDF (base64) ready for Playwright submission.",
+			"PDF (base64) ready for Playwright submission. Refused while the draft has " +
+			"check findings " +
+			"(from resume.update_draft) not listed in accept.",
 		Invoke: commitInvoke(apps, log),
 	}}
 }
 
 type commitArgsWire struct {
-	DraftID string `json:"draft_id"`
+	DraftID string   `json:"draft_id"`
+	Accept  []string `json:"accept"`
 }
 
 type embedWire struct {
@@ -78,7 +83,7 @@ func commitInvoke(apps *jobsuc.ApplicationsDeps, log *slog.Logger) fp.Invoke {
 			return nil, errors.New("draft_id is required")
 		}
 		committed, err := jobsuc.CommitApplication(
-			ctx, apps, ownerID, args.DraftID, jobsuc.CommitOptions{},
+			ctx, apps, ownerID, args.DraftID, jobsuc.CommitOptions{Accept: args.Accept},
 		)
 		if err != nil {
 			return nil, commitErr(log, err)
@@ -108,6 +113,8 @@ func commitErr(log *slog.Logger, err error) error {
 		return errors.New("draft not found (expired or wrong owner)")
 	case errors.Is(err, owner.ErrOwnerNotFound):
 		return errors.New("owner not found")
+	case errors.Is(err, jobsuc.ErrDraftFindings):
+		return errors.New(err.Error())
 	}
 	log.Error("applications.commit", "err", err)
 	return errors.New("applications.commit failed")

@@ -16,6 +16,7 @@ import { totalLabel } from '@/lib/state/create-paged-store';
 import { ApplicationDetailModal } from '@/components/admin/ApplicationDetailModal';
 import { toDraftModel } from '@/lib/admin/draft-wire';
 import {
+  followupLabelKey,
   openedStamp,
   outcomeLabelKey,
   pillToneFor,
@@ -277,10 +278,21 @@ function RowHead({ row }: { row: AdminApplicationRow }) {
         </span>
       </div>
       <div className="flex items-baseline gap-2">
+        <FollowupLabel id={row.id} state={row.followup} />
         <OutcomeLabel id={row.id} wire={row.outcome} />
         <StatusPill id={row.id} wire={row.status} />
       </div>
     </div>
+  );
+}
+
+// FollowupLabel —— a follow-up is due, or the application went cold after two nudges (roadmap
+// 3.1.c). Nothing to do says nothing.
+function FollowupLabel({ id, state }: { id: string; state: string }) {
+  const t = useTranslations('adminJobs');
+  const key = followupLabelKey(state);
+  return key === '' ? null : (
+    <span className="sm-pill is-accent" data-testid={`application-followup-${id}`}>{t(key)}</span>
   );
 }
 

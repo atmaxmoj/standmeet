@@ -12,9 +12,13 @@ package usecase
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/sha512"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -49,7 +53,9 @@ type BlockHit struct {
 // package.json declared the dsh.bundle.patch mountable marker.
 type FetchedBlock struct {
 	ManifestYAML string
-	IsDshBlock   bool
+	// Integrity —— the SRI digest (sha512-…) of the bytes that were read and checked (7.2.a).
+	Integrity  string
+	IsDshBlock bool
 }
 
 // BlockMarket — the npm-backed dsh block marketplace client.
@@ -92,17 +98,47 @@ func (b *BlockMarket) Search(ctx context.Context, query string) ([]BlockHit, err
 
 // Fetch — resolve the package on npm, download its tarball, and read the manifest + dsh marker.
 func (b *BlockMarket) Fetch(ctx context.Context, id, version string) (FetchedBlock, error) {
-	tarURL, err := b.resolveTarball(ctx, id, version)
+	dist, err := b.resolveTarball(ctx, id, version)
 	if err != nil {
 		return FetchedBlock{}, err
 	}
-	return b.fetchFromTarball(ctx, tarURL)
+	body, err := b.tarballBytes(ctx, dist.Tarball)
+	if err != nil {
+		return FetchedBlock{}, err
+	}
+	got := sriSHA512(body)
+	if dist.Integrity != "" && dist.Integrity != got {
+		return FetchedBlock{}, fmt.Errorf("package %s: %w", id, ErrIntegrityMismatch)
+	}
+	return readTarball(body, got)
 }
 
-func (b *BlockMarket) resolveTarball(ctx context.Context, id, version string) (string, error) {
+// readTarball —— the manifest and dsh marker of checked bytes, stamped with their digest.
+func readTarball(body []byte, integrity string) (FetchedBlock, error) {
+	gz, gerr := gzip.NewReader(bytes.NewReader(body))
+	if gerr != nil {
+		return FetchedBlock{}, fmt.Errorf("open tarball gzip: %w", gerr)
+	}
+	blk, err := scanTarball(tar.NewReader(gz))
+	blk.Integrity = integrity
+	return blk, err
+}
+
+// ErrIntegrityMismatch —— the tarball's bytes are not the ones the registry's dist.integrity names:
+// changed in transit or on a mirror. Nothing from it is read (roadmap 7.2.a).
+var ErrIntegrityMismatch = errors.New(
+	"the downloaded package does not match its published integrity")
+
+// sriSHA512 —— the SRI string npm publishes for these bytes.
+func sriSHA512(b []byte) string {
+	sum := sha512.Sum512(b)
+	return "sha512-" + base64.StdEncoding.EncodeToString(sum[:])
+}
+
+func (b *BlockMarket) resolveTarball(ctx context.Context, id, version string) (npmDist, error) {
 	doc, err := b.packageDoc(ctx, id)
 	if err != nil {
-		return "", err
+		return npmDist{}, err
 	}
 	v := version
 	if v == "" {
@@ -110,9 +146,9 @@ func (b *BlockMarket) resolveTarball(ctx context.Context, id, version string) (s
 	}
 	ver, ok := doc.Versions[v]
 	if !ok || ver.Dist.Tarball == "" {
-		return "", fmt.Errorf("package %s has no installable version %q", id, v)
+		return npmDist{}, fmt.Errorf("package %s has no installable version %q", id, v)
 	}
-	return ver.Dist.Tarball, nil
+	return ver.Dist, nil
 }
 
 func (b *BlockMarket) packageDoc(ctx context.Context, id string) (npmPackageDoc, error) {
@@ -127,17 +163,18 @@ func (b *BlockMarket) packageDoc(ctx context.Context, id string) (npmPackageDoc,
 	return doc, nil
 }
 
-func (b *BlockMarket) fetchFromTarball(ctx context.Context, tarURL string) (FetchedBlock, error) {
+// tarballBytes —— the whole tarball: its digest is checked before any of it is read.
+func (b *BlockMarket) tarballBytes(ctx context.Context, tarURL string) ([]byte, error) {
 	resp, err := b.do(ctx, tarURL)
 	if err != nil {
-		return FetchedBlock{}, err
+		return nil, err
 	}
 	defer closeBody(resp.Body)
-	gz, gerr := gzip.NewReader(io.LimitReader(resp.Body, npmMaxTarball))
-	if gerr != nil {
-		return FetchedBlock{}, fmt.Errorf("open tarball gzip: %w", gerr)
+	body, rerr := io.ReadAll(io.LimitReader(resp.Body, npmMaxTarball))
+	if rerr != nil {
+		return nil, fmt.Errorf("read tarball: %w", rerr)
 	}
-	return scanTarball(tar.NewReader(gz))
+	return body, nil
 }
 
 func (b *BlockMarket) getBody(ctx context.Context, u string) ([]byte, error) {
@@ -258,7 +295,8 @@ type npmVersionDoc struct {
 }
 
 type npmDist struct {
-	Tarball string `json:"tarball"`
+	Tarball   string `json:"tarball"`
+	Integrity string `json:"integrity"`
 }
 
 type pkgJSON struct {
