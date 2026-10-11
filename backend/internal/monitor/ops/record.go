@@ -55,6 +55,10 @@ type Deps struct {
 	// geoip database): geolocation then comes from proxy headers alone.
 	Geo entity.LocationResolver
 
+	// AS —— resolves a client IP to the autonomous system announcing it. Nil is valid: the network
+	// then records its prefix only.
+	AS entity.ASResolver
+
 	// Secret —— the instance secret that salts the viewer hash. Without it, anyone knowing a
 	// visitor's IP and user agent could confirm from a public number that they visited. (Kept last:
 	// a slice's len/cap are non-pointer words, so trailing it minimises pointer bytes.)
@@ -107,7 +111,7 @@ func RecordRequest(ctx context.Context, d *Deps, r *http.Request, in *Input) {
 		return
 	}
 	now := time.Now().UTC()
-	ev := buildEvent(r, in, d.Geo)
+	ev := buildEvent(r, in, d)
 	d.persist(ctx, ownerID, r, &ev, now)
 }
 
@@ -156,12 +160,12 @@ func recordOwnerOverride() bool {
 
 // buildEvent —— an Input plus a request becomes an Event. Everything derivable is derived here,
 // so a caller cannot report a browser, a country or a bot flag of its own choosing.
-func buildEvent(r *http.Request, in *Input, geo entity.LocationResolver) entity.Event {
+func buildEvent(r *http.Request, in *Input, d *Deps) entity.Event {
 	page := entity.NormalizeURL(effectiveURL(r, in.URL), hostOf(r))
 	page.Title = in.Title
 	entity.ApplyReferrer(&page, effectiveReferrer(r, in.Referrer))
 
-	client := clientOf(r, in, geo)
+	client := clientOf(r, in, d)
 	return entity.Event{
 		Props:         propsWithBot(in.Props, &client),
 		Page:          page,
@@ -199,10 +203,13 @@ func propsWithBot(in map[string]string, c *entity.Client) map[string]string {
 // clientOf —— browser, OS, device, language and location, all read off the request. Location comes
 // from a proxy header if one is set, else by resolving the request's client IP (clientIP) against
 // the geoip database — so a bare self-hosted instance still records where a visitor came from.
-func clientOf(r *http.Request, in *Input, geo entity.LocationResolver) entity.Client {
+// The network is the address masked to organisation grain plus its AS; the address goes no further.
+func clientOf(r *http.Request, in *Input, d *Deps) entity.Client {
 	c := entity.DetectClient(r.UserAgent(), in.Screen)
 	c.Language = firstLanguage(in.Language, r.Header.Get("Accept-Language"))
-	loc := entity.DetectLocation(r.Header.Get, clientIP(r), geo)
+	ip := clientIP(r)
+	loc := entity.DetectLocation(r.Header.Get, ip, d.Geo)
+	c.Network = entity.NetworkOf(ip, d.AS)
 	c.Country, c.Region, c.City = loc.Country, loc.Region, loc.City
 	return c
 }
@@ -286,7 +293,7 @@ func firstLanguage(reported, header string) string {
 }
 
 // clientIP —— the caller's address, preferring the proxy headers a self-hosted instance sits
-// behind. Used only as hash input.
+// behind. Used only as hash input and, masked to its /24 or /48, as the network (NetworkOf).
 func clientIP(r *http.Request) string {
 	if f := r.Header.Get("X-Forwarded-For"); f != "" {
 		return strings.TrimSpace(strings.Split(f, ",")[0])

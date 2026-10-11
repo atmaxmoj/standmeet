@@ -380,6 +380,7 @@
     "colSession": "세션",
     "colCountry": "국가",
     "colCity": "도시",
+    "colNetwork": "네트워크",
     "colBrowser": "브라우저",
     "colOs": "OS",
     "colDevice": "기기",

@@ -380,6 +380,7 @@
     "colSession": "セッション",
     "colCountry": "国",
     "colCity": "都市",
+    "colNetwork": "ネットワーク",
     "colBrowser": "ブラウザ",
     "colOs": "OS",
     "colDevice": "デバイス",

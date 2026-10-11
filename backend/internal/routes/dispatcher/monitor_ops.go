@@ -53,6 +53,8 @@ func MonitorOps(repo *monitor.Repo) []Op {
 			ID: "monitor.sessions",
 			Description: "List visitor sessions, one per viewer, most recently seen first, " +
 				"one page at a time ({items, next_cursor}): visits, views, country, city, " +
+				"network (the /24 or /48, never the address) and its AS (asn, as_org: " +
+				"tells a data centre from a person), " +
 				"browser, os, device, last seen. Bots are included and flagged.",
 			InputSchema: monitor.SessionsInputSchema,
 			Kind:        fp.Read,

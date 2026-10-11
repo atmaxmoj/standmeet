@@ -218,6 +218,7 @@ linters:
         - github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc.PDFRenderer
         - github.com/cloudwego/eino/components/model.ToolCallingChatModel
         - github.com/atmaxmoj/standmeet/internal/monitor/facade.LocationResolver
+        - github.com/atmaxmoj/standmeet/internal/monitor/facade.ASResolver
         - github.com/atmaxmoj/standmeet/internal/corpus/usecase.Indexer
         - github.com/atmaxmoj/standmeet/internal/corpus/usecase.IndexReceipt
         - github.com/atmaxmoj/standmeet/internal/corpus/usecase.SubjectivityCiteLookup

@@ -104,8 +104,11 @@ type EventRow struct {
 	OS          string            `json:"os"`
 	Device      string            `json:"device"`
 	Country     string            `json:"country"`
+	Network     string            `json:"network"`
+	ASOrg       string            `json:"as_org"`
 	Src         string            `json:"src"`
 	BotName     string            `json:"bot_name"`
+	ASN         int64             `json:"asn"`
 	IsBot       bool              `json:"is_bot"`
 }
 
@@ -116,7 +119,7 @@ SELECT event_id, coalesce(viewer_id,''), visit_id, created_at, surface, event_na
        url_path, page_title, referrer_domain, src,
        entity_kind, entity_id, entity_title,
        coalesce(code_id::text,''), code_label,
-       browser, os, device, country, props
+       browser, os, device, country, network, asn, as_org, props
 FROM visit_event
 WHERE owner_id = $1 AND created_at >= $2
   AND ($3 OR NOT is_bot)
@@ -185,7 +188,7 @@ func scanEvent(rows rowScanner) (EventRow, error) {
 		&e.URLPath, &e.PageTitle, &e.RefDomain, &e.Src,
 		&e.EntityKind, &e.EntityID, &e.EntityTitle,
 		&e.CodeID, &e.CodeLabel,
-		&e.Browser, &e.OS, &e.Device, &e.Country, &props,
+		&e.Browser, &e.OS, &e.Device, &e.Country, &e.Network, &e.ASN, &e.ASOrg, &props,
 	)
 	if err != nil {
 		return EventRow{}, fmt.Errorf("scan visit event: %w", err)

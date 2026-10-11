@@ -39,7 +39,18 @@ type Client struct {
 	Region   string
 	City     string
 	BotName  string
-	IsBot    bool
+	// Network —— where on the internet the visitor sat, at organisation grain (never the address).
+	Network Network
+	IsBot   bool
+}
+
+// Network —— the /24 (IPv4) or /48 (IPv6) the visitor's address sits in, and the autonomous system
+// announcing it. Organisation grain on purpose: it tells "a data centre in Singapore, Alibaba" from
+// "a home connection", and it cannot point at one household (owner, 2026-10-11).
+type Network struct {
+	Prefix string
+	ASOrg  string
+	ASN    uint
 }
 
 // Location —— country, region and city, as reported by a reverse proxy. Returned as one value

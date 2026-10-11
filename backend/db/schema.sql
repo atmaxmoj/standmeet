@@ -1823,7 +1823,7 @@ CREATE TABLE IF NOT EXISTS booking_notices (
 -- events: none (traffic recording stays off the bus: high volume, no consumer — decided 2026-09-26)
 CREATE TABLE IF NOT EXISTS visit_viewer (
     -- viewer_id — hash(salt, owner_id, ip, user_agent). The salt rotates monthly, so this
-    -- id cannot be linked across months. The IP itself is never stored.
+    -- id cannot be linked across months. The IP itself is never stored; visit_event keeps only its /24 or /48 network and AS.
     viewer_id      text        PRIMARY KEY,
     owner_id       uuid        NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
     first_seen_at  timestamptz NOT NULL DEFAULT now()
@@ -1894,6 +1894,13 @@ CREATE TABLE IF NOT EXISTS visit_event (
     country         text        NOT NULL DEFAULT '',
     region          text        NOT NULL DEFAULT '',
     city            text        NOT NULL DEFAULT '',
+    -- network —— the /24 (IPv4) or /48 (IPv6) the visitor's address sits in; asn / as_org —— the
+    -- autonomous system announcing it. Organisation grain: tells a data centre from a home line,
+    -- never one household. The address itself is still never stored.
+    -- See migrations/2026-10-11-visit-event-network.sql.
+    network         text        NOT NULL DEFAULT '',
+    asn             bigint      NOT NULL DEFAULT 0,
+    as_org          text        NOT NULL DEFAULT '',
 
     props           jsonb       NOT NULL DEFAULT '{}'
 );

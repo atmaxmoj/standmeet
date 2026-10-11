@@ -43,6 +43,8 @@ type (
 	// carried a location. Re-exported so the wiring never names the internal entity package.
 	Location         = entity.Location
 	LocationResolver = entity.LocationResolver
+	// ASResolver —— the ASN seam: the composition root adapts the bundled db-ip ASN Lite database.
+	ASResolver = entity.ASResolver
 )
 
 // The input schemas for those reads. Declared in the domain, next to the shapes they describe.

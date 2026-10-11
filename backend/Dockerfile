@@ -136,6 +136,15 @@ RUN mkdir -p /srv/geoip && \
       fi; \
     done && \
     test -s /srv/geoip/dbip-city-lite.mmdb
+# The ASN database (db-ip ASN Lite, CC-BY): which network an address belongs to ("AS16509 Amazon"),
+# so the traffic panel can tell a data centre from a person without storing the address.
+RUN for m in "$GEOIP_MONTH" 2026-08 2026-07; do \
+      if curl -fsSL --connect-timeout 20 --max-time 300 --retry 3 --retry-all-errors \
+           "https://download.db-ip.com/free/dbip-asn-lite-$m.mmdb.gz" -o /tmp/asn.gz; then \
+        gunzip -c /tmp/asn.gz > /srv/geoip/dbip-asn-lite.mmdb && break; \
+      fi; \
+    done && \
+    test -s /srv/geoip/dbip-asn-lite.mmdb
 
 # Stage 2b': the speech model for voice input (SenseVoice-Small int8: zh/en/ja/ko/yue, ~240 MB).
 # Baked in so the instance transcribes offline and an upgrade brings it with the binary.

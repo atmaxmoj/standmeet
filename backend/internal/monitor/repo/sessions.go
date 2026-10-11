@@ -28,10 +28,15 @@ type SessionRow struct {
 	Browser  string    `json:"browser"`
 	OS       string    `json:"os"`
 	Device   string    `json:"device"`
-	BotName  string    `json:"bot_name"`
-	Visits   int64     `json:"visits"`
-	Views    int64     `json:"views"`
-	IsBot    bool      `json:"is_bot"`
+	// Network / ASOrg / ASN —— the /24 or /48 and the AS the viewer last came from (never the
+	// address).
+	Network string `json:"network"`
+	ASOrg   string `json:"as_org"`
+	BotName string `json:"bot_name"`
+	ASN     int64  `json:"asn"`
+	Visits  int64  `json:"visits"`
+	Views   int64  `json:"views"`
+	IsBot   bool   `json:"is_bot"`
 }
 
 // sessionsSQL —— each place field is the most recent non-empty value across a viewer's events. A
@@ -53,6 +58,12 @@ SELECT coalesce(viewer_id,'')                    AS viewer_id,
          AS os,
        coalesce((array_agg(device ORDER BY created_at DESC) FILTER (WHERE device <> ''))[1], '')
          AS device,
+       coalesce((array_agg(network ORDER BY created_at DESC) FILTER (WHERE network <> ''))[1], '')
+         AS network,
+       coalesce((array_agg(asn ORDER BY created_at DESC) FILTER (WHERE asn <> 0))[1], 0)
+         AS asn,
+       coalesce((array_agg(as_org ORDER BY created_at DESC) FILTER (WHERE as_org <> ''))[1], '')
+         AS as_org,
        coalesce((array_agg(props->>'bot' ORDER BY created_at DESC)
                  FILTER (WHERE props->>'bot' <> ''))[1], '')
          AS bot_name,
@@ -114,7 +125,7 @@ func collectSessions(rows interface {
 		var s SessionRow
 		if e := rows.Scan(&s.ViewerID, &s.Visits, &s.Views, &s.LastSeen,
 			&s.Country, &s.Region, &s.City, &s.Browser, &s.OS, &s.Device,
-			&s.BotName, &s.IsBot); e != nil {
+			&s.Network, &s.ASN, &s.ASOrg, &s.BotName, &s.IsBot); e != nil {
 			return nil, fmt.Errorf("scan session row: %w", e)
 		}
 		out = append(out, s)

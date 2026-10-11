@@ -380,6 +380,7 @@
     "colSession": "会话",
     "colCountry": "国家",
     "colCity": "城市",
+    "colNetwork": "网络",
     "colBrowser": "浏览器",
     "colOs": "系统",
     "colDevice": "设备",

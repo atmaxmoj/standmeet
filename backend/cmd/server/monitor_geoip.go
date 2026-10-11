@@ -41,6 +41,40 @@ func loadGeoResolver(log *slog.Logger) monitor.LocationResolver {
 	return &geoAdapter{r: r}
 }
 
+// asEnv / asDefaultPath —— where the ASN database lives; the image ships db-ip ASN Lite there.
+const (
+	asEnv         = "STANDMEET_ASN_DB"
+	asDefaultPath = "/srv/geoip/dbip-asn-lite.mmdb"
+)
+
+// loadASResolver —— open the ASN database and adapt it to monitor's ASResolver. Missing → nil: the
+// network then records its prefix only (never fatal). Interface return for the same nil reason.
+func loadASResolver(log *slog.Logger) monitor.ASResolver {
+	path := os.Getenv(asEnv)
+	if path == "" {
+		path = asDefaultPath
+	}
+	r, err := geoip.OpenAS(path)
+	if err != nil {
+		if log != nil {
+			log.Warn("asn database unavailable; networks record their prefix only",
+				"path", path, "err", err)
+		}
+		return nil
+	}
+	return &asAdapter{r: r}
+}
+
+// asAdapter —— an infra geoip.ASResolver seen as a monitor.ASResolver.
+type asAdapter struct {
+	r *geoip.ASResolver
+}
+
+func (a *asAdapter) AS(ip string) (uint, string) {
+	as := a.r.Lookup(ip)
+	return as.Number, as.Org
+}
+
 // geoAdapter —— an infra geoip.Resolver seen as a monitor.LocationResolver.
 type geoAdapter struct {
 	r *geoip.Resolver

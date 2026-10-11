@@ -112,11 +112,13 @@ INSERT INTO visit_event (
     entity_kind, entity_id, entity_title,
     code_id, code_label, role_id, chat_session_id, embed_id, microsite_slug,
     browser, os, device, screen, language, country, region, city,
+    network, asn, as_org,
     props
 ) VALUES (
     $1,$2,$3,$4, $5,$6,$7, $8,$9,$10,$11, $12,$13,
     $14,$15,$16,$17,$18,$19, $20,$21,$22,
-    $23,$24,$25,$26,$27,$28, $29,$30,$31,$32,$33,$34,$35,$36, $37
+    $23,$24,$25,$26,$27,$28, $29,$30,$31,$32,$33,$34,$35,$36,
+    $37,$38,$39, $40
 )`
 
 // Recording —— one event plus the identity it was recorded under. Bundled so Record takes a
@@ -137,8 +139,8 @@ func (r *Repo) Record(ctx context.Context, rec *Recording) error {
 		return fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, err)
 	}
 	ev := rec.Event
-	// insertEventSQL names 37 columns; the appends below fill them in that order.
-	const columns = 37
+	// insertEventSQL names 40 columns; the appends below fill them in that order.
+	const columns = 40
 	args := make([]any, 0, columns)
 	args = append(args,
 		owner, optViewer(rec.ViewerID), rec.VisitID, rec.At,
@@ -174,7 +176,10 @@ func refArgs(ev *entity.Event) []any {
 }
 
 func clientArgs(c *entity.Client) []any {
-	return []any{c.Browser, c.OS, c.Device, c.Screen, c.Language, c.Country, c.Region, c.City}
+	return []any{
+		c.Browser, c.OS, c.Device, c.Screen, c.Language, c.Country, c.Region, c.City,
+		c.Network.Prefix, int64(c.Network.ASN), c.Network.ASOrg,
+	}
 }
 
 func optViewer(id string) *string {

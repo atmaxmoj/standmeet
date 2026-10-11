@@ -251,7 +251,8 @@ function SessionsTable({ sessions }: { sessions: readonly MonitorSession[] }) {
           <thead>
             <tr className="mono text-[9.5px] tracking-[0.14em] uppercase text-(--color-faint) text-left">
               <Th>{t('colSession')}</Th><Th>{t('visits')}</Th><Th>{t('views')}</Th>
-              <Th>{t('colCountry')}</Th><Th>{t('colCity')}</Th><Th>{t('colBrowser')}</Th>
+              <Th>{t('colCountry')}</Th><Th>{t('colCity')}</Th><Th>{t('colNetwork')}</Th>
+              <Th>{t('colBrowser')}</Th>
               <Th>{t('colOs')}</Th><Th>{t('colDevice')}</Th><Th>{t('colLastSeen')}</Th>
             </tr>
           </thead>
@@ -278,6 +279,7 @@ function SessionRow({ cells }: { cells: SessionCells }) {
       <Cell testid="monitor-session-views" mono>{cells.views}</Cell>
       <Cell testid="monitor-session-country">{cells.country}</Cell>
       <Cell testid="monitor-session-city">{cells.city}</Cell>
+      <Cell testid="monitor-session-network" mono>{cells.network}</Cell>
       <Cell testid="monitor-session-browser">{cells.browser}</Cell>
       <Cell testid="monitor-session-os">{cells.os}</Cell>
       <Cell testid="monitor-session-device">{cells.device}</Cell>

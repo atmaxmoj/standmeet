@@ -64,3 +64,37 @@ func (r *Resolver) Close() error {
 	}
 	return nil
 }
+
+// AS —— the autonomous system that announces an address: its number and the organisation that
+// runs it ("AS16509", "Amazon.com, Inc."). Zero on a miss.
+type AS struct {
+	Org    string
+	Number uint
+}
+
+// ASResolver —— an open ASN database (db-ip ASN Lite, CC-BY: the GeoLite2-ASN layout).
+type ASResolver struct {
+	db *geoip2.Reader
+}
+
+// OpenAS —— load the ASN mmdb at path.
+func OpenAS(path string) (*ASResolver, error) {
+	db, err := geoip2.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("open asn db %q: %w", path, err)
+	}
+	return &ASResolver{db: db}, nil
+}
+
+// Lookup —— the AS for an IP; empty on any miss, for the same reason as Resolver.Lookup.
+func (r *ASResolver) Lookup(ip string) AS {
+	parsed := net.ParseIP(ip)
+	if parsed == nil {
+		return AS{}
+	}
+	rec, err := r.db.ASN(parsed)
+	if err != nil {
+		return AS{}
+	}
+	return AS{Number: rec.AutonomousSystemNumber, Org: rec.AutonomousSystemOrganization}
+}

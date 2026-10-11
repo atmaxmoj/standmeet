@@ -126,6 +126,9 @@ export const MonitorSessionSchema = z.object({
   browser: z.string(),
   os: z.string(),
   device: z.string(),
+  network: z.string(),
+  asn: z.number(),
+  as_org: z.string(),
   bot_name: z.string(),
   is_bot: z.boolean(),
 });
@@ -270,6 +273,9 @@ export interface SessionCells {
   browser: string;
   os: string;
   device: string;
+  // network —— "AS15169 Google LLC · 8.8.8.0/24": who runs the network, then the block. Never the
+  // address.
+  network: string;
   lastSeen: string;
 }
 
@@ -283,8 +289,15 @@ export function toSessionCells(s: MonitorSession): SessionCells {
     browser: s.browser === '' ? DASH : s.browser,
     os: s.os === '' ? DASH : s.os,
     device: s.device === '' ? DASH : s.device,
+    network: networkLabel(s),
     lastSeen: sessionWhen(s.last_seen),
   };
+}
+
+// networkLabel —— the AS first (it answers "a data centre, whose"), then the /24 or /48 it was in.
+function networkLabel(s: MonitorSession): string {
+  const as = s.asn === 0 ? '' : `AS${s.asn} ${s.as_org}`.trim();
+  return firstNonEmpty([[as, s.network].filter((p) => p !== '').join(' · ')]);
 }
 
 // sessionLabel —— a crawler reads as its name (Googlebot, ClaudeBot), because which crawler is the

@@ -380,6 +380,7 @@
     "colSession": "session",
     "colCountry": "country",
     "colCity": "city",
+    "colNetwork": "network",
     "colBrowser": "browser",
     "colOs": "os",
     "colDevice": "device",
