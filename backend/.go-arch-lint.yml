@@ -752,6 +752,7 @@ deps:
       - owner
       - dispatcher      # the MCP face = a projection of outbound convergence (generated)
       - facadeparity    # declares this face's parity profile (Facade profile)
+      - clientaddr      # a key's last-used address is the caller's as decided once, never a hop
     anyVendorDeps: true
 
   # dispatcher — outbound convergence. It imports each domain's **front door** (facade), gathers up the
@@ -1021,6 +1022,7 @@ deps:
     mayDependOn:
       - monitorentity
       - monitorrepo
+      - clientaddr   # the viewer hash and the network take the visitor's address as decided once, never a hop
     anyVendorDeps: true
   monitormw:
     mayDependOn:
