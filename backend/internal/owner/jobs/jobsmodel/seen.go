@@ -21,8 +21,11 @@ const FlagDoNotApply = "do_not_apply"
 // Annotations —— the owner's AI's assessment of a posting (4.1.d, 8.2.a). Kept on the ledger row,
 // never in anything a recruiter's agent reads.
 type Annotations struct {
-	Score            *float64    `json:"score,omitempty"`
-	Reason           string      `json:"reason,omitempty"`
+	Score  *float64 `json:"score,omitempty"`
+	Reason string   `json:"reason,omitempty"`
+	// Brief —— the picture of the job pieced together before applying (company, team, stack,
+	// likely questions), in markdown. The screen assistant reads it off the applied row.
+	Brief            string      `json:"brief,omitempty"`
 	Deductions       []Deduction `json:"deductions,omitempty"`
 	CitedNotes       []string    `json:"cited_notes,omitempty"`
 	Flags            []string    `json:"flags,omitempty"`

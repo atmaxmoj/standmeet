@@ -35,6 +35,21 @@ A gap is a requirement the record contradicts. Silence in the record is not a ga
 
 Check the posting age, a dead apply link, boilerplate, and the same posting under new URLs. `jobs.history` shows what the owner already saw. `jobs.show` lists earlier applications to the same company in `previous_applications`.
 
+## Picture the job
+
+Do this for each posting the owner will apply to. The picture prepares the owner long before a recruiter calls.
+
+1. Read the sides of the job: the company's site, its engineering blog, its public code, its other postings (`jobs.history`), and recent news.
+2. Write the brief in markdown, with these sections:
+   - **Company**: what it sells, to whom, its stage and size.
+   - **Team**: the department or team the role sits in, and what it owns.
+   - **Stack**: the technologies the posting and the other sources name.
+   - **The work**: what the owner will do in the first months.
+   - **Likely questions**: what a recruiter and the team will ask.
+   - **My angle**: for each likely question, one story from the corpus. Use `corpus.search`.
+3. Mark each claim stated (quote it) or inferred. Never write an inferred claim as a fact.
+4. Save the brief with `jobs.annotate` (`brief`). The brief stays on the row after the owner applies.
+
 ## Keep the judgment
 
 Save your score and reasons with `jobs.annotate`. Mark a company the owner will not apply to with `jobs.mark_company`.

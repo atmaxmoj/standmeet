@@ -7,7 +7,8 @@
 //       → {results: [{job_seen_id, new, first_seen_at, status}]}, in input order. A posting
 //       matching a ledger row on either key is not new; the server dedups (8.1.a).
 //     jobs.annotate {job_seen_id, score?, reason?, deductions?: [{points, why}], cited_notes?: [],
-//       flags?: [], interview_reports?: []} → the ledger row (4.1.d, 8.2.a).
+//       flags?: [], interview_reports?: [], brief?} → the ledger row (4.1.d, 8.2.a). brief = the
+//       picture of the job in markdown, written before applying; it stays on the applied row.
 //     jobs.history {from?: 'YYYY-MM-DD', to?: 'YYYY-MM-DD', status?, cursor?, limit?}
 //       → the shared page {items: LedgerRow[], next_cursor?}, newest first_seen_at first (8.3.a).
 //       from/to are inclusive UTC days.
@@ -44,6 +45,7 @@ export interface Annotations {
   cited_notes?: string[];
   flags?: string[];
   interview_reports?: string[];
+  brief?: string;
 }
 
 export interface LedgerRow extends Annotations {

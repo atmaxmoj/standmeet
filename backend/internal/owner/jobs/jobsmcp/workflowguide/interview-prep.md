@@ -20,6 +20,15 @@ Use this guide when a recruiter engaged with an application, or before an interv
 
 `applications.gaps` lists the gaps across all applications, counted. Write the most frequent ones first.
 
+## Phone screen
+
+A phone screen is the owner's fixed script plus the brief of that job.
+
+1. Keep the fixed script in one subjectivity note titled "Phone screen". Write it with `subjectivity_write`. It answers the questions every screen asks: an introduction, why the owner is looking, pay expectations, work authorization, notice period, and the owner's questions for them.
+2. Take each answer from the owner's own words. Ask the owner when the corpus has no answer.
+3. Read the job's brief with `jobs.history` (`status: applied`). Add the job-specific answers to the brief's "My angle" section with `jobs.annotate`.
+4. Never grant the "Phone screen" note to a role. A recruiter's agent must not read pay expectations.
+
 ## Rehearse
 
 1. Create a code for the owner's own test with `codes.create`. Label it "selftest". Give it the application's hiring prompt, so the agent answers as it will for the recruiter.

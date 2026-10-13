@@ -41,7 +41,9 @@ var annotateSchema = json.RawMessage(`{
 		"cited_notes":{"type":"array","items":{"type":"string"},
 			"description":"corpus paths the assessment rests on"},
 		"flags":{"type":"array","items":{"type":"string"}},
-		"interview_reports":{"type":"array","items":{"type":"string"}}
+		"interview_reports":{"type":"array","items":{"type":"string"}},
+		"brief":{"type":"string",
+			"description":"markdown: the picture of the job; see the job-description-reading guide"}
 	},
 	"required":["job_seen_id"]
 }`)
@@ -80,8 +82,8 @@ func LedgerOps(d *jobsuc.JobsDeps, log *slog.Logger) []fp.Op {
 			"again by a board.", recordInvoke(d, log)),
 		op("jobs.annotate", fp.DangerWrite, annotateSchema, "Keep the assessment of a posting on "+
 			"its ledger row (job_seen_id from jobs.fetch_new, jobs.record or jobs.history): "+
-			"score, "+
-			"reason, deductions, cited notes, flags, interview reports. Fields given replace "+
+			"score, reason, deductions, cited notes, flags, interview reports, brief. "+
+			"Fields given replace "+
 			"those fields; others stay. Never shown to a recruiter.", annotateInvoke(d, log)),
 		op("jobs.history", fp.DangerRead, paging.Schema(historyFilters), "The owner's seen "+
 			"ledger, newest first: every posting the boards or Job Scout showed, its status "+
