@@ -46,6 +46,10 @@ type CreatePageInput struct {
 	OwnerID string
 	Slug    string
 	Title   string
+	// Retention / BundleID —— "" or forever: the page is forever. ephemeral: it joins BundleID's
+	// clock, or a new one (docs/design/job-loop-retention.md §4).
+	Retention string
+	BundleID  string
 }
 
 // CreatePage — slug must be a-z0-9-, length <= 64. The reserved home slug is a SINGLETON:
@@ -61,13 +65,27 @@ func CreatePage(
 	if in.Slug == HomepageSlug {
 		return EnsureHomepage(ctx, deps.Pages, in.OwnerID)
 	}
-	page, err := deps.Pages.Create(ctx, in.OwnerID, in.Slug, in.Title)
-	if err != nil {
-		return entity.Microsite{}, fmt.Errorf("create page: %w", err)
+	if err := checkRetention(in.Retention, in.BundleID); err != nil {
+		return entity.Microsite{}, err
 	}
 	// The page's document schema is provisioned lazily on the first write (VisitorInsert), so
 	// creation stays independent of the store — and existing pages need no backfill.
-	return page, nil
+	return createOnClock(ctx, deps.Pages, in)
+}
+
+// createOnClock —— the row, then (ephemeral) its place on BundleID's clock or a new one.
+func createOnClock(
+	ctx context.Context, pages *repo.MicrositeRepo, in *CreatePageInput,
+) (entity.Microsite, error) {
+	page, err := pages.Create(ctx, in.OwnerID, in.Slug, in.Title)
+	if err != nil {
+		return entity.Microsite{}, fmt.Errorf("create page: %w", err)
+	}
+	if in.Retention != RetentionEphemeral {
+		return page, nil
+	}
+	page.BundleID, err = pages.JoinBundle(ctx, in.OwnerID, page.ID, in.BundleID)
+	return page, err
 }
 
 // RenamePage — change a microsite's slug (its /p/<slug> address). The new slug must be valid and
@@ -140,6 +158,7 @@ func WriteFile(
 	if berr != nil {
 		return entity.MicrositeBuild{}, fmt.Errorf("create build: %w", berr)
 	}
+	TouchPage(ctx, deps.Pages, page.ID) // the owner editing keeps an ephemeral page alive
 	return build, nil
 }
 

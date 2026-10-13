@@ -43,7 +43,14 @@ var annotateSchema = json.RawMessage(`{
 		"flags":{"type":"array","items":{"type":"string"}},
 		"interview_reports":{"type":"array","items":{"type":"string"}},
 		"brief":{"type":"string",
-			"description":"markdown: the picture of the job; see the job-description-reading guide"}
+			"description":"the picture of the job, owner-only; see job-description-reading"},
+		"homework":{"type":"string",
+			"description":"what the recruiter's agent reads: what you learned, why you fit"},
+		"retention":{"type":"string","enum":["forever","ephemeral"],
+			"description":"forever (default) or ephemeral: cleared 90 days after the last touch"},
+		"keep":{"type":"boolean","description":"pin an ephemeral assessment (false unpins)"},
+		"bundle_id":{"type":"string",
+			"description":"ephemeral only: share this bundle's clock (a batch, or a microsite)"}
 	},
 	"required":["job_seen_id"]
 }`)
@@ -82,7 +89,8 @@ func LedgerOps(d *jobsuc.JobsDeps, log *slog.Logger) []fp.Op {
 			"again by a board.", recordInvoke(d, log)),
 		op("jobs.annotate", fp.DangerWrite, annotateSchema, "Keep the assessment of a posting on "+
 			"its ledger row (job_seen_id from jobs.fetch_new, jobs.record or jobs.history): "+
-			"score, reason, deductions, cited notes, flags, interview reports, brief. "+
+			"score, reason, deductions, cited notes, flags, interview reports, brief, homework "+
+			"(the only field a recruiter's agent reads; pay and work authorization are refused). "+
 			"Fields given replace "+
 			"those fields; others stay. Never shown to a recruiter.", annotateInvoke(d, log)),
 		op("jobs.history", fp.DangerRead, paging.Schema(historyFilters), "The owner's seen "+
@@ -164,13 +172,20 @@ func annotateInvoke(d *jobsuc.JobsDeps, log *slog.Logger) fp.Invoke {
 		var args struct {
 			*jobsmodel.Annotations
 
-			ID string `json:"job_seen_id"`
+			Keep      *bool  `json:"keep"`
+			ID        string `json:"job_seen_id"`
+			Retention string `json:"retention"`
+			BundleID  string `json:"bundle_id"`
 		}
 		args.Annotations = &jobsmodel.Annotations{}
 		if err := json.Unmarshal(raw, &args); err != nil {
 			return nil, errors.New("invalid arguments: " + err.Error())
 		}
-		row, err := jobsuc.AnnotatePosting(ctx, d, ownerID, args.ID, args.Annotations)
+		row, err := jobsuc.AnnotatePosting(ctx, d, ownerID, &jobsuc.Annotation{
+			ID: args.ID, Fields: args.Annotations, Lifecycle: &jobsmodel.RetentionChange{
+				Keep: args.Keep, Retention: args.Retention, BundleID: args.BundleID,
+			},
+		})
 		return ledgerResult(log, "jobs.annotate", jobsmodel.SeenWireOf(&row), err)
 	}
 }
@@ -218,7 +233,9 @@ func markInvoke(d *jobsuc.JobsDeps, log *slog.Logger) fp.Invoke {
 var ledgerErrs = []error{
 	jobsuc.ErrNoPostings, jobsuc.ErrPostingFields, jobsuc.ErrBadDay, jobsuc.ErrBadStatus,
 	jobsuc.ErrBadMark, jobsuc.ErrNothingToAnnotate, jobsmodel.ErrSeenNotFound, paging.ErrBadCursor,
-	jobsmodel.ErrNoAnswers, jobsmodel.ErrApplicationNotFound,
+	jobsmodel.ErrNoAnswers, jobsmodel.ErrApplicationNotFound, jobsmodel.ErrHomeworkPrivate,
+	jobsmodel.ErrBadRetention, jobsmodel.ErrAssessmentCleared, jobsmodel.ErrNoSuchBundle,
+	jobsmodel.ErrKeepNeedsClock,
 }
 
 func ledgerResult(log *slog.Logger, op string, v any, err error) (json.RawMessage, error) {

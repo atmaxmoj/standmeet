@@ -206,6 +206,9 @@ const GOLDEN_TOOLSET: readonly string[] = [
   // microsite.set_seo -- the successor to the removed global SEO settings: SEO
   // follows each microsite, injected into that page's served <head>.
   'microsite.set_seo',
+  // retention.* -- the ephemeral clock shared by an assessment, its microsite and code
+  // (docs/design/job-loop-retention.md): pin it, restore it after a clearing.
+  'retention.pin', 'retention.restore',
   // assets.* -- the global asset pool (Resources -> Assets): list it, upload straight into it
   // (no corpus entry needed), see who references an asset, and delete one (refused while a
   // corpus entry / microsite still uses it).
@@ -322,6 +325,14 @@ const GOLDEN_TOOLSET: readonly string[] = [
   'resume.master_delete', 'resume.draft_save_as_master',
   'resume.master_trash', 'resume.master_restore',
   'applications.commit',
+  // job-loop roadmap (docs/design/job-loop-roadmap.md): the seen ledger and its assessment
+  // (brief, homework, retention), outcomes and follow-ups, the workflow guides -- shipped across
+  // v0.1.146–155 without this golden being updated.
+  'jobs.record', 'jobs.annotate', 'jobs.history', 'jobs.mark_company', 'jobs.suggest_sources',
+  'applications.update_outcome', 'applications.engagement', 'applications.export',
+  'applications.gaps', 'applications.followups_due', 'applications.funnel',
+  'applications.save_answers',
+  'workflow.doctor', 'workflow.guide',
   // screen assistant -- the desktop cue app streams cards + heard lines to /admin/screen-assistant
   'assistant.push',
 ];

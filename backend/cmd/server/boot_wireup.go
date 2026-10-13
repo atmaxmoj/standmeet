@@ -244,6 +244,7 @@ func buildVisitorSkillsDeps(d *deps.Runtime) conversation.VisitorSkillsDeps {
 		Resolver:           d.ProviderResolver,
 		AgentToolSuppliers: blockwire.NewAgentToolSuppliers(d),
 		Resumes:            port.ResumesByCode(d),
+		Homework:           port.HomeworkByCode(d),
 	}
 }
 

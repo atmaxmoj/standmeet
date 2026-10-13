@@ -69,3 +69,72 @@ SELECT company_key FROM company_marks WHERE owner_id = $1 AND mark = 'do_not_app
 -- Every posting link in the owner's ledger: the boards they point at are suggested as direct
 -- sources (roadmap 4.3.d).
 SELECT COALESCE(snapshot->>'url', '')::text AS url FROM job_seen WHERE owner_id = $1;
+
+-- ── retention (docs/design/job-loop-retention.md): the row's clock is a retention_bundles row ──
+
+-- name: SeenClockState :one
+-- The row's bundle and whether its assessment was cleared (read before an annotate).
+SELECT bundle_id, cleared_at FROM job_seen WHERE id = $1 AND owner_id = $2 FOR UPDATE;
+
+-- name: NewBundleForSeen :exec
+-- An ephemeral assessment with no clock gets its own one-member bundle.
+WITH b AS (INSERT INTO retention_bundles (owner_id) VALUES (sqlc.arg('owner_id')) RETURNING id)
+UPDATE job_seen SET bundle_id = (SELECT id FROM b)
+WHERE job_seen.id = sqlc.arg('id') AND job_seen.owner_id = sqlc.arg('owner_id');
+
+-- name: JoinSeenBundle :execrows
+-- Join the owner's live bundle (an assessment sharing a microsite's clock, or a batch).
+UPDATE job_seen SET bundle_id = sqlc.arg('bundle_id')
+WHERE job_seen.id = sqlc.arg('id') AND job_seen.owner_id = sqlc.arg('owner_id')
+  AND EXISTS (SELECT 1 FROM retention_bundles b WHERE b.id = sqlc.arg('bundle_id')
+              AND b.owner_id = sqlc.arg('owner_id') AND b.cleared_at IS NULL);
+
+-- name: TouchSeenBundle :exec
+UPDATE retention_bundles b SET last_touched_at = now()
+FROM job_seen s
+WHERE s.id = $1 AND s.owner_id = $2 AND b.id = s.bundle_id AND b.cleared_at IS NULL;
+
+-- name: PinSeenBundle :execrows
+UPDATE retention_bundles b SET keep = $3, last_touched_at = now()
+FROM job_seen s
+WHERE s.id = $1 AND s.owner_id = $2 AND b.id = s.bundle_id AND b.cleared_at IS NULL;
+
+-- name: ForgetSeenBundle :exec
+-- retention: forever. Deleting the bundle makes every member forever (ON DELETE SET NULL).
+DELETE FROM retention_bundles b USING job_seen s
+WHERE s.id = $1 AND s.owner_id = $2 AND b.id = s.bundle_id;
+
+-- name: ForgetBundleByKeys :exec
+-- A commit: the posting's bundle (assessment, page, code) becomes forever.
+DELETE FROM retention_bundles b USING job_seen s
+WHERE s.owner_id = sqlc.arg('owner_id') AND b.id = s.bundle_id
+  AND ((s.url_key <> '' AND s.url_key = sqlc.arg('url_key')::text)
+    OR (s.composite_key <> '' AND s.composite_key = sqlc.arg('composite_key')::text));
+
+-- name: BundleClocks :many
+SELECT id, keep, last_touched_at FROM retention_bundles WHERE id = ANY(sqlc.arg('ids')::uuid[]);
+
+-- name: ClearBundleAssessments :exec
+-- The bundle expired: its assessments move to the trash; each row keeps its tombstone.
+WITH moved AS (
+    INSERT INTO job_assessment_trash (job_seen_id, owner_id, annotations)
+    SELECT s.id, s.owner_id, s.annotations FROM job_seen s
+    WHERE s.bundle_id = sqlc.arg('bundle_id')::uuid AND s.cleared_at IS NULL
+    ON CONFLICT (job_seen_id) DO UPDATE
+        SET annotations = EXCLUDED.annotations, cleared_at = now()
+    RETURNING job_assessment_trash.job_seen_id
+)
+UPDATE job_seen SET annotations = '{}', cleared_at = now()
+WHERE job_seen.id IN (SELECT job_seen_id FROM moved);
+
+-- name: RestoreBundleAssessments :exec
+WITH back AS (
+    DELETE FROM job_assessment_trash t USING job_seen s
+    WHERE t.job_seen_id = s.id AND s.bundle_id = $1
+    RETURNING t.job_seen_id, t.annotations
+)
+UPDATE job_seen SET annotations = back.annotations, cleared_at = NULL
+FROM back WHERE job_seen.id = back.job_seen_id;
+
+-- name: PurgeAssessmentTrash :execrows
+DELETE FROM job_assessment_trash WHERE cleared_at < $1;

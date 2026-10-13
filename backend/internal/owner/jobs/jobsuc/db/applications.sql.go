@@ -234,6 +234,29 @@ func (q *Queries) GetApplicationByAccessCode(ctx context.Context, arg GetApplica
 	return i, err
 }
 
+const homeworkByAccessCode = `-- name: HomeworkByAccessCode :one
+SELECT COALESCE(s.annotations->>'homework', '')::text AS homework
+FROM applications a
+JOIN job_seen s ON s.application_id = a.id AND s.owner_id = a.owner_id
+WHERE a.access_code_id = $1 AND a.owner_id = $2
+ORDER BY s.last_seen_at DESC
+LIMIT 1
+`
+
+type HomeworkByAccessCodeParams struct {
+	AccessCodeID pgtype.UUID
+	OwnerID      pgtype.UUID
+}
+
+// The owner's homework on the job a session's code was issued for (the recruiter-facing half of the
+// ledger row's annotations), read live. owner-scoped like GetApplicationByAccessCode.
+func (q *Queries) HomeworkByAccessCode(ctx context.Context, arg HomeworkByAccessCodeParams) (string, error) {
+	row := q.db.QueryRow(ctx, homeworkByAccessCode, arg.AccessCodeID, arg.OwnerID)
+	var homework string
+	err := row.Scan(&homework)
+	return homework, err
+}
+
 const insertApplicationAnswer = `-- name: InsertApplicationAnswer :exec
 INSERT INTO application_answers (owner_id, application_id, question_key, question, answer)
 VALUES ($1, $2, $3, $4, $5)

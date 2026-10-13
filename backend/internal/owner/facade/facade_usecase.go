@@ -24,6 +24,7 @@ type (
 	CreatePromptInputReq       = usecase.CreatePromptInputReq
 	CreatedKeypair             = usecase.CreatedKeypair
 	MicrositeDeps              = usecase.MicrositeDeps
+	RetentionDeps              = usecase.RetentionDeps
 	MicrositeDocStore          = usecase.MicrositeDocStore
 	MicrositeTextInput         = usecase.MicrositeTextInput
 	DocWrite                   = usecase.DocWrite

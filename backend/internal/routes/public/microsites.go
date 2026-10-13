@@ -308,6 +308,10 @@ func insideRoot(target, buildRoot string) bool {
 }
 
 func writeAssetErr(log *slog.Logger, w http.ResponseWriter, err error) {
+	if errors.Is(err, owner.ErrMicrositeExpired) {
+		writeExpired(w)
+		return
+	}
 	if isNotFoundErr(err) {
 		writeError(log, w, apierr.Envelope{
 			Status: http.StatusNotFound, Code: "not_found", Message: "page not found",

@@ -32,6 +32,7 @@ type codeRow struct {
 	Code                 string  `json:"code"`
 	Label                string  `json:"label"`
 	Status               string  `json:"status"`
+	RevokedReason        string  `json:"revoked_reason,omitempty"`
 	AssumedRoleID        string  `json:"assumed_role_id"`
 	// ProviderID — empty = this code didn't specify one, inherits the role's then falls back
 	// to default. **Must be sent outbound**: a field the owner can write but not see means the
@@ -62,7 +63,7 @@ type codeRow struct {
 
 func toCodeRow(c *entity.Code, memberCount int32) codeRow {
 	return codeRow{
-		ID: c.ID, Code: c.Code, Label: c.Label, Status: c.Status,
+		ID: c.ID, Code: c.Code, Label: c.Label, Status: c.Status, RevokedReason: c.RevokedReason,
 		AssumedRoleID: c.AssumedRoleID, ProviderID: c.ProviderID,
 		Ghosts:     nonNilStrings(c.Ghosts),
 		MaxMembers: c.MaxMembers, MaxTurnsPerSession: c.MaxTurnsPerSession,

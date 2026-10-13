@@ -87,7 +87,11 @@ var (
 		"type":"object",
 		"properties":{
 			"slug":{"type":"string","description":"URL slug: a-z0-9-."},
-			"title":{"type":"string","description":"Display title; defaults to the slug."}
+			"title":{"type":"string","description":"Display title; defaults to the slug."},
+			"retention":{"type":"string","enum":["forever","ephemeral"],
+				"description":"forever (default) or ephemeral: gone after 90 days without a touch"},
+			"bundle_id":{"type":"string",
+				"description":"ephemeral only: share this bundle's clock (e.g. the assessment's)"}
 		},
 		"required":["slug"]
 	}`)
@@ -169,24 +173,27 @@ var (
 type micrositeOut struct {
 	// BoundCodes / OpenWithoutCode —— the page's access. Present on list rows; left out of a
 	// single-page receipt, which never loads them (a zero value there would read as "closed").
-	BoundCodes        *[]string `json:"bound_codes,omitempty"`
-	OpenWithoutCode   *bool     `json:"open_without_code,omitempty"`
-	LatestBuildStatus string    `json:"latest_build_status,omitempty"`
-	PreviewURL        string    `json:"preview_url,omitempty"`
-	Title             string    `json:"title"`
-	Status            string    `json:"status"`
-	LiveBuildID       string    `json:"live_build_id,omitempty"`
-	CreatedAt         string    `json:"created_at"`
-	Slug              string    `json:"slug"`
-	UpdatedAt         string    `json:"updated_at"`
-	ID                string    `json:"id"`
-	LatestBuildID     string    `json:"latest_build_id,omitempty"`
-	SeoDescription    string    `json:"seo_description"`
-	SeoTitle          string    `json:"seo_title"`
-	SeoImage          string    `json:"seo_image"`
-	HasLive           bool      `json:"has_live"`
-	HasStaging        bool      `json:"has_staging"`
-	AllowBYOAI        bool      `json:"allow_byoai"`
+	BoundCodes      *[]string `json:"bound_codes,omitempty"`
+	OpenWithoutCode *bool     `json:"open_without_code,omitempty"`
+	// BundleID —— the ephemeral clock; null = forever (Retention says it in words).
+	BundleID          *string `json:"bundle_id"`
+	Retention         string  `json:"retention"`
+	LatestBuildStatus string  `json:"latest_build_status,omitempty"`
+	PreviewURL        string  `json:"preview_url,omitempty"`
+	Title             string  `json:"title"`
+	Status            string  `json:"status"`
+	LiveBuildID       string  `json:"live_build_id,omitempty"`
+	CreatedAt         string  `json:"created_at"`
+	Slug              string  `json:"slug"`
+	UpdatedAt         string  `json:"updated_at"`
+	ID                string  `json:"id"`
+	LatestBuildID     string  `json:"latest_build_id,omitempty"`
+	SeoDescription    string  `json:"seo_description"`
+	SeoTitle          string  `json:"seo_title"`
+	SeoImage          string  `json:"seo_image"`
+	HasLive           bool    `json:"has_live"`
+	HasStaging        bool    `json:"has_staging"`
+	AllowBYOAI        bool    `json:"allow_byoai"`
 }
 
 type buildOut struct {
@@ -210,6 +217,10 @@ func toMicrositeOut(p *entity.Microsite) micrositeOut {
 	v.SeoTitle = derefOr(p.SeoTitle)
 	v.SeoDescription = derefOr(p.SeoDescription)
 	v.SeoImage = derefOr(p.SeoImage)
+	v.Retention = usecase.RetentionForever
+	if p.BundleID != "" {
+		v.BundleID, v.Retention = &p.BundleID, usecase.RetentionEphemeral
+	}
 	withAccess(&v, p.Access)
 	return v
 }
@@ -272,6 +283,8 @@ type pageArgs struct {
 	// OpenWithoutCode —— set_open_without_code's argument. A pointer for the same reason.
 	OpenWithoutCode *bool  `json:"open_without_code"`
 	Slug            string `json:"slug"`
+	Retention       string `json:"retention"`
+	BundleID        string `json:"bundle_id"`
 	NewSlug         string `json:"new_slug"`
 	Title           string `json:"title"`
 	Path            string `json:"path"`
@@ -304,6 +317,12 @@ var micrositeErrClasses = []struct {
 	as       func() error
 }{
 	{paging.ErrBadCursor, func() error { return fp.BadInput("bad cursor") }},
+	{usecase.ErrBadRetention, func() error {
+		return fp.BadInput("retention must be forever or ephemeral; bundle_id goes with ephemeral")
+	}},
+	{usecase.ErrRetentionNotFound, func() error {
+		return fp.BadInput(usecase.ErrRetentionNotFound.Error())
+	}},
 	{entity.ErrMicrositeNotFound, func() error {
 		return fp.Coded(fp.NotFound("page not found"), "page_not_found")
 	}},

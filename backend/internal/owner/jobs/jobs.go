@@ -103,6 +103,10 @@ func (p *Plugin) PeriodicJobs() []periodic.Job {
 		// Follow-ups are due by the day (roadmap 3.1); a rerun announces nothing twice.
 		jobsuc.FollowupTaskName, 24*time.Hour,
 		jobsuc.FollowupTask(p.deps.AppsRepo, p.deps.Jobs.Events),
+	), periodic.Named(
+		// Cleared ephemeral assessments wait 90 days for retention.restore.
+		"assessment trash purge", 24*time.Hour,
+		func(ctx context.Context) error { return p.deps.Jobs.Seen.PurgeTrash(ctx, time.Now()) },
 	)}
 }
 

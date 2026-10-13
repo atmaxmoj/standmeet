@@ -41,7 +41,7 @@ func ResolveOpenBuild(
 ) (LivePage, error) {
 	live, err := ResolveLiveBuild(ctx, deps, owners, slug)
 	if err != nil {
-		return LivePage{}, err
+		return LivePage{}, expiredPageOr(ctx, deps.Pages, owners, slug, err)
 	}
 	if !live.OpenWithoutCode && !granted(live.Build.PageID) {
 		return LivePage{}, entity.ErrMicrositeNeedsCode

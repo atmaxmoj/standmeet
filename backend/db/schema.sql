@@ -366,6 +366,9 @@ CREATE TABLE access_codes (
     expires_at                timestamptz,
     status                    text          NOT NULL DEFAULT 'active'
                                             CHECK (status IN ('active', 'revoked')),
+    -- revoked_reason —— why it was revoked: '' (the owner), 'expired' (its ephemeral bundle ran out,
+    -- docs/design/job-loop-retention.md). See migrations/2026-10-13-retention-bundles.sql.
+    revoked_reason            text          NOT NULL DEFAULT '',
     max_turns_per_session     integer,
     -- max_members —— 这张码最多容纳几个不同名字(member)。NULL = 不限。满了
     -- 之后新名字被拒(visitor 见 "code 已满");已有名字照常继续。匿名(skip)
@@ -806,6 +809,21 @@ CREATE TABLE messages (
 );
 CREATE INDEX messages_dialog_idx ON messages(dialog_id);
 
+-- retention_bundles —— the one clock of ephemeral things (docs/design/job-loop-retention.md): an
+-- assessment (job_seen) or a microsite is ephemeral iff it has a bundle_id. Deleting the row makes
+-- every member forever (ON DELETE SET NULL). See migrations/2026-10-13-retention-bundles.sql.
+-- events: none (its facts are recorded as domain events by the owner use cases: retention.bundle_cleared, retention.bundle_restored)
+CREATE TABLE retention_bundles (
+    id              uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id        uuid        NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    last_touched_at timestamptz NOT NULL DEFAULT now(),
+    keep            boolean     NOT NULL DEFAULT false,
+    cleared_at      timestamptz,
+    created_at      timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX retention_bundles_due_idx
+    ON retention_bundles (last_touched_at) WHERE cleared_at IS NULL AND NOT keep;
+
 -- microsites —— owner 自定义 React 页面。
 -- events: none (its facts are recorded as domain events by the owner use cases: page.promoted_live, page.rolled_back, page.unpublished)
 CREATE TABLE microsites (
@@ -831,8 +849,13 @@ CREATE TABLE microsites (
     -- seo_image — the Open Graph / share-card image URL for this page (og:image, twitter:image).
     seo_image              text,
     created_at             timestamptz   NOT NULL DEFAULT now(),
-    updated_at             timestamptz   NOT NULL DEFAULT now()
+    updated_at             timestamptz   NOT NULL DEFAULT now(),
+    -- bundle_id —— ephemeral: the page lives on this bundle's clock; NULL = forever. expired_at ——
+    -- set when the clock ran out (the page is then in the trash and its URL says "expired").
+    bundle_id              uuid          REFERENCES retention_bundles(id) ON DELETE SET NULL,
+    expired_at             timestamptz
 );
+CREATE INDEX microsites_bundle_idx ON microsites (bundle_id) WHERE bundle_id IS NOT NULL;
 
 -- microsite_access —— "open without an access code", per page (owner decision 2026-09-28). No row =
 -- the default: open iff no active code is bound to the page (a bound page starts closed); a row =
@@ -1147,8 +1170,14 @@ CREATE TABLE job_seen (
     last_seen_at   timestamptz NOT NULL DEFAULT now(),
     -- reposts: the same company::title::location under a new URL, seen more than 7 days after the
     -- ledger last saw it (1.5.b). See migrations/2026-10-11-job-seen-reposts.sql.
-    reposts        integer     NOT NULL DEFAULT 0
+    reposts        integer     NOT NULL DEFAULT 0,
+    -- bundle_id —— the assessment is ephemeral on this bundle's clock; NULL = forever. cleared_at ——
+    -- the clock ran out: annotations moved to job_assessment_trash, the row is a tombstone that
+    -- dedup still knows. See migrations/2026-10-13-retention-bundles.sql.
+    bundle_id      uuid        REFERENCES retention_bundles(id) ON DELETE SET NULL,
+    cleared_at     timestamptz
 );
+CREATE INDEX job_seen_bundle_idx ON job_seen (bundle_id) WHERE bundle_id IS NOT NULL;
 CREATE UNIQUE INDEX job_seen_url_uniq ON job_seen (owner_id, url_key) WHERE url_key <> '';
 CREATE UNIQUE INDEX job_seen_key_uniq ON job_seen (owner_id, composite_key) WHERE composite_key <> '';
 CREATE INDEX job_seen_owner_time_idx ON job_seen (owner_id, first_seen_at DESC, id DESC);
@@ -1168,6 +1197,16 @@ CREATE TABLE application_answers (
 );
 CREATE INDEX application_answers_owner_key_idx
     ON application_answers (owner_id, question_key, created_at DESC);
+
+-- job_assessment_trash —— an ephemeral assessment cleared by the retention sweep, restorable for 90
+-- days (retention.restore), then purged. See migrations/2026-10-13-retention-bundles.sql.
+-- events: none (the clearing is recorded as retention.bundle_cleared)
+CREATE TABLE job_assessment_trash (
+    job_seen_id uuid        PRIMARY KEY REFERENCES job_seen(id) ON DELETE CASCADE,
+    owner_id    uuid        NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    annotations jsonb       NOT NULL,
+    cleared_at  timestamptz NOT NULL DEFAULT now()
+);
 
 -- company_marks —— companies the owner will not apply to (roadmap 4.1.e), on the dedup layer's
 -- normalized name. A posting's flag is read from here, never stored on the posting.

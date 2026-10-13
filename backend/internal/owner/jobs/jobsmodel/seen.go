@@ -18,14 +18,17 @@ const (
 // FlagDoNotApply —— a posting from a company the owner marked (4.1.e).
 const FlagDoNotApply = "do_not_apply"
 
-// Annotations —— the owner's AI's assessment of a posting (4.1.d, 8.2.a). Kept on the ledger row,
-// never in anything a recruiter's agent reads.
+// Annotations —— the owner's AI's assessment of a posting (4.1.d, 8.2.a). Kept on the ledger row;
+// a recruiter's agent reads only Homework, never the rest.
 type Annotations struct {
 	Score  *float64 `json:"score,omitempty"`
 	Reason string   `json:"reason,omitempty"`
 	// Brief —— the picture of the job pieced together before applying (company, team, stack,
 	// likely questions), in markdown. The screen assistant reads it off the applied row.
-	Brief            string      `json:"brief,omitempty"`
+	Brief string `json:"brief,omitempty"`
+	// Homework —— the recruiter-facing half: what the owner learned about the company and team,
+	// and why they fit. The recruiter's agent on this application's code reads it (homework_read).
+	Homework         string      `json:"homework,omitempty"`
 	Deductions       []Deduction `json:"deductions,omitempty"`
 	CitedNotes       []string    `json:"cited_notes,omitempty"`
 	Flags            []string    `json:"flags,omitempty"`
@@ -43,11 +46,15 @@ type SeenRow struct {
 	FirstSeenAt   time.Time
 	LastSeenAt    time.Time
 	ApplicationID *string
-	Annotations   Annotations
-	ID            string
-	Status        string
-	Source        string
-	Snapshot      FetchedJob
+	// Clock —— the ephemeral bundle the assessment lives on; nil = forever.
+	Clock *Clock
+	// ClearedAt —— the clock ran out and the assessment went to the trash (a tombstone row).
+	ClearedAt   *time.Time
+	Annotations Annotations
+	ID          string
+	Status      string
+	Source      string
+	Snapshot    FetchedJob
 	// Reposts —— times the company posted it again under a new URL (roadmap 1.5.b).
 	Reposts int
 }
@@ -58,6 +65,8 @@ type Recorded struct {
 	ID          string    `json:"job_seen_id"`
 	Status      string    `json:"status"`
 	New         bool      `json:"new"`
+	// AssessedBefore —— the row was assessed once and retention has since cleared it.
+	AssessedBefore bool `json:"assessed_before,omitempty"`
 }
 
 // SeenFilter —— jobs.history's narrowing: [From, To) on first_seen_at, and a status. Zero = none.

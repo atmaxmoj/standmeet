@@ -194,6 +194,7 @@ func listedMicrosite(row *db.ListMicrositesByOwnerRow) entity.Microsite {
 		AllowByoai: row.AllowByoai, StoreWritable: row.StoreWritable,
 		SeoTitle: row.SeoTitle, SeoDescription: row.SeoDescription, SeoImage: row.SeoImage,
 		CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
+		BundleID: row.BundleID, ExpiredAt: row.ExpiredAt,
 	})
 	page.Access = &entity.MicrositeAccess{
 		BoundCodes: row.BoundCodes, OpenWithoutCode: row.OpenWithoutCode,
@@ -337,6 +338,9 @@ func toDomainMicrosite(row *db.Microsite) entity.Microsite {
 	if row.PreviousLiveBuildID.Valid {
 		s := pgstore.FormatUUID(row.PreviousLiveBuildID)
 		page.PreviousLiveBuildID = &s
+	}
+	if row.BundleID.Valid {
+		page.BundleID = pgstore.FormatUUID(row.BundleID)
 	}
 	return page
 }

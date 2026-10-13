@@ -57,14 +57,28 @@ func postingComplete(p *jobsmodel.FetchedJob) bool {
 	return p.Title != "" && p.Company != "" && p.URL != ""
 }
 
+// Annotation —— jobs.annotate's arguments: the row, the assessment fields, the lifecycle change
+// (retention, keep, bundle_id: docs/design/job-loop-retention.md).
+type Annotation struct {
+	Fields    *jobsmodel.Annotations
+	Lifecycle *jobsmodel.RetentionChange
+	ID        string
+}
+
 // AnnotatePosting —— jobs.annotate (4.1.d, 8.2.a).
 func AnnotatePosting(
-	ctx context.Context, deps *JobsDeps, ownerID, id string, a *jobsmodel.Annotations,
+	ctx context.Context, deps *JobsDeps, ownerID string, in *Annotation,
 ) (jobsmodel.SeenRow, error) {
-	if id == "" {
+	if in.ID == "" {
 		return jobsmodel.SeenRow{}, ErrNothingToAnnotate
 	}
-	return deps.Seen.Annotate(ctx, ownerID, id, a)
+	if err := jobsmodel.CheckHomework(in.Fields.Homework); err != nil {
+		return jobsmodel.SeenRow{}, err
+	}
+	if err := in.Lifecycle.Check(); err != nil {
+		return jobsmodel.SeenRow{}, err
+	}
+	return deps.Seen.Annotate(ctx, ownerID, in.ID, in.Fields, in.Lifecycle)
 }
 
 // History —— jobs.history (8.3.a).

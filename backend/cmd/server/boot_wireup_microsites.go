@@ -21,7 +21,6 @@ import (
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	"github.com/atmaxmoj/standmeet/internal/infra/apierr"
-	"github.com/atmaxmoj/standmeet/internal/infra/middleware"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
 	publicroutes "github.com/atmaxmoj/standmeet/internal/routes/public"
 )
@@ -64,25 +63,6 @@ func buildPublicMicrositeDeps(d *deps.Runtime) publicroutes.MicrositeHandlers {
 	}
 }
 
-// micrositeGrant —— who opens a page closed to visitors without a code: the owner (a live owner
-// session) or a visitor whose session's code is bound to the page. Any lookup error → closed.
-func micrositeGrant(d *deps.Runtime) func(*http.Request, string, string) bool {
-	pages := owner.MicrositeDeps{Pages: d.MicrositeRepo, Builds: d.MicrositeBuildRepo}
-	return func(r *http.Request, visitorToken, pageID string) bool {
-		return ownerSignedIn(r, d) ||
-			visitorCodeOpens(r.Context(), d, pages, visitorToken, pageID)
-	}
-}
-
-func ownerSignedIn(r *http.Request, d *deps.Runtime) bool {
-	c, err := r.Cookie(middleware.SessionCookieName)
-	if err != nil || c.Value == "" {
-		return false
-	}
-	_, err = d.SessionStore.Get(r.Context(), c.Value)
-	return err == nil
-}
-
 // storeWatch —— a page's store change feed: a waiter on the store listener, keyed by page id.
 func storeWatch(d *deps.Runtime, pageDeps owner.MicrositeDeps) publicroutes.StoreWatch {
 	return func(ctx context.Context, slug string) (<-chan struct{}, func(), bool, error) {
@@ -109,20 +89,6 @@ func storeAuthor(r *http.Request, d *deps.Runtime, visitorToken string) owner.Do
 		return owner.DocAuthor{Kind: owner.AuthorOwner, Name: "owner"}
 	}
 	return owner.DocAuthor{Kind: owner.AuthorMember, Name: "anonymous"}
-}
-
-func visitorCodeOpens(
-	ctx context.Context, d *deps.Runtime, pages owner.MicrositeDeps, token, pageID string,
-) bool {
-	if token == "" {
-		return false
-	}
-	sess, err := d.VisitorStore.Get(ctx, token)
-	if err != nil || sess.CodeID == "" {
-		return false
-	}
-	ok, err := owner.CodeOpensPage(ctx, pages, sess.CodeID, pageID)
-	return err == nil && ok
 }
 
 // publicChatEnabled —— the closure serving the `standmeet-public-chat` meta. On when the `public`

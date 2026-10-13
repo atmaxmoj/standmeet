@@ -8,12 +8,14 @@ import "time"
 // SeenWire —— one ledger row on the wire.
 type SeenWire struct {
 	*Annotations
+	// RetentionWire —— the assessment's lifecycle (docs/design/job-loop-retention.md).
+	*RetentionWire
 
 	ApplicationID *string `json:"application_id"`
+	Status        string  `json:"status"`
 	ID            string  `json:"job_seen_id"`
 	FirstSeenAt   string  `json:"first_seen_at"`
 	LastSeenAt    string  `json:"last_seen_at"`
-	Status        string  `json:"status"`
 	Title         string  `json:"title"`
 	Company       string  `json:"company"`
 	Location      string  `json:"location"`
@@ -27,9 +29,10 @@ type SeenWire struct {
 func SeenWireOf(r *SeenRow) SeenWire {
 	return SeenWire{
 		Annotations: &r.Annotations, ApplicationID: r.ApplicationID, ID: r.ID,
-		FirstSeenAt: r.FirstSeenAt.UTC().Format(time.RFC3339Nano),
-		LastSeenAt:  r.LastSeenAt.UTC().Format(time.RFC3339Nano),
-		Status:      r.Status, Title: r.Snapshot.Title, Company: r.Snapshot.Company,
+		RetentionWire: RetentionWireOf(r.Clock, r.ClearedAt, time.Now()),
+		FirstSeenAt:   r.FirstSeenAt.UTC().Format(time.RFC3339Nano),
+		LastSeenAt:    r.LastSeenAt.UTC().Format(time.RFC3339Nano),
+		Status:        r.Status, Title: r.Snapshot.Title, Company: r.Snapshot.Company,
 		Location: r.Snapshot.Location, URL: r.Snapshot.URL, Source: r.Source, Reposts: r.Reposts,
 	}
 }

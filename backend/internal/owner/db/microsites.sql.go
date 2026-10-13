@@ -55,7 +55,7 @@ SET live_build_id          = NULL,
 WHERE id = $1
 RETURNING id, owner_id, slug, title, status,
           live_build_id, staging_build_id, previous_live_build_id,
-          allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at
+          allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at, bundle_id, expired_at
 `
 
 // Unpublish completely: drop BOTH live and previous so the page serves nothing. Unlike rollback
@@ -80,6 +80,8 @@ func (q *Queries) ClearMicrositeLive(ctx context.Context, id pgtype.UUID) (Micro
 		&i.SeoImage,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.BundleID,
+		&i.ExpiredAt,
 	)
 	return i, err
 }
@@ -109,7 +111,7 @@ INSERT INTO microsites (owner_id, slug, title)
 VALUES ($1, $2, $3)
 RETURNING id, owner_id, slug, title, status,
           live_build_id, staging_build_id, previous_live_build_id,
-          allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at
+          allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at, bundle_id, expired_at
 `
 
 type CreateMicrositeParams struct {
@@ -137,6 +139,8 @@ func (q *Queries) CreateMicrosite(ctx context.Context, arg CreateMicrositeParams
 		&i.SeoImage,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.BundleID,
+		&i.ExpiredAt,
 	)
 	return i, err
 }
@@ -280,7 +284,7 @@ func (q *Queries) GetMicrositeBuild(ctx context.Context, id pgtype.UUID) (Micros
 const getMicrositeByID = `-- name: GetMicrositeByID :one
 SELECT id, owner_id, slug, title, status,
        live_build_id, staging_build_id, previous_live_build_id,
-       allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at
+       allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at, bundle_id, expired_at
 FROM microsites
 WHERE id = $1 AND status != 'deleted'
 `
@@ -304,6 +308,8 @@ func (q *Queries) GetMicrositeByID(ctx context.Context, id pgtype.UUID) (Microsi
 		&i.SeoImage,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.BundleID,
+		&i.ExpiredAt,
 	)
 	return i, err
 }
@@ -311,7 +317,7 @@ func (q *Queries) GetMicrositeByID(ctx context.Context, id pgtype.UUID) (Microsi
 const getMicrositeBySlug = `-- name: GetMicrositeBySlug :one
 SELECT id, owner_id, slug, title, status,
        live_build_id, staging_build_id, previous_live_build_id,
-       allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at
+       allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at, bundle_id, expired_at
 FROM microsites
 WHERE owner_id = $1 AND slug = $2 AND status != 'deleted'
 `
@@ -340,6 +346,8 @@ func (q *Queries) GetMicrositeBySlug(ctx context.Context, arg GetMicrositeBySlug
 		&i.SeoImage,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.BundleID,
+		&i.ExpiredAt,
 	)
 	return i, err
 }
@@ -347,7 +355,7 @@ func (q *Queries) GetMicrositeBySlug(ctx context.Context, arg GetMicrositeBySlug
 const getMicrositeBySlugAny = `-- name: GetMicrositeBySlugAny :one
 SELECT id, owner_id, slug, title, status,
        live_build_id, staging_build_id, previous_live_build_id,
-       allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at
+       allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at, bundle_id, expired_at
 FROM microsites
 WHERE owner_id = $1 AND slug = $2
 `
@@ -379,6 +387,8 @@ func (q *Queries) GetMicrositeBySlugAny(ctx context.Context, arg GetMicrositeByS
 		&i.SeoImage,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.BundleID,
+		&i.ExpiredAt,
 	)
 	return i, err
 }
@@ -420,7 +430,7 @@ const listMicrositesByOwner = `-- name: ListMicrositesByOwner :many
 SELECT cp.id, cp.owner_id, cp.slug, cp.title, cp.status,
        cp.live_build_id, cp.staging_build_id, cp.previous_live_build_id,
        cp.allow_byoai, cp.store_writable, cp.seo_title, cp.seo_description, cp.seo_image,
-       cp.created_at, cp.updated_at,
+       cp.created_at, cp.updated_at, cp.bundle_id, cp.expired_at,
        COALESCE(
            ARRAY(
                SELECT ac.code::text FROM access_codes ac
@@ -451,6 +461,8 @@ type ListMicrositesByOwnerRow struct {
 	SeoImage            *string
 	CreatedAt           pgtype.Timestamptz
 	UpdatedAt           pgtype.Timestamptz
+	BundleID            pgtype.UUID
+	ExpiredAt           pgtype.Timestamptz
 	BoundCodes          []string
 	OpenWithoutCode     bool
 }
@@ -483,6 +495,8 @@ func (q *Queries) ListMicrositesByOwner(ctx context.Context, ownerID pgtype.UUID
 			&i.SeoImage,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.BundleID,
+			&i.ExpiredAt,
 			&i.BoundCodes,
 			&i.OpenWithoutCode,
 		); err != nil {
@@ -500,7 +514,7 @@ const listMicrositesPage = `-- name: ListMicrositesPage :many
 SELECT cp.id, cp.owner_id, cp.slug, cp.title, cp.status,
        cp.live_build_id, cp.staging_build_id, cp.previous_live_build_id,
        cp.allow_byoai, cp.store_writable, cp.seo_title, cp.seo_description, cp.seo_image,
-       cp.created_at, cp.updated_at,
+       cp.created_at, cp.updated_at, cp.bundle_id, cp.expired_at,
        COALESCE(
            ARRAY(
                SELECT ac.code::text FROM access_codes ac
@@ -554,6 +568,8 @@ type ListMicrositesPageRow struct {
 	SeoImage            *string
 	CreatedAt           pgtype.Timestamptz
 	UpdatedAt           pgtype.Timestamptz
+	BundleID            pgtype.UUID
+	ExpiredAt           pgtype.Timestamptz
 	BoundCodes          []string
 	OpenWithoutCode     bool
 	Total               int32
@@ -596,6 +612,8 @@ func (q *Queries) ListMicrositesPage(ctx context.Context, arg ListMicrositesPage
 			&i.SeoImage,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.BundleID,
+			&i.ExpiredAt,
 			&i.BoundCodes,
 			&i.OpenWithoutCode,
 			&i.Total,
@@ -680,7 +698,7 @@ SET slug = $3, updated_at = now()
 WHERE owner_id = $1 AND slug = $2 AND status != 'deleted'
 RETURNING id, owner_id, slug, title, status,
           live_build_id, staging_build_id, previous_live_build_id,
-          allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at
+          allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at, bundle_id, expired_at
 `
 
 type RenameMicrositeParams struct {
@@ -710,6 +728,8 @@ func (q *Queries) RenameMicrosite(ctx context.Context, arg RenameMicrositeParams
 		&i.SeoImage,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.BundleID,
+		&i.ExpiredAt,
 	)
 	return i, err
 }
@@ -736,7 +756,7 @@ SET status = 'active', updated_at = now()
 WHERE owner_id = $1 AND slug = $2
 RETURNING id, owner_id, slug, title, status,
           live_build_id, staging_build_id, previous_live_build_id,
-          allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at
+          allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at, bundle_id, expired_at
 `
 
 type RestoreMicrositeParams struct {
@@ -765,6 +785,8 @@ func (q *Queries) RestoreMicrosite(ctx context.Context, arg RestoreMicrositePara
 		&i.SeoImage,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.BundleID,
+		&i.ExpiredAt,
 	)
 	return i, err
 }
@@ -796,7 +818,7 @@ SET live_build_id          = previous_live_build_id,
 WHERE id = $1
 RETURNING id, owner_id, slug, title, status,
           live_build_id, staging_build_id, previous_live_build_id,
-          allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at
+          allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at, bundle_id, expired_at
 `
 
 // Promote previous_live_build_id back to live, clearing previous. When previous was already NULL
@@ -820,6 +842,8 @@ func (q *Queries) RollbackMicrositeLive(ctx context.Context, id pgtype.UUID) (Mi
 		&i.SeoImage,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.BundleID,
+		&i.ExpiredAt,
 	)
 	return i, err
 }
@@ -894,7 +918,7 @@ SET allow_byoai = $3, updated_at = now()
 WHERE owner_id = $1 AND slug = $2 AND status != 'deleted'
 RETURNING id, owner_id, slug, title, status,
           live_build_id, staging_build_id, previous_live_build_id,
-          allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at
+          allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at, bundle_id, expired_at
 `
 
 type SetMicrositeByoaiParams struct {
@@ -924,6 +948,8 @@ func (q *Queries) SetMicrositeByoai(ctx context.Context, arg SetMicrositeByoaiPa
 		&i.SeoImage,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.BundleID,
+		&i.ExpiredAt,
 	)
 	return i, err
 }
@@ -936,7 +962,7 @@ SET previous_live_build_id = live_build_id,
 WHERE id = $1
 RETURNING id, owner_id, slug, title, status,
           live_build_id, staging_build_id, previous_live_build_id,
-          allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at
+          allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at, bundle_id, expired_at
 `
 
 type SetMicrositeLiveParams struct {
@@ -964,6 +990,8 @@ func (q *Queries) SetMicrositeLive(ctx context.Context, arg SetMicrositeLivePara
 		&i.SeoImage,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.BundleID,
+		&i.ExpiredAt,
 	)
 	return i, err
 }
@@ -1025,7 +1053,7 @@ SET staging_build_id = $2, updated_at = now()
 WHERE id = $1
 RETURNING id, owner_id, slug, title, status,
           live_build_id, staging_build_id, previous_live_build_id,
-          allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at
+          allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at, bundle_id, expired_at
 `
 
 type SetMicrositeStagingParams struct {
@@ -1052,6 +1080,8 @@ func (q *Queries) SetMicrositeStaging(ctx context.Context, arg SetMicrositeStagi
 		&i.SeoImage,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.BundleID,
+		&i.ExpiredAt,
 	)
 	return i, err
 }

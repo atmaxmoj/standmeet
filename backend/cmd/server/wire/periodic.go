@@ -109,6 +109,7 @@ func DeclaredEventTypes() []events.Type {
 	out = append(out, conversation.EventTypes()...)
 	out = append(out, owner.BookingEventTypes()...)
 	out = append(out, owner.MicrositeEventTypes()...)
+	out = append(out, owner.RetentionEventTypes()...)
 	out = append(out, owner.OwnerEventTypes()...)
 	out = append(out, security.EventTypes()...)
 	out = append(out, stats.EventTypes()...)
@@ -197,6 +198,7 @@ func collectPeriodicJobs(d *deps.Runtime) []periodic.Job {
 	out = append(out, corpus.TrashPeriodicJobs(corpus.NewTrashRepo(d.DB), d.Posts.Purge)...)
 	out = append(out, corpus.AssetTrashPeriodicJobs(
 		corpus.AssetsDeps{Repo: d.AssetRepo, Storage: d.StorageClient})...)
+	out = append(out, owner.RetentionPeriodicJobs(port.Retention(d))...)
 	out = append(out, owner.MicrositeTrashPeriodicJobs(
 		owner.MicrositeDeps{Pages: d.MicrositeRepo, Docs: d.MicrositeDocs}, d.BuildsRoot, d.Log)...)
 	if d.SandboxWorkspaces != nil {

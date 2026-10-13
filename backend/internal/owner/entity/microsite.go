@@ -23,12 +23,14 @@ type Microsite struct {
 	// Access —— who opens the page. Loaded on list rows only; nil on a row read one at a time, so
 	// a receipt that did not load it says nothing rather than a zero value that reads as "closed,
 	// no codes".
-	Access  *MicrositeAccess
-	ID      string
-	OwnerID string
-	Slug    string
-	Title   string
-	Status  string // 'active' | 'archived' | 'deleted'
+	Access *MicrositeAccess
+	// BundleID —— the ephemeral clock the page lives on; "" = forever.
+	BundleID string
+	ID       string
+	OwnerID  string
+	Slug     string
+	Title    string
+	Status   string // 'active' | 'archived' | 'deleted'
 	// AllowBYOAI —— whether this page lets a reader use their own key when
 	// no one has presented a grant. **A code overrides this**: the
 	// presented grant decides everything (I-4).
@@ -65,6 +67,10 @@ type MicrositeBuild struct {
 
 // ErrMicrositeNotFound —— slug / id lookup found no microsite.
 var ErrMicrositeNotFound = errors.New("microsite not found")
+
+// ErrMicrositeExpired —— the page was ephemeral and its clock ran out: it waits in the trash,
+// and its URL says "expired" (docs/design/job-loop-retention.md).
+var ErrMicrositeExpired = errors.New("microsite expired")
 
 // ErrMicrositeNeedsCode —— the page is closed to visitors without a code, and the request
 // carries no grant (an owner session, or a visitor session whose code is bound to the page).

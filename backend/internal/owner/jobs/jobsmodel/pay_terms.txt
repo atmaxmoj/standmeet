@@ -1,0 +1,10 @@
+salary
+compensation
+base pay
+pay range
+expected pay
+bonus
+equity
+薪
+工资
+待遇

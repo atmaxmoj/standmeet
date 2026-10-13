@@ -3,12 +3,12 @@ INSERT INTO microsites (owner_id, slug, title)
 VALUES ($1, $2, $3)
 RETURNING id, owner_id, slug, title, status,
           live_build_id, staging_build_id, previous_live_build_id,
-          allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at;
+          allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at, bundle_id, expired_at;
 
 -- name: GetMicrositeBySlug :one
 SELECT id, owner_id, slug, title, status,
        live_build_id, staging_build_id, previous_live_build_id,
-       allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at
+       allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at, bundle_id, expired_at
 FROM microsites
 WHERE owner_id = $1 AND slug = $2 AND status != 'deleted';
 
@@ -18,7 +18,7 @@ WHERE owner_id = $1 AND slug = $2 AND status != 'deleted';
 -- unique per owner across all statuses (microsites_one_home_per_owner).
 SELECT id, owner_id, slug, title, status,
        live_build_id, staging_build_id, previous_live_build_id,
-       allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at
+       allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at, bundle_id, expired_at
 FROM microsites
 WHERE owner_id = $1 AND slug = $2;
 
@@ -30,12 +30,12 @@ SET status = 'active', updated_at = now()
 WHERE owner_id = $1 AND slug = $2
 RETURNING id, owner_id, slug, title, status,
           live_build_id, staging_build_id, previous_live_build_id,
-          allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at;
+          allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at, bundle_id, expired_at;
 
 -- name: GetMicrositeByID :one
 SELECT id, owner_id, slug, title, status,
        live_build_id, staging_build_id, previous_live_build_id,
-       allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at
+       allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at, bundle_id, expired_at
 FROM microsites
 WHERE id = $1 AND status != 'deleted';
 
@@ -46,7 +46,7 @@ WHERE id = $1 AND status != 'deleted';
 SELECT cp.id, cp.owner_id, cp.slug, cp.title, cp.status,
        cp.live_build_id, cp.staging_build_id, cp.previous_live_build_id,
        cp.allow_byoai, cp.store_writable, cp.seo_title, cp.seo_description, cp.seo_image,
-       cp.created_at, cp.updated_at,
+       cp.created_at, cp.updated_at, cp.bundle_id, cp.expired_at,
        COALESCE(
            ARRAY(
                SELECT ac.code::text FROM access_codes ac
@@ -68,7 +68,7 @@ ORDER BY cp.created_at DESC;
 SELECT cp.id, cp.owner_id, cp.slug, cp.title, cp.status,
        cp.live_build_id, cp.staging_build_id, cp.previous_live_build_id,
        cp.allow_byoai, cp.store_writable, cp.seo_title, cp.seo_description, cp.seo_image,
-       cp.created_at, cp.updated_at,
+       cp.created_at, cp.updated_at, cp.bundle_id, cp.expired_at,
        COALESCE(
            ARRAY(
                SELECT ac.code::text FROM access_codes ac
@@ -103,7 +103,7 @@ SET slug = $3, updated_at = now()
 WHERE owner_id = $1 AND slug = $2 AND status != 'deleted'
 RETURNING id, owner_id, slug, title, status,
           live_build_id, staging_build_id, previous_live_build_id,
-          allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at;
+          allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at, bundle_id, expired_at;
 
 -- name: SetMicrositeByoai :one
 -- Whether this page lets a reader use their own key **when no one presents a grant**. Void once a
@@ -113,7 +113,7 @@ SET allow_byoai = $3, updated_at = now()
 WHERE owner_id = $1 AND slug = $2 AND status != 'deleted'
 RETURNING id, owner_id, slug, title, status,
           live_build_id, staging_build_id, previous_live_build_id,
-          allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at;
+          allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at, bundle_id, expired_at;
 
 -- name: SetMicrositeOpenWithoutCode :execrows
 -- The owner's explicit "open without an access code" for one page (microsite_access). 0 rows =
@@ -144,7 +144,7 @@ SET previous_live_build_id = live_build_id,
 WHERE id = $1
 RETURNING id, owner_id, slug, title, status,
           live_build_id, staging_build_id, previous_live_build_id,
-          allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at;
+          allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at, bundle_id, expired_at;
 
 -- name: SetMicrositeStaging :one
 UPDATE microsites
@@ -152,7 +152,7 @@ SET staging_build_id = $2, updated_at = now()
 WHERE id = $1
 RETURNING id, owner_id, slug, title, status,
           live_build_id, staging_build_id, previous_live_build_id,
-          allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at;
+          allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at, bundle_id, expired_at;
 
 -- name: RollbackMicrositeLive :one
 -- Promote previous_live_build_id back to live, clearing previous. When previous was already NULL
@@ -164,7 +164,7 @@ SET live_build_id          = previous_live_build_id,
 WHERE id = $1
 RETURNING id, owner_id, slug, title, status,
           live_build_id, staging_build_id, previous_live_build_id,
-          allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at;
+          allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at, bundle_id, expired_at;
 
 -- name: ClearMicrositeLive :one
 -- Unpublish completely: drop BOTH live and previous so the page serves nothing. Unlike rollback
@@ -177,7 +177,7 @@ SET live_build_id          = NULL,
 WHERE id = $1
 RETURNING id, owner_id, slug, title, status,
           live_build_id, staging_build_id, previous_live_build_id,
-          allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at;
+          allow_byoai, store_writable, seo_title, seo_description, seo_image, created_at, updated_at, bundle_id, expired_at;
 
 -- name: SoftDeleteMicrosite :exec
 -- Into the trash. updated_at is the deletion time from here on: no write reaches a deleted page

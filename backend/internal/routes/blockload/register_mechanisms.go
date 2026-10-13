@@ -44,11 +44,11 @@ func RegisterVisitorSkills(
 	if deps.AgentToolSuppliers != nil {
 		reg.MustRegister(newOpenapiAgentToolsFiber(agentToolBridge{deps.AgentToolSuppliers}))
 	}
-	// Visitor-side résumé reading: a recruiter's session resolves the one application
-	// its code was issued against. nil → not exposed, fail-closed the same way as the
-	// openapi loader above.
+	// Visitor-side reading of the one application a recruiter's code was issued against: its
+	// résumé, and the owner's homework on its job. nil → not exposed, fail-closed the same way
+	// as the openapi loader above.
 	if deps.Resumes != nil {
-		reg.MustRegister(newResumeReadFiber(deps.Resumes))
+		reg.MustRegister(newResumeReadFiber(deps.Resumes).withHomework(deps.Homework))
 	}
 }
 

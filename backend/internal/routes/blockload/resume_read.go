@@ -53,10 +53,12 @@ type resumeSource interface {
 
 type resumeReadFiber struct {
 	src resumeSource
+	// homework —— the same application's homework (homework_read.go); nil = not offered.
+	homework homeworkSource
 }
 
 func newResumeReadFiber(src resumeSource) *resumeReadFiber {
-	return &resumeReadFiber{src: src}
+	return &resumeReadFiber{src: src, homework: noHomework{}}
 }
 
 var _ registry.Fiber = (*resumeReadFiber)(nil)
@@ -91,10 +93,12 @@ func (c *resumeReadFiber) VisitorBinding(
 	if !ok {
 		return nil, registry.ErrHidden
 	}
+	resume := registry.NewTool(
+		ResumeReadTool, resumeReadDesc, "", resumeArgsSchema, resumeRunFn(content),
+	)
 	return &registry.Binding{
-		Tools: []registry.BindingTool{registry.NewTool(
-			ResumeReadTool, resumeReadDesc, "", resumeArgsSchema, resumeRunFn(content),
-		)},
+		Tools: append([]registry.BindingTool{resume},
+			c.homeworkTools(ctx, in.OwnerID, in.Subject.ID)...),
 		State: registry.FiberState{ID: capResumeReadID, Enabled: true},
 	}, nil
 }

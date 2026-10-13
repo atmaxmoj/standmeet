@@ -17,6 +17,7 @@ type AccessCode struct {
 	Ghosts               []byte
 	ExpiresAt            pgtype.Timestamptz
 	Status               string
+	RevokedReason        string
 	MaxTurnsPerSession   *int32
 	MaxMembers           *int32
 	RequireGhostEvidence *bool
@@ -396,6 +397,8 @@ type InstalledBlock struct {
 	Manifest  string
 	CreatedAt pgtype.Timestamptz
 	UpdatedAt pgtype.Timestamptz
+	Origin    string
+	Integrity string
 }
 
 type InstanceSetting struct {
@@ -410,6 +413,13 @@ type InstanceSetting struct {
 	CaptchaSecretEnc  []byte
 	SkillCatalogueUrl string
 	LegacyEnvImported bool
+}
+
+type JobAssessmentTrash struct {
+	JobSeenID   pgtype.UUID
+	OwnerID     pgtype.UUID
+	Annotations []byte
+	ClearedAt   pgtype.Timestamptz
 }
 
 type JobFingerprint struct {
@@ -432,6 +442,8 @@ type JobSeen struct {
 	FirstSeenAt   pgtype.Timestamptz
 	LastSeenAt    pgtype.Timestamptz
 	Reposts       int32
+	BundleID      pgtype.UUID
+	ClearedAt     pgtype.Timestamptz
 }
 
 type JobSource struct {
@@ -497,6 +509,8 @@ type Microsite struct {
 	SeoImage            *string
 	CreatedAt           pgtype.Timestamptz
 	UpdatedAt           pgtype.Timestamptz
+	BundleID            pgtype.UUID
+	ExpiredAt           pgtype.Timestamptz
 }
 
 type MicrositeAccess struct {
@@ -681,6 +695,15 @@ type ResumeMaster struct {
 	DeletedAt     pgtype.Timestamptz
 }
 
+type RetentionBundle struct {
+	ID            pgtype.UUID
+	OwnerID       pgtype.UUID
+	LastTouchedAt pgtype.Timestamptz
+	Keep          bool
+	ClearedAt     pgtype.Timestamptz
+	CreatedAt     pgtype.Timestamptz
+}
+
 type Role struct {
 	ID                   pgtype.UUID
 	OwnerID              pgtype.UUID
@@ -777,6 +800,9 @@ type VisitEvent struct {
 	Country        string
 	Region         string
 	City           string
+	Network        string
+	Asn            int64
+	AsOrg          string
 	Props          []byte
 }
 

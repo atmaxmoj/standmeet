@@ -176,6 +176,7 @@ func VisitorInsert(
 	if ierr != nil {
 		return InsertedDoc{}, fmt.Errorf("insert page doc: %w", ierr)
 	}
+	TouchPage(ctx, deps.Pages, page.ID)
 	return InsertedDoc{ID: id, Pending: policy.Review}, nil
 }
 

@@ -48,8 +48,14 @@ Do this for each posting the owner will apply to. The picture prepares the owner
    - **Likely questions**: what a recruiter and the team will ask.
    - **My angle**: for each likely question, one story from the corpus. Use `corpus.search`.
 3. Mark each claim stated (quote it) or inferred. Never write an inferred claim as a fact.
-4. Save the brief with `jobs.annotate` (`brief`). The brief stays on the row after the owner applies.
+4. Save the brief with `jobs.annotate` (`brief`). The brief stays on the row after the owner applies. Only the owner reads it.
+5. Write the homework: the half the recruiter's agent reads. It says what the owner learned about the company and the team, and why the owner fits, with one story from the corpus per point. Never put pay or work authorization in it; `jobs.annotate` refuses them.
+6. Show the homework to the owner. Save it with `jobs.annotate` (`homework`) only after the owner says yes. The recruiter's agent reads the newest version on its next visit.
 
 ## Keep the judgment
 
 Save your score and reasons with `jobs.annotate`. Mark a company the owner will not apply to with `jobs.mark_company`.
+
+## Tentative or important
+
+An assessment is kept forever unless you say otherwise. For a wide, tentative application, annotate with `retention: ephemeral`: it is cleared 90 days after its last touch. Give its microsite the same clock with `microsite.create` (`retention: ephemeral`, `bundle_id` from the row). Pin what the owner wants kept with `retention.pin`. Applying makes the whole bundle forever. A cleared one comes back with `retention.restore`.

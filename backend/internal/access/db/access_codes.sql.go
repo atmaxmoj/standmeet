@@ -145,7 +145,7 @@ INSERT INTO access_codes (
     limit_per_period, slug
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-RETURNING id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, microsite_id, bundle_id, limit_per_period, slug, created_at, assumed_role_id, prompt_id, inline_prompt
+RETURNING id, owner_id, code, label, purpose, ghosts, expires_at, status, revoked_reason, max_turns_per_session, max_members, require_ghost_evidence, provider_id, microsite_id, bundle_id, limit_per_period, slug, created_at, assumed_role_id, prompt_id, inline_prompt
 `
 
 type CreateAccessCodeParams struct {
@@ -195,6 +195,7 @@ func (q *Queries) CreateAccessCode(ctx context.Context, arg CreateAccessCodePara
 		&i.Ghosts,
 		&i.ExpiresAt,
 		&i.Status,
+		&i.RevokedReason,
 		&i.MaxTurnsPerSession,
 		&i.MaxMembers,
 		&i.RequireGhostEvidence,
@@ -244,7 +245,7 @@ func (q *Queries) CreateCodeMember(ctx context.Context, arg CreateCodeMemberPara
 }
 
 const getAccessCode = `-- name: GetAccessCode :one
-SELECT id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, microsite_id, bundle_id, limit_per_period, slug, created_at, assumed_role_id, prompt_id, inline_prompt FROM access_codes WHERE code = $1 AND status = 'active'
+SELECT id, owner_id, code, label, purpose, ghosts, expires_at, status, revoked_reason, max_turns_per_session, max_members, require_ghost_evidence, provider_id, microsite_id, bundle_id, limit_per_period, slug, created_at, assumed_role_id, prompt_id, inline_prompt FROM access_codes WHERE code = $1 AND status = 'active'
 `
 
 // **Do not add lower() here**: the `code` column is `citext` (see schema.sql:245), so the
@@ -264,6 +265,7 @@ func (q *Queries) GetAccessCode(ctx context.Context, code string) (AccessCode, e
 		&i.Ghosts,
 		&i.ExpiresAt,
 		&i.Status,
+		&i.RevokedReason,
 		&i.MaxTurnsPerSession,
 		&i.MaxMembers,
 		&i.RequireGhostEvidence,
@@ -281,7 +283,7 @@ func (q *Queries) GetAccessCode(ctx context.Context, code string) (AccessCode, e
 }
 
 const getAccessCodeAnyStatus = `-- name: GetAccessCodeAnyStatus :one
-SELECT id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, microsite_id, bundle_id, limit_per_period, slug, created_at, assumed_role_id, prompt_id, inline_prompt FROM access_codes WHERE code = $1
+SELECT id, owner_id, code, label, purpose, ghosts, expires_at, status, revoked_reason, max_turns_per_session, max_members, require_ghost_evidence, provider_id, microsite_id, bundle_id, limit_per_period, slug, created_at, assumed_role_id, prompt_id, inline_prompt FROM access_codes WHERE code = $1
 `
 
 // No status filter: lets the repo distinguish "this code doesn't exist" from "this code was
@@ -300,6 +302,7 @@ func (q *Queries) GetAccessCodeAnyStatus(ctx context.Context, code string) (Acce
 		&i.Ghosts,
 		&i.ExpiresAt,
 		&i.Status,
+		&i.RevokedReason,
 		&i.MaxTurnsPerSession,
 		&i.MaxMembers,
 		&i.RequireGhostEvidence,
@@ -317,7 +320,7 @@ func (q *Queries) GetAccessCodeAnyStatus(ctx context.Context, code string) (Acce
 }
 
 const getAccessCodeByID = `-- name: GetAccessCodeByID :one
-SELECT id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, microsite_id, bundle_id, limit_per_period, slug, created_at, assumed_role_id, prompt_id, inline_prompt FROM access_codes WHERE id = $1
+SELECT id, owner_id, code, label, purpose, ghosts, expires_at, status, revoked_reason, max_turns_per_session, max_members, require_ghost_evidence, provider_id, microsite_id, bundle_id, limit_per_period, slug, created_at, assumed_role_id, prompt_id, inline_prompt FROM access_codes WHERE id = $1
 `
 
 func (q *Queries) GetAccessCodeByID(ctx context.Context, id pgtype.UUID) (AccessCode, error) {
@@ -332,6 +335,7 @@ func (q *Queries) GetAccessCodeByID(ctx context.Context, id pgtype.UUID) (Access
 		&i.Ghosts,
 		&i.ExpiresAt,
 		&i.Status,
+		&i.RevokedReason,
 		&i.MaxTurnsPerSession,
 		&i.MaxMembers,
 		&i.RequireGhostEvidence,
@@ -349,7 +353,7 @@ func (q *Queries) GetAccessCodeByID(ctx context.Context, id pgtype.UUID) (Access
 }
 
 const getAccessCodeWithPage = `-- name: GetAccessCodeWithPage :one
-SELECT ac.id, ac.owner_id, ac.code, ac.label, ac.purpose, ac.ghosts, ac.expires_at, ac.status, ac.max_turns_per_session, ac.max_members, ac.require_ghost_evidence, ac.provider_id, ac.microsite_id, ac.bundle_id, ac.limit_per_period, ac.slug, ac.created_at, ac.assumed_role_id, ac.prompt_id, ac.inline_prompt, COALESCE(cp.slug, '')::text AS microsite_slug
+SELECT ac.id, ac.owner_id, ac.code, ac.label, ac.purpose, ac.ghosts, ac.expires_at, ac.status, ac.revoked_reason, ac.max_turns_per_session, ac.max_members, ac.require_ghost_evidence, ac.provider_id, ac.microsite_id, ac.bundle_id, ac.limit_per_period, ac.slug, ac.created_at, ac.assumed_role_id, ac.prompt_id, ac.inline_prompt, COALESCE(cp.slug, '')::text AS microsite_slug
 FROM access_codes ac
 LEFT JOIN microsites cp ON cp.id = ac.microsite_id AND cp.status != 'deleted'
 WHERE ac.code = $1 AND ac.status = 'active'
@@ -364,6 +368,7 @@ type GetAccessCodeWithPageRow struct {
 	Ghosts               []byte
 	ExpiresAt            pgtype.Timestamptz
 	Status               string
+	RevokedReason        string
 	MaxTurnsPerSession   *int32
 	MaxMembers           *int32
 	RequireGhostEvidence *bool
@@ -396,6 +401,7 @@ func (q *Queries) GetAccessCodeWithPage(ctx context.Context, code string) (GetAc
 		&i.Ghosts,
 		&i.ExpiresAt,
 		&i.Status,
+		&i.RevokedReason,
 		&i.MaxTurnsPerSession,
 		&i.MaxMembers,
 		&i.RequireGhostEvidence,
@@ -520,7 +526,7 @@ func (q *Queries) GetOrCreateCodeMember(ctx context.Context, arg GetOrCreateCode
 }
 
 const listAccessCodesByOwner = `-- name: ListAccessCodesByOwner :many
-SELECT id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, microsite_id, bundle_id, limit_per_period, slug, created_at, assumed_role_id, prompt_id, inline_prompt FROM access_codes WHERE owner_id = $1 ORDER BY created_at DESC
+SELECT id, owner_id, code, label, purpose, ghosts, expires_at, status, revoked_reason, max_turns_per_session, max_members, require_ghost_evidence, provider_id, microsite_id, bundle_id, limit_per_period, slug, created_at, assumed_role_id, prompt_id, inline_prompt FROM access_codes WHERE owner_id = $1 ORDER BY created_at DESC
 `
 
 func (q *Queries) ListAccessCodesByOwner(ctx context.Context, ownerID pgtype.UUID) ([]AccessCode, error) {
@@ -541,6 +547,7 @@ func (q *Queries) ListAccessCodesByOwner(ctx context.Context, ownerID pgtype.UUI
 			&i.Ghosts,
 			&i.ExpiresAt,
 			&i.Status,
+			&i.RevokedReason,
 			&i.MaxTurnsPerSession,
 			&i.MaxMembers,
 			&i.RequireGhostEvidence,
@@ -565,7 +572,7 @@ func (q *Queries) ListAccessCodesByOwner(ctx context.Context, ownerID pgtype.UUI
 }
 
 const listAccessCodesPage = `-- name: ListAccessCodesPage :many
-SELECT ac.id, ac.owner_id, ac.code, ac.label, ac.purpose, ac.ghosts, ac.expires_at, ac.status, ac.max_turns_per_session, ac.max_members, ac.require_ghost_evidence, ac.provider_id, ac.microsite_id, ac.bundle_id, ac.limit_per_period, ac.slug, ac.created_at, ac.assumed_role_id, ac.prompt_id, ac.inline_prompt, COALESCE(cp.slug, '')::text AS microsite_slug,
+SELECT ac.id, ac.owner_id, ac.code, ac.label, ac.purpose, ac.ghosts, ac.expires_at, ac.status, ac.revoked_reason, ac.max_turns_per_session, ac.max_members, ac.require_ghost_evidence, ac.provider_id, ac.microsite_id, ac.bundle_id, ac.limit_per_period, ac.slug, ac.created_at, ac.assumed_role_id, ac.prompt_id, ac.inline_prompt, COALESCE(cp.slug, '')::text AS microsite_slug,
   COALESCE(ro.name, '')::text AS role_name
 FROM access_codes ac
 LEFT JOIN microsites cp ON cp.id = ac.microsite_id AND cp.status != 'deleted'
@@ -611,6 +618,7 @@ type ListAccessCodesPageRow struct {
 	Ghosts               []byte
 	ExpiresAt            pgtype.Timestamptz
 	Status               string
+	RevokedReason        string
 	MaxTurnsPerSession   *int32
 	MaxMembers           *int32
 	RequireGhostEvidence *bool
@@ -662,6 +670,7 @@ func (q *Queries) ListAccessCodesPage(ctx context.Context, arg ListAccessCodesPa
 			&i.Ghosts,
 			&i.ExpiresAt,
 			&i.Status,
+			&i.RevokedReason,
 			&i.MaxTurnsPerSession,
 			&i.MaxMembers,
 			&i.RequireGhostEvidence,
@@ -895,7 +904,7 @@ const setAccessCodeGhostEvidence = `-- name: SetAccessCodeGhostEvidence :one
 UPDATE access_codes
 SET require_ghost_evidence = $3
 WHERE id = $1 AND owner_id = $2
-RETURNING id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, microsite_id, bundle_id, limit_per_period, slug, created_at, assumed_role_id, prompt_id, inline_prompt
+RETURNING id, owner_id, code, label, purpose, ghosts, expires_at, status, revoked_reason, max_turns_per_session, max_members, require_ghost_evidence, provider_id, microsite_id, bundle_id, limit_per_period, slug, created_at, assumed_role_id, prompt_id, inline_prompt
 `
 
 type SetAccessCodeGhostEvidenceParams struct {
@@ -917,6 +926,7 @@ func (q *Queries) SetAccessCodeGhostEvidence(ctx context.Context, arg SetAccessC
 		&i.Ghosts,
 		&i.ExpiresAt,
 		&i.Status,
+		&i.RevokedReason,
 		&i.MaxTurnsPerSession,
 		&i.MaxMembers,
 		&i.RequireGhostEvidence,
@@ -937,7 +947,7 @@ const setAccessCodeMicrosite = `-- name: SetAccessCodeMicrosite :one
 UPDATE access_codes
 SET microsite_id = $3
 WHERE id = $1 AND owner_id = $2
-RETURNING id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, microsite_id, bundle_id, limit_per_period, slug, created_at, assumed_role_id, prompt_id, inline_prompt
+RETURNING id, owner_id, code, label, purpose, ghosts, expires_at, status, revoked_reason, max_turns_per_session, max_members, require_ghost_evidence, provider_id, microsite_id, bundle_id, limit_per_period, slug, created_at, assumed_role_id, prompt_id, inline_prompt
 `
 
 type SetAccessCodeMicrositeParams struct {
@@ -961,6 +971,7 @@ func (q *Queries) SetAccessCodeMicrosite(ctx context.Context, arg SetAccessCodeM
 		&i.Ghosts,
 		&i.ExpiresAt,
 		&i.Status,
+		&i.RevokedReason,
 		&i.MaxTurnsPerSession,
 		&i.MaxMembers,
 		&i.RequireGhostEvidence,
@@ -990,7 +1001,7 @@ const updateAccessCodeCode = `-- name: UpdateAccessCodeCode :one
 UPDATE access_codes
 SET code = $3
 WHERE id = $1 AND owner_id = $2
-RETURNING id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, microsite_id, bundle_id, limit_per_period, slug, created_at, assumed_role_id, prompt_id, inline_prompt
+RETURNING id, owner_id, code, label, purpose, ghosts, expires_at, status, revoked_reason, max_turns_per_session, max_members, require_ghost_evidence, provider_id, microsite_id, bundle_id, limit_per_period, slug, created_at, assumed_role_id, prompt_id, inline_prompt
 `
 
 type UpdateAccessCodeCodeParams struct {
@@ -1014,6 +1025,7 @@ func (q *Queries) UpdateAccessCodeCode(ctx context.Context, arg UpdateAccessCode
 		&i.Ghosts,
 		&i.ExpiresAt,
 		&i.Status,
+		&i.RevokedReason,
 		&i.MaxTurnsPerSession,
 		&i.MaxMembers,
 		&i.RequireGhostEvidence,
@@ -1035,7 +1047,7 @@ const updateAccessCodeQuotas = `-- name: UpdateAccessCodeQuotas :one
 UPDATE access_codes
 SET max_turns_per_session = $3, max_members = $4
 WHERE id = $1 AND owner_id = $2
-RETURNING id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, microsite_id, bundle_id, limit_per_period, slug, created_at, assumed_role_id, prompt_id, inline_prompt
+RETURNING id, owner_id, code, label, purpose, ghosts, expires_at, status, revoked_reason, max_turns_per_session, max_members, require_ghost_evidence, provider_id, microsite_id, bundle_id, limit_per_period, slug, created_at, assumed_role_id, prompt_id, inline_prompt
 `
 
 type UpdateAccessCodeQuotasParams struct {
@@ -1066,6 +1078,7 @@ func (q *Queries) UpdateAccessCodeQuotas(ctx context.Context, arg UpdateAccessCo
 		&i.Ghosts,
 		&i.ExpiresAt,
 		&i.Status,
+		&i.RevokedReason,
 		&i.MaxTurnsPerSession,
 		&i.MaxMembers,
 		&i.RequireGhostEvidence,
@@ -1086,7 +1099,7 @@ const updateAccessCodeRole = `-- name: UpdateAccessCodeRole :one
 UPDATE access_codes
 SET assumed_role_id = $3
 WHERE id = $1 AND owner_id = $2
-RETURNING id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, microsite_id, bundle_id, limit_per_period, slug, created_at, assumed_role_id, prompt_id, inline_prompt
+RETURNING id, owner_id, code, label, purpose, ghosts, expires_at, status, revoked_reason, max_turns_per_session, max_members, require_ghost_evidence, provider_id, microsite_id, bundle_id, limit_per_period, slug, created_at, assumed_role_id, prompt_id, inline_prompt
 `
 
 type UpdateAccessCodeRoleParams struct {
@@ -1108,6 +1121,7 @@ func (q *Queries) UpdateAccessCodeRole(ctx context.Context, arg UpdateAccessCode
 		&i.Ghosts,
 		&i.ExpiresAt,
 		&i.Status,
+		&i.RevokedReason,
 		&i.MaxTurnsPerSession,
 		&i.MaxMembers,
 		&i.RequireGhostEvidence,
@@ -1128,7 +1142,7 @@ const updateAccessCodeSlug = `-- name: UpdateAccessCodeSlug :one
 UPDATE access_codes
 SET slug = $3
 WHERE id = $1 AND owner_id = $2
-RETURNING id, owner_id, code, label, purpose, ghosts, expires_at, status, max_turns_per_session, max_members, require_ghost_evidence, provider_id, microsite_id, bundle_id, limit_per_period, slug, created_at, assumed_role_id, prompt_id, inline_prompt
+RETURNING id, owner_id, code, label, purpose, ghosts, expires_at, status, revoked_reason, max_turns_per_session, max_members, require_ghost_evidence, provider_id, microsite_id, bundle_id, limit_per_period, slug, created_at, assumed_role_id, prompt_id, inline_prompt
 `
 
 type UpdateAccessCodeSlugParams struct {
@@ -1151,6 +1165,7 @@ func (q *Queries) UpdateAccessCodeSlug(ctx context.Context, arg UpdateAccessCode
 		&i.Ghosts,
 		&i.ExpiresAt,
 		&i.Status,
+		&i.RevokedReason,
 		&i.MaxTurnsPerSession,
 		&i.MaxMembers,
 		&i.RequireGhostEvidence,

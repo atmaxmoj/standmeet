@@ -195,6 +195,7 @@ func createMicrosite(deps usecase.MicrositeDeps) fp.Invoke {
 		}
 		page, err := usecase.CreatePage(ctx, deps, &usecase.CreatePageInput{
 			OwnerID: ownerID, Slug: in.Slug, Title: title,
+			Retention: in.Retention, BundleID: in.BundleID,
 		})
 		if err != nil {
 			return nil, micrositeErr(err)

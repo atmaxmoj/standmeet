@@ -42,6 +42,7 @@ var (
 	NewVisitorSessionStore    = usecase.NewVisitorSessionStore
 	ResolveAPIKey             = usecase.ResolveAPIKey
 	RevokeCode                = usecase.RevokeCode
+	RevokePageCodes           = usecase.RevokePageCodes
 	SetRoleDockButtons        = usecase.SetRoleDockButtons
 	SubmitForOwner            = usecase.SubmitForOwner
 	UpdateAccessRequestStatus = usecase.UpdateAccessRequestStatus

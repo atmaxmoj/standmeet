@@ -195,4 +195,7 @@ type VisitorSkillsDeps struct {
 	// this resume's JSON by the application's code. prod wires the composition root's
 	// adapter (port.ResumesByCode); nil → this block stays hidden permanently.
 	Resumes ResumeSource
+	// Homework —— the source for the visitor-side homework-reading block (port.HomeworkByCode);
+	// nil → hidden permanently.
+	Homework HomeworkSource
 }

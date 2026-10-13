@@ -277,7 +277,7 @@ func buildJobsModule(d *deps.Runtime) *pluginjobs.Plugin {
 		Resume:       &resumeDeps,
 		Applications: &appsDeps,
 		Outcomes: &jobsuc.OutcomeDeps{
-			Apps: d.ApplicationRepo, Events: d.Recorder(),
+			Apps: d.ApplicationRepo, Events: d.Recorder(), Seen: seen,
 			BoundTo: port.CodeBound(d), Revoke: port.RevokeCode(d),
 		},
 		DraftsRepo:  d.ResumeDraftRepo,

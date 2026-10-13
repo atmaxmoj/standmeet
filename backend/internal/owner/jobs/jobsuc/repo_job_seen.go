@@ -68,7 +68,8 @@ func (r *JobSeenRepo) Record(
 		}
 		out = append(out, jobsmodel.Recorded{
 			ID: pgstore.FormatUUID(hit.row.ID), New: hit.fresh, Status: hit.row.Status,
-			FirstSeenAt: hit.row.FirstSeenAt.Time.UTC(),
+			FirstSeenAt:    hit.row.FirstSeenAt.Time.UTC(),
+			AssessedBefore: hit.row.ClearedAt.Valid,
 		})
 	}
 	return out, nil
@@ -129,9 +130,14 @@ func (r *JobSeenRepo) SetStatus(
 func markApplied(
 	ctx context.Context, q *db.Queries, ownerID string, j *jobsmodel.FetchedJob, appID string,
 ) error {
-	return setStatus(ctx, q, ownerID, j, seenStatus{
+	err := setStatus(ctx, q, ownerID, j, seenStatus{
 		Status: jobsmodel.SeenStatusApplied, ApplicationID: appID,
 	})
+	if err != nil {
+		return err
+	}
+	// Sent out: the posting's bundle (assessment, page, code) is forever now.
+	return forgetBundle(ctx, q, ownerID, dedup.Keys(j))
 }
 
 func setStatus(
@@ -148,26 +154,48 @@ func setStatus(
 	return nil
 }
 
-// Annotate —— merges the assessment into the row's annotations, field by field.
+// Annotate —— merges the assessment into the row's annotations, field by field, applies the
+// lifecycle change, and touches the row's clock: one transaction. A cleared row refuses.
 func (r *JobSeenRepo) Annotate(
 	ctx context.Context, ownerID, id string, a *jobsmodel.Annotations,
+	rc *jobsmodel.RetentionChange,
 ) (jobsmodel.SeenRow, error) {
 	blob, err := json.Marshal(a)
 	if err != nil {
 		return jobsmodel.SeenRow{}, fmt.Errorf("encode annotations: %w", err)
 	}
-	row, err := db.New(r.pool).AnnotateSeen(ctx, db.AnnotateSeenParams{
-		Annotations: blob, ID: pgstore.UUIDOrNull(id), OwnerID: pgstore.UUIDOrNull(ownerID),
+	key := seenKey{id: pgstore.UUIDOrNull(id), owner: pgstore.UUIDOrNull(ownerID)}
+	err = pgstore.InTx(ctx, r.pool, func(tx pgstore.Tx) error {
+		q := db.New(tx)
+		if rerr := applyRetention(ctx, q, key, rc); rerr != nil {
+			return rerr
+		}
+		if _, aerr := q.AnnotateSeen(ctx, db.AnnotateSeenParams{
+			Annotations: blob, ID: key.id, OwnerID: key.owner,
+		}); aerr != nil {
+			return notFoundSeen(aerr)
+		}
+		return q.TouchSeenBundle(ctx, db.TouchSeenBundleParams{ID: key.id, OwnerID: key.owner})
 	})
-	return seenRowOf(&row, notFoundSeen(err))
+	if err != nil {
+		return jobsmodel.SeenRow{}, err
+	}
+	return r.Get(ctx, ownerID, id)
 }
 
-// Get —— one of the owner's ledger rows.
+// Get —— one of the owner's ledger rows, with its clock.
 func (r *JobSeenRepo) Get(ctx context.Context, ownerID, id string) (jobsmodel.SeenRow, error) {
-	row, err := db.New(r.pool).GetSeen(ctx, db.GetSeenParams{
+	q := db.New(r.pool)
+	row, err := q.GetSeen(ctx, db.GetSeenParams{
 		ID: pgstore.UUIDOrNull(id), OwnerID: pgstore.UUIDOrNull(ownerID),
 	})
-	return seenRowOf(&row, notFoundSeen(err))
+	s, err := seenRowOf(&row, notFoundSeen(err))
+	if err != nil {
+		return s, err
+	}
+	rows := []jobsmodel.SeenRow{s}
+	err = withClocks(ctx, q, rows)
+	return rows[0], err
 }
 
 // URLs —— every posting link in the owner's ledger (roadmap 4.3.d).
@@ -194,17 +222,28 @@ func (r *JobSeenRepo) Page(
 	if err != nil {
 		return paging.Page[jobsmodel.SeenRow]{}, fmt.Errorf("job history: %w", err)
 	}
-	out := make([]jobsmodel.SeenRow, 0, len(rows))
-	for i := range rows {
-		s, serr := seenRowOf(&rows[i], nil)
-		if serr != nil {
-			return paging.Page[jobsmodel.SeenRow]{}, serr
-		}
-		out = append(out, s)
+	out, err := seenRowsOf(ctx, db.New(r.pool), rows)
+	if err != nil {
+		return paging.Page[jobsmodel.SeenRow]{}, err
 	}
 	return paging.Cut(out, req, func(s *jobsmodel.SeenRow) paging.Cursor {
 		return paging.Cursor{At: s.FirstSeenAt, ID: s.ID}
 	}), nil
+}
+
+// seenRowsOf —— a page of rows as the domain reads them, with their clocks.
+func seenRowsOf(
+	ctx context.Context, q *db.Queries, rows []db.JobSeen,
+) ([]jobsmodel.SeenRow, error) {
+	out := make([]jobsmodel.SeenRow, 0, len(rows))
+	for i := range rows {
+		s, err := seenRowOf(&rows[i], nil)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	return out, withClocks(ctx, q, out)
 }
 
 func notFoundSeen(err error) error {
@@ -227,10 +266,7 @@ func seenRowOf(row *db.JobSeen, err error) (jobsmodel.SeenRow, error) {
 		FirstSeenAt: row.FirstSeenAt.Time, LastSeenAt: row.LastSeenAt.Time,
 		Reposts: int(row.Reposts),
 	}
-	if row.ApplicationID.Valid {
-		id := pgstore.FormatUUID(row.ApplicationID)
-		out.ApplicationID = &id
-	}
+	withLinks(&out, row)
 	if err = json.Unmarshal(row.Snapshot, &out.Snapshot); err != nil {
 		return jobsmodel.SeenRow{}, fmt.Errorf("decode ledger snapshot: %w", err)
 	}
@@ -238,6 +274,21 @@ func seenRowOf(row *db.JobSeen, err error) (jobsmodel.SeenRow, error) {
 		return jobsmodel.SeenRow{}, fmt.Errorf("decode annotations: %w", err)
 	}
 	return out, nil
+}
+
+// withLinks —— the row's application, its clock's bundle, and when retention cleared it.
+func withLinks(out *jobsmodel.SeenRow, row *db.JobSeen) {
+	if row.ApplicationID.Valid {
+		id := pgstore.FormatUUID(row.ApplicationID)
+		out.ApplicationID = &id
+	}
+	if row.BundleID.Valid {
+		out.Clock = &jobsmodel.Clock{BundleID: pgstore.FormatUUID(row.BundleID)}
+	}
+	if row.ClearedAt.Valid {
+		t := row.ClearedAt.Time
+		out.ClearedAt = &t
+	}
 }
 
 func optAt(t time.Time) pgtype.Timestamptz {

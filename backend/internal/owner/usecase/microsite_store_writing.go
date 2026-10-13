@@ -226,6 +226,7 @@ func OwnerSetStorePolicy(
 	if p.MaxDocs < 1 {
 		return entity.StorePolicy{}, ErrMicrositeStoreInvalid
 	}
+	TouchPage(ctx, deps.Pages, page.ID)
 	return p, deps.Pages.SetStorePolicy(ctx, page.ID, p)
 }
 

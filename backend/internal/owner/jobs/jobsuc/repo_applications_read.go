@@ -50,6 +50,23 @@ func (r *ApplicationRepo) getOne(
 	return withReach(&row.app, row.openedAt, row.questions)
 }
 
+// HomeworkByAccessCode — the homework on the ledger row of the application a session's code was
+// issued for; "" when the row has none. A code with no application → ErrApplicationNotFound.
+func (r *ApplicationRepo) HomeworkByAccessCode(
+	ctx context.Context, ownerID, codeID string,
+) (string, error) {
+	text, err := db.New(r.pool).HomeworkByAccessCode(ctx, db.HomeworkByAccessCodeParams{
+		AccessCodeID: pgstore.UUIDOrNull(codeID), OwnerID: pgstore.UUIDOrNull(ownerID),
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", jobsmodel.ErrApplicationNotFound
+	}
+	if err != nil {
+		return "", fmt.Errorf("homework by access code: %w", err)
+	}
+	return text, nil
+}
+
 // GetByID — looks up by (id, owner_id).
 func (r *ApplicationRepo) GetByID(
 	ctx context.Context, ownerID, id string,

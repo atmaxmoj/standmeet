@@ -127,6 +127,44 @@ func RevokeCode(ctx context.Context, d CodesDeps, ownerID, codeID string) error 
 	return nil
 }
 
+// RevokePageCodes —— revokes every active code bound to a page, with a reason (the page's
+// ephemeral bundle expired), recording code.revoked for each and clearing their sessions.
+// Idempotent: a code already revoked is skipped.
+func RevokePageCodes(ctx context.Context, d CodesDeps, ownerID, pageID, reason string) error {
+	var ids []string
+	err := pgstore.InTx(ctx, d.Codes.Pool(), func(tx pgstore.Tx) error {
+		var werr error
+		ids, werr = d.Codes.With(tx).RevokeBoundToPage(ctx, ownerID, pageID, reason)
+		if werr != nil {
+			return werr
+		}
+		return recordRevoked(ctx, d.Events.With(tx), ownerID, reason, ids)
+	})
+	if err != nil {
+		return fmt.Errorf("revoke page codes: %w", err)
+	}
+	for _, id := range ids {
+		if serr := d.Sessions.DeleteByCode(ctx, id); serr != nil {
+			return fmt.Errorf("revoke page codes: purge visitor sessions: %w", serr)
+		}
+	}
+	return nil
+}
+
+// recordRevoked —— code.revoked for each code, with why.
+func recordRevoked(
+	ctx context.Context, rec events.Recorder, ownerID, reason string, ids []string,
+) error {
+	for _, id := range ids {
+		err := rec.Record(ctx, ownerID, CodeRevoked, "code/"+id,
+			map[string]string{"code_id": id, "reason": reason})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // RotateCode — changes a code's STRING (leak recovery), and purges the visitor sessions it already
 // issued. Rotation locks out a LEAK: the old string dies at the DB, and live sessions (keyed by
 // code_id, which would otherwise outlive the string change) are cleared too, as RevokeCode does.

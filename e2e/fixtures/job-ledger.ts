@@ -9,6 +9,9 @@
 //     jobs.annotate {job_seen_id, score?, reason?, deductions?: [{points, why}], cited_notes?: [],
 //       flags?: [], interview_reports?: [], brief?} → the ledger row (4.1.d, 8.2.a). brief = the
 //       picture of the job in markdown, written before applying; it stays on the applied row.
+//       homework = the half for the recruiter's agent (what the owner learned, why they fit); it
+//       is refused when it names pay or work authorization. The recruiter reads it with
+//       homework_read on the application's own code.
 //     jobs.history {from?: 'YYYY-MM-DD', to?: 'YYYY-MM-DD', status?, cursor?, limit?}
 //       → the shared page {items: LedgerRow[], next_cursor?}, newest first_seen_at first (8.3.a).
 //       from/to are inclusive UTC days.
@@ -36,6 +39,8 @@ export interface Recorded {
   new: boolean;
   first_seen_at: string;
   status: string;
+  /** The row was assessed once and the assessment has since been cleared (retention). */
+  assessed_before?: boolean;
 }
 
 export interface Annotations {
@@ -46,9 +51,31 @@ export interface Annotations {
   flags?: string[];
   interview_reports?: string[];
   brief?: string;
+  homework?: string;
 }
 
-export interface LedgerRow extends Annotations {
+/** jobs.annotate's lifecycle arguments (docs/design/job-loop-retention.md). */
+export interface AnnotateArgs extends Annotations {
+  /** ephemeral puts the row on a 90-day clock; forever takes it off. */
+  retention?: 'forever' | 'ephemeral';
+  /** Pin: the clock stops while true. */
+  keep?: boolean;
+  /** Join this bundle's clock instead of starting one. */
+  bundle_id?: string;
+}
+
+/** A row's lifecycle as jobs.history shows it. */
+interface Lifecycle {
+  retention: 'forever' | 'ephemeral';
+  keep: boolean;
+  bundle_id: string | null;
+  last_touched_at: string | null;
+  expires_at: string | null;
+  expiring: boolean;
+  cleared_at: string | null;
+}
+
+export interface LedgerRow extends Annotations, Lifecycle {
   job_seen_id: string;
   first_seen_at: string;
   last_seen_at: string;
@@ -70,7 +97,7 @@ export async function jobsRecord(c: Ctx, postings: Posting[]): Promise<Recorded[
   return (await callTool<{ results: Recorded[] }>(c.request, c.apiToken, c.sid, 'jobs.record', { postings })).results;
 }
 
-export function jobsAnnotate(c: Ctx, jobSeenID: string, a: Annotations): Promise<LedgerRow> {
+export function jobsAnnotate(c: Ctx, jobSeenID: string, a: AnnotateArgs): Promise<LedgerRow> {
   return callTool<LedgerRow>(c.request, c.apiToken, c.sid, 'jobs.annotate', { job_seen_id: jobSeenID, ...a });
 }
 

@@ -37,9 +37,12 @@ type Code struct {
 	Label                string
 	Purpose              string
 	Status               string
-	AssumedRoleID        string
-	InlinePrompt         string
-	MicrositeSlug        string
+	// RevokedReason —— why a revoked code was revoked: "" (the owner) or "expired" (its ephemeral
+	// bundle ran out).
+	RevokedReason string
+	AssumedRoleID string
+	InlinePrompt  string
+	MicrositeSlug string
 	// RoleName —— the assumed role's name, filled by the list read (a joined column). The list
 	// pages, so a reader can no longer look the name up in "every role" it fetched on its own.
 	RoleName string

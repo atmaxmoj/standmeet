@@ -62,7 +62,7 @@ func (r *CodeRepo) GetByCode(ctx context.Context, code string) (entity.Code, err
 			Purpose: row.Purpose, Ghosts: row.Ghosts, ExpiresAt: row.ExpiresAt,
 			Status: row.Status, MaxTurnsPerSession: row.MaxTurnsPerSession,
 			MaxMembers: row.MaxMembers, RequireGhostEvidence: row.RequireGhostEvidence,
-			ProviderID: row.ProviderID, CreatedAt: row.CreatedAt,
+			ProviderID: row.ProviderID, CreatedAt: row.CreatedAt, RevokedReason: row.RevokedReason,
 			AssumedRoleID: row.AssumedRoleID, PromptID: row.PromptID,
 			InlinePrompt: row.InlinePrompt, MicrositeID: row.MicrositeID,
 		})
@@ -158,7 +158,7 @@ func codeFromListRow(row *db.ListAccessCodesPageRow) entity.Code {
 		Purpose: row.Purpose, Ghosts: row.Ghosts, ExpiresAt: row.ExpiresAt,
 		Status: row.Status, MaxTurnsPerSession: row.MaxTurnsPerSession,
 		MaxMembers: row.MaxMembers, RequireGhostEvidence: row.RequireGhostEvidence,
-		ProviderID: row.ProviderID, CreatedAt: row.CreatedAt,
+		ProviderID: row.ProviderID, CreatedAt: row.CreatedAt, RevokedReason: row.RevokedReason,
 		AssumedRoleID: row.AssumedRoleID, PromptID: row.PromptID,
 		InlinePrompt: row.InlinePrompt, MicrositeID: row.MicrositeID,
 	})
@@ -179,6 +179,7 @@ func CodeFromRow(c *db.AccessCode) entity.Code {
 		Label:                c.Label,
 		Purpose:              c.Purpose,
 		Status:               c.Status,
+		RevokedReason:        c.RevokedReason,
 		CreatedAt:            c.CreatedAt.Time,
 		MaxMembers:           c.MaxMembers,
 		MaxTurnsPerSession:   c.MaxTurnsPerSession,

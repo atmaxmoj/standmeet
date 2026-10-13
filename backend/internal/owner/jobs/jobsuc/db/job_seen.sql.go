@@ -14,7 +14,7 @@ import (
 const annotateSeen = `-- name: AnnotateSeen :one
 UPDATE job_seen SET annotations = annotations || $1::jsonb
 WHERE id = $2 AND owner_id = $3
-RETURNING id, owner_id, url_key, composite_key, first_run, source, status, application_id, snapshot, annotations, first_seen_at, last_seen_at, reposts
+RETURNING id, owner_id, url_key, composite_key, first_run, source, status, application_id, snapshot, annotations, first_seen_at, last_seen_at, reposts, bundle_id, cleared_at
 `
 
 type AnnotateSeenParams struct {
@@ -41,8 +41,59 @@ func (q *Queries) AnnotateSeen(ctx context.Context, arg AnnotateSeenParams) (Job
 		&i.FirstSeenAt,
 		&i.LastSeenAt,
 		&i.Reposts,
+		&i.BundleID,
+		&i.ClearedAt,
 	)
 	return i, err
+}
+
+const bundleClocks = `-- name: BundleClocks :many
+SELECT id, keep, last_touched_at FROM retention_bundles WHERE id = ANY($1::uuid[])
+`
+
+type BundleClocksRow struct {
+	ID            pgtype.UUID
+	Keep          bool
+	LastTouchedAt pgtype.Timestamptz
+}
+
+func (q *Queries) BundleClocks(ctx context.Context, ids []pgtype.UUID) ([]BundleClocksRow, error) {
+	rows, err := q.db.Query(ctx, bundleClocks, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []BundleClocksRow
+	for rows.Next() {
+		var i BundleClocksRow
+		if err := rows.Scan(&i.ID, &i.Keep, &i.LastTouchedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const clearBundleAssessments = `-- name: ClearBundleAssessments :exec
+WITH moved AS (
+    INSERT INTO job_assessment_trash (job_seen_id, owner_id, annotations)
+    SELECT s.id, s.owner_id, s.annotations FROM job_seen s
+    WHERE s.bundle_id = $1::uuid AND s.cleared_at IS NULL
+    ON CONFLICT (job_seen_id) DO UPDATE
+        SET annotations = EXCLUDED.annotations, cleared_at = now()
+    RETURNING job_assessment_trash.job_seen_id
+)
+UPDATE job_seen SET annotations = '{}', cleared_at = now()
+WHERE job_seen.id IN (SELECT job_seen_id FROM moved)
+`
+
+// The bundle expired: its assessments move to the trash; each row keeps its tombstone.
+func (q *Queries) ClearBundleAssessments(ctx context.Context, bundleID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, clearBundleAssessments, bundleID)
+	return err
 }
 
 const deleteCompanyMark = `-- name: DeleteCompanyMark :exec
@@ -59,8 +110,43 @@ func (q *Queries) DeleteCompanyMark(ctx context.Context, arg DeleteCompanyMarkPa
 	return err
 }
 
+const forgetBundleByKeys = `-- name: ForgetBundleByKeys :exec
+DELETE FROM retention_bundles b USING job_seen s
+WHERE s.owner_id = $1 AND b.id = s.bundle_id
+  AND ((s.url_key <> '' AND s.url_key = $2::text)
+    OR (s.composite_key <> '' AND s.composite_key = $3::text))
+`
+
+type ForgetBundleByKeysParams struct {
+	OwnerID      pgtype.UUID
+	UrlKey       string
+	CompositeKey string
+}
+
+// A commit: the posting's bundle (assessment, page, code) becomes forever.
+func (q *Queries) ForgetBundleByKeys(ctx context.Context, arg ForgetBundleByKeysParams) error {
+	_, err := q.db.Exec(ctx, forgetBundleByKeys, arg.OwnerID, arg.UrlKey, arg.CompositeKey)
+	return err
+}
+
+const forgetSeenBundle = `-- name: ForgetSeenBundle :exec
+DELETE FROM retention_bundles b USING job_seen s
+WHERE s.id = $1 AND s.owner_id = $2 AND b.id = s.bundle_id
+`
+
+type ForgetSeenBundleParams struct {
+	ID      pgtype.UUID
+	OwnerID pgtype.UUID
+}
+
+// retention: forever. Deleting the bundle makes every member forever (ON DELETE SET NULL).
+func (q *Queries) ForgetSeenBundle(ctx context.Context, arg ForgetSeenBundleParams) error {
+	_, err := q.db.Exec(ctx, forgetSeenBundle, arg.ID, arg.OwnerID)
+	return err
+}
+
 const getSeen = `-- name: GetSeen :one
-SELECT id, owner_id, url_key, composite_key, first_run, source, status, application_id, snapshot, annotations, first_seen_at, last_seen_at, reposts FROM job_seen WHERE id = $1 AND owner_id = $2
+SELECT id, owner_id, url_key, composite_key, first_run, source, status, application_id, snapshot, annotations, first_seen_at, last_seen_at, reposts, bundle_id, cleared_at FROM job_seen WHERE id = $1 AND owner_id = $2
 `
 
 type GetSeenParams struct {
@@ -85,6 +171,8 @@ func (q *Queries) GetSeen(ctx context.Context, arg GetSeenParams) (JobSeen, erro
 		&i.FirstSeenAt,
 		&i.LastSeenAt,
 		&i.Reposts,
+		&i.BundleID,
+		&i.ClearedAt,
 	)
 	return i, err
 }
@@ -93,7 +181,7 @@ const insertSeen = `-- name: InsertSeen :one
 INSERT INTO job_seen (owner_id, url_key, composite_key, first_run, source, snapshot)
 VALUES ($1, $2, $3, $4, $5, $6)
 ON CONFLICT DO NOTHING
-RETURNING id, owner_id, url_key, composite_key, first_run, source, status, application_id, snapshot, annotations, first_seen_at, last_seen_at, reposts
+RETURNING id, owner_id, url_key, composite_key, first_run, source, status, application_id, snapshot, annotations, first_seen_at, last_seen_at, reposts, bundle_id, cleared_at
 `
 
 type InsertSeenParams struct {
@@ -130,8 +218,32 @@ func (q *Queries) InsertSeen(ctx context.Context, arg InsertSeenParams) (JobSeen
 		&i.FirstSeenAt,
 		&i.LastSeenAt,
 		&i.Reposts,
+		&i.BundleID,
+		&i.ClearedAt,
 	)
 	return i, err
+}
+
+const joinSeenBundle = `-- name: JoinSeenBundle :execrows
+UPDATE job_seen SET bundle_id = $1
+WHERE job_seen.id = $2 AND job_seen.owner_id = $3
+  AND EXISTS (SELECT 1 FROM retention_bundles b WHERE b.id = $1
+              AND b.owner_id = $3 AND b.cleared_at IS NULL)
+`
+
+type JoinSeenBundleParams struct {
+	BundleID pgtype.UUID
+	ID       pgtype.UUID
+	OwnerID  pgtype.UUID
+}
+
+// Join the owner's live bundle (an assessment sharing a microsite's clock, or a batch).
+func (q *Queries) JoinSeenBundle(ctx context.Context, arg JoinSeenBundleParams) (int64, error) {
+	result, err := q.db.Exec(ctx, joinSeenBundle, arg.BundleID, arg.ID, arg.OwnerID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const listCompanyMarks = `-- name: ListCompanyMarks :many
@@ -159,7 +271,7 @@ func (q *Queries) ListCompanyMarks(ctx context.Context, ownerID pgtype.UUID) ([]
 }
 
 const listSeenPage = `-- name: ListSeenPage :many
-SELECT id, owner_id, url_key, composite_key, first_run, source, status, application_id, snapshot, annotations, first_seen_at, last_seen_at, reposts FROM job_seen
+SELECT id, owner_id, url_key, composite_key, first_run, source, status, application_id, snapshot, annotations, first_seen_at, last_seen_at, reposts, bundle_id, cleared_at FROM job_seen
 WHERE owner_id = $1
   AND ($2::timestamptz IS NULL OR first_seen_at >= $2)
   AND ($3::timestamptz IS NULL OR first_seen_at < $3)
@@ -213,6 +325,8 @@ func (q *Queries) ListSeenPage(ctx context.Context, arg ListSeenPageParams) ([]J
 			&i.FirstSeenAt,
 			&i.LastSeenAt,
 			&i.Reposts,
+			&i.BundleID,
+			&i.ClearedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -224,8 +338,72 @@ func (q *Queries) ListSeenPage(ctx context.Context, arg ListSeenPageParams) ([]J
 	return items, nil
 }
 
+const newBundleForSeen = `-- name: NewBundleForSeen :exec
+WITH b AS (INSERT INTO retention_bundles (owner_id) VALUES ($2) RETURNING id)
+UPDATE job_seen SET bundle_id = (SELECT id FROM b)
+WHERE job_seen.id = $1 AND job_seen.owner_id = $2
+`
+
+type NewBundleForSeenParams struct {
+	ID      pgtype.UUID
+	OwnerID pgtype.UUID
+}
+
+// An ephemeral assessment with no clock gets its own one-member bundle.
+func (q *Queries) NewBundleForSeen(ctx context.Context, arg NewBundleForSeenParams) error {
+	_, err := q.db.Exec(ctx, newBundleForSeen, arg.ID, arg.OwnerID)
+	return err
+}
+
+const pinSeenBundle = `-- name: PinSeenBundle :execrows
+UPDATE retention_bundles b SET keep = $3, last_touched_at = now()
+FROM job_seen s
+WHERE s.id = $1 AND s.owner_id = $2 AND b.id = s.bundle_id AND b.cleared_at IS NULL
+`
+
+type PinSeenBundleParams struct {
+	ID      pgtype.UUID
+	OwnerID pgtype.UUID
+	Keep    bool
+}
+
+func (q *Queries) PinSeenBundle(ctx context.Context, arg PinSeenBundleParams) (int64, error) {
+	result, err := q.db.Exec(ctx, pinSeenBundle, arg.ID, arg.OwnerID, arg.Keep)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const purgeAssessmentTrash = `-- name: PurgeAssessmentTrash :execrows
+DELETE FROM job_assessment_trash WHERE cleared_at < $1
+`
+
+func (q *Queries) PurgeAssessmentTrash(ctx context.Context, clearedAt pgtype.Timestamptz) (int64, error) {
+	result, err := q.db.Exec(ctx, purgeAssessmentTrash, clearedAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const restoreBundleAssessments = `-- name: RestoreBundleAssessments :exec
+WITH back AS (
+    DELETE FROM job_assessment_trash t USING job_seen s
+    WHERE t.job_seen_id = s.id AND s.bundle_id = $1
+    RETURNING t.job_seen_id, t.annotations
+)
+UPDATE job_seen SET annotations = back.annotations, cleared_at = NULL
+FROM back WHERE job_seen.id = back.job_seen_id
+`
+
+func (q *Queries) RestoreBundleAssessments(ctx context.Context, bundleID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, restoreBundleAssessments, bundleID)
+	return err
+}
+
 const seenByKeys = `-- name: SeenByKeys :one
-SELECT id, owner_id, url_key, composite_key, first_run, source, status, application_id, snapshot, annotations, first_seen_at, last_seen_at, reposts FROM job_seen
+SELECT id, owner_id, url_key, composite_key, first_run, source, status, application_id, snapshot, annotations, first_seen_at, last_seen_at, reposts, bundle_id, cleared_at FROM job_seen
 WHERE owner_id = $1
   AND ((url_key <> '' AND url_key = $2::text)
     OR (composite_key <> '' AND composite_key = $3::text))
@@ -257,7 +435,33 @@ func (q *Queries) SeenByKeys(ctx context.Context, arg SeenByKeysParams) (JobSeen
 		&i.FirstSeenAt,
 		&i.LastSeenAt,
 		&i.Reposts,
+		&i.BundleID,
+		&i.ClearedAt,
 	)
+	return i, err
+}
+
+const seenClockState = `-- name: SeenClockState :one
+
+SELECT bundle_id, cleared_at FROM job_seen WHERE id = $1 AND owner_id = $2 FOR UPDATE
+`
+
+type SeenClockStateParams struct {
+	ID      pgtype.UUID
+	OwnerID pgtype.UUID
+}
+
+type SeenClockStateRow struct {
+	BundleID  pgtype.UUID
+	ClearedAt pgtype.Timestamptz
+}
+
+// ── retention (docs/design/job-loop-retention.md): the row's clock is a retention_bundles row ──
+// The row's bundle and whether its assessment was cleared (read before an annotate).
+func (q *Queries) SeenClockState(ctx context.Context, arg SeenClockStateParams) (SeenClockStateRow, error) {
+	row := q.db.QueryRow(ctx, seenClockState, arg.ID, arg.OwnerID)
+	var i SeenClockStateRow
+	err := row.Scan(&i.BundleID, &i.ClearedAt)
 	return i, err
 }
 
@@ -334,6 +538,22 @@ type TouchSeenParams struct {
 // company posted it again (roadmap 1.5.b): reposts goes up.
 func (q *Queries) TouchSeen(ctx context.Context, arg TouchSeenParams) error {
 	_, err := q.db.Exec(ctx, touchSeen, arg.UrlKey, arg.ID)
+	return err
+}
+
+const touchSeenBundle = `-- name: TouchSeenBundle :exec
+UPDATE retention_bundles b SET last_touched_at = now()
+FROM job_seen s
+WHERE s.id = $1 AND s.owner_id = $2 AND b.id = s.bundle_id AND b.cleared_at IS NULL
+`
+
+type TouchSeenBundleParams struct {
+	ID      pgtype.UUID
+	OwnerID pgtype.UUID
+}
+
+func (q *Queries) TouchSeenBundle(ctx context.Context, arg TouchSeenBundleParams) error {
+	_, err := q.db.Exec(ctx, touchSeenBundle, arg.ID, arg.OwnerID)
 	return err
 }
 

@@ -15,6 +15,16 @@ SELECT sqlc.embed(a),
 FROM applications a
 WHERE a.id = $1 AND a.owner_id = $2;
 
+-- name: HomeworkByAccessCode :one
+-- The owner's homework on the job a session's code was issued for (the recruiter-facing half of the
+-- ledger row's annotations), read live. owner-scoped like GetApplicationByAccessCode.
+SELECT COALESCE(s.annotations->>'homework', '')::text AS homework
+FROM applications a
+JOIN job_seen s ON s.application_id = a.id AND s.owner_id = a.owner_id
+WHERE a.access_code_id = $1 AND a.owner_id = $2
+ORDER BY s.last_seen_at DESC
+LIMIT 1;
+
 -- name: GetApplicationByAccessCode :one
 -- Look up the application bound to a session's access code. owner-scoped (defense in depth;
 -- access_code_id is already globally unique). The visitor-side resume tool uses it to lock "which one" to this code.

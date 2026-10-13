@@ -20,6 +20,26 @@ import (
 // loop does not depend on the conversation module; wire/notify.go does the same).
 const conversationStarted = "conversation.started"
 
+// retentionBundleCleared / Restored —— owner core's retention events, named here for the same
+// reason (owner/usecase/retention.go declares them): the bundle's assessments clear or return.
+const (
+	retentionBundleCleared  = "retention.bundle_cleared"
+	retentionBundleRestored = "retention.bundle_restored"
+)
+
+// bundleHandler —— runs fn with the event's bundle_id. Idempotent on a redelivery.
+func bundleHandler(fn func(context.Context, string) error) eventHandler {
+	return func(ctx context.Context, ev *events.Event) error {
+		var data struct {
+			BundleID string `json:"bundle_id"`
+		}
+		if err := json.Unmarshal(ev.Data, &data); err != nil || data.BundleID == "" {
+			return jobs.Discard(fmt.Errorf("%s: unreadable data %s", ev.Type, ev.Data))
+		}
+		return fn(ctx, data.BundleID)
+	}
+}
+
 const (
 	reactionAttempts = 10
 	reactionTimeout  = 30 * time.Second
@@ -33,7 +53,9 @@ type Bound struct {
 
 // OutcomeDeps —— the outcome use case and its reactions.
 type OutcomeDeps struct {
-	Apps   *ApplicationRepo
+	Apps *ApplicationRepo
+	// Seen —— the ledger: retention clears and restores its assessments (retention.go).
+	Seen   *JobSeenRepo
 	Events events.Recorder
 	// BoundTo —— a narrow port into the access and owner domains: the embeds and microsites
 	// bound to a code. nil = not reported.
@@ -104,6 +126,9 @@ func Subscriptions(d *OutcomeDeps) []events.Subscription {
 	return []events.Subscription{
 		sub("jobs.application_engaged", conversationStarted, engaged),
 		sub("jobs.withdraw_revokes", ApplicationOutcomeChanged, revoke),
+		sub("jobs.retention_clears", retentionBundleCleared, bundleHandler(d.Seen.ClearBundle)),
+		sub("jobs.retention_restores", retentionBundleRestored,
+			bundleHandler(d.Seen.RestoreBundle)),
 	}
 }
 

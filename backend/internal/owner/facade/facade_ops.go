@@ -34,6 +34,7 @@ var (
 	AccountOps    = ops.Account
 	AppearanceOps = ops.Appearance
 	MicrositeOps  = ops.Microsites
+	RetentionOps  = ops.RetentionOps
 	DomainOps     = ops.Domains
 	PageOps       = ops.Page
 	PromptOps     = ops.Prompts
