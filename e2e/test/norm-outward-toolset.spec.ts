@@ -329,6 +329,8 @@ const GOLDEN_TOOLSET: readonly string[] = [
   // (brief, homework, retention), outcomes and follow-ups, the workflow guides -- shipped across
   // v0.1.146–155 without this golden being updated.
   'jobs.record', 'jobs.annotate', 'jobs.history', 'jobs.mark_company', 'jobs.suggest_sources',
+  // a practice interview's packet in and report back (docs/design/deepinterview-engine.md)
+  'jobs.interview_packet', 'jobs.add_interview_report',
   'applications.update_outcome', 'applications.engagement', 'applications.export',
   'applications.gaps', 'applications.followups_due', 'applications.funnel',
   'applications.save_answers',

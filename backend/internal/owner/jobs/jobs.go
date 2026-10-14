@@ -50,6 +50,8 @@ type Deps struct {
 	Log         *slog.Logger
 	// Cues —— the screen assistant's live feed (assistant.push writes, the admin page reads).
 	Cues *cues.Store
+	// Interview —— a practice interview's packet and report (docs/design/deepinterview-engine.md).
+	Interview *jobsuc.InterviewDeps
 	// Seed — the repositories needed to seed the builtins (hiring prompt + role, plus the default
 	// job aggregators) this plugin owns. It belongs to the plugin, not the kernel's roles_seed:
 	// `hiring` is a job-loop concept, not a kernel-level access tier (see jobsuc/seed.go).
@@ -128,6 +130,7 @@ func (p *Plugin) Ops() []fp.Op {
 	ops := jobsmcp.OwnerOps(p.deps.Jobs, p.deps.Resume, p.deps.Cues, p.deps.Log)
 	ops = append(ops, jobsmcp.ApplicationOps(p.deps.Applications, p.deps.Log)...)
 	ops = append(ops, jobsmcp.LedgerOps(p.deps.Jobs, p.deps.Log)...)
+	ops = append(ops, jobsmcp.InterviewOps(p.deps.Interview, p.deps.Log)...)
 	ops = append(ops, jobsmcp.GuideOps(p.deps.Applications)...)
 	return append(ops, jobsmcp.OutcomeOps(p.deps.Outcomes, p.deps.Log)...)
 }

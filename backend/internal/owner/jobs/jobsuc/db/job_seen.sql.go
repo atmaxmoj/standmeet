@@ -47,6 +47,27 @@ func (q *Queries) AnnotateSeen(ctx context.Context, arg AnnotateSeenParams) (Job
 	return i, err
 }
 
+const appendInterviewReport = `-- name: AppendInterviewReport :exec
+UPDATE job_seen
+SET annotations = jsonb_set(annotations, '{interview_reports}',
+    COALESCE(annotations->'interview_reports', '[]'::jsonb)
+        || jsonb_build_array($1::text))
+WHERE id = $2 AND owner_id = $3
+`
+
+type AppendInterviewReportParams struct {
+	Report  string
+	ID      pgtype.UUID
+	OwnerID pgtype.UUID
+}
+
+// One practice-interview report onto the row's interview_reports, in one statement
+// (docs/design/deepinterview-engine.md): concurrent appends never lose one.
+func (q *Queries) AppendInterviewReport(ctx context.Context, arg AppendInterviewReportParams) error {
+	_, err := q.db.Exec(ctx, appendInterviewReport, arg.Report, arg.ID, arg.OwnerID)
+	return err
+}
+
 const bundleClocks = `-- name: BundleClocks :many
 SELECT id, keep, last_touched_at FROM retention_bundles WHERE id = ANY($1::uuid[])
 `

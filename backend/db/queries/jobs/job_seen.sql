@@ -138,3 +138,12 @@ FROM back WHERE job_seen.id = back.job_seen_id;
 
 -- name: PurgeAssessmentTrash :execrows
 DELETE FROM job_assessment_trash WHERE cleared_at < $1;
+
+-- name: AppendInterviewReport :exec
+-- One practice-interview report onto the row's interview_reports, in one statement
+-- (docs/design/deepinterview-engine.md): concurrent appends never lose one.
+UPDATE job_seen
+SET annotations = jsonb_set(annotations, '{interview_reports}',
+    COALESCE(annotations->'interview_reports', '[]'::jsonb)
+        || jsonb_build_array(sqlc.arg('report')::text))
+WHERE id = sqlc.arg('id') AND owner_id = sqlc.arg('owner_id');

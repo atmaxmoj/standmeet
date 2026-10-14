@@ -16,6 +16,10 @@
 //       → the shared page {items: LedgerRow[], next_cursor?}, newest first_seen_at first (8.3.a).
 //       from/to are inclusive UTC days.
 //     jobs.mark_company {company, mark: 'do_not_apply' | 'none', note?} → {company, mark} (4.1.e).
+//     jobs.interview_packet {job_seen_id} → {fingerprint, body}: a practice interview's input
+//       (docs/design/deepinterview-engine.md); fingerprint = sha256 of body's bytes.
+//     jobs.add_interview_report {job_seen_id, report} → {job_seen_id, added}: appends to
+//       interview_reports; an empty report is refused.
 //   Pool rows (jobs.fetch_new, jobs.show) carry `job_seen_id`, and `flags` when a mark applies.
 //   resume.draft accepts `job_seen_id` in place of `cache_id` (8.4.a), and `override: true` to draft
 //   for a do_not_apply company (4.1.e). applications.commit marks the row applied (8.4.b).

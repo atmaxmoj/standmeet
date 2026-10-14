@@ -236,6 +236,7 @@ var ledgerErrs = []error{
 	jobsmodel.ErrNoAnswers, jobsmodel.ErrApplicationNotFound, jobsmodel.ErrHomeworkPrivate,
 	jobsmodel.ErrBadRetention, jobsmodel.ErrAssessmentCleared, jobsmodel.ErrNoSuchBundle,
 	jobsmodel.ErrKeepNeedsClock,
+	jobsmodel.ErrEmptyReport,
 }
 
 func ledgerResult(log *slog.Logger, op string, v any, err error) (json.RawMessage, error) {

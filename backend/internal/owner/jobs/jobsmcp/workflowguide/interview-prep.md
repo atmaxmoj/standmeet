@@ -36,6 +36,15 @@ A phone screen is the owner's fixed script plus the brief of that job.
 3. Read the rehearsal with `conversations.list` and `conversations.get`. An answer that cites no entry did not ground. Fix it as a gap.
 4. A strong spoken answer from the owner becomes a raw corpus entry. Save it with `corpus.create`.
 
+## Practice interview
+
+A practice interview engine asks the owner questions about one posting. You relay them.
+
+1. Read the packet with `jobs.interview_packet`. Give its fingerprint and body to the engine unchanged.
+2. Show each engine question to the owner word for word. Never rewrite, shorten or add to it.
+3. Send the owner's answer to the engine word for word, with the question text you showed.
+4. When the engine finishes, save its report with `jobs.add_interview_report`.
+
 ## After the interview
 
 1. Ask the owner what was asked and how it went.
