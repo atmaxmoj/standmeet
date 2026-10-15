@@ -56,6 +56,7 @@
     "turnsUncapped": "무제한 턴",
     "expires": "· 만료 {date}",
     "noExpiry": "· 만료 없음",
+    "followsPage": "· 페이지 보존 기간을 따름",
     "toast": {
       "ghostUpdated": "{code}의 고스트 규칙이 업데이트되었습니다",
       "opensChat": "{code}이(가) 이제 방문자 채팅을 엽니다",

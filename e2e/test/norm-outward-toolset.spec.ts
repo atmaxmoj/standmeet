@@ -83,7 +83,7 @@ const GOLDEN_TOOLSET: readonly string[] = [
   'codes.rotate',
   // codes.set_slug -- the owner renames the code's landing path (/c/<slug>).
   'codes.set_slug',
-  'codes.list', 'codes.counts', 'codes.list_members',
+  'codes.list', 'codes.counts', 'codes.list_members', 'codes.set_expiry',
   'codes.list_denials', 'codes.add_denial', 'codes.remove_denial',
   // These four used to exist only on the admin panel (waypoints read/write /
   // ghost-evidence / revoking corpus entirely), with neither an MCP twin nor

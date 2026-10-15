@@ -76,9 +76,10 @@ func (q *Queries) ClearCodeWaypoints(ctx context.Context, codeID pgtype.UUID) er
 const countAccessCodesByState = `-- name: CountAccessCodesByState :one
 SELECT
   COUNT(*) FILTER (WHERE status <> 'revoked'
-    AND (expires_at IS NULL OR expires_at > now()))::int AS active,
+    AND NOT access_code_expired(expires_at, microsite_id))::int AS active,
   COUNT(*) FILTER (WHERE status = 'revoked')::int AS revoked,
-  COUNT(*) FILTER (WHERE status <> 'revoked' AND expires_at <= now())::int AS expired,
+  COUNT(*) FILTER (WHERE status <> 'revoked'
+    AND access_code_expired(expires_at, microsite_id))::int AS expired,
   COUNT(*)::int AS total
 FROM access_codes WHERE owner_id = $1
 `
@@ -244,6 +245,32 @@ func (q *Queries) CreateCodeMember(ctx context.Context, arg CreateCodeMemberPara
 	return i, err
 }
 
+const expiredActiveAccessCodeIDs = `-- name: ExpiredActiveAccessCodeIDs :many
+SELECT id FROM access_codes
+WHERE status = 'active' AND access_code_expired(expires_at, microsite_id)
+`
+
+// Codes still active whose expiry passed: their live sessions are ended by the "code expiry" run.
+func (q *Queries) ExpiredActiveAccessCodeIDs(ctx context.Context) ([]pgtype.UUID, error) {
+	rows, err := q.db.Query(ctx, expiredActiveAccessCodeIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []pgtype.UUID
+	for rows.Next() {
+		var id pgtype.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getAccessCode = `-- name: GetAccessCode :one
 SELECT id, owner_id, code, label, purpose, ghosts, expires_at, status, revoked_reason, max_turns_per_session, max_members, require_ghost_evidence, provider_id, microsite_id, bundle_id, limit_per_period, slug, created_at, assumed_role_id, prompt_id, inline_prompt FROM access_codes WHERE code = $1 AND status = 'active'
 `
@@ -320,40 +347,51 @@ func (q *Queries) GetAccessCodeAnyStatus(ctx context.Context, code string) (Acce
 }
 
 const getAccessCodeByID = `-- name: GetAccessCodeByID :one
-SELECT id, owner_id, code, label, purpose, ghosts, expires_at, status, revoked_reason, max_turns_per_session, max_members, require_ghost_evidence, provider_id, microsite_id, bundle_id, limit_per_period, slug, created_at, assumed_role_id, prompt_id, inline_prompt FROM access_codes WHERE id = $1
+SELECT ac.id, ac.owner_id, ac.code, ac.label, ac.purpose, ac.ghosts, ac.expires_at, ac.status, ac.revoked_reason, ac.max_turns_per_session, ac.max_members, ac.require_ghost_evidence, ac.provider_id, ac.microsite_id, ac.bundle_id, ac.limit_per_period, ac.slug, ac.created_at, ac.assumed_role_id, ac.prompt_id, ac.inline_prompt, access_code_expired(ac.expires_at, ac.microsite_id)::boolean AS expired,
+  access_code_follows_page(ac.microsite_id)::boolean AS follows_page
+FROM access_codes ac WHERE ac.id = $1
 `
 
-func (q *Queries) GetAccessCodeByID(ctx context.Context, id pgtype.UUID) (AccessCode, error) {
+type GetAccessCodeByIDRow struct {
+	AccessCode  AccessCode
+	Expired     bool
+	FollowsPage bool
+}
+
+func (q *Queries) GetAccessCodeByID(ctx context.Context, id pgtype.UUID) (GetAccessCodeByIDRow, error) {
 	row := q.db.QueryRow(ctx, getAccessCodeByID, id)
-	var i AccessCode
+	var i GetAccessCodeByIDRow
 	err := row.Scan(
-		&i.ID,
-		&i.OwnerID,
-		&i.Code,
-		&i.Label,
-		&i.Purpose,
-		&i.Ghosts,
-		&i.ExpiresAt,
-		&i.Status,
-		&i.RevokedReason,
-		&i.MaxTurnsPerSession,
-		&i.MaxMembers,
-		&i.RequireGhostEvidence,
-		&i.ProviderID,
-		&i.MicrositeID,
-		&i.BundleID,
-		&i.LimitPerPeriod,
-		&i.Slug,
-		&i.CreatedAt,
-		&i.AssumedRoleID,
-		&i.PromptID,
-		&i.InlinePrompt,
+		&i.AccessCode.ID,
+		&i.AccessCode.OwnerID,
+		&i.AccessCode.Code,
+		&i.AccessCode.Label,
+		&i.AccessCode.Purpose,
+		&i.AccessCode.Ghosts,
+		&i.AccessCode.ExpiresAt,
+		&i.AccessCode.Status,
+		&i.AccessCode.RevokedReason,
+		&i.AccessCode.MaxTurnsPerSession,
+		&i.AccessCode.MaxMembers,
+		&i.AccessCode.RequireGhostEvidence,
+		&i.AccessCode.ProviderID,
+		&i.AccessCode.MicrositeID,
+		&i.AccessCode.BundleID,
+		&i.AccessCode.LimitPerPeriod,
+		&i.AccessCode.Slug,
+		&i.AccessCode.CreatedAt,
+		&i.AccessCode.AssumedRoleID,
+		&i.AccessCode.PromptID,
+		&i.AccessCode.InlinePrompt,
+		&i.Expired,
+		&i.FollowsPage,
 	)
 	return i, err
 }
 
 const getAccessCodeWithPage = `-- name: GetAccessCodeWithPage :one
-SELECT ac.id, ac.owner_id, ac.code, ac.label, ac.purpose, ac.ghosts, ac.expires_at, ac.status, ac.revoked_reason, ac.max_turns_per_session, ac.max_members, ac.require_ghost_evidence, ac.provider_id, ac.microsite_id, ac.bundle_id, ac.limit_per_period, ac.slug, ac.created_at, ac.assumed_role_id, ac.prompt_id, ac.inline_prompt, COALESCE(cp.slug, '')::text AS microsite_slug
+SELECT ac.id, ac.owner_id, ac.code, ac.label, ac.purpose, ac.ghosts, ac.expires_at, ac.status, ac.revoked_reason, ac.max_turns_per_session, ac.max_members, ac.require_ghost_evidence, ac.provider_id, ac.microsite_id, ac.bundle_id, ac.limit_per_period, ac.slug, ac.created_at, ac.assumed_role_id, ac.prompt_id, ac.inline_prompt, COALESCE(cp.slug, '')::text AS microsite_slug,
+  access_code_expired(ac.expires_at, ac.microsite_id)::boolean AS expired
 FROM access_codes ac
 LEFT JOIN microsites cp ON cp.id = ac.microsite_id AND cp.status != 'deleted'
 WHERE ac.code = $1 AND ac.status = 'active'
@@ -382,6 +420,7 @@ type GetAccessCodeWithPageRow struct {
 	PromptID             pgtype.UUID
 	InlinePrompt         string
 	MicrositeSlug        string
+	Expired              bool
 }
 
 // Same as GetAccessCode, plus the slug of **which page this code opens**.
@@ -415,6 +454,7 @@ func (q *Queries) GetAccessCodeWithPage(ctx context.Context, code string) (GetAc
 		&i.PromptID,
 		&i.InlinePrompt,
 		&i.MicrositeSlug,
+		&i.Expired,
 	)
 	return i, err
 }
@@ -573,16 +613,18 @@ func (q *Queries) ListAccessCodesByOwner(ctx context.Context, ownerID pgtype.UUI
 
 const listAccessCodesPage = `-- name: ListAccessCodesPage :many
 SELECT ac.id, ac.owner_id, ac.code, ac.label, ac.purpose, ac.ghosts, ac.expires_at, ac.status, ac.revoked_reason, ac.max_turns_per_session, ac.max_members, ac.require_ghost_evidence, ac.provider_id, ac.microsite_id, ac.bundle_id, ac.limit_per_period, ac.slug, ac.created_at, ac.assumed_role_id, ac.prompt_id, ac.inline_prompt, COALESCE(cp.slug, '')::text AS microsite_slug,
-  COALESCE(ro.name, '')::text AS role_name
+  COALESCE(ro.name, '')::text AS role_name,
+  access_code_follows_page(ac.microsite_id)::boolean AS follows_page
 FROM access_codes ac
 LEFT JOIN microsites cp ON cp.id = ac.microsite_id AND cp.status != 'deleted'
 LEFT JOIN roles ro ON ro.id = ac.assumed_role_id
 WHERE ac.owner_id = $1
   AND ($2::text IN ('', 'all')
     OR ($2 = 'revoked' AND ac.status = 'revoked')
-    OR ($2 = 'expired' AND ac.status <> 'revoked' AND ac.expires_at <= now())
+    OR ($2 = 'expired' AND ac.status <> 'revoked'
+        AND access_code_expired(ac.expires_at, ac.microsite_id))
     OR ($2 = 'active' AND ac.status <> 'revoked'
-        AND (ac.expires_at IS NULL OR ac.expires_at > now())))
+        AND NOT access_code_expired(ac.expires_at, ac.microsite_id)))
   AND ($3::text = ''
     OR ac.code ILIKE '%' || $3 || '%' OR ac.label ILIKE '%' || $3 || '%')
   -- embed: 'none' = only codes no embed exposes yet (the embed picker; code_id is unique there).
@@ -633,6 +675,7 @@ type ListAccessCodesPageRow struct {
 	InlinePrompt         string
 	MicrositeSlug        string
 	RoleName             string
+	FollowsPage          bool
 }
 
 // One page of the owner's codes, newest first, plus **which page this code opens**. The
@@ -685,6 +728,7 @@ func (q *Queries) ListAccessCodesPage(ctx context.Context, arg ListAccessCodesPa
 			&i.InlinePrompt,
 			&i.MicrositeSlug,
 			&i.RoleName,
+			&i.FollowsPage,
 		); err != nil {
 			return nil, err
 		}
@@ -898,6 +942,26 @@ func (q *Queries) MemberExistsByName(ctx context.Context, arg MemberExistsByName
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
+}
+
+const setAccessCodeExpiry = `-- name: SetAccessCodeExpiry :execrows
+UPDATE access_codes SET expires_at = $1
+WHERE id = $2 AND owner_id = $3
+`
+
+type SetAccessCodeExpiryParams struct {
+	ExpiresAt pgtype.Timestamptz
+	ID        pgtype.UUID
+	OwnerID   pgtype.UUID
+}
+
+// Move or clear (NULL = never) a code's expiry.
+func (q *Queries) SetAccessCodeExpiry(ctx context.Context, arg SetAccessCodeExpiryParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setAccessCodeExpiry, arg.ExpiresAt, arg.ID, arg.OwnerID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const setAccessCodeGhostEvidence = `-- name: SetAccessCodeGhostEvidence :one

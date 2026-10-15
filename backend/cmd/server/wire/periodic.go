@@ -199,6 +199,10 @@ func collectPeriodicJobs(d *deps.Runtime) []periodic.Job {
 	out = append(out, corpus.AssetTrashPeriodicJobs(
 		corpus.AssetsDeps{Repo: d.AssetRepo, Storage: d.StorageClient})...)
 	out = append(out, owner.RetentionPeriodicJobs(port.Retention(d))...)
+	out = append(out, access.CodeExpiryPeriodicJobs(access.CodesDeps{
+		Codes: d.CodeRepo, Roles: d.RoleRepo, Sessions: d.VisitorStore, Log: d.Log,
+		Events: d.Recorder(),
+	})...)
 	out = append(out, owner.MicrositeTrashPeriodicJobs(
 		owner.MicrositeDeps{Pages: d.MicrositeRepo, Docs: d.MicrositeDocs}, d.BuildsRoot, d.Log)...)
 	if d.SandboxWorkspaces != nil {

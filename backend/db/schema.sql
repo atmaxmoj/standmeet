@@ -881,6 +881,22 @@ LANGUAGE sql STABLE AS $$
     )
 $$;
 
+-- access_code_follows_page —— a code bound to an ephemeral page lives on the page's clock
+-- (docs/design/job-loop-retention.md), not its own expires_at. See
+-- migrations/2026-10-15-access-code-expiry.sql.
+CREATE FUNCTION access_code_follows_page(page uuid) RETURNS boolean
+LANGUAGE sql STABLE AS $$
+    SELECT EXISTS (SELECT 1 FROM microsites m
+                   WHERE m.id = page AND m.status <> 'deleted' AND m.bundle_id IS NOT NULL)
+$$;
+
+-- access_code_expired —— the ONE definition of "this code is past its expiry": the door, the
+-- session sweep, the list filter and the counts all call it.
+CREATE FUNCTION access_code_expired(expires timestamptz, page uuid) RETURNS boolean
+LANGUAGE sql STABLE AS $$
+    SELECT expires IS NOT NULL AND expires <= now() AND NOT access_code_follows_page(page)
+$$;
+
 -- Partial: uniqueness holds only among LIVE rows, so a soft-deleted slug (DeletePage sets
 -- status='deleted') frees up and can be recreated by a normal microsite.
 CREATE UNIQUE INDEX microsites_owner_slug_idx ON microsites(owner_id, slug) WHERE status <> 'deleted';

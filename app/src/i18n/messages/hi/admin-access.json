@@ -56,6 +56,7 @@
     "turnsUncapped": "असीमित टर्न",
     "expires": "· समाप्ति {date}",
     "noExpiry": "· कोई समाप्ति नहीं",
+    "followsPage": "· अपने पेज के साथ समाप्त",
     "toast": {
       "ghostUpdated": "{code} के लिए घोस्ट नियम अपडेट किया गया",
       "opensChat": "{code} अब विज़िटर चैट खोलता है",

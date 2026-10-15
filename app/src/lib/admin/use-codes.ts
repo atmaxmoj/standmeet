@@ -55,6 +55,8 @@ export const CodeViewSchema = z.object({
   role_name: z.string().nullish().transform((v) => v ?? ''),
   // slug —— the landing path: a visitor who redeems the code lands on /c/<slug>.
   slug: z.string().nullish().transform((v) => v ?? ''),
+  // expiry_follows_page —— bound to an ephemeral page: the page's clock decides, not expires_at.
+  expiry_follows_page: z.boolean().nullish().transform((v) => v ?? false),
 });
 export type CodeView = z.infer<typeof CodeViewSchema>;
 
@@ -73,6 +75,8 @@ export interface CreateCodeInput {
   bundle?: string;
   // slug —— the landing path (/c/<slug>). Omit for a generated one.
   slug?: string;
+  // expires_at —— RFC3339 end of the last day it works; '' = never.
+  expires_at?: string;
 }
 
 export interface QuotasInput {
@@ -80,6 +84,8 @@ export interface QuotasInput {
   max_turns_per_session: number | null;
   // slug —— a new landing path, sent only when the owner changed it in the edit modal.
   slug?: string;
+  // expires_at —— a new expiry (null = never), sent only when the owner changed it.
+  expires_at?: string | null;
 }
 
 export type CodeCounts = Record<CodeFilter, number>;
@@ -180,9 +186,14 @@ async function rotateCode(id: string, newCode: string): Promise<void> {
 
 // updateQuotas —— the edit modal's save. A changed path goes first: a taken one throws before
 // the quotas move, so the modal stays open on the refusal with nothing half-saved.
-async function updateQuotas(id: string, { slug, ...quotas }: QuotasInput): Promise<void> {
+async function updateQuotas(
+  id: string, { slug, expires_at: expiresAt, ...quotas }: QuotasInput,
+): Promise<void> {
   if (slug !== undefined) {
     replaceCode(await adminAPI.patch(`/codes/${id}/slug`, { slug }, CodeViewSchema));
+  }
+  if (expiresAt !== undefined) {
+    replaceCode(await adminAPI.patch(`/codes/${id}/expiry`, { expires_at: expiresAt }, CodeViewSchema));
   }
   replaceCode(await adminAPI.patch(`/codes/${id}/quotas`, quotas, CodeViewSchema));
 }
@@ -239,6 +250,7 @@ function toCreateBody(input: CreateCodeInput): Record<string, unknown> {
     // the code is issued, and it carries nothing. That happened.
     bundle: input.bundle ?? '',
     slug: input.slug ?? '',
+    expires_at: input.expires_at ?? '',
   };
 }
 
@@ -269,7 +281,25 @@ export async function dispatchSave(
     max_members: input.max_members ?? null,
     max_turns_per_session: input.max_turns_per_session ?? null,
     ...(input.slug === undefined || input.slug === existing.slug ? {} : { slug: input.slug }),
+    ...expiryChange(existing.expires_at, input.expires_at),
   });
+}
+
+// expiryLabel —— which expiry sentence a code card shows: the page's clock (bound to an ephemeral
+// page), a date, or never.
+export function expiryLabel(
+  iso: string | undefined, followsPage: boolean,
+): { key: 'followsPage' | 'expires' | 'noExpiry'; date: string } {
+  if (followsPage) return { key: 'followsPage', date: '' };
+  if (iso === undefined || iso === '') return { key: 'noExpiry', date: '' };
+  return { key: 'expires', date: iso.slice(0, 10) };
+}
+
+// expiryChange —— the edit's expiry, sent only when the day differs from the stored one.
+function expiryChange(stored: string | undefined, next: string | undefined): Pick<QuotasInput, 'expires_at'> {
+  const day = (iso?: string): string => iso?.slice(0, 10) ?? '';
+  if (day(stored) === day(next)) return {};
+  return { expires_at: next === undefined || next === '' ? null : next };
 }
 
 // MemberView —— a member is a read-only child entity of the AccessCode aggregate. revoke happens

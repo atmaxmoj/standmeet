@@ -33,12 +33,14 @@ func (r *CodeRepo) GetByID(ctx context.Context, codeID string) (entity.Code, err
 		}
 		return entity.Code{}, fmt.Errorf("get access code by id: %w", err)
 	}
-	return CodeFromRow(&row), nil
+	c := CodeFromRow(&row.AccessCode)
+	c.Expired, c.FollowsPage = row.Expired, row.FollowsPage
+	return c, nil
 }
 
 // GetByCode fetches a code (active only); on a miss it **distinguishes which kind**:
 // the code doesn't exist at all → ErrCodeInvalid; it exists but was revoked →
-// ErrCodeRevoked.
+// ErrCodeRevoked; it is active but past its expiry (access_code_expired) → ErrCodeExpired.
 //
 // Previously this queried status='active' just once, and both cases came back as
 // no-rows, so the visitor's rejection message could only be a merged "invalid or
@@ -66,7 +68,10 @@ func (r *CodeRepo) GetByCode(ctx context.Context, code string) (entity.Code, err
 			AssumedRoleID: row.AssumedRoleID, PromptID: row.PromptID,
 			InlinePrompt: row.InlinePrompt, MicrositeID: row.MicrositeID,
 		})
-		c.MicrositeSlug = row.MicrositeSlug
+		c.MicrositeSlug, c.Expired = row.MicrositeSlug, row.Expired
+		if c.Expired {
+			return entity.Code{}, entity.ErrCodeExpired
+		}
 		return c, nil
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
@@ -164,6 +169,7 @@ func codeFromListRow(row *db.ListAccessCodesPageRow) entity.Code {
 	})
 	c.MicrositeSlug = row.MicrositeSlug
 	c.RoleName = row.RoleName
+	c.FollowsPage = row.FollowsPage
 	return c
 }
 

@@ -18,6 +18,7 @@ export function CreateCodeFields({ form, editing }: EditingProps) {
     <div className="space-y-7">
       <CoreFieldsSlot form={form} editing={editing} />
       <SlugInput form={form} />
+      <ExpiresInput form={form} />
       <QuotasField form={form} />
       <NonQuotaSlot form={form} editing={editing} />
     </div>
@@ -108,6 +109,22 @@ function SlugInput({ form }: Props) {
         value={form.values.slug}
         onChange={(e) => form.setSlug(e.target.value)}
         placeholder="e.g. acme-recruiter"
+        className="sm-field-input sm-mono"
+      />
+    </label>
+  );
+}
+
+// ExpiresInput —— the last day the code works; blank = never. Editable after issue too.
+function ExpiresInput({ form }: Props) {
+  return (
+    <label className="block">
+      <FieldKicker text="expires · last day it works · blank = never" />
+      <input
+        type="date"
+        data-testid="code-expires"
+        value={form.values.expires}
+        onChange={(e) => form.setExpires(e.target.value)}
         className="sm-field-input sm-mono"
       />
     </label>

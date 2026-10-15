@@ -61,6 +61,7 @@
     "turnsUncapped": "無限輪次",
     "expires": "· 到期 {date}",
     "noExpiry": "· 永不過期",
+    "followsPage": "· 跟隨頁面保留期",
     "toast": {
       "ghostUpdated": "已更新 {code} 的幽靈規則",
       "opensChat": "{code} 現在開啓訪客聊天",

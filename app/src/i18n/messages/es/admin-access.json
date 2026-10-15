@@ -56,6 +56,7 @@
     "turnsUncapped": "turnos ilimitados",
     "expires": "· caduca {date}",
     "noExpiry": "· sin caducidad",
+    "followsPage": "· caduca con su página",
     "toast": {
       "ghostUpdated": "Regla ghost actualizada para {code}",
       "opensChat": "{code} ahora abre el chat del visitante",

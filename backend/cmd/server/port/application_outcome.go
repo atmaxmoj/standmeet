@@ -32,11 +32,11 @@ func CodeBound(
 }
 
 // pageOf —— the page an active code opens. GetByCode is the read that joins the bound page's
-// slug (the landing's read); a code already revoked opens none.
+// slug (the landing's read); a code already revoked or expired opens none.
 func pageOf(ctx context.Context, d *deps.Runtime, code string) ([]string, error) {
 	c, err := d.CodeRepo.GetByCode(ctx, code)
 	switch {
-	case errors.Is(err, access.ErrCodeRevoked):
+	case errors.Is(err, access.ErrCodeRevoked), errors.Is(err, access.ErrCodeExpired):
 		return []string{}, nil
 	case err != nil:
 		return nil, fmt.Errorf("code page: %w", err)

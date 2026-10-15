@@ -56,6 +56,7 @@
     "turnsUncapped": "unbegrenzte Runden",
     "expires": "· läuft ab {date}",
     "noExpiry": "· kein ablauf",
+    "followsPage": "· läuft mit seiner seite ab",
     "toast": {
       "ghostUpdated": "Ghost-Regel für {code} aktualisiert",
       "opensChat": "{code} öffnet jetzt den Besucher-Chat",

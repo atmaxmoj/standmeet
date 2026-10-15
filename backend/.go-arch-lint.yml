@@ -1274,6 +1274,7 @@ deps:
       - events           # a submitted request records access_request.created (Recorder only)
       - pgstore          # … in the same transaction as its row (InTx)
       - paging           # the list use cases take and answer a page
+      - periodic         # declares the "code expiry" run (ends the sessions of expired codes); the host schedules it
     anyVendorDeps: true
 
   # owner — #135 owner module: entity + repo (the supplier’s OwnerLookup consumes owner.Owner).

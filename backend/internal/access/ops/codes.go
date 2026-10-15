@@ -34,7 +34,7 @@ type CodesDeps struct {
 
 // Codes — the code itself + its ACL facet.
 func Codes(d *CodesDeps) []fp.Op {
-	return append(append(codeCoreOps(d), setSlugOp(d)), codeACLOps(d.ACL)...)
+	return append(append(codeCoreOps(d), setSlugOp(d), setExpiryOp(d)), codeACLOps(d.ACL)...)
 }
 
 func codeCoreOps(d *CodesDeps) []fp.Op {

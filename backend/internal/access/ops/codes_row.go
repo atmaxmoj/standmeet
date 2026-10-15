@@ -59,11 +59,15 @@ type codeRow struct {
 	// visitor header always renders "1 / 5 names", but the owner side had no way to get this
 	// number.
 	MemberCount int32 `json:"member_count"`
+	// ExpiryFollowsPage —— bound to an ephemeral page: the page's clock decides, not expires_at
+	// (docs/design/job-loop-retention.md).
+	ExpiryFollowsPage bool `json:"expiry_follows_page,omitempty"`
 }
 
 func toCodeRow(c *entity.Code, memberCount int32) codeRow {
 	return codeRow{
-		ID: c.ID, Code: c.Code, Label: c.Label, Status: c.Status, RevokedReason: c.RevokedReason,
+		ExpiryFollowsPage: c.FollowsPage, RevokedReason: c.RevokedReason,
+		ID: c.ID, Code: c.Code, Label: c.Label, Status: c.Status,
 		AssumedRoleID: c.AssumedRoleID, ProviderID: c.ProviderID,
 		Ghosts:     nonNilStrings(c.Ghosts),
 		MaxMembers: c.MaxMembers, MaxTurnsPerSession: c.MaxTurnsPerSession,

@@ -43,6 +43,8 @@ var (
 	ResolveAPIKey             = usecase.ResolveAPIKey
 	RevokeCode                = usecase.RevokeCode
 	RevokePageCodes           = usecase.RevokePageCodes
+	SetCodeExpiry             = usecase.SetCodeExpiry
+	CodeExpiryPeriodicJobs    = usecase.CodeExpiryPeriodicJobs
 	SetRoleDockButtons        = usecase.SetRoleDockButtons
 	SubmitForOwner            = usecase.SubmitForOwner
 	UpdateAccessRequestStatus = usecase.UpdateAccessRequestStatus

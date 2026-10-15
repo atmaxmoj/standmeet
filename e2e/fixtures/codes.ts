@@ -66,6 +66,8 @@ export interface CreateCodeInput {
   provider_id?: string | null;
   // slug —— the landing path (/c/<slug>). Unset = a generated one.
   slug?: string;
+  // expires_at —— RFC3339; unset = never. codes.set_expiry moves or clears it later.
+  expires_at?: string;
 }
 
 export interface CodeView {
@@ -96,6 +98,7 @@ export async function createCode(
       prompt_id: input.prompt_id ?? null,
       provider_id: input.provider_id ?? null,
       slug: input.slug ?? '',
+      expires_at: input.expires_at ?? '',
     },
   });
   if (res.status() !== 201) throw new Error(`create code failed: ${res.status()}`);

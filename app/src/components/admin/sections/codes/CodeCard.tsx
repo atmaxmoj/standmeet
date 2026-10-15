@@ -19,7 +19,7 @@ import { buildShareLink } from '@/lib/admin/code-share';
 import { usePrompts, type PromptView } from '@/lib/admin/use-prompts';
 import { useAction } from '@/lib/ui/use-action';
 
-import { CODE_MUTATIONS, type CodeView } from '@/lib/admin/use-codes';
+import { CODE_MUTATIONS, expiryLabel, type CodeView } from '@/lib/admin/use-codes';
 import { useMicrositeOptions } from '@/lib/admin/use-microsites';
 
 type Props = {
@@ -378,32 +378,38 @@ function fillPercent(used: number, cap: number | null | undefined): number {
 function CodeCardFooter({ code, link }: { code: CodeView; link: string }) {
   return (
     <div className="mt-5 pt-3 border-t border-(--color-rule)/60">
-      <FooterTop status={code.status} link={link} expiresAt={code.expires_at} />
+      <FooterTop
+        status={code.status} link={link} expiresAt={code.expires_at}
+        followsPage={code.expiry_follows_page}
+      />
       <ConversationsLink code={code.code} />
     </div>
   );
 }
 
-function FooterTop({ status, link, expiresAt }: {
-  status: string; link: string; expiresAt?: string;
+function FooterTop({ status, link, expiresAt, followsPage }: {
+  status: string; link: string; expiresAt?: string; followsPage: boolean;
 }) {
   const t = useTranslations('adminAccess');
   return (
     <div className="mono text-[10px] tracking-[0.12em] text-(--color-faint) flex items-baseline justify-between gap-3 flex-wrap">
-      <span>{t('codeCard.status', { status })}<ExpiryText iso={expiresAt} /></span>
+      <span>
+        {t('codeCard.status', { status })}
+        <ExpiryText iso={expiresAt} followsPage={followsPage} />
+      </span>
       <span className="truncate min-w-0">{link}</span>
     </div>
   );
 }
 
-// ExpiryText — expiry shown explicitly: with expires_at, show the date; without it, show
-// "no expiry". Expiry is computed from expires_at (domain note: no separate status field),
-// so the owner can see at a glance when this code stops working.
-function ExpiryText({ iso }: { iso?: string }) {
+// ExpiryText — expiry shown explicitly: the date, "no expiry", or — bound to an ephemeral page —
+// that the page's clock decides. The owner sees at a glance when this code stops working.
+function ExpiryText({ iso, followsPage }: { iso?: string; followsPage: boolean }) {
   const t = useTranslations('adminAccess');
+  const label = expiryLabel(iso, followsPage);
   return (
     <span className="ml-2 text-(--color-muted)" data-testid="code-expiry">
-      {iso ? t('codeCard.expires', { date: iso.slice(0, 10) }) : t('codeCard.noExpiry')}
+      {t(`codeCard.${label.key}`, { date: label.date })}
     </span>
   );
 }

@@ -55,6 +55,11 @@ type Code struct {
 	ProviderID string
 	ID         string
 	Ghosts     []string
+	// Expired —— past its expiry, as the database rule access_code_expired decided it at read
+	// time (never recomputed in Go). Set on the door read and the by-id read.
+	Expired bool
+	// FollowsPage —— bound to an ephemeral page, so the page's clock decides, not ExpiresAt.
+	FollowsPage bool
 }
 
 // PeriodLimit — how much a code may spend per period (a refillable rate gate).

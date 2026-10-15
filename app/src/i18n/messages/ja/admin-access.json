@@ -56,6 +56,7 @@
     "turnsUncapped": "無制限ターン",
     "expires": "· 有効期限 {date}",
     "noExpiry": "· 無期限",
+    "followsPage": "· ページの保持期間に従う",
     "toast": {
       "ghostUpdated": "{code} のゴーストルールを更新しました",
       "opensChat": "{code} は訪問者チャットを開くようになりました",

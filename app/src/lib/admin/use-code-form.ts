@@ -33,13 +33,15 @@ export interface CodeFormState {
   bundle: string;
   // slug —— the landing path (/c/<slug>); '' on create = a generated one.
   slug: string;
+  // expires —— the last day the code works (YYYY-MM-DD); '' = never.
+  expires: string;
 }
 
 const EMPTY: CodeFormState = {
   code: '', label: '', purpose: '',
   suggested: ['', ''],
   maxMembers: '', maxTurns: '', maxBookings: '',
-  assumedRoleID: '', promptID: '', providerID: '', bundle: '', slug: '',
+  assumedRoleID: '', promptID: '', providerID: '', bundle: '', slug: '', expires: '',
 };
 
 export interface CodeFormHook {
@@ -55,6 +57,7 @@ export interface CodeFormHook {
   setProviderID: (v: string) => void;
   setBundle: (v: string) => void;
   setSlug: (v: string) => void;
+  setExpires: (v: string) => void;
   updateQ: (i: number, v: string) => void;
   addQ: () => void;
   removeQ: (i: number) => void;
@@ -90,6 +93,9 @@ export function useCodeForm(initial?: Partial<CodeView>): CodeFormHook {
     (bundle: string) => setValues((v) => ({ ...v, bundle })), [],
   );
   const setSlug = useCallback((slug: string) => setValues((v) => ({ ...v, slug })), []);
+  const setExpires = useCallback(
+    (expires: string) => setValues((v) => ({ ...v, expires })), [],
+  );
 
   const updateQ = useCallback((i: number, txt: string) => {
     setValues((v) => ({ ...v, suggested: v.suggested.map((q, j) => j === i ? txt : q) }));
@@ -105,7 +111,7 @@ export function useCodeForm(initial?: Partial<CodeView>): CodeFormHook {
 
   return {
     values, setCode, setLabel, setPurpose, setMaxMembers, setMaxTurns,
-    setMaxBookings, setAssumedRoleID, setPromptID, setProviderID, setBundle, setSlug,
+    setMaxBookings, setAssumedRoleID, setPromptID, setProviderID, setBundle, setSlug, setExpires,
     updateQ, addQ, removeQ, reset, toInput,
   };
 }
@@ -126,6 +132,7 @@ function seed(initial?: Partial<CodeView>): CodeFormState {
     providerID:    initial?.provider_id ?? '',
     bundle:        initial?.bundle ?? '',
     slug:          initial?.slug ?? '',
+    expires:       initial?.expires_at?.slice(0, 10) ?? '',
   };
 }
 
@@ -150,6 +157,8 @@ function buildInput(v: CodeFormState): CreateCodeInput {
     // asserting a choice the owner did not make.
     ...(v.bundle === '' ? {} : { bundle: v.bundle }),
     ...(v.slug.trim() === '' ? {} : { slug: v.slug.trim() }),
+    // The last day it works, to its end (UTC). Always sent: '' = never.
+    expires_at: v.expires === '' ? '' : `${v.expires}T23:59:59Z`,
   };
 }
 

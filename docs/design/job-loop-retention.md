@@ -98,6 +98,10 @@ whole bundle to `forever`.
 - **Restore** (`retention.restore`, by bundle): assessments come back, the page comes back, the
   clock restarts. Revoked codes stay revoked; the owner issues a new one.
 - A cleared row seen again is still deduped and carries the flag `assessed_before`.
+- **A code bound to an ephemeral page follows the page's clock** (2026-10-15): its own
+  `expires_at` does not apply while the page is ephemeral, and applies again once the page is
+  forever. One database rule, `access_code_expired(expires_at, microsite_id)`, decides for the
+  door, the session sweep, the list filter and the counts; the panel shows "expires with its page".
 
 ## Review notes (Claude, 2026-10-13) — to settle before the tests
 

@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/atmaxmoj/standmeet/internal/access/entity"
 	"github.com/atmaxmoj/standmeet/internal/access/repo"
@@ -91,8 +90,7 @@ func admitsNothingIf(err, gone error) error {
 	return fmt.Errorf("embed scope: %w", err)
 }
 
-// codeLive —— active and not past its expiry.
+// codeLive —— active and not past its expiry (the database's access_code_expired, read with it).
 func codeLive(c *entity.Code) bool {
-	return c.Status == entity.CodeStatusActive &&
-		(c.ExpiresAt == nil || c.ExpiresAt.After(time.Now()))
+	return c.Status == entity.CodeStatusActive && !c.Expired
 }

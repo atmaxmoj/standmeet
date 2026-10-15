@@ -57,7 +57,8 @@ SELECT * FROM access_codes WHERE code = $1 AND status = 'active';
 -- when a visitor arrives with a code), and the slug lives on the pages table -- fetching it via a
 -- join at the SQL layer means the visitor path need not cross domains to ask the owner domain.
 -- Empty string = not bound, opens the default visitor conversation.
-SELECT ac.*, COALESCE(cp.slug, '')::text AS microsite_slug
+SELECT ac.*, COALESCE(cp.slug, '')::text AS microsite_slug,
+  access_code_expired(ac.expires_at, ac.microsite_id)::boolean AS expired
 FROM access_codes ac
 LEFT JOIN microsites cp ON cp.id = ac.microsite_id AND cp.status != 'deleted'
 WHERE ac.code = $1 AND ac.status = 'active';
@@ -70,7 +71,19 @@ WHERE ac.code = $1 AND ac.status = 'active';
 SELECT * FROM access_codes WHERE code = $1;
 
 -- name: GetAccessCodeByID :one
-SELECT * FROM access_codes WHERE id = $1;
+SELECT sqlc.embed(ac), access_code_expired(ac.expires_at, ac.microsite_id)::boolean AS expired,
+  access_code_follows_page(ac.microsite_id)::boolean AS follows_page
+FROM access_codes ac WHERE ac.id = $1;
+
+-- name: SetAccessCodeExpiry :execrows
+-- Move or clear (NULL = never) a code's expiry.
+UPDATE access_codes SET expires_at = sqlc.narg('expires_at')
+WHERE id = sqlc.arg('id') AND owner_id = sqlc.arg('owner_id');
+
+-- name: ExpiredActiveAccessCodeIDs :many
+-- Codes still active whose expiry passed: their live sessions are ended by the "code expiry" run.
+SELECT id FROM access_codes
+WHERE status = 'active' AND access_code_expired(expires_at, microsite_id);
 
 -- name: ListAccessCodesByOwner :many
 SELECT * FROM access_codes WHERE owner_id = $1 ORDER BY created_at DESC;
@@ -85,16 +98,18 @@ SELECT * FROM access_codes WHERE owner_id = $1 ORDER BY created_at DESC;
 -- defines them. q: case-insensitive substring of code or label. Both apply before the LIMIT
 -- (docs/design/paging.md).
 SELECT ac.*, COALESCE(cp.slug, '')::text AS microsite_slug,
-  COALESCE(ro.name, '')::text AS role_name
+  COALESCE(ro.name, '')::text AS role_name,
+  access_code_follows_page(ac.microsite_id)::boolean AS follows_page
 FROM access_codes ac
 LEFT JOIN microsites cp ON cp.id = ac.microsite_id AND cp.status != 'deleted'
 LEFT JOIN roles ro ON ro.id = ac.assumed_role_id
 WHERE ac.owner_id = sqlc.arg('owner_id')
   AND (sqlc.arg('state')::text IN ('', 'all')
     OR (sqlc.arg('state') = 'revoked' AND ac.status = 'revoked')
-    OR (sqlc.arg('state') = 'expired' AND ac.status <> 'revoked' AND ac.expires_at <= now())
+    OR (sqlc.arg('state') = 'expired' AND ac.status <> 'revoked'
+        AND access_code_expired(ac.expires_at, ac.microsite_id))
     OR (sqlc.arg('state') = 'active' AND ac.status <> 'revoked'
-        AND (ac.expires_at IS NULL OR ac.expires_at > now())))
+        AND NOT access_code_expired(ac.expires_at, ac.microsite_id)))
   AND (sqlc.arg('q')::text = ''
     OR ac.code ILIKE '%' || sqlc.arg('q') || '%' OR ac.label ILIKE '%' || sqlc.arg('q') || '%')
   -- embed: 'none' = only codes no embed exposes yet (the embed picker; code_id is unique there).
@@ -114,9 +129,10 @@ LIMIT sqlc.arg('lim');
 -- whose expires_at has passed. Counted here, never from a loaded page.
 SELECT
   COUNT(*) FILTER (WHERE status <> 'revoked'
-    AND (expires_at IS NULL OR expires_at > now()))::int AS active,
+    AND NOT access_code_expired(expires_at, microsite_id))::int AS active,
   COUNT(*) FILTER (WHERE status = 'revoked')::int AS revoked,
-  COUNT(*) FILTER (WHERE status <> 'revoked' AND expires_at <= now())::int AS expired,
+  COUNT(*) FILTER (WHERE status <> 'revoked'
+    AND access_code_expired(expires_at, microsite_id))::int AS expired,
   COUNT(*)::int AS total
 FROM access_codes WHERE owner_id = $1;
 
