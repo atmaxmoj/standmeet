@@ -242,6 +242,7 @@ func buildAgentTurnUsage(h *Handlers, auth authedVisitor) inference.RecordUsageF
 	}
 	rec := turnUsageRecorder{
 		h: h, ownerID: auth.Data.OwnerID, providerID: auth.Data.ProviderID,
+		feature: turnFeature(auth),
 		// metered —— counts against some gas tank only if both switches are on: the role
 		// has a tank attached and this turn resolves to a provider. Also gates cleanup
 		// sweep-away — clear a metered row too early and the gas grows back on its own.
@@ -256,12 +257,22 @@ type turnUsageRecorder struct {
 	h          *Handlers
 	ownerID    string
 	providerID string
+	feature    string
 	metered    bool
+}
+
+// turnFeature —— a visitor turn is billed to its role: 'chat:<role>' (instance.models names the
+// same features).
+func turnFeature(auth authedVisitor) string {
+	if auth.Data.RoleSnapshot == nil {
+		return "chat:"
+	}
+	return "chat:" + auth.Data.RoleSnapshot.RoleName()
 }
 
 func (u turnUsageRecorder) record(ctx context.Context, usage *inference.TurnUsage) {
 	if err := u.h.Usage.Record(ctx, &stats.UsageRow{
-		OwnerID: u.ownerID, Model: usage.Model, ProviderID: u.providerID,
+		OwnerID: u.ownerID, Model: usage.Model, ProviderID: u.providerID, Feature: u.feature,
 		InputTokens: usage.In, OutputTokens: usage.Out, CachedTokens: usage.Cached,
 		Metered: u.metered,
 	}); err != nil {

@@ -70,7 +70,15 @@
     "defaultGreetingAnon": "Pregúntale lo que quieras a esta IA: responde con la voz del propietario, basada en trabajo real.",
     "capacity": "Hasta {max, plural, one {# persona puede} other {# personas pueden}} usar este código — {count} ya dentro.",
     "namePlaceholder": "tu nombre",
-    "emailPlaceholder": "correo (opcional, para invitaciones a reuniones)"
+    "emailPlaceholder": "correo (opcional, para invitaciones a reuniones)",
+    "closedKicker": "este código ya no abre",
+    "closed": {
+      "expired": "Este código ha caducado.",
+      "revoked": "El propietario revocó este código.",
+      "invalid": "Este código no existe — compruébalo con quien te lo dio."
+    },
+    "closedPublic": "Aún puedes hablar con esta IA como visitante, sobre lo público. Pide un código nuevo para la conversación completa.",
+    "closedContinue": "seguir como visitante ↵"
   },
   "wikiTopBar": {
     "brand": "standmeet",

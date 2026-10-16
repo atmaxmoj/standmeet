@@ -41,16 +41,19 @@ export function clearVisitorSession(): void {
 // code) wins the race, the code is lost — the later restore can't find it
 // in localStorage or pending, wrongly concludes "no code" and jumps to
 // /gate instead of re-popping the name picker. The code is read from
-// localStorage first, falling back to pending (when both instances on the
+// pending first, falling back to localStorage (when both instances on the
 // same page run cleanup, the first one has already stuffed the code into
 // pending).
+//
+// A code already pending wins over the dead session's: it is the one the visitor just brought.
+// Rescuing the old code over it replaced a fresh code with a revoked one (sijie.xyz, 2026-10-16).
 //
 // The code goes into pending BEFORE the session is cleared: the other order leaves one render
 // with neither a session nor a code, and a page that reads that as "this visitor's session just
 // ended, nothing to show" sends them home instead of asking for their name (use-leave-for-home;
 // sijie.xyz, 2026-10-07).
 export function clearAndPreserveCode(): boolean {
-  const code = peekStoredSession()?.code ?? usePendingCodeStore.getState().code ?? '';
+  const code = usePendingCodeStore.getState().code ?? peekStoredSession()?.code ?? '';
   if (code !== '') usePendingCodeStore.getState().setCode(code);
   clearVisitorSession();
   return code !== '';

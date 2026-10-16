@@ -4,13 +4,20 @@
 
 package conversation
 
-import "github.com/atmaxmoj/standmeet/internal/conversation/ops"
+import (
+	"github.com/atmaxmoj/standmeet/internal/conversation/inference"
+	"github.com/atmaxmoj/standmeet/internal/conversation/ops"
+)
 
 // Types needed to declare ops (impl: ops).
 type (
 	OpsConversations = ops.ConversationsDeps
 	// OpsHost -- the deps bundle for the inbound (sandbox calling back to the host) items.
 	OpsHost = ops.HostDeps
+	// HostUsage -- bills a plugin's host generation (feature 'block:<plugin>').
+	HostUsage = ops.HostUsage
+	// UsageMeter -- the tokens one generation spent.
+	UsageMeter = inference.UsageMeter
 )
 
 // Op groups (impl: ops).

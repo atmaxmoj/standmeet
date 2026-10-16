@@ -10,7 +10,33 @@ package inference
 import (
 	"context"
 	"fmt"
+
+	"github.com/cloudwego/eino/schema"
 )
+
+// UsageMeter —— the tokens of every Generate call made under a ctx that carries it. A visitor
+// turn's own model calls are counted from its event stream; the one-shot calls around it (the
+// ghost policy, a forced final answer) and a plugin's host generation were counted nowhere.
+type UsageMeter struct {
+	In, Out, Cached int
+}
+
+type usageMeterKey struct{}
+
+// WithUsageMeter —— Generate calls under the returned ctx add their tokens to m.
+func WithUsageMeter(ctx context.Context, m *UsageMeter) context.Context {
+	return context.WithValue(ctx, usageMeterKey{}, m)
+}
+
+func meterGenerate(ctx context.Context, meta *schema.ResponseMeta) {
+	m, ok := ctx.Value(usageMeterKey{}).(*UsageMeter)
+	if !ok || meta == nil || meta.Usage == nil {
+		return
+	}
+	m.In += meta.Usage.PromptTokens
+	m.Out += meta.Usage.CompletionTokens
+	m.Cached += meta.Usage.PromptTokenDetails.CachedTokens
+}
 
 // Generate —— builds a ChatModel + runs Generate; returns the assistant content.
 // The Tools field is allowed to carry tools (eino will send them upstream), but
@@ -28,5 +54,6 @@ func Generate(ctx context.Context, cred *Cred, req *ChatRequest) (string, error)
 	if gerr != nil {
 		return "", fmt.Errorf("eino: generate: %w", gerr)
 	}
+	meterGenerate(ctx, out.ResponseMeta)
 	return out.Content, nil
 }

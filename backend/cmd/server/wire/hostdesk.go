@@ -30,6 +30,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/plugin"
 	"github.com/atmaxmoj/standmeet/internal/plugin/nativekey"
 	"github.com/atmaxmoj/standmeet/internal/routes/hostdesk"
+	stats "github.com/atmaxmoj/standmeet/internal/stats/facade"
 )
 
 const socketDirMode = 0o700
@@ -98,6 +99,24 @@ func nativeKeyVerify(d *deps.Runtime) hostsocket.KeyVerifier {
 	return func(k string) (string, bool) { return d.NativeKeys.Resolve(nativekey.Key(k)) }
 }
 
+// hostUsage —— a plugin's host generation lands in the same usage table as a visitor turn,
+// billed to the plugin (stats meters, conversation generates; joined here).
+func hostUsage(d *deps.Runtime) conversation.HostUsage {
+	if d.InferenceUsageRepo == nil {
+		return nil
+	}
+	return func(
+		ctx context.Context, ownerID, model, feature string, used *conversation.UsageMeter,
+	) {
+		if err := d.InferenceUsageRepo.Record(ctx, &stats.UsageRow{
+			OwnerID: ownerID, Model: model, Feature: feature,
+			InputTokens: used.In, OutputTokens: used.Out, CachedTokens: used.Cached,
+		}); err != nil {
+			d.Log.Warn("record host inference usage", "err", err)
+		}
+	}
+}
+
 // sharedHostDeps — the handful of things that don't depend on the block (corpus,
 // conversation, owner, suppliers).
 //
@@ -109,6 +128,7 @@ func sharedHostDeps(
 	return &hostdesk.Deps{
 		Conversation: conversation.OpsHost{
 			Chats: d.ChatRepo, Resolver: skills.Resolver, Reports: skills.Reports,
+			Usage: hostUsage(d),
 		},
 		Corpus:       CorpusIndexDeps(d),
 		Owners:       d.OwnerRepo,

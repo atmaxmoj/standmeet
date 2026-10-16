@@ -28,7 +28,12 @@ type HostDeps struct {
 	Chats    ChatGetter
 	Resolver infcore.Resolver
 	Reports  usecase.ReportStore
+	// Usage —— bills a host generation to the plugin that asked for it; nil = not billed.
+	Usage HostUsage
 }
+
+// HostUsage —— records one owner-key generation: feature 'block:<plugin>', on model.
+type HostUsage func(ctx context.Context, ownerID, model, feature string, used *infcore.UsageMeter)
 
 // ChatGetter — reads one conversation's owner-scoped transcript (a narrow port; the
 // composition root injects chatRepo).
@@ -51,7 +56,7 @@ func HostOps(d HostDeps) []hostop.Op {
 			Name: "inference.generate",
 			Description: "Run one generation on the owner's LLM. The host resolves the " +
 				"credential by owner + mode; the sandbox never sees a key.",
-			Invoke: generateInference(d.Resolver),
+			Invoke: generateInference(d.Resolver, d.Usage),
 		},
 		{
 			Name: "report.store",

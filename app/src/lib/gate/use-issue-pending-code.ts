@@ -35,14 +35,15 @@ export type IssueOutcome = 'ok' | 'full' | 'invalid' | 'error';
 // frontend's startedAt-reset (clearing the screen) plus an issue response
 // with used_turns=0 that looks like it reset to zero. A different name /
 // no session yet → actually issue (a new name = a new member = a new
-// conversation).
+// conversation). Same name on ANOTHER code is not a continuation: the pending code is issued
+// (sijie.xyz 2026-10-16 — the new code was dropped and the visitor fell to the public tier).
 export async function submitPickerName(
   name: string, email: string,
   issue: (name: string | null, email: string) => Promise<IssueOutcome>,
 ): Promise<IssueOutcome> {
   const trimmed = name.trim();
-  const current = useVisitorSessionStore.getState().session?.visitor ?? null;
-  if (current !== null && trimmed === current) {
+  const current = useVisitorSessionStore.getState().session;
+  if (current?.visitor === trimmed && current.code === usePendingCodeStore.getState().code) {
     usePendingCodeStore.getState().consume();
     return 'ok';
   }

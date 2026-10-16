@@ -31,9 +31,18 @@ type usageTotalOut struct {
 	OutputTokens int64 `json:"output_tokens"`
 }
 
+type usageFeatureOut struct {
+	Feature      string `json:"feature"`
+	Model        string `json:"model"`
+	Calls        int64  `json:"calls"`
+	InputTokens  int64  `json:"input_tokens"`
+	OutputTokens int64  `json:"output_tokens"`
+}
+
 type usageOut struct {
-	Rows  []usageRowOut `json:"rows"`
-	Total usageTotalOut `json:"total"`
+	Rows      []usageRowOut     `json:"rows"`
+	ByFeature []usageFeatureOut `json:"by_feature"`
+	Total     usageTotalOut     `json:"total"`
 }
 
 func inferenceUsage(usage *repo.InferenceUsageRepo) fp.Invoke {
@@ -42,7 +51,11 @@ func inferenceUsage(usage *repo.InferenceUsageRepo) fp.Invoke {
 		if err != nil {
 			return nil, fp.OpErr("summarize 7-day usage", err)
 		}
-		out := usageOut{Rows: make([]usageRowOut, 0, len(days))}
+		byFeature, ferr := usageByFeature(ctx, usage, ownerID)
+		if ferr != nil {
+			return nil, ferr
+		}
+		out := usageOut{Rows: make([]usageRowOut, 0, len(days)), ByFeature: byFeature}
 		for i := range days {
 			out.Rows = append(out.Rows, usageRowOut{
 				Date: days[i].Day.Format(dayFormat), Model: days[i].Model,
@@ -55,6 +68,20 @@ func inferenceUsage(usage *repo.InferenceUsageRepo) fp.Invoke {
 		}
 		return json.Marshal(out)
 	}
+}
+
+func usageByFeature(
+	ctx context.Context, usage *repo.InferenceUsageRepo, ownerID string,
+) ([]usageFeatureOut, error) {
+	feats, err := usage.SummarizeByFeature7Day(ctx, ownerID)
+	if err != nil {
+		return nil, fp.OpErr("summarize 7-day usage by feature", err)
+	}
+	out := make([]usageFeatureOut, 0, len(feats))
+	for i := range feats {
+		out = append(out, usageFeatureOut(feats[i]))
+	}
+	return out, nil
 }
 
 type dayCountOut struct {

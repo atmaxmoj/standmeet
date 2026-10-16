@@ -24,7 +24,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { enterCodeSession, gotoUnhydrated, openReader } from '@/fixtures/navigate';
+import { enterCodeSession, openReader } from '@/fixtures/navigate';
 import { createRole } from '@/fixtures/roles';
 
 const OWNER = {
@@ -110,13 +110,16 @@ test.describe('code intro · greeting + member-count on name picker', () => {
       await expect(cap).not.toContainText('Up to');
     });
 
-  test('invalid code → the intro refuses it → no name picker, the front page',
+  test('invalid code → the intro refuses it → no name picker; told why, then the front page',
     async ({ page }) => {
-      await gotoUnhydrated(page, `/?code=${BAD_CODE}`); // it reloads itself: no `load` wait
+      await openReader(page, `/?code=${BAD_CODE}`);
       // The picker waits for the intro; a code the backend refuses never gets "ACCESS GRANTED"
-      // and a name field (2026-10-05) — the visitor is a public one, on the front page.
-      await expect(page.getByTestId('default-home')).toBeVisible({ timeout: 15_000 });
+      // and a name field (2026-10-05). The visitor is told the code does not open (2026-10-16:
+      // never a silent switch to the public tier), then goes on as a public visitor.
+      await expect(page.getByTestId('visitor-code-closed-why')).toContainText(/doesn.t exist/i, { timeout: 15_000 });
       await expect(page.getByTestId('visitor-name-input')).toHaveCount(0);
+      await page.getByTestId('visitor-code-closed-continue').click();
+      await expect(page.getByTestId('default-home')).toBeVisible({ timeout: 15_000 });
     });
 });
 

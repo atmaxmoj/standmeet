@@ -67,12 +67,16 @@ func Instance(deps InstanceDeps) []fp.Op {
 		{
 			ID: "instance.inference_usage",
 			Description: "Last 7 days of LLM inference usage, one row per day×model " +
-				"(calls / input tokens / output tokens) plus a grand total.",
+				"(calls / input tokens / output tokens), a grand total, and by_feature: the same " +
+				"per feature×model — 'chat:<role>' is a visitor turn (all of its calls), " +
+				"'block:<plugin>' a plugin's own generation. Which model each feature is set to " +
+				"run on: instance.models.",
 			InputSchema: noArgs,
 			Kind:        fp.Read,
 			Reach:       fp.OwnerRead(),
 			Invoke:      inferenceUsage(deps.Usage),
 		},
+		modelsOp(deps.Usage),
 		{
 			ID: "instance.corpus_growth",
 			Description: "Corpus growth: 14-day new-entry series, 7-day delta, and current " +

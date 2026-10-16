@@ -136,8 +136,11 @@ async function revokedCodeLink(
   let pickerSeen = false;
   const watch = page.getByTestId('visitor-name-overlay').waitFor({ timeout: 15_000 })
     .then(() => { pickerSeen = true; }, () => undefined);
-  await gotoUnhydrated(page, `/?code=${code}`); // it reloads itself: no `load` wait
-  // A visitor whose code is gone is a public visitor: they land on the front page.
+  await openReader(page, `/?code=${code}`);
+  // A visitor whose code is gone is a public visitor — told so first, never switched silently
+  // (2026-10-16): the sentence says why, then they land on the front page.
+  await expect(page.getByTestId('visitor-code-closed-why')).toContainText(/revoked/i, { timeout: 15_000 });
+  await page.getByTestId('visitor-code-closed-continue').click();
   await expect(frontPage(page), 'a closed code lands on the front page').toBeVisible({ timeout: 15_000 });
   expect(page.url()).not.toContain('code=');
   await watch;

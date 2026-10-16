@@ -70,7 +70,15 @@
     "defaultGreetingAnon": "この AI に何でも聞いてください。オーナーの口調で、実際の仕事に基づいて答えます。",
     "capacity": "このコードは最大 {max} 人まで使えます — すでに {count} 人が参加。",
     "namePlaceholder": "あなたの名前",
-    "emailPlaceholder": "メール（任意、会議の招待用）"
+    "emailPlaceholder": "メール（任意、会議の招待用）",
+    "closedKicker": "このコードはもう使えません",
+    "closed": {
+      "expired": "このコードは有効期限が切れています。",
+      "revoked": "このコードはオーナーによって取り消されました。",
+      "invalid": "このコードは存在しません。共有してくれた人に確認してください。"
+    },
+    "closedPublic": "訪問者として、公開されている内容についてこのAIと話すことはできます。完全な会話には新しいコードをもらってください。",
+    "closedContinue": "訪問者として続ける ↵"
   },
   "wikiTopBar": {
     "brand": "standmeet",

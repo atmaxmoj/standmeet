@@ -277,6 +277,8 @@ const GOLDEN_TOOLSET: readonly string[] = [
   // owed it after moving into the convergence point.
   'instance.corpus_graph',
   'instance.activity', 'instance.jobs',
+  // Which model each feature runs on, and why (2026-10-16: "每个功能配的都是什么模型").
+  'instance.models',
   // The owner's instance settings (internal hosts, skill catalogue), which moved out of the
   // deployment file. captcha.set is panel-only (it carries a raw secret), so it is not here.
   'instance.settings', 'instance.settings_set',

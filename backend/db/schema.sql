@@ -1478,6 +1478,9 @@ CREATE TABLE inference_usage (
     -- metered —— 这一行算不算某箱油的账。**它决定这行会不会被 7 天清理带走**:
     -- 看板只看 7 天,但油量是"从加油那次到现在"的累计,清掉旧行等于油自己长回来。
     metered        boolean       NOT NULL DEFAULT false,
+    -- feature —— which feature spent it: 'chat:<role>' (a visitor turn, all its calls) or
+    -- 'block:<plugin>' (a plugin's host generation). '' = written before the column existed.
+    feature        text          NOT NULL DEFAULT '',
     created_at     timestamptz   NOT NULL DEFAULT now()
 );
 

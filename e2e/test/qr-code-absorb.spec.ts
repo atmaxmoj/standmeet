@@ -14,7 +14,7 @@ import { claim, createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { createCode } from '@/fixtures/codes';
 import { resetInstance, findSetupToken } from '@/fixtures/instance';
 import { initMCP } from '@/fixtures/mcp';
-import { openReader, enterCodeSession, gotoUnhydrated } from '@/fixtures/navigate';
+import { openReader, enterCodeSession } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'qr-owner@example.com',
@@ -88,9 +88,12 @@ test.describe('QR `?code=` is absorbed into store + stripped from URL', () => {
       await openReader(page, '/');
       await page.evaluate(() => window.localStorage.clear());
 
-      await gotoUnhydrated(page, '/?code=BOGUS-NOPE'); // it reloads itself: no `load` wait
+      await openReader(page, '/?code=BOGUS-NOPE');
       // The code leaves the URL, and the backend refuses it before any name is asked: the
-      // visitor is a public one (2026-10-05: no "ACCESS GRANTED" picker for a code that won't open).
+      // visitor is told so, then is a public one (2026-10-05: no "ACCESS GRANTED" picker for a
+      // code that won't open; 2026-10-16: never a silent switch).
+      await expect(page.getByTestId('visitor-code-closed')).toBeVisible({ timeout: 15_000 });
+      await page.getByTestId('visitor-code-closed-continue').click();
       await expect(page.getByTestId('default-home')).toBeVisible({ timeout: 15_000 });
       expect(page.url()).not.toMatch(/[?&]code=/);
       await expect(page.getByTestId('visitor-name-skip')).toHaveCount(0);

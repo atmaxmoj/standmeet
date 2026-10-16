@@ -70,7 +70,15 @@
     "defaultGreetingAnon": "Ask this AI anything — it answers in the owner's voice, grounded in real work.",
     "capacity": "Up to {max, plural, one {# person} other {# people}} can use this code — {count} already in.",
     "namePlaceholder": "your name",
-    "emailPlaceholder": "email (optional, for meeting invites)"
+    "emailPlaceholder": "email (optional, for meeting invites)",
+    "closedKicker": "this code no longer opens",
+    "closed": {
+      "expired": "This code has expired.",
+      "revoked": "This code was revoked by the owner.",
+      "invalid": "This code doesn't exist — check it with whoever shared it."
+    },
+    "closedPublic": "You can still talk to this AI as a visitor, from what's public. Ask whoever shared the code for a fresh one to get the full conversation.",
+    "closedContinue": "continue as a visitor ↵"
   },
   "wikiTopBar": {
     "brand": "standmeet",

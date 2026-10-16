@@ -386,6 +386,7 @@ type InferenceUsage struct {
 	CachedTokens int32
 	ProviderID   pgtype.UUID
 	Metered      bool
+	Feature      string
 	CreatedAt    pgtype.Timestamptz
 }
 

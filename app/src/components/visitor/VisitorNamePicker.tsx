@@ -16,20 +16,50 @@ import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 
 import { usePendingCodeStore } from '@standmeet/sdk';
-import type { CodeIntro } from '@/lib/api/public';
+import type { ClosedCode, ClosedReason, CodeIntro } from '@/lib/api/public';
 import {
   dismissPicker,
   submitPickerName,
   useIssuePendingCode,
   type IssueOutcome,
 } from '@/lib/gate/use-issue-pending-code';
-import { useCodeIntroLines, usePickerIntro } from '@/lib/gate/use-code-intro';
+import { continueAsPublic, isClosed, useCodeIntroLines, usePickerIntro } from '@/lib/gate/use-code-intro';
 import { loadVisitorName, loadVisitorEmail } from '@/lib/visitor/visitor-name';
 
 export function VisitorNamePicker() {
   // Nothing until the backend has answered about the pending code (see usePickerIntro).
   const intro = usePickerIntro();
-  return intro !== undefined ? <Modal intro={intro} /> : null;
+  return intro === undefined ? null : <PickerOrNotice intro={intro} />;
+}
+
+function PickerOrNotice({ intro }: { intro: CodeIntro | ClosedCode | null }) {
+  return isClosed(intro) ? <ClosedNotice why={intro.closed} /> : <Modal intro={intro} />;
+}
+
+// ClosedNotice —— the code does not open: say why, and let the visitor go on as a public one. Never
+// a silent switch — a visitor who thinks they are on the code would be on another tier and model
+// without knowing (sijie.xyz, 2026-10-16).
+function ClosedNotice({ why }: { why: ClosedReason }) {
+  const t = useTranslations('visitor.visitorNamePicker');
+  return (
+    <div className="sm-fadein sm-visitor-name-overlay" data-testid="visitor-code-closed">
+      <div className="sm-visitor-name-card sm-rise">
+        <div className="sm-visitor-name-head">
+          <div className="sm-smallcaps">{t('closedKicker')}</div>
+          <div className="sm-visitor-name-h1" data-testid="visitor-code-closed-why">{t(`closed.${why}`)}</div>
+        </div>
+        <div className="sm-visitor-name-body">
+          <p className="sm-reading sm-visitor-name-blurb">{t('closedPublic')}</p>
+          <button
+            type="button" onClick={continueAsPublic}
+            className="sm-btn sm-btn-ghost" data-testid="visitor-code-closed-continue"
+          >
+            {t('closedContinue')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function Modal({ intro: codeIntro }: { intro: CodeIntro | null }) {

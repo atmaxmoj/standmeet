@@ -163,6 +163,9 @@ func DriveAgentLoop(
 	in *AgentTurnInput, iter *adk.AsyncIterator[*adk.AgentEvent], sink AgentSink,
 ) {
 	em := &loopEmit{log: log, sink: sink, in: in, labels: in.ProgressLabels}
+	// side —— the turn's one-shot calls (forced final answer, ghost policy): billed with the turn.
+	side := &UsageMeter{}
+	ctx = WithUsageMeter(ctx, side)
 	state := consumeAgentEvents(ctx, em, iter)
 	// This boundary runs before the claim gate: a rescued synthesis is still this turn's
 	// answer, and the claim gate needs to see it (F-A-40). The path where the stream closed
@@ -179,6 +182,8 @@ func DriveAgentLoop(
 	// committed, and the ledger has already had `visited` updated in onDone); it produces at
 	// most one steering ghost from this turn's final reply, sent as a standalone `ghost` frame.
 	emitEpilogue(ctx, sink, in, state)
+	state.inTokens, state.outTokens = state.inTokens+side.In, state.outTokens+side.Out
+	state.cachedTokens += side.Cached
 	recordTurnUsage(ctx, in, state)
 }
 

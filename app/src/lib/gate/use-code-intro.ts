@@ -10,7 +10,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 
-import { fetchCodeIntro, type CodeIntro } from '@/lib/api/public';
+import { fetchCodeIntro, type ClosedCode, type CodeIntro } from '@/lib/api/public';
 import { usePendingCodeStore } from '@standmeet/sdk';
 
 type PickerT = ReturnType<typeof useTranslations<'visitor.visitorNamePicker'>>;
@@ -37,10 +37,14 @@ function capacityOf(intro: CodeIntro | null, t: PickerT): string {
   return t('capacity', { max: intro.max_members, count: intro.member_count });
 }
 
-// CodeCheck —— what the backend said about the pending code: 'checking' until it answers, 'closed'
-// when it refuses the code (revoked / expired / unknown), else the intro (null: unreadable, the
-// picker still works).
-export type CodeCheck = CodeIntro | null | 'closed' | 'checking';
+// CodeCheck —— what the backend said about the pending code: 'checking' until it answers, a
+// ClosedCode when it refuses the code (revoked / expired / unknown), else the intro (null:
+// unreadable, the picker still works).
+export type CodeCheck = CodeIntro | null | ClosedCode | 'checking';
+
+export function isClosed(c: CodeCheck | undefined): c is ClosedCode {
+  return typeof c === 'object' && c !== null && 'closed' in c;
+}
 
 export function useCodeIntro(): CodeCheck {
   const code = usePendingCodeStore((s) => s.code);
@@ -61,19 +65,19 @@ export function useCodeIntro(): CodeCheck {
   return code !== null && check.code === code ? check.result : 'checking';
 }
 
-// usePickerIntro —— what the name picker shows: the code's intro (null: unreadable), or undefined
-// while there is nothing to show — no pending code, no answer yet, or a code the backend refuses.
-// A refused code (revoked / expired / unknown) is dropped, so no "ACCESS GRANTED" is ever shown for
-// it (sijie.xyz, 2026-10-05). A visitor whose code is gone is a public visitor: the page loads again
-// without it (the absorb already took ?code= out of the address), so `/` is the owner's home page,
-// answering on the public tier where the owner has one.
-export function usePickerIntro(): CodeIntro | null | undefined {
+// usePickerIntro —— what the name picker shows: the code's intro (null: unreadable), a ClosedCode for
+// a code the backend refuses, or undefined while there is nothing to show (no pending code, no
+// answer yet). A refused code never gets "ACCESS GRANTED" (sijie.xyz, 2026-10-05); the picker says
+// why it does not open instead of switching the visitor to the public tier unseen (2026-10-16).
+export function usePickerIntro(): CodeIntro | ClosedCode | null | undefined {
   const check = useCodeIntro();
-  const closed = check === 'closed';
-  useEffect(() => {
-    if (!closed) return;
-    usePendingCodeStore.getState().consume();
-    window.location.replace(window.location.pathname);
-  }, [closed]);
-  return check === 'closed' || check === 'checking' ? undefined : check;
+  return check === 'checking' ? undefined : check;
+}
+
+// continueAsPublic —— a visitor whose code is gone is a public visitor: the page loads again without
+// it (the absorb already took ?code= out of the address), so `/` is the owner's home page, answering
+// on the public tier where the owner has one.
+export function continueAsPublic(): void {
+  usePendingCodeStore.getState().consume();
+  window.location.replace(window.location.pathname);
 }

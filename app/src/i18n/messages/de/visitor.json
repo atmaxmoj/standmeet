@@ -70,7 +70,15 @@
     "defaultGreetingAnon": "Frag diese KI alles — sie antwortet mit der Stimme des Inhabers, gestützt auf echte Arbeit.",
     "capacity": "Bis zu {max, plural, one {# Person kann} other {# Personen können}} diesen Code nutzen — {count} schon dabei.",
     "namePlaceholder": "dein Name",
-    "emailPlaceholder": "E-Mail (optional, für Termineinladungen)"
+    "emailPlaceholder": "E-Mail (optional, für Termineinladungen)",
+    "closedKicker": "dieser Code öffnet nicht mehr",
+    "closed": {
+      "expired": "Dieser Code ist abgelaufen.",
+      "revoked": "Dieser Code wurde vom Inhaber widerrufen.",
+      "invalid": "Diesen Code gibt es nicht — frag nach, wer ihn dir gegeben hat."
+    },
+    "closedPublic": "Du kannst trotzdem als Besucher mit dieser KI sprechen, über das Öffentliche. Für das ganze Gespräch bitte um einen neuen Code.",
+    "closedContinue": "als Besucher weiter ↵"
   },
   "wikiTopBar": {
     "brand": "standmeet",

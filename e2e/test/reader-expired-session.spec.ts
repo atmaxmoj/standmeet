@@ -25,6 +25,9 @@ const DEAD_TOKEN = 'dead-token-not-in-redis-xxxxxxxx';
 
 test.describe('F-L-11 · expired visitor session drops the fake "unlocked" chrome', () => {
   test.beforeAll(async ({ playwright }) => {
+    // The reset is a string of docker execs: ~20s on a loaded host, past the 30s default once
+    // the claim follows (2026-10-16).
+    test.setTimeout(300_000);
     resetInstance();
     const request = await playwright.request.newContext();
     await claim(request, findSetupToken(), {

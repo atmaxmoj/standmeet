@@ -11,6 +11,58 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const codeProviderModels = `-- name: CodeProviderModels :many
+SELECT c.code, p.label AS provider_label, p.model AS provider_model
+FROM access_codes c
+JOIN owner_providers p ON p.id = c.provider_id
+WHERE c.owner_id = $1 AND c.status = 'active'
+ORDER BY c.code
+`
+
+type CodeProviderModelsRow struct {
+	Code          string
+	ProviderLabel string
+	ProviderModel string
+}
+
+// Live codes that name their own provider (a code outranks its role).
+func (q *Queries) CodeProviderModels(ctx context.Context, ownerID pgtype.UUID) ([]CodeProviderModelsRow, error) {
+	rows, err := q.db.Query(ctx, codeProviderModels, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CodeProviderModelsRow
+	for rows.Next() {
+		var i CodeProviderModelsRow
+		if err := rows.Scan(&i.Code, &i.ProviderLabel, &i.ProviderModel); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const defaultProviderModel = `-- name: DefaultProviderModel :one
+SELECT label, model FROM owner_providers WHERE owner_id = $1 AND is_default
+`
+
+type DefaultProviderModelRow struct {
+	Label string
+	Model string
+}
+
+// The owner's default provider: what a role / code without its own, and every plugin, runs on.
+func (q *Queries) DefaultProviderModel(ctx context.Context, ownerID pgtype.UUID) (DefaultProviderModelRow, error) {
+	row := q.db.QueryRow(ctx, defaultProviderModel, ownerID)
+	var i DefaultProviderModelRow
+	err := row.Scan(&i.Label, &i.Model)
+	return i, err
+}
+
 const deleteInferenceUsageOlderThan7Days = `-- name: DeleteInferenceUsageOlderThan7Days :exec
 DELETE FROM inference_usage u
 WHERE u.created_at < now() - interval '7 days'
@@ -38,9 +90,9 @@ func (q *Queries) DeleteInferenceUsageOlderThan7Days(ctx context.Context) error 
 
 const recordInferenceUsage = `-- name: RecordInferenceUsage :exec
 INSERT INTO inference_usage (
-    owner_id, model, input_tokens, output_tokens, cached_tokens, provider_id, metered
+    owner_id, model, input_tokens, output_tokens, cached_tokens, provider_id, metered, feature
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 `
 
 type RecordInferenceUsageParams struct {
@@ -51,6 +103,7 @@ type RecordInferenceUsageParams struct {
 	CachedTokens int32
 	ProviderID   pgtype.UUID
 	Metered      bool
+	Feature      string
 }
 
 // #106 record one row per owner-key LLM call. metered = this call counts against a gas tank's ledger (#7):
@@ -64,8 +117,55 @@ func (q *Queries) RecordInferenceUsage(ctx context.Context, arg RecordInferenceU
 		arg.CachedTokens,
 		arg.ProviderID,
 		arg.Metered,
+		arg.Feature,
 	)
 	return err
+}
+
+const roleProviderModels = `-- name: RoleProviderModels :many
+SELECT r.name,
+       p.label AS provider_label,
+       p.model AS provider_model,
+       (SELECT count(*) FROM access_codes c
+        WHERE c.assumed_role_id = r.id AND c.status = 'active')::bigint AS codes
+FROM roles r
+LEFT JOIN owner_providers p ON p.id = r.provider_id
+WHERE r.owner_id = $1
+ORDER BY r.name
+`
+
+type RoleProviderModelsRow struct {
+	Name          string
+	ProviderLabel *string
+	ProviderModel *string
+	Codes         int64
+}
+
+// Each role and the provider it names (NULL label = none: it falls to the default), with how many
+// live codes assume it.
+func (q *Queries) RoleProviderModels(ctx context.Context, ownerID pgtype.UUID) ([]RoleProviderModelsRow, error) {
+	rows, err := q.db.Query(ctx, roleProviderModels, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RoleProviderModelsRow
+	for rows.Next() {
+		var i RoleProviderModelsRow
+		if err := rows.Scan(
+			&i.Name,
+			&i.ProviderLabel,
+			&i.ProviderModel,
+			&i.Codes,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const sumMeteredUsageSince = `-- name: SumMeteredUsageSince :one
@@ -119,6 +219,53 @@ func (q *Queries) SummarizeInferenceUsage7Day(ctx context.Context, ownerID pgtyp
 		var i SummarizeInferenceUsage7DayRow
 		if err := rows.Scan(
 			&i.Day,
+			&i.Model,
+			&i.Calls,
+			&i.InputTokens,
+			&i.OutputTokens,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const summarizeInferenceUsageByFeature7Day = `-- name: SummarizeInferenceUsageByFeature7Day :many
+SELECT feature,
+       model,
+       count(*)::bigint            AS calls,
+       sum(input_tokens)::bigint   AS input_tokens,
+       sum(output_tokens)::bigint  AS output_tokens
+FROM inference_usage
+WHERE owner_id = $1 AND created_at >= now() - interval '7 days'
+GROUP BY feature, model
+ORDER BY feature, model
+`
+
+type SummarizeInferenceUsageByFeature7DayRow struct {
+	Feature      string
+	Model        string
+	Calls        int64
+	InputTokens  int64
+	OutputTokens int64
+}
+
+// The last 7 days by feature × model: which feature spent what, on which model.
+func (q *Queries) SummarizeInferenceUsageByFeature7Day(ctx context.Context, ownerID pgtype.UUID) ([]SummarizeInferenceUsageByFeature7DayRow, error) {
+	rows, err := q.db.Query(ctx, summarizeInferenceUsageByFeature7Day, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SummarizeInferenceUsageByFeature7DayRow
+	for rows.Next() {
+		var i SummarizeInferenceUsageByFeature7DayRow
+		if err := rows.Scan(
+			&i.Feature,
 			&i.Model,
 			&i.Calls,
 			&i.InputTokens,

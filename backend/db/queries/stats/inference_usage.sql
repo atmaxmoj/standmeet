@@ -2,9 +2,46 @@
 -- #106 record one row per owner-key LLM call. metered = this call counts against a gas tank's ledger (#7):
 -- a metered role + a resolvable provider, true only when both hold, decided by the caller.
 INSERT INTO inference_usage (
-    owner_id, model, input_tokens, output_tokens, cached_tokens, provider_id, metered
+    owner_id, model, input_tokens, output_tokens, cached_tokens, provider_id, metered, feature
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7);
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+
+-- name: SummarizeInferenceUsageByFeature7Day :many
+-- The last 7 days by feature × model: which feature spent what, on which model.
+SELECT feature,
+       model,
+       count(*)::bigint            AS calls,
+       sum(input_tokens)::bigint   AS input_tokens,
+       sum(output_tokens)::bigint  AS output_tokens
+FROM inference_usage
+WHERE owner_id = $1 AND created_at >= now() - interval '7 days'
+GROUP BY feature, model
+ORDER BY feature, model;
+
+-- name: DefaultProviderModel :one
+-- The owner's default provider: what a role / code without its own, and every plugin, runs on.
+SELECT label, model FROM owner_providers WHERE owner_id = $1 AND is_default;
+
+-- name: RoleProviderModels :many
+-- Each role and the provider it names (NULL label = none: it falls to the default), with how many
+-- live codes assume it.
+SELECT r.name,
+       p.label AS provider_label,
+       p.model AS provider_model,
+       (SELECT count(*) FROM access_codes c
+        WHERE c.assumed_role_id = r.id AND c.status = 'active')::bigint AS codes
+FROM roles r
+LEFT JOIN owner_providers p ON p.id = r.provider_id
+WHERE r.owner_id = $1
+ORDER BY r.name;
+
+-- name: CodeProviderModels :many
+-- Live codes that name their own provider (a code outranks its role).
+SELECT c.code, p.label AS provider_label, p.model AS provider_model
+FROM access_codes c
+JOIN owner_providers p ON p.id = c.provider_id
+WHERE c.owner_id = $1 AND c.status = 'active'
+ORDER BY c.code;
 
 -- name: SummarizeInferenceUsage7Day :many
 -- Aggregate the last 7 days by day × model (call count + token totals). Newest → oldest.

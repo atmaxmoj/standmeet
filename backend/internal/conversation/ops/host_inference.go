@@ -20,7 +20,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/infra/hostop"
 )
 
-func generateInference(resolver infcore.Resolver) hostop.Invoke {
+func generateInference(resolver infcore.Resolver, usage HostUsage) hostop.Invoke {
 	return func(ctx context.Context, raw json.RawMessage) (json.RawMessage, error) {
 		var req struct {
 			OwnerID  string        `json:"owner_id"`
@@ -32,7 +32,7 @@ func generateInference(resolver infcore.Resolver) hostop.Invoke {
 			return nil, fmt.Errorf("inference.generate: decode: %w", err)
 		}
 		out, gerr := generateOnOwnerModel(
-			ctx, resolver, req.OwnerID, req.Mode,
+			ctx, resolver, &hostGen{ownerID: req.OwnerID, mode: req.Mode, usage: usage},
 			&infcore.ChatRequest{System: req.System, Messages: toChatMsgs(req.Messages)},
 		)
 		if gerr != nil {
@@ -49,18 +49,35 @@ func generateInference(resolver infcore.Resolver) hostop.Invoke {
 // generateOnOwnerModel — resolves the credential by owner+mode and runs one generation.
 // **The credential lives only inside this function** — the caller gets text back, not a key.
 func generateOnOwnerModel(
-	ctx context.Context, resolver infcore.Resolver,
-	ownerID, mode string, chat *infcore.ChatRequest,
+	ctx context.Context, resolver infcore.Resolver, g *hostGen, chat *infcore.ChatRequest,
 ) (string, error) {
-	cred, cerr := resolver.Resolve(ctx, &infcore.ResolveInput{OwnerID: ownerID, Mode: mode})
+	cred, cerr := resolver.Resolve(ctx, &infcore.ResolveInput{OwnerID: g.ownerID, Mode: g.mode})
 	if cerr != nil {
 		return "", fmt.Errorf("inference.generate: resolve cred: %w", cerr)
 	}
-	out, gerr := infcore.Generate(ctx, cred, chat)
+	used := &infcore.UsageMeter{}
+	out, gerr := infcore.Generate(infcore.WithUsageMeter(ctx, used), cred, chat)
 	if gerr != nil {
 		return "", fmt.Errorf("inference.generate: %w", gerr)
 	}
+	g.bill(ctx, cred.Model, used)
 	return out, nil
+}
+
+// hostGen —— whose generation this is, on which tier, and where its bill goes.
+type hostGen struct {
+	usage   HostUsage
+	ownerID string
+	mode    string
+}
+
+// bill —— an owner-key generation is billed to the plugin that asked (the fiber the socket
+// proved); a visitor's own key (byoai) is the visitor's.
+func (g *hostGen) bill(ctx context.Context, model string, used *infcore.UsageMeter) {
+	if g.usage == nil || g.mode == "byoai" || (used.In == 0 && used.Out == 0) {
+		return
+	}
+	g.usage(ctx, g.ownerID, model, "block:"+hostop.CallerFiber(ctx), used)
 }
 
 func toChatMsgs(in []sockMessage) []infcore.ChatRequestMsg {

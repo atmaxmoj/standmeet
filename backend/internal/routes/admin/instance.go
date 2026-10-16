@@ -31,6 +31,7 @@ func (h *Handlers) MountInstance(r chi.Router) {
 	r.Get("/system", h.dispatchOp(face, "instance.status", emptyArgs, jsonOK))
 	r.Get("/inference-usage",
 		h.dispatchOp(face, "instance.inference_usage", emptyArgs, jsonOK))
+	r.Get("/models", h.dispatchOp(face, "instance.models", emptyArgs, jsonOK))
 	r.Get("/stats/growth", h.dispatchOp(face, "instance.corpus_growth", emptyArgs, jsonOK))
 	r.Get("/stats/graph",
 		h.dispatchOp(face, "instance.corpus_graph", queryArgsRenamed(nil, "limit"), jsonOK))

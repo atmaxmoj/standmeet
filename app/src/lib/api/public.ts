@@ -79,17 +79,29 @@ const CodeIntroSchema = z.object({
 });
 export type CodeIntro = z.infer<typeof CodeIntroSchema>;
 
+// ClosedCode —— the backend refused the code, and why: the visitor is told which (2026-10-16).
+export type ClosedReason = 'expired' | 'revoked' | 'invalid';
+export interface ClosedCode { closed: ClosedReason }
+
+const REFUSAL: Record<string, ClosedReason> = { code_expired: 'expired', code_revoked: 'revoked' };
+const RefusalSchema = z.object({ error: z.object({ code: z.string() }) });
+
+async function closedOf(res: Response): Promise<ClosedCode> {
+  const body = RefusalSchema.safeParse(await res.json().catch(() => null));
+  return { closed: (body.success ? REFUSAL[body.data.error.code] : undefined) ?? 'invalid' };
+}
+
 // fetchCodeIntro —— the code goes in the body (kept out of URL logs). The backend refusing the code
-// (revoked / expired / unknown: a 4xx) → 'closed'. A network failure / 5xx / wrong shape → null; the
+// (revoked / expired / unknown: a 4xx) → ClosedCode. A network failure / 5xx / wrong shape → null; the
 // picker degrades gracefully (shows only the default form).
-export async function fetchCodeIntro(code: string): Promise<CodeIntro | 'closed' | null> {
+export async function fetchCodeIntro(code: string): Promise<CodeIntro | ClosedCode | null> {
   try {
     const res = await fetch(`${baseURL()}/api/v1/codes/intro`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code }),
     });
-    if (res.status >= 400 && res.status < 500) return 'closed';
+    if (res.status >= 400 && res.status < 500) return closedOf(res);
     if (!res.ok) return null;
     const parsed = CodeIntroSchema.safeParse(await res.json());
     return parsed.success ? parsed.data : null;

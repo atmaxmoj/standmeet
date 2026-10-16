@@ -70,7 +70,15 @@
     "defaultGreetingAnon": "儘管問這個 AI——它用主理人的口吻回答，依據是真實的作品。",
     "capacity": "最多 {max} 人可以使用這個存取碼——已有 {count} 人加入。",
     "namePlaceholder": "你的名字",
-    "emailPlaceholder": "電郵地址（可選，用於接收會議邀請）"
+    "emailPlaceholder": "電郵地址（可選，用於接收會議邀請）",
+    "closedKicker": "這個碼已經打不開了",
+    "closed": {
+      "expired": "這個碼已經過期。",
+      "revoked": "這個碼已被主人撤銷。",
+      "invalid": "沒有這個碼，請向分享給你的人核對。"
+    },
+    "closedPublic": "你仍然可以以訪客身份和這個 AI 聊公開的內容。想要完整的對話，請向分享的人要一個新碼。",
+    "closedContinue": "以訪客身份繼續 ↵"
   },
   "wikiTopBar": {
     "brand": "standmeet",
