@@ -33,7 +33,10 @@ type HostDeps struct {
 }
 
 // HostUsage —— records one owner-key generation: feature 'block:<plugin>', on model.
-type HostUsage func(ctx context.Context, ownerID, model, feature string, used *infcore.UsageMeter)
+type HostUsage func(ctx context.Context, ownerID, model, feature string, used *UsageMeter)
+
+// UsageMeter —— the tokens one generation spent.
+type UsageMeter = infcore.UsageMeter
 
 // ChatGetter — reads one conversation's owner-scoped transcript (a narrow port; the
 // composition root injects chatRepo).

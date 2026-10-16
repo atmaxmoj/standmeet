@@ -233,43 +233,7 @@ func buildAgentTurnPersist(
 	}
 }
 
-// buildAgentTurnUsage —— #106 billing: usage port injected into inference. At the end of an
-// owner-key turn, records accumulated tokens into inference_usage (scoped to owner_id).
-// BYOAI is visitor-paid, so it returns nil. best-effort: a recording failure only warns.
-func buildAgentTurnUsage(h *Handlers, auth authedVisitor) inference.RecordUsageFunc {
-	if !usageBillable(h, auth) {
-		return nil
-	}
-	rec := turnUsageRecorder{
-		h: h, ownerID: auth.Data.OwnerID, providerID: auth.Data.ProviderID,
-		feature: turnFeature(auth),
-		// metered —— counts against some gas tank only if both switches are on: the role
-		// has a tank attached and this turn resolves to a provider. Also gates cleanup
-		// sweep-away — clear a metered row too early and the gas grows back on its own.
-		metered: auth.Data.GasMetered && auth.Data.ProviderID != "",
-	}
-	return rec.record
-}
-
-// turnUsageRecorder —— the handful of things a turn's billing needs to close over (whose
-// it is, which tank, and whether it counts as gas spend).
-type turnUsageRecorder struct {
-	h          *Handlers
-	ownerID    string
-	providerID string
-	feature    string
-	metered    bool
-}
-
-// turnFeature —— a visitor turn is billed to its role: 'chat:<role>' (instance.models names the
-// same features).
-func turnFeature(auth authedVisitor) string {
-	if auth.Data.RoleSnapshot == nil {
-		return "chat:"
-	}
-	return "chat:" + auth.Data.RoleSnapshot.RoleName()
-}
-
+// record —— writes one turn's usage (declared with the recorder in agent_turn_usage.go).
 func (u turnUsageRecorder) record(ctx context.Context, usage *inference.TurnUsage) {
 	if err := u.h.Usage.Record(ctx, &stats.UsageRow{
 		OwnerID: u.ownerID, Model: usage.Model, ProviderID: u.providerID, Feature: u.feature,
@@ -278,12 +242,6 @@ func (u turnUsageRecorder) record(ctx context.Context, usage *inference.TurnUsag
 	}); err != nil {
 		u.h.Log.Warn("record inference usage", "err", err)
 	}
-}
-
-// usageBillable —— #106: only owner-key turns are billed (BYOAI is visitor-paid / not
-// billed when there's no recorder).
-func usageBillable(h *Handlers, auth authedVisitor) bool {
-	return h.Usage != nil && auth.Data.Mode != "byoai"
 }
 
 // visitorToolset —— the packaged return of collectVisitorTools, to stay under revive's
