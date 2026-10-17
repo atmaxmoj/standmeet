@@ -57,6 +57,7 @@ async function turn(sess: VisitorSession, msg: string): Promise<string> {
   const res = await request.post(`${BACKEND}/api/v1/agent/turn`, {
     headers: { Authorization: `Bearer ${sess.session_token}`, 'Content-Type': 'application/json' },
     data: { user_message: msg, conversation_id: sess.conversation_id },
+    timeout: 90_000, // a whole turn, its ghost call included — not one quick read
   });
   expect(res.status(), 'turn ok').toBe(200);
   return res.text();
