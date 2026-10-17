@@ -16,12 +16,15 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/atmaxmoj/standmeet/cmd/server/deps"
+	"github.com/atmaxmoj/standmeet/cmd/server/port"
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 	corpus "github.com/atmaxmoj/standmeet/internal/corpus/facade"
 	"github.com/atmaxmoj/standmeet/internal/infra/events"
 	"github.com/atmaxmoj/standmeet/internal/infra/jobs"
 	jobsriver "github.com/atmaxmoj/standmeet/internal/infra/jobs/river"
 	owner "github.com/atmaxmoj/standmeet/internal/owner/facade"
+	pluginjobs "github.com/atmaxmoj/standmeet/internal/owner/jobs"
+	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc"
 	"github.com/atmaxmoj/standmeet/internal/plugin/adapters"
 )
 
@@ -107,11 +110,13 @@ func newIdem(t *testing.T) *idem {
 	lookup := func(context.Context, string, string) (adapters.Supplier, error) {
 		return h.mail, nil
 	}
+	rdb := redis.NewClient(&redis.Options{Addr: miniredis.RunT(t).Addr()})
 	h.d = &deps.Runtime{
 		DB: pool, Log: slog.New(slog.DiscardHandler), CorpusIndexer: h.index,
 		BlockDispatch: adapters.NewDispatcher(lookup),
-		RDB:           redis.NewClient(&redis.Options{Addr: miniredis.RunT(t).Addr()}),
-		OwnerRepo:     owner.NewRepo(pool), MicrositeRepo: owner.NewMicrositeRepo(pool),
+		RDB:           rdb, VisitorStore: access.NewVisitorSessionStore(rdb),
+		ApplicationRepo: jobsuc.NewApplicationRepo(pool),
+		OwnerRepo:       owner.NewRepo(pool), MicrositeRepo: owner.NewMicrositeRepo(pool),
 		MicrositeBuildRepo: owner.NewMicrositeBuildRepo(pool),
 		AssetRepo:          corpus.NewAssetRepo(pool, ""),
 		AccessRequestRepo:  access.NewAccessRequestRepo(pool), CodeRepo: access.NewCodeRepo(pool),
@@ -121,6 +126,11 @@ func newIdem(t *testing.T) *idem {
 			return events.NewWebhookSecret()
 		},
 	}
+	// The job-loop reactions, wired as buildJobsModule wires them (only Outcomes subscribes).
+	h.d.JobsModule = pluginjobs.New(&pluginjobs.Deps{Outcomes: &jobsuc.OutcomeDeps{
+		Apps: h.d.ApplicationRepo, Events: h.d.Recorder(), Seen: jobsuc.NewJobSeenRepo(pool),
+		BoundTo: port.CodeBound(h.d), Revoke: port.RevokeCode(h.d),
+	}})
 	h.compose(t)
 	h.owner = h.seedOwner(t)
 	return h

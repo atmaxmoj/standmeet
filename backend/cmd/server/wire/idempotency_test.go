@@ -51,6 +51,10 @@ var drivers = map[string]driver{
 	entity.NotifyFanout:                  driveNotifyFanout,
 	subscriber.HomepagePublishSubscriber: driveHomepagePublish,
 	subscriber.AssetRefsSubscriber:       driveAssetRefs,
+	"jobs.application_engaged":           driveApplicationEngaged,
+	"jobs.withdraw_revokes":              driveWithdrawRevokes,
+	"jobs.retention_clears":              driveRetentionClears,
+	"jobs.retention_restores":            driveRetentionRestores,
 }
 
 func TestEveryRegisteredSubscriptionIsIdempotent(t *testing.T) {
