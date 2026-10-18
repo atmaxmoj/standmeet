@@ -153,6 +153,16 @@
   --pele-font: var(--font-serif, 'Newsreader', Georgia, serif);
   --pele-font-mono: var(--font-mono, 'JetBrains Mono', ui-monospace, monospace);
   --pele-radius: 2px;
+  /* Chart series (bars, slices, lines) — the accent first, then the palette's own family; Pele's
+     default is Tableau blue / orange. */
+  --pele-series-1: var(--color-accent, #B5391C);
+  --pele-series-2: var(--color-muted, #7A7167);
+  --pele-series-3: var(--color-accent-soft, #D9744C);
+  --pele-series-4: var(--color-ink, #1B1814);
+  --pele-series-5: color-mix(in oklab, var(--color-accent, #B5391C) 55%, var(--color-ink, #1B1814));
+  --pele-series-6: color-mix(in oklab, var(--color-muted, #7A7167) 50%, var(--color-paper, #F3EFE6));
+  --pele-series-7: color-mix(in oklab, var(--color-accent-soft, #D9744C) 50%, var(--color-paper, #F3EFE6));
+  --pele-series-8: color-mix(in oklab, var(--color-ink, #1B1814) 60%, var(--color-paper, #F3EFE6));
 }
 
 /* mermaid render error — show the error on failure instead of failing

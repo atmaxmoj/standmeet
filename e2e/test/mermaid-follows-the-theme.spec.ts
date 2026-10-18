@@ -8,6 +8,8 @@
 // Contract:
 //   - In dark mode a diagram's labels take the page ink, and its node boxes are not bright.
 //   - Switching the theme on the reader recolors a diagram already on the page.
+//   - A chart's first series is the page accent (prod, v0.1.160: Pele's default series palette
+//     drew the owner's bar charts in Tableau blue — the one color the design language rules out).
 
 import type { Locator } from '@playwright/test';
 
@@ -25,6 +27,8 @@ const OWNER = {
 };
 const PATH = 'theme-diagram';
 const BODY = 'Some text.\n\n```mermaid\nflowchart LR\n  A[Alpha] --> B[Beta]\n```\n';
+const CHART = 'theme-chart';
+const CHART_BODY = '```mermaid\nxychart-beta\n  x-axis [a, b]\n  bar [3, 5]\n```\n';
 
 test.beforeAll(async ({ playwright }) => {
   test.setTimeout(180_000);
@@ -34,8 +38,10 @@ test.beforeAll(async ({ playwright }) => {
   const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
   const token = await createAPIToken(request, csrf, 'mermaid-theme');
   const sid = await initMCP(request, token);
-  const { wikiID } = await seedWiki(request, token, sid, { title: PATH, path: PATH, body: BODY });
-  await publishEntry(request, token, sid, { genre: 'wiki', id: wikiID, excerpt: 'A diagram.' });
+  for (const [path, body] of [[PATH, BODY], [CHART, CHART_BODY]] as const) {
+    const { wikiID } = await seedWiki(request, token, sid, { title: path, path, body });
+    await publishEntry(request, token, sid, { genre: 'wiki', id: wikiID, excerpt: 'A diagram.' });
+  }
   await request.dispose();
 });
 
@@ -107,4 +113,24 @@ test('switching the theme recolors a diagram already on the page', async ({ page
     .toBe(true);
   await expect.poll(() => labelInk(svg), { message: 'the labels follow the switch' })
     .toBe(await pageInk(page));
+});
+
+test('a chart draws its series in the page accent', async ({ page }) => {
+  await openReader(page, `/wiki/${CHART}`);
+  const svg = await diagram(page);
+  // Both colors through a 1px canvas: the token is hex, the computed fill rgb().
+  const [bar, accent] = await svg.evaluate((root) => {
+    const c = document.createElement('canvas'); c.width = 1; c.height = 1;
+    const ctx = c.getContext('2d');
+    const rgb = (color: string): string => {
+      if (ctx === null) return color;
+      ctx.clearRect(0, 0, 1, 1); ctx.fillStyle = color; ctx.fillRect(0, 0, 1, 1);
+      return [...ctx.getImageData(0, 0, 1, 1).data].slice(0, 3).join(',');
+    };
+    const tallest = [...root.querySelectorAll('rect')]
+      .sort((a, b) => b.getBoundingClientRect().height - a.getBoundingClientRect().height)[0];
+    return [rgb(tallest === undefined ? '' : getComputedStyle(tallest).fill),
+      rgb(getComputedStyle(document.documentElement).getPropertyValue('--color-accent').trim())];
+  });
+  expect(bar, 'the bars are the page accent').toBe(accent);
 });
