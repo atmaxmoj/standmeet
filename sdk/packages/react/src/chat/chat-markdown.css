@@ -137,6 +137,24 @@
   height: auto;
 }
 
+/* mermaid palette —— Pele's SVG (class .pele) paints with these variables, so a diagram takes the
+   page's tokens and follows a light / dark switch without being drawn again. Not scoped to .smc-md:
+   a writing and the admin block map draw diagrams outside the chat's markdown. The fallbacks are
+   the light tokens, for a host page that defines none. */
+.pele {
+  --pele-bg: transparent;
+  --pele-fg: var(--color-ink, #1B1814);
+  --pele-muted: var(--color-muted, #7A7167);
+  --pele-line: var(--color-muted, #7A7167);
+  --pele-surface: var(--color-paper, #F3EFE6);
+  --pele-surface-alt: color-mix(in oklab, var(--color-ink, #1B1814) 7%, var(--color-paper, #F3EFE6));
+  --pele-border: var(--color-ink, #1B1814);
+  --pele-accent: var(--color-accent, #B5391C);
+  --pele-font: var(--font-serif, 'Newsreader', Georgia, serif);
+  --pele-font-mono: var(--font-mono, 'JetBrains Mono', ui-monospace, monospace);
+  --pele-radius: 2px;
+}
+
 /* mermaid render error — show the error on failure instead of failing
    silently, but keep the color scheme non-alarming; muted accent +
    paper-tinted block (matching the look of a normal pre code block). */

@@ -122,10 +122,10 @@ const nextConfig: NextConfig = {
       ],
     },
     {
-      // /embed.js is a loader: it imports the chat itself from /embed/ as an ES module, and the chat
-      // loads mermaid from /vendor/ only when an answer carries a diagram. A module script from
-      // another origin needs CORS just like the loader does, or the embed stops at the loader.
-      source: '/:dir(embed|vendor)/:path*',
+      // /embed.js is a loader: it imports the chat itself from /embed/ as an ES module (and its lazy
+      // chunks, the diagram renderer among them). A module script from another origin needs CORS
+      // just like the loader does, or the embed stops at the loader.
+      source: '/embed/:path*',
       headers: [
         { key: 'Access-Control-Allow-Origin', value: '*' },
         { key: 'Cache-Control', value: 'public, max-age=300' },

@@ -56,7 +56,7 @@ const BENCHES: readonly Bench[] = [
     ceilMs: 8_000,
   },
   {
-    name: 'mermaid (lazy ~600KB)',
+    name: 'mermaid (lazy chunk)',
     path: 'bench-mermaid',
     body: '```mermaid\ngraph LR; A-->B\n```',
     awaitSelector: async (page) => {

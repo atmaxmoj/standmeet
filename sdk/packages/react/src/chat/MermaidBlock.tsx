@@ -1,10 +1,11 @@
-// MermaidBlock —— client-side mermaid rendering. Lazy-loaded (~600KB);
-// mermaid initialization is decoupled from the React lifecycle (fired
-// synchronously inside an effect).
+// MermaidBlock —— client-side mermaid rendering (Pele, in this lazy chunk).
+// It renders in an effect, not during render: Pele measures labels with the
+// browser's canvas, which a server render does not have, so drawing there
+// would hydrate to a different SVG.
 //
-// Design choice: each block calls mermaid.render independently to get an
-// SVG string, then dangerously injects it (mermaid's own output is trusted
-// SVG). The Suspense fallback lives in the parent.
+// Design choice: each block renders independently to an SVG string, then
+// dangerously injects it (Pele escapes diagram text and filters links and
+// styles). The Suspense fallback lives in the parent.
 
 'use client';
 
@@ -38,13 +39,7 @@ export function MermaidBlock({ source }: MermaidBlockProps): React.ReactElement 
   const [result, setResult] = useState<MermaidRenderResult | null>(null);
   const idRef = useRef<string>(nextID());
 
-  useEffect(() => {
-    const guard = { cancelled: false };
-    void renderMermaidSVG(idRef.current, source).then(
-      (r) => guard.cancelled ? undefined : setResult(r),
-    );
-    return () => { guard.cancelled = true; };
-  }, [source]);
+  useEffect(() => { setResult(renderMermaidSVG(idRef.current, source)); }, [source]);
 
   const { svg, error } = renderState(result);
   return error !== null

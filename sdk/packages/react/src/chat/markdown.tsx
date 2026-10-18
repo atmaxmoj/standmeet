@@ -28,7 +28,7 @@ import {
 } from './markdown-helpers.js';
 import './chat-markdown.css';
 
-// mermaid is ~600KB; the lazy import keeps it out of the SSR bundle.
+// The diagram renderer (Pele) rides in this lazy chunk: a page without a diagram never loads it.
 const MermaidBlock = lazy(async () => {
   const mod = await import('./MermaidBlock.js');
   return { default: mod.MermaidBlock };

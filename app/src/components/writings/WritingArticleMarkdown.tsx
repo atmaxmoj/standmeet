@@ -17,7 +17,7 @@ import { Suspense, type ReactNode } from 'react';
 import { mermaidSource, MermaidBlock, TikZBlock } from '@standmeet/sdk';
 import styles from '@/components/writings/WritingArticleMarkdown.module.css';
 
-// MermaidBlock is light; the ~600KB mermaid library it renders with loads lazily inside it.
+// MermaidBlock is light; the renderer it draws with (Pele) loads lazily inside it.
 
 export { styles as markdownStyles };
 
