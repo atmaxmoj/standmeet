@@ -21,10 +21,23 @@
   /* The rail only handles positioning; it doesn't paint anything itself. */
 }
 
+/* The tree shows from xl (1280px); its column ends at 264px (measured on prod). A 920px article
+ * centred in a window under ~1450px leaves a narrower left margin, and the article was drawn over
+ * the tree (prod, 2026-10-18: at 1300px the text began at 214px). From xl the article's padding
+ * box starts at the tree's edge, so its text sits a gutter right of it; on a wide window the max()
+ * picks the centred margin, as before. */
+@media (min-width: 1280px) {
+  .main { margin-left: max(264px, (100% - 920px) / 2); }
+}
+
 .railInner {
-  /* Lets ::after position itself relative to this scroll container — it's the containing
-   * block for the sticky element. */
-  position: relative;
+  /* Sticky here, not only as the Tailwind `sticky` class: this rule is unlayered and beats
+   * Tailwind v4's layered utilities, so the `position: relative` it once held overrode `sticky`
+   * and the tree scrolled away with the article (prod, 2026-10-18). Sticky is also a containing
+   * block, which ::after needs. */
+  position: sticky;
+  /* The tree is its own column: scrolling it to its end does not carry on into the article. */
+  overscroll-behavior: contain;
   /* Keeps the scrollbar from taking up layout width, and from drawing a gray groove on the
    * paper-colored background. */
   scrollbar-width: thin;

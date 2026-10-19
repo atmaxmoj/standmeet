@@ -42,6 +42,7 @@ test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } })
 
 test.describe('reader writing 树端点:published 进树 + private 显示成 locked', () => {
   test.beforeAll(async ({ playwright }) => {
+    test.setTimeout(180_000);
     resetInstance();
     const request = await playwright.request.newContext();
     await claim(request, findSetupToken(), {
@@ -57,6 +58,7 @@ test.describe('reader writing 树端点:published 进树 + private 显示成 loc
     });
     ids['sub'] = await createWriting(request, token, sid, {
       slug: 'sub-post', title: 'Sub Post', publish: true, parent_id: ids['essays'],
+      body_md: 'A paragraph long enough to read down.\n\n'.repeat(80),
     });
     ids['private'] = await createWriting(request, token, sid, {
       slug: 'private-post', title: 'Private Post', publish: true,
@@ -98,6 +100,8 @@ test.describe('reader writing 树端点:published 进树 + private 显示成 loc
   // -- reader surface: a real browser (/writings tree + the article page's breadcrumb) --
   test('reader sidebar:/writings 懒展开 + private 标 locked', readerSidebar);
   test('reader 文章页:/writings/sub-post breadcrumb 显示祖先 Essays(可点)', articleBreadcrumb);
+  test('a laptop-wide window: the tree keeps its own column beside the article', treeBesideArticle);
+  test('reading down the article leaves the tree where it was', treeStaysPut);
 
   // -- admin reparent: prevents a cycle (hanging essays under its own child sub → rejected) --
   test('admin reparent 成环 → 400(essays 挂到子 sub-post 下被拒)', adminReparentCycle);
@@ -134,6 +138,33 @@ async function articleBreadcrumb({ page }: { page: Page }): Promise<void> {
   await expect(crumb).toBeVisible({ timeout: 5_000 });
   await expect(crumb.getByRole('link', { name: 'Essays' })).toBeVisible();
   await expect(page.getByTestId('writing-tree')).toBeVisible();
+}
+
+// treeBesideArticle -- at 1300px the tree shows (xl), but the article centred in a 920px column
+// left only ~190px of margin for a 240px tree: the article was drawn over it (prod, 2026-10-18).
+// The article's left edge stays right of the tree's.
+async function treeBesideArticle({ page }: { page: Page }): Promise<void> {
+  await page.setViewportSize({ width: 1300, height: 900 });
+  await openReader(page, '/writings/sub-post');
+  const tree = await page.getByTestId('writing-tree').boundingBox();
+  const crumb = await page.getByTestId('writing-breadcrumb').boundingBox();
+  if (tree === null || crumb === null) throw new Error('tree or breadcrumb not laid out');
+  expect(tree.x + tree.width, 'the article starts right of the tree').toBeLessThanOrEqual(crumb.x);
+}
+
+// treeStaysPut -- the tree is its own column: reading down the article leaves it where it was
+// (prod, 2026-10-18: an unlayered `position: relative` overrode the tree's sticky, and it scrolled
+// off with the article).
+async function treeStaysPut({ page }: { page: Page }): Promise<void> {
+  await page.setViewportSize({ width: 1500, height: 900 });
+  await openReader(page, '/writings/sub-post');
+  const tree = await page.getByTestId('writing-tree').boundingBox();
+  if (tree === null) throw new Error('tree not laid out');
+  await page.mouse.move(800, 500);
+  await page.mouse.wheel(0, 1200);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(500);
+  const after = await page.getByTestId('writing-tree').boundingBox();
+  expect(after?.y, 'the tree stays put while the article scrolls').toBe(tree.y);
 }
 
 // readerSidebar -- /writings displays the writing tree: roots appear; opening
@@ -176,6 +207,7 @@ interface CreateWritingArgs {
   parent_id?: string;
   visibility?: string;
   locked_body?: string;
+  body_md?: string;
 }
 
 // createWriting -- calls MCP writing_create, returns the writing_id.

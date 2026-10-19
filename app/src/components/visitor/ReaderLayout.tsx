@@ -74,7 +74,7 @@ export function ReaderLayout({ aside, children, mainTestId }: {
           {aside}
         </div>
       </aside>
-      <main className="mx-auto max-w-[920px] px-6 min-w-0" data-testid={mainTestId}>
+      <main className={`mx-auto max-w-[920px] px-6 min-w-0 ${styles['main']}`} data-testid={mainTestId}>
         {children}
       </main>
     </div>
