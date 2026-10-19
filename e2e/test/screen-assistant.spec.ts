@@ -23,6 +23,8 @@ const OWNER = {
   fullName: 'Screen Assistant Owner',
 };
 
+interface ReadEvent { id: string; kind: string; text: string; seq: number }
+
 test.use({ ownerCredentials: { email: OWNER.email, password: OWNER.password } });
 
 test.describe('admin screen assistant', () => {
@@ -72,6 +74,35 @@ test.describe('admin screen assistant', () => {
     await expect(table).toBeVisible({ timeout: 10_000 });
     await expect(table.locator('tbody tr').first()).toContainText('bubblewrap');
     await expect(table.locator('tbody tr')).toHaveCount(2);
+  });
+
+  // The owner's AI reads the same feed over MCP (assistant.read): after the interview it can see
+  // what was asked and what the cards said. A streamed cue comes back once, with its latest text;
+  // `since` = the last_seq of a previous read returns only what came after.
+  test('the owner AI reads the feed back over MCP', async ({ request }) => {
+    const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+    const token = await createAPIToken(request, csrf, 'screen-assistant-read');
+    const sid = await initMCP(request, token);
+    const push = (args: Record<string, unknown>) =>
+      callTool(request, token, sid, 'assistant.push', args);
+    const read = (since: number) => callTool<{ events: ReadEvent[]; last_seq: number }>(
+      request, token, sid, 'assistant.read', { since });
+
+    await push({ id: 'rh1', kind: 'heard', text: 'Why Go for the backend?' });
+    await push({ id: 'rc1', kind: 'cue', text: 'Key: Go' });
+    await push({ id: 'rc1', kind: 'cue', text: 'Key: Go. One static binary per release.' });
+
+    const all = await read(0);
+    const heard = all.events.find((e) => e.id === 'rh1');
+    expect(heard?.kind).toBe('heard');
+    expect(heard?.text).toBe('Why Go for the backend?');
+    const cues = all.events.filter((e) => e.id === 'rc1');
+    expect(cues, 'a streamed cue reads back once').toHaveLength(1);
+    expect(cues[0]?.text).toBe('Key: Go. One static binary per release.');
+
+    await push({ id: 'rh2', kind: 'heard', text: 'And the frontend?' });
+    const next = await read(all.last_seq);
+    expect(next.events.map((e) => e.id), 'since returns only what came after').toEqual(['rh2']);
   });
 
   test('the page offers the desktop app download', async ({ adminPage }) => {

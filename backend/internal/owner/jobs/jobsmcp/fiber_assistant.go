@@ -1,5 +1,6 @@
 // fiber_assistant.go —— assistant.push: the desktop cue app streams what it heard and the cue
-// cards it wrote to /admin/screen-assistant (see owner/jobs/cues).
+// cards it wrote to /admin/screen-assistant (see owner/jobs/cues). assistant.read gives the same
+// feed back to the owner's AI.
 
 package jobsmcp
 
@@ -13,7 +14,7 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
 )
 
-// assistantFiber —— assistant.push; OwnerOps (ops.go) lifts it into a dispatcher op.
+// assistantFiber —— assistant.push + .read; OwnerOps (ops.go) lifts it into a dispatcher op.
 type assistantFiber struct {
 	store *cues.Store
 	log   *slog.Logger
@@ -35,7 +36,45 @@ func (c *assistantFiber) OwnerMCPBindings() []*registry.MCPBinding {
 			"required":["id","kind","text"]
 		}`),
 		Handler: c.handlePush,
+	}, {
+		Name: "assistant.read", Danger: "read",
+		Description: "Read the screen-assistant feed: what it heard and the cue cards it wrote " +
+			"(the last 12 hours). A streamed cue comes back once, with its latest text. Pass " +
+			"since = last_seq from a previous read to get only what came after.",
+		InputSchema: json.RawMessage(`{
+			"type":"object",
+			"properties":{
+				"since":{"type":"integer",
+					"description":"last_seq of a previous read; 0 or absent = from the start."}
+			}
+		}`),
+		Handler: c.handleRead,
 	}}
+}
+
+func (c *assistantFiber) handleRead(
+	ctx context.Context, ownerID string, raw json.RawMessage,
+) registry.MCPResult {
+	var in struct {
+		Since int64 `json:"since"`
+	}
+	if len(raw) > 0 {
+		if err := json.Unmarshal(raw, &in); err != nil {
+			return registry.MCPError("invalid arguments: " + err.Error())
+		}
+	}
+	events, err := c.store.Since(ctx, ownerID, in.Since)
+	if err != nil {
+		c.log.Error("cap assistant.read", "err", err)
+		return registry.MCPError("assistant.read failed")
+	}
+	last := in.Since
+	if n := len(events); n > 0 {
+		last = events[n-1].Seq
+	}
+	return mcputil.MarshalResult(c.log, "assistant.read", map[string]any{
+		"events": cues.Latest(events), "last_seq": last,
+	})
 }
 
 func (c *assistantFiber) handlePush(

@@ -96,6 +96,22 @@ func (s *Store) Push(ctx context.Context, ownerID string, e *Event) error {
 	return nil
 }
 
+// Latest —— one event per id, holding its latest text and seq, in the order the ids first
+// appear: a streamed cue reads as one card, as on the page.
+func Latest(events []Event) []Event {
+	at := map[string]int{}
+	out := make([]Event, 0, len(events))
+	for _, e := range events {
+		if i, ok := at[e.ID]; ok {
+			out[i] = e
+			continue
+		}
+		at[e.ID] = len(out)
+		out = append(out, e)
+	}
+	return out
+}
+
 // Since —— the events after seq, oldest first. A reader passes the last seq it saw.
 func (s *Store) Since(ctx context.Context, ownerID string, seq int64) ([]Event, error) {
 	rows, err := s.rdb.LRange(ctx, listKey(ownerID), 0, -1).Result()

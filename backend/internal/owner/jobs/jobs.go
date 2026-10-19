@@ -48,7 +48,8 @@ type Deps struct {
 	AppsRepo    *jobsuc.ApplicationRepo
 	SourcesRepo *jobsuc.JobSourceRepo
 	Log         *slog.Logger
-	// Cues —— the screen assistant's live feed (assistant.push writes, the admin page reads).
+	// Cues —— the screen assistant's live feed (assistant.push writes; the admin page and
+	// assistant.read read).
 	Cues *cues.Store
 	// Interview —— a practice interview's packet and report (docs/design/deepinterview-engine.md).
 	Interview *jobsuc.InterviewDeps

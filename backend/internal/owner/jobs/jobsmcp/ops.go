@@ -32,7 +32,7 @@ import (
 // jobsadmin's own routes (drafts, masters, sources, listings, screen assistant).
 const panelReason = "the panel reaches the same usecases through jobsadmin's routes"
 
-// OwnerOps —— jobs.*, resume.* and assistant.push.
+// OwnerOps —— jobs.*, resume.* and assistant.*.
 func OwnerOps(
 	jobs *jobsuc.JobsDeps, resume *jobsuc.ResumeDeps, store *cues.Store, log *slog.Logger,
 ) []fp.Op {

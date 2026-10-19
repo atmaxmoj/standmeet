@@ -338,7 +338,7 @@ const GOLDEN_TOOLSET: readonly string[] = [
   'applications.save_answers',
   'workflow.doctor', 'workflow.guide',
   // screen assistant -- the desktop cue app streams cards + heard lines to /admin/screen-assistant
-  'assistant.push',
+  'assistant.push', 'assistant.read',
 ];
 
 let token = '';
