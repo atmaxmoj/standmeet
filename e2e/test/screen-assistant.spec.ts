@@ -9,7 +9,7 @@
 //     not one card per chunk;
 //   · the page offers the desktop app download.
 
-import { test, expect } from '@/fixtures/test';
+import { test, expect, type APIRequestContext, type Page } from '@/fixtures/test';
 
 import { createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { claimFreshOwner } from '@/fixtures/seed';
@@ -76,10 +76,20 @@ test.describe('admin screen assistant', () => {
     await expect(table.locator('tbody tr')).toHaveCount(2);
   });
 
-  // The owner's AI reads the same feed over MCP (assistant.read): after the interview it can see
-  // what was asked and what the cards said. A streamed cue comes back once, with its latest text;
-  // `since` = the last_seq of a previous read returns only what came after.
-  test('the owner AI reads the feed back over MCP', async ({ request }) => {
+  test('the owner AI reads the feed back over MCP', readsFeedBack);
+  test('a mock-interview agent pushes the question and the answer', mockInterviewPushes);
+
+  test('the page offers the desktop app download', async ({ adminPage }) => {
+    await gotoAdminSection(adminPage, 'screen-assistant');
+    await expect(adminPage.getByTestId('assistant-download'))
+      .toHaveAttribute('href', /github\.com\/.+\/releases/);
+  });
+});
+
+// readsFeedBack -- the owner's AI reads the same feed over MCP (assistant.read): after the
+// interview it can see what was asked and what the cards said. A streamed cue comes back once,
+// with its latest text; `since` = the last_seq of a previous read returns only what came after.
+async function readsFeedBack({ request }: { request: APIRequestContext }): Promise<void> {
     const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
     const token = await createAPIToken(request, csrf, 'screen-assistant-read');
     const sid = await initMCP(request, token);
@@ -103,11 +113,30 @@ test.describe('admin screen assistant', () => {
     await push({ id: 'rh2', kind: 'heard', text: 'And the frontend?' });
     const next = await read(all.last_seq);
     expect(next.events.map((e) => e.id), 'since returns only what came after').toEqual(['rh2']);
-  });
+}
 
-  test('the page offers the desktop app download', async ({ adminPage }) => {
+// mockInterviewPushes -- another agent runs a mock interview (owner, 2026-10-19: "我用别的agent来做
+// 模拟面试，我也是需要那个agent把card给我的"). It pushes its question as heard — the desktop assistant
+// cues it — and the owner's answer as said. The answer shows on the page as the owner's line, and
+// reads back.
+async function mockInterviewPushes(
+  { request, adminPage }: { request: APIRequestContext; adminPage: Page },
+): Promise<void> {
+    const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+    const token = await createAPIToken(request, csrf, 'screen-assistant-mock');
+    const sid = await initMCP(request, token);
     await gotoAdminSection(adminPage, 'screen-assistant');
-    await expect(adminPage.getByTestId('assistant-download'))
-      .toHaveAttribute('href', /github\.com\/.+\/releases/);
-  });
-});
+    await callTool(request, token, sid, 'assistant.push',
+      { id: 'mq1', kind: 'heard', text: 'Tell me about a time you disagreed with a teammate.' });
+    await callTool(request, token, sid, 'assistant.push',
+      { id: 'ma1', kind: 'said', text: 'We argued about Docker versus bubblewrap.' });
+
+    await expect(adminPage.getByTestId('assistant-said').first())
+      .toContainText('We argued about Docker versus bubblewrap.', { timeout: 10_000 });
+    await expect(adminPage.getByTestId('assistant-heard').filter({ hasText: 'disagreed with a teammate' }))
+      .toBeVisible();
+
+    const { events } = await callTool<{ events: ReadEvent[] }>(
+      request, token, sid, 'assistant.read', { since: 0 });
+    expect(events.find((e) => e.id === 'ma1')?.kind).toBe('said');
+}

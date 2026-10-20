@@ -25,9 +25,11 @@ const (
 	maxID      = 64
 )
 
-// Kinds a push may carry: heard = a transcript line, cue = a card (streamed, latest wins).
+// Kinds a push may carry: heard = the other side's line (the desktop app cues it), said = the
+// owner's own line (transcript only), cue = a card (streamed, latest wins).
 const (
 	KindHeard = "heard"
+	KindSaid  = "said"
 	KindCue   = "cue"
 )
 
@@ -46,7 +48,7 @@ type Event struct {
 func (e *Event) Validate() error {
 	switch {
 	case !validKinds[e.Kind]:
-		return fmt.Errorf("%w: kind must be heard or cue", errBadEvent)
+		return fmt.Errorf("%w: kind must be heard, said or cue", errBadEvent)
 	case e.ID == "" || len(e.ID) > maxID:
 		return fmt.Errorf("%w: id is required (max %d chars)", errBadEvent, maxID)
 	case len(e.Text) > maxText:
@@ -55,7 +57,7 @@ func (e *Event) Validate() error {
 	return nil
 }
 
-var validKinds = map[string]bool{KindHeard: true, KindCue: true}
+var validKinds = map[string]bool{KindHeard: true, KindSaid: true, KindCue: true}
 
 // IsBadEvent —— a validation failure the caller should show as-is.
 func IsBadEvent(err error) bool { return errors.Is(err, errBadEvent) }

@@ -24,13 +24,16 @@ func (c *assistantFiber) OwnerMCPBindings() []*registry.MCPBinding {
 	return []*registry.MCPBinding{{
 		Name: "assistant.push", Danger: "write",
 		Description: "Stream one screen-assistant event to /admin/screen-assistant. " +
-			"kind=heard is a transcript line; kind=cue is a cue card — push the growing " +
-			"text under the same id, the page keeps the latest.",
+			"kind=heard is the other side's line: the desktop screen assistant writes a cue " +
+			"card for it, so an agent running a mock interview pushes each question as heard. " +
+			"kind=said is the owner's own answer (transcript only). kind=cue is a cue card — " +
+			"push the growing text under the same id, the page keeps the latest. " +
+			"Read the cards back with assistant.read.",
 		InputSchema: json.RawMessage(`{
 			"type":"object",
 			"properties":{
 				"id":{"type":"string","description":"Event id; a streamed cue reuses it."},
-				"kind":{"type":"string","enum":["heard","cue"]},
+				"kind":{"type":"string","enum":["heard","said","cue"]},
 				"text":{"type":"string"}
 			},
 			"required":["id","kind","text"]

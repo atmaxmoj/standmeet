@@ -61,6 +61,13 @@ function Feed({ events }: { events: readonly AssistantEvent[] }) {
             {e.text}
           </p>
         )
+        : e.kind === 'said'
+        ? (
+          // the owner's own answer: indented in ink, against the other side's muted line
+          <p key={`s-${e.id}`} data-testid="assistant-said" className="mono text-[12px] pl-6">
+            {e.text}
+          </p>
+        )
         : (
           <article
             key={`c-${e.id}`} data-testid="assistant-cue"

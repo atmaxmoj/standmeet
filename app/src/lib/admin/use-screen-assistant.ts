@@ -11,7 +11,7 @@ import { adminAPI } from '@/lib/api/admin';
 const EventSchema = z.object({
   seq: z.number(),
   id: z.string(),
-  kind: z.enum(['heard', 'cue']),
+  kind: z.enum(['heard', 'said', 'cue']),
   text: z.string(),
   at: z.string(),
 });
