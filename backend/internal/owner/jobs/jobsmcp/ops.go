@@ -34,11 +34,11 @@ const panelReason = "the panel reaches the same usecases through jobsadmin's rou
 
 // OwnerOps —— jobs.*, resume.* and assistant.*.
 func OwnerOps(
-	jobs *jobsuc.JobsDeps, resume *jobsuc.ResumeDeps, store *cues.Store, log *slog.Logger,
+	jobs *jobsuc.JobsDeps, resume *jobsuc.ResumeDeps, asst *cues.Assistant, log *slog.Logger,
 ) []fp.Op {
 	bindings := (&jobsFiber{jobs: jobs, log: log}).OwnerMCPBindings()
 	bindings = append(bindings, (&resumeFiber{resume: resume, log: log}).OwnerMCPBindings()...)
-	bindings = append(bindings, (&assistantFiber{store: store, log: log}).OwnerMCPBindings()...)
+	bindings = append(bindings, (&assistantFiber{asst: asst, log: log}).OwnerMCPBindings()...)
 	out := make([]fp.Op, 0, len(bindings))
 	for _, b := range bindings {
 		out = append(out, opOf(b))

@@ -1726,6 +1726,8 @@ deps:
       # client itself.
       - httpx
       - mailthrottle    # composition root caps outbound mail per-recipient at the mail port (email-bomb defense)
+      - jobcues         # the screen assistant's ports (role, notes, model) are implemented here
+      - paging          # and read the corpus and the job ledger page by page
       - sideeffectmail  # the mail side-effect port: built here for the subscribers, and the recovery phrase's synchronous send
       - jobs            # a throttled synchronous send (a snooze) is an error the owner sees
       - selfstat        # SysInfoProvider reads own-cgroup stats + fetches peer /selfstat (System panel)

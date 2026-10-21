@@ -283,8 +283,9 @@ func buildJobsModule(d *deps.Runtime) *pluginjobs.Plugin {
 		DraftsRepo:  d.ResumeDraftRepo,
 		AppsRepo:    d.ApplicationRepo,
 		SourcesRepo: d.JobSourceRepo,
-		Cues:        cues.New(d.RDB),
-		Interview:   &jobsuc.InterviewDeps{Seen: seen, ScopeNotes: port.InterviewScopeNotes(d)},
+		Assistant: cues.NewAssistant(cues.New(d.RDB),
+			port.ScreenAssistantPorts(d, &jobsDeps)),
+		Interview: &jobsuc.InterviewDeps{Seen: seen, ScopeNotes: port.InterviewScopeNotes(d)},
 		// The two builtins this plugin itself seeds (hiring prompt + role) go
 		// through OwnerSeeder.
 		Seed: jobsuc.SeedDeps{

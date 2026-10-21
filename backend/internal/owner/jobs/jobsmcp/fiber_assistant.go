@@ -14,18 +14,23 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/plugin/registry"
 )
 
-// assistantFiber —— assistant.push + .read; OwnerOps (ops.go) lifts it into a dispatcher op.
+// assistantFiber —— assistant.push + .read + .prepare + .context + .cue; OwnerOps (ops.go) lifts
+// each into a dispatcher op.
 type assistantFiber struct {
-	store *cues.Store
-	log   *slog.Logger
+	asst *cues.Assistant
+	log  *slog.Logger
 }
 
 func (c *assistantFiber) OwnerMCPBindings() []*registry.MCPBinding {
+	return append(c.feedBindings(), c.cueBindings()...)
+}
+
+func (c *assistantFiber) feedBindings() []*registry.MCPBinding {
 	return []*registry.MCPBinding{{
 		Name: "assistant.push", Danger: "write",
 		Description: "Stream one screen-assistant event to /admin/screen-assistant. " +
 			"kind=heard is the other side's line: the desktop screen assistant writes a cue " +
-			"card for it, so an agent running a mock interview pushes each question as heard. " +
+			"card for it (an agent that wants the card back calls assistant.cue instead). " +
 			"kind=said is the owner's own answer (transcript only). kind=cue is a cue card — " +
 			"push the growing text under the same id, the page keeps the latest. " +
 			"Read the cards back with assistant.read.",
@@ -66,7 +71,7 @@ func (c *assistantFiber) handleRead(
 			return registry.MCPError("invalid arguments: " + err.Error())
 		}
 	}
-	events, err := c.store.Since(ctx, ownerID, in.Since)
+	events, err := c.asst.Feed.Since(ctx, ownerID, in.Since)
 	if err != nil {
 		c.log.Error("cap assistant.read", "err", err)
 		return registry.MCPError("assistant.read failed")
@@ -87,7 +92,7 @@ func (c *assistantFiber) handlePush(
 	if err := json.Unmarshal(raw, &e); err != nil {
 		return registry.MCPError("invalid arguments: " + err.Error())
 	}
-	if err := c.store.Push(ctx, ownerID, &e); err != nil {
+	if err := c.asst.Feed.Push(ctx, ownerID, &e); err != nil {
 		if cues.IsBadEvent(err) {
 			return registry.MCPError(err.Error())
 		}

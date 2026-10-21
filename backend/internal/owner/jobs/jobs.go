@@ -48,9 +48,9 @@ type Deps struct {
 	AppsRepo    *jobsuc.ApplicationRepo
 	SourcesRepo *jobsuc.JobSourceRepo
 	Log         *slog.Logger
-	// Cues —— the screen assistant's live feed (assistant.push writes; the admin page and
-	// assistant.read read).
-	Cues *cues.Store
+	// Assistant —— the screen assistant: its live feed (assistant.push writes; the admin page
+	// and assistant.read read) and the cue card made on the server (assistant.cue).
+	Assistant *cues.Assistant
 	// Interview —— a practice interview's packet and report (docs/design/deepinterview-engine.md).
 	Interview *jobsuc.InterviewDeps
 	// Seed — the repositories needed to seed the builtins (hiring prompt + role, plus the default
@@ -128,7 +128,7 @@ func (*Plugin) Name() string { return Name }
 // applications.commit (layer2-externalize-jobs.md; refactor ledger R1). None is a fiber in the
 // in-process registry — the core holds no Go capability fibers.
 func (p *Plugin) Ops() []fp.Op {
-	ops := jobsmcp.OwnerOps(p.deps.Jobs, p.deps.Resume, p.deps.Cues, p.deps.Log)
+	ops := jobsmcp.OwnerOps(p.deps.Jobs, p.deps.Resume, p.deps.Assistant, p.deps.Log)
 	ops = append(ops, jobsmcp.ApplicationOps(p.deps.Applications, p.deps.Log)...)
 	ops = append(ops, jobsmcp.LedgerOps(p.deps.Jobs, p.deps.Log)...)
 	ops = append(ops, jobsmcp.InterviewOps(p.deps.Interview, p.deps.Log)...)
@@ -156,7 +156,7 @@ func (p *Plugin) MountAdminRoutes(r chi.Router) {
 		Commit:   p.deps.Applications,
 		Outcomes: p.deps.Outcomes,
 	})
-	jobsadmin.MountScreenAssistant(r, p.deps.Cues, p.deps.Log)
+	jobsadmin.MountScreenAssistant(r, p.deps.Assistant.Feed, p.deps.Log)
 }
 
 // SeedOwner — the host's SeedPlugins hook implementation. The shell only

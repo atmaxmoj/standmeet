@@ -11,6 +11,27 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const corpusVersion = `-- name: CorpusVersion :one
+SELECT count(*)::bigint AS notes,
+  COALESCE(max(updated_at), 'epoch'::timestamptz)::timestamptz AS newest
+FROM corpus_notes WHERE owner_id = $1
+`
+
+type CorpusVersionRow struct {
+	Notes  int64
+	Newest pgtype.Timestamptz
+}
+
+// Changes whenever any of the owner's notes does: a create or an edit moves the newest
+// updated_at, a delete moves the count. A renamed parent moves its own updated_at, so a child's
+// new path shows too. The screen assistant rebuilds a role's index when it changes.
+func (q *Queries) CorpusVersion(ctx context.Context, ownerID pgtype.UUID) (CorpusVersionRow, error) {
+	row := q.db.QueryRow(ctx, corpusVersion, ownerID)
+	var i CorpusVersionRow
+	err := row.Scan(&i.Notes, &i.Newest)
+	return i, err
+}
+
 const countNoteStats = `-- name: CountNoteStats :one
 SELECT
   count(*) AS entries,

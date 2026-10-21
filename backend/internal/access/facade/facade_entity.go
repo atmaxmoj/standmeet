@@ -27,6 +27,7 @@ type (
 // Constructors/functions (impl: entity).
 var (
 	AllowsCorpusEntry       = entity.AllowsCorpusEntry
+	MatchesAnyCorpusGlob    = entity.MatchesAnyCorpusGlob
 	FilterWaypointsByCorpus = entity.FilterWaypointsByCorpus
 	MergeWaypoints          = entity.MergeWaypoints
 	NewRoleSnapshot         = entity.NewRoleSnapshot

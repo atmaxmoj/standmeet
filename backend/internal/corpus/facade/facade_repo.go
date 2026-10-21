@@ -12,6 +12,7 @@ const (
 type (
 	AssetRepo           = repo.AssetRepo
 	NoteHeroRepo        = repo.NoteHeroRepo
+	NoteFilter          = repo.NoteFilter
 	Corpus              = repo.Corpus
 	CreateSyncNoteInput = repo.CreateSyncNoteInput
 	Note                = repo.Note

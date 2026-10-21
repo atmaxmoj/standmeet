@@ -147,6 +147,14 @@ WHERE t.owner_id = sqlc.arg('owner_id') AND t.genre = sqlc.arg('genre') AND NOT 
     OR (sqlc.arg('state') = 'promoted' AND t.promoted_to IS NOT NULL)
     OR (sqlc.arg('state') = 'flagged' AND t.flagged_private));
 
+-- name: CorpusVersion :one
+-- Changes whenever any of the owner's notes does: a create or an edit moves the newest
+-- updated_at, a delete moves the count. A renamed parent moves its own updated_at, so a child's
+-- new path shows too. The screen assistant rebuilds a role's index when it changes.
+SELECT count(*)::bigint AS notes,
+  COALESCE(max(updated_at), 'epoch'::timestamptz)::timestamptz AS newest
+FROM corpus_notes WHERE owner_id = $1;
+
 -- name: GetNoteMetaByID :one
 -- meta only (no body): for walking up to compute the tree-derived path / checking ACL, not for reading the body.
 SELECT id, parent_id, title, published

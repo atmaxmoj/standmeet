@@ -142,6 +142,14 @@ func buildClaudeModel(
 func buildOpenAICompatModel(
 	ctx context.Context, cred *Cred, maxTok int,
 ) (model.ToolCallingChatModel, error) {
+	return buildOpenAICompatModelWith(ctx, cred, maxTok, nil)
+}
+
+// buildOpenAICompatModelWith —— tune, when set, adjusts the config before the model is built
+// (stream_text.go's thinking switch).
+func buildOpenAICompatModelWith(
+	ctx context.Context, cred *Cred, maxTok int, tune func(*openai.ChatModelConfig) error,
+) (model.ToolCallingChatModel, error) {
 	cfg := &openai.ChatModelConfig{
 		APIKey:    cred.Key.Reveal(),
 		Model:     cred.Model,
@@ -154,6 +162,11 @@ func buildOpenAICompatModel(
 	}
 	if cred.Endpoint != "" {
 		cfg.BaseURL = cred.Endpoint
+	}
+	if tune != nil {
+		if err := tune(cfg); err != nil {
+			return nil, fmt.Errorf("eino: openai-compat config: %w", err)
+		}
 	}
 	cm, err := openai.NewChatModel(ctx, cfg)
 	if err != nil {
