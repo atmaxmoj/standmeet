@@ -90,6 +90,12 @@ func (s *server) serveStream(w http.ResponseWriter, req *MessagesReq) {
 		s.log.Warn("emit message_start", "err", werr)
 		return
 	}
+	if req.thinksFirst() {
+		if terr := emitThinkingOnly(sse); terr != nil {
+			s.log.Warn("emit thinking-only reply", "err", terr)
+		}
+		return
+	}
 	s.dispatch(sse, req)
 }
 

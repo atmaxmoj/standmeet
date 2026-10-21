@@ -20,6 +20,7 @@ const (
 	// model the owner's provider is set to for visitor chat. Another provider runs its own model.
 	cueModel        = "deepseek-flash"
 	providerDeep    = "deepseek"
+	providerClaude  = "anthropic"
 	cueUsageFeature = "screen_assistant"
 )
 
@@ -50,7 +51,9 @@ func cueModelCall(d *deps.Runtime) cueModelFunc {
 	}
 }
 
-// cueChat —— the request: DeepSeek runs cueModel with thinking off.
+// cueChat —— the request: DeepSeek runs cueModel; DeepSeek and Anthropic run with thinking off
+// (Claude 5.5 Haiku thinks by default and spent the whole budget on it: no card at all). Other
+// openai-compat providers get no switch they may not know.
 func cueChat(
 	cred *inference.Cred, req cues.ModelRequest,
 ) (*inference.ChatRequest, inference.StreamOptions) {
@@ -59,11 +62,14 @@ func cueChat(
 		msg := inference.ChatRequestMsg{Role: m.Role, Content: m.Content}
 		chat.Messages = append(chat.Messages, msg)
 	}
-	if cred.Provider != providerDeep {
-		return chat, inference.StreamOptions{}
+	switch cred.Provider {
+	case providerDeep:
+		chat.Model = cueModel
+		return chat, inference.StreamOptions{NoThinking: true}
+	case providerClaude:
+		return chat, inference.StreamOptions{NoThinking: true}
 	}
-	chat.Model = cueModel
-	return chat, inference.StreamOptions{NoThinking: true}
+	return chat, inference.StreamOptions{}
 }
 
 func billCue(

@@ -43,8 +43,9 @@ type MessagesReq struct {
 	System    SystemField `json:"system,omitempty"`
 	Messages  []Msg       `json:"messages"`
 	Tools     []ToolDef   `json:"tools,omitempty"`
-	MaxTokens int         `json:"max_tokens"`
-	Stream    bool        `json:"stream"`
+	Thinking  *thinkingField `json:"thinking,omitempty"`
+	MaxTokens int            `json:"max_tokens"`
+	Stream    bool           `json:"stream"`
 }
 
 // SystemField —— Anthropic /v1/messages accepts two shapes of system:

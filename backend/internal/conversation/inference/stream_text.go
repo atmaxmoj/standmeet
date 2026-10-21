@@ -12,18 +12,21 @@ import (
 	"io"
 	"strings"
 
+	"github.com/cloudwego/eino-ext/components/model/claude"
 	"github.com/cloudwego/eino-ext/components/model/openai"
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
 )
 
-// thinkingOff —— DeepSeek's switch for a reply without reasoning first (a top-level request
-// field the openai-compat client does not model).
+// thinkingOff —— the switch for a reply without reasoning first. DeepSeek and Anthropic spell it
+// the same way, as a top-level request field neither adapter models.
 var thinkingOff = json.RawMessage(`{"thinking":{"type":"disabled"}}`)
 
 // StreamOptions —— how StreamText asks.
 type StreamOptions struct {
-	// NoThinking —— send DeepSeek's thinking switch off (openai-compat providers only).
+	// NoThinking —— turn the model's thinking off. A model that thinks by default (Claude 5.5
+	// Haiku) spends a small budget on thinking and writes no text at all: the screen
+	// assistant's 800-token card came back empty every time (prod, 2026-10-20).
 	NoThinking bool
 }
 
@@ -37,26 +40,47 @@ func StreamText(
 		return "", err
 	}
 	defer sr.Close()
-	var text strings.Builder
+	var got streamed
 	for {
 		chunk, rerr := sr.Recv()
 		if errors.Is(rerr, io.EOF) {
-			return text.String(), nil
+			return got.finished()
 		}
 		if rerr != nil {
-			return text.String(), fmt.Errorf("eino: stream recv: %w", rerr)
+			return got.text.String(), fmt.Errorf("eino: stream recv: %w", rerr)
 		}
-		grow(ctx, &text, chunk, onText)
+		got.add(ctx, chunk, onText)
 	}
 }
 
-// grow —— one chunk: its usage metered, its text added and shown.
-func grow(ctx context.Context, text *strings.Builder, chunk *schema.Message, onText func(string)) {
+// ErrNoText —— the stream ended without a word of text.
+var ErrNoText = errors.New("the model wrote no text")
+
+// streamed —— the text so far and why the stream stopped.
+type streamed struct {
+	stop string
+	text strings.Builder
+}
+
+// add —— one chunk: its usage metered, its text added and shown, its stop reason kept.
+func (g *streamed) add(ctx context.Context, chunk *schema.Message, onText func(string)) {
 	meterChunk(ctx, chunk)
-	if chunk.Content != "" {
-		text.WriteString(chunk.Content)
-		onText(text.String())
+	if chunk.ResponseMeta != nil && chunk.ResponseMeta.FinishReason != "" {
+		g.stop = chunk.ResponseMeta.FinishReason
 	}
+	if chunk.Content != "" {
+		g.text.WriteString(chunk.Content)
+		onText(g.text.String())
+	}
+}
+
+// finished —— the whole text; a stream that ended with none says why it stopped (a budget
+// spent on thinking reads "max_tokens").
+func (g *streamed) finished() (string, error) {
+	if g.text.Len() == 0 {
+		return "", fmt.Errorf("%w (stop reason %q)", ErrNoText, g.stop)
+	}
+	return g.text.String(), nil
 }
 
 func openStream(
@@ -77,11 +101,11 @@ func openStream(
 	return sr, nil
 }
 
-// streamModel —— BuildChatModelBudgeted, with the thinking switch on an openai-compat body.
+// streamModel —— BuildChatModelBudgeted, with the thinking switch in the request body.
 func streamModel(
 	ctx context.Context, c *Cred, tok int, opt StreamOptions,
 ) (model.ToolCallingChatModel, error) {
-	if !opt.NoThinking || c.Provider == providerAnthrop {
+	if !opt.NoThinking {
 		return BuildChatModelBudgeted(ctx, c, tok)
 	}
 	if err := checkCredBasics(c); err != nil {
@@ -89,6 +113,11 @@ func streamModel(
 	}
 	if err := validateUntrustedEndpoint(ctx, c); err != nil {
 		return nil, err
+	}
+	if c.Provider == providerAnthrop {
+		return buildClaudeModelWith(ctx, c, tok, func(cfg *claude.Config) error {
+			return json.Unmarshal(thinkingOff, &cfg.AdditionalRequestFields)
+		})
 	}
 	return buildOpenAICompatModelWith(ctx, c, tok, func(cfg *openai.ChatModelConfig) error {
 		return json.Unmarshal(thinkingOff, &cfg.ExtraFields)

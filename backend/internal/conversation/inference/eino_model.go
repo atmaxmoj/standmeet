@@ -123,6 +123,14 @@ func validateUntrustedEndpoint(ctx context.Context, cred *Cred) error {
 func buildClaudeModel(
 	ctx context.Context, cred *Cred, maxTok int,
 ) (model.ToolCallingChatModel, error) {
+	return buildClaudeModelWith(ctx, cred, maxTok, nil)
+}
+
+// buildClaudeModelWith —— tune, when set, adjusts the config before the model is built
+// (stream_text.go's thinking switch).
+func buildClaudeModelWith(
+	ctx context.Context, cred *Cred, maxTok int, tune func(*claude.Config) error,
+) (model.ToolCallingChatModel, error) {
 	cfg := &claude.Config{
 		APIKey:    cred.Key.Reveal(),
 		Model:     cred.Model,
@@ -131,6 +139,11 @@ func buildClaudeModel(
 	if cred.Endpoint != "" {
 		ep := cred.Endpoint
 		cfg.BaseURL = &ep
+	}
+	if tune != nil {
+		if err := tune(cfg); err != nil {
+			return nil, fmt.Errorf("eino: claude config: %w", err)
+		}
 	}
 	cm, err := claude.NewChatModel(ctx, cfg)
 	if err != nil {

@@ -16,7 +16,10 @@ import type { Playwright } from '@playwright/test';
 
 import { test, expect, type APIRequestContext, type Page } from '@/fixtures/test';
 
-import { DEEPSEEK_MOCK_CFG, createAPIToken, login as loginAPI, seedAIProvider } from '@/fixtures/admin';
+import {
+  ANTHROPIC_MOCK_CFG, DEEPSEEK_MOCK_CFG, createAPIToken, login as loginAPI, seedAIProvider,
+} from '@/fixtures/admin';
+import { createProvider } from '@/fixtures/providers';
 import { claimFreshOwner } from '@/fixtures/seed';
 import { callTool, callToolOutcome, initMCP } from '@/fixtures/mcp';
 import { gotoAdminSection } from '@/fixtures/navigate';
@@ -32,6 +35,7 @@ const OWNER = {
 };
 const ROLE = 'cue-software';
 const EMPTY_ROLE = 'cue-nothing';
+const CLAUDE_ROLE = 'cue-on-claude';
 
 interface Prompt { system: string; sources: string[]; matrix: string; stack_named: string[] }
 interface Cue { card: string; feed_id: string; model: string; debug: Prompt }
@@ -62,7 +66,24 @@ test.describe('assistant.cue', () => {
   test('the Mentor round never sees someone else’s facts', mentorSeesOwnWork);
   test('prepare: the note count and the names for speech recognition', prepareSession);
   test('a wrong ask says what is wrong', wrongAsks);
+  test('a model that thinks first still writes the card', thinkingModelWrites);
 });
+
+// thinkingModelWrites —— prod 2026-10-20: the interview role runs on Claude 5.5 Haiku, which
+// thinks by default; its thinking took the whole 800-token budget and every card came back
+// "the model returned no text". The mock answers [[thinks-first]] the same way unless the
+// request turns thinking off.
+async function thinkingModelWrites({ request }: { request: APIRequestContext }): Promise<void> {
+  const t = await tools(request, 'assistant-cue-thinking');
+  const text = '**Key: orchestration + alternatives**\n**Not in your own work: you ruled Kubernetes out.**';
+  const tag = await scriptMockReplyText(request, text);
+  const cue = await t.call<Cue>('assistant.cue', {
+    role_id: CLAUDE_ROLE, round: 'technical',
+    question: `Tell me about your experience with Kubernetes.[[thinks-first]]${tag}`,
+  });
+  // the Anthropic mock echoes the whole system prompt ahead of the reply
+  expect(cue.card.endsWith(text), cue.card.slice(-200)).toBe(true);
+}
 
 // seedOwner —— the owner on the mock DeepSeek, three notes (one inside the role's scope, one
 // someone else's fact, one outside the scope) and two roles (one with an empty scope).
@@ -91,6 +112,10 @@ async function seedOwner(playwright: Playwright): Promise<void> {
     name: ROLE, description: 'Platform engineer interview', corpus_uris: ['wiki://software/**'],
   });
   await createRole(request, csrf, { name: EMPTY_ROLE, corpus_uris: ['wiki://nothing/**'] });
+  const claude = await createProvider(request, csrf, { label: 'claude', ...ANTHROPIC_MOCK_CFG });
+  await createRole(request, csrf, {
+    name: CLAUDE_ROLE, corpus_uris: ['wiki://software/**'], provider_id: claude.id,
+  });
   await request.dispose();
 }
 

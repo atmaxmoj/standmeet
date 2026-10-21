@@ -83,10 +83,19 @@ func (a *Assistant) streamer(
 			return
 		}
 		last = time.Now()
-		if err := a.Feed.Push(ctx, ownerID, &Event{ID: id, Kind: KindCue, Text: text}); err != nil {
+		if err := a.Feed.Push(ctx, ownerID, feedCard(id, text)); err != nil {
 			log.Warn("cue stream push", "err", err)
 		}
 	}
+}
+
+// feedCard —— the card as the feed shows it: a card longer than the feed holds is cut there,
+// never refused (the caller still gets the whole card).
+func feedCard(id, text string) *Event {
+	if len(text) > maxText {
+		text = strings.ToValidUTF8(text[:maxText], "")
+	}
+	return &Event{ID: id, Kind: KindCue, Text: text}
 }
 
 // finish —— the whole card into the feed, and onto the call's history.
@@ -95,7 +104,7 @@ func (a *Assistant) finish(ctx context.Context, ownerID, feedID, callID, text st
 	if card == "" {
 		return fmt.Errorf("%w: the model returned no text", errModelCall)
 	}
-	if err := a.Feed.Push(ctx, ownerID, &Event{ID: feedID, Kind: KindCue, Text: text}); err != nil {
+	if err := a.Feed.Push(ctx, ownerID, feedCard(feedID, text)); err != nil {
 		return err
 	}
 	if callID == "" {
