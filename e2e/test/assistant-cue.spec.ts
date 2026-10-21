@@ -67,7 +67,32 @@ test.describe('assistant.cue', () => {
   test('prepare: the note count and the names for speech recognition', prepareSession);
   test('a wrong ask says what is wrong', wrongAsks);
   test('a model that thinks first still writes the card', thinkingModelWrites);
+  test('the rewrite restores a mis-heard name and refuses an invented one', rewriteGuarded);
 });
+
+interface Heard { heard: string; question: string; refused?: string }
+
+// rewriteGuarded —— owner, 2026-10-21: "除了accent还有stutter，你光靠stt技术肯定不行，绝对是要有个重写层的".
+// The rewrite turns what speech recognition heard into what was meant; code refuses a rewrite
+// that brings in a name nothing heard sounds like (the first rewrite tried turned "Coopatavi"
+// into Kubernetes).
+async function rewriteGuarded({ request }: { request: APIRequestContext }): Promise<void> {
+  const t = await tools(request, 'assistant-cue-rewrite');
+  const fixTag = await scriptMockReplyText(request, '{"question":"How does bwrap isolate the plugins?"}');
+  const fixed = await t.call<Prompt & { heard: Heard }>('assistant.context', {
+    role_id: ROLE, rewrite: true, question: `How does uh how does BRAP isolate the the plugins?${fixTag}`,
+  });
+  expect(fixed.heard.question).toBe('How does bwrap isolate the plugins?');
+  expect(fixed.stack_named, 'the restored name finds its notes').toEqual(['bubblewrap']);
+
+  const inventTag = await scriptMockReplyText(request, '{"question":"How does Kubernetes isolate the plugins?"}');
+  const refused = await t.call<Prompt & { heard: Heard }>('assistant.context', {
+    role_id: ROLE, rewrite: true, question: `How does Coopatavi isolate the plugins?${inventTag}`,
+  });
+  expect(refused.heard.refused).toMatch(/kubernetes/i);
+  expect(refused.heard.question, 'the line as heard is kept').toContain('Coopatavi');
+  expect(refused.stack_named).toEqual([]);
+}
 
 // thinkingModelWrites —— prod 2026-10-20: the interview role runs on Claude 5.5 Haiku, which
 // thinks by default; its thinking took the whole 800-token budget and every card came back

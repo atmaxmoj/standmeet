@@ -58,18 +58,38 @@ func (a *Assistant) begin(ctx context.Context, ownerID string, q *Ask) (Prompt, 
 	if err != nil {
 		return Prompt{}, err
 	}
-	line := Message{Role: "user", Content: strings.TrimSpace(q.Question)}
-	if q.CallID == "" {
-		p.messages = []Message{line}
-		return p, nil
+	if p.messages, err = a.callMessages(ctx, ownerID, q.CallID, &p); err != nil {
+		return Prompt{}, err
+	}
+	p.messages[len(p.messages)-1].Content = asHeard(&p.Heard)
+	return p, nil
+}
+
+// callMessages —— the line on its own, or the call so far with the line added (and the call
+// locked onto a job the line named).
+func (a *Assistant) callMessages(
+	ctx context.Context, ownerID, callID string, p *Prompt,
+) ([]Message, error) {
+	line := Message{Role: "user", Content: strings.TrimSpace(p.Heard.Question)}
+	if callID == "" {
+		return []Message{line}, nil
 	}
 	if p.noticed != nil {
-		if lerr := a.Feed.lockJob(ctx, ownerID, q.CallID, p.noticed); lerr != nil {
-			return Prompt{}, lerr
+		if err := a.Feed.lockJob(ctx, ownerID, callID, p.noticed); err != nil {
+			return nil, err
 		}
 	}
-	p.messages, err = a.Feed.addLine(ctx, ownerID, q.CallID, line)
-	return p, err
+	return a.Feed.addLine(ctx, ownerID, callID, line)
+}
+
+// asHeard —— the line for the card model: as meant, with what speech recognition heard beside it
+// when the rewrite changed it, so the model can tell a doubtful fix.
+func asHeard(h *Heard) string {
+	meant := strings.TrimSpace(h.Question)
+	if meant == strings.TrimSpace(h.Raw) {
+		return meant
+	}
+	return meant + "\n\n(speech recognition heard: \"" + strings.TrimSpace(h.Raw) + "\")"
 }
 
 // streamer —— writes the growing card to the feed at most every pushEvery; a failed step is

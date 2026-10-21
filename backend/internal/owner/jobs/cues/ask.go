@@ -16,6 +16,8 @@ type Ask struct {
 	Question    string
 	CallID      string // the call this line belongs to; "" = a line on its own
 	UserContext string // the owner's extra words for this session
+	// Rewrite —— turn the line as heard into the line as meant first (rewrite.go).
+	Rewrite bool
 }
 
 // Prepared —— what a session starts with.
@@ -52,6 +54,7 @@ type Prompt struct {
 	noticed *Job
 	// messages —— what assistant.cue sends after the system prompt.
 	messages []Message
+	Heard    Heard
 	System   string
 	Context  string
 	Sources  []string
@@ -74,7 +77,37 @@ func (a *Assistant) Context(ctx context.Context, ownerID string, q *Ask) (Prompt
 	if err != nil {
 		return Prompt{}, err
 	}
-	b := rd.deck.build(q.Question, round, screen.text)
+	heard, err := a.hear(ctx, ownerID, q, &rd, &screen)
+	if err != nil {
+		return Prompt{}, err
+	}
+	return compose(q, round, &rd, &screen, heard), nil
+}
+
+// hear —— the line as meant: rewritten when q.Rewrite (stutters, fillers, a cut sentence, a
+// mis-heard name), else as heard.
+func (a *Assistant) hear(
+	ctx context.Context, ownerID string, q *Ask, rd *roleDeck, screen *screenPick,
+) (Heard, error) {
+	if !q.Rewrite {
+		return Heard{Raw: q.Question, Question: q.Question}, nil
+	}
+	earlier := []string{}
+	if q.CallID != "" {
+		var err error
+		if earlier, err = a.Feed.callLines(ctx, ownerID, q.CallID, rewriteContext); err != nil {
+			return Heard{}, err
+		}
+	}
+	return a.rewrite(ctx, ownerID, &toRewrite{
+		provider: rd.role.ProviderID, line: q.Question,
+		names: rd.deck.ownNames(screen.companies), earlier: earlier,
+	}), nil
+}
+
+// compose —— the system prompt for the line as meant.
+func compose(q *Ask, round *Round, rd *roleDeck, screen *screenPick, heard Heard) Prompt {
+	b := rd.deck.build(heard.Question, round, screen.text)
 	extra := ""
 	if t := jsTrim(q.UserContext); t != "" {
 		extra = "\n\n## Also from the user\n" + t
@@ -82,8 +115,8 @@ func (a *Assistant) Context(ctx context.Context, ownerID string, q *Ask) (Prompt
 	return Prompt{
 		System:  systemPrompt(b.context+extra, round.closingRules()),
 		Context: b.context, Sources: b.sources, Named: b.named, Matrix: b.matrix,
-		role: rd.role, noticed: screen.noticed,
-	}, nil
+		role: rd.role, noticed: screen.noticed, Heard: heard,
+	}
 }
 
 // deckWithNotes —— the role's deck; a scope that holds nothing is an error, not an empty card.
@@ -107,8 +140,9 @@ func checkAsk(q *Ask) (*Round, error) {
 }
 
 type screenPick struct {
-	noticed *Job
-	text    string
+	noticed   *Job
+	text      string
+	companies []string // every applied job's company: names the rewrite may restore
 }
 
 // callScreen —— the phone-screen block: the script, and the job the call is locked onto, or the
@@ -122,14 +156,21 @@ func (a *Assistant) callScreen(ctx context.Context, ownerID string, q *Ask) (scr
 	if err != nil {
 		return screenPick{}, err
 	}
-	if job.Company != "" {
-		return screenPick{text: screen.context(&job)}, nil
+	return pickScreen(&screen, &job, q.Question), nil
+}
+
+// pickScreen —— the locked job, else the applied job this line names (noticed), else none.
+func pickScreen(screen *Screen, locked *Job, line string) screenPick {
+	pick := screenPick{companies: screen.companies()}
+	switch i := screen.notice(line); {
+	case locked.Company != "":
+		pick.text = screen.context(locked)
+	case i < 0:
+		pick.text = screen.context(nil)
+	default:
+		pick.text, pick.noticed = screen.context(&screen.Jobs[i]), &screen.Jobs[i]
 	}
-	i := screen.notice(q.Question)
-	if i < 0 {
-		return screenPick{text: screen.context(nil)}, nil
-	}
-	return screenPick{text: screen.context(&screen.Jobs[i]), noticed: &screen.Jobs[i]}, nil
+	return pick
 }
 
 // lockedJob —— the job the call is locked onto; none for a line on its own.

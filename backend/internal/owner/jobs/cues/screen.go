@@ -44,6 +44,15 @@ func ScriptOf(subjectivity []Note) string {
 	return ""
 }
 
+// companies —— every applied job's company, in ledger order.
+func (s Screen) companies() []string {
+	out := make([]string, 0, len(s.Jobs))
+	for _, j := range s.Jobs {
+		out = append(out, j.Company)
+	}
+	return out
+}
+
 func spokenName(company string) string {
 	return strings.ToLower(jsTrim(companySuffixRE.ReplaceAllString(company, "")))
 }

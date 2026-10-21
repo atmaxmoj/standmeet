@@ -67,9 +67,18 @@ func (d *Deck) Hint(companies []string) string {
 	if d.vocabulary == "" {
 		return ""
 	}
-	names := strings.Split(d.vocabulary, ", ")
+	return strings.Join(d.ownNames(companies), ", ")
+}
+
+// ownNames —— the owner's own names, each once: what Whisper is told to expect, and the only
+// names the rewrite layer may put in place of a mis-heard word.
+func (d *Deck) ownNames(companies []string) []string {
+	var names []string
+	if d.vocabulary != "" {
+		names = strings.Split(d.vocabulary, ", ")
+	}
 	names = append(append(names, stackSpellings()...), companies...)
-	return strings.Join(lastSpelling(names), ", ")
+	return lastSpelling(names)
 }
 
 func (d *Deck) add(n *Note) {

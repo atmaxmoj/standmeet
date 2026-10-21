@@ -54,6 +54,27 @@ func (s *Store) addLine(ctx context.Context, ownerID, callID string, m Message) 
 	return out, nil
 }
 
+// callLines —— the other side's last n lines in this call, oldest first.
+func (s *Store) callLines(ctx context.Context, ownerID, callID string, n int) ([]string, error) {
+	rows, err := s.rdb.LRange(ctx, historyKey(ownerID, callID), 0, -1).Result()
+	if err != nil {
+		return nil, fmt.Errorf("cues call history: %w", err)
+	}
+	lines := userLines(rows)
+	return lines[max(0, len(lines)-n):], nil
+}
+
+func userLines(rows []string) []string {
+	lines := []string{}
+	for _, r := range rows {
+		var msg Message
+		if json.Unmarshal([]byte(r), &msg) == nil && msg.Role == "user" {
+			lines = append(lines, msg.Content)
+		}
+	}
+	return lines
+}
+
 // addCard —— the finished card, after the line it answered.
 func (s *Store) addCard(ctx context.Context, ownerID, callID, card string) error {
 	raw, err := json.Marshal(Message{Role: "assistant", Content: card})

@@ -29,7 +29,11 @@ const askProps = `
 		"description":"One id per interview: the card sees the call so far, and a call ` +
 	`that names a company applied to stays on that job. Absent = a line on its own."},
 	"user_context":{"type":"string",
-		"description":"Extra words from the owner for this session."}`
+		"description":"Extra words from the owner for this session."},
+	"rewrite":{"type":"boolean",
+		"description":"Turn the line as heard into the line as meant first: stutters, ` +
+	`fillers, false starts and a sentence cut in two cleaned up, a mis-heard name of the ` +
+	`owner's restored. Default: off."}`
 
 func (c *assistantFiber) cueBindings() []*registry.MCPBinding {
 	return []*registry.MCPBinding{{
@@ -65,6 +69,7 @@ func (c *assistantFiber) cueBindings() []*registry.MCPBinding {
 }
 
 type askArgs struct {
+	Rewrite     *bool  `json:"rewrite"`
 	RoleID      string `json:"role_id"`
 	Round       string `json:"round"`
 	Question    string `json:"question"`
@@ -74,10 +79,15 @@ type askArgs struct {
 	Debug       bool   `json:"debug"`
 }
 
-func (a *askArgs) ask() *cues.Ask {
+// ask —— the arguments as an Ask; rewriteByDefault when the caller did not say.
+func (a *askArgs) ask(rewriteByDefault bool) *cues.Ask {
+	rewrite := rewriteByDefault
+	if a.Rewrite != nil {
+		rewrite = *a.Rewrite
+	}
 	return &cues.Ask{
 		RoleRef: a.RoleID, Round: a.Round, Question: a.Question,
-		CallID: a.CallID, UserContext: a.UserContext,
+		CallID: a.CallID, UserContext: a.UserContext, Rewrite: rewrite,
 	}
 }
 
@@ -115,7 +125,7 @@ func (c *assistantFiber) handleContext(
 	if err := decodeArgs(raw, &in); err != nil {
 		return registry.MCPError(err.Error())
 	}
-	p, err := c.asst.Context(ctx, ownerID, in.ask())
+	p, err := c.asst.Context(ctx, ownerID, in.ask(false))
 	if err != nil {
 		return c.failed("assistant.context", err)
 	}
@@ -129,7 +139,8 @@ func (c *assistantFiber) handleCue(
 	if err := decodeArgs(raw, &in); err != nil {
 		return registry.MCPError(err.Error())
 	}
-	card, err := c.asst.Cue(ctx, c.log, ownerID, in.ID, in.ask())
+	// ponytail: off until the rewrite is measured on real accented speech (eval:accents); then on
+	card, err := c.asst.Cue(ctx, c.log, ownerID, in.ID, in.ask(false))
 	if err != nil {
 		return c.failed("assistant.cue", err)
 	}
@@ -147,6 +158,7 @@ func promptOut(p *cues.Prompt) map[string]any {
 	}
 	return map[string]any{
 		"system": p.System, "context": p.Context, "sources": nonNil(p.Sources),
+		"heard":  p.Heard,
 		"matrix": matrix, "stack_named": nonNil(p.Named),
 	}
 }
