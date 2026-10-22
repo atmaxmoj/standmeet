@@ -57,10 +57,9 @@ func BuildDispatcher(d *deps.Runtime) *dispatcher.Dispatcher {
 		BannedIPs:      security.IPBanDeps{Bans: d.BannedIPRepo, Events: d.Recorder()},
 		Monitor:        d.MonitorRepo,
 		AllowedDomains: owner.AllowedDomainsDeps{Instance: d.InstanceRepo},
-		OwnerCSS:       d.OwnerRepo,
-		OwnerFavicon:   d.OwnerRepo,
-		Prompts:        owner.PromptsDeps{Prompts: d.PromptRepo},
-		Settings:       settingsDepsOf(d), Retention: port.Retention(d),
+		OwnerCSS:       d.OwnerRepo, OwnerFavicon: d.OwnerRepo,
+		Prompts:  owner.PromptsDeps{Prompts: d.PromptRepo},
+		Settings: settingsDepsOf(d), Retention: port.Retention(d),
 		SkillHandover: port.SkillHandover(d),
 		// Providers — same Owners repo + provider-name validation ruler every entry must pass.
 		// Spend is the other half: owner manages the tank, stats meters usage; joined here (#7).
