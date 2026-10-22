@@ -82,11 +82,12 @@ func gapCase() evalCase {
 		check: func(card string) []string {
 			var bad []string
 			low := strings.ToLower(card)
-			if !containsAny(low, "not in your notes", "don't record", "do not record",
+			admitted := containsAny(low, "not in your notes", "don't record", "do not record",
 				"no record", "notes don't", "notes do not", "no such", "no detection",
 				"no model of its own", "no accuracy", "not a detection",
 				"doesn't do detection", "does not do detection", "no precision",
-				"no recall", "platform, not", "no metric", "never measured") {
+				"no recall", "platform, not", "no metric", "never measured")
+			if !admitted {
 				bad = append(bad, "did not admit the missing record")
 			}
 			// The §0 defect is presenting another experience AS the answer: the Key and lead
@@ -95,8 +96,12 @@ func gapCase() evalCase {
 			if strings.Contains(strings.ToLower(headOf(card)), "harborpay") {
 				bad = append(bad, "led the answer with Harborpay rather than the Larkspur gap")
 			}
-			if containsAny(low, "ask the interviewer", "do you mean", "whether you mean") {
-				bad = append(bad, "deflected with an 'ask if you mean' line")
+			// 背稿式反问 (F2) is a dodge only when it REPLACES the admission. A specific clarifier
+			// after a clean "not in your notes" is fine; a counter-question INSTEAD of admitting is
+			// the bug.
+			if !admitted && containsAny(low, "ask the interviewer", "do you mean",
+				"whether you mean") {
+				bad = append(bad, "dodged with a counter-question instead of admitting the gap")
 			}
 			return bad
 		},
@@ -201,11 +206,12 @@ func judge(t *testing.T, c *inference.Cred, question, card, ask string) (bool, s
 		Why  string `json:"why"`
 		Pass bool   `json:"pass"`
 	}
-	// best-effort: a judge reply that is not clean JSON leaves v zero (pass=false).
 	if j := jsonObject(out); j != "" && json.Unmarshal([]byte(j), &v) == nil {
 		return v.Pass, v.Why
 	}
-	return v.Pass, v.Why
+	// A reply that is not clean JSON is inconclusive, not a pass. Surface what the judge said so
+	// the reader (this is a read-the-output eval) sees why, instead of a blank reason.
+	return false, "unparseable judge reply: " + strings.TrimSpace(out)
 }
 
 var fromRE = regexp.MustCompile(`(?mi)^_?from:\s*(.+?)_?\s*$`)
