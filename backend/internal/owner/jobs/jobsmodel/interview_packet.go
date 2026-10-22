@@ -34,6 +34,18 @@ type packetSource struct {
 	JobSeenID     string  `json:"job_seen_id"`
 }
 
+// PacketResume —— the tailored résumé actually bound to this posting's application
+// (cue-resume-binding R1): the résumé content the owner submitted, plus which application and code
+// it belongs to. Source is "application" for a real submission, or
+// "master-tailored-for-practice" when a master was tailored on the fly for an unapplied practice
+// gig. A posting with no application carries resume: null (the engine degrades and says so).
+type PacketResume struct {
+	ApplicationID *string         `json:"application_id"`
+	Code          *string         `json:"code"`
+	Source        string          `json:"resume_source"`
+	Content       json.RawMessage `json:"content"`
+}
+
 type corpusScope struct {
 	URIs  []string    `json:"uris"`
 	Notes []ScopeNote `json:"notes"`
@@ -48,6 +60,7 @@ type scaleEstimate struct{}
 type packetBody struct {
 	ScaleEstimate     *scaleEstimate `json:"scale_estimate"`
 	Source            packetSource   `json:"source"`
+	Resume            *PacketResume  `json:"resume"`
 	Company           string         `json:"company"`
 	Title             string         `json:"title"`
 	JDText            string         `json:"jd_text"`
@@ -60,12 +73,14 @@ type packetBody struct {
 	Version           int            `json:"version"`
 }
 
-// PacketOf —— the row and its scope notes as a packet.
-func PacketOf(row *SeenRow, notes []ScopeNote) (Packet, error) {
+// PacketOf —— the row, its scope notes, and the bound application's tailored résumé (nil when the
+// posting has no application) as a packet.
+func PacketOf(row *SeenRow, notes []ScopeNote, resume *PacketResume) (Packet, error) {
 	a := &row.Annotations
 	b := packetBody{
 		Version: 1,
 		Source:  packetSource{JobSeenID: row.ID, ApplicationID: row.ApplicationID},
+		Resume:  resume,
 		Company: row.Snapshot.Company, Title: row.Snapshot.Title, JDText: row.Snapshot.BodyText,
 		ActualWorkProfile: a.Brief, Homework: a.Homework,
 		Flags: orEmpty(a.Flags), Deductions: orEmpty(a.Deductions),

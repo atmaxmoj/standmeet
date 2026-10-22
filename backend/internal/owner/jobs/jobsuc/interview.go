@@ -18,11 +18,18 @@ import (
 type ScopeNotesFunc func(ctx context.Context, ownerID string, cited []string) (
 	[]jobsmodel.ScopeNote, error)
 
+// AppResumeFunc —— the tailored résumé bound to an application (cue-resume-binding R1); nil when
+// the application has none. Wired at the composition root over the applications store.
+type AppResumeFunc func(ctx context.Context, ownerID, applicationID string) (
+	*jobsmodel.PacketResume, error)
+
 // InterviewDeps —— the ledger, and a narrow port into the corpus wired at the composition root:
-// the owner's notes in an interview's scope (the cv, each project root note, each cited note).
+// the owner's notes in an interview's scope (the cv, each project root note, each cited note), and
+// the bound application's tailored résumé.
 type InterviewDeps struct {
 	Seen       *JobSeenRepo
 	ScopeNotes ScopeNotesFunc
+	AppResume  AppResumeFunc
 }
 
 // InterviewPacket —— jobs.interview_packet. A cleared row has nothing to interview on.
@@ -40,7 +47,26 @@ func InterviewPacket(
 	if err != nil {
 		return jobsmodel.Packet{}, fmt.Errorf("interview scope notes: %w", err)
 	}
-	return jobsmodel.PacketOf(&row, notes)
+	resume, err := d.boundResume(ctx, ownerID, row.ApplicationID)
+	if err != nil {
+		return jobsmodel.Packet{}, err
+	}
+	return jobsmodel.PacketOf(&row, notes, resume)
+}
+
+// boundResume —— the application's tailored résumé, or nil when the posting has no application, or
+// no résumé loader is wired.
+func (d *InterviewDeps) boundResume(
+	ctx context.Context, ownerID string, applicationID *string,
+) (*jobsmodel.PacketResume, error) {
+	if applicationID == nil || d.AppResume == nil {
+		return nil, nil
+	}
+	resume, err := d.AppResume(ctx, ownerID, *applicationID)
+	if err != nil {
+		return nil, fmt.Errorf("interview bound résumé: %w", err)
+	}
+	return resume, nil
 }
 
 // AddInterviewReport —— jobs.add_interview_report: one report appended to the row, which counts

@@ -6,6 +6,7 @@ package port
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"slices"
@@ -16,6 +17,33 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsmodel"
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/jobsuc"
 )
+
+// InterviewAppResume —— the tailored résumé of the application a posting is bound to
+// (cue-resume-binding R1): its structured content plus the application id and the access code it
+// was stamped with. A posting with no application gets nil; InterviewPacket then emits resume:null.
+func InterviewAppResume(d *deps.Runtime) jobsuc.AppResumeFunc {
+	return func(
+		ctx context.Context, ownerID, applicationID string,
+	) (*jobsmodel.PacketResume, error) {
+		app, err := d.ApplicationRepo.GetByID(ctx, ownerID, applicationID)
+		if err != nil {
+			return nil, fmt.Errorf("application %s: %w", applicationID, err)
+		}
+		content, err := json.Marshal(app.ResumeContent)
+		if err != nil {
+			return nil, fmt.Errorf("résumé content: %w", err)
+		}
+		id := applicationID
+		pr := &jobsmodel.PacketResume{
+			ApplicationID: &id, Source: "application", Content: content,
+		}
+		if code, cerr := d.CodeRepo.GetByID(ctx, app.AccessCodeID); cerr == nil && code.Code != "" {
+			c := code.Code
+			pr.Code = &c
+		}
+		return pr, nil
+	}
+}
 
 // projectRoot —— a project's root note: exactly one level under software/project.
 var projectRoot = regexp.MustCompile(`^software/project/[^/]+$`)
