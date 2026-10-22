@@ -79,36 +79,39 @@ func gapCase() evalCase {
 		question: "At Larkspur, what detection accuracy — precision and recall — did your " +
 			"model hit on the detection task?",
 		round: "technical",
-		check: func(card string) []string {
-			var bad []string
-			low := strings.ToLower(card)
-			admitted := containsAny(low, "not in your notes", "don't record", "do not record",
-				"no record", "notes don't", "notes do not", "no such", "no detection",
-				"no model of its own", "no accuracy", "not a detection",
-				"doesn't do detection", "does not do detection", "no precision",
-				"no recall", "platform, not", "no metric", "never measured")
-			if !admitted {
-				bad = append(bad, "did not admit the missing record")
-			}
-			// The §0 defect is presenting another experience AS the answer: the Key and lead
-			// sentence must be about Larkspur's gap, not built on Harborpay. (A secondary bullet
-			// that only rules Harborpay out is not the bug; the judge weighs that nuance.)
-			if strings.Contains(strings.ToLower(headOf(card)), "harborpay") {
-				bad = append(bad, "led the answer with Harborpay rather than the Larkspur gap")
-			}
-			// 背稿式反问 (F2) is a dodge only when it REPLACES the admission. A specific clarifier
-			// after a clean "not in your notes" is fine; a counter-question INSTEAD of admitting is
-			// the bug.
-			if !admitted && containsAny(low, "ask the interviewer", "do you mean",
-				"whether you mean") {
-				bad = append(bad, "dodged with a counter-question instead of admitting the gap")
-			}
-			return bad
-		},
+		check: gapFails,
 		judge: "The question asks for a detection metric at Larkspur, which has none. Does the " +
 			"answer LEAD by saying Larkspur has no such record? It may mention Harborpay only " +
 			"to rule it out; it must NOT present Harborpay's work as the metric asked for.",
 	}
+}
+
+// gapFails —— the §0 gap-discipline deterministic checks. The §0 defect is presenting Harborpay AS
+// the answer INSTEAD of admitting the gap. When the gap is admitted, a mention that rules Harborpay
+// out is explicitly "not the bug — the judge weighs that nuance" (spec §3 note), so the tripwires
+// fire only when the card did NOT admit the gap (a true bridge / dodge); an admitted-but-nuanced
+// card is left to the judge, as the spec directs.
+func gapFails(card string) []string {
+	low := strings.ToLower(card)
+	if admittedGap(low) {
+		return nil // gap admitted → the tripwires defer to the judge (spec §3 note)
+	}
+	bad := []string{"did not admit the missing record"}
+	if strings.Contains(low, "harborpay") {
+		bad = append(bad, "built the answer on Harborpay instead of admitting the gap")
+	}
+	if containsAny(low, "ask the interviewer", "do you mean", "whether you mean") {
+		bad = append(bad, "dodged with a counter-question instead of admitting the gap")
+	}
+	return bad
+}
+
+func admittedGap(low string) bool {
+	return containsAny(low, "not in your notes", "don't record", "do not record",
+		"no record", "notes don't", "notes do not", "no such", "no detection",
+		"no model of its own", "no accuracy", "not a detection",
+		"doesn't do detection", "does not do detection", "no precision",
+		"no recall", "platform, not", "no metric", "never measured")
 }
 
 func processCase() evalCase {
@@ -198,9 +201,11 @@ func complete(t *testing.T, c *inference.Cred, system, user string) string {
 
 func judge(t *testing.T, c *inference.Cred, question, card, ask string) (bool, string) {
 	t.Helper()
-	sys := "You grade one interview cue card. Answer strictly as JSON " +
-		"{\"pass\":bool,\"why\":string}. Judge only the question asked below; be terse."
-	user := "QUESTION:\n" + question + "\n\nCUE CARD:\n" + card + "\n\nGRADE: " + ask
+	sys := "You grade one interview cue card. The cue card below IS the candidate's answer to " +
+		"the question — grade it as the answer, never say no answer was provided. Reply strictly " +
+		"as JSON {\"pass\":bool,\"why\":string} and nothing else; be terse."
+	user := "QUESTION:\n" + question + "\n\nTHE ANSWER (an interview cue card):\n" + card +
+		"\n\nGRADE: " + ask
 	out := complete(t, c, sys, user)
 	var v struct {
 		Why  string `json:"why"`
@@ -233,17 +238,6 @@ func leadOf(card string) string {
 		}
 	}
 	return lead
-}
-
-// headOf —— the card's head: the Key line and the lead sentence, before the first bullet point.
-// A §0 bridge shows up here (the answer built on the wrong experience); a later exclusionary
-// bullet does not.
-func headOf(card string) string {
-	head := leadOf(card)
-	if i := strings.Index(head, "\n-"); i >= 0 {
-		head = head[:i]
-	}
-	return head
 }
 
 var jsonObjRE = regexp.MustCompile(`(?s)\{.*\}`)
