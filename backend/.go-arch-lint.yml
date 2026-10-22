@@ -194,6 +194,10 @@ components:
     in: internal/owner/ops           # owner guts: declaration of what this domain offers outward
   ownersubscriber:
     in: internal/owner/subscriber    # owner guts: what owner does in response to events (webhook fan-out + delivery)
+  ownerskills:
+    in: internal/owner/skills        # the independent Skills subsystem (skill-handover spec): zero domain coupling by design
+  ownerskillspg:
+    in: internal/owner/skills/skillpg # the Skills subsystem's own Postgres store (its only edge)
   sandbox:
     in: internal/infra/sandbox                  # owner-curated skill scripts run inside a docker container
   plugin:
@@ -1285,7 +1289,20 @@ deps:
       - ownerusecase
       - ownerops
       - ownersubscriber
+      - ownerskills      # the facade re-exports the Skills service type + its handover ops
       - corpusi18n
+    anyVendorDeps: true
+  # ownerskills — the independent Skills subsystem. mayDependOn is EMPTY on purpose: the owner's
+  # ruling is zero coupling with corpus/code/microsite/applications, so this gate fails if the
+  # package ever imports another domain (skill-handover acceptance #1, now machine-checked).
+  ownerskills:
+    mayDependOn: []
+    anyVendorDeps: true
+  # ownerskillspg — the Skills subsystem's only edge: its own Postgres store, over pgstore.
+  ownerskillspg:
+    mayDependOn:
+      - ownerskills
+      - pgstore
     anyVendorDeps: true
   # ownersubscriber — what owner does when an event arrives: webhook fan-out (one transaction of
   # enqueues) and delivery (lease, post through events' signer, settle). It may use the repo; nothing
@@ -1334,6 +1351,7 @@ deps:
       # in this domain), seo (entries live in corpus, this domain picks the pins).
       - access
       - corpus
+      - ownerskills  # the skills.* handover ops are declared here over the Skills service
       # if the outbound channel isn't configured, it needs to be able to say "go configure it" — that
       # sentinel lives on the supplier consumer side.
       - adapters
@@ -1380,6 +1398,7 @@ deps:
       # agent that chats on it (LiveMicrositeText).
       - plaintext
       - textcut
+      - ownerskills  # claim seeds the bundled interview-loop skill (skills.SeedBundled)
     anyVendorDeps: true
 
 
@@ -1796,6 +1815,8 @@ deps:
       - search
       - conversation
       - owner
+      - ownerskills      # builds the Skills service (skills.NewService)
+      - ownerskillspg    # over its Postgres store (skillpg.New)
       - corpus
       - pgstore
     anyVendorDeps: true

@@ -2151,6 +2151,8 @@ CREATE TRIGGER roles_forget_in_posts AFTER DELETE ON roles
 -- of text + metadata an agent pulls and follows. Its own tables only — no foreign key into corpus /
 -- code / microsite / applications. source = 'bundled' | 'owner' | 'third-party' (metadata, grants
 -- nothing). migrations/2026-10-22-agent-skills.sql.
+-- events: none (owner-managed config; agents pull the current version live via skills.get, and no
+-- subscriber reacts to a skill create/edit/delete)
 CREATE TABLE agent_skills (
     id              uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id        uuid        NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
@@ -2166,6 +2168,7 @@ CREATE TABLE agent_skills (
 
 -- agent_skill_versions —— every version of a skill's body; the old ones stay readable so a run can
 -- replay exactly the body it followed.
+-- events: none (written only together with their skill; no separate subscriber)
 CREATE TABLE agent_skill_versions (
     skill_id   uuid        NOT NULL REFERENCES agent_skills(id) ON DELETE CASCADE,
     version    integer     NOT NULL,

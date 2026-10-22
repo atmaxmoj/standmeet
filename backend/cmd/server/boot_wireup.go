@@ -220,6 +220,9 @@ func registerAgentSkills(ctx context.Context, d *deps.Runtime) {
 	// the paste that first installed them. A block that worked until the process died
 	// is worse than one that never worked: the owner has no reason to look.
 	restoreOwnerBlocks(ctx, d)
+	// Bundled skills (the interview loop) ship with releases, so an already-claimed instance
+	// gaining the feature through an upgrade must get them too — claim only covers fresh ones.
+	port.SeedBundledSkills(ctx, d)
 	// Prime each externalized block's shared spec + UI cache now that every block (builtin,
 	// deploy-declared, owner-installed) is registered — BEFORE the server serves (this runs at
 	// boot, ahead of ListenAndServe). The fibers are process-lifetime singletons, so this one warm
