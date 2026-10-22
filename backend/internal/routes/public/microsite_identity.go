@@ -24,6 +24,11 @@ type siteIdentity struct {
 // applyIdentity —— fill the crawler-facing identity of a live page from the owner it belongs to.
 func applyIdentity(asset *BuiltAsset, id *siteIdentity) {
 	asset.Canonical = canonicalFor(id)
+	if asset.SeoImage == nil && id.publicURL != "" {
+		// a shared link renders a large card even when the owner set no image: the site's card,
+		// drawn by the app (app/src/app/og/site)
+		asset.SeoImage = optStr(id.publicURL + "/og/site")
+	}
 	if !id.home {
 		return
 	}

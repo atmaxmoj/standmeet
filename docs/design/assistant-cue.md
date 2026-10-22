@@ -53,6 +53,11 @@ Code: `backend/internal/owner/jobs/cues/` (the mechanism) and `backend/cmd/serve
    `deepseek-flash` with thinking off, `max_tokens` 800. Usage is billed as `screen_assistant`.
 6. The card streams into the feed (one push per 300 ms, the final text last), then goes onto the
    call's history.
+7. The rewrite (`cues/rewrite.go`) runs first, by default (owner, 2026-10-21). The model turns the
+   line as heard into the line as meant: fillers, stutters and false starts out, a mis-heard
+   owner name restored. Code refuses a rewrite that adds a name nothing heard sounds like, a new
+   number, or more than 3 words. Any failure keeps the line as heard. The card model sees both
+   lines. A caller with a clean line passes `rewrite: false`.
 
 ## Acceptance
 

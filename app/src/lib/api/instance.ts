@@ -22,10 +22,14 @@ const InstanceInfoSchema = z.object({
   // emails). /gate uses this to decide whether to show the "request access"
   // block at all. Defaults to false (don't show it if it can't send).
   can_deliver_codes: z.boolean().optional().default(false),
+  // public_url —— the site's address (sitemap, canonical); share cards are built on it.
+  public_url: z.string().optional().default(''),
 });
 export type InstanceInfo = z.infer<typeof InstanceInfoSchema>;
 
-const FALLBACK: InstanceInfo = { claimed: false, handle: '', name: '', can_deliver_codes: false };
+const FALLBACK: InstanceInfo = {
+  claimed: false, handle: '', name: '', can_deliver_codes: false, public_url: '',
+};
 
 export async function fetchInstance(): Promise<InstanceInfo> {
   const backend = process.env['BACKEND_URL'] ?? 'http://backend:8000';

@@ -31,6 +31,11 @@ const OWNER = {
 };
 const WIKI_PATH = 'notes/why-names-matter';
 const WRITING_SLUG = 'a-published-essay';
+const SECOND_SLUG = 'design-the-way-back';
+const SECOND_TITLE = 'Design the Way Back';
+const SECOND_EXCERPT = 'Everyone designs the upgrade path; few design the rollback path in advance — '
+  + 'especially the database schema. Notes from the release that taught me, and what I changed '
+  + 'in every migration after it so the way back is as tested as the way forward.';
 const MICRO_SLUG = 'portfolio';
 const CLOSED_SLUG = 'for-a-recruiter';
 
@@ -64,7 +69,11 @@ test.beforeAll(async ({ playwright }) => {
   });
   await publishEntry(request, token, sid, { genre: 'wiki', id: wikiID, excerpt: 'A note about names.' });
   await callTool(request, token, sid, 'writing_create', {
-    slug: WRITING_SLUG, title: 'A published essay', body: 'Essay body.', publish: true,
+    slug: WRITING_SLUG, title: 'A published essay', body_md: 'Essay body.', publish: true,
+  });
+  await callTool(request, token, sid, 'writing_create', {
+    slug: SECOND_SLUG, title: SECOND_TITLE, excerpt: SECOND_EXCERPT, body_md: '# Heading\n\nBody.',
+    publish: true,
   });
   await publishPage(request, csrf, 'home', HOME, 300_000);
   await publishPage(request, csrf, MICRO_SLUG, 'export default function App(){return <main>work</main>;}', 300_000);
@@ -163,4 +172,85 @@ test.describe('every public page carries the owner and its own address', () => {
     expect(body.split('\n').filter((l) => l.includes(`/p/${CLOSED_SLUG}<`)),
       'no sitemap entry for a page that needs a code').toEqual([]);
   });
+});
+
+// Share cards —— spec standmeet-og-spec-2026-10-21 (owner: every writing gets posted to LinkedIn).
+// Found on sijie.xyz that day with a crawler's user agent: the homepage had no og:image and a small
+// "summary" card; a writing page had no og tags at all and the site's <title>. A link pasted to
+// LinkedIn / X / Slack came out as a bare card with the wrong title.
+const CRAWLER = { 'User-Agent': 'facebookexternalhit/1.1' };
+
+function metaOf(html: string, key: string): string | undefined {
+  const tag = [...html.matchAll(/<meta\s[^>]*>/gi)].map((m) => m[0])
+    .find((t) => t.includes(`property="${key}"`) || t.includes(`name="${key}"`));
+  return tag?.match(/content="([^"]*)"/)?.[1]?.replaceAll('&amp;', '&');
+}
+
+async function crawl(request: APIRequestContext, path: string): Promise<string> {
+  const res = await request.get(`${APP_BASE}${path}`, { headers: CRAWLER, maxRedirects: 0 });
+  expect(res.status(), `GET ${path}`).toBe(200);
+  return res.text();
+}
+
+// shareImage —— the card image as a link previewer fetches it: a PNG, 1200×630 (read from the
+// IHDR header), under 300 KB, cacheable.
+async function shareImage(request: APIRequestContext, url: string): Promise<{ bytes: Buffer; cache: string }> {
+  const res = await request.get(url, { headers: CRAWLER });
+  expect(res.status(), url).toBe(200);
+  expect(res.headers()['content-type']).toBe('image/png');
+  const bytes = await res.body();
+  expect([bytes.readUInt32BE(16), bytes.readUInt32BE(20)], 'width × height').toEqual([1200, 630]);
+  expect(bytes.length, 'under 300 KB').toBeLessThan(300 * 1024);
+  return { bytes, cache: res.headers()['cache-control'] ?? '' };
+}
+
+test.describe('a shared link renders a large card', () => {
+  test('a writing: its own title, description, address and image', async ({ request }) => {
+    const html = await crawl(request, `/writings/${SECOND_SLUG}`);
+    expect([...html.matchAll(TITLE)][0]?.[1]).toContain(SECOND_TITLE);
+    expect(metaOf(html, 'og:title')).toBe(SECOND_TITLE);
+    expect(metaOf(html, 'og:type')).toBe('article');
+    expect(metaOf(html, 'og:url')).toBe(`${APP_BASE}/writings/${SECOND_SLUG}`);
+    const desc = metaOf(html, 'og:description') ?? '';
+    expect(desc.startsWith('Everyone designs the upgrade path'), desc).toBe(true);
+    expect(desc.length, 'cut near 200 characters').toBeLessThanOrEqual(201);
+    expect(desc.endsWith('…'), 'cut at a word, marked').toBe(true);
+    expect(SECOND_EXCERPT.startsWith(desc.slice(0, -1)), 'no word cut in half').toBe(true);
+    expect(metaOf(html, 'twitter:card')).toBe('summary_large_image');
+    expect(metaOf(html, 'twitter:title')).toBe(SECOND_TITLE);
+    const image = metaOf(html, 'og:image') ?? '';
+    expect(image.startsWith(`${APP_BASE}/`), image).toBe(true);
+    const { cache } = await shareImage(request, image);
+    expect(cache).toContain('immutable');
+  });
+
+  test('each writing has its own image, and a writing without an excerpt still describes itself',
+    async ({ request }) => {
+      const first = await crawl(request, `/writings/${WRITING_SLUG}`);
+      expect(metaOf(first, 'og:title')).toBe('A published essay');
+      expect(metaOf(first, 'og:description')).toBe('Essay body.');
+      const second = await crawl(request, `/writings/${SECOND_SLUG}`);
+      const [a, b] = [metaOf(first, 'og:image') ?? '', metaOf(second, 'og:image') ?? ''];
+      expect(a).not.toBe(b);
+      expect((await shareImage(request, a)).bytes.equals((await shareImage(request, b)).bytes),
+        'two titles, two pictures').toBe(false);
+    });
+
+  test('an image for a writing that is gone is the site card, not an error', async ({ request }) => {
+    const html = await crawl(request, `/writings/${SECOND_SLUG}`);
+    const image = metaOf(html, 'og:image') ?? '';
+    await shareImage(request, image.replace(SECOND_SLUG, 'no-such-writing'));
+  });
+
+  test('the homepage: a large card with the site image; its title and description unchanged',
+    async ({ request }) => {
+      await setHomeSEO(request, 'Mei Lin Chan', 'Engineer in Markham. Ask the chat anything.');
+      const html = await crawl(request, '/');
+      expect(metaOf(html, 'og:title')).toBe('Mei Lin Chan');
+      expect(metaOf(html, 'og:description')).toBe('Engineer in Markham. Ask the chat anything.');
+      expect(metaOf(html, 'twitter:card')).toBe('summary_large_image');
+      const image = metaOf(html, 'og:image') ?? '';
+      expect(image.startsWith(`${APP_BASE}/`), image).toBe(true);
+      await shareImage(request, image);
+    });
 });

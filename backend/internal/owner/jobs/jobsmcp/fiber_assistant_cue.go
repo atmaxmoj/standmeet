@@ -33,7 +33,7 @@ const askProps = `
 	"rewrite":{"type":"boolean",
 		"description":"Turn the line as heard into the line as meant first: stutters, ` +
 	`fillers, false starts and a sentence cut in two cleaned up, a mis-heard name of the ` +
-	`owner's restored. Default: off."}`
+	`owner's restored. Default: on; false for a line that is already clean."}`
 
 func (c *assistantFiber) cueBindings() []*registry.MCPBinding {
 	return []*registry.MCPBinding{{
@@ -79,9 +79,11 @@ type askArgs struct {
 	Debug       bool   `json:"debug"`
 }
 
-// ask —— the arguments as an Ask; rewriteByDefault when the caller did not say.
-func (a *askArgs) ask(rewriteByDefault bool) *cues.Ask {
-	rewrite := rewriteByDefault
+// ask —— the arguments as an Ask. The rewrite is on unless the caller turns it off (owner,
+// 2026-10-21: "改写层要现在就默认打开"): speech recognition alone does not survive accents and
+// stutters.
+func (a *askArgs) ask() *cues.Ask {
+	rewrite := true
 	if a.Rewrite != nil {
 		rewrite = *a.Rewrite
 	}
@@ -125,7 +127,7 @@ func (c *assistantFiber) handleContext(
 	if err := decodeArgs(raw, &in); err != nil {
 		return registry.MCPError(err.Error())
 	}
-	p, err := c.asst.Context(ctx, ownerID, in.ask(false))
+	p, err := c.asst.Context(ctx, ownerID, in.ask())
 	if err != nil {
 		return c.failed("assistant.context", err)
 	}
@@ -139,8 +141,7 @@ func (c *assistantFiber) handleCue(
 	if err := decodeArgs(raw, &in); err != nil {
 		return registry.MCPError(err.Error())
 	}
-	// ponytail: off until the rewrite is measured on real accented speech (eval:accents); then on
-	card, err := c.asst.Cue(ctx, c.log, ownerID, in.ID, in.ask(false))
+	card, err := c.asst.Cue(ctx, c.log, ownerID, in.ID, in.ask())
 	if err != nil {
 		return c.failed("assistant.cue", err)
 	}

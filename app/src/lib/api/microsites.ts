@@ -58,12 +58,13 @@ export async function fetchHomepageSEO(): Promise<HomepageSEO> {
 }
 
 // homepageMetadata —— the site root's Next <head> from its SEO: the owner's title (falling back to
-// the instance name), description, and Open Graph / Twitter card when an image is set. Built here so
-// the root page component stays branch-free. Empty fields emit no tag.
-export function homepageMetadata(seo: HomepageSEO, fallbackName: string): Metadata {
+// the instance name), description, and the large share card: the owner's image, else the site's
+// card (siteCard). Built here so the root page component stays branch-free. An empty description
+// emits no tag.
+export function homepageMetadata(seo: HomepageSEO, fallbackName: string, siteCard: string): Metadata {
   const title = seo.title || fallbackName;
   const hasDesc = seo.description !== '';
-  const hasImage = seo.image !== '';
+  const image = seo.image || siteCard;
   return {
     // absolute: the site root's title is the whole title, not "<title> — <owner>" (the root layout's
     // template for every other page).
@@ -72,8 +73,8 @@ export function homepageMetadata(seo: HomepageSEO, fallbackName: string): Metada
     openGraph: {
       title,
       ...(hasDesc ? { description: seo.description } : {}),
-      ...(hasImage ? { images: [seo.image] } : {}),
+      images: [image],
     },
-    ...(hasImage ? { twitter: { card: 'summary_large_image' as const, images: [seo.image] } } : {}),
+    twitter: { card: 'summary_large_image', images: [image] },
   };
 }

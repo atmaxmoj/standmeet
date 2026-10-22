@@ -15,6 +15,7 @@ import type { Metadata } from 'next';
 
 import { fetchInstance } from '@/lib/api/instance';
 import { fetchHomepageSEO, homepageMetadata } from '@/lib/api/microsites';
+import { siteCardURL, siteOrigin } from '@/lib/share-card';
 
 import { TrackVisit } from '@/components/monitor/TrackVisit';
 
@@ -26,7 +27,7 @@ import { VisitorRoot } from '@/app/visitor-root';
 // `home` page is materialized. The Metadata is assembled in lib (homepageMetadata) so this stays flat.
 export async function generateMetadata(): Promise<Metadata> {
   const seo = await fetchHomepageSEO();
-  return homepageMetadata(seo, await instanceName());
+  return homepageMetadata(seo, await instanceName(), siteCardURL(await siteOrigin()));
 }
 
 // instanceName —— the instance's name for the title fallback (used when the owner set no homepage

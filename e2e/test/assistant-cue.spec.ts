@@ -38,7 +38,7 @@ const EMPTY_ROLE = 'cue-nothing';
 const CLAUDE_ROLE = 'cue-on-claude';
 
 interface Prompt { system: string; sources: string[]; matrix: string; stack_named: string[] }
-interface Cue { card: string; feed_id: string; model: string; debug: Prompt }
+interface Cue { card: string; feed_id: string; model: string; debug: Prompt & { heard: Heard } }
 interface Tools {
   call: <T>(name: string, args: Record<string, unknown>) => Promise<T>;
   outcome: (name: string, args: Record<string, unknown>) => Promise<{ isError: boolean; text: string }>;
@@ -103,7 +103,7 @@ async function thinkingModelWrites({ request }: { request: APIRequestContext }):
   const text = '**Key: orchestration + alternatives**\n**Not in your own work: you ruled Kubernetes out.**';
   const tag = await scriptMockReplyText(request, text);
   const cue = await t.call<Cue>('assistant.cue', {
-    role_id: CLAUDE_ROLE, round: 'technical',
+    role_id: CLAUDE_ROLE, round: 'technical', rewrite: false,
     question: `Tell me about your experience with Kubernetes.[[thinks-first]]${tag}`,
   });
   // the Anthropic mock echoes the whole system prompt ahead of the reply
@@ -149,12 +149,18 @@ async function cardIntoFeed(
 ): Promise<void> {
   const t = await tools(request, 'assistant-cue-card');
   const text = '**Key: isolation + no docker.sock**\n**Plugins run in bubblewrap, so the backend never holds docker.sock.**';
+  // the rewrite runs first by default (owner, 2026-10-21: "改写层要现在就默认打开"); it takes the
+  // first registration, the card the second
+  const meant = 'Why bubblewrap for the plugins and not Docker?';
+  const rewriteTag = await scriptMockReplyText(request, JSON.stringify({ question: meant }));
   const tag = await scriptMockReplyText(request, text);
   await gotoAdminSection(adminPage, 'screen-assistant');
 
   const cue = await t.call<Cue>('assistant.cue', {
-    role_id: ROLE, question: `Why bubblewrap for the plugins and not Docker?${tag}`, debug: true,
+    role_id: ROLE, question: `Why uh why bubblewrap for the the plugins and not Docker?${rewriteTag}${tag}`,
+    debug: true,
   });
+  expect(cue.debug.heard.question, 'the line is rewritten without being asked to').toBe(meant);
   expect(cue.card).toBe(text);
   expect(cue.model).toBe('deepseek-flash');
   expect((await lastGatewayRequest(request, tag)).model, 'DeepSeek runs the fast model').toBe('deepseek-flash');
@@ -175,9 +181,10 @@ async function cardIntoFeed(
 async function callKeepsConversation({ request }: { request: APIRequestContext }): Promise<void> {
   const t = await tools(request, 'assistant-cue-call');
   const first = await scriptMockReplyText(request, 'FIRST-CARD-7731 about sandboxes');
-  await t.call<Cue>('assistant.cue', { role_id: ROLE, call_id: 'call-1', question: `How do you sandbox plugins?${first}` });
+  const ask = { role_id: ROLE, call_id: 'call-1', rewrite: false };
+  await t.call<Cue>('assistant.cue', { ...ask, question: `How do you sandbox plugins?${first}` });
   const second = await scriptMockReplyText(request, 'second card');
-  await t.call<Cue>('assistant.cue', { role_id: ROLE, call_id: 'call-1', question: `And why not Docker?${second}` });
+  await t.call<Cue>('assistant.cue', { ...ask, question: `And why not Docker?${second}` });
   expect((await lastGatewayRequest(request, second, 'FIRST-CARD-7731')).contains,
     'the second question sees the first card').toBe(true);
 }

@@ -13,6 +13,7 @@ import { ChatLangProvider } from '@standmeet/sdk';
 import '@/app/globals.css';
 import { ThemeSync } from '@/components/page/ThemeSync';
 import { fetchInstance } from '@/lib/api/instance';
+import { siteCardURL, siteOrigin } from '@/lib/share-card';
 import { ToastProvider, Toaster } from '@/lib/ui/toast';
 
 const newsreader = Newsreader({
@@ -32,11 +33,15 @@ const jetbrainsMono = JetBrains_Mono({
 // generateMetadata —— every page's <title> names whose site it is: "<page> — <owner>", and the
 // owner's name alone where a page sets none. A crawler searching for the owner's name found only
 // "StandMeet" and bare slugs before (2026-09-30). Degrades to "StandMeet" if the instance can't be read.
+// Every page shares as a large card: the site's card unless the page draws its own (a writing).
 export async function generateMetadata(): Promise<Metadata> {
   const name = await ownerName();
+  const card = siteCardURL(await siteOrigin());
   return {
     title: { template: `%s — ${name}`, default: name },
     description: 'A personal page that argues back.',
+    openGraph: { images: [{ url: card, width: 1200, height: 630 }] },
+    twitter: { card: 'summary_large_image', images: [card] },
   };
 }
 

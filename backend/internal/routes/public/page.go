@@ -154,6 +154,7 @@ func writeInstanceInfo(log *slog.Logger, w http.ResponseWriter, in *instanceWrit
 		SetupToken:      in.setupToken,
 		CaptchaSiteKey:  in.captchaSiteKey,
 		Version:         in.appVersion,
+		PublicURL:       in.owner.PublicURL,
 		CanDeliverCodes: in.canEmailCodes,
 	}
 	if err := json.NewEncoder(w).Encode(view); err != nil {
@@ -167,7 +168,10 @@ type instanceInfoView struct {
 	SetupToken     string `json:"setup_token,omitempty"`
 	CaptchaSiteKey string `json:"captcha_site_key,omitempty"`
 	// Version is the version this process reports; the badge reads it (F-C-10).
-	Version         string `json:"version,omitempty"`
+	Version string `json:"version,omitempty"`
+	// PublicURL —— the site's address, the one the sitemap and canonical tags use; the app builds
+	// share-card addresses from it.
+	PublicURL       string `json:"public_url,omitempty"`
 	Claimed         bool   `json:"claimed"`
 	CanDeliverCodes bool   `json:"can_deliver_codes"`
 }

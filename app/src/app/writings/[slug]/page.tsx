@@ -5,6 +5,7 @@
 //
 // Design source: reader.html (tree sidebar + pure reading) + blog.js ArticleView.
 
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
@@ -16,9 +17,21 @@ import { ReaderLayout } from '@/components/visitor/ReaderLayout';
 import { WritingTreeAside } from '@/components/writings/WritingTreeAside';
 import { TrackVisit } from '@/components/monitor/TrackVisit';
 import { wantedContentLang } from '@/i18n/content-lang';
+import { siteOrigin, writingMetadata } from '@/lib/share-card';
 import type { TreeNode } from '@/lib/corpus/tree';
 
 export const dynamic = 'force-dynamic';
+
+// generateMetadata —— the share card a link previewer reads (lib/share-card), always from the
+// English side. A writing that cannot be read keeps the site's card from the root layout.
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  try {
+    return writingMetadata(await fetchWriting(slug, 'en'), await siteOrigin());
+  } catch {
+    return {};
+  }
+}
 
 interface PageProps {
   params: Promise<{ slug: string }>;
