@@ -16,6 +16,7 @@ import (
 	marketplace "github.com/atmaxmoj/standmeet/internal/marketplace/facade"
 	"github.com/atmaxmoj/standmeet/internal/owner/entity"
 	"github.com/atmaxmoj/standmeet/internal/owner/repo"
+	"github.com/atmaxmoj/standmeet/internal/owner/skills"
 )
 
 // ClaimDeps bundles the dependencies ClaimInstance needs, to avoid an overlong param list.
@@ -24,6 +25,8 @@ type ClaimDeps struct {
 	Skills   *marketplace.SkillRepo
 	Prompts  *repo.PromptRepo
 	Roles    *access.RoleRepo
+	// AgentSkills — the independent Skills subsystem; seeds the bundled interview loop at claim.
+	AgentSkills *skills.Service
 }
 
 // ClaimInput is the input to ClaimInstance.
@@ -71,8 +74,17 @@ func ClaimInstance(ctx context.Context, deps ClaimDeps, in *ClaimInput) (entity.
 	slog.Default().Info("claim succeeded",
 		"owner_id", created.ID, "email", in.Email, "handle", in.Handle)
 	seedClaimSkills(ctx, deps, created.ID)
+	seedClaimAgentSkills(ctx, deps, created.ID)
 	seedClaimPublicRole(ctx, deps, created.ID)
 	return created, nil
+}
+
+// seedClaimAgentSkills — after a successful claim, seed the bundled agent skills (the interview
+// loop); on failure, log + continue rather than blocking the claim.
+func seedClaimAgentSkills(ctx context.Context, deps ClaimDeps, ownerID string) {
+	if err := skills.SeedBundled(ctx, deps.AgentSkills, ownerID); err != nil {
+		slog.Default().Error("seed agent skills", "owner_id", ownerID, "err", err)
+	}
 }
 
 // seedClaimSkills — after a successful claim, seed built-in skills; on failure, log +

@@ -4,10 +4,15 @@
 
 package owner
 
-import "github.com/atmaxmoj/standmeet/internal/owner/ops"
+import (
+	"github.com/atmaxmoj/standmeet/internal/owner/ops"
+	"github.com/atmaxmoj/standmeet/internal/owner/skills"
+)
 
 // Types needed when declaring ops (impl: ops).
 type (
+	// SkillService —— the Skills subsystem service, for the skills.* handover ops.
+	SkillService      = skills.Service
 	AIPreset          = ops.AIPreset
 	OpsAccountDeps    = ops.AccountDeps
 	OpsAccessRequests = ops.AccessRequestsDeps
@@ -35,11 +40,13 @@ var (
 	AppearanceOps = ops.Appearance
 	MicrositeOps  = ops.Microsites
 	RetentionOps  = ops.RetentionOps
-	DomainOps     = ops.Domains
-	PageOps       = ops.Page
-	PromptOps     = ops.Prompts
-	SEOOps        = ops.SEO
-	SettingsOps   = ops.Settings
-	ProviderOps   = ops.Providers
-	KeypairOps    = ops.Keypairs
+	// SkillHandoverOps —— the skills.* handover surface (an agent pulls a skill it follows).
+	SkillHandoverOps = ops.SkillHandoverOps
+	DomainOps        = ops.Domains
+	PageOps          = ops.Page
+	PromptOps        = ops.Prompts
+	SEOOps           = ops.SEO
+	SettingsOps      = ops.Settings
+	ProviderOps      = ops.Providers
+	KeypairOps       = ops.Keypairs
 )

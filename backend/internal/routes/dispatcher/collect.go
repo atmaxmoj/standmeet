@@ -40,6 +40,7 @@ type Deps struct {
 	Writings       corpus.OpsWritingsDeps
 	Posts          *corpus.PostsService // genre "post" on the corpus.* verbs
 	Retention      *owner.RetentionDeps // the ephemeral clock: retention.pin, retention.restore
+	SkillHandover  *owner.SkillService  // the skills.* handover (an agent pulls a skill it follows)
 	// ObsidianIngest — the vault-sync port for obsidian.import (owner MCP + admin). The
 	// composition root adapts corpus/integration's sync types to it; the dispatcher may not
 	// import that layer.
@@ -94,6 +95,7 @@ func Collect(d *Deps) []Resource {
 		{Name: "keypairs", Ops: owner.KeypairOps(d.Keypairs)},
 		{Name: "microsites", Ops: owner.MicrositeOps(d.Microsites)},
 		{Name: "retention", Ops: owner.RetentionOps(d.Retention)},
+		{Name: "skill_handover", Ops: owner.SkillHandoverOps(d.SkillHandover)},
 		{Name: "writings", Ops: corpus.WritingOps(d.Writings)},
 		{Name: "obsidian", Ops: corpus.ObsidianSyncOps(d.ObsidianIngest)},
 		// The two upgrade endpoints belong to instance too -- one resource, two

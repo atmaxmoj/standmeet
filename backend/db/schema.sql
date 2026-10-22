@@ -2147,6 +2147,33 @@ CREATE TRIGGER roles_forget_in_posts AFTER DELETE ON roles
 -- An application's reach, read from where the facts already are (visits, conversations, messages)
 -- rather than stored on the row (job-loop roadmap 1.1.b). Same text as
 -- migrations/2026-10-10-application-outcomes.sql.
+-- agent_skills —— the independent Skills subsystem (skill-handover spec): a named, versioned block
+-- of text + metadata an agent pulls and follows. Its own tables only — no foreign key into corpus /
+-- code / microsite / applications. source = 'bundled' | 'owner' | 'third-party' (metadata, grants
+-- nothing). migrations/2026-10-22-agent-skills.sql.
+CREATE TABLE agent_skills (
+    id              uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id        uuid        NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    slug            text        NOT NULL,
+    name            text        NOT NULL,
+    description     text        NOT NULL DEFAULT '',
+    source          text        NOT NULL,
+    current_version integer     NOT NULL DEFAULT 1,
+    created_at      timestamptz NOT NULL DEFAULT now(),
+    updated_at      timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (owner_id, slug)
+);
+
+-- agent_skill_versions —— every version of a skill's body; the old ones stay readable so a run can
+-- replay exactly the body it followed.
+CREATE TABLE agent_skill_versions (
+    skill_id   uuid        NOT NULL REFERENCES agent_skills(id) ON DELETE CASCADE,
+    version    integer     NOT NULL,
+    body       text        NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (skill_id, version)
+);
+
 -- application_opened_at —— the first non-bot visit carrying the code, or the first conversation on
 -- it, whichever is earlier; NULL when neither happened.
 CREATE OR REPLACE FUNCTION application_opened_at(p_code uuid) RETURNS timestamptz

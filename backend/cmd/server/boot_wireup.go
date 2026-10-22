@@ -97,6 +97,7 @@ func buildAdminDeps(d *deps.Runtime) AdminDeps {
 		Claim: owner.ClaimDeps{
 			Instance: d.InstanceRepo, Skills: d.SkillRepo,
 			Prompts: d.PromptRepo, Roles: d.RoleRepo,
+			AgentSkills: port.SkillHandover(d),
 		},
 		Login: owner.LoginDeps{
 			Owners: d.OwnerRepo, Sessions: d.SessionStore, Events: d.Recorder(),
