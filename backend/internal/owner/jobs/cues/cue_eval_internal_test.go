@@ -15,6 +15,18 @@
 //	frame        — a deployment question is not framed as testing methodology (F1/F4).
 //	gap          — a no-record question admits the gap and does not bridge (G1/G2).
 //	process      — a pay question uses the posted band, not "Not in your notes" (H2).
+//
+// evalCases() IS the cue-defect-loop §5.2 golden set and the seed of the §8 ledger: ONE case per
+// closed defect, each carrying that defect's original question verbatim and its §6 fit check.
+// `frame` is the §0 incident (the stages-and-gates drift); `gap` and `process` are the sibling
+// gap-discipline / layered-grounding incidents. L3 golden-set regression = run the whole set; it
+// must stay all-green. When a new cue defect closes, add its original question here as a new case —
+// that is how a reappearing drift toward one material cluster (§8) surfaces as a persistent red.
+//
+// Verified live 2026-10-22 against claude-haiku-5-5 (the sk-ant-usr key in verify-creds authed
+// directly): all three cases pass judge + deterministic checks across repeated runs, and the §0
+// frame card leads with production-engineering grounded in model-to-production, not the methodology
+// note.
 
 package cues
 
