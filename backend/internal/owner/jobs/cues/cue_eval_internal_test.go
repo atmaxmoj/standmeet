@@ -154,7 +154,7 @@ func runEvalCase(t *testing.T, card, grader *inference.Cred, brief string, c *ev
 	t.Helper()
 	round := RoundByID(c.round)
 	b := NewDeck(synthNotes(), brief).build(c.question, round, c.screen)
-	out := complete(t, card, systemPrompt(b.context, round.closingRules()), c.question)
+	out := complete(t, card, systemPrompt(b.context, round.closingRules(), ""), c.question)
 	t.Logf("\n--- Q: %s\n--- CARD:\n%s\n", c.question, out)
 	fails := c.check(out)
 	if c.judge != "" {

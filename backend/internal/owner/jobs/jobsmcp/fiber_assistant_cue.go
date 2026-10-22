@@ -33,7 +33,11 @@ const askProps = `
 	"rewrite":{"type":"boolean",
 		"description":"Turn the line as heard into the line as meant first: stutters, ` +
 	`fillers, false starts and a sentence cut in two cleaned up, a mis-heard name of the ` +
-	`owner's restored. Default: on; false for a line that is already clean."}`
+	`owner's restored. Default: on; false for a line that is already clean."},
+	"generic_coaching":{"type":"boolean",
+		"description":"When on, a generic process question (pay, scheduling, negotiation) ` +
+	`with no personal material may carry one clearly-labelled general-advice line. Default: ` +
+	`off; experience and fact questions never get one."}`
 
 func (c *assistantFiber) cueBindings() []*registry.MCPBinding {
 	return []*registry.MCPBinding{{
@@ -69,14 +73,15 @@ func (c *assistantFiber) cueBindings() []*registry.MCPBinding {
 }
 
 type askArgs struct {
-	Rewrite     *bool  `json:"rewrite"`
-	RoleID      string `json:"role_id"`
-	Round       string `json:"round"`
-	Question    string `json:"question"`
-	CallID      string `json:"call_id"`
-	UserContext string `json:"user_context"`
-	ID          string `json:"id"`
-	Debug       bool   `json:"debug"`
+	Rewrite         *bool  `json:"rewrite"`
+	RoleID          string `json:"role_id"`
+	Round           string `json:"round"`
+	Question        string `json:"question"`
+	CallID          string `json:"call_id"`
+	UserContext     string `json:"user_context"`
+	ID              string `json:"id"`
+	Debug           bool   `json:"debug"`
+	GenericCoaching bool   `json:"generic_coaching"`
 }
 
 // ask —— the arguments as an Ask. The rewrite is on unless the caller turns it off (owner,
@@ -90,6 +95,7 @@ func (a *askArgs) ask() *cues.Ask {
 	return &cues.Ask{
 		RoleRef: a.RoleID, Round: a.Round, Question: a.Question,
 		CallID: a.CallID, UserContext: a.UserContext, Rewrite: rewrite,
+		GenericCoaching: a.GenericCoaching,
 	}
 }
 

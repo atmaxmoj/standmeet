@@ -225,13 +225,31 @@ const (
 		"ne _No alternatives in your notes._ in its place."
 )
 
+// cuesGenericCoaching —— cue-layered-grounding H3: the optional section appended only when the
+// caller turns on generic coaching. It permits one labelled general-advice line on a generic
+// process question whose answer strategy does not depend on the owner's own material, and forbids
+// it on any experience or fact question (those keep the gap rule).
+const cuesGenericCoaching = "**GENERIC COACHING (optional, enabled for this session):**\n" +
+	"- Judge each question: is it a GENERIC process/soft-skills question (salary, scheduling, " +
+	"notice period, negotiation etiquette) whose good answer is a general tactic, not the owner" +
+	"'s own material? If so, and the owner's notes have nothing specific, you MAY add one extra " +
+	"line, clearly marked `_General advice (not from your notes):_`, with a concrete tactic.\n" +
+	"- For ANY experience or fact question (what did you build / do / measure), add no such line " +
+	"— follow the gap rule. Keep the owner's material and the general tactic visibly separate so " +
+	"the owner can tell which is which."
+
 // systemPrompt —— buildSystemPrompt(cues, context, search off, rules) in the app. The discipline
 // block (answer-as-asked, gap, no-bridge, process-facts) closes the prompt: rules at the end hold,
-// rules buried mid-format are read as material (meeting-assistant memory, 2026-10-19).
-func systemPrompt(context, rules string) string {
-	return cuesIntro + "\n\n" + cuesFormat + "\n\n" + cuesContent +
+// rules buried mid-format are read as material (meeting-assistant memory, 2026-10-19). The generic
+// coaching section is appended only when the caller enables it (cue-layered-grounding H3).
+func systemPrompt(context, rules, coaching string) string {
+	s := cuesIntro + "\n\n" + cuesFormat + "\n\n" + cuesContent +
 		"\n\nUser-provided context\n-----\n" + context + "\n-----\n\n" + cuesOutput +
-		"\n\n" + cuesDiscipline + "\n\n" + rules
+		"\n\n" + cuesDiscipline
+	if coaching != "" {
+		s += "\n\n" + coaching
+	}
+	return s + "\n\n" + rules
 }
 
 const stopWords = "the a an and or of to in on for with is are was were be it this " +

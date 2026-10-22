@@ -18,6 +18,10 @@ type Ask struct {
 	UserContext string // the owner's extra words for this session
 	// Rewrite —— turn the line as heard into the line as meant first (rewrite.go).
 	Rewrite bool
+	// GenericCoaching —— cue-layered-grounding H3: when the caller (a Cheating Daddy preference)
+	// turns it on, a generic process question with no personal material may carry a clearly
+	// labelled general-advice line. Off by default; experience/fact questions never get one.
+	GenericCoaching bool
 }
 
 // Prepared —— what a session starts with.
@@ -112,8 +116,12 @@ func compose(q *Ask, round *Round, rd *roleDeck, screen *screenPick, heard Heard
 	if t := jsTrim(q.UserContext); t != "" {
 		extra = "\n\n## Also from the user\n" + t
 	}
+	coaching := ""
+	if q.GenericCoaching {
+		coaching = cuesGenericCoaching
+	}
 	return Prompt{
-		System:  systemPrompt(b.context+extra, round.closingRules()),
+		System:  systemPrompt(b.context+extra, round.closingRules(), coaching),
 		Context: b.context, Sources: b.sources, Named: b.named, Matrix: b.matrix,
 		role: rd.role, noticed: screen.noticed, Heard: heard,
 	}
