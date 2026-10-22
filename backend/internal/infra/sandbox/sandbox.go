@@ -67,7 +67,7 @@ const (
 var languageImages = map[string]string{
 	"python":     "python:3.11-slim",
 	"bash":       "bash:5",
-	"javascript": "node:20-slim",
+	"javascript": "node:22-slim",
 }
 
 // DockerRunner —— calls the local docker daemon via the docker CLI
