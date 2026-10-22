@@ -24,11 +24,7 @@ type siteIdentity struct {
 // applyIdentity —— fill the crawler-facing identity of a live page from the owner it belongs to.
 func applyIdentity(asset *BuiltAsset, id *siteIdentity) {
 	asset.Canonical = canonicalFor(id)
-	if asset.SeoImage == nil && id.publicURL != "" {
-		// a shared link renders a large card even when the owner set no image: the site's card,
-		// drawn by the app (app/src/app/og/site)
-		asset.SeoImage = optStr(id.publicURL + "/og/site")
-	}
+	asset.SeoImage = orSiteCard(asset.SeoImage, id.publicURL)
 	if !id.home {
 		return
 	}
@@ -36,6 +32,15 @@ func applyIdentity(asset *BuiltAsset, id *siteIdentity) {
 	if asset.SeoTitle == nil {
 		asset.SeoTitle = optStr(id.ownerName)
 	}
+}
+
+// orSiteCard —— the page's share image, else the site's card drawn by the app
+// (app/src/app/og/site): a shared link renders a large card even when the owner set no image.
+func orSiteCard(image *string, publicURL string) *string {
+	if image != nil || publicURL == "" {
+		return image
+	}
+	return optStr(publicURL + "/og/site")
 }
 
 // canonicalFor —— the page's one address, in the same form the sitemap lists it.
