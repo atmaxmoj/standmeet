@@ -120,7 +120,7 @@ func notesPage(
 		return paging.Each(p, func(w *corpus.TreeChild[corpus.Wiki]) cues.Note {
 			return cues.Note{
 				Title: w.Entry.Title(), Body: w.Entry.Body(), Tags: w.Entry.Tags(),
-				Path: corpus.PathFromTitles(w.PathTitles),
+				Path: corpus.PathFromTitles(w.PathTitles), Genre: "wiki",
 			}
 		}), err
 	case "output":
@@ -128,7 +128,7 @@ func notesPage(
 		return paging.Each(p, func(o *corpus.TreeChild[corpus.Output]) cues.Note {
 			return cues.Note{
 				Title: o.Entry.Title(), Body: o.Entry.Body(), Tags: o.Entry.Tags(),
-				Path: corpus.PathFromTitles(o.PathTitles),
+				Path: corpus.PathFromTitles(o.PathTitles), Genre: "output",
 			}
 		}), err
 	}
@@ -136,7 +136,7 @@ func notesPage(
 	return paging.Each(p, func(n *corpus.TreeChild[corpus.Note]) cues.Note {
 		return cues.Note{
 			Title: n.Entry.Title, Body: n.Entry.Body, Tags: n.Entry.Tags,
-			Path: corpus.PathFromTitles(n.PathTitles),
+			Path: corpus.PathFromTitles(n.PathTitles), Genre: "subjectivity",
 		}
 	}), err
 }

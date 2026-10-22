@@ -13,11 +13,16 @@ import (
 )
 
 const (
-	topK     = 6 // the best matches from the whole scope
-	projectK = 3 // extra slots for the owner's project notes (the source of the cue's example)
-	stackK   = 3 // extra slots for the sections about a technology the question names
-	bm25K1   = 1.2
-	bm25B    = 0.75
+	// topK/projectK/stackK —— the best whole-scope matches, extra slots for the owner's project
+	// notes (the source of the cue's example), and extra slots for a named technology's sections.
+	// subjectivityK —— leading slots for the owner's own résumé/CV, so a background or fit answer
+	// draws on how the owner describes themselves first (cue-resume-binding R2).
+	topK          = 6
+	projectK      = 3
+	stackK        = 3
+	subjectivityK = 2
+	bm25K1        = 1.2
+	bm25B         = 0.75
 	// titleWeight —— a unit's title counts this many times.
 	titleWeight = 3
 )
@@ -118,10 +123,14 @@ func cjkBigrams(text string) []string {
 	return out
 }
 
-// unit —— one search unit: a note's section, or a note without headings.
+// unit —— one search unit: a note's section, or a note without headings. genre is the note's
+// corpus genre ("" = wiki); doNotLead is set when the note carries the do-not-lead salience tag
+// (cue-gap-discipline G3).
 type unit struct {
 	title, path, text string
+	genre             string
 	tags              []string
+	doNotLead         bool
 }
 
 type doc struct {

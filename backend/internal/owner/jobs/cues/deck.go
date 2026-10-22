@@ -6,16 +6,31 @@ package cues
 
 import (
 	"regexp"
+	"slices"
 	"strings"
 )
 
-// Note —— one corpus note in a role's scope, in the order the corpus lists it.
+// Note —— one corpus note in a role's scope, in the order the corpus lists it. Genre is the corpus
+// genre ("wiki" / "output" / "subjectivity"; "" = wiki); the port sets it. It lets the deck give
+// the owner's own résumé/CV (subjectivity) a grounding layer ahead of general notes
+// (cue-resume-binding R2, cue-layered-grounding H1), which a flat BM25 search over a short CV
+// otherwise buries.
 type Note struct {
 	Title string
 	Path  string
 	Body  string
+	Genre string
 	Tags  []string
 }
+
+// doNotLeadTag —— the reserved salience tag (cue-gap-discipline G3). A note the owner tags with it
+// is "low salience": it may enter a card only when the question names its own topic, never as a
+// keyword-dragged aside on an unrelated question. It is owner data on the note, travels with it,
+// and names no specific material in code.
+const doNotLeadTag = "do-not-lead"
+
+// subjectivityGenre —— the genre the owner's résumé/CV lives in.
+const subjectivityGenre = "subjectivity"
 
 var (
 	projectRootRE = regexp.MustCompile(`^software/project/[^/]+$`)
@@ -33,14 +48,15 @@ var (
 
 // Deck —— built once per role and corpus version; read by every question.
 type Deck struct {
-	ix         *index
-	brief      string // "this interview is for …", from the role
-	projects   string // the owner's project overviews, sent with every question
-	vocabulary string // the project names, for Whisper's prompt
-	units      []*unit
-	overview   []string
-	names      []string
-	count      int
+	ix           *index
+	brief        string // "this interview is for …", from the role
+	projects     string // the owner's project overviews, sent with every question
+	vocabulary   string // the project names, for Whisper's prompt
+	units        []*unit
+	overview     []string
+	names        []string
+	projectSlugs []string // the slug of each project root, for the named-project domain gate
+	count        int
 }
 
 // NewDeck —— roleBrief is "<name> — <description>" ("" without a role).
@@ -89,6 +105,7 @@ func (d *Deck) add(n *Note) {
 	d.count++
 	if projectRootRE.MatchString(n.Path) {
 		d.names = append(d.names, dashRE.ReplaceAllString(n.Title, " "))
+		d.projectSlugs = append(d.projectSlugs, projectSlug(n.Path))
 		if text != "" {
 			line := prefix16(spacesRE.ReplaceAllString(text, " "), projectChars)
 			d.overview = append(d.overview, "- "+n.Title+": "+line)
@@ -97,25 +114,107 @@ func (d *Deck) add(n *Note) {
 	d.units = append(d.units, unitsOf(n, text)...)
 }
 
-// picked —— the best matches, then the project notes, then the sections about a named
-// technology; each unit once.
+// picked —— the owner's own résumé/CV first (so background and fit answers lead from how the owner
+// describes themselves, cue-resume-binding R2 / cue-layered-grounding H1), then the best matches,
+// the project notes, and the sections about a named technology; each unit once. A do-not-lead unit
+// is admitted only when the question names its topic (cue-gap-discipline G3).
 func (d *Deck) picked(query string, r *Round, named []string) []*unit {
-	out := d.ix.search(query, topK, r.allows)
-	out = append(out, d.ix.search(query, projectK, func(u *unit) bool {
-		return strings.HasPrefix(u.path, "software/project/") && r.allows(u)
-	})...)
-	if len(named) > 0 {
-		out = append(out, d.ix.search(strings.Join(named, " "), stackK, r.allows)...)
+	allow := d.allower(query, r)
+	isSubjectivity := func(u *unit) bool { return u.genre == subjectivityGenre && allow(u) }
+	isProject := func(u *unit) bool {
+		return strings.HasPrefix(u.path, "software/project/") && allow(u)
 	}
+	out := d.ix.search(query, subjectivityK, isSubjectivity)
+	out = append(out, d.ix.search(query, topK, allow)...)
+	out = append(out, d.ix.search(query, projectK, isProject)...)
+	if len(named) > 0 {
+		out = append(out, d.ix.search(strings.Join(named, " "), stackK, allow)...)
+	}
+	return dedupe(out)
+}
+
+// allower —— the per-question gate on every unit: the round's note-kind rule, salience
+// (cue-gap-discipline G3), and the named-project domain gate (F1/F4, G2).
+func (d *Deck) allower(query string, r *Round) func(*unit) bool {
+	namedSlugs := d.namedProjects(query)
+	return func(u *unit) bool {
+		return r.allows(u) && salienceOK(query, u) && onNamedProject(u, namedSlugs)
+	}
+}
+
+// dedupe —— each unit once, in first-seen order (so the subjectivity layer keeps its lead).
+func dedupe(units []*unit) []*unit {
 	seen := map[*unit]bool{}
-	uniq := out[:0]
-	for _, u := range out {
+	out := units[:0]
+	for _, u := range units {
 		if !seen[u] {
 			seen[u] = true
-			uniq = append(uniq, u)
+			out = append(out, u)
 		}
 	}
-	return uniq
+	return out
+}
+
+// salienceOK —— a normal unit always passes; a do-not-lead unit passes only when the question names
+// its topic (a distinctive, non-stopword word from the unit's title appears in the question).
+func salienceOK(query string, u *unit) bool {
+	if !u.doNotLead {
+		return true
+	}
+	return directlyNames(query, u.title)
+}
+
+// namedProjects —— the slugs of the project roots the question names by their own name. When a
+// question names a specific project, notes from OTHER projects are off-topic and must not lead the
+// card (the structural domain gate for cue-defect-loop F1/F4 and cue-gap-discipline G2): a figure
+// asked about Larkspur is not answered from Harborpay's notes just because they share a word. The
+// gate keys on the project SLUG (the distinctive name), never a generic word in the note body, so
+// it derives the domain from structure, not from the keyword density that caused the drift.
+func (d *Deck) namedProjects(query string) map[string]bool {
+	qt := map[string]bool{}
+	for _, t := range wordTokens(words(query)) {
+		qt[t] = true
+	}
+	named := map[string]bool{}
+	for _, slug := range d.projectSlugs {
+		for _, t := range wordTokens(words(dashRE.ReplaceAllString(slug, " "))) {
+			if qt[t] {
+				named[slug] = true
+				break
+			}
+		}
+	}
+	return named
+}
+
+// onNamedProject —— with no project named, every unit passes. With one or more named, a project
+// note passes only when it belongs to a named project; notes outside software/project/ always pass.
+func onNamedProject(u *unit, named map[string]bool) bool {
+	if len(named) == 0 || !strings.HasPrefix(u.path, "software/project/") {
+		return true
+	}
+	return named[projectSlug(u.path)]
+}
+
+// projectSlug —— the <slug> in software/project/<slug>[/…].
+func projectSlug(path string) string {
+	rest := strings.TrimPrefix(path, "software/project/")
+	slug, _, _ := strings.Cut(rest, "/")
+	return slug
+}
+
+// directlyNames —— the question carries a distinctive (non-stopword) word from the title.
+func directlyNames(query, title string) bool {
+	want := map[string]bool{}
+	for _, t := range wordTokens(words(title)) {
+		want[t] = true
+	}
+	for _, t := range wordTokens(words(query)) {
+		if want[t] {
+			return true
+		}
+	}
+	return false
 }
 
 func (d *Deck) build(query string, r *Round, screen string) built {
@@ -146,9 +245,13 @@ func (d *Deck) briefBlock() string {
 
 // unitsOf —— one search unit per section; a note without headings is one unit.
 func unitsOf(n *Note, text string) []*unit {
+	dnl := slices.Contains(n.Tags, doNotLeadTag)
 	secs := sections(n.Body)
 	if len(secs) <= 1 {
-		return []*unit{{title: n.Title, path: n.Path, tags: n.Tags, text: text}}
+		return []*unit{{
+			title: n.Title, path: n.Path, tags: n.Tags, text: text,
+			genre: n.Genre, doNotLead: dnl,
+		}}
 	}
 	out := make([]*unit, 0, len(secs))
 	for _, s := range secs {
@@ -156,7 +259,10 @@ func unitsOf(n *Note, text string) []*unit {
 		if s.heading != "" {
 			title = n.Title + " › " + s.heading
 		}
-		out = append(out, &unit{title: title, path: n.Path, tags: n.Tags, text: s.text})
+		out = append(out, &unit{
+			title: title, path: n.Path, tags: n.Tags, text: s.text,
+			genre: n.Genre, doNotLead: dnl,
+		})
 	}
 	return out
 }

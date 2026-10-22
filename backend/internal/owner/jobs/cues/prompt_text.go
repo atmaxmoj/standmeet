@@ -117,7 +117,9 @@ const (
 		"unt toward the word limit.\n" +
 		"- The sample card below shows the format only. Never take its pr" +
 		"oject (utter-manual) or its story unless this question's notes t" +
-		"ell it.\n" +
+		"ell it — and never its FRAME: the stages-and-gates / testing-met" +
+		"hodology answer is there to show layout, not to answer any real " +
+		"question. Answer from THIS question's notes.\n" +
 		"- The Example and the Context may tell the same story — say it o" +
 		"nce well rather than stretch a second project to fit.\n" +
 		"- Every card about the user's own work has the Context section; " +
@@ -174,7 +176,37 @@ const (
 		"\n" +
 		"_From: stages-and-gates, testing-software-3-0_"
 	cuesOutput = "**OUTPUT:** only the cue in the format above (or a single —)."
-	whose      = "**WHOSE IT IS** — each note is marked. A note marked \"someone el" +
+	// cuesDiscipline —— the 2026-10-22 cue-defect rules: answer the question actually asked
+	// (cue-defect-loop F1/F4), admit a gap instead of bridging (cue-gap-discipline G1/G2), and use
+	// the posting's own facts for a process question (cue-layered-grounding H2).
+	cuesDiscipline = "**ANSWER THE QUESTION ACTUALLY ASKED.**\n" +
+		"- Fix the question's real subject before you write the Key. The Key and the fir" +
+		"st line must be about THAT subject. Do not borrow a framework from a note that m" +
+		"erely shares words with the question. A question about taking a model prototype " +
+		"to a production API is an engineering-judgment answer (interface contract, laten" +
+		"cy and cost budget, hardening, gradual rollout) — not a testing-methodology one," +
+		" even when testing notes are dense in the words stages, gates, reliable, shipped.\n" +
+		"- **Gap:** when the notes hold nothing on the exact thing asked, say so in one li" +
+		"ne and stop. Never write \"ask the interviewer whether you mean <other experienc" +
+		"e>\". You may add — only if the notes have them — facts about the SAME thing that" +
+		" was asked.\n" +
+		"- **A specific fact or number about a NAMED thing** (a metric, date or figure for" +
+		" project/company X) with no record: say there is no such record for X and stop. " +
+		"Do NOT substitute another project's fact, and do NOT reach for \"the closest thin" +
+		"g\" or name another project/job — not as the answer, not as a contrast, not even " +
+		"to exclude it. (\"The closest thing your own work shows\" is only for a \"have you " +
+		"done X\" capability question, never for a figure asked about a named thing.) A ga" +
+		"p card is short; do not pad it.\n" +
+		"- **No bridging:** never carry one project's or job's material into another's qu" +
+		"estion because they share a general word (\"detection\", \"pipeline\", \"serving\"). C" +
+		"ross only when the same system, decision or artifact genuinely connects them.\n" +
+		"- **Process questions** (pay expectation, start date, notice period, interview lo" +
+		"gistics) are answered half from the role side. When the context carries the post" +
+		"ed facts — a salary band, a level, a location — give those and a one-line respon" +
+		"se (e.g. \"land inside the band; don't name a point first\") instead of \"Not in yo" +
+		"ur notes\". Only the parts the posting does not give fall back to the notes and th" +
+		"e gap rule above."
+	whose = "**WHOSE IT IS** — each note is marked. A note marked \"someone el" +
 		"se's\" is what the user read or collected: never say or imply the" +
 		"y used, ran, built or worked with what it describes. When only s" +
 		"uch notes answer \"have you used / done X\", the answer is that it" +
@@ -193,11 +225,13 @@ const (
 		"ne _No alternatives in your notes._ in its place."
 )
 
-// systemPrompt —— buildSystemPrompt(cues, context, search off, rules) in the app.
+// systemPrompt —— buildSystemPrompt(cues, context, search off, rules) in the app. The discipline
+// block (answer-as-asked, gap, no-bridge, process-facts) closes the prompt: rules at the end hold,
+// rules buried mid-format are read as material (meeting-assistant memory, 2026-10-19).
 func systemPrompt(context, rules string) string {
 	return cuesIntro + "\n\n" + cuesFormat + "\n\n" + cuesContent +
 		"\n\nUser-provided context\n-----\n" + context + "\n-----\n\n" + cuesOutput +
-		"\n\n" + rules
+		"\n\n" + cuesDiscipline + "\n\n" + rules
 }
 
 const stopWords = "the a an and or of to in on for with is are was were be it this " +
