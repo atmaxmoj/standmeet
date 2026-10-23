@@ -33,9 +33,12 @@ one-line reason, class, status, fix, golden-set case}`.
 - **fix (surface, not the question — spec §4):** generation-side discipline "the lead must restate
   the question's real referent" (`cuesDiscipline`, F1/F4 branch), plus a sample-card frame warning and
   the structural named-project domain gate (G2). No node blacklist, no per-question patch.
-- **golden-set case:** `frameCase` in `evalCases()`. Verified live 2026-10-22 (claude-haiku-5-5): the
-  card now leads with interface contract / latency budget / staged rollout, grounded in
-  `model-to-production` + Larkspur, never the methodology node. §6 (a) referent + (b) domain pass.
+- **golden-set case:** `frameCase` in `evalCases()` — this is the **F6 / follow-up F-3 fixed
+  regression** (its question text and expected grounding layer are archived in this row; re-run it
+  under interview-loop whenever the context-assembly path changes). Verified live 2026-10-22
+  (claude-haiku-5-5): the card now leads with interface contract / latency budget / staged rollout,
+  grounded in `model-to-production` + Larkspur, never the methodology node. §6 (a) referent + (b)
+  domain pass.
 
 ## D2 — gap bridged by a generic word (gap-discipline sibling)
 

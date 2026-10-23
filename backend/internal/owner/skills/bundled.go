@@ -37,7 +37,9 @@ For any question, ground your answer in this order and stop at the first layer t
 1. the tailored résumé actually sent for this application;
 2. the job packet / posted description (facts about the role, the process, the band);
 3. the owner's role notes.
-Never jump a layer. A résumé line beats a general note.
+Never jump a layer. A résumé line beats a general note. Within a layer, a fact the owner marked
+important (salience) leads over a generic one and is never dropped or diluted for generic material —
+the deck orders marked facts ahead of generic matches, so keep the marked fact in your Key and lead.
 
 ## 3. Admit a gap; do not bridge it
 If none of the three layers covers what is asked, say the owner has not covered it. Do NOT:
@@ -54,15 +56,21 @@ band and the owner's role notes, not from a guess and not from another role's nu
 Round durations to the nearest whole year, never shade them down. Claim only what the evidence
 covers: "built X" is not "led the team that built X" unless the notes say so. When unsure, ask.`
 
-// SeedBundled —— ensure every bundled skill exists for this owner. Idempotent: a skill already
-// there is left as is (bundled skills are replaced by a release, not reseeded). Called at claim.
+// SeedBundled —— ensure every bundled skill exists for this owner and carries the body of the
+// current release. A missing skill is inserted; an existing one whose shipped body has changed gets
+// a NEW VERSION (bundled skills are replaced by their release — spec S3 — under version discipline,
+// so an old run can still replay the version it followed). Idempotent when the body is unchanged.
+// Called at claim and at boot.
 func SeedBundled(ctx context.Context, svc *Service, ownerID string) error {
 	if svc == nil {
 		return nil
 	}
 	for i := range bundled {
 		_, err := svc.New(ctx, ownerID, &bundled[i])
-		if err != nil && !errors.Is(err, ErrSlugTaken) {
+		if errors.Is(err, ErrSlugTaken) {
+			err = svc.reseedBundled(ctx, ownerID, &bundled[i])
+		}
+		if err != nil {
 			return err
 		}
 	}

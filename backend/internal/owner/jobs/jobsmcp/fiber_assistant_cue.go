@@ -151,7 +151,12 @@ func (c *assistantFiber) handleCue(
 	if err != nil {
 		return c.failed("assistant.cue", err)
 	}
-	out := map[string]any{"card": card.Text, "feed_id": card.FeedID, "model": card.Model}
+	// generic_coaching echoes the switch state so a caller can read, per cue-layered-grounding H3,
+	// whether this card was allowed a general-advice line (default off).
+	out := map[string]any{
+		"card": card.Text, "feed_id": card.FeedID, "model": card.Model,
+		"generic_coaching": in.GenericCoaching,
+	}
 	if in.Debug {
 		out["debug"] = promptOut(&card.Prompt)
 	}

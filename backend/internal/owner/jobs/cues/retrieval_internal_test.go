@@ -72,6 +72,30 @@ func TestNamedProjectGate(t *testing.T) {
 	}
 }
 
+// TestOwnerSalientFactLeads —— a fact the owner marked important (lead tag) leads a generic match
+// in the same layer and is not crowded out by generic material (cue-gap-discipline G3, positive
+// salience / follow-up F-1). Without the salient sub-search the generic note sorts first (tie →
+// index order), so this fails on the old pipeline.
+func TestOwnerSalientFactLeads(t *testing.T) {
+	t.Parallel()
+	const body = "kafka event pipeline"
+	notes := []Note{
+		// Generic notes that all match and would otherwise fill the slots.
+		{Title: "Queue A", Path: "eng/a", Body: body},
+		{Title: "Queue B", Path: "eng/b", Body: body},
+		{Title: "Queue C", Path: "eng/c", Body: body},
+		// The owner-marked fact, added LAST so index order would bury it without salience.
+		{Title: "Marked", Path: "eng/marked", Body: body, Tags: []string{leadTag}},
+	}
+	got := sourcesFor(notes, "how do you run your kafka pipeline")
+	if !contains(got, "eng/marked") {
+		t.Fatalf("owner-marked fact was dropped for generic material; sources=%v", got)
+	}
+	if got[0] != "eng/marked" {
+		t.Fatalf("owner-marked fact should lead the generic matches; sources=%v", got)
+	}
+}
+
 // withDoNotLead —— a copy of notes with the do-not-lead tag added to the note at path.
 func withDoNotLead(notes []Note, path string) []Note {
 	out := make([]Note, len(notes))

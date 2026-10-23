@@ -117,7 +117,10 @@ func newSvc() *Service {
 	return NewService(newMem(), func() time.Time { n++; return time.Unix(n, 0).UTC() })
 }
 
-const noteSlug = "note-taking"
+const (
+	noteSlug = "note-taking"
+	loopSlug = "interview-loop"
+)
 
 func mk(slug, name, body string, src Source) *NewInput {
 	return &NewInput{Slug: slug, Name: name, Body: body, Source: src}
@@ -126,7 +129,7 @@ func mk(slug, name, body string, src Source) *NewInput {
 func TestNewSkillStartsAtVersionOne(t *testing.T) {
 	t.Parallel()
 	s := newSvc()
-	sk, err := s.New(context.Background(), owner, mk("interview-loop", "I", "body", SourceBundled))
+	sk, err := s.New(context.Background(), owner, mk(loopSlug, "I", "body", SourceBundled))
 	require.NoError(t, err)
 	require.Equal(t, 1, sk.Version)
 	require.Equal(t, "body", sk.Body)
@@ -155,9 +158,9 @@ func TestBundledSkillIsNotHandEdited(t *testing.T) {
 	t.Parallel()
 	s := newSvc()
 	ctx := context.Background()
-	_, err := s.New(ctx, owner, mk("interview-loop", "Interview", "body", SourceBundled))
+	_, err := s.New(ctx, owner, mk(loopSlug, "Interview", "body", SourceBundled))
 	require.NoError(t, err)
-	_, err = s.Edit(ctx, owner, "interview-loop", "hacked")
+	_, err = s.Edit(ctx, owner, loopSlug, "hacked")
 	require.ErrorIs(t, err, ErrBundledEdit)
 }
 
@@ -168,6 +171,30 @@ func TestSlugValidation(t *testing.T) {
 		_, err := s.New(context.Background(), owner, mk(bad, "n", "b", SourceOwner))
 		require.ErrorIsf(t, err, ErrBadSlug, "slug %q should be rejected", bad)
 	}
+}
+
+func TestReseedBundledBumpsVersionOnBodyChange(t *testing.T) {
+	t.Parallel()
+	s := newSvc()
+	ctx := context.Background()
+	_, err := s.New(ctx, owner, mk(loopSlug, "I", "v1 body", SourceBundled))
+	require.NoError(t, err)
+
+	// A release whose body is unchanged is a no-op: no version churn.
+	require.NoError(t, s.reseedBundled(ctx, owner, mk(loopSlug, "I", "v1 body", SourceBundled)))
+	cur, err := s.Get(ctx, owner, loopSlug)
+	require.NoError(t, err)
+	require.Equal(t, 1, cur.Version)
+
+	// A release with a changed body ships as a new version; the old one stays retrievable.
+	require.NoError(t, s.reseedBundled(ctx, owner, mk(loopSlug, "I", "v2 body", SourceBundled)))
+	cur, err = s.Get(ctx, owner, loopSlug)
+	require.NoError(t, err)
+	require.Equal(t, 2, cur.Version)
+	require.Equal(t, "v2 body", cur.Body)
+	old, err := s.GetVersion(ctx, owner, loopSlug, 1)
+	require.NoError(t, err)
+	require.Equal(t, "v1 body", old.Body)
 }
 
 func TestListAndDelete(t *testing.T) {

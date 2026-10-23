@@ -186,6 +186,10 @@ const (
 		"to a production API is an engineering-judgment answer (interface contract, laten" +
 		"cy and cost budget, hardening, gradual rollout) — not a testing-methodology one," +
 		" even when testing notes are dense in the words stages, gates, reliable, shipped.\n" +
+		"- **Salience:** when a note is marked important by the owner, lead with its fact o" +
+		"ver a generic match in the same layer, and never let generic material dilute or re" +
+		"place it. (The deck already orders a marked note ahead of generic matches; keep th" +
+		"at fact in the Key and first line, do not bury it under a keyword-dense aside.)\n" +
 		"- **Gap:** when the notes hold nothing on the exact thing asked, say so in one li" +
 		"ne and stop. Never write \"ask the interviewer whether you mean <other experienc" +
 		"e>\". You may add — only if the notes have them — facts about the SAME thing that" +

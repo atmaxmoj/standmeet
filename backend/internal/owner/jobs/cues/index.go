@@ -21,8 +21,12 @@ const (
 	projectK      = 3
 	stackK        = 3
 	subjectivityK = 2
-	bm25K1        = 1.2
-	bm25B         = 0.75
+	// salientK —— leading slots for the facts the owner marked important (cue-gap-discipline G3,
+	// positive salience): within the general layer a marked fact leads a generic one and is not
+	// dropped for generic material.
+	salientK = 3
+	bm25K1   = 1.2
+	bm25B    = 0.75
 	// titleWeight —— a unit's title counts this many times.
 	titleWeight = 3
 )
@@ -124,13 +128,15 @@ func cjkBigrams(text string) []string {
 }
 
 // unit —— one search unit: a note's section, or a note without headings. genre is the note's
-// corpus genre ("" = wiki); doNotLead is set when the note carries the do-not-lead salience tag
-// (cue-gap-discipline G3).
+// corpus genre ("" = wiki); doNotLead is set when the note carries the do-not-lead salience tag,
+// salient when it carries the lead tag — the two directions of owner salience (cue-gap-discipline
+// G3).
 type unit struct {
 	title, path, text string
 	genre             string
 	tags              []string
 	doNotLead         bool
+	salient           bool
 }
 
 type doc struct {

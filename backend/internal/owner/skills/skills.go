@@ -161,3 +161,19 @@ func (s *Service) GetVersion(
 ) (Skill, error) {
 	return s.store.GetVersion(ctx, ownerID, slug, version)
 }
+
+// reseedBundled —— a bundled skill ships with the release; when its shipped body changes, append a
+// new version (the owner can't hand-edit a bundled skill, but a release replaces it — spec S3). Old
+// versions stay retrievable, so a run that followed an earlier release can still replay it.
+// Idempotent: a body that already matches the release is left untouched.
+func (s *Service) reseedBundled(ctx context.Context, ownerID string, in *NewInput) error {
+	cur, err := s.store.Get(ctx, ownerID, in.Slug)
+	if err != nil {
+		return err
+	}
+	if cur.Body == in.Body {
+		return nil
+	}
+	_, err = s.store.NewVersion(ctx, ownerID, in.Slug, in.Body, s.now())
+	return err
+}

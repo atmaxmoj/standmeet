@@ -29,6 +29,11 @@ type Note struct {
 // and names no specific material in code.
 const doNotLeadTag = "do-not-lead"
 
+// leadTag —— the positive salience tag (cue-gap-discipline G3). A note the owner tags with it is
+// "high salience": within its grounding layer it leads a generic match and is not dropped for
+// generic material. Like do-not-lead it is owner data on the note and names no material in code.
+const leadTag = "lead"
+
 // subjectivityGenre —— the genre the owner's résumé/CV lives in.
 const subjectivityGenre = "subjectivity"
 
@@ -121,10 +126,15 @@ func (d *Deck) add(n *Note) {
 func (d *Deck) picked(query string, r *Round, named []string) []*unit {
 	allow := d.allower(query, r)
 	isSubjectivity := func(u *unit) bool { return u.genre == subjectivityGenre && allow(u) }
+	isSalient := func(u *unit) bool { return u.salient && allow(u) }
 	isProject := func(u *unit) bool {
 		return strings.HasPrefix(u.path, "software/project/") && allow(u)
 	}
+	// subjectivity (résumé) leads the layer order (R2); then the facts the owner marked important,
+	// so a marked fact leads the general matches and dedupe keeps it ahead of a generic one (G3
+	// positive salience); then the best whole-scope matches.
 	out := d.ix.search(query, subjectivityK, isSubjectivity)
+	out = append(out, d.ix.search(query, salientK, isSalient)...)
 	out = append(out, d.ix.search(query, topK, allow)...)
 	out = append(out, d.ix.search(query, projectK, isProject)...)
 	if len(named) > 0 {
@@ -246,11 +256,12 @@ func (d *Deck) briefBlock() string {
 // unitsOf —— one search unit per section; a note without headings is one unit.
 func unitsOf(n *Note, text string) []*unit {
 	dnl := slices.Contains(n.Tags, doNotLeadTag)
+	salient := slices.Contains(n.Tags, leadTag)
 	secs := sections(n.Body)
 	if len(secs) <= 1 {
 		return []*unit{{
 			title: n.Title, path: n.Path, tags: n.Tags, text: text,
-			genre: n.Genre, doNotLead: dnl,
+			genre: n.Genre, doNotLead: dnl, salient: salient,
 		}}
 	}
 	out := make([]*unit, 0, len(secs))
@@ -261,7 +272,7 @@ func unitsOf(n *Note, text string) []*unit {
 		}
 		out = append(out, &unit{
 			title: title, path: n.Path, tags: n.Tags, text: s.text,
-			genre: n.Genre, doNotLead: dnl,
+			genre: n.Genre, doNotLead: dnl, salient: salient,
 		})
 	}
 	return out
