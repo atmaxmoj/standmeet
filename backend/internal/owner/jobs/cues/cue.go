@@ -86,15 +86,15 @@ func stripControl(text string) string {
 // the context. Intersecting with sources is what makes a citation unforgeable: a path the model
 // invents is not in sources and is dropped. Each real path is kept once.
 func usedPaths(text string, sources []string) []string {
+	out := []string{}
 	m := usedLineRE.FindStringSubmatch(text)
 	if m == nil {
-		return nil
+		return out
 	}
 	fed := make(map[string]bool, len(sources))
 	for _, s := range sources {
 		fed[s] = true
 	}
-	var out []string
 	for raw := range strings.SplitSeq(m[1], ",") {
 		// tolerate a path the model copied with its surrounding "(…)" from the context header.
 		if p := strings.Trim(raw, " \t()"); fed[p] {
