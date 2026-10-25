@@ -5,8 +5,13 @@ this file holds: a durable ledger (§8) and the golden-set that L3 regression re
 
 - **Executable golden set (§5.2):** `backend/internal/owner/jobs/cues/cue_eval_internal_test.go`,
   `evalCases()` — one case per closed defect, each carrying the defect's original question verbatim
-  and its §6 fit check. Run it (`CUE_EVAL=1 … -run TestCueEval`, PII-free synthetic persona) as the
-  L3 golden-set regression; it must stay all-green. **Add a case here and there when a defect closes.**
+  and its §6 fit check, PLUS the cue-generic-fabrication-fix §4 acceptance set: three generic probes
+  (`generic/*`, V3 — no personal node may be cited, no From line) and one grounded personal control
+  (`personal/larkspur-grounded`, V4 — the mechanical From must equal the real sources). The eval
+  checks each card as the owner SEES it, after `cue.go`'s `stampFrom` writes the From line. Run it
+  (`CUE_EVAL=1 CUE_EVAL_PROVIDER=… -run TestCueEval`, PII-free synthetic persona, any
+  anthropic-compatible provider) as the L3 golden-set regression; it must stay all-green. **Add a
+  case here and a row below when a defect closes.**
 - **This file (§8):** one row per defect, in the §2 schema, so a drift that keeps hitting one material
   cluster surfaces as a pattern.
 
@@ -27,18 +32,30 @@ one-line reason, class, status, fix, golden-set case}`.
   cluster, so the drift is retrieval gravity, not wording.
 - **verdict source:** owner, live ("非常不行").
 - **one-line reason:** the methodology cluster is lexically dense in stages/gates/reliable/shipped;
-  retrieval was pulled there and generation stated that frame as the answer. **Class: F1 (wrong-node
-  drift) + F4 (frame mismatch).**
-- **status:** CLOSED.
-- **fix (surface, not the question — spec §4):** generation-side discipline "the lead must restate
-  the question's real referent" (`cuesDiscipline`, F1/F4 branch), plus a sample-card frame warning and
-  the structural named-project domain gate (G2). No node blacklist, no per-question patch.
-- **golden-set case:** `frameCase` in `evalCases()` — this is the **F6 / follow-up F-3 fixed
-  regression** (its question text and expected grounding layer are archived in this row; re-run it
-  under interview-loop whenever the context-assembly path changes). Verified live 2026-10-22
-  (claude-haiku-5-5): the card now leads with interface contract / latency budget / staged rollout,
-  grounded in `model-to-production` + Larkspur, never the methodology node. §6 (a) referent + (b)
-  domain pass.
+  BUT the 2026-10-25 debug re-run proved the frame was NOT in retrieval — the fed context contained
+  no "stages-and-gates"/"testing-software" at all, and the fabricated `From:` named nodes that were
+  never fed. The frame came from the PROMPT'S OWN few-shot example card, and the `From:` line was
+  model-written rhetoric. **Class: F1 (wrong-node drift) + F4 (frame mismatch) + fabrication.**
+- **status:** CLOSED (definitively, 2026-10-25). The 2026-10-22 fix targeted the wrong layer
+  (retrieval/domain gate + a "never the FRAME" rule); a rule cannot beat a few-shot example, so the
+  card still drifted. See cue-generic-fabrication-fix spec §0.
+- **fix (surface, not the question — spec §4):** three surface fixes, none per-question:
+  - **F-1 — de-prime the frame:** the sample card in `cuesContent` is now a pure LAYOUT skeleton with
+    no methodology nouns; the Key example (`budget + timeline`), the bare-label example
+    (`good architecture`), the "never its FRAME" rule and the `cuesDiscipline` text no longer name
+    stages/gates/testing-methodology anywhere. `TestSamplePromptHasNoFrameLeak` fails if any returns.
+  - **F-2 — the From line is the server's, not the model's:** the prompt forbids a `From:` line and
+    asks for a `USED: <paths>` declaration; `cue.go`'s `stampFrom` strips any model `From:`, intersects
+    the declared paths with the real `sources`, and stamps one `_From:_` from that intersection. A
+    forged node (not in sources) is impossible. `TestStampFrom*` guards it.
+  - **F-3 — generic-question mode (always on, supersedes the H3 switch):** a generic process/method
+    question with no on-point note is answered from general judgment, marked `_General — not from your
+    notes._`, with `USED: none` → no `From:` (F-3d). No corpus bridge, no personal attribution.
+- **golden-set case:** `frameCase` in `evalCases()` carries the §0 accident's ORIGINAL question text
+  (this is the **F6 / follow-up F-3 fixed regression**). Verified live 2026-10-25 (claude-haiku-5-5,
+  4 clean full-set runs): the card leads with interface contract / budgets / staged rollout, USED
+  declares `larkspur` + `model-to-production`, the server stamps `_From:_` from those real sources, and
+  the methodology node never appears. The eval checks the FINISHED card (post-`stampFrom`), as shipped.
 
 ## D2 — gap bridged by a generic word (gap-discipline sibling)
 
@@ -71,3 +88,10 @@ change, not per-card handling. So far one cluster has shown gravity: the **AI/te
 cluster (D1) — lexically dense and self-framing. Watch for repeats; if D-rows accumulate there, make
 the domain gate classify question-domain structurally rather than lean on the generation-side lead
 discipline alone.
+
+**2026-10-25 correction to the method itself:** D1 proved a drift's source can be the PROMPT (a
+few-shot example), not retrieval — so when a frame appears on the card, always run `debug=true` and
+check whether the frame's words were actually fed (they were not, for D1). If a frame is not in the
+fed context, do not touch retrieval; fix the prompt. And a `From:` line a model writes is rhetoric,
+not grounding: the server now stamps it from the real sources (`stampFrom`), so any future ledger
+row can trust the card's From as a true record of what was fed.

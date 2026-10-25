@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log/slog"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -45,10 +46,71 @@ func (a *Assistant) Cue(
 	if err != nil {
 		return Card{}, fmt.Errorf("%w: %w", errModelCall, err)
 	}
+	text = stampFrom(text, p.Sources)
 	if ferr := a.finish(ctx, ownerID, feedID, q.CallID, text); ferr != nil {
 		return Card{}, ferr
 	}
 	return Card{Text: text, FeedID: feedID, Model: model, Prompt: p}, nil
+}
+
+var (
+	// usedLineRE / fromLineRE —— the card's machine lines. The model declares which notes it used
+	// on a USED line; it must not write a From line, and any it writes is stripped and replaced.
+	usedLineRE = regexp.MustCompile(`(?mi)^[ \t]*used:[ \t]*(.*?)[ \t]*$`)
+	fromLineRE = regexp.MustCompile(`(?mi)^[ \t]*_?from:[ \t]*(.*?)_?[ \t]*$`)
+)
+
+// stampFrom —— the citation is the server's, never the model's (cue-generic-fabrication-fix F-2,
+// 2026-10-25). Strip any From line the model wrote, read its "USED: <paths>" declaration, keep only
+// the paths that were really in the context (sources), and append one real From line from those.
+// A card that grounded on no note — a generic answer (USED: none), or one whose declared paths
+// were all invented — gets NO From line: an empty citation is never forged from model text (F-3d).
+func stampFrom(text string, sources []string) string {
+	used := usedPaths(text, sources)
+	body := stripControl(text)
+	if len(used) == 0 {
+		return body
+	}
+	return body + "\n\n_From: " + strings.Join(used, ", ") + "_"
+}
+
+// stripControl —— the card without its machine lines (any model From line, the USED declaration):
+// what a reader sees. Used mid-stream and before stamping.
+func stripControl(text string) string {
+	t := fromLineRE.ReplaceAllString(text, "")
+	t = usedLineRE.ReplaceAllString(t, "")
+	return strings.TrimSpace(t)
+}
+
+// usedPaths —— the note paths the model declared under USED, kept only when they were really in
+// the context. Intersecting with sources is what makes a citation unforgeable: a path the model
+// invents is not in sources and is dropped. Each real path is kept once.
+func usedPaths(text string, sources []string) []string {
+	m := usedLineRE.FindStringSubmatch(text)
+	if m == nil {
+		return nil
+	}
+	fed := make(map[string]bool, len(sources))
+	for _, s := range sources {
+		fed[s] = true
+	}
+	var out []string
+	for raw := range strings.SplitSeq(m[1], ",") {
+		// tolerate a path the model copied with its surrounding "(…)" from the context header.
+		if p := strings.Trim(raw, " \t()"); fed[p] {
+			fed[p] = false // keep each real path once
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// fromLine —— the citation content of a finished card's From line, or "" when it carries none.
+func fromLine(card string) string {
+	if m := fromLineRE.FindStringSubmatch(card); m != nil {
+		return m[1]
+	}
+	return ""
 }
 
 // begin —— the prompt, with the call locked onto a job the line named, and the messages: the
@@ -103,7 +165,7 @@ func (a *Assistant) streamer(
 			return
 		}
 		last = time.Now()
-		if err := a.Feed.Push(ctx, ownerID, feedCard(id, text)); err != nil {
+		if err := a.Feed.Push(ctx, ownerID, feedCard(id, stripControl(text))); err != nil {
 			log.Warn("cue stream push", "err", err)
 		}
 	}

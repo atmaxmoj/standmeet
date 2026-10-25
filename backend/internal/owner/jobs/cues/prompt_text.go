@@ -14,8 +14,8 @@ const (
 		", an example — so they can talk about it in their own words."
 	cuesFormat = "**CUE FORMAT (strict):**\n" +
 		"**Key: <2 or 3 core ideas, each ONE or TWO everyday words, joine" +
-		"d with \" + \" — e.g. \"isolation + sandbox\", \"gates + regression t" +
-		"ests\">**\n" +
+		"d with \" + \" — e.g. \"isolation + sandbox\", \"budget + timeline\">" +
+		"**\n" +
 		"  The Key names the general idea the interviewer would recognise" +
 		", in the words a textbook uses — never the note's own label or m" +
 		"etaphor (\"isolation + sandbox\", not \"compartments + split instal" +
@@ -73,7 +73,9 @@ const (
 		"tes only; at most 35 words; leave the line out when nothing adds" +
 		">\n" +
 		"\n" +
-		"_From: <titles of the notes you used>_\n" +
+		"USED: <for each note you used, the path shown inside its (…) hea" +
+		"der — the slug text only, no parentheses — comma-separated; or: " +
+		"none>\n" +
 		"\n" +
 		"Rules:\n" +
 		"- The first line answers the question AS ASKED: \"what problem\" →" +
@@ -93,7 +95,7 @@ const (
 		", \"gate\", \"P×C\"), say what it means in a few plain words the fir" +
 		"st time.\n" +
 		"- Every point carries a detail the user can expand on. A bare la" +
-		"bel (\"stages & gates\") is not a point.\n" +
+		"bel (\"good architecture\") is not a point.\n" +
 		"- Short enough to read at a glance: each point at most 20 words," +
 		" the Example at most 40 words, 80 to 150 words in total. Three t" +
 		"ight points beat four long ones. No greeting, no \"you could say\"" +
@@ -115,11 +117,11 @@ const (
 		"lowchart LR, at most 6 items, every number from the notes. Never" +
 		" a chart for an answer that reads fine as points. It does not co" +
 		"unt toward the word limit.\n" +
-		"- The sample card below shows the format only. Never take its pr" +
-		"oject (utter-manual) or its story unless this question's notes t" +
-		"ell it — and never its FRAME: the stages-and-gates / testing-met" +
-		"hodology answer is there to show layout, not to answer any real " +
-		"question. Answer from THIS question's notes.\n" +
+		"- The format skeleton below shows LAYOUT ONLY. Never copy its wo" +
+		"rds, its shape of answer or its frame — it answers no real quest" +
+		"ion. Answer from THIS question's notes, and never write a \"From:" +
+		"\" line yourself; the server writes the citation from the real no" +
+		"tes.\n" +
 		"- The Example and the Context may tell the same story — say it o" +
 		"nce well rather than stretch a second project to fit.\n" +
 		"- Every card about the user's own work has the Context section; " +
@@ -142,39 +144,31 @@ const (
 		"nsure, leave it out. It does not count toward the word limit."
 	cuesContent = "Use ONLY the 'User-provided context' below: the user's own proje" +
 		"cts, notes and views. Pick the material that answers what was ju" +
-		"st asked; say nothing the notes do not support.\n" +
-		"- If the context has nothing relevant, write one line: \"Not in y" +
-		"our notes — ask what they mean by …\", naming the unclear part.\n" +
-		"- If what you heard is not a question to the user (small talk, n" +
-		"oise, the user speaking), reply with exactly: —\n" +
+		"st asked; say nothing the notes do not support — except a generi" +
+		"c question, which the end rules let you answer from general judg" +
+		"ment, clearly marked.\n" +
+		"- If the context has nothing on the exact thing asked, follow th" +
+		"e gap and generic-question rules at the end of this prompt.\n" +
+		"- Reply with exactly \"—\" ONLY when what you heard is not a quest" +
+		"ion to answer: side-chatter, background noise, or the user's own " +
+		"words. A real interview question is always answered — a generic " +
+		"\"how do you / how should one …\" question too (from general judgm" +
+		"ent, marked; never the dash).\n" +
 		"\n" +
-		"Example\n" +
-		"Interviewer: \"How do you make sure an AI agent's output is corre" +
-		"ct?\"\n" +
-		"Cue:\n" +
-		"**Key: gates + regression tests**\n" +
-		"**Don't trust the agent's \"done\" — make it hand back something c" +
-		"heap to check.**\n" +
-		"- Stages & gates: split the work into stages; a gate between sta" +
-		"ges defines what \"done\" means and is checked by a machine, not t" +
-		"he agent\n" +
-		"- Gates sit where a check is mechanical — tests, lint, a schema " +
-		"— so a failure is caught at that stage instead of compounding\n" +
-		"- Audits read the artifact itself: a fresh-context auditor check" +
-		"s the real output bytes and may not rely on facts the agent supp" +
-		"lied\n" +
-		"- Regression: keep past passing cases as a golden set; any promp" +
-		"t or rule change re-runs them\n" +
-		"\n" +
-		"**Example:** in utter-manual, \"reported done\" often was not done" +
-		", so every publish goes through a content-addressed gate — the b" +
-		"ytes that were audited are the bytes that ship.\n" +
-		"\n" +
+		"Format skeleton (LAYOUT ONLY — placeholders, not an answer; copy" +
+		" no word of it):\n" +
+		"**Key: <two or three everyday words joined with \" + \">**\n" +
+		"**<one plain sentence that answers the question as asked>**\n" +
+		"- <point>: <the concrete detail — what it is, a name or a number>\n" +
+		"- <point>: <detail>\n" +
+		"- <point>: <detail>\n" +
+		"**Example:** <only when a note ties one of the user's OWN project" +
+		"s to this material; otherwise omit this line>\n" +
 		"**Context — how it happened:**\n" +
-		"- <Then / Weighed / Decided / After lines, from THIS question's " +
-		"notes>\n" +
-		"\n" +
-		"_From: stages-and-gates, testing-software-3-0_"
+		"- <Then / Weighed / Decided / After, each from THIS question's n" +
+		"otes>\n" +
+		"USED: <the path inside each used note's (…) header — slug only, " +
+		"no parentheses — comma-separated, or: none>"
 	cuesOutput = "**OUTPUT:** only the cue in the format above (or a single —)."
 	// cuesDiscipline —— the 2026-10-22 cue-defect rules: answer the question actually asked
 	// (cue-defect-loop F1/F4), admit a gap instead of bridging (cue-gap-discipline G1/G2), and use
@@ -182,10 +176,9 @@ const (
 	cuesDiscipline = "**ANSWER THE QUESTION ACTUALLY ASKED.**\n" +
 		"- Fix the question's real subject before you write the Key. The Key and the fir" +
 		"st line must be about THAT subject. Do not borrow a framework from a note that m" +
-		"erely shares words with the question. A question about taking a model prototype " +
-		"to a production API is an engineering-judgment answer (interface contract, laten" +
-		"cy and cost budget, hardening, gradual rollout) — not a testing-methodology one," +
-		" even when testing notes are dense in the words stages, gates, reliable, shipped.\n" +
+		"erely shares words with the question — a how-to-ship or how-to-design question i" +
+		"s answered with engineering judgment (interface, budgets, trade-offs, rollout), " +
+		"never re-cast as whatever method a lexically-dense note happens to describe.\n" +
 		"- **Salience:** when a note is marked important by the owner, lead with its fact o" +
 		"ver a generic match in the same layer, and never let generic material dilute or re" +
 		"place it. (The deck already orders a marked note ahead of generic matches; keep th" +
@@ -209,7 +202,20 @@ const (
 		"ed facts — a salary band, a level, a location — give those and a one-line respon" +
 		"se (e.g. \"land inside the band; don't name a point first\") instead of \"Not in yo" +
 		"ur notes\". Only the parts the posting does not give fall back to the notes and th" +
-		"e gap rule above."
+		"e gap rule above.\n" +
+		"- **Generic vs personal — decide this first.** A GENERIC question asks how somet" +
+		"hing is done in general (a process, a method, a judgment call), NOT about the use" +
+		"r's own experience, facts, projects or decisions. When a question is generic and " +
+		"the notes hold nothing genuinely on its topic, answer from sound general professi" +
+		"onal judgment and mark the card with one line: _General — not from your notes._ D" +
+		"o NOT dress general judgment as the user's own work (no \"your approach\", no \"you " +
+		"built\", no personal attribution), and do NOT pull in a note that only shares a wo" +
+		"rd. You MAY cite one of the user's notes as an example ONLY if it genuinely match" +
+		"es the question's domain — then list its path in USED. A generic answer grounded " +
+		"in no note lists USED: none and carries no citation.\n" +
+		"- **Personal questions** (what you did, built, measured or chose; a fact about a " +
+		"named project) stay grounded in the notes with the gap rule above — never substit" +
+		"uted by general content."
 	whose = "**WHOSE IT IS** — each note is marked. A note marked \"someone el" +
 		"se's\" is what the user read or collected: never say or imply the" +
 		"y used, ran, built or worked with what it describes. When only s" +
@@ -229,31 +235,16 @@ const (
 		"ne _No alternatives in your notes._ in its place."
 )
 
-// cuesGenericCoaching —— cue-layered-grounding H3: the optional section appended only when the
-// caller turns on generic coaching. It permits one labelled general-advice line on a generic
-// process question whose answer strategy does not depend on the owner's own material, and forbids
-// it on any experience or fact question (those keep the gap rule).
-const cuesGenericCoaching = "**GENERIC COACHING (optional, enabled for this session):**\n" +
-	"- Judge each question: is it a GENERIC process/soft-skills question (salary, scheduling, " +
-	"notice period, negotiation etiquette) whose good answer is a general tactic, not the owner" +
-	"'s own material? If so, and the owner's notes have nothing specific, you MAY add one extra " +
-	"line, clearly marked `_General advice (not from your notes):_`, with a concrete tactic.\n" +
-	"- For ANY experience or fact question (what did you build / do / measure), add no such line " +
-	"— follow the gap rule. Keep the owner's material and the general tactic visibly separate so " +
-	"the owner can tell which is which."
-
 // systemPrompt —— buildSystemPrompt(cues, context, search off, rules) in the app. The discipline
-// block (answer-as-asked, gap, no-bridge, process-facts) closes the prompt: rules at the end hold,
-// rules buried mid-format are read as material (meeting-assistant memory, 2026-10-19). The generic
-// coaching section is appended only when the caller enables it (cue-layered-grounding H3).
-func systemPrompt(context, rules, coaching string) string {
-	s := cuesIntro + "\n\n" + cuesFormat + "\n\n" + cuesContent +
+// block (answer-as-asked, gap, no-bridge, process-facts, generic-vs-personal) closes the prompt:
+// rules at the end hold, rules buried mid-format are read as material (meeting-assistant memory,
+// 2026-10-19). Generic-question handling is always on (cue-generic-fabrication-fix, 2026-10-25,
+// superseding the H3 generic-coaching switch): a generic process question is answered from general
+// judgment, clearly marked, not by dressing the owner's corpus material as his own answer.
+func systemPrompt(context, rules string) string {
+	return cuesIntro + "\n\n" + cuesFormat + "\n\n" + cuesContent +
 		"\n\nUser-provided context\n-----\n" + context + "\n-----\n\n" + cuesOutput +
-		"\n\n" + cuesDiscipline
-	if coaching != "" {
-		s += "\n\n" + coaching
-	}
-	return s + "\n\n" + rules
+		"\n\n" + cuesDiscipline + "\n\n" + rules
 }
 
 const stopWords = "the a an and or of to in on for with is are was were be it this " +

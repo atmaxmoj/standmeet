@@ -4,17 +4,23 @@
 // calls the real model, and judges each card against the cue-defect-loop §6 fit criteria. No owner
 // data, no live instance.
 //
-// Gated behind CUE_EVAL=1 so a normal `go test` never calls a paid model. Run it with:
+// Gated behind CUE_EVAL=1 so a normal `go test` never calls a paid model. The provider is any
+// anthropic-compatible one (deepseek default, or anthropic + claude-haiku). Run it with:
 //
-//	CUE_EVAL=1 DEEPSEEK_ENDPOINT=... DEEPSEEK_KEY=... DEEPSEEK_MODEL=deepseek-v4-pro \
+//	CUE_EVAL=1 CUE_EVAL_PROVIDER=anthropic CUE_EVAL_ENDPOINT=https://api.anthropic.com \
+//	  CUE_EVAL_KEY=sk-ant-... CUE_EVAL_MODEL=claude-haiku-5-5 \
+//	  CUE_EVAL_GRADER_MODEL=claude-sonnet-5-5 \
 //	  go test ./internal/owner/jobs/cues/ -run TestCueEval -v
 //
-// It reads every card (owner's rule: "Eval 是需要你看日志输出的") and checks, per cue-defect-loop §6:
+// It reads every card (owner's rule: "Eval 是需要你看日志输出的") and checks each card as the owner
+// sees it (after the server stamps the From line, cue.go stampFrom), per the cue specs:
 //
 //	(a) 所指一致 — the lead answers the question's real subject (judge).
-//	frame        — a deployment question is not framed as testing methodology (F1/F4).
+//	frame        — a deployment question is not framed as testing methodology (F1/F4; V1).
 //	gap          — a no-record question admits the gap and does not bridge (G1/G2).
 //	process      — a pay question uses the posted band, not "Not in your notes" (H2).
+//	generic      — a no-material generic question is answered as general, no node cited (F-3; V3).
+//	personal     — a grounded question keeps its mechanical From = real sources (F-2; V4).
 //
 // evalCases() IS the cue-defect-loop §5.2 golden set; the §8 ledger (one row per closed defect, the
 // §2 schema) is persisted at docs/design/cue-defect-ledger.md. ONE case here per ledger row, each
@@ -24,10 +30,11 @@
 // must stay all-green. When a new cue defect closes, add its original question here as a new case —
 // that is how a reappearing drift toward one material cluster (§8) surfaces as a persistent red.
 //
-// Verified live 2026-10-22 against claude-haiku-5-5 (the sk-ant-usr key in verify-creds authed
-// directly): all three cases pass judge + deterministic checks across repeated runs, and the §0
-// frame card leads with production-engineering grounded in model-to-production, not the methodology
-// note.
+// Verified live 2026-10-25 against claude-haiku-5-5 (card + grader; the sk-ant-usr key in
+// verify-creds authed directly): all seven cases pass judge + deterministic checks across four
+// clean full-set runs. The §0 frame card leads with production engineering (interface/budgets/
+// rollout), USED declares the real notes, and the server-stamped From equals those sources — the
+// fabricated stages-and-gates frame and its forged From never return (cue-generic-fabrication-fix).
 
 package cues
 
@@ -56,14 +63,21 @@ type evalCase struct {
 }
 
 func evalCases() []evalCase {
-	return []evalCase{frameCase(), gapCase(), processCase()}
+	return append([]evalCase{frameCase(), gapCase(), processCase(), personalCase()},
+		genericCases()...)
 }
 
+// frameCase —— V1: the §0 accident's ORIGINAL question text (cue-generic-fabrication-fix §4 V1),
+// the maximal frame-gravity lure ("shipped and reliable"). In this synthetic fixture the question
+// IS grounded (engineeringNote answers it), so the card must lead with production engineering and
+// cite the engineering note — never the stages-and-gates methodology frame, and never a From line
+// naming a note that was not in the context.
 func frameCase() evalCase {
 	return evalCase{
 		name: "frame/deploy-not-methodology",
-		question: "How would you take a researcher's rough model prototype and turn it into " +
-			"a reliable production API serving real traffic at scale?",
+		question: "When you're handed something ambiguous — say a research prototype that needs " +
+			"to become a production API — how do you go from 'we're not sure this works' to " +
+			"something shipped and reliable?",
 		round: "technical",
 		check: func(card string) []string {
 			var bad []string
@@ -72,15 +86,116 @@ func frameCase() evalCase {
 				"canary", "cost") {
 				bad = append(bad, "lead names no production-engineering concept")
 			}
-			from := strings.ToLower(strings.TrimSpace(fromLine(card)))
-			if from != "" && strings.HasPrefix(from, "stages-and-gates") {
-				bad = append(bad, "card is led by the testing-methodology note")
+			if strings.Contains(strings.ToLower(fromLine(card)), "stages-and-gates") {
+				bad = append(bad, "card cites the testing-methodology note")
+			}
+			if citesUnfed(card) {
+				bad = append(bad, "From cites a note that was not in the context")
 			}
 			return bad
 		},
 		judge: "Does the answer address the engineering of shipping a model to a production " +
 			"API (interface, latency/cost, rollout), rather than a testing/QA methodology?",
 	}
+}
+
+// genericCases —— V3: generic process questions the synthetic persona has NO material for, one of
+// them (postmortem) deliberately lexically close to the production/reliability notes. Each must be
+// answered from general judgment, marked general, with no personal node cited and no From line.
+func genericCases() []evalCase {
+	qs := []struct{ name, question, round string }{
+		{
+			"generic/design-doc",
+			"What's your general approach to deciding when a change is worth writing a " +
+				"design document for before you start coding?", "general",
+		},
+		{
+			"generic/stakeholders",
+			"What's your general approach to keeping non-technical stakeholders updated " +
+				"on a long project?", "behavioural",
+		},
+		{
+			"generic/postmortem",
+			"In general, how should a team run a blameless postmortem after a production " +
+				"incident?", "general",
+		},
+	}
+	out := make([]evalCase, 0, len(qs))
+	for _, q := range qs {
+		out = append(out, evalCase{
+			name: q.name, question: q.question, round: q.round, check: genericFails,
+			judge: "This is a generic how-to question the candidate has no personal notes on. " +
+				"Does the answer give general professional judgment, WITHOUT presenting it as " +
+				"the candidate's own projects/experience and without citing their notes?",
+		})
+	}
+	return out
+}
+
+// genericFails —— the generic-mode deterministic checks (cue-generic-fabrication-fix F-3): no From
+// citation, a general marker present, and no personal node fabricated into the answer.
+func genericFails(card string) []string {
+	var bad []string
+	low := strings.ToLower(card)
+	if f := fromLine(card); strings.TrimSpace(f) != "" {
+		bad = append(bad, "generic answer carries a From citation: "+f)
+	}
+	if !containsAny(low, "not from your notes", "general —", "general -", "in general") {
+		bad = append(bad, "generic answer is not marked as general")
+	}
+	for _, node := range []string{
+		"larkspur", "tideline", "harborpay", "model-to-production", "stages-and-gates",
+	} {
+		if strings.Contains(low, node) {
+			bad = append(bad, "generic answer cites a personal node: "+node)
+		}
+	}
+	return bad
+}
+
+// personalCase —— V4: a grounded personal question. Grounding must be normal and the mechanical
+// From must name the real Larkspur sources.
+func personalCase() evalCase {
+	return evalCase{
+		name:     "personal/larkspur-grounded",
+		question: "Tell me about Larkspur — how does it take a model to a production API?",
+		round:    "technical",
+		check: func(card string) []string {
+			var bad []string
+			low := strings.ToLower(card)
+			if !containsAny(low, "batch", "latency", "rollout", "canary", "endpoint",
+				"versioned") {
+				bad = append(bad, "did not ground in Larkspur's production details")
+			}
+			from := strings.ToLower(fromLine(card))
+			if strings.TrimSpace(from) == "" {
+				bad = append(bad, "a grounded personal answer has no From citation")
+			} else if !containsAny(from, "larkspur", "model-to-production") {
+				bad = append(bad, "From does not name the Larkspur sources: "+from)
+			}
+			if citesUnfed(card) {
+				bad = append(bad, "From cites a note that was not in the context")
+			}
+			return bad
+		},
+		judge: "Does the answer describe Larkspur's own way of taking a model to a production " +
+			"API (endpoint, batching, latency budget, staged rollout), grounded in the work?",
+	}
+}
+
+// citesUnfed —— a From line that names anything outside the synthetic persona's note paths. The
+// mechanical stamp (stampFrom) makes this impossible, so this is the regression guard for R2.
+func citesUnfed(card string) bool {
+	fed := map[string]bool{}
+	for _, n := range synthNotes() {
+		fed[n.Path] = true
+	}
+	for raw := range strings.SplitSeq(fromLine(card), ",") {
+		if p := strings.TrimSpace(raw); p != "" && !fed[p] {
+			return true
+		}
+	}
+	return false
 }
 
 func gapCase() evalCase {
@@ -154,14 +269,20 @@ func processCase() evalCase {
 func TestCueEval(t *testing.T) {
 	t.Parallel()
 	if os.Getenv("CUE_EVAL") != "1" {
-		t.Skip("set CUE_EVAL=1 (and DEEPSEEK_ENDPOINT/KEY/MODEL) to run the live cue eval")
+		t.Skip("set CUE_EVAL=1 (+ provider env) to run the live cue eval")
 	}
-	ep, key := os.Getenv("DEEPSEEK_ENDPOINT"), os.Getenv("DEEPSEEK_KEY")
+	// Any anthropic-compatible provider. Defaults are the owner's deepseek setup; the 2026-10-25
+	// run used anthropic + claude-haiku-5-5 (CUE_EVAL_PROVIDER=anthropic, the sk-ant-usr key).
+	provider := envOr("CUE_EVAL_PROVIDER", "deepseek")
+	ep := envOr("CUE_EVAL_ENDPOINT", os.Getenv("DEEPSEEK_ENDPOINT"))
+	key := envOr("CUE_EVAL_KEY", os.Getenv("DEEPSEEK_KEY"))
 	if ep == "" || key == "" {
-		t.Fatal("DEEPSEEK_ENDPOINT and DEEPSEEK_KEY are required")
+		t.Fatal("set CUE_EVAL_ENDPOINT+CUE_EVAL_KEY (or DEEPSEEK_ENDPOINT+DEEPSEEK_KEY)")
 	}
-	card := cred(ep, key, "deepseek-chat")
-	grader := cred(ep, key, envOr("DEEPSEEK_MODEL", "deepseek-v4-pro"))
+	cardModel := envOr("CUE_EVAL_MODEL", "deepseek-chat")
+	gradeModel := envOr("CUE_EVAL_GRADER_MODEL", envOr("DEEPSEEK_MODEL", "deepseek-v4-pro"))
+	card := cred(provider, ep, key, cardModel)
+	grader := cred(provider, ep, key, gradeModel)
 	brief := "Senior Platform Engineer — shipping ML models to production APIs"
 	for _, c := range evalCases() {
 		t.Run(c.name, func(t *testing.T) {
@@ -175,11 +296,14 @@ func runEvalCase(t *testing.T, card, grader *inference.Cred, brief string, c *ev
 	t.Helper()
 	round := RoundByID(c.round)
 	b := NewDeck(synthNotes(), brief).build(c.question, round, c.screen)
-	out := complete(t, card, systemPrompt(b.context, round.closingRules(), ""), c.question)
-	t.Logf("\n--- Q: %s\n--- CARD:\n%s\n", c.question, out)
-	fails := c.check(out)
+	out := complete(t, card, systemPrompt(b.context, round.closingRules()), c.question)
+	// The owner sees the FINISHED card: the model's USED line turned into the server's From line,
+	// any model From stripped (stampFrom). Judge and checks run on that, as production ships it.
+	finished := stampFrom(out, b.sources)
+	t.Logf("\n--- Q: %s\n--- RAW MODEL:\n%s\n--- FINISHED CARD:\n%s\n", c.question, out, finished)
+	fails := c.check(finished)
 	if c.judge != "" {
-		if ok, why := judge(t, grader, c.question, out, c.judge); !ok {
+		if ok, why := judge(t, grader, c.question, finished, c.judge); !ok {
 			fails = append(fails, "judge: "+why)
 		}
 	}
@@ -190,9 +314,9 @@ func runEvalCase(t *testing.T, card, grader *inference.Cred, brief string, c *ev
 
 // --- model plumbing (via the real inference path) ---
 
-func cred(endpoint, key, model string) *inference.Cred {
+func cred(provider, endpoint, key, model string) *inference.Cred {
 	return &inference.Cred{
-		Provider: "deepseek", Key: secret.New(key),
+		Provider: provider, Key: secret.New(key),
 		Endpoint: strings.TrimRight(endpoint, "/"), Model: model,
 	}
 }
@@ -230,15 +354,6 @@ func judge(t *testing.T, c *inference.Cred, question, card, ask string) (bool, s
 	// A reply that is not clean JSON is inconclusive, not a pass. Surface what the judge said so
 	// the reader (this is a read-the-output eval) sees why, instead of a blank reason.
 	return false, "unparseable judge reply: " + strings.TrimSpace(out)
-}
-
-var fromRE = regexp.MustCompile(`(?mi)^_?from:\s*(.+?)_?\s*$`)
-
-func fromLine(card string) string {
-	if m := fromRE.FindStringSubmatch(card); m != nil {
-		return m[1]
-	}
-	return ""
 }
 
 // leadOf —— the answer portion of a card: before the "Context", "_From:" and "Supplementary"

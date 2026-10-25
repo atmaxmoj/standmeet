@@ -33,11 +33,7 @@ const askProps = `
 	"rewrite":{"type":"boolean",
 		"description":"Turn the line as heard into the line as meant first: stutters, ` +
 	`fillers, false starts and a sentence cut in two cleaned up, a mis-heard name of the ` +
-	`owner's restored. Default: on; false for a line that is already clean."},
-	"generic_coaching":{"type":"boolean",
-		"description":"When on, a generic process question (pay, scheduling, negotiation) ` +
-	`with no personal material may carry one clearly-labelled general-advice line. Default: ` +
-	`off; experience and fact questions never get one."}`
+	`owner's restored. Default: on; false for a line that is already clean."}`
 
 func (c *assistantFiber) cueBindings() []*registry.MCPBinding {
 	return []*registry.MCPBinding{{
@@ -73,15 +69,14 @@ func (c *assistantFiber) cueBindings() []*registry.MCPBinding {
 }
 
 type askArgs struct {
-	Rewrite         *bool  `json:"rewrite"`
-	RoleID          string `json:"role_id"`
-	Round           string `json:"round"`
-	Question        string `json:"question"`
-	CallID          string `json:"call_id"`
-	UserContext     string `json:"user_context"`
-	ID              string `json:"id"`
-	Debug           bool   `json:"debug"`
-	GenericCoaching bool   `json:"generic_coaching"`
+	Rewrite     *bool  `json:"rewrite"`
+	RoleID      string `json:"role_id"`
+	Round       string `json:"round"`
+	Question    string `json:"question"`
+	CallID      string `json:"call_id"`
+	UserContext string `json:"user_context"`
+	ID          string `json:"id"`
+	Debug       bool   `json:"debug"`
 }
 
 // ask —— the arguments as an Ask. The rewrite is on unless the caller turns it off (owner,
@@ -95,7 +90,6 @@ func (a *askArgs) ask() *cues.Ask {
 	return &cues.Ask{
 		RoleRef: a.RoleID, Round: a.Round, Question: a.Question,
 		CallID: a.CallID, UserContext: a.UserContext, Rewrite: rewrite,
-		GenericCoaching: a.GenericCoaching,
 	}
 }
 
@@ -151,11 +145,8 @@ func (c *assistantFiber) handleCue(
 	if err != nil {
 		return c.failed("assistant.cue", err)
 	}
-	// generic_coaching echoes the switch state so a caller can read, per cue-layered-grounding H3,
-	// whether this card was allowed a general-advice line (default off).
 	out := map[string]any{
 		"card": card.Text, "feed_id": card.FeedID, "model": card.Model,
-		"generic_coaching": in.GenericCoaching,
 	}
 	if in.Debug {
 		out["debug"] = promptOut(&card.Prompt)
