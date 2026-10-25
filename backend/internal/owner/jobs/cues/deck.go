@@ -26,13 +26,12 @@ type Note struct {
 
 // doNotLeadTag —— the reserved salience tag (cue-gap-discipline G3). A note the owner tags with it
 // is "low salience": it may enter a card only when the question names its own topic, never as a
-// keyword-dragged aside on an unrelated question. It is owner data on the note, travels with it,
-// and names no specific material in code.
+// keyword-dragged aside on an unrelated question. Owner data; names no material in code.
 const doNotLeadTag = "do-not-lead"
 
 // leadTag —— the positive salience tag (cue-gap-discipline G3). A note the owner tags with it is
 // "high salience": within its grounding layer it leads a generic match and is not dropped for
-// generic material. Like do-not-lead it is owner data on the note and names no material in code.
+// generic material. Owner data on the note; names no material in code.
 const leadTag = "lead"
 
 // subjectivityGenre —— the genre the owner's résumé/CV lives in.
@@ -175,12 +174,9 @@ func salienceOK(query string, u *unit) bool {
 	return directlyNames(query, u.title)
 }
 
-// namedProjects —— the slugs of the project roots the question names by their own name. When a
-// question names a specific project, notes from OTHER projects are off-topic and must not lead the
-// card (the structural domain gate for cue-defect-loop F1/F4 and cue-gap-discipline G2): a figure
-// asked about Larkspur is not answered from Harborpay's notes just because they share a word. The
-// gate keys on the project SLUG (the distinctive name), never a generic word in the note body, so
-// it derives the domain from structure, not from the keyword density that caused the drift.
+// namedProjects —— the slugs of the project roots the question names by their own name (the
+// structural domain gate, cue-defect-loop F1/F4 / cue-gap-discipline G2). Keying on the SLUG, not a
+// generic body word, derives the domain from structure, not the keyword density that drifts.
 func (d *Deck) namedProjects(query string) map[string]bool {
 	qt := map[string]bool{}
 	for _, t := range wordTokens(words(query)) {
@@ -298,8 +294,7 @@ type built struct {
 	context string
 	sources []string
 	named   []string // the technologies the question named (for the choice matrix)
-	// namedProjects —— the slugs of the owner's projects the question named (G2). A project note
-	// grounds a card only for a question that names its project; stampFrom drops the rest.
+	// namedProjects —— project slugs the question named; project notes cite only when named (G2).
 	namedProjects []string
 	matrix        bool
 }
