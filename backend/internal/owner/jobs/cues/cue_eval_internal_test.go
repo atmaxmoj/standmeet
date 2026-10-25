@@ -93,13 +93,17 @@ func runEvalCase(t *testing.T, card, grader *inference.Cred, brief string, c *ev
 	round := RoundByID(c.round)
 	b := NewDeck(synthNotes(), brief).build(c.question, round, c.screen)
 	out := complete(t, card, systemPrompt(b.context, round.closingRules()), c.question)
-	// The owner sees the FINISHED card: the model's USED line turned into the server's From line,
-	// any model From stripped (stampFrom). Judge and checks run on that, as production ships it.
-	finished := stampFrom(out, b.sources, b.namedProjects)
-	t.Logf("\n--- Q: %s\n--- RAW MODEL:\n%s\n--- FINISHED CARD:\n%s\n", c.question, out, finished)
-	fails := c.check(finished)
+	// The owner sees the FINISHED card: the server-enforced two states (finalize). Judge and checks
+	// run on that, as production ships it; every card must be generic (marker) XOR grounded (From).
+	fin := finalize(out, b.sources, b.namedProjects, b.posting())
+	t.Logf("\n--- Q: %s\n--- RAW MODEL:\n%s\n--- FINISHED CARD (%s):\n%s\n",
+		c.question, out, fin.mode, fin.card)
+	fails := c.check(fin.card)
+	if two := twoStateFail(fin.card); two != "" {
+		fails = append(fails, two)
+	}
 	if c.judge != "" {
-		if ok, why := judge(t, grader, c.question, finished, c.judge); !ok {
+		if ok, why := judge(t, grader, c.question, fin.card, c.judge); !ok {
 			fails = append(fails, "judge: "+why)
 		}
 	}
@@ -167,6 +171,20 @@ func leadOf(card string) string {
 var jsonObjRE = regexp.MustCompile(`(?s)\{.*\}`)
 
 func jsonObject(s string) string { return jsonObjRE.FindString(s) }
+
+// twoStateFail —— the acceptance follow-up #2 invariant: a finished card is EITHER generic (the
+// general marker, no From) OR grounded (a From, no marker), never the gray third state (neither).
+func twoStateFail(card string) string {
+	marker := strings.Contains(card, "not from your notes")
+	from := strings.Contains(card, "_From:")
+	if marker && from {
+		return "card is both generic (marker) and grounded (From)"
+	}
+	if !marker && !from {
+		return "gray card: neither a general marker nor a From (the forbidden third state)"
+	}
+	return ""
+}
 
 func containsAny(s string, subs ...string) bool {
 	for _, sub := range subs {

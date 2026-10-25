@@ -20,11 +20,15 @@ const (
 	feedIDBytes = 8
 )
 
-// Card —— a finished cue.
+// Card —— a finished cue. Mode / Used / From are the citation metadata a verifier reads to check
+// the two-state invariant without parsing the card (cue acceptance follow-up #2, proposal C).
 type Card struct {
 	Text   string
 	FeedID string
 	Model  string
+	Mode   string   // "generic" (general judgment, marked, no From) | "grounded" (non-empty From)
+	Used   []string // the note paths the model declared on its USED line (raw, before filtering)
+	From   []string // the paths the server actually stamped as the From citation
 	Prompt Prompt
 }
 
@@ -46,11 +50,14 @@ func (a *Assistant) Cue(
 	if err != nil {
 		return Card{}, fmt.Errorf("%w: %w", errModelCall, err)
 	}
-	text = stampFrom(text, p.Sources, p.NamedProjects)
-	if ferr := a.finish(ctx, ownerID, feedID, q.CallID, text); ferr != nil {
+	fin := finalize(text, p.Sources, p.NamedProjects, p.posting())
+	if ferr := a.finish(ctx, ownerID, feedID, q.CallID, fin.card); ferr != nil {
 		return Card{}, ferr
 	}
-	return Card{Text: text, FeedID: feedID, Model: model, Prompt: p}, nil
+	return Card{
+		Text: fin.card, FeedID: feedID, Model: model, Prompt: p,
+		Mode: fin.mode, Used: declaredUsed(text), From: fin.from,
+	}, nil
 }
 
 var (
@@ -60,30 +67,84 @@ var (
 	fromLineRE = regexp.MustCompile(`(?mi)^[ \t]*_?from:[ \t]*(.*?)_?[ \t]*$`)
 )
 
-// genericMarker —— the substring a generic card carries (cuesDiscipline writes the full
-// "_General — not from your notes._"). Its presence means the answer is general judgment.
-const genericMarker = "not from your notes"
+// genericMarker —— the substring a generic card carries (genericMarkerLine is the full line). Its
+// presence means the answer is general judgment, so the card carries no From.
+const (
+	genericMarker     = "not from your notes"
+	genericMarkerLine = "_General — not from your notes._"
+	// postingCitation —— the From for a process answer drawn from the role's posting (H2). The
+	// posting is a provided source, so the card is grounded, not general judgment.
+	postingCitation = "the role's posting"
+)
 
-// stampFrom —— the citation is the server's, never the model's (cue-generic-fabrication-fix F-2,
-// 2026-10-25). Strip any From line the model wrote, read its "USED: <paths>" declaration, keep only
-// the paths that were really in the context (sources), and append one real From line from those.
-// A card that grounded on no note — a generic answer (USED: none), or one whose declared paths
-// were all invented — gets NO From line: an empty citation is never forged from model text (F-3d).
-//
-// Two deterministic backstops close the V1 classification wobble (2026-10-25 acceptance follow-up),
-// so the same question cannot present adjacent material as the owner's grounded experience:
+// postingRE —— a USED declaration that the answer came from the role's posting/packet (H2).
+var postingRE = regexp.MustCompile(`(?i)\b(posting|packet)\b`)
+
+// finished —— a finalised card and the citation metadata a verifier reads (follow-up #2 C).
+type finished struct {
+	card string
+	mode string // "generic" | "grounded"
+	from []string
+}
+
+// finalize —— the citation is the server's, never the model's (cue-generic-fabrication-fix F-2).
+// Strip any From line the model wrote, read its "USED: <paths>" declaration, keep only paths really
+// in the context (sources), and stamp one real From from those. Backstops (F-3 / follow-up #1):
 //   - a card the model marked generic carries NO From — generic judgment never cites the owner;
 //   - a project note grounds a card only when the question named it (groundedCitations).
-func stampFrom(text string, sources, namedProjects []string) string {
+//
+// It enforces the TWO-STATE invariant (acceptance follow-up #2): every card is EITHER grounded —
+// a non-empty stamped From, no general marker — OR generic — the general marker, no From. The
+// forbidden third state (neither marker nor From, from a model that omitted USED) is resolved to
+// generic: a card that declared no usable source is marked general, never shown as the owner's
+// uncited grounded experience. So the model omitting its USED line can only ever UNDER-claim.
+// posting is the citation for the role's posting when the packet carried posted facts, else "".
+func finalize(text string, sources, namedProjects []string, posting string) finished {
 	body := stripControl(text)
 	if strings.Contains(strings.ToLower(body), genericMarker) {
-		return body
+		return finished{card: body, mode: "generic"}
 	}
-	kept := groundedCitations(usedPaths(text, sources), namedProjects)
-	if len(kept) == 0 {
-		return body
+	cites := groundedCitations(usedPaths(text, sources), namedProjects)
+	if posting != "" && usedPosting(text) {
+		cites = append(cites, posting) // a process answer from the posting is grounded (H2).
 	}
-	return body + "\n\n_From: " + strings.Join(kept, ", ") + "_"
+	if len(cites) == 0 {
+		return finished{card: genericMarkerLine + "\n\n" + body, mode: "generic"}
+	}
+	card := body + "\n\n_From: " + strings.Join(cites, ", ") + "_"
+	return finished{card: card, mode: "grounded", from: cites}
+}
+
+// posting / Prompt.posting —— the citation for the role's posting when the packet carried posted
+// facts, else "". Defined here beside the posting-citation logic (built lives in deck.go).
+func (b *built) posting() string {
+	if b.hasPosting {
+		return postingCitation
+	}
+	return ""
+}
+
+// usedPosting —— the model declared on its USED line that it answered from the role's posting.
+func usedPosting(text string) bool {
+	m := usedLineRE.FindStringSubmatch(text)
+	return len(m) > 1 && postingRE.MatchString(m[1])
+}
+
+// declaredUsed —— the note paths the model named on its USED line, raw (parens trimmed, "none"
+// dropped), before any filtering. For the verifier to spot a card whose content is grounded but
+// whose declaration is empty (follow-up #2 proposal B/C).
+func declaredUsed(text string) []string {
+	out := []string{}
+	m := usedLineRE.FindStringSubmatch(text)
+	if m == nil {
+		return out
+	}
+	for raw := range strings.SplitSeq(m[1], ",") {
+		if p := strings.Trim(raw, " \t()"); p != "" && !strings.EqualFold(p, "none") {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 // groundedCitations —— the used paths that may show as a grounded From: every non-project note, and

@@ -145,8 +145,15 @@ func (c *assistantFiber) handleCue(
 	if err != nil {
 		return c.failed("assistant.cue", err)
 	}
+	// citation —— the two-state metadata a caller/verifier reads without parsing the card
+	// (cue-generic-fabrication-fix acceptance follow-up #2): the retrieved sources, what the model
+	// declared it used, the server-stamped From, and the final mode (generic | grounded).
 	out := map[string]any{
 		"card": card.Text, "feed_id": card.FeedID, "model": card.Model,
+		"citation": map[string]any{
+			"mode": card.Mode, "sources": nonNil(card.Prompt.Sources),
+			"used": nonNil(card.Used), "from": nonNil(card.From),
+		},
 	}
 	if in.Debug {
 		out["debug"] = promptOut(&card.Prompt)

@@ -59,11 +59,21 @@ type Prompt struct {
 	Context  string
 	Sources  []string
 	Named    []string
-	// NamedProjects —— the owner-project slugs the question named; stampFrom only keeps a project
+	// NamedProjects —— the owner-project slugs the question named; finalize only keeps a project
 	// note's From when the question named that project (cue-generic-fabrication-fix V1 threshold).
 	NamedProjects []string
 	role          Role
 	Matrix        bool
+	// HasPosting —— the packet carried posted facts; a process answer may cite the role's posting.
+	HasPosting bool
+}
+
+// posting —— the citation for the role's posting when the packet carried posted facts, else "".
+func (p *Prompt) posting() string {
+	if p.HasPosting {
+		return postingCitation
+	}
+	return ""
 }
 
 // Context —— the prompt assistant.cue would send for this question; nothing is written.
@@ -118,8 +128,8 @@ func compose(q *Ask, round *Round, rd *roleDeck, screen *screenPick, heard Heard
 	return Prompt{
 		System:  systemPrompt(b.context+extra, round.closingRules()),
 		Context: b.context, Sources: b.sources, Named: b.named, Matrix: b.matrix,
-		NamedProjects: b.namedProjects,
-		role:          rd.role, noticed: screen.noticed, Heard: heard,
+		NamedProjects: b.namedProjects, HasPosting: b.hasPosting,
+		role: rd.role, noticed: screen.noticed, Heard: heard,
 	}
 }
 

@@ -169,7 +169,10 @@ const (
 		"otes>\n" +
 		"USED: <the path inside each used note's (…) header — slug only, " +
 		"no parentheses — comma-separated, or: none>"
-	cuesOutput = "**OUTPUT:** only the cue in the format above (or a single —)."
+	cuesOutput = "**OUTPUT:** only the cue in the format above (or a single —). ALWAYS end with " +
+		"the USED line — never omit it: `USED: <the paths you grounded on>` for a grounded " +
+		"card, or `USED: none` for a general one. A grounded card with no USED paths is wrong; " +
+		"if you used a note, name its path."
 	// cuesDiscipline —— the 2026-10-22 cue-defect rules: answer the question actually asked
 	// (cue-defect-loop F1/F4), admit a gap instead of bridging (cue-gap-discipline G1/G2), and use
 	// the posting's own facts for a process question (cue-layered-grounding H2).
@@ -202,7 +205,9 @@ const (
 		"ed facts — a salary band, a level, a location — give those and a one-line respon" +
 		"se (e.g. \"land inside the band; don't name a point first\") instead of \"Not in yo" +
 		"ur notes\". Only the parts the posting does not give fall back to the notes and th" +
-		"e gap rule above.\n" +
+		"e gap rule above. A card answered from the posting is NOT general judgment and NOT " +
+		"the owner's notes — do not mark it general; end it with `USED: posting` so the serve" +
+		"r cites the role's posting.\n" +
 		"- **Generic vs personal — decide this first.** A GENERIC question asks how somet" +
 		"hing is done in general (a process, a method, a judgment call), NOT about the use" +
 		"r's own experience, facts, projects or decisions. When a question is generic and " +

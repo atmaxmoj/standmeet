@@ -14,8 +14,7 @@ import (
 // Note —— one corpus note in a role's scope, in the order the corpus lists it. Genre is the corpus
 // genre ("wiki" / "output" / "subjectivity"; "" = wiki); the port sets it. It lets the deck give
 // the owner's own résumé/CV (subjectivity) a grounding layer ahead of general notes
-// (cue-resume-binding R2, cue-layered-grounding H1), which a flat BM25 search over a short CV
-// otherwise buries.
+// (cue-resume-binding R2, cue-layered-grounding H1), which a flat BM25 search otherwise buries.
 type Note struct {
 	Title string
 	Path  string
@@ -82,8 +81,7 @@ func (d *Deck) Count() int { return d.count }
 
 // Hint —— the owner's own names for Whisper's prompt, so "StandMeet" is not heard as "stand
 // meet": the project names, every stack name with each plain spelling its pattern accepts
-// ("bwrap", "k8s"), the companies applied to. Without the stack names Whisper heard "bwrap" as
-// "BRAP" and "Postgres" as "post grey". "" for a deck with no project.
+// ("bwrap", "k8s"), the companies applied to. "" for a deck with no project.
 func (d *Deck) Hint(companies []string) string {
 	if d.vocabulary == "" {
 		return ""
@@ -243,6 +241,7 @@ func (d *Deck) build(query string, r *Round, screen string) built {
 	return built{
 		context: ctx, sources: sources, named: named,
 		namedProjects: slices.Sorted(maps.Keys(d.namedProjects(query))), matrix: len(matrixFor) > 0,
+		hasPosting: strings.TrimSpace(screen) != "",
 	}
 }
 
@@ -297,6 +296,7 @@ type built struct {
 	// namedProjects —— project slugs the question named; project notes cite only when named (G2).
 	namedProjects []string
 	matrix        bool
+	hasPosting    bool // the packet carried posted facts (a process answer may cite the posting)
 }
 
 // matrixLine —— REQUIRED for the technologies named (the first one leads), OFF for none.

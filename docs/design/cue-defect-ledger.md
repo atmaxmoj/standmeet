@@ -65,7 +65,21 @@ one-line reason, class, status, fix, golden-set case}`.
   when named. Verified reproducible live 2026-10-25: the frame question (names no project) — the model
   declares `USED: model-to-production, larkspur` every run, and every run the server stamps only
   `_From: software/engineering/model-to-production_`, dropping the unnamed Larkspur (4/4 identical,
-  on top of 3 clean full-set runs). `TestStampFromProjectNeedsNaming` / `TestStampFromGenericMarkerStripsCitation` guard it.
+  on top of 3 clean full-set runs). `TestFinalizeProjectNeedsNaming` / `TestFinalizeGenericMarkerStripsCitation` guard it.
+- **Two-state invariant + observability (follow-up #2, v0.1.173).** Re-verification found a THIRD
+  state: cards with NEITHER a general marker NOR a From (the model omitted its USED line) — a
+  verifier can't tell general judgment from an uncited note-rewrite. `cue.go`'s `finalize` now makes
+  every card one of two states: grounded (a non-empty stamped From, no marker) XOR generic (the
+  `_General — not from your notes._` marker, no From). The gray third state resolves to generic — a
+  card that declared no usable source is never shown as the owner's uncited grounded experience, so
+  a model omitting USED can only UNDER-claim, never fabricate grounding. A process answer from the
+  job posting (H2) is its own grounded case: it declares `USED: posting` and the server cites
+  `the role's posting` (not a misleading "not from your notes" marker). `assistant.cue` now returns
+  a `citation` object — `{mode, sources, used, from}` — so a verifier checks the state mechanically,
+  not by parsing the card (proposal C). Guards: `TestFinalizeNoThirdState`, `TestFinalizePostingIsGrounded`,
+  and `twoStateFail` runs on every live eval card. 8 clean full-set runs (claude-haiku-5-5). Residual:
+  the model's generic/grounded LABEL can still wobble on a truly ambiguous question — inherent; what
+  is guaranteed is the two-state shape and no fabricated grounding.
 - **golden-set case:** `frameCase` in `evalCases()` carries the §0 accident's ORIGINAL question text
   (this is the **F6 / follow-up F-3 fixed regression**). Verified live 2026-10-25 (claude-haiku-5-5,
   4 clean full-set runs): the card leads with interface contract / budgets / staged rollout, USED

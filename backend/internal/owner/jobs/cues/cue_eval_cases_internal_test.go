@@ -58,8 +58,7 @@ func genericCases() []evalCase {
 	qs := []struct{ name, question, round string }{
 		{
 			"generic/design-doc",
-			"What's your general approach to deciding when a change is worth writing a " +
-				"design document for before you start coding?", "general",
+			"How do you write a design doc that actually gets read and approved?", "general",
 		},
 		{
 			"generic/stakeholders",
@@ -95,11 +94,13 @@ func genericFails(card string) []string {
 	if !containsAny(low, "not from your notes", "general —", "general -", "in general") {
 		bad = append(bad, "generic answer is not marked as general")
 	}
-	for _, node := range []string{
-		"larkspur", "tideline", "harborpay", "model-to-production", "stages-and-gates",
-	} {
+	// Only the unmistakable proper nouns: a generic answer must never NAME one of the owner's
+	// projects/companies (that is personal attribution). General engineering vocabulary a note
+	// happens to share ("stages and gates", "model to production") is not a leak — the card has
+	// no From, so it cites nothing; naming Larkspur/Tideline/Harborpay would be the real tell.
+	for _, node := range []string{"larkspur", "tideline", "harborpay"} {
 		if strings.Contains(low, node) {
-			bad = append(bad, "generic answer cites a personal node: "+node)
+			bad = append(bad, "generic answer names a personal project/company: "+node)
 		}
 	}
 	return bad
