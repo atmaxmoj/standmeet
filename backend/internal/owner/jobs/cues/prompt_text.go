@@ -209,10 +209,20 @@ const (
 		"the notes hold nothing genuinely on its topic, answer from sound general professi" +
 		"onal judgment and mark the card with one line: _General — not from your notes._ D" +
 		"o NOT dress general judgment as the user's own work (no \"your approach\", no \"you " +
-		"built\", no personal attribution), and do NOT pull in a note that only shares a wo" +
-		"rd. You MAY cite one of the user's notes as an example ONLY if it genuinely match" +
-		"es the question's domain — then list its path in USED. A generic answer grounded " +
-		"in no note lists USED: none and carries no citation.\n" +
+		"built\", no personal attribution).\n" +
+		"- **On-point vs adjacent — the test for using a note.** A note is ON-POINT only whe" +
+		"n its SUBJECT is the question's subject. A general-principle note of the user's tha" +
+		"t directly answers the question is on-point — cite it. A note about one specific pr" +
+		"oject or system of the user's is on-point ONLY when the question NAMES that project;" +
+		" otherwise it is ADJACENT — it shares only a word (\"production\", \"pipeline\", \"shipp" +
+		"ed\") — so do not cite it and do not build the answer on it. Example: a note about sh" +
+		"ipping ONE of the user's own services to production is NOT the answer to a general " +
+		"\"how do you take a prototype to production\" question; that is adjacent, so answer gen" +
+		"erically.\n" +
+		"- **One shape or the other, never both.** A card is EITHER grounded — it cites on-po" +
+		"int notes in USED and carries NO general marker — OR generic — it carries the _Gener" +
+		"al — not from your notes._ marker and lists USED: none. Never a card that both marks" +
+		" itself general and cites the user's notes.\n" +
 		"- **Personal questions** (what you did, built, measured or chose; a fact about a " +
 		"named project) stay grounded in the notes with the gap rule above — never substit" +
 		"uted by general content."

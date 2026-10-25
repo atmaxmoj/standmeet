@@ -59,8 +59,11 @@ type Prompt struct {
 	Context  string
 	Sources  []string
 	Named    []string
-	role     Role
-	Matrix   bool
+	// NamedProjects —— the owner-project slugs the question named; stampFrom only keeps a project
+	// note's From when the question named that project (cue-generic-fabrication-fix V1 threshold).
+	NamedProjects []string
+	role          Role
+	Matrix        bool
 }
 
 // Context —— the prompt assistant.cue would send for this question; nothing is written.
@@ -115,7 +118,8 @@ func compose(q *Ask, round *Round, rd *roleDeck, screen *screenPick, heard Heard
 	return Prompt{
 		System:  systemPrompt(b.context+extra, round.closingRules()),
 		Context: b.context, Sources: b.sources, Named: b.named, Matrix: b.matrix,
-		role: rd.role, noticed: screen.noticed, Heard: heard,
+		NamedProjects: b.namedProjects,
+		role:          rd.role, noticed: screen.noticed, Heard: heard,
 	}
 }
 

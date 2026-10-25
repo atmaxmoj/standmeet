@@ -62,7 +62,7 @@ func TestStampFromDropsForged(t *testing.T) {
 	sources := []string{"software/engineering/model-to-production", "cv"}
 	in := "**Key: x**\nbody line\n_From: forged-node, another-forgery_\n" +
 		"USED: software/engineering/model-to-production, ghost/node, cv"
-	got := stampFrom(in, sources)
+	got := stampFrom(in, sources, nil)
 	for _, forged := range []string{"forged-node", "another-forgery", "ghost/node", "USED:"} {
 		if strings.Contains(got, forged) {
 			t.Fatalf("control/forged content survived (%q): %q", forged, got)
@@ -72,7 +72,7 @@ func TestStampFromDropsForged(t *testing.T) {
 		t.Fatalf("real sources not stamped: %q", got)
 	}
 	// A path the model copied with the surrounding "(…)" from the context header is still matched.
-	paren := stampFrom("body\nUSED: (cv), (software/engineering/model-to-production)", sources)
+	paren := stampFrom("body\nUSED: (cv), (software/engineering/model-to-production)", sources, nil)
 	if !strings.Contains(paren, "_From: cv, software/engineering/model-to-production_") {
 		t.Fatalf("parenthesised USED paths were not matched: %q", paren)
 	}
@@ -83,11 +83,47 @@ func TestStampFromDropsForged(t *testing.T) {
 func TestStampFromNoneNoCitation(t *testing.T) {
 	t.Parallel()
 	in := "general answer\n_General — not from your notes._\nUSED: none"
-	got := stampFrom(in, []string{"a/b"})
+	got := stampFrom(in, []string{"a/b"}, nil)
 	if strings.Contains(got, "From:") {
 		t.Fatalf("generic card got a forged From line: %q", got)
 	}
 	if !strings.Contains(got, "General — not from your notes") {
 		t.Fatalf("generic marker stripped by mistake: %q", got)
+	}
+}
+
+// TestStampFromGenericMarkerStripsCitation —— V1 backstop: a card the model marked generic carries
+// NO From, even if it declared a note in USED (generic judgment never cites the owner).
+func TestStampFromGenericMarkerStripsCitation(t *testing.T) {
+	t.Parallel()
+	in := "general judgment\n_General — not from your notes._\n" +
+		"USED: software/engineering/model-to-production"
+	got := stampFrom(in, []string{"software/engineering/model-to-production"}, nil)
+	if strings.Contains(got, "From:") {
+		t.Fatalf("a generic-marked card still carries a From: %q", got)
+	}
+}
+
+// TestStampFromProjectNeedsNaming —— V1 backstop: a project note (software/project/*) is a grounded
+// citation only when the question named that project; an unnamed project's note is dropped, a named
+// one is kept. A general-principle note (not a project) is always kept.
+func TestStampFromProjectNeedsNaming(t *testing.T) {
+	t.Parallel()
+	sources := []string{"software/project/larkspur", "software/engineering/model-to-production"}
+	used := "body\nUSED: software/project/larkspur, software/engineering/model-to-production"
+
+	// Names no project: the project note is adjacent and dropped; the principle note stays.
+	unnamed := stampFrom(used, sources, nil)
+	if strings.Contains(unnamed, "software/project/larkspur") {
+		t.Fatalf("an unnamed project's note was cited as grounding: %q", unnamed)
+	}
+	if !strings.Contains(unnamed, "_From: software/engineering/model-to-production_") {
+		t.Fatalf("the on-point principle note was dropped: %q", unnamed)
+	}
+
+	// Question named Larkspur: its note is on-point and kept.
+	named := stampFrom(used, sources, []string{"larkspur"})
+	if !strings.Contains(named, "software/project/larkspur") {
+		t.Fatalf("a named project's note was dropped: %q", named)
 	}
 }

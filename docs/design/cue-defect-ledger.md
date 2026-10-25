@@ -51,6 +51,21 @@ one-line reason, class, status, fix, golden-set case}`.
   - **F-3 — generic-question mode (always on, supersedes the H3 switch):** a generic process/method
     question with no on-point note is answered from general judgment, marked `_General — not from your
     notes._`, with `USED: none` → no `From:` (F-3d). No corpus bridge, no personal attribution.
+- **V1 stabilisation (2026-10-25 acceptance follow-up).** The accident question is genuinely
+  ambiguous (generic how-to vs "tell me your experience"), so the model's generic/grounded LABEL can
+  still wobble run-to-run — but the specific HARM (an adjacent project note presented as the owner's
+  grounded experience, with a From and no marker) is now closed by two **deterministic** backstops in
+  `stampFrom` (`groundedCitations`), independent of model variance:
+  - a card the model marked generic carries NO From — generic judgment never cites the owner;
+  - a project note (`software/project/<slug>`) grounds a card ONLY when the question NAMES that
+    project (the same G2 signal, threaded as `Prompt.NamedProjects`). An unnamed project's note is
+    adjacent and dropped from the From whatever the model declared in USED.
+  **The threshold (owner-approved):** on-point = a note whose SUBJECT is the question's subject (a
+  general-principle note that directly answers counts); a specific project's note is on-point only
+  when named. Verified reproducible live 2026-10-25: the frame question (names no project) — the model
+  declares `USED: model-to-production, larkspur` every run, and every run the server stamps only
+  `_From: software/engineering/model-to-production_`, dropping the unnamed Larkspur (4/4 identical,
+  on top of 3 clean full-set runs). `TestStampFromProjectNeedsNaming` / `TestStampFromGenericMarkerStripsCitation` guard it.
 - **golden-set case:** `frameCase` in `evalCases()` carries the §0 accident's ORIGINAL question text
   (this is the **F6 / follow-up F-3 fixed regression**). Verified live 2026-10-25 (claude-haiku-5-5,
   4 clean full-set runs): the card leads with interface contract / budgets / staged rollout, USED

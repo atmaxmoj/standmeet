@@ -5,6 +5,7 @@
 package cues
 
 import (
+	"maps"
 	"regexp"
 	"slices"
 	"strings"
@@ -243,7 +244,10 @@ func (d *Deck) build(query string, r *Round, screen string) built {
 	}
 	ctx := screen + d.briefBlock() + matrixLine(matrixFor) + "\n\n# Your projects\n" +
 		d.projects + "\n\n# Notes that match what was just said\n" + strings.Join(blocks, "\n\n")
-	return built{context: ctx, sources: sources, named: named, matrix: len(matrixFor) > 0}
+	return built{
+		context: ctx, sources: sources, named: named,
+		namedProjects: slices.Sorted(maps.Keys(d.namedProjects(query))), matrix: len(matrixFor) > 0,
+	}
 }
 
 func (d *Deck) briefBlock() string {
@@ -293,8 +297,11 @@ func stackIn(query string) []string {
 type built struct {
 	context string
 	sources []string
-	named   []string
-	matrix  bool
+	named   []string // the technologies the question named (for the choice matrix)
+	// namedProjects —— the slugs of the owner's projects the question named (G2). A project note
+	// grounds a card only for a question that names its project; stampFrom drops the rest.
+	namedProjects []string
+	matrix        bool
 }
 
 // matrixLine —— REQUIRED for the technologies named (the first one leads), OFF for none.

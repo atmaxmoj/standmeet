@@ -46,7 +46,7 @@ func (a *Assistant) Cue(
 	if err != nil {
 		return Card{}, fmt.Errorf("%w: %w", errModelCall, err)
 	}
-	text = stampFrom(text, p.Sources)
+	text = stampFrom(text, p.Sources, p.NamedProjects)
 	if ferr := a.finish(ctx, ownerID, feedID, q.CallID, text); ferr != nil {
 		return Card{}, ferr
 	}
@@ -60,18 +60,48 @@ var (
 	fromLineRE = regexp.MustCompile(`(?mi)^[ \t]*_?from:[ \t]*(.*?)_?[ \t]*$`)
 )
 
+// genericMarker —— the substring a generic card carries (cuesDiscipline writes the full
+// "_General — not from your notes._"). Its presence means the answer is general judgment.
+const genericMarker = "not from your notes"
+
 // stampFrom —— the citation is the server's, never the model's (cue-generic-fabrication-fix F-2,
 // 2026-10-25). Strip any From line the model wrote, read its "USED: <paths>" declaration, keep only
 // the paths that were really in the context (sources), and append one real From line from those.
 // A card that grounded on no note — a generic answer (USED: none), or one whose declared paths
 // were all invented — gets NO From line: an empty citation is never forged from model text (F-3d).
-func stampFrom(text string, sources []string) string {
-	used := usedPaths(text, sources)
+//
+// Two deterministic backstops close the V1 classification wobble (2026-10-25 acceptance follow-up),
+// so the same question cannot present adjacent material as the owner's grounded experience:
+//   - a card the model marked generic carries NO From — generic judgment never cites the owner;
+//   - a project note grounds a card only when the question named it (groundedCitations).
+func stampFrom(text string, sources, namedProjects []string) string {
 	body := stripControl(text)
-	if len(used) == 0 {
+	if strings.Contains(strings.ToLower(body), genericMarker) {
 		return body
 	}
-	return body + "\n\n_From: " + strings.Join(used, ", ") + "_"
+	kept := groundedCitations(usedPaths(text, sources), namedProjects)
+	if len(kept) == 0 {
+		return body
+	}
+	return body + "\n\n_From: " + strings.Join(kept, ", ") + "_"
+}
+
+// groundedCitations —— the used paths that may show as a grounded From: every non-project note, and
+// a project note (software/project/<slug>) only when the question named that project (G2).
+// An unnamed project's note is adjacent — it shares a word, it is not the answer to THIS question.
+func groundedCitations(used, namedProjects []string) []string {
+	named := make(map[string]bool, len(namedProjects))
+	for _, s := range namedProjects {
+		named[s] = true
+	}
+	kept := []string{}
+	for _, p := range used {
+		if strings.HasPrefix(p, "software/project/") && !named[projectSlug(p)] {
+			continue
+		}
+		kept = append(kept, p)
+	}
+	return kept
 }
 
 // stripControl —— the card without its machine lines (any model From line, the USED declaration):

@@ -95,7 +95,7 @@ func runEvalCase(t *testing.T, card, grader *inference.Cred, brief string, c *ev
 	out := complete(t, card, systemPrompt(b.context, round.closingRules()), c.question)
 	// The owner sees the FINISHED card: the model's USED line turned into the server's From line,
 	// any model From stripped (stampFrom). Judge and checks run on that, as production ships it.
-	finished := stampFrom(out, b.sources)
+	finished := stampFrom(out, b.sources, b.namedProjects)
 	t.Logf("\n--- Q: %s\n--- RAW MODEL:\n%s\n--- FINISHED CARD:\n%s\n", c.question, out, finished)
 	fails := c.check(finished)
 	if c.judge != "" {

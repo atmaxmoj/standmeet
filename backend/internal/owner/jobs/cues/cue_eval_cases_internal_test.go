@@ -24,24 +24,31 @@ func frameCase() evalCase {
 			"to become a production API — how do you go from 'we're not sure this works' to " +
 			"something shipped and reliable?",
 		round: "technical",
-		check: func(card string) []string {
-			var bad []string
-			low := strings.ToLower(card)
-			if !containsAny(low, "interface", "contract", "latency", "batch", "rollout",
-				"canary", "cost") {
-				bad = append(bad, "lead names no production-engineering concept")
-			}
-			if strings.Contains(strings.ToLower(fromLine(card)), "stages-and-gates") {
-				bad = append(bad, "card cites the testing-methodology note")
-			}
-			if citesUnfed(card) {
-				bad = append(bad, "From cites a note that was not in the context")
-			}
-			return bad
-		},
+		check: frameFails,
 		judge: "Does the answer address the engineering of shipping a model to a production " +
 			"API (interface, latency/cost, rollout), rather than a testing/QA methodology?",
 	}
+}
+
+// frameFails —— V1 deterministic checks: the lead is production engineering, and the From cites
+// neither the testing-methodology note nor any project the question did not name (§4 threshold).
+func frameFails(card string) []string {
+	var bad []string
+	low := strings.ToLower(card)
+	if !containsAny(low, "interface", "contract", "latency", "batch", "rollout", "canary", "cost") {
+		bad = append(bad, "lead names no production-engineering concept")
+	}
+	from := strings.ToLower(fromLine(card))
+	if strings.Contains(from, "stages-and-gates") {
+		bad = append(bad, "card cites the testing-methodology note")
+	}
+	if strings.Contains(from, "software/project/") {
+		bad = append(bad, "cited a project note the question did not name")
+	}
+	if citesUnfed(card) {
+		bad = append(bad, "From cites a note that was not in the context")
+	}
+	return bad
 }
 
 // genericCases —— V3: generic process questions the synthetic persona has NO material for, one of
