@@ -197,6 +197,10 @@ const (
 		"to exclude it. (\"The closest thing your own work shows\" is only for a \"have you " +
 		"done X\" capability question, never for a figure asked about a named thing.) A ga" +
 		"p card is short; do not pad it.\n" +
+		"- **Named thing with no record:** when the question names a specific project, company " +
+		"or metric and your notes hold no record of it, SAY SO by name (e.g. \"no record of " +
+		"Larkspur in your notes\") — do not answer it with generic advice as if it were covered." +
+		" Name the gap, then stop (or add only general judgment clearly marked as general).\n" +
 		"- **No bridging:** never carry one project's or job's material into another's qu" +
 		"estion because they share a general word (\"detection\", \"pipeline\", \"serving\"). C" +
 		"ross only when the same system, decision or artifact genuinely connects them.\n" +

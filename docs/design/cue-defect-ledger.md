@@ -100,6 +100,22 @@ one-line reason, class, status, fix, golden-set case}`.
     (marker_present | used_unmatched | used_empty | first_person | date). **R5** prompt: generic
     answers use a general voice (no first person, no own-project names, no dates).
   8 clean full-set runs (claude-haiku-5-5); every card two-state, V4 grounds via R1.
+- **Experience question vs how-to (v0.1.175, follow-up #3).** The body fix still mislabelled a
+  personal-EXPERIENCE question ("tell me about a time something broke on your own systems"): the
+  model grounded on PROJECT notes, the V1 From-gate dropped them (unnamed project), and the STAR body
+  — no literal `I`, no date — shipped under a generic marker. V1 wants a how-to to drop an adjacent
+  project; an experience question wants to KEEP it (the project IS the answer). The deterministic
+  signal is the QUESTION's shape, not the body: `storyRE` ("tell me about a time …", "walk me through
+  a time …") marks an experience question, and `citedFrom` keeps a project note when the question is
+  a story (or named it, G2); a how-to still drops an adjacent unnamed project (V1). `Prompt.question`
+  is threaded in. The body tripwire still catches STAR / commit-hash stories so an ungrounded story
+  becomes a gap-admission, not a lying marker; `citation.downgrade` gains `project_filtered`.
+  Verified live: the incident question grounds on its project note across 8 full-set runs, zero
+  deterministic failures. Guards: `TestFinalizeStoryQuestionGroundsProject`,
+  `TestFinalizeHowToDropsUnnamedProject`, `TestFinalizeOrphanNarrativeIsGapAdmission`, `incidentCase`.
+  **Known limit:** whether a named-entity question with no record admits the gap by name (proposal C,
+  the Larkspur case) is model behaviour the prompt nudges but the server cannot force without reading
+  the notes semantically; it flakes ~1/8, like the LLM judge's subjectivity on the generic marker.
 - **golden-set case:** `frameCase` in `evalCases()` carries the §0 accident's ORIGINAL question text
   (this is the **F6 / follow-up F-3 fixed regression**). Verified live 2026-10-25 (claude-haiku-5-5,
   4 clean full-set runs): the card leads with interface contract / budgets / staged rollout, USED

@@ -27,6 +27,7 @@ package cues
 func synthNotes() []Note {
 	return []Note{
 		larkspurNote,
+		incidentNote,
 		tidelineNote,
 		engineeringNote,
 		methodologyNote,
@@ -46,6 +47,18 @@ var larkspurNote = Note{
 		"Larkspur wraps it behind a versioned HTTP endpoint with request batching, a " +
 		"p99 latency budget, a cost ceiling per tenant, and a staged rollout (shadow, " +
 		"canary, full). Built in Go with a Postgres control plane and a Redis request queue.",
+}
+
+// incidentNote —— a production incident on one of the persona's OWN systems (a project note). A
+// "tell me about a time something broke" question names no project, so it exercises follow-up #3:
+// the narrative body must ground on this project note (keep the unnamed cite), not downgrade.
+var incidentNote = Note{
+	Title: "Larkspur rollout incident",
+	Path:  "software/project/larkspur/incident",
+	Tags:  []string{"original", "software", "project"},
+	Body: "A bad model build once shipped to every Larkspur tenant at once because a canary flag " +
+		"defaulted wrong. The staged-rollout kill switch halted it; afterwards a canary gate was " +
+		"added so a build reaches shadow, then one tenant, then full, and the default was flipped.",
 }
 
 // tidelineNote —— a second project, low-salience background. It should not lead a question that is

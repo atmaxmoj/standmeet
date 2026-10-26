@@ -8,6 +8,11 @@ import (
 	"testing"
 )
 
+const (
+	mGeneric  = "generic"
+	mGrounded = "grounded"
+)
+
 // TestDisciplineAlwaysPresent —— the answer-as-asked / gap / no-bridge / process-facts /
 // generic-vs-personal discipline closes every prompt (cue-defect-loop, cue-gap-discipline, H2,
 // cue-generic-fabrication-fix).
@@ -124,7 +129,7 @@ func TestFinalizeGenericNoCitation(t *testing.T) {
 	if strings.Contains(got.card, "From:") {
 		t.Fatalf("generic card got a forged From line: %q", got.card)
 	}
-	if !strings.Contains(got.card, "General — not from your notes") || got.mode != "generic" {
+	if !strings.Contains(got.card, "General — not from your notes") || got.mode != mGeneric {
 		t.Fatalf("generic marker/mode lost: %q (%s)", got.card, got.mode)
 	}
 }
@@ -136,7 +141,7 @@ func TestFinalizeGenericMarkerStripsCitation(t *testing.T) {
 	in := "general judgment\n_General — not from your notes._\n" +
 		"USED: software/engineering/model-to-production"
 	got := finalize(in, &cueCtx{sources: []string{"software/engineering/model-to-production"}})
-	if strings.Contains(got.card, "From:") || got.mode != "generic" {
+	if strings.Contains(got.card, "From:") || got.mode != mGeneric {
 		t.Fatalf("a generic-marked card still carries a From: %q (%s)", got.card, got.mode)
 	}
 }
@@ -172,7 +177,7 @@ func TestFinalizeNoThirdState(t *testing.T) {
 	// A clean general body with no USED (the design-doc gray-card shape) → generic + marker.
 	noUsed := finalize("**Key: x**\nkeep it short; lead with the decision", &cueCtx{})
 	assertTwoState(t, noUsed)
-	if noUsed.mode != "generic" {
+	if noUsed.mode != mGeneric {
 		t.Fatalf("an undeclared clean card should resolve to generic, got %q", noUsed.mode)
 	}
 
@@ -180,7 +185,7 @@ func TestFinalizeNoThirdState(t *testing.T) {
 	onlyUnnamed := finalize("a clean general note\nUSED: software/project/larkspur",
 		&cueCtx{sources: []string{"software/project/larkspur"}})
 	assertTwoState(t, onlyUnnamed)
-	if onlyUnnamed.mode != "generic" {
+	if onlyUnnamed.mode != mGeneric {
 		t.Fatalf("an all-filtered card should resolve to generic, got %q", onlyUnnamed.mode)
 	}
 }
@@ -207,6 +212,51 @@ func TestFinalizePersonalBodyGapAdmission(t *testing.T) {
 	}
 }
 
+const projPath = "software/project/standmeet/architecture/deployment"
+
+// TestFinalizeStoryQuestionGroundsProject —— follow-up #3 A1: an experience question ("tell me
+// about a time …") keeps the project note it grounds on, even unnamed — the experience IS the
+// answer. The model's body form (STAR or prose) does not matter; the question's shape decides.
+func TestFinalizeStoryQuestionGroundsProject(t *testing.T) {
+	t.Parallel()
+	src := &cueCtx{sources: []string{projPath}, question: "tell me about a time something broke"}
+	star := finalize("**Key: outage**\n**Situation:** the deploy broke\nUSED: deployment", src)
+	if star.mode != mGrounded || !strings.Contains(star.card, projPath) {
+		t.Fatalf("a story question did not ground on its project: %q (%s)", star.card, star.mode)
+	}
+	// Prose (no STAR beats, no hash) still grounds — the question, not the body, decides.
+	prose := finalize("**Key: outage**\nthe deploy went to all tenants and was rolled "+
+		"back\nUSED: deployment", src)
+	if prose.mode != mGrounded {
+		t.Fatalf("a prose story answer did not ground: %q (%s)", prose.card, prose.mode)
+	}
+}
+
+// TestFinalizeHowToDropsUnnamedProject —— V1: a how-to question (not a story) treats an unnamed
+// project's note as adjacent and drops it, reporting project_filtered.
+func TestFinalizeHowToDropsUnnamedProject(t *testing.T) {
+	t.Parallel()
+	adv := finalize("**Key: x**\nkeep deploys small and reversible\nUSED: deployment",
+		&cueCtx{sources: []string{projPath}, question: "how do you ship safely?"})
+	if strings.Contains(adv.card, projPath) || adv.mode != mGeneric {
+		t.Fatalf("a how-to wrongly grounded on an unnamed project: %q (%s)", adv.card, adv.mode)
+	}
+	if adv.downgrade != "project_filtered" {
+		t.Fatalf("a dropped project note should read project_filtered, got %q", adv.downgrade)
+	}
+}
+
+// TestFinalizeOrphanNarrativeIsGapAdmission —— follow-up #3: a narrative body with nothing to
+// ground it (no resolvable USED) is a gap-admission, never a story under a lying generic marker.
+func TestFinalizeOrphanNarrativeIsGapAdmission(t *testing.T) {
+	t.Parallel()
+	orphan := finalize("**Key: outage**\n**Situation:** the deploy broke\n**Action:** rolled "+
+		"back the change\nUSED: none", &cueCtx{})
+	if orphan.card != gapAdmissionCard || orphan.downgrade != "narrative" {
+		t.Fatalf("ungrounded narrative not a gap-admission: %q (%s)", orphan.card, orphan.downgrade)
+	}
+}
+
 // TestFinalizeMarkerCanonical —— R3: the server strips whatever marker wrapper the model wrote and
 // stamps exactly one canonical marker line; the card carries no duplicate/variant marker.
 func TestFinalizeMarkerCanonical(t *testing.T) {
@@ -229,7 +279,7 @@ func TestFinalizeMarkerCanonical(t *testing.T) {
 func TestFinalizePostingIsGrounded(t *testing.T) {
 	t.Parallel()
 	got := finalize("band answer\nUSED: posting", &cueCtx{posting: postingCitation})
-	if got.mode != "grounded" || !strings.Contains(got.card, "_From: the role's posting_") {
+	if got.mode != mGrounded || !strings.Contains(got.card, "_From: the role's posting_") {
 		t.Fatalf("posting answer not grounded on the posting: %q (%s)", got.card, got.mode)
 	}
 	if strings.Contains(got.card, "not from your notes") {
@@ -237,7 +287,7 @@ func TestFinalizePostingIsGrounded(t *testing.T) {
 	}
 	// Without a posting in the packet, a stray "USED: posting" cites nothing → generic, not forged.
 	none := finalize("a clean general note\nUSED: posting", &cueCtx{})
-	if none.mode != "generic" {
+	if none.mode != mGeneric {
 		t.Fatalf("posting citation forged without a packet: %q", none.card)
 	}
 }

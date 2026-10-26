@@ -50,6 +50,20 @@ var (
 	// keyRE —— the card proper starts at its Key line; anything before it is model preamble
 	// ("this is a general question, so I'll …") and is dropped so it can't trip the tripwires.
 	keyRE = regexp.MustCompile(`(?i)\*\*key:`)
+	// starRE / commitRE —— narrative markers (follow-up #3): STAR story beats, or a commit hash,
+	// both "I am telling a specific story" signals. A would-be-generic card whose body carries one
+	// is a personal account, not general advice, so it becomes a gap-admission, not a lying marker.
+	starRE   = regexp.MustCompile(`(?i)\*\*\s*(situation|task|action|result)\s*:`)
+	commitRE = regexp.MustCompile(`\b[0-9a-f]{7,40}\b`)
+	// storyRE —— an experience question ("tell me about a time …") invites the owner's own-work
+	// story, so a project note is the ANSWER and grounds the card even when unnamed (follow-up #3
+	// A1). A how-to question ("how do you …") is generic, so an unnamed project note is adjacent
+	// and dropped (V1). The distinction is the question's shape, not the model's body.
+	storyRE = regexp.MustCompile(
+		`(?i)tell me about (a time|when)|walk me through (a time|how you)|` +
+			`describe (a time|a situation|when)|give (me )?an example|what happened (with|when)|` +
+			`a time (you|when|something)`,
+	)
 )
 
 // finished —— a finalised card and the citation metadata a verifier reads (follow-up #2 C / R4).
@@ -65,23 +79,27 @@ type finished struct {
 // cueCtx —— what finalize needs besides the model's text to classify and cite a card.
 type cueCtx struct {
 	posting       string   // "the role's posting" when the packet had posted facts, else ""
+	question      string   // the line as asked; an experience question keeps a project note (A1)
 	sources       []string // the retrieved note paths (From ⊆ sources, absolute)
 	namedProjects []string // project slugs the question named (a project note cites only if named)
 }
 
 // finalize —— the citation is the server's, never the model's (F-2). It enforces the two-state
-// invariant on BOTH the marker AND the body (the 2026-10-25 错配 spec): a card is EITHER grounded
-// (a non-empty stamped From, no marker) OR generic (the canonical marker, no From, no personal
-// content). A would-be-generic card whose body still narrates the owner's own experience (first
-// person, a specific date) is NOT shipped with a lying marker — it becomes a gap-admission (R2).
+// invariant on BOTH the marker AND the body (the 错配 spec + follow-up #3): a card is EITHER
+// grounded (a non-empty stamped From, no marker) OR generic (the canonical marker, no From, no
+// personal content). A would-be-generic card whose body still narrates the owner's own experience
+// (first person, a date, or a STAR / commit-hash story) is NOT shipped with a lying marker — it
+// becomes a gap-admission (R2). A narrative body grounds on the project note it tells, even when
+// the question did not name the project (the experience IS the answer); a non-narrative generic
+// body treats an unnamed project's note as adjacent and drops it (the V1 threshold).
 func finalize(text string, c *cueCtx) finished {
 	raw := stripControl(text)
 	marked := strings.Contains(strings.ToLower(raw), genericMarker)
 	body := dropPreamble(strings.TrimSpace(markerLineRE.ReplaceAllString(raw, ""))) // R3 + preamble
+	resolved := usedPaths(text, c.sources)
 	if !marked {
-		if cites := citedFrom(text, c); len(cites) > 0 {
-			from := "\n\n_From: " + strings.Join(cites, ", ") + "_"
-			return finished{card: body + from, mode: "grounded", from: cites}
+		if g, ok := grounded(body, text, resolved, c); ok {
+			return g
 		}
 	}
 	if leak := personalLeak(body); leak != "" {
@@ -89,8 +107,22 @@ func finalize(text string, c *cueCtx) finished {
 	}
 	return finished{
 		card: genericMarkerLine + "\n\n" + body, mode: "generic",
-		downgrade: genericReason(text, marked),
+		downgrade: genericReason(text, resolved, marked),
 	}
+}
+
+// grounded —— the grounded card and true when the body cites real notes (or the posting), else it
+// returns false so finalize falls through to the generic / gap-admission path.
+func grounded(body, text string, resolved []string, c *cueCtx) (finished, bool) {
+	cites := citedFrom(resolved, c)
+	if c.posting != "" && usedPosting(text) {
+		cites = append(cites, c.posting) // a process answer from the posting is grounded (H2).
+	}
+	if len(cites) == 0 {
+		return finished{}, false
+	}
+	from := "\n\n_From: " + strings.Join(cites, ", ") + "_"
+	return finished{card: body + from, mode: "grounded", from: cites}, true
 }
 
 // dropPreamble —— the card proper from its Key line on; any chatter the model wrote before the Key
@@ -102,38 +134,70 @@ func dropPreamble(body string) string {
 	return body
 }
 
-// citedFrom —— the From a grounded card would carry: the resolved, named-gated note paths, plus the
-// role's posting when a process answer declared it (H2).
-func citedFrom(text string, c *cueCtx) []string {
-	cites := groundedCitations(usedPaths(text, c.sources), c.namedProjects)
-	if c.posting != "" && usedPosting(text) {
-		cites = append(cites, c.posting)
+// citedFrom —— the resolved note paths that may carry a grounded From. A project note grounds a
+// card when the question named its project (G2), or when the question asks for the owner's own-work
+// experience (a story question — the project IS the answer, follow-up #3 A1). An unnamed project's
+// note on a generic how-to question is adjacent and dropped (V1).
+func citedFrom(resolved []string, c *cueCtx) []string {
+	story := storyRE.MatchString(c.question)
+	named := sliceSet(c.namedProjects)
+	cites := []string{}
+	for _, p := range resolved {
+		adj := strings.HasPrefix(p, "software/project/") && !named[projectSlug(p)] && !story
+		if !adj {
+			cites = append(cites, p)
+		}
 	}
 	return cites
 }
 
-// personalLeak —— the tripwire reason a would-be-generic body actually narrates the owner's own
-// experience (R2), or "" when it reads as general judgment. A generic card that trips is replaced
-// by a gap-admission. Naming a project is NOT a tripwire: a gap-admission must name the project to
-// deny it ("Larkspur has no such metric"), and general advice may reference one as an example;
-// first person and a specific date are the signals of a personal account.
-func personalLeak(body string) string {
-	if firstPersonRE.MatchString(body) {
-		return "first_person"
+// sliceSet —— the strings as a lookup set.
+func sliceSet(ss []string) map[string]bool {
+	m := make(map[string]bool, len(ss))
+	for _, s := range ss {
+		m[s] = true
 	}
-	if dateRE.MatchString(body) {
-		return "date"
-	}
-	return ""
+	return m
 }
 
-// genericReason —— why a clean generic card is generic (R4), for the citation metadata.
-func genericReason(text string, marked bool) string {
+// isNarrative —— the body tells a specific story (STAR beats, or a commit hash / version id), the
+// signal that a card is a personal-experience answer rather than general advice (follow-up #3 A).
+func isNarrative(body string) bool {
+	if starRE.MatchString(body) {
+		return true
+	}
+	m := commitRE.FindString(body)
+	return m != "" && strings.ContainsAny(m, "abcdef") // a hash, not a plain number
+}
+
+// personalLeak —— the tripwire reason a would-be-generic body actually narrates the owner's own
+// experience (R2), or "" when it reads as general judgment. A generic card that trips becomes a
+// gap-admission. first person, a specific date, or a STAR / commit-hash story are the signals;
+// merely naming a project is NOT (a gap-admission must name it to deny it: "Larkspur has none").
+func personalLeak(body string) string {
+	switch {
+	case firstPersonRE.MatchString(body):
+		return "first_person"
+	case dateRE.MatchString(body):
+		return "date"
+	case isNarrative(body):
+		return "narrative"
+	default:
+		return ""
+	}
+}
+
+// genericReason —— why a card ended up generic (R4), for the citation metadata. project_filtered
+// says the model's notes resolved but were all adjacent project notes dropped on a generic body
+// (follow-up #3 B), distinct from "declared nothing usable".
+func genericReason(text string, resolved []string, marked bool) string {
 	switch {
 	case marked:
 		return "marker_present"
+	case len(resolved) > 0:
+		return "project_filtered"
 	case len(declaredUsed(text)) > 0:
-		return "used_unmatched" // the model declared sources, none resolved
+		return "used_unmatched"
 	default:
 		return "used_empty"
 	}
@@ -168,24 +232,6 @@ func declaredUsed(text string) []string {
 		}
 	}
 	return out
-}
-
-// groundedCitations —— the used paths that may show as a grounded From: every non-project note, and
-// a project note (software/project/<slug>) only when the question named that project (G2).
-// An unnamed project's note is adjacent — it shares a word, it is not the answer to THIS question.
-func groundedCitations(used, namedProjects []string) []string {
-	named := make(map[string]bool, len(namedProjects))
-	for _, s := range namedProjects {
-		named[s] = true
-	}
-	kept := []string{}
-	for _, p := range used {
-		if strings.HasPrefix(p, "software/project/") && !named[projectSlug(p)] {
-			continue
-		}
-		kept = append(kept, p)
-	}
-	return kept
 }
 
 // stripControl —— the card without its machine lines (any model From line, the USED declaration):

@@ -8,8 +8,32 @@ package cues
 import "strings"
 
 func evalCases() []evalCase {
-	return append([]evalCase{frameCase(), gapCase(), processCase(), personalCase()},
+	return append([]evalCase{frameCase(), gapCase(), processCase(), personalCase(), incidentCase()},
 		genericCases()...)
+}
+
+// incidentCase —— follow-up #3 A1: "a time something broke on one of your own systems" names no
+// project, but the persona HAS a project incident note. The narrative answer must GROUND on it
+// (From non-empty, no generic marker), not false-downgrade into a marked story.
+func incidentCase() evalCase {
+	return evalCase{
+		name: "incident/own-system-grounds",
+		question: "Tell me about a time something broke in production on one of your own " +
+			"systems — what happened, and what did you change afterward?",
+		round: "technical",
+		check: func(card string) []string {
+			var bad []string
+			if strings.Contains(strings.ToLower(card), "not from your notes") {
+				bad = append(bad, "a grounded incident answer carries a generic marker")
+			}
+			if strings.TrimSpace(fromLine(card)) == "" {
+				bad = append(bad, "the incident answer did not ground (empty From)")
+			}
+			return bad
+		},
+		judge: "Does the answer describe a specific production incident and the fix from the " +
+			"candidate's OWN work, grounded in their notes rather than general advice?",
+	}
 }
 
 // frameCase —— V1: the §0 accident's ORIGINAL question text (cue-generic-fabrication-fix §4 V1),
@@ -76,8 +100,9 @@ func genericCases() []evalCase {
 		out = append(out, evalCase{
 			name: q.name, question: q.question, round: q.round, check: genericFails,
 			judge: "This is a generic how-to question the candidate has no personal notes on. " +
-				"Does the answer give general professional judgment, WITHOUT presenting it as " +
-				"the candidate's own projects/experience and without citing their notes?",
+				"The card may open with a 'General - not from your notes' label; that is " +
+				"intentional, not a defect, so judge the advice after it. Does the advice give " +
+				"sound general judgment, not presented as the candidate's own experience?",
 		})
 	}
 	return out

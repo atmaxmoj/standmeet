@@ -52,6 +52,7 @@ func (a *Assistant) Cue(
 	}
 	fin := finalize(text, &cueCtx{
 		sources: p.Sources, namedProjects: p.NamedProjects, posting: p.posting(),
+		question: p.Heard.Question,
 	})
 	if ferr := a.finish(ctx, ownerID, feedID, q.CallID, fin.card); ferr != nil {
 		return Card{}, ferr

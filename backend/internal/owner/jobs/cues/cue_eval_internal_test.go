@@ -97,6 +97,7 @@ func runEvalCase(t *testing.T, card, grader *inference.Cred, brief string, c *ev
 	// run on that, as production ships it; every card must be generic (marker) XOR grounded (From).
 	fin := finalize(out, &cueCtx{
 		sources: b.sources, namedProjects: b.namedProjects, posting: b.posting(),
+		question: c.question,
 	})
 	t.Logf("\n--- Q: %s\n--- RAW MODEL:\n%s\n--- FINISHED CARD (%s):\n%s\n",
 		c.question, out, fin.mode, fin.card)
