@@ -152,7 +152,7 @@ func (c *assistantFiber) handleCue(
 		"card": card.Text, "feed_id": card.FeedID, "model": card.Model,
 		"citation": map[string]any{
 			"mode": card.Mode, "sources": nonNil(card.Prompt.Sources),
-			"used": nonNil(card.Used), "from": nonNil(card.From),
+			"used": nonNil(card.Used), "from": nonNil(card.From), "downgrade": card.Downgrade,
 		},
 	}
 	if in.Debug {

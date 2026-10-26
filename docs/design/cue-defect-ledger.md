@@ -80,6 +80,26 @@ one-line reason, class, status, fix, golden-set case}`.
   and `twoStateFail` runs on every live eval card. 8 clean full-set runs (claude-haiku-5-5). Residual:
   the model's generic/grounded LABEL can still wobble on a truly ambiguous question — inherent; what
   is guaranteed is the two-state shape and no fabricated grounding.
+- **Marker-vs-body mismatch (v0.1.174, the 错配 spec).** Follow-up #2's two-state guarded the MARKER
+  but not the BODY: a personal question ("a time something broke on your own systems") came back
+  generic-marked with a first-person incident body, because the model declared `USED: deployment,
+  design-principles` (short names) and `usedPaths` did EXACT path matching → no match → false
+  downgrade → a lying marker on a personal body. Fixes (`cite.go`, split out of cue.go):
+  - **R1 usedPaths suffix match:** a short USED name resolves to the full source path by a unique
+    segment-aligned suffix (exact wins; an ambiguous tail shared by >1 source does not resolve).
+    So the personal question GROUNDS (its real notes), no false downgrade. `TestUsedPathsSuffixMatch`.
+  - **R2 body tripwire → gap-admission:** a would-be-generic card whose body narrates the owner's own
+    experience (SINGULAR first person I/my/mine, or a YYYY-MM-DD date) is replaced by a gap-admission,
+    never shipped with a lying marker. Preamble before the `**Key:` line is dropped first (the model's
+    "…so I'll answer generally" is meta, not a personal account). Inclusive "we"/"our" and naming a
+    project to DENY it (a gap-admission must) are NOT tripwires — they false-positived on generic
+    advice and on gapCase. `TestFinalizePersonalBodyGapAdmission`.
+  - **R3 canonical marker:** the server strips any marker variant (underscore/asterisk/bare) and
+    stamps one canonical `_General — not from your notes._`. `TestFinalizeMarkerCanonical`.
+  - **R4 citation downgrade signal:** `assistant.cue` citation adds `downgrade`
+    (marker_present | used_unmatched | used_empty | first_person | date). **R5** prompt: generic
+    answers use a general voice (no first person, no own-project names, no dates).
+  8 clean full-set runs (claude-haiku-5-5); every card two-state, V4 grounds via R1.
 - **golden-set case:** `frameCase` in `evalCases()` carries the §0 accident's ORIGINAL question text
   (this is the **F6 / follow-up F-3 fixed regression**). Verified live 2026-10-25 (claude-haiku-5-5,
   4 clean full-set runs): the card leads with interface contract / budgets / staged rollout, USED

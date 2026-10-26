@@ -290,11 +290,10 @@ func stackIn(query string) []string {
 
 // built —— one question's context and what went into it.
 type built struct {
-	context string
-	sources []string
-	named   []string // the technologies the question named (for the choice matrix)
-	// namedProjects —— project slugs the question named; project notes cite only when named (G2).
-	namedProjects []string
+	context       string
+	sources       []string
+	named         []string // the technologies the question named (for the choice matrix)
+	namedProjects []string // project slugs the question named (a project note cites only if named)
 	matrix        bool
 	hasPosting    bool // the packet carried posted facts (a process answer may cite the posting)
 }

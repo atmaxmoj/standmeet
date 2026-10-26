@@ -95,7 +95,9 @@ func runEvalCase(t *testing.T, card, grader *inference.Cred, brief string, c *ev
 	out := complete(t, card, systemPrompt(b.context, round.closingRules()), c.question)
 	// The owner sees the FINISHED card: the server-enforced two states (finalize). Judge and checks
 	// run on that, as production ships it; every card must be generic (marker) XOR grounded (From).
-	fin := finalize(out, b.sources, b.namedProjects, b.posting())
+	fin := finalize(out, &cueCtx{
+		sources: b.sources, namedProjects: b.namedProjects, posting: b.posting(),
+	})
 	t.Logf("\n--- Q: %s\n--- RAW MODEL:\n%s\n--- FINISHED CARD (%s):\n%s\n",
 		c.question, out, fin.mode, fin.card)
 	fails := c.check(fin.card)

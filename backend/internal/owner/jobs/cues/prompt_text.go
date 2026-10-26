@@ -212,9 +212,11 @@ const (
 		"hing is done in general (a process, a method, a judgment call), NOT about the use" +
 		"r's own experience, facts, projects or decisions. When a question is generic and " +
 		"the notes hold nothing genuinely on its topic, answer from sound general professi" +
-		"onal judgment and mark the card with one line: _General — not from your notes._ D" +
-		"o NOT dress general judgment as the user's own work (no \"your approach\", no \"you " +
-		"built\", no personal attribution).\n" +
+		"onal judgment and mark the card with one line: _General — not from your notes._ Wr" +
+		"ite a general answer in a general voice: NO first person (no \"I\", \"we\", \"my\"), " +
+		"NO own-project names, NO specific dates or incident details from your history. " +
+		"Address the user as \"you\". Do NOT dress general judgment as the u" +
+		"ser's own work (no \"your approach\", no \"you built\", no personal attribution).\n" +
 		"- **On-point vs adjacent — the test for using a note.** A note is ON-POINT only whe" +
 		"n its SUBJECT is the question's subject. A general-principle note of the user's tha" +
 		"t directly answers the question is on-point — cite it. A note about one specific pr" +
