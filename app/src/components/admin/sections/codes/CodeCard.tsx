@@ -108,7 +108,7 @@ function CodeCardTitle({ code }: { code: CodeView }) {
   return (
     <div className="min-w-0">
       <div className="flex items-baseline gap-3">
-        <h3 className="font-serif text-(--color-ink) text-[20px] font-medium tracking-[-0.01em] truncate">
+        <h3 className="font-serif text-(--color-ink) text-[20px] font-medium tracking-[-0.01em] truncate min-w-0">
           {code.label}
         </h3>
         <StatusPill status={code.status} />
@@ -127,7 +127,7 @@ function StatusPill({ status }: { status: string }) {
   const active = status === 'active';
   const cls = active ? 'text-(--color-accent)' : 'text-(--color-faint)';
   return (
-    <span className={`mono text-[10px] tracking-[0.16em] uppercase ${cls}`}>
+    <span className={`mono text-[10px] tracking-[0.16em] uppercase shrink-0 ${cls}`}>
       {active ? t('codeCard.statusActive') : status}
     </span>
   );

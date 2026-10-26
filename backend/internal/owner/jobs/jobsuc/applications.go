@@ -254,8 +254,13 @@ const (
 // dozen identical tags and couldn't tell which was for which application
 // ([[names-that-lie]]). The title and company are right there in job_snapshot — a
 // one-line fetch.
+//
+// plainRole, NOT describeRole: this is UI text an owner reads, never a prompt. describeRole
+// fences each field in <untrusted-content> (right for the recruiter prompt, where a title can
+// carry injected instructions); that fence once leaked into this sidebar label and broke the
+// codes card. plainRole keeps it the posting's plain, length-capped title/company.
 func applicationCodeLabel(job *jobsmodel.FetchedJob) string {
-	if role := describeRole(job.Title, job.Company); role != "" {
+	if role := plainRole(job.Title, job.Company); role != "" {
 		return applicationCodePrefix + " · " + role
 	}
 	return applicationCodePrefix

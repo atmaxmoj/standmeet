@@ -259,12 +259,24 @@ func recruiterBriefing(jobSnapshotJSON []byte) string {
 		untrusted.Rule
 }
 
-// describeRole — describes the role. When title is empty but company is present, it can
-// still state the source ("a role at MockCo"); an empty string means neither is present.
-// Both come from the posting, so each is fenced (roadmap 7.1): a title can carry instructions.
+// describeRole — the role for the recruiter PROMPT ("a role at MockCo" when only the company
+// is present; "" when neither is). Both come from the posting, so each is fenced (roadmap 7.1):
+// a title can carry injected instructions a model must read as data.
 func describeRole(title, company string) string {
-	title = posted(title)
-	company = posted(company)
+	return joinRole(posted(title), posted(company))
+}
+
+// plainRole — the same "title at company" shape for the owner-facing code LABEL: the posting's
+// RAW fields, single-lined and length-capped, never fenced. A label is read by a person, not a
+// model, so describeRole's <untrusted-content> fence is just noise — it once leaked into the
+// sidebar label and broke the codes card (a posting whose title carried the tags verbatim).
+func plainRole(title, company string) string {
+	return joinRole(plainField(title), plainField(company))
+}
+
+// joinRole — "title at company"; "a role at company" when only the company is present; "" when
+// neither is. Shared by describeRole (fenced, for the prompt) and plainRole (plain, for the label).
+func joinRole(title, company string) string {
 	switch {
 	case title == "":
 		return roleAtCompany(company)
@@ -273,6 +285,20 @@ func describeRole(title, company string) string {
 	default:
 		return title + " at " + company
 	}
+}
+
+// labelFieldMax — a title or company in a code label is a name; longer is truncated so one
+// posting can't stretch (or, before the fence was dropped, break) the codes card.
+const labelFieldMax = 80
+
+// plainField — a label field: whitespace (newlines included) collapsed to single spaces and
+// trimmed (strings.Fields does both in one pass), then length-capped.
+func plainField(s string) string {
+	s = strings.Join(strings.Fields(s), " ")
+	if r := []rune(s); len(r) > labelFieldMax {
+		s = string(r[:labelFieldMax]) + "…"
+	}
+	return s
 }
 
 // roleAtCompany — can still state the source with just a company name; truly blank
