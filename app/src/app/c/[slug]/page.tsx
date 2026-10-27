@@ -29,5 +29,12 @@ export default async function CodedLanding() {
   const instance = await fetchInstance();
   // unclaimed → server redirect to /setup?t=TOKEN (redirect() throws, so nothing below runs).
   instance.claimed || redirect(`/setup?t=${instance.setup_token ?? ''}`);
-  return <VisitorRoot name={instance.name} handle={instance.handle} hasCode={false} />;
+  // hasQuestion is false: `/c/<slug>` is a code landing (reload / re-share), not a reader's ?q=
+  // ask. A returning session lands in ChatRoom; a stranger falls through to HomeFallback, as before.
+  return (
+    <VisitorRoot
+      name={instance.name} handle={instance.handle}
+      hasCode={false} hasQuestion={false}
+    />
+  );
 }

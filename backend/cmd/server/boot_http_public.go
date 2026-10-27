@@ -31,6 +31,9 @@ func mountPublic(r chi.Router, deps *Deps) {
 	// The per-IP cap on codeless (public-tier) tool dispatch — the one server-side bound on
 	// anonymous corpus search. Same assembly site + redis as CodeGuard; fail-open.
 	deps.Public.PubSearchGuard = authmw.NewPubSearchGuard(deps.Redis)
+	// The per-IP daily cap on owner-paid public turns — one visitor can't drain the gas tank now a
+	// codeless question runs on the owner's model. Same assembly site + redis; fail-open.
+	deps.Public.PublicTurnGuard = authmw.NewPublicTurnGuard(deps.Redis)
 	// The gate on the message-request port (F-G-4): same assembly site, same parts,
 	// just counting a different thing — that one counts wrong-guessed codes, this
 	// one counts submitted messages. Without it, the queue the owner reads by hand

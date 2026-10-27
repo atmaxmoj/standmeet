@@ -49,18 +49,32 @@ function hasCodeParam(sp: SearchParams): boolean {
   return typeof c === 'string' && c !== '';
 }
 
+// hasQuestionParam — is there a non-empty ?q= in the URL (a reader's AskAboutThis / suggested-
+// question hand-off). Read on the SERVER so VisitorRoot decides from its first paint to open the
+// public chat on it — no hydration flash, same reason as hasCodeParam. A codeless visitor only
+// reaches this component with a ?q= (the middleware serves the home microsite for a bare `/`).
+function hasQuestionParam(sp: SearchParams): boolean {
+  const q = sp['q'];
+  return typeof q === 'string' && q !== '';
+}
+
 export default async function Root({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const instance = await fetchInstance();
   // unclaimed → server redirect to /setup?t=TOKEN (redirect() throws, so nothing below runs).
   instance.claimed || redirect(`/setup?t=${instance.setup_token ?? ''}`);
-  const hasCode = hasCodeParam(await searchParams);
+  const sp = await searchParams;
+  const hasCode = hasCodeParam(sp);
+  const hasQuestion = hasQuestionParam(sp);
   return (
     <>
       {/* The only signal this surface has. The backend's `/homepage` route is a liveness probe
           the middleware fires on every request to `/`, person or not, so it cannot be counted
           (see monitor/mw/routes.go). */}
       <TrackVisit surface="index" scroll />
-      <VisitorRoot name={instance.name} handle={instance.handle} hasCode={hasCode} />
+      <VisitorRoot
+        name={instance.name} handle={instance.handle}
+        hasCode={hasCode} hasQuestion={hasQuestion}
+      />
     </>
   );
 }

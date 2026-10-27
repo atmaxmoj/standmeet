@@ -16,21 +16,20 @@
 'use client';
 
 import { useEffect, type ReactElement } from 'react';
-import { useRouter } from 'next/navigation';
 
 import { ChatRoom } from '@/components/visitor/ChatRoom';
 import { VisitorNamePicker } from '@/components/visitor/VisitorNamePicker';
 import { DefaultHome } from '@/app/default-home';
 import { useAbsorbCodeFromURL } from '@/lib/gate/use-absorb-code';
 import {
-  usePendingCodeStore, useVisitorSessionStore, bindVisitorSessionSync,
+  useVisitorSessionStore, bindVisitorSessionSync,
   type SessionMode, type VisitorSession,
 } from '@standmeet/sdk';
 import { useShouldAskVisitorName } from '@/lib/visitor/visitor-name';
 import { useLeaveForHome } from '@/lib/visitor/use-leave-for-home';
 
-export function VisitorRoot({ name, handle, hasCode }: {
-  name: string; handle: string; hasCode: boolean;
+export function VisitorRoot({ name, handle, hasCode, hasQuestion }: {
+  name: string; handle: string; hasCode: boolean; hasQuestion: boolean;
 }) {
   // Hydrate the session store from localStorage on mount (a returning visitor's session lives
   // there). The old long-scroll did this via its <SessionStrip>; the fallback branch below has
@@ -41,13 +40,12 @@ export function VisitorRoot({ name, handle, hasCode }: {
   useAbsorbCodeFromURL();
   const session = useVisitorSessionStore((s) => s.session);
   const pending = useShouldAskVisitorName();
-  useCodelessQuestionHandoff(session);
   const els: Record<VisitorView, ReactElement> = {
     chat: <ChatRoom owner={{ handle, full_name: name, location: '' }} mode={sessionMode(session)} />,
     picker: <VisitorNamePicker />,
     fallback: <DefaultHome name={name} handle={handle} />,
   };
-  const view = chooseVisitorView(session, pending, hasCode);
+  const view = chooseVisitorView(session, pending, hasCode, hasQuestion);
   useLeaveForHome(view === 'fallback', session);
   return els[view];
 }
@@ -61,46 +59,31 @@ export type VisitorView = 'chat' | 'picker' | 'fallback';
 //   • a pending code, OR `hasCode` (the server saw ?code= in the URL) → the name picker. `hasCode`
 //     covers the first paint BEFORE the client absorb runs, so HomeFallback never flashes for a
 //     coded visitor — that flash was the intermittent "page under construction" a recruiter saw;
-//   • otherwise (a genuinely codeless visitor, no live home) → HomeFallback.
+//   • a codeless visitor who arrived with a question (`hasQuestion`, ?q= from a reader's ask) →
+//     the chat on the owner's PUBLIC model, which auto-asks that question (ChatRoom, mode public).
+//     This replaces the old bounce to /gate's BYOAI panel: the owner's model answers it directly,
+//     and only when that model is unavailable does ChatRoom fall to /gate (public-exhaustion
+//     hand-off). The middleware serves the home microsite for a bare `/`, so a codeless visitor
+//     here always carries a ?q=;
+//   • otherwise (genuinely codeless, no question, no live home) → HomeFallback.
 export function chooseVisitorView(
-  session: VisitorSession | null, pending: boolean, hasCode: boolean,
+  session: VisitorSession | null, pending: boolean, hasCode: boolean, hasQuestion: boolean,
 ): VisitorView {
   // A PENDING code wins over an existing chat: the absorb only sets `pending` for a NEW code (it skips
   // re-absorbing the same named session), so a pending code while in a session means the visitor
   // opened a DIFFERENT code — show the picker to switch to it (owner: opening HIRING-2026xxxx while in
-  // HIRING-2026 must not silently stay in the old chat). Otherwise: a live session → chat; a fresh
-  // coded arrival before the absorb runs (hasCode) → picker (no HomeFallback flash); else → fallback.
-  return pending ? 'picker' : viewFor(isChatSession(session), hasCode);
+  // HIRING-2026 must not silently stay in the old chat).
+  return pending ? 'picker' : viewFor(isChatSession(session), hasCode, hasQuestion);
 }
 
-function viewFor(inChat: boolean, coded: boolean): VisitorView {
-  return inChat ? 'chat' : coded ? 'picker' : 'fallback';
+function viewFor(inChat: boolean, coded: boolean, hasQuestion: boolean): VisitorView {
+  return inChat ? 'chat' : codelessOrCoded(coded, hasQuestion);
 }
 
-// useCodelessQuestionHandoff — a codeless visitor arriving with a question in the URL (?q=, e.g. a
-// reader's AskAboutThis "action=/" form) is handed off to /gate carrying the question, exactly as
-// the old page-shell's useConsumeQuestionFromURL did. Skipped once a session exists (ChatRoom
-// auto-asks the ?q= itself) or a code is pending (the name picker takes over and ?q= rides through
-// the gate). The ?code= absorb above runs first, so a pending code is already visible here.
-function useCodelessQuestionHandoff(session: VisitorSession | null): void {
-  const router = useRouter();
-  useEffect(() => {
-    const target = codelessQuestionTarget(session);
-    target && router.replace(target);
-  }, [session, router]);
-}
-
-// codelessQuestionTarget — the /gate URL to hand a codeless question off to, or '' when there's
-// nothing to hand off (a session is live, a code is pending, or there's no ?q= in the URL).
-function codelessQuestionTarget(session: VisitorSession | null): string {
-  const q = isIdleVisitor(session) ? new URL(window.location.href).searchParams.get('q') : null;
-  return q ? `/gate?q=${encodeURIComponent(q)}` : '';
-}
-
-// isIdleVisitor — no live session and no code being redeemed: the only state where a bare ?q= in
-// the URL is a codeless question to forward (not one ChatRoom or the name picker already owns).
-function isIdleVisitor(session: VisitorSession | null): boolean {
-  return session === null && usePendingCodeStore.getState().code === null;
+// codelessOrCoded — no live session: a code (fresh or pending) → the picker; a codeless visitor
+// with a ?q= → the public chat; otherwise the identity fallback.
+function codelessOrCoded(coded: boolean, hasQuestion: boolean): VisitorView {
+  return coded ? 'picker' : hasQuestion ? 'chat' : 'fallback';
 }
 
 // sessionMode — public until a session exists; then byoai or code.

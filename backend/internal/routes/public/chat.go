@@ -67,6 +67,10 @@ type Handlers struct {
 	// PubSearchGuard —— per-IP cap on codeless (public-tier) tool dispatch, the server-side bound
 	// on anonymous corpus search. impl = middleware.PubSearchGuard, injected in. nil → no cap.
 	PubSearchGuard PubSearchGuard
+	// PublicTurnGuard —— per-IP daily cap on owner-paid public turns (one IP can't drain the gas
+	// tank now the page answers codeless questions on the owner's model); nil → no cap. impl =
+	// middleware.PublicTurnGuard.
+	PublicTurnGuard TurnGuard
 	// Transcribe / VoiceAvailable —— the speech service (voice-input.md); nil → no mic offered.
 	Transcribe     Transcriber
 	VoiceAvailable func(ctx context.Context) bool
@@ -288,6 +292,17 @@ func unauthorizedEnv(msg string) apierr.Envelope {
 
 func forbiddenEnv(msg string) apierr.Envelope {
 	return apierr.Envelope{Status: http.StatusForbidden, Code: "forbidden", Message: msg}
+}
+
+// publicRateLimitedEnv —— the per-IP daily cap on owner-paid public turns is spent. The reader's
+// page reads this code and switches to the BYOAI panel (their own key), so this is a handoff, not a
+// dead end; the sentence is the fallback a non-reader surface (a bare embed) would still show.
+func publicRateLimitedEnv() apierr.Envelope {
+	return apierr.Envelope{
+		Status: http.StatusForbidden, Code: "public_rate_limited",
+		Message: "this page has reached its free question limit for now — " +
+			"add your own AI key to keep chatting",
+	}
 }
 
 func bearerToken(r *http.Request) (string, bool) {

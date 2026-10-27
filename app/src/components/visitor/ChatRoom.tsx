@@ -4,8 +4,10 @@
 
 'use client';
 
+import { useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   ChatProgress, ChatTranscript, Composer, tryVisible, useChatController, useChatRoomDerived,
   usePinToBottom, type SessionMode,
@@ -19,12 +21,59 @@ import type { PublicOwnerView } from '@/lib/api/public';
 
 type Props = { owner: PublicOwnerView; mode: SessionMode };
 
+type ChatDialogs = ReturnType<typeof useChatController>['chat']['dialogs'];
+
+// PUBLIC_HANDOFF_CODES — the owner's public AI couldn't serve this codeless turn: its gas tank is
+// spent (gas_exhausted), one IP hit the daily cap (public_rate_limited), or no provider is set up
+// (owner_ai_not_configured). The reader then continues on their own key via /gate's BYOAI panel.
+const PUBLIC_HANDOFF_CODES = new Set([
+  'gas_exhausted', 'owner_ai_not_configured', 'public_rate_limited',
+]);
+
+// usePublicExhaustionHandoff — public mode only: when the last turn failed because the owner's
+// model is unavailable, send the visitor to /gate carrying the question so they can keep chatting
+// on their own key. A coded/byoai turn hitting a limit is a different story the transcript tells,
+// so this never fires for them.
+function usePublicExhaustionHandoff(mode: SessionMode, dialogs: ChatDialogs): void {
+  const router = useRouter();
+  useEffect(() => {
+    const target = exhaustionHandoffTarget(mode, dialogs);
+    target && router.replace(target);
+  }, [mode, dialogs, router]);
+}
+
+// exhaustionHandoffTarget — the /gate URL to send a spent public turn to (carrying its question),
+// or '' when there's nothing to hand off.
+function exhaustionHandoffTarget(mode: SessionMode, dialogs: ChatDialogs): string {
+  const spent = spentPublicTurn(mode, dialogs);
+  return spent ? `/gate?q=${encodeURIComponent(spent.q)}` : '';
+}
+
+// spentPublicTurn — the last dialog when it's a public turn the owner's model couldn't serve, else
+// undefined (wrong mode, still pending, or a different failure the transcript already speaks).
+function spentPublicTurn(mode: SessionMode, dialogs: ChatDialogs): ChatDialogs[number] | undefined {
+  const last = mode === 'public' ? dialogs.at(-1) : undefined;
+  return isSpentOnOwnerModel(last) ? last : undefined;
+}
+
+// isSpentOnOwnerModel — a finished turn whose error says the owner's model couldn't serve it.
+function isSpentOnOwnerModel(d: ChatDialogs[number] | undefined): boolean {
+  return d !== undefined && !d.pending && isHandoffCode(d.answer.errorCode);
+}
+
+function isHandoffCode(code: string | undefined): boolean {
+  return PUBLIC_HANDOFF_CODES.has(code ?? '');
+}
+
 export function ChatRoom({ owner, mode }: Props) {
   const derived = useChatRoomDerived();
   const ci = useChatController(mode);
-  // For a visitor who arrived with a question (/gate?q= → through the gate →
-  // /?q=): on mount, go ahead and ask that question (don't drop it).
+  // For a visitor who arrived with a question (a reader's ask → /?q=): on mount, go ahead and ask
+  // that question (don't drop it). In public mode this runs it on the owner's model.
   useConsumeQuestionFromURL(ci.onAsk);
+  // Public mode only: if the owner's model can't serve the turn (gas spent / per-IP cap / no
+  // provider), fall to /gate's BYOAI panel carrying the question.
+  usePublicExhaustionHandoff(mode, ci.chat.dialogs);
   const scrollRef = usePinToBottom<HTMLDivElement>(ci.chat.dialogs);
   return (
     <div className="h-screen flex flex-col overflow-hidden" data-testid="chatroom">

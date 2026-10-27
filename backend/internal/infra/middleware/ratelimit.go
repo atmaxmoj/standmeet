@@ -128,6 +128,44 @@ func (g *PubSearchGuard) Allow(ctx context.Context, ip string) bool {
 	return allowed
 }
 
+const (
+	pubTurnRateKeyPfx = "pubturn:ip:"
+	// pubTurnRateMax — owner-paid PUBLIC turns allowed from one IP per day. A codeless visitor
+	// chats on the owner's model (owner's gas), so this stops one IP from draining the gas tank
+	// while leaving a genuine reader room for a real conversation. Over it the visitor falls to
+	// BYOAI (their own key), never a dead end. Code/BYOAI turns never reach it.
+	pubTurnRateMax    = 40
+	pubTurnRateWindow = 24 * time.Hour
+)
+
+// PublicTurnGuard — a per-IP daily cap on owner-paid PUBLIC chat turns, so one anonymous visitor
+// can't drain the owner's gas tank now that the page answers codeless questions on the owner's
+// model. Mirrors PubSearchGuard: fixed-window per-IP, fail-open on a redis error (the gas tank is
+// the hard backstop). rdb nil → no-op (always under limit; testable).
+type PublicTurnGuard struct{ rdb *redis.Client }
+
+// NewPublicTurnGuard — composition-root wiring. rdb nil → a no-op that never caps.
+func NewPublicTurnGuard(rdb *redis.Client) *PublicTurnGuard { return &PublicTurnGuard{rdb: rdb} }
+
+// OverLimit — count this IP's public turn; true once it has passed the daily cap. nil guard / nil
+// redis / a redis error → under limit (fail-open, logged). Empty ip shares one named bucket, same
+// as PubSearchGuard.
+func (g *PublicTurnGuard) OverLimit(ctx context.Context, ip string) bool {
+	if g == nil || g.rdb == nil {
+		return false
+	}
+	if ip == "" {
+		ip = unknownIPBucket
+	}
+	key := pubTurnRateKeyPfx + ip
+	allowed, err := incrWithinLimit(ctx, g.rdb, key, pubTurnRateMax, pubTurnRateWindow)
+	if err != nil {
+		slog.Default().Warn("public turn rate-limit check failed, allowing", "err", err, "ip", ip)
+		return false
+	}
+	return !allowed
+}
+
 // incrWithinLimit is fixed-window: TTL is set only on the first INCR
 // (n==1), so a refresh doesn't keep extending the window. Returns
 // true=allowed, false=over the limit.

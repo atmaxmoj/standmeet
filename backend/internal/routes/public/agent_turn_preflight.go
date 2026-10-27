@@ -71,6 +71,12 @@ func preflightAgentTurnQuota(
 	if !enforceGasQuotaOrWrite(r, h, auth, w) {
 		return false
 	}
+	// The per-IP public-turn cap sits with the gas gate (both run before the convID check): it is
+	// keyed on the IP, not the conversation, and protects the owner's gas tank from one anonymous
+	// visitor now that a codeless question runs on the owner's model.
+	if !enforcePublicTurnCapOrWrite(r, h, auth, w) {
+		return false
+	}
 	if convID == "" {
 		return true
 	}
@@ -132,6 +138,23 @@ func enforceGasQuotaOrWrite(
 	})
 	if gerr != nil {
 		handleVisitorErr(h.Log, w, gerr)
+		return false
+	}
+	return true
+}
+
+// enforcePublicTurnCapOrWrite —— a per-IP daily cap on owner-paid PUBLIC turns, so one anonymous
+// visitor can't drain the owner's gas tank. Only mode=="public" counts: a code is an invited guest,
+// and byoai spends the visitor's own money. Over the cap → 403 public_rate_limited, which the
+// reader's page turns into the BYOAI fallback (their own key), never a dead end.
+func enforcePublicTurnCapOrWrite(
+	r *http.Request, h *Handlers, auth authedVisitor, w http.ResponseWriter,
+) bool {
+	if auth.Data.Mode != "public" || h.PublicTurnGuard == nil {
+		return true
+	}
+	if h.PublicTurnGuard.OverLimit(r.Context(), clientIP(r)) {
+		writeError(h.Log, w, publicRateLimitedEnv())
 		return false
 	}
 	return true

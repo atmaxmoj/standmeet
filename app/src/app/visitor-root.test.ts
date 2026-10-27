@@ -20,33 +20,43 @@ function session(over: Partial<VisitorSession>): VisitorSession {
 describe('chooseVisitorView — the / render decision', () => {
   it('coded visitor, first paint BEFORE the absorb runs (hasCode, no pending) → picker, never the fallback flash', () => {
     // The exact race state. Before the fix this was 'fallback' → "page under construction" flashed.
-    expect(chooseVisitorView(null, false, true)).toBe('picker');
+    expect(chooseVisitorView(null, false, true, false)).toBe('picker');
   });
 
   it('a pending code (absorb has run) → picker', () => {
-    expect(chooseVisitorView(null, true, false)).toBe('picker');
+    expect(chooseVisitorView(null, true, false, false)).toBe('picker');
   });
 
   it('both pending and hasCode → picker', () => {
-    expect(chooseVisitorView(null, true, true)).toBe('picker');
+    expect(chooseVisitorView(null, true, true, false)).toBe('picker');
   });
 
-  it('a genuinely codeless visitor with no live home → fallback (the only state that shows it)', () => {
-    expect(chooseVisitorView(null, false, false)).toBe('fallback');
+  it('a genuinely codeless visitor, no question, no live home → fallback (the only state that shows it)', () => {
+    expect(chooseVisitorView(null, false, false, false)).toBe('fallback');
+  });
+
+  it('a codeless visitor who arrived with a question (?q=) → chat, answered on the owner public model', () => {
+    // Was a bounce to /gate's BYOAI panel; now the owner's model answers it directly.
+    expect(chooseVisitorView(null, false, false, true)).toBe('chat');
+  });
+
+  it('a pending code outranks a question → picker (the code is the stronger signal)', () => {
+    expect(chooseVisitorView(null, true, false, true)).toBe('picker');
+    expect(chooseVisitorView(null, false, true, true)).toBe('picker');
   });
 
   it('a live code session, nothing new pending → chat (re-opening the same code stays put)', () => {
-    expect(chooseVisitorView(session({ code: 'HIRING-2026' }), false, false)).toBe('chat');
-    expect(chooseVisitorView(session({ code: 'HIRING-2026' }), false, true)).toBe('chat');
+    expect(chooseVisitorView(session({ code: 'HIRING-2026' }), false, false, false)).toBe('chat');
+    expect(chooseVisitorView(session({ code: 'HIRING-2026' }), false, true, false)).toBe('chat');
   });
 
   it('a NEW code pending while in a session → picker, to switch (not silently the old chat)', () => {
     // absorb only sets `pending` for a different code, so pending-while-in-session = a switch.
-    expect(chooseVisitorView(session({ code: 'HIRING-2026' }), true, true)).toBe('picker');
-    expect(chooseVisitorView(session({ code: 'HIRING-2026' }), true, false)).toBe('picker');
+    expect(chooseVisitorView(session({ code: 'HIRING-2026' }), true, true, false)).toBe('picker');
+    expect(chooseVisitorView(session({ code: 'HIRING-2026' }), true, false, false)).toBe('picker');
   });
 
   it('a byoai session → chat', () => {
-    expect(chooseVisitorView(session({ byoai: true }), false, false)).toBe('chat');
+    expect(chooseVisitorView(session({ byoai: true }), false, false, false)).toBe('chat');
   });
 });
