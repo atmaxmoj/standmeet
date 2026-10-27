@@ -12,6 +12,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	access "github.com/atmaxmoj/standmeet/internal/access/facade"
 )
 
@@ -58,16 +60,10 @@ func runCapCase(t *testing.T, c capCase) {
 		context.Background(), http.MethodPost, "/api/v1/agent/turn", http.NoBody,
 	)
 	auth := authedVisitor{Data: &access.VisitorSessionData{Mode: c.mode}}
-	got := enforcePublicTurnCapOrWrite(r, h, auth, w)
-	if got != c.wantAllow {
-		t.Fatalf("allowed = %v, want %v", got, c.wantAllow)
-	}
-	if g.calls != c.wantCalls {
-		t.Fatalf("guard consulted %d times, want %d", g.calls, c.wantCalls)
-	}
-	if !c.wantAllow && w.Code != http.StatusForbidden {
-		t.Fatalf("blocked turn status = %d, want 403", w.Code)
-	}
+	require.Equal(t, c.wantAllow, enforcePublicTurnCapOrWrite(r, h, auth, w))
+	require.Equal(t, c.wantCalls, g.calls)
+	// A blocked public turn answers 403; an allowed one never wrote a status.
+	require.Equal(t, c.wantAllow, w.Code != http.StatusForbidden)
 }
 
 func TestEnforcePublicTurnCapNilGuardAllows(t *testing.T) {
@@ -78,7 +74,5 @@ func TestEnforcePublicTurnCapNilGuardAllows(t *testing.T) {
 		context.Background(), http.MethodPost, "/api/v1/agent/turn", http.NoBody,
 	)
 	auth := authedVisitor{Data: &access.VisitorSessionData{Mode: "public"}}
-	if !enforcePublicTurnCapOrWrite(r, h, auth, w) {
-		t.Fatal("a nil guard must allow (no cap wired)")
-	}
+	require.True(t, enforcePublicTurnCapOrWrite(r, h, auth, w), "a nil guard must allow")
 }

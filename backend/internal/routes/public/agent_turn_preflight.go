@@ -62,19 +62,12 @@ func (h *Handlers) ownsConversation(
 func preflightAgentTurnQuota(
 	r *http.Request, h *Handlers, auth authedVisitor, w http.ResponseWriter, convID string,
 ) bool {
-	// The gas gate runs **before the convID empty-check**: the gas tank is tracked per
-	// provider, unrelated to which conversation this turn belongs to. Putting it after
-	// would let the first turn of every new conversation bypass it — a gate that can
-	// always be sidestepped.
-	// (The ownership and turn-count gates genuinely need a conversation to mean anything:
-	// no conv means no ownership to check and no turn count to count.)
-	if !enforceGasQuotaOrWrite(r, h, auth, w) {
-		return false
-	}
-	// The per-IP public-turn cap sits with the gas gate (both run before the convID check): it is
-	// keyed on the IP, not the conversation, and protects the owner's gas tank from one anonymous
-	// visitor now that a codeless question runs on the owner's model.
-	if !enforcePublicTurnCapOrWrite(r, h, auth, w) {
+	// The per-provider / per-IP gates run **before the convID empty-check**: they are keyed on the
+	// owner's gas tank and the visitor's IP, not the conversation, so putting them after would let
+	// the first turn of every new conversation bypass them — a gate that can always be sidestepped.
+	// (The ownership and turn-count gates genuinely need a conversation: no conv means no ownership
+	// to check and no turn count to count.)
+	if !preConvGates(r, h, auth, w) {
 		return false
 	}
 	if convID == "" {
@@ -86,6 +79,12 @@ func preflightAgentTurnQuota(
 		func() bool { return enforceTurnQuotaOrWrite(r, h, auth, w, convID) },
 		func() bool { return enforceCodePeriodOrWrite(r, h, auth, w) },
 	})
+}
+
+// preConvGates —— the admission checks that don't need a conversation: the owner's gas tank, then
+// the per-IP cap on owner-paid public turns. Each writes its own refusal; && stops at the first.
+func preConvGates(r *http.Request, h *Handlers, auth authedVisitor, w http.ResponseWriter) bool {
+	return enforceGasQuotaOrWrite(r, h, auth, w) && enforcePublicTurnCapOrWrite(r, h, auth, w)
 }
 
 // enforceCodePeriodOrWrite —— the per-code per-period rate gate (embed plan, 2026-09-01).
@@ -150,14 +149,18 @@ func enforceGasQuotaOrWrite(
 func enforcePublicTurnCapOrWrite(
 	r *http.Request, h *Handlers, auth authedVisitor, w http.ResponseWriter,
 ) bool {
-	if auth.Data.Mode != "public" || h.PublicTurnGuard == nil {
+	if !publicTurnOverCap(r, h, auth) {
 		return true
 	}
-	if h.PublicTurnGuard.OverLimit(r.Context(), clientIP(r)) {
-		writeError(h.Log, w, publicRateLimitedEnv())
-		return false
-	}
-	return true
+	writeError(h.Log, w, publicRateLimitedEnv())
+	return false
+}
+
+// publicTurnOverCap —— true only for a PUBLIC turn (a code is invited, byoai is visitor-paid) whose
+// IP has passed the daily cap. The guard is nil in tests that don't wire it → never over.
+func publicTurnOverCap(r *http.Request, h *Handlers, auth authedVisitor) bool {
+	return auth.Data.Mode == "public" && h.PublicTurnGuard != nil &&
+		h.PublicTurnGuard.OverLimit(r.Context(), clientIP(r))
 }
 
 func enforceTurnQuotaOrWrite(
