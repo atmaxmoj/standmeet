@@ -51,7 +51,20 @@ export interface AgentProps {
   // the server says so in the page meta; the embed on another site has no such meta, so its host
   // states it (<standmeet-chat mode="public">).
   readonly publicTier?: boolean;
+  // docContext —— the document this agent is about ("can I use IT?" → this page). A microsite reads it
+  // from the meta the server injects; a host that has no such meta (the app's reader pages, which are
+  // Next SSR, not microsite-served) states it directly so the backend still grounds "this article".
+  readonly docContext?: DocContext;
 }
+
+// TIER_SPENT_CODES —— the owner's tier couldn't serve this turn, so offer the visitor their own
+// key (the public→BYOAI fallback the owner wanted: "chat on my model until the limit, then the key
+// panel"). rate_limited is the provider's own 429; the other three are the instance's public gates
+// (gas tank empty / per-IP daily cap / no public provider wired). Any of them → the "use your own
+// key" offer, instead of a dead end.
+const TIER_SPENT_CODES: ReadonlySet<string> = new Set([
+  'rate_limited', 'gas_exhausted', 'public_rate_limited', 'owner_ai_not_configured',
+]);
 
 // Who is asking (see the header). 'gate' until resolved after mount.
 type Asker = 'gate' | 'coded' | 'coded-byoai' | 'public' | 'key-needed';
@@ -70,14 +83,21 @@ function resolveAsker(publicTier: boolean): Asker {
 // visitor keeps one thread per page (bringing their own key does not start a new one).
 interface PageThread { asker: Asker; docContext?: DocContext; persistKey: string }
 
-function resolveThread(publicTier: boolean): PageThread {
-  const dc = pageDocContext();
-  const docContext = dc?.path !== undefined && dc.genre !== undefined
-    ? { title: dc.title, path: dc.path, genre: dc.genre }
-    : undefined;
+function resolveThread(publicTier: boolean, override?: DocContext): PageThread {
+  const docContext = override ?? docContextFromMeta();
   const stored = loadStoredSession();
   const holder = stored === null ? '' : `@${stored.slug !== '' ? stored.slug : stored.conversation_id}`;
   return { asker: resolveAsker(publicTier), docContext, persistKey: `agent:${window.location.pathname}${holder}` };
+}
+
+// docContextFromMeta —— the page's own doc context (og:title + standmeet-microsite slug), used when
+// the host didn't pass one in. Only a full triple (path + genre) counts; a title alone is not enough
+// to ground "this page" on a specific document.
+function docContextFromMeta(): DocContext | undefined {
+  const dc = pageDocContext();
+  return dc?.path !== undefined && dc.genre !== undefined
+    ? { title: dc.title, path: dc.path, genre: dc.genre }
+    : undefined;
 }
 
 export function Agent(props: AgentProps) {
@@ -85,10 +105,14 @@ export function Agent(props: AgentProps) {
   // render — never on the main one first.
   const [thread, setThread] = useState<PageThread | null>(null);
   const publicTier = props.publicTier === true;
+  // props.docContext must be a STABLE reference (the host memoizes it): a host that swaps it — the
+  // app's reader moving between articles without remounting — re-resolves the thread, so a new path
+  // gets its own per-article thread; a fresh object every render would re-resolve on every render.
+  const docContext = props.docContext;
   useEffect(() => {
-    setThread(resolveThread(publicTier));
+    setThread(resolveThread(publicTier, docContext));
     return bindVisitorSessionSync();
-  }, [publicTier]);
+  }, [publicTier, docContext]);
   return (
     <WidgetLang.Provider value={props.lang}>
       {thread === null || thread.asker === 'gate'
@@ -275,7 +299,7 @@ function useOwnKeyOffer({ ci, coded, ownKey, setOwnKey, keyNeeded }: {
   return {
     waitingForKey: available && keyNeeded && !ownKey,
     showPanel,
-    showOffer: available && !ownKey && !showPanel && (lastCode === 'rate_limited' || offerable),
+    showOffer: available && !ownKey && !showPanel && (TIER_SPENT_CODES.has(lastCode) || offerable),
     saved,
     active: available && ownKey,
     provider: ownKey ? (readBYOAIVaultMeta()?.provider ?? '') : '',

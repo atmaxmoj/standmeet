@@ -21,12 +21,26 @@
 
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
+import { useEffect, useState } from 'react';
 
+import { pageAllowsBYOAI, publicChatEnabled } from '@standmeet/sdk-core';
 import { useVisitorChatAvailable } from '@standmeet/sdk';
+
+// useReaderCanAsk —— "can they keep asking" = a session, OR a tier they can ask on with no code: the
+// owner's public tier, or bringing their own key (both offered by the reader's chat rail). Read after
+// mount (the meta the layout injects); until then the card stays on the gated copy, correct for SSR
+// and for a reader with none. Without it, the card would tell a reader to "enter a code" while the
+// rail beside it already answers them.
+function useReaderCanAsk(): boolean {
+  const hasSession = useVisitorChatAvailable();
+  const [tierOk, setTierOk] = useState(false);
+  useEffect(() => { setTierOk(publicChatEnabled() || pageAllowsBYOAI()); }, []);
+  return hasSession || tierOk;
+}
 
 export function ReaderAboutCard({ genre, handle }: { genre: 'wiki' | 'output'; handle: string }) {
   const t = useTranslations('reader');
-  const canAsk = useVisitorChatAvailable();
+  const canAsk = useReaderCanAsk();
   return (
     <div
       data-testid="reader-about"

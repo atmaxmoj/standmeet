@@ -25,16 +25,33 @@
 // a prop would force the layout to change with the current article, which
 // puts us right back to "re-render per article."
 
+import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
 import { SessionStrip } from '@/components/visitor/SessionStrip';
 import { WikiTopBar } from '@/components/visitor/WikiTopBar';
-import { ReaderChatRail } from '@/components/visitor/ReaderChatRail';
+import { ReaderChat } from '@/components/visitor/ReaderChat';
 import { WikiTreeView } from '@/components/visitor/WikiTreeView';
 import { fetchInstance } from '@/lib/api/instance';
 import { fetchWikiTreeStats } from '@/lib/api/public';
 
 import styles from '@/app/wiki/wiki-shell.module.css';
+
+// generateMetadata —— inject the two meta tags the SDK <Agent> reads, the SAME ones the backend
+// injects into a served microsite's <head>. A reader page is Next SSR (not microsite-served), so
+// the app injects them here: standmeet-public-chat = the public tier's state (so a codeless reader
+// chats on the owner's model, or brings a key once it's spent), standmeet-page-byoai = the reader
+// has always allowed a visitor's own key. The per-article <title>/og come from the page's own
+// generateMetadata; Next merges the two, so `other` here coexists with them.
+export async function generateMetadata(): Promise<Metadata> {
+  const instance = await fetchInstance();
+  return {
+    other: {
+      'standmeet-public-chat': instance.public_chat || 'false',
+      'standmeet-page-byoai': 'true',
+    },
+  };
+}
 
 export default async function WikiLayout({ children }: { children: ReactNode }) {
   const [instance, stats] = await Promise.all([fetchInstance(), fetchWikiTreeStats()]);
@@ -56,12 +73,12 @@ export default async function WikiLayout({ children }: { children: ReactNode }) 
         <main className="flex-1 min-w-0 overflow-y-auto" data-testid="wiki-scroll">
           <div className="mx-auto max-w-[920px] px-6">{children}</div>
         </main>
-        {/* Right rail "ask about this," symmetric with the tree on the left.
-            **Renders even with no session**: at that point it's the BYOAI
-            entry point — the reader fills in their own key and can start
-            asking, rather than only seeing a hint once they scroll to the
-            very bottom of the body. */}
-        <ReaderChatRail>{null}</ReaderChatRail>
+        {/* Right rail "ask the AI," symmetric with the tree on the left. The SDK <Agent>: a
+            codeless reader chats on the owner's public tier inline here, and only brings their
+            own key once it's spent (reads the meta injected above). Wide → this rail; narrow →
+            the floating dock. Mounted in the layout so the conversation survives moving between
+            articles. */}
+        <ReaderChat />
       </div>
     </div>
   );

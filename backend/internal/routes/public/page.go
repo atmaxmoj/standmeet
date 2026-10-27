@@ -34,6 +34,11 @@ type PageHandlers struct {
 	// renders the Turnstile widget whenever it's non-empty. Read per request: the pair is the
 	// owner's setting on /admin/system and changes while the process runs. "" = captcha off.
 	CaptchaSiteKey func() string
+	// PublicChat —— the public tier's state (PublicChatOn / Spent / Off), the SAME function the
+	// microsite head uses (boot's publicChatEnabled). /instance echoes it so the reader pages
+	// (Next SSR, not microsite-served) can inject the standmeet-public-chat meta the AgentWidget
+	// reads — a codeless reader chats on the owner's model until it's spent, then brings a key.
+	PublicChat func(ctx context.Context) (string, error)
 	// AppVersion —— which version this running process is. The /login and admin
 	// top-bar badges read it, **rather than each carrying their own constant**:
 	// the frontend used to hand-type "v1.0.0" while the backend hand-typed
@@ -98,8 +103,24 @@ func (h *PageHandlers) getInstance() http.HandlerFunc {
 			captchaSiteKey: h.CaptchaSiteKey(),
 			appVersion:     h.AppVersion,
 			canEmailCodes:  owner.CanDeliverCodes(r.Context(), h.Outbound, soleOwner.ID),
+			publicChat:     h.resolvePublicChat(r.Context()),
 		})
 	}
+}
+
+// resolvePublicChat —— the public tier's state, fail-closed to off (same reasoning as the
+// microsite head's resolvePublicChat): a missing dep or an error never promises a public tier
+// that isn't there, it just falls back to the key/gate path.
+func (h *PageHandlers) resolvePublicChat(ctx context.Context) string {
+	if h.PublicChat == nil {
+		return PublicChatOff
+	}
+	state, err := h.PublicChat(ctx)
+	if err != nil {
+		h.Log.Error("resolve public chat", logErrKey, err)
+		return PublicChatOff
+	}
+	return state
 }
 
 // unclaimedSetupToken —— returns an empty string once claimed (never exposes the
@@ -141,6 +162,7 @@ type instanceWriteInput struct {
 	setupToken     string
 	captchaSiteKey string
 	appVersion     string
+	publicChat     string
 	canEmailCodes  bool
 }
 
@@ -155,6 +177,7 @@ func writeInstanceInfo(log *slog.Logger, w http.ResponseWriter, in *instanceWrit
 		CaptchaSiteKey:  in.captchaSiteKey,
 		Version:         in.appVersion,
 		PublicURL:       in.owner.PublicURL,
+		PublicChat:      in.publicChat,
 		CanDeliverCodes: in.canEmailCodes,
 	}
 	if err := json.NewEncoder(w).Encode(view); err != nil {
@@ -171,7 +194,10 @@ type instanceInfoView struct {
 	Version string `json:"version,omitempty"`
 	// PublicURL —— the site's address, the one the sitemap and canonical tags use; the app builds
 	// share-card addresses from it.
-	PublicURL       string `json:"public_url,omitempty"`
+	PublicURL string `json:"public_url,omitempty"`
+	// PublicChat —— the public tier's state ("true" / "spent" / "false"); reader pages inject it as
+	// the standmeet-public-chat meta so the AgentWidget there behaves as it does on a microsite.
+	PublicChat      string `json:"public_chat,omitempty"`
 	Claimed         bool   `json:"claimed"`
 	CanDeliverCodes bool   `json:"can_deliver_codes"`
 }

@@ -43,25 +43,26 @@ test.describe('wiki landing extended cases', () => {
 // registerAboutCardTests -- what the "about this entry" card at the page footer says
 // must be something this visitor can actually do.
 //
-// This same spec already proves: with no session, the dock doesn't render
-// (`floating-dock-pill` count 0). So the line "ask follow-ups below" is, for an
-// anonymous visitor, **a promise this very page disproves itself** (UX-86).
-// Both assertions are written in the same test case specifically so this contradiction
-// can't be split across two tests that each pass green on their own.
+// The reader now always has a chat entry (the ReaderChat rail/dock): a codeless visitor chats on the
+// owner's public tier, or brings their own key (the reader allows BYOAI). So the card invites asking,
+// instead of sending them to /gate. (Before the public-tier reversal, a codeless visitor had no entry
+// at this viewport, so "ask below" was a promise the page disproved — UX-86; that no longer holds.)
 function registerAboutCardTests(): void {
-  test('匿名访客:卡片不许叫他「在下面接着问」,而要给出他真走得到的那条路',
+  test('匿名访客:现在就有问的入口(公开档/自带钥匙),卡片请他问而不是打发去 /gate',
     async ({ request, page }) => {
       await seedIndexedWiki(request);
       await openReader(page, '/wiki/wiki-extended');
       const about = page.getByTestId('reader-about');
       await expect(about).toBeVisible({ timeout: 5_000 });
-      await expect(page.getByTestId('floating-dock-pill'), '这一页确实没有入口').toHaveCount(0);
-      const text = await about.innerText();
-      expect(text, '没有入口就别说「下面」').not.toMatch(/below/i);
+      // The chat entry really renders (dock at this 1280 viewport) — not a dead "no entry" page.
+      await expect(page.getByTestId('floating-dock-pill'), '这一页现在有问的入口').toBeVisible({
+        timeout: 5_000,
+      });
+      // Since they can ask here, the card must NOT fall back to "go to /gate and enter a code".
       await expect(
         about.getByRole('link', { name: /access code/i }),
-        '产品对他有正路:进 /gate 输码',
-      ).toHaveAttribute('href', '/gate');
+        '能在这页问了,就别打发他去 /gate',
+      ).toHaveCount(0);
     });
 
   test('有码会话:卡片才说「在下面接着问」,而那个下面确实在', async ({ request, page }) => {
@@ -258,14 +259,15 @@ function registerSidebarSessionTests(): void {
     ).toBe(true);
   });
 
-  // owner: the dock only appears when there's an AI (code/BYOAI) -- doesn't render
-  // without a session (public).
-  test('without a session: the ask dock does not render (AI not powering)',
+  // owner: a codeless reader can now ask without a session — on the owner's public tier, or by
+  // bringing their own key (this instance has no public provider wired, so the rail offers the key).
+  // The dock renders either way; it no longer waits for a code/BYOAI session to exist first.
+  test('without a session: the ask dock still renders (codeless can ask)',
     async ({ request, page }) => {
       await seedIndexedWiki(request);
       await openReader(page, '/wiki/wiki-extended');
       await expect(page.getByTestId('wiki-landing')).toBeVisible({ timeout: 5_000 });
-      await expect(page.getByTestId('floating-dock-pill')).toHaveCount(0);
+      await expect(page.getByTestId('floating-dock-pill')).toBeVisible({ timeout: 5_000 });
     });
 
   // owner: it's a real tree -- a child entry nests under its parent, and landing on a

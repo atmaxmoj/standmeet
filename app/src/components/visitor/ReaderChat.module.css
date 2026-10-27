@@ -1,0 +1,25 @@
+/* ReaderChat.module.css — the right-hand chat rail of the reader.
+ *
+ * Width uses the same algorithm as the tree rail on the left: the 920px body is centered in the
+ * viewport, the margin on each side is whatever the viewport leaves over, and the rail **is that
+ * margin**. So both sides stay symmetric, and neither ever crowds the body.
+ *   1536px viewport → 308px margin      1920 → 500      2560 → 820
+ *
+ * The threshold is set by "is there room to stand", not a breakpoint: it renders only once the
+ * margin is wide enough for a chat column (viewport ≥ 1700). Below that the rail doesn't appear
+ * and ReaderChat renders the floating dock instead (ReaderChat.tsx reads the same 1700 through
+ * matchMedia, so the two never both show). */
+
+.rail {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  overflow-y: auto;
+  width: min(380px, calc((100vw - 920px) / 2 - 2.5rem));
+  padding-right: 1.5rem;
+  padding-left: 0.5rem;
+  padding-top: 2rem;
+  border-left: 1px solid var(--color-rule);
+  scrollbar-width: thin;
+}

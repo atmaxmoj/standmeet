@@ -24,11 +24,16 @@ const InstanceInfoSchema = z.object({
   can_deliver_codes: z.boolean().optional().default(false),
   // public_url —— the site's address (sitemap, canonical); share cards are built on it.
   public_url: z.string().optional().default(''),
+  // public_chat —— the public tier's state: 'true' (a provider with quota), 'spent' (quota gone)
+  // or 'false' (none wired). Reader pages inject it as the standmeet-public-chat meta so a codeless
+  // visitor chats on the owner's model until it's spent, then brings their own key — same as a
+  // microsite. Defaults to '' (treated as off) when the field is absent.
+  public_chat: z.string().optional().default(''),
 });
 export type InstanceInfo = z.infer<typeof InstanceInfoSchema>;
 
 const FALLBACK: InstanceInfo = {
-  claimed: false, handle: '', name: '', can_deliver_codes: false, public_url: '',
+  claimed: false, handle: '', name: '', can_deliver_codes: false, public_url: '', public_chat: '',
 };
 
 export async function fetchInstance(): Promise<InstanceInfo> {

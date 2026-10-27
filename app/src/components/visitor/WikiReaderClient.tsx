@@ -16,7 +16,7 @@ import { useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
 
 import { useCorpusHref } from '@/lib/corpus/use-corpus-href';
-import { ChatMarkdown, FloatingChatDock } from '@standmeet/sdk';
+import { ChatMarkdown } from '@standmeet/sdk';
 import { Attachments, CoverImage } from '@/components/visitor/CorpusMedia';
 import { coverURL, expandBody } from '@/lib/corpus/media';
 import { CorpusContent } from '@/components/page/CorpusContent';
@@ -70,7 +70,7 @@ export function WikiReaderClient({
         wiki={wiki} handle={handle} ownerName={ownerName} slug={slug} ctx={ctx}
       />
     )
-    : <RestrictedDoc genre="wiki" slug={slug} />;
+    : <RestrictedDoc genre="wiki" slug={slug} chrome={false} />;
 }
 
 // useScopedLanding —— pairs the SSR copy (anonymous view) with a
@@ -116,7 +116,6 @@ function WikiLandingContent({ wiki, handle, ownerName, slug, ctx }: {
         <RelatedRail items={wiki.cited_by} title="cited by" testid="related-rail-cited-by" />
         <ReaderAboutCard genre="wiki" handle={handle} />
       </div>
-      <FloatingChatDock docContext={{ title: wiki.title, path: slug, genre: 'wiki' }} />
     </div>
   );
 }

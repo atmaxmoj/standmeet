@@ -20,20 +20,31 @@ import { SessionStrip } from '@/components/visitor/SessionStrip';
 import type { VisitorDoc } from '@/lib/api/public';
 import { useSessionScopedDoc } from '@/lib/visitor/use-session-doc';
 
-export function RestrictedDoc({ genre, slug }: { genre: 'wiki' | 'output'; slug: string }) {
+// chrome —— whether to render the session strip + chat dock. The output page has no layout, so it
+// needs its own (default true). The wiki reader sits inside wiki/layout.tsx, which already provides
+// both (the strip and ReaderChat), so it passes chrome={false} — otherwise a gated wiki entry would
+// show two strips and two chat entries.
+export function RestrictedDoc(
+  { genre, slug, chrome = true }: { genre: 'wiki' | 'output'; slug: string; chrome?: boolean },
+) {
   const { loading, doc, hasSession } = useSessionScopedDoc(slug);
   const t = useTranslations('visitor.restrictedDoc');
   return (
     <>
-      <SessionStrip />
+      <Chrome show={chrome}><SessionStrip /></Chrome>
       <main className="pb-24">
         {loading
           ? <Centered>{t('opening')}</Centered>
           : <Resolved genre={genre} slug={slug} doc={doc} hasSession={hasSession} />}
       </main>
-      <FloatingChatDock />
+      <Chrome show={chrome}><FloatingChatDock /></Chrome>
     </>
   );
+}
+
+// Chrome —— renders the shared chrome (strip / dock) only when the host doesn't already provide it.
+function Chrome({ show, children }: { show: boolean; children: React.ReactNode }) {
+  return show ? <>{children}</> : null;
 }
 
 function Resolved({ genre, slug, doc, hasSession }: {

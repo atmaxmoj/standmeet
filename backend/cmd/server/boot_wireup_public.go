@@ -115,6 +115,7 @@ func buildPublicPageDeps(d *deps.Runtime) publicroutes.PageHandlers {
 		CaptchaSiteKey: d.CaptchaSiteKey,
 		AppVersion:     port.AppVersion(),
 		Outbound:       owner.OutboundStatusDeps{Proxy: port.OutboundSender(d)},
+		PublicChat:     publicChatEnabled(d),
 	}
 }
 
