@@ -259,6 +259,9 @@ type Controller = ReturnType<typeof useChatController>;
 interface OwnKeyOffer {
   waitingForKey: boolean;
   showPanel: boolean;
+  // spent —— the panel is open because the owner's tier can't serve (no free quota left / rate
+  // limited), not because the visitor chose to bring their own key. Drives the panel's intro copy.
+  spent: boolean;
   showOffer: boolean;
   saved: boolean;
   active: boolean;
@@ -299,6 +302,9 @@ function useOwnKeyOffer({ ci, coded, ownKey, setOwnKey, keyNeeded }: {
   return {
     waitingForKey: available && keyNeeded && !ownKey,
     showPanel,
+    // The owner's tier really is out (initial key-needed, or this turn hit a spent code) — as
+    // opposed to the visitor opening the panel themselves while the tier still works.
+    spent: keyNeeded || TIER_SPENT_CODES.has(lastCode),
     showOffer: available && !ownKey && !showPanel && (TIER_SPENT_CODES.has(lastCode) || offerable),
     saved,
     active: available && ownKey,
@@ -325,7 +331,7 @@ function OwnKeyControls({ keys }: { keys: OwnKeyOffer }) {
           {t(keys.saved ? 'useSavedKey' : 'useOwnKey')}
         </button>
       )}
-      {keys.showPanel && <ByokPanel onUse={keys.use} />}
+      {keys.showPanel && <ByokPanel onUse={keys.use} spent={keys.spent} />}
       {keys.active && (
         <p data-testid="agent-widget-byok-active" className="smc-key-active">
           <span>{t('onYourKey', { provider: keys.provider })}</span>

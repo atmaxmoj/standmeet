@@ -84,6 +84,14 @@ test.describe('wiki reader · a codeless visitor chats on the public tier inline
         .toContainText(ANSWER, { timeout: 30_000 });
       expect(reader.url(), 'stayed on the wiki page — no gate redirect').toContain(`/wiki/${slug}`);
 
+      // Choosing your own key VOLUNTARILY (the tier still has quota) must not claim it ran out —
+      // owner caught the copy lying: "但是这次是我自己点的". The panel shows the neutral invitation.
+      await rail.getByTestId('agent-widget-byok-offer').click();
+      const byok = rail.getByTestId('agent-widget-byok');
+      await expect(byok).toBeVisible({ timeout: 5_000 });
+      await expect(byok, 'voluntary → not the "quota used up" copy').not.toContainText(/used up/i);
+      await expect(byok, 'voluntary → the neutral invitation').toContainText(/prefer your own/i);
+
       await reader.context().close();
       await request.dispose();
     });
@@ -100,6 +108,9 @@ test.describe('wiki reader · a codeless visitor chats on the public tier inline
       const widget = reader.getByTestId('reader-chat-rail').getByTestId('agent-widget');
       await expect(widget, 'quota spent → the visitor brings a key, not inline chat on a dry tank')
         .toHaveAttribute('data-mode', 'byok', { timeout: 10_000 });
+      // Here the tier really IS out, so the panel's "free quota used up" copy is the honest one.
+      await expect(widget.getByTestId('agent-widget-byok'), 'genuinely spent → the used-up copy')
+        .toContainText(/used up/i, { timeout: 5_000 });
 
       await reader.context().close();
     });

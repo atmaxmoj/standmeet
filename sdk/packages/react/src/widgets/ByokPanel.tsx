@@ -9,8 +9,15 @@ import { useT } from '../i18n.js';
 
 const FIELD = 'w-full bg-transparent border-b border-(--color-rule) focus:border-(--color-accent) outline-none mono text-[12px] text-(--color-ink) py-1';
 
+// spent —— why the panel is open. true = the owner's tier genuinely can't serve this turn (its free
+// quota is gone / it rate-limited), so the "free quota is used up" intro is true. false = the visitor
+// CHOSE to bring their own key while the tier still works, so that intro would be a lie (owner caught
+// it: "但是这次是我自己点的") — show the neutral invitation instead.
 export function ByokPanel(
-  { onUse }: { readonly onUse: (cred: BYOAICredFull) => Promise<void> },
+  { onUse, spent = false }: {
+    readonly onUse: (cred: BYOAICredFull) => Promise<void>;
+    readonly spent?: boolean;
+  },
 ): React.ReactElement {
   const t = useT();
   const [provider, setProvider] = useState('anthropic');
@@ -37,7 +44,9 @@ export function ByokPanel(
       className="mb-4 border border-(--color-rule) rounded-[3px] p-3 flex flex-col gap-2"
       onSubmit={(e) => { e.preventDefault(); if (ready) submit(); }}
     >
-      <p className="font-serif text-[15px] text-(--color-muted) leading-[1.5]">{t('byokIntro')}</p>
+      <p className="font-serif text-[15px] text-(--color-muted) leading-[1.5]">
+        {t(spent ? 'byokIntro' : 'byokIntroOptional')}
+      </p>
       <select
         data-testid="agent-widget-byok-provider" aria-label={t('byokProvider')} value={provider}
         onChange={(e) => pick(e.target.value)} className={FIELD}
