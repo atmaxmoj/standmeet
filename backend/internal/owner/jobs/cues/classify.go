@@ -109,6 +109,39 @@ func followUpOf(prior []ChainTurn, q, reason string) Classification {
 	return c
 }
 
+// classifierSystem —— the small model's whole job: one word, and bias to NO (fail closed, §3).
+const classifierSystem = "You label one interview question. Decide if the NEW QUESTION is a " +
+	"follow-up to the prior turns: it refers back to something already said (explicitly, or a " +
+	"bare reference that only makes sense against the prior line) and should inherit that topic. " +
+	"A question that moves to a NEW topic — even in the same interview — is not a follow-up. " +
+	"Answer with exactly one word, YES or NO. When unsure, answer NO."
+
+// classifierMessages —— the prior turns and the new question, as one user message for the model.
+func classifierMessages(prior []ChainTurn, question string) []Message {
+	var b strings.Builder
+	b.WriteString("PRIOR TURNS (oldest first):\n")
+	for i := range prior {
+		b.WriteString("- ")
+		b.WriteString(prior[i].Text)
+		b.WriteString("\n")
+	}
+	b.WriteString("\nNEW QUESTION:\n")
+	b.WriteString(question)
+	b.WriteString("\n\nIs the NEW QUESTION a follow-up? Answer YES or NO.")
+	return []Message{{Role: "user", Content: b.String()}}
+}
+
+var classifierYesRE = regexp.MustCompile(`(?i)\byes\b`)
+
+// parseFollowUp —— YES anywhere → follow-up; anything else (incl. a refusal or empty) → not, the
+// fail-closed default.
+func parseFollowUp(text string) (bool, string) {
+	if classifierYesRE.MatchString(text) {
+		return true, "model: yes"
+	}
+	return false, "model: no"
+}
+
 // chainProjects —— every project named along the chain, first-appearance order, deduped.
 func chainProjects(prior []ChainTurn) []string {
 	seen := map[string]bool{}

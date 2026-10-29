@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"time"
 )
@@ -48,6 +49,7 @@ func (a *Assistant) Cue(
 	if feedID == "" {
 		feedID = newFeedID()
 	}
+	named := a.effectiveNamed(ctx, log, ownerID, q, &p)
 	req := ModelRequest{System: p.System, Messages: p.messages}
 	model, text, err := a.ports.Model(ctx, ownerID, p.role.ProviderID, req,
 		a.streamer(ctx, log, ownerID, feedID))
@@ -55,7 +57,7 @@ func (a *Assistant) Cue(
 		return Card{}, fmt.Errorf("%w: %w", errModelCall, err)
 	}
 	fin := finalize(text, &cueCtx{
-		sources: p.Sources, namedProjects: p.NamedProjects, posting: p.posting(),
+		sources: p.Sources, namedProjects: named, posting: p.posting(),
 		question: p.Heard.Question,
 	})
 	if ferr := a.finish(ctx, ownerID, feedID, q.CallID, fin.card); ferr != nil {
@@ -87,7 +89,10 @@ func (a *Assistant) begin(ctx context.Context, ownerID string, q *Ask) (Prompt, 
 func (a *Assistant) callMessages(
 	ctx context.Context, ownerID, callID string, p *Prompt,
 ) ([]Message, error) {
-	line := Message{Role: "user", Content: strings.TrimSpace(p.Heard.Question)}
+	line := Message{
+		Role: "user", Content: strings.TrimSpace(p.Heard.Question),
+		TurnID: newTurnID(), Named: p.NamedProjects,
+	}
 	if callID == "" {
 		return []Message{line}, nil
 	}
@@ -154,4 +159,74 @@ func newFeedID() string {
 	b := make([]byte, feedIDBytes)
 	_, _ = rand.Read(b)
 	return "srv-" + hex.EncodeToString(b)
+}
+
+// newTurnID —— a stable id for a user turn, so the classifier can name the anchor it followed.
+func newTurnID() string {
+	b := make([]byte, feedIDBytes)
+	_, _ = rand.Read(b)
+	return "t-" + hex.EncodeToString(b)
+}
+
+// effectiveNamed —— the named-project set finalize grounds against: the line's own named projects,
+// widened with the ones it inherits from its anchor chain when the classifier calls it a follow-up
+// (follow-up 链 §2). No call, no chain, or a chain read error → just the line's own set (fail
+// closed). The classifier runs a model only for ambiguous cases (explicit / bare references take
+// its rule fast-path). begin already appended this line, so the last chain turn is dropped — the
+// classifier sees only the earlier turns this line may follow.
+func (a *Assistant) effectiveNamed(
+	ctx context.Context, log *slog.Logger, ownerID string, q *Ask, p *Prompt,
+) []string {
+	if q.CallID == "" {
+		return p.NamedProjects
+	}
+	chain, err := a.Feed.callChain(ctx, ownerID, q.CallID)
+	if err != nil {
+		log.Warn("cue classify: read call chain", "err", err)
+		return p.NamedProjects
+	}
+	prior := priorTurns(chain)
+	if len(prior) == 0 {
+		return p.NamedProjects
+	}
+	cl := classify(prior, p.Heard.Question, a.classifyModel(ctx, ownerID, p.role.ProviderID))
+	log.Info("cue classify",
+		"follow_up", cl.FollowUp, "anchor", cl.AnchorTurnID,
+		"inherited", cl.InheritedProjects, "reason", cl.Reason)
+	return unionProjects(p.NamedProjects, cl.InheritedProjects)
+}
+
+// priorTurns —— the chain without its last user turn (the line begin just appended), so the
+// classifier never sees the current question as one of its own antecedents.
+func priorTurns(chain []ChainTurn) []ChainTurn {
+	if len(chain) == 0 {
+		return chain
+	}
+	return chain[:len(chain)-1]
+}
+
+// classifyModel —— the small-model adjudicator for the classifier's ambiguous path. It fails closed
+// (returns not-a-follow-up) on any model error, so a flaky classifier only ever under-grounds.
+func (a *Assistant) classifyModel(ctx context.Context, ownerID, providerID string) ClassifierModel {
+	return func(prior []ChainTurn, question string) (bool, string) {
+		req := ModelRequest{System: classifierSystem, Messages: classifierMessages(prior, question)}
+		_, text, err := a.ports.Model(ctx, ownerID, providerID, req, func(string) {})
+		if err != nil {
+			return false, "classifier model error"
+		}
+		return parseFollowUp(text)
+	}
+}
+
+// unionProjects —— own ∪ inherited, first-appearance order, deduped.
+func unionProjects(own, inherited []string) []string {
+	seen := make(map[string]bool, len(own)+len(inherited))
+	out := make([]string, 0, len(own)+len(inherited))
+	for _, s := range slices.Concat(own, inherited) {
+		if !seen[s] {
+			seen[s] = true
+			out = append(out, s)
+		}
+	}
+	return out
 }

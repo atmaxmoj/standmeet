@@ -17,10 +17,15 @@ import (
 // historyTurns —— the app kept the last 20 messages after adding the newest line.
 const historyTurns = 20
 
-// Message —— one turn of a call: role user (the other side's line) or assistant (the card).
+// Message —— one turn of a call: role user (the other side's line) or assistant (the card). A user
+// turn also carries the metadata the follow-up classifier reads off the chain (spec A §1/§2): a
+// stable turn id and the owner-project slugs that turn named. Both are omitempty and absent on
+// turns written before this field existed, so an old call simply inherits nothing (fail closed).
 type Message struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role    string   `json:"role"`
+	Content string   `json:"content"`
+	TurnID  string   `json:"id,omitempty"`
+	Named   []string `json:"named,omitempty"`
 }
 
 func historyKey(ownerID, callID string) string { return "cues:" + ownerID + ":call:" + callID }
@@ -73,6 +78,24 @@ func userLines(rows []string) []string {
 		}
 	}
 	return lines
+}
+
+// callChain —— the call's user turns so far as the classifier sees them (id, text, named
+// projects), oldest first. The caller drops the last turn (the line just added) before classifying.
+func (s *Store) callChain(ctx context.Context, ownerID, callID string) ([]ChainTurn, error) {
+	rows, err := s.rdb.LRange(ctx, historyKey(ownerID, callID), 0, -1).Result()
+	if err != nil {
+		return nil, fmt.Errorf("cues call chain: %w", err)
+	}
+	turns := make([]ChainTurn, 0, len(rows))
+	for _, r := range rows {
+		var msg Message
+		if json.Unmarshal([]byte(r), &msg) == nil && msg.Role == "user" {
+			turns = append(turns,
+				ChainTurn{ID: msg.TurnID, Text: msg.Content, NamedProjects: msg.Named})
+		}
+	}
+	return turns, nil
 }
 
 // addCard —— the finished card, after the line it answered.
