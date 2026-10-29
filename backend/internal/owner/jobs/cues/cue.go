@@ -29,7 +29,11 @@ type Card struct {
 	Used      []string // the note paths the model declared on its USED line (raw, before filtering)
 	From      []string // the paths the server actually stamped as the From citation
 	Downgrade string   // why a generic card is generic, or a gap-admission tripwire reason (R4)
-	Prompt    Prompt
+	// Terms —— the optional glossary (cue 术语表 spec): the library terms the card body mentions, in
+	// first-appearance order, each with a one-line definition. Empty = app shows no Terms block.
+	// Purely additive — derived from the finished text, it changes none of the fields above.
+	Terms  []TermEntry
+	Prompt Prompt
 }
 
 // Cue —— the card for q. feedID names the card's feed event ("" = a new id); a call's history
@@ -60,6 +64,7 @@ func (a *Assistant) Cue(
 	return Card{
 		Text: fin.card, FeedID: feedID, Model: model, Prompt: p,
 		Mode: fin.mode, Used: declaredUsed(text), From: fin.from, Downgrade: fin.downgrade,
+		Terms: cardTerms(fin.card),
 	}, nil
 }
 

@@ -150,6 +150,9 @@ func (c *assistantFiber) handleCue(
 	// declared it used, the server-stamped From, and the final mode (generic | grounded).
 	out := map[string]any{
 		"card": card.Text, "feed_id": card.FeedID, "model": card.Model,
+		// terms —— the optional glossary (cue 术语表 spec): the terms the card body named, each with a
+		// one-line definition, for the app to show as a collapsed block. Empty = no Terms block.
+		"terms": termsOut(card.Terms),
 		"citation": map[string]any{
 			"mode": card.Mode, "sources": nonNil(card.Prompt.Sources),
 			"used": nonNil(card.Used), "from": nonNil(card.From), "downgrade": card.Downgrade,
@@ -178,6 +181,16 @@ func nonNil(s []string) []string {
 		return []string{}
 	}
 	return s
+}
+
+// termsOut —— the card's glossary as wire rows {term, def}, in the card's first-appearance order;
+// always an array (never null) so the app can render "no block" from an empty list.
+func termsOut(terms []cues.TermEntry) []map[string]string {
+	out := make([]map[string]string, 0, len(terms))
+	for _, e := range terms {
+		out = append(out, map[string]string{"term": e.Term, "def": e.Def})
+	}
+	return out
 }
 
 func decodeArgs(raw json.RawMessage, into *askArgs) error {
