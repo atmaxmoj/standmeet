@@ -10,6 +10,7 @@
 package usecase
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 	"unicode"
@@ -103,16 +104,23 @@ func metaNode(id, title string, parentID *string) pathNode {
 
 // treePathsFor —— path = the slugified title of every segment from root to this node,
 // joined with '/'. A path collision (same slug under the same parent) gets deduped by
-// appending -2/-3 in order of appearance (seen is only used during construction, to
-// guarantee path→id is injective). Returns id→path.
+// appending -2/-3 (seen guarantees path→id is injective). Returns id→path.
+//
+// The assignment is sorted by id first, so which colliding node keeps the bare path and which
+// gets -2 depends ONLY on the node set, never on the order the rows arrived in. The sidebar tree
+// and the /wiki/<path> landing fetch build the set from different queries; without this sort the
+// suffix flipped between them and a tree link opened the other node (2026-10-28).
 func treePathsFor(nodes []pathNode) map[string]string {
 	byNodeID := make(map[string]pathNode, len(nodes))
 	for _, n := range nodes {
 		byNodeID[n.id] = n
 	}
+	ordered := make([]pathNode, len(nodes))
+	copy(ordered, nodes)
+	slices.SortFunc(ordered, func(a, b pathNode) int { return strings.Compare(a.id, b.id) })
 	byID := make(map[string]string, len(nodes))
 	seen := make(map[string]string, len(nodes))
-	for _, n := range nodes {
+	for _, n := range ordered {
 		p := uniquePath(computePath(n, byNodeID), seen)
 		byID[n.id] = p
 		seen[p] = n.id

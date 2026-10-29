@@ -101,13 +101,21 @@ func CreateWiki(
 	return wiki, nil
 }
 
-// preflightCreateWiki —— two gates before create: required fields + parent validity. Combined
-// here so CreateWiki's cyclomatic complexity stays under the limit.
+// preflightCreateWiki —— three gates before create: required fields + parent validity + no
+// sibling-slug collision. The collision gate was missing here while promote and update both had
+// it, so a wiki created directly (the owner AI's corpus.create) could land a second sibling with
+// the same title slug — two "software" roots, the address path no longer 1:1 (2026-10-28).
+// Combined here so CreateWiki's cyclomatic complexity stays under the limit.
 func preflightCreateWiki(ctx context.Context, deps Deps, in *CreateWikiReq) error {
 	if in.OwnerID == "" || in.Title == "" || in.Body == "" {
 		return apierr.ErrEmptyField
 	}
-	return validateWikiParent(ctx, deps, in.OwnerID, in.ParentID)
+	if err := validateWikiParent(ctx, deps, in.OwnerID, in.ParentID); err != nil {
+		return err
+	}
+	return ensureSiblingSlugFree(ctx, deps, siblingSlugCheck{
+		OwnerID: in.OwnerID, ParentID: in.ParentID, Title: in.Title,
+	})
 }
 
 // UpdateWikiReq —— input for admin's wiki update.
