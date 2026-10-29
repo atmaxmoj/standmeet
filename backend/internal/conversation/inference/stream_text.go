@@ -18,9 +18,24 @@ import (
 	"github.com/cloudwego/eino/schema"
 )
 
-// thinkingOff —— the switch for a reply without reasoning first. DeepSeek and Anthropic spell it
-// the same way, as a top-level request field neither adapter models.
-var thinkingOff = json.RawMessage(`{"thinking":{"type":"disabled"}}`)
+// thinkingOff —— the switch for a reply without reasoning first, a top-level request field neither
+// adapter models. The spelling is now model-specific on Anthropic: Sonnet 5.5 / Opus 5.5 reject
+// "disabled" ("send between_tools instead" — 400) and want "between_tools"; Haiku 5.5 and the older
+// Claude 5 / 4.x models keep "disabled" (accepted at effort <= high, which is the default here).
+// For a no-tools cue call both spellings mean the same thing: no reasoning before the answer.
+var (
+	thinkingOffDisabled    = json.RawMessage(`{"thinking":{"type":"disabled"}}`)
+	thinkingOffBetweenTool = json.RawMessage(`{"thinking":{"type":"between_tools"}}`)
+)
+
+// thinkingOffAnthropic —— the "thinking off" field for one Claude model. Defaults to "disabled"
+// (the long-standing spelling) for any model not known to require the newer "between_tools".
+func thinkingOffAnthropic(modelID string) json.RawMessage {
+	if strings.Contains(modelID, "sonnet-5-5") || strings.Contains(modelID, "opus-5-5") {
+		return thinkingOffBetweenTool
+	}
+	return thinkingOffDisabled
+}
 
 // StreamOptions —— how StreamText asks.
 type StreamOptions struct {
@@ -116,11 +131,11 @@ func streamModel(
 	}
 	if c.Provider == providerAnthrop {
 		return buildClaudeModelWith(ctx, c, tok, func(cfg *claude.Config) error {
-			return json.Unmarshal(thinkingOff, &cfg.AdditionalRequestFields)
+			return json.Unmarshal(thinkingOffAnthropic(c.Model), &cfg.AdditionalRequestFields)
 		})
 	}
 	return buildOpenAICompatModelWith(ctx, c, tok, func(cfg *openai.ChatModelConfig) error {
-		return json.Unmarshal(thinkingOff, &cfg.ExtraFields)
+		return json.Unmarshal(thinkingOffDisabled, &cfg.ExtraFields)
 	})
 }
 
