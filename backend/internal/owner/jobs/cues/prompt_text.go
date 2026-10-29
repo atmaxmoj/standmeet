@@ -236,7 +236,12 @@ const (
 		" itself general and cites the user's notes.\n" +
 		"- **Personal questions** (what you did, built, measured or chose; a fact about a " +
 		"named project) stay grounded in the notes with the gap rule above — never substit" +
-		"uted by general content."
+		"uted by general content.\n" +
+		"- **Conversation is not notes.** A number, metric or fact the interviewer or the ca" +
+		"ndidate stated earlier in THIS conversation is what was SAID, not your recorded not" +
+		"es. Never repeat such a figure as a recorded fact and never fold it into a grounded" +
+		" card as if a note held it; if you must refer to it, attribute it to what was said " +
+		"in the room (\"the number you mentioned\"), and never list it under USED."
 	whose = "**WHOSE IT IS** — each note is marked. A note marked \"someone el" +
 		"se's\" is what the user read or collected: never say or imply the" +
 		"y used, ran, built or worked with what it describes. When only s" +

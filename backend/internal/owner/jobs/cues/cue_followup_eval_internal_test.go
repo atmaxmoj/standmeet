@@ -12,6 +12,7 @@
 package cues
 
 import (
+	"context"
 	"os"
 	"strings"
 	"testing"
@@ -86,5 +87,66 @@ func TestCueFollowUpChainRegression(t *testing.T) {
 	if !strings.Contains(strings.Join(with.from, ","), "larkspur") {
 		t.Fatalf("grounded From should cite a larkspur note (inheritance kept it); got %v",
 			with.from)
+	}
+}
+
+func evalGraderCred(t *testing.T) *inference.Cred {
+	t.Helper()
+	ep := envOr("CUE_EVAL_ENDPOINT", os.Getenv("DEEPSEEK_ENDPOINT"))
+	key := envOr("CUE_EVAL_KEY", os.Getenv("DEEPSEEK_KEY"))
+	return cred(envOr("CUE_EVAL_PROVIDER", "deepseek"), ep, key,
+		envOr("CUE_EVAL_GRADER_MODEL", envOr("DEEPSEEK_MODEL", "deepseek-v4-pro")))
+}
+
+// completeChain —— a model call that carries the prior turns as message history (an assistant
+// placeholder between each), so the model sees what was SAID earlier, the way production does.
+func completeChain(
+	t *testing.T, c *inference.Cred, system string, priorUser []string, question string,
+) string {
+	t.Helper()
+	msgs := make([]inference.ChatRequestMsg, 0, 2*len(priorUser)+1)
+	for _, u := range priorUser {
+		msgs = append(msgs,
+			inference.ChatRequestMsg{Role: "user", Content: u},
+			inference.ChatRequestMsg{Role: "assistant", Content: "(cue card given)"})
+	}
+	msgs = append(msgs, inference.ChatRequestMsg{Role: "user", Content: question})
+	req := &inference.ChatRequest{System: system, Messages: msgs, MaxTokens: cueEvalMaxTokens}
+	text, err := inference.StreamText(context.Background(), c, req,
+		inference.StreamOptions{NoThinking: true}, func(string) {})
+	if err != nil {
+		t.Fatalf("model call: %v", err)
+	}
+	return text
+}
+
+// TestCueContaminationProbe —— spec A §3 contamination: a figure the candidate invented while
+// speaking (the 10/20/40 retry schedule → "about 70 seconds") must never come back in a later card
+// as a recorded fact. The cuesDiscipline "conversation is not notes" rule is what holds the line.
+func TestCueContaminationProbe(t *testing.T) {
+	t.Parallel()
+	card := evalCardCred(t)
+	grader := evalGraderCred(t)
+	round := RoundByID("technical")
+	brief := "Senior Platform Engineer — shipping ML models to production APIs"
+	priorUser := []string{
+		"Walk me through Larkspur — how does it take a model to a production API?",
+		"If the model call is rate-limited and you retry at 10, then 20, then 40 seconds, a " +
+			"visitor waits about 70 seconds — is that acceptable?",
+	}
+	q := "What's the right way to handle that wait?"
+	b := NewDeck(synthNotes(), brief).build(q, round, "")
+	out := completeChain(t, card, systemPrompt(b.context, round.closingRules()), priorUser, q)
+	fin := finalize(out, &cueCtx{
+		sources: b.sources, namedProjects: b.namedProjects, posting: b.posting(), question: q,
+	})
+	t.Logf("--- contamination card (%s):\n%s", fin.mode, fin.card)
+	ask := "The candidate invented the figures '10, 20, 40 seconds' and 'about 70 seconds' while " +
+		"speaking in this interview — they are NOT from recorded notes. Does the card correctly " +
+		"AVOID presenting any such retry-timing or wait figure as a recorded fact from the " +
+		"candidate's notes? Answer yes if it does not state those numbers as established notes."
+	ok, why := judge(t, grader, q, fin.card, ask)
+	if !ok {
+		t.Fatalf("contamination: a conversation number read as a note fact: %s\n%s", why, fin.card)
 	}
 }
