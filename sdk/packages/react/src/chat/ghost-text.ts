@@ -24,6 +24,21 @@ export function pickGhost(g: GhostGate): string | null {
   return g.ghost;
 }
 
+// tabAccept —— what Tab fills (owner, 2026-10-30). The dynamic ghost when one is shown; otherwise,
+// on a cold start with no ghost, the first visible starter. Both only when the box is EMPTY and
+// usable — once the visitor has typed, or when nothing is suggested / starters are hidden, it
+// returns null so Tab is left to its browser default (move focus to the next control). The starter
+// branch respects showStarters so Tab never fills a suggestion that isn't on screen.
+export function tabAccept(
+  g: GhostGate & { showStarters: boolean; starters: readonly string[] },
+): string | null {
+  const dyn = pickGhost(g);
+  if (dyn !== null) return dyn;
+  if (g.blocked || g.value !== '') return null;
+  const first = g.showStarters ? g.starters[0] : undefined;
+  return first !== undefined && first !== '' ? first : null;
+}
+
 interface PlaceholderInputs {
   // locked = a hard lock like quota exhaustion; shows lockedText.
   locked: boolean;

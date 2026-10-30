@@ -8,7 +8,7 @@
 import { useRef } from 'react';
 
 import { useChatT } from '../i18n.js';
-import { composerPlaceholder, pickGhost } from './ghost-text.js';
+import { composerPlaceholder, pickGhost, tabAccept } from './ghost-text.js';
 import { useBlockStore } from './block-store.js';
 import { useDockButtonsStore } from './dock-buttons-store.js';
 import { dispatchComposerKey, useAutoGrowTextarea } from './composer-keys.js';
@@ -56,18 +56,25 @@ export function Composer({ showStarters, starters, ...rest }: ComposerProps & {
     <div className={`smc-composer is-${rest.variant ?? 'room'}`}>
       <DockButtons onPick={rest.onSubmit} pending={rest.pending} />
       {showTry && <StarterChips starters={starters} onPick={rest.onSubmit} pending={rest.pending} />}
-      <ComposerForm {...rest} />
+      <ComposerForm {...rest} showStarters={showStarters} starters={starters} />
     </div>
   );
 }
 
-function ComposerForm(p: ComposerProps) {
+function ComposerForm(p: ComposerProps & { showStarters: boolean; starters: readonly string[] }) {
   // blocked only governs the ghost: don't show a hint while a turn is in
   // flight (that hint was generated from the previous turn and is stale by
   // now). **It no longer governs whether the input can be typed into** —
   // see disabled below (F-A-42).
   const blocked = p.pending || p.exhausted;
   const ghost = pickGhost({ value: p.input, blocked, ghost: p.ghost });
+  // tabTarget —— what Tab fills: the dynamic ghost if one is shown, else the first visible starter
+  // (owner, 2026-10-30). Separate from the visual `ghost` above so a starter fills on Tab without
+  // also being drawn as an overlay — it already shows as a TRY chip. Empty / typed / blocked gating
+  // lives in tabAccept, so a typed box or a page with no suggestion leaves Tab to its default.
+  const tabTarget = tabAccept({
+    value: p.input, blocked, ghost: p.ghost, showStarters: p.showStarters, starters: p.starters,
+  });
   const t = useChatT('composer');
   // The ghost **never goes into placeholder** (F-A-25): placeholder doesn't
   // wrap, so a longer hint gets clipped mid-sentence and the visitor can't
@@ -126,7 +133,7 @@ function ComposerForm(p: ComposerProps) {
             onChange={(e) => p.setInput(e.target.value)}
             onPaste={(e) => { att.onPaste(e); }}
             onKeyDown={(e) => dispatchComposerKey(e, {
-              ghost, onSubmit: submit, onAccept: p.onAcceptGhost,
+              ghost: tabTarget, onSubmit: submit, onAccept: p.onAcceptGhost,
             })}
             placeholder={placeholder}
             disabled={p.exhausted}
