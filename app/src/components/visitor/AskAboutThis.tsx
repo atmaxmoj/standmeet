@@ -13,6 +13,8 @@
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 
+import { fillFirstStarterOnTab } from '@/components/visitor/ask-starter-tab';
+
 type Kind = 'essay' | 'wiki' | 'output';
 
 interface Props {
@@ -21,12 +23,13 @@ interface Props {
 }
 
 export function AskAboutThis({ title, kind = 'essay' }: Props) {
+  const starters = startersFor(title, kind);
   return (
     <section className="mt-10 pt-3 pb-4 border-t border-(--color-rule)" data-testid="ask-about-this">
       <div className="max-w-[760px] mx-auto px-6 lg:px-0">
         <AskHeader title={title} kind={kind} />
-        <AskForm placeholderTitle={title} />
-        <AskStarters title={title} kind={kind} />
+        <AskForm placeholderTitle={title} firstStarter={starters[0]} />
+        <AskStarters starters={starters} />
       </div>
     </section>
   );
@@ -49,7 +52,7 @@ function labelKeyFor(kind: Kind): 'essay' | 'entry' | 'piece' {
   return kind === 'essay' ? 'essay' : kind === 'wiki' ? 'entry' : 'piece';
 }
 
-function AskForm({ placeholderTitle }: { placeholderTitle: string }) {
+function AskForm({ placeholderTitle, firstStarter }: { placeholderTitle: string; firstStarter?: string }) {
   const t = useTranslations('visitor.askAboutThis');
   return (
     <form
@@ -65,6 +68,7 @@ function AskForm({ placeholderTitle }: { placeholderTitle: string }) {
         placeholder={`follow-up question about "${placeholderTitle.toLowerCase()}"…`}
         className="flex-1 bg-transparent font-serif italic min-w-0 text-[20px] leading-[1.3] font-[380] text-(--color-ink) placeholder:text-(--color-faint)"
         autoComplete="off"
+        onKeyDown={fillFirstStarterOnTab(firstStarter)}
       />
       <input type="hidden" name="from" value={placeholderTitle} />
       <button
@@ -77,9 +81,8 @@ function AskForm({ placeholderTitle }: { placeholderTitle: string }) {
   );
 }
 
-function AskStarters({ title, kind }: { title: string; kind: Kind }) {
+function AskStarters({ starters }: { starters: string[] }) {
   const t = useTranslations('visitor.common');
-  const starters = startersFor(title, kind);
   return (
     <div className="mt-2 flex flex-wrap items-baseline gap-x-1 gap-y-1.5">
       <span className="mono text-[10px] tracking-[0.18em] uppercase text-(--color-faint) mr-3 pt-0.5">

@@ -60,6 +60,27 @@ test.describe('writing → chat flow integration', () => {
       await expect(page.locator('[data-testid="answer-body"]'))
         .toBeVisible({ timeout: 20_000 });
     });
+
+  // owner 2026-10-30: on the empty follow-up box, Tab fills the first suggested question; with
+  // text typed, Tab keeps its default (move focus) and must not overwrite what the visitor wrote.
+  test('AskAboutThis: Tab fills the first starter only while the box is empty',
+    async ({ page }) => {
+      await openReader(page, '/writings/writing-chat-test');
+      const input = page.locator('[data-testid="article-ask-form"] input[name="q"]');
+      const firstStarter = page.locator('a[href^="/?q="]').first();
+      const href = await firstStarter.getAttribute('href');
+      const expected = decodeURIComponent(new URL(href!, 'http://x').searchParams.get('q')!);
+
+      // empty box + Tab → fills the first starter
+      await input.focus();
+      await page.keyboard.press('Tab');
+      await expect(input).toHaveValue(expected);
+
+      // typed text + Tab → default (focus moves), the typed text is left intact
+      await input.fill('my own question');
+      await page.keyboard.press('Tab');
+      await expect(input).toHaveValue('my own question');
+    });
 });
 
 async function initOwner(playwright: Playwright): Promise<void> {
