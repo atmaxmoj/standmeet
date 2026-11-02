@@ -85,6 +85,15 @@ SET outcome = sqlc.arg('outcome'), followup_nudges = 0,
     next_followup_at = sqlc.narg('next_followup_at')
 WHERE id = sqlc.arg('id') AND owner_id = sqlc.arg('owner_id');
 
+-- name: UpdateApplicationResume :one
+-- Replace a committed application's tailored résumé. owner-scoped; the cue card reads resume_content
+-- live (no deck cache), so an edit shows on the next card. RETURNING id makes a missing or wrong-owner
+-- row a no-row error, not a silent no-op.
+UPDATE applications
+SET resume_content = $1
+WHERE id = $2 AND owner_id = $3
+RETURNING id;
+
 -- name: InsertApplicationOutcome :exec
 INSERT INTO application_outcomes (application_id, from_outcome, to_outcome, note)
 VALUES ($1, $2, $3, $4);

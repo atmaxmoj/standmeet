@@ -581,3 +581,26 @@ func (q *Queries) SetApplicationOutcome(ctx context.Context, arg SetApplicationO
 	)
 	return err
 }
+
+const updateApplicationResume = `-- name: UpdateApplicationResume :one
+UPDATE applications
+SET resume_content = $1
+WHERE id = $2 AND owner_id = $3
+RETURNING id
+`
+
+type UpdateApplicationResumeParams struct {
+	ResumeContent []byte
+	ID            pgtype.UUID
+	OwnerID       pgtype.UUID
+}
+
+// Replace a committed application's tailored résumé. owner-scoped; the cue card reads resume_content
+// live (no deck cache), so an edit shows on the next card. RETURNING id makes a missing or wrong-owner
+// row a no-row error, not a silent no-op.
+func (q *Queries) UpdateApplicationResume(ctx context.Context, arg UpdateApplicationResumeParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, updateApplicationResume, arg.ResumeContent, arg.ID, arg.OwnerID)
+	var id pgtype.UUID
+	err := row.Scan(&id)
+	return id, err
+}

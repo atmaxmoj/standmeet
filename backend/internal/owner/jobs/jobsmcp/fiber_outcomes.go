@@ -28,6 +28,16 @@ var updateOutcomeSchema = json.RawMessage(`{
 	"required":["application_id","outcome"]
 }`)
 
+var updateResumeSchema = json.RawMessage(`{
+	"type":"object",
+	"properties":{
+		"application_id":{"type":"string","description":"the application's id"},
+		"resume_content":{"type":"object",
+			"description":"the full tailored résumé, replacing the committed one"}
+	},
+	"required":["application_id","resume_content"]
+}`)
+
 // OutcomeOps —— applications.update_outcome.
 func OutcomeOps(d *jobsuc.OutcomeDeps, log *slog.Logger) []fp.Op {
 	return []fp.Op{{
@@ -39,6 +49,14 @@ func OutcomeOps(d *jobsuc.OutcomeDeps, log *slog.Logger) []fp.Op {
 			"Withdrawing also revokes its access code, and the result names the embeds and " +
 			"microsites the code still opened (they stop working with it).",
 		Invoke: updateOutcomeInvoke(d, log),
+	}, {
+		ID: "applications.update_resume", Kind: fp.Action, Danger: fp.DangerWrite,
+		Reach:       fp.Only("the owner's AI edits the committed résumé", mcpFace),
+		InputSchema: updateResumeSchema,
+		Description: "Replace a committed application's tailored résumé, by application_id. The " +
+			"cue card reads it live, so the edit shows on the next card. The already-sent PDF " +
+			"is not re-rendered.",
+		Invoke: updateResumeInvoke(d, log),
 	}, {
 		ID: "applications.engagement", Kind: fp.Read,
 		Reach:       fp.Only("the panel reads it in the application detail", mcpFace),
@@ -219,6 +237,55 @@ func updateOutcomeInvoke(d *jobsuc.OutcomeDeps, log *slog.Logger) fp.Invoke {
 		}
 		return out, nil
 	}
+}
+
+// updateResumeArgs —— the parsed, validated inputs for applications.update_resume.
+type updateResumeArgs struct {
+	content *jobsmodel.ResumeContent
+	appID   string
+}
+
+func updateResumeInvoke(d *jobsuc.OutcomeDeps, log *slog.Logger) fp.Invoke {
+	return func(ctx context.Context, ownerID string, raw json.RawMessage) (json.RawMessage, error) {
+		a, err := parseUpdateResumeArgs(raw)
+		if err != nil {
+			return nil, err
+		}
+		if uerr := d.Apps.UpdateResume(ctx, ownerID, a.appID, a.content); uerr != nil {
+			return nil, updateResumeErr(log, uerr)
+		}
+		out, merr := json.Marshal(map[string]any{"application_id": a.appID, "updated": true})
+		if merr != nil {
+			return nil, errors.New("encode result: " + merr.Error())
+		}
+		return out, nil
+	}
+}
+
+// parseUpdateResumeArgs —— the id and strict content, or a message the owner reads. Split out to
+// keep the invoke flat (cognitive-complexity gate).
+func parseUpdateResumeArgs(raw json.RawMessage) (updateResumeArgs, error) {
+	var wire struct {
+		ResumeContent *strictContent `json:"resume_content"`
+		ApplicationID string         `json:"application_id"`
+	}
+	if err := json.Unmarshal(raw, &wire); err != nil {
+		return updateResumeArgs{}, errors.New("invalid arguments: " + err.Error())
+	}
+	if wire.ApplicationID == "" || wire.ResumeContent == nil {
+		return updateResumeArgs{}, errors.New("application_id and resume_content are required")
+	}
+	return updateResumeArgs{
+		content: wire.ResumeContent.content(), appID: wire.ApplicationID,
+	}, nil
+}
+
+func updateResumeErr(log *slog.Logger, err error) error {
+	if errors.Is(err, jobsmodel.ErrApplicationNotFound) {
+		return errors.New("application not found")
+	}
+	log.Error("applications.update_resume", "err", err)
+	return errors.New("applications.update_resume failed")
 }
 
 func outcomeErr(log *slog.Logger, err error) error {

@@ -170,6 +170,31 @@ func (r *ApplicationRepo) GetDraftRenderData(
 	return out, nil
 }
 
+// UpdateResume — replace a committed application's tailored résumé (owner-scoped). The cue card
+// reads resume_content live (no deck cache), so an edit shows on the next card; the already-sent
+// PDF is not re-rendered. A missing or wrong-owner id → ErrApplicationNotFound, never a no-op.
+// (UUIDOrNull: a malformed id becomes a null UUID that matches no row → the same not-found.)
+func (r *ApplicationRepo) UpdateResume(
+	ctx context.Context, ownerID, appID string, resume *jobsmodel.ResumeContent,
+) error {
+	content, err := json.Marshal(resume)
+	if err != nil {
+		return fmt.Errorf("marshal resume content: %w", err)
+	}
+	_, err = db.New(r.pool).UpdateApplicationResume(ctx, db.UpdateApplicationResumeParams{
+		ResumeContent: content,
+		ID:            pgstore.UUIDOrNull(appID),
+		OwnerID:       pgstore.UUIDOrNull(ownerID),
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return jobsmodel.ErrApplicationNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("update application resume: %w", err)
+	}
+	return nil
+}
+
 func loadDraftForCommit(
 	ctx context.Context, q *db.Queries, key *draftKey,
 ) (db.ResumeDraft, error) {
