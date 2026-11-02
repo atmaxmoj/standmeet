@@ -27,6 +27,15 @@ type ModelRequest struct {
 	Messages []Message
 }
 
+// AppOption —— one committed application the owner can bind a screen-assistant session to: its
+// access code (the handle the card reads the résumé by) and the job it was sent for, for the start
+// screen's picker (assistant.applications).
+type AppOption struct {
+	Code    string `json:"code"`
+	Company string `json:"company"`
+	Title   string `json:"title"`
+}
+
 // Ports —— what the assistant reads and calls. Role returns ErrNoRole for a ref no role has;
 // Notes lists the notes inside globs in corpus order; Version changes whenever any note does.
 type Ports struct {
@@ -34,6 +43,12 @@ type Ports struct {
 	Notes   func(ctx context.Context, ownerID string, globs []string) ([]Note, error)
 	Version func(ctx context.Context, ownerID string) (string, error)
 	Screen  func(ctx context.Context, ownerID string) (Screen, error)
+	// Resume returns the tailored résumé of the application an access code is bound to; ErrNoResume
+	// when the code binds no application (a card then behaves as before, not an error).
+	Resume func(ctx context.Context, ownerID, code string) (Resume, error)
+	// Applications lists the owner's committed applications, newest first, for the start screen's
+	// "which application is this interview for" picker.
+	Applications func(ctx context.Context, ownerID string) ([]AppOption, error)
 	// Model streams the card: onText gets the text so far. It returns the model's name.
 	Model func(ctx context.Context, ownerID, providerID string, req ModelRequest,
 		onText func(string)) (model, text string, err error)
@@ -46,6 +61,9 @@ var (
 	ErrBadRound  = errors.New("no such round")
 	ErrNoQuery   = errors.New("question is required")
 	errModelCall = errors.New("the model call failed")
+	// ErrNoResume —— the session's code binds no application; the card goes on without a
+	// résumé (not an asked error). The port returns it; callScreen swallows it.
+	ErrNoResume = errors.New("no résumé for this application")
 )
 
 // IsAsked —— a failure the caller caused or can act on; its text is safe to show.

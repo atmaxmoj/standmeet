@@ -28,6 +28,10 @@ const askProps = `
 	"call_id":{"type":"string",
 		"description":"One id per interview: the card sees the call so far, and a call ` +
 	`that names a company applied to stays on that job. Absent = a line on its own."},
+	"code":{"type":"string",
+		"description":"The access code id (as applications_list gives it) this interview ` +
+	`session is for: the card reads that application's tailored résumé for background, ` +
+	`experience and why-this-role. Absent = no application bound, the card behaves as before."},
 	"user_context":{"type":"string",
 		"description":"Extra words from the owner for this session."},
 	"rewrite":{"type":"boolean",
@@ -45,6 +49,15 @@ func (c *assistantFiber) cueBindings() []*registry.MCPBinding {
 			`"role_id":{"type":"string",` +
 			`"description":"Role id or name; absent = every wiki note."}}}`),
 		Handler: c.handlePrepare,
+	}, {
+		Name: "assistant.applications", Danger: "read",
+		Description: "The committed applications this screen-assistant session can bind " +
+			"to, newest first — each with its code, company and title. The start " +
+			"screen offers them so the owner picks which application the interview is " +
+			"for; that code goes on assistant.cue / assistant.context, and the card " +
+			"reads that application's tailored résumé.",
+		InputSchema: json.RawMessage(`{"type":"object","properties":{}}`),
+		Handler:     c.handleApplications,
 	}, {
 		Name: "assistant.context", Danger: "read",
 		Description: "The system prompt assistant.cue would send for this line — the owner's " +
@@ -74,6 +87,7 @@ type askArgs struct {
 	Round       string `json:"round"`
 	Question    string `json:"question"`
 	CallID      string `json:"call_id"`
+	Code        string `json:"code"`
 	UserContext string `json:"user_context"`
 	ID          string `json:"id"`
 	Debug       bool   `json:"debug"`
@@ -89,7 +103,7 @@ func (a *askArgs) ask() *cues.Ask {
 	}
 	return &cues.Ask{
 		RoleRef: a.RoleID, Round: a.Round, Question: a.Question,
-		CallID: a.CallID, UserContext: a.UserContext, Rewrite: rewrite,
+		CallID: a.CallID, Code: a.Code, UserContext: a.UserContext, Rewrite: rewrite,
 	}
 }
 
@@ -118,6 +132,20 @@ func (c *assistantFiber) handlePrepare(
 		out["role"] = map[string]string{"id": p.Role.ID, "name": p.Role.Name}
 	}
 	return mcputil.MarshalResult(c.log, "assistant.prepare", out)
+}
+
+func (c *assistantFiber) handleApplications(
+	ctx context.Context, ownerID string, _ json.RawMessage,
+) registry.MCPResult {
+	apps, err := c.asst.Applications(ctx, ownerID)
+	if err != nil {
+		return c.failed("assistant.applications", err)
+	}
+	if apps == nil {
+		apps = []cues.AppOption{}
+	}
+	return mcputil.MarshalResult(c.log, "assistant.applications",
+		map[string]any{"applications": apps})
 }
 
 func (c *assistantFiber) handleContext(

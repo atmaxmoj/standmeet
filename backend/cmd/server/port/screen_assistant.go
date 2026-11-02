@@ -40,8 +40,91 @@ func ScreenAssistantPorts(d *deps.Runtime, jobs *jobsuc.JobsDeps) cues.Ports {
 		Screen: func(ctx context.Context, ownerID string) (cues.Screen, error) {
 			return cueScreen(ctx, d, jobs, ownerID)
 		},
+		Resume: func(ctx context.Context, ownerID, code string) (cues.Resume, error) {
+			return cueResume(ctx, d, ownerID, code)
+		},
+		Applications: func(ctx context.Context, ownerID string) ([]cues.AppOption, error) {
+			return cueApplications(ctx, d, ownerID)
+		},
 		Model: cueModelCall(d),
 	}
+}
+
+// cueResume —— the tailored résumé of the application the session's access code is bound to, as the
+// card's material; a code that binds no application → cues.ErrNoResume (the card then behaves as
+// before, not an error).
+func cueResume(
+	ctx context.Context, d *deps.Runtime, ownerID, code string,
+) (cues.Resume, error) {
+	// A code that is not a valid access-code id binds nothing — behave as unbound, do not
+	// error the card (the desktop sends an id from applications.list; this guards anything else).
+	if _, err := pgstore.ParseUUID(code); err != nil {
+		return cues.Resume{}, cues.ErrNoResume
+	}
+	app, err := d.ApplicationRepo.GetByAccessCode(ctx, ownerID, code)
+	if errors.Is(err, jobsmodel.ErrApplicationNotFound) {
+		return cues.Resume{}, cues.ErrNoResume
+	}
+	if err != nil {
+		return cues.Resume{}, fmt.Errorf("cue résumé: %w", err)
+	}
+	return toCueResume(app.JobSnapshot.Company, &app.ResumeContent), nil
+}
+
+// cueApplications —— the owner's committed applications for the start screen's picker, newest
+// first: the access code to bind by, and the job each was sent for. One page suffices for a picker.
+func cueApplications(
+	ctx context.Context, d *deps.Runtime, ownerID string,
+) ([]cues.AppOption, error) {
+	page, err := d.ApplicationRepo.ListPage(ctx, ownerID, "", paging.Request{Limit: cuePage})
+	if err != nil {
+		return nil, fmt.Errorf("cue applications: %w", err)
+	}
+	out := make([]cues.AppOption, 0, len(page.Items))
+	for i := range page.Items {
+		a := &page.Items[i]
+		out = append(out, cues.AppOption{
+			Code: a.AccessCodeID, Company: a.JobSnapshot.Company, Title: a.JobSnapshot.Title,
+		})
+	}
+	return out, nil
+}
+
+// toCueResume —— the stored résumé as the card shows it: the company it was sent to, the summary,
+// each work entry with its period formatted, and the skills as "category: a, b" lines.
+func toCueResume(company string, c *jobsmodel.ResumeContent) cues.Resume {
+	works := make([]cues.ResumeWork, 0, len(c.Works))
+	for i := range c.Works {
+		w := &c.Works[i]
+		works = append(works, cues.ResumeWork{
+			Company: w.Company, Title: w.Title, Period: resumePeriod(w.Period), Bullets: w.Bullets,
+		})
+	}
+	skills := make([]string, 0, len(c.Skills))
+	for i := range c.Skills {
+		skills = append(skills, skillLine(&c.Skills[i]))
+	}
+	return cues.Resume{Company: company, Summary: c.Summary, Works: works, Skills: skills}
+}
+
+// resumePeriod —— "YYYY-MM – YYYY-MM", "– Present" when the end is open, "" with no start.
+func resumePeriod(p jobsmodel.ResumePeriod) string {
+	if p.Start == "" {
+		return ""
+	}
+	end := "Present"
+	if p.End != nil && *p.End != "" {
+		end = *p.End
+	}
+	return p.Start + " – " + end
+}
+
+// skillLine —— "category: item1, item2", or just the category when it has no items.
+func skillLine(s *jobsmodel.ResumeSkillSet) string {
+	if len(s.Items) == 0 {
+		return s.Category
+	}
+	return s.Category + ": " + strings.Join(s.Items, ", ")
 }
 
 func cueRole(ctx context.Context, d *deps.Runtime, ownerID, ref string) (cues.Role, error) {
@@ -178,16 +261,19 @@ func appliedJobs(
 	}
 }
 
-// briefed —— the rows that carry a brief and a company.
+// briefed —— the rows a call can lock onto for its homework block: one with a company and a brief.
+// A row without both is nothing to lock onto. (The tailored résumé is bound by the session's code,
+// not by the locked job — cue-resume-grounding.)
 func briefed(rows []jobsmodel.SeenRow) []cues.Job {
 	var out []cues.Job
 	for i := range rows {
 		r := &rows[i]
-		if r.Annotations.Brief != "" && r.Snapshot.Company != "" {
-			out = append(out, cues.Job{
-				Company: r.Snapshot.Company, Title: r.Snapshot.Title, Brief: r.Annotations.Brief,
-			})
+		if r.Snapshot.Company == "" || r.Annotations.Brief == "" {
+			continue
 		}
+		out = append(out, cues.Job{
+			Company: r.Snapshot.Company, Title: r.Snapshot.Title, Brief: r.Annotations.Brief,
+		})
 	}
 	return out
 }

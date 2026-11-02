@@ -5,16 +5,21 @@ package cues
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 )
 
 // Ask —— one question to the assistant.
 type Ask struct {
-	RoleRef     string // role id or name; "" = the whole wiki
-	Round       string // a Rounds id; "" = General
-	Question    string
-	CallID      string // the call this line belongs to; "" = a line on its own
+	RoleRef  string // role id or name; "" = the whole wiki
+	Round    string // a Rounds id; "" = General
+	Question string
+	CallID   string // the call this line belongs to; "" = a line on its own
+	// Code —— the access code this interview session was opened with: the card reads the tailored
+	// résumé of the application that code is bound to (cue-resume-grounding). "" = no binding, the
+	// card behaves as before.
+	Code        string
 	UserContext string // the owner's extra words for this session
 	// Rewrite —— turn the line as heard into the line as meant first (rewrite.go).
 	Rewrite bool
@@ -46,6 +51,15 @@ func (a *Assistant) Prepare(ctx context.Context, ownerID, ref string) (Prepared,
 		p.Role = &rd.role
 	}
 	return p, nil
+}
+
+// Applications —— the committed applications the owner can bind this session to (the start screen's
+// picker), newest first.
+func (a *Assistant) Applications(ctx context.Context, ownerID string) ([]AppOption, error) {
+	if a.ports.Applications == nil {
+		return []AppOption{}, nil
+	}
+	return a.ports.Applications(ctx, ownerID)
 }
 
 // Prompt —— a question's system prompt and what went into it.
@@ -121,6 +135,11 @@ func (a *Assistant) hear(
 // compose —— the system prompt for the line as meant.
 func compose(q *Ask, round *Round, rd *roleDeck, screen *screenPick, heard Heard) Prompt {
 	b := rd.deck.build(heard.Question, round, screen.text)
+	// The tailored résumé (cue-resume-grounding) leads the context, ahead of the posting and notes.
+	// Applied per question, after the role-keyed deck: bound to the session's code, not the role.
+	if screen.resume != "" {
+		b.context = screen.resume + "\n\n" + b.context
+	}
 	extra := ""
 	if t := jsTrim(q.UserContext); t != "" {
 		extra = "\n\n## Also from the user\n" + t
@@ -156,11 +175,13 @@ func checkAsk(q *Ask) (*Round, error) {
 type screenPick struct {
 	noticed   *Job
 	text      string
+	resume    string   // the application's tailored résumé, "" when none (cue-resume-grounding)
 	companies []string // every applied job's company: names the rewrite may restore
 }
 
-// callScreen —— the phone-screen block: the script, and the job the call is locked onto, or the
-// applied job this line names (noticed: assistant.cue then locks the call onto it).
+// callScreen —— the phone-screen block: the script, the job the call is locked onto (or the applied
+// job this line names, noticed: assistant.cue then locks the call onto it) for the homework block,
+// and the tailored résumé of the application this session's code is bound to.
 func (a *Assistant) callScreen(ctx context.Context, ownerID string, q *Ask) (screenPick, error) {
 	screen, err := a.ports.Screen(ctx, ownerID)
 	if err != nil {
@@ -170,7 +191,12 @@ func (a *Assistant) callScreen(ctx context.Context, ownerID string, q *Ask) (scr
 	if err != nil {
 		return screenPick{}, err
 	}
-	return pickScreen(&screen, &job, q.Question), nil
+	pick := pickScreen(&screen, &job, q.Question)
+	pick.resume, err = a.resumeFor(ctx, ownerID, q.Code)
+	if err != nil {
+		return screenPick{}, err
+	}
+	return pick, nil
 }
 
 // pickScreen —— the locked job, else the applied job this line names (noticed), else none.
@@ -185,6 +211,27 @@ func pickScreen(screen *Screen, locked *Job, line string) screenPick {
 		pick.text, pick.noticed = screen.context(&screen.Jobs[i]), &screen.Jobs[i]
 	}
 	return pick
+}
+
+// resumeFor —— the tailored résumé of the application the session's code is bound to, rendered for
+// the card; "" when the session has no code, the code binds no application, or the application's
+// résumé is empty (the card then behaves as before). Read every question (no deck cache), so an
+// edited résumé is seen at once (spec §5, freshness).
+func (a *Assistant) resumeFor(ctx context.Context, ownerID, code string) (string, error) {
+	if code == "" {
+		return "", nil
+	}
+	r, err := a.ports.Resume(ctx, ownerID, code)
+	if errors.Is(err, ErrNoResume) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	if r.isEmpty() {
+		return "", nil
+	}
+	return r.render(), nil
 }
 
 // lockedJob —— the job the call is locked onto; none for a line on its own.
