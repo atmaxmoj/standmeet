@@ -60,13 +60,17 @@ func (a *Assistant) Cue(
 		sources: p.Sources, namedProjects: named, posting: p.posting(),
 		question: p.Heard.Question,
 	})
-	if ferr := a.finish(ctx, ownerID, feedID, q.CallID, fin.card); ferr != nil {
+	// A background/intro question's card must carry the whole résumé (卡片完整度): append the
+	// deterministic full recap so completeness never depends on sampling. Non-background questions
+	// and sessions with no bound résumé are untouched.
+	card := withBackgroundRecap(fin.card, p.resumeCard, p.Heard.Question)
+	if ferr := a.finish(ctx, ownerID, feedID, q.CallID, card); ferr != nil {
 		return Card{}, ferr
 	}
 	return Card{
-		Text: fin.card, FeedID: feedID, Model: model, Prompt: p,
+		Text: card, FeedID: feedID, Model: model, Prompt: p,
 		Mode: fin.mode, Used: declaredUsed(text), From: fin.from, Downgrade: fin.downgrade,
-		Terms: cardTerms(fin.card),
+		Terms: cardTerms(card),
 	}, nil
 }
 

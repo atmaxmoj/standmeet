@@ -156,3 +156,26 @@ func (w ResumeWork) render() string {
 func (r *Resume) isEmpty() bool {
 	return r.Summary == "" && len(r.Works) == 0 && len(r.Skills) == 0
 }
+
+// renderCard —— the full background recap for the CARD itself (not the prompt context): the summary
+// and EVERY experience, company/title/period/bullets. A background card must carry the whole résumé
+// (卡片完整度 spec), so this is deterministic — the model's sampling can never drop an entry, which is
+// what made coverage vary. No skills (material only, not an acceptance line) and no prompt
+// instructions. "" when empty.
+func (r *Resume) renderCard() string {
+	if r.isEmpty() {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("**Your background (from your résumé for " + r.Company + "):**\n")
+	if r.Summary != "" {
+		b.WriteString("## Summary\n" + r.Summary + "\n")
+	}
+	if len(r.Works) > 0 {
+		b.WriteString("## Experience\n")
+		for i := range r.Works {
+			b.WriteString(r.Works[i].render())
+		}
+	}
+	return jsTrim(b.String())
+}

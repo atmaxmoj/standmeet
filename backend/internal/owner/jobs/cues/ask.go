@@ -66,17 +66,21 @@ func (a *Assistant) Applications(ctx context.Context, ownerID string) ([]AppOpti
 type Prompt struct {
 	// noticed —— the applied job this line named, which the call locks onto (nil = none new).
 	noticed *Job
+	Heard   Heard
+	System  string
+	Context string
+	// resumeCard —— the deterministic full résumé recap the background card must carry (卡片完整度);
+	// "" when no résumé is bound. Cue appends it for a background question so completeness never
+	// depends on the model's sampling.
+	resumeCard string
+	role       Role
 	// messages —— what assistant.cue sends after the system prompt.
 	messages []Message
-	Heard    Heard
-	System   string
-	Context  string
 	Sources  []string
 	Named    []string
 	// NamedProjects —— the owner-project slugs the question named; finalize only keeps a project
 	// note's From when the question named that project (cue-generic-fabrication-fix V1 threshold).
 	NamedProjects []string
-	role          Role
 	Matrix        bool
 	// HasPosting —— the packet carried posted facts; a process answer may cite the role's posting.
 	HasPosting bool
@@ -149,6 +153,7 @@ func compose(q *Ask, round *Round, rd *roleDeck, screen *screenPick, heard Heard
 		Context: b.context, Sources: b.sources, Named: b.named, Matrix: b.matrix,
 		NamedProjects: b.namedProjects, HasPosting: b.hasPosting,
 		role: rd.role, noticed: screen.noticed, Heard: heard,
+		resumeCard: screen.resumeCard,
 	}
 }
 
@@ -173,10 +178,11 @@ func checkAsk(q *Ask) (*Round, error) {
 }
 
 type screenPick struct {
-	noticed   *Job
-	text      string
-	resume    string   // the application's tailored résumé, "" when none (cue-resume-grounding)
-	companies []string // every applied job's company: names the rewrite may restore
+	noticed    *Job
+	text       string
+	resume     string   // tailored résumé for the context block, "" = none (cue-resume)
+	resumeCard string   // deterministic full recap for the card (卡片完整度), "" = none
+	companies  []string // every applied job's company: names the rewrite may restore
 }
 
 // callScreen —— the phone-screen block: the script, the job the call is locked onto (or the applied
@@ -192,9 +198,12 @@ func (a *Assistant) callScreen(ctx context.Context, ownerID string, q *Ask) (scr
 		return screenPick{}, err
 	}
 	pick := pickScreen(&screen, &job, q.Question)
-	pick.resume, err = a.resumeFor(ctx, ownerID, q.Code)
+	doc, err := a.resumeFor(ctx, ownerID, q.Code)
 	if err != nil {
 		return screenPick{}, err
+	}
+	if doc != nil {
+		pick.resume, pick.resumeCard = doc.render(), doc.renderCard()
 	}
 	return pick, nil
 }
@@ -213,25 +222,24 @@ func pickScreen(screen *Screen, locked *Job, line string) screenPick {
 	return pick
 }
 
-// resumeFor —— the tailored résumé of the application the session's code is bound to, rendered for
-// the card; "" when the session has no code, the code binds no application, or the application's
-// résumé is empty (the card then behaves as before). Read every question (no deck cache), so an
-// edited résumé is seen at once (spec §5, freshness).
-func (a *Assistant) resumeFor(ctx context.Context, ownerID, code string) (string, error) {
+// resumeFor —— the résumé the code is bound to, or nil: no code, the code binds no
+// application, or an empty résumé (the card then behaves as before). Read every
+// question (no deck cache) so an edit shows at once; the caller renders it twice.
+func (a *Assistant) resumeFor(ctx context.Context, ownerID, code string) (*Resume, error) {
 	if code == "" {
-		return "", nil
+		return nil, nil
 	}
 	r, err := a.ports.Resume(ctx, ownerID, code)
 	if errors.Is(err, ErrNoResume) {
-		return "", nil
+		return nil, nil
 	}
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if r.isEmpty() {
-		return "", nil
+		return nil, nil
 	}
-	return r.render(), nil
+	return &r, nil
 }
 
 // lockedJob —— the job the call is locked onto; none for a line on its own.
