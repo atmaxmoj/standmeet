@@ -212,6 +212,12 @@
 .smc-widget-frame { width: 100%; border: 1px solid var(--color-rule); border-radius: 3px; margin: 1rem 0; }
 /* ── a diagram and its enlarge button (ZoomableFigure) ─────────────── */
 .smc-figure { position: relative; }
+/* The SVG mermaid/tikz draws is inline and usually narrower than the figure
+   block, so it hugs the left unless centered. block + margin auto centers it
+   inside the block. This lives on the component itself, not a container-scoped
+   rule: chat, the writings article, microsites and the embed all render this
+   same figure, and only the chat markdown wrapper carries .smc-md. */
+.smc-figure .smc-figure-body svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
 .smc-figure-zoom {
   position: absolute; top: 4px; right: 4px; z-index: 1;
   width: 28px; height: 28px; display: grid; place-items: center;

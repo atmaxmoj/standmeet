@@ -122,19 +122,13 @@
    column, handle it with an **outer wrapper's** `overflow-x`, never by
    setting overflow on .katex-display itself (that clips vertically too). */
 
-/* mermaid / tikz SVG figure — width-capped to avoid overflowing the reading
-   column, and **centered** (same F-R-3 batch: figures weren't centered
-   before). A diagram reads better centered. Class selectors, not [data-testid]: the release
-   build strips testids, so a testid rule never applies in prod. */
+/* mermaid / tikz SVG figure — just the reading-flow spacing here. The figure's
+   own centering (block svg + margin auto) lives with the component in chat.css,
+   so every consumer gets it — not only this .smc-md wrapper (the writings
+   article renders the same figure without the .smc-md scope, and its diagram
+   was left-aligned inside a centered block until the centering moved there). */
 .smc-md .smc-figure {
-  text-align: center;
   margin: 1.4em 0;
-}
-.smc-md .smc-figure svg {
-  display: block;      /* SVG is inline by default; block + margin auto is what actually centers it (text-align can't center a fixed-width block) */
-  margin: 0 auto;
-  max-width: 100%;
-  height: auto;
 }
 
 /* mermaid palette —— Pele's SVG (class .pele) paints with these variables, so a diagram takes the
