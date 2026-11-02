@@ -161,7 +161,11 @@ async function cardIntoFeed(
     debug: true,
   });
   expect(cue.debug.heard.question, 'the line is rewritten without being asked to').toBe(meant);
-  expect(cue.card).toBe(text);
+  // A how-to "why" question grounded only on an UNNAMED project note (software/project/acme) is a
+  // generic card under the classifier (spec A: a how-to drops the adjacent project note), so the
+  // answer rides under the general marker. The grounded path is covered by the resume specs.
+  const generic = '_General — not from your notes._\n\n' + text;
+  expect(cue.card).toBe(generic);
   expect(cue.model).toBe('deepseek-flash');
   expect((await lastGatewayRequest(request, tag)).model, 'DeepSeek runs the fast model').toBe('deepseek-flash');
   expect(cue.debug.matrix).toBe('on');
@@ -173,7 +177,7 @@ async function cardIntoFeed(
 
   const { events } = await t.call<{ events: { id: string; kind: string; text: string }[] }>(
     'assistant.read', { since: 0 });
-  expect(events.find((e) => e.id === cue.feed_id), 'the card is in the feed').toMatchObject({ kind: 'cue', text });
+  expect(events.find((e) => e.id === cue.feed_id), 'the card is in the feed').toMatchObject({ kind: 'cue', text: generic });
   await expect(adminPage.getByTestId('assistant-cue').filter({ hasText: 'Plugins run in bubblewrap' }))
     .toBeVisible({ timeout: 10_000 });
 }

@@ -144,7 +144,7 @@ func (s *server) serveNonStream(w http.ResponseWriter, req *MessagesReq) {
 	// summarize report generation returns the report HTML RAW (like a real LLM) — no [system:...]
 	// echo. The echo (composeFinalReply) is for chat replies where tests assert prompt assembly;
 	// prepending it to a report pollutes the stored HTML (and breaks HTML sanitization on it).
-	if !isSummarizeGen(req.System.Text) {
+	if !isSummarizeGen(req.System.Text) && !isCueGen(req.System.Text) {
 		text = composeFinalReply(req, text)
 	}
 	s.writeNonStream(w, req.Model, text)
@@ -154,6 +154,16 @@ func (s *server) serveNonStream(w http.ResponseWriter, req *MessagesReq) {
 // summarize component-kit prompt). Detected by a phrase unique to summarizeHTMLPrompt.
 func isSummarizeGen(sys string) bool {
 	return strings.Contains(sys, "report component kit")
+}
+
+// isCueGen —— the cue-card generation call (assistant.cue). Like the summarize report, the card is
+// CLASSIFIED by the backend (grounded vs generic in finalize), so it must be the model's own answer,
+// NOT the [system:...] prompt echo — the echo contains the card-format instructions ("not from your
+// notes", first-person examples) that would trip finalize's marker/personal-leak classification. Real
+// models never echo the prompt; this keeps the mock faithful to prod on the cue path. Detected by the
+// cue prompt's opening line (prompt_text.go cuesIntro).
+func isCueGen(sys string) bool {
+	return strings.Contains(sys, "You are a cue card for the user during a live conversation")
 }
 
 func (s *server) writeNonStream(w http.ResponseWriter, model, text string) {
@@ -285,7 +295,10 @@ func (s *server) emitFinalReply(sse *sseWriter, req *MessagesReq) {
 		s.emitEmptyBudgetStop(sse)
 		return
 	}
-	head := composeFinalReply(req, "")
+	head := ""
+	if !isCueGen(req.System.Text) {
+		head = composeFinalReply(req, "")
+	}
 	if err := emitTextBlockDrip(sse, 0, head, text, time.Duration(drip)*time.Millisecond); err != nil {
 		s.log.Warn("emit text", "err", err)
 		return
