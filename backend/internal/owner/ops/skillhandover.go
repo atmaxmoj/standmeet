@@ -91,6 +91,8 @@ func SkillHandoverOps(svc *skills.Service) []fp.Op {
 	return []fp.Op{
 		{
 			ID: "skills.list", Kind: fp.Read, Reach: fp.Only(skillReach, "mcp"),
+			// a no-arg tool still needs a valid object schema; an empty one breaks tools/list.
+			InputSchema: noArgs,
 			Description: "List the owner's skills (slug, name, description, version, source). " +
 				"Pull one in full with skills.get.",
 			Invoke: skillListInvoke(svc),

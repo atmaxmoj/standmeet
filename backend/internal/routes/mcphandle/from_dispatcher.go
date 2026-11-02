@@ -47,7 +47,14 @@ func registerDispatcherOps(
 ) {
 	ops := d.Attach(MCPFace()).Ops()
 	for i := range ops {
-		tool := mcpgo.NewToolWithRawSchema(ops[i].ID, ops[i].Description, ops[i].InputSchema)
+		// A no-arg op may carry no InputSchema; an empty RawMessage serializes to an
+		// inputSchema with type:"" that fails an MCP client's tools/list validation — and
+		// one invalid tool rejects the WHOLE list, so default it here, not only per call site.
+		schema := ops[i].InputSchema
+		if len(schema) == 0 {
+			schema = fp.NoArgs
+		}
+		tool := mcpgo.NewToolWithRawSchema(ops[i].ID, ops[i].Description, schema)
 		h := wrapBlockHandler(mcpHandlerFor(ops[i].Invoke), ops[i].ID, log)
 		srv.AddTool(tool, dangers.guard(ops[i].ID, string(ops[i].DangerOf()), h))
 	}
