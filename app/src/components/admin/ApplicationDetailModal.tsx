@@ -239,7 +239,7 @@ function RightCol({
   return (
     <div>
       <ResumeSnapshot app={app} scale={full ? SNAPSHOT_SCALE_FULL : SNAPSHOT_SCALE_SMALL} />
-      <SnapshotActions full={full} onToggle={() => { setFull(!full); }} />
+      <SnapshotActions appID={app.id} full={full} onToggle={() => { setFull(!full); }} />
       <StatusBlock state={state} />
       <OutcomeBlock oc={oc} />
     </div>
@@ -305,7 +305,7 @@ function ResumeSnapshot({ app, scale }: { app: Application; scale: number }) {
 const SNAPSHOT_QR_URL = '';
 
 function SnapshotActions(
-  { full, onToggle }: { full: boolean; onToggle: () => void },
+  { appID, full, onToggle }: { appID: string; full: boolean; onToggle: () => void },
 ) {
   const t = useTranslations('adminJobs');
   return (
@@ -317,12 +317,18 @@ function SnapshotActions(
       >
         {full ? t('detail.viewSmaller') : t('detail.viewFull')}
       </button>
-      {/* Download stays disabled, and it's not just unwired: **the PDF isn't stored anywhere**.
-          The `applications` table has no PDF column; the bytes only ever appeared once, in the
-          `applications.commit` response. Enabling download requires first deciding whether to
-          store the bytes or re-render on demand (F-E-13). **But "can't see the content" is no
-          longer true** — the block above renders exactly what was sent. */}
-      <button type="button" disabled title={t('detail.pdfNotKept')} className="sm-btn sm-btn-ghost sm-btn-sm">{t('detail.downloadPdf')}</button>
+      {/* The final PDF isn't stored (the `applications` table has no PDF column), so this
+          re-renders it on demand from the stored row: GET /resume.pdf runs the same
+          RenderCommittedPDF the agent's applications.resume_pdf runs (下载口子 spec). Cookie-authed
+          same-origin GET, so a plain <a download> works — the composer preview links the same way. */}
+      <a
+        href={`/api/admin/applications/${appID}/resume.pdf`}
+        download={`application-${appID}.pdf`}
+        data-testid="application-download-pdf"
+        className="sm-btn sm-btn-ghost sm-btn-sm"
+      >
+        {t('detail.downloadPdf')}
+      </a>
     </div>
   );
 }

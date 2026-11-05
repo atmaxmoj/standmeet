@@ -16,7 +16,7 @@ func TestJobsMCPSchemasAreValidJSON(t *testing.T) {
 	t.Parallel()
 
 	log := slog.Default()
-	ops := append(jobsmcp.OwnerOps(nil, nil, nil, log), jobsmcp.ApplicationOps(nil, log)...)
+	ops := append(jobsmcp.OwnerOps(nil, nil, nil, log), jobsmcp.ApplicationOps(nil, nil, log)...)
 	for i := range ops {
 		if len(ops[i].InputSchema) > 0 && !json.Valid(ops[i].InputSchema) {
 			t.Errorf("op %q has INVALID InputSchema JSON:\n%s",

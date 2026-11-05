@@ -94,6 +94,7 @@ func Mount(r chi.Router, deps Deps) {
 	r.Route("/applications", func(r chi.Router) {
 		r.Get("/", listApplications(deps))
 		r.Get("/{id}", getApplication(deps))
+		r.Get("/{id}/resume.pdf", applicationPDF(deps))
 		r.Post("/{id}/outcome", setOutcome(deps))
 	})
 	r.Route("/job-sources", func(r chi.Router) {

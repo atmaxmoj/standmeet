@@ -129,7 +129,7 @@ func (*Plugin) Name() string { return Name }
 // in-process registry — the core holds no Go capability fibers.
 func (p *Plugin) Ops() []fp.Op {
 	ops := jobsmcp.OwnerOps(p.deps.Jobs, p.deps.Resume, p.deps.Assistant, p.deps.Log)
-	ops = append(ops, jobsmcp.ApplicationOps(p.deps.Applications, p.deps.Log)...)
+	ops = append(ops, jobsmcp.ApplicationOps(p.deps.Applications, p.deps.AppsRepo, p.deps.Log)...)
 	ops = append(ops, jobsmcp.LedgerOps(p.deps.Jobs, p.deps.Log)...)
 	ops = append(ops, jobsmcp.InterviewOps(p.deps.Interview, p.deps.Log)...)
 	ops = append(ops, jobsmcp.GuideOps(p.deps.Applications)...)

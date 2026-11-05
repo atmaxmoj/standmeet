@@ -76,6 +76,25 @@ func detailOf(
 	}, err
 }
 
+// applicationPDF —— re-render and download a committed application's final PDF (下载口子 spec). The
+// same RenderCommittedPDF the agent's applications.resume_pdf runs, so the panel button and the
+// agent return the same PDF. Pure read: no new row, no new code, no state change.
+func applicationPDF(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ownerID, id := authmw.OwnerIDFrom(r.Context()), chi.URLParam(r, "id")
+		pdf, err := jobsuc.RenderCommittedPDF(r.Context(), deps.Apps, deps.Commit, ownerID, id)
+		if err != nil {
+			writeAppErr(deps.Log, w, err)
+			return
+		}
+		w.Header().Set(ctHeader, "application/pdf")
+		w.Header().Set("Cache-Control", "no-store")
+		if _, werr := w.Write(pdf); werr != nil {
+			deps.Log.Error("write application pdf", logErrKey, werr)
+		}
+	}
+}
+
 func setOutcome(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
