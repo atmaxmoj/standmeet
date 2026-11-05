@@ -46,6 +46,25 @@ type AccessRequest struct {
 	NotifiedAt      pgtype.Timestamptz
 }
 
+type AgentSkill struct {
+	ID             pgtype.UUID
+	OwnerID        pgtype.UUID
+	Slug           string
+	Name           string
+	Description    string
+	Source         string
+	CurrentVersion int32
+	CreatedAt      pgtype.Timestamptz
+	UpdatedAt      pgtype.Timestamptz
+}
+
+type AgentSkillVersion struct {
+	SkillID   pgtype.UUID
+	Version   int32
+	Body      string
+	CreatedAt pgtype.Timestamptz
+}
+
 type ApiKey struct {
 	ID            pgtype.UUID
 	OwnerID       pgtype.UUID
