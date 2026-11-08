@@ -16,10 +16,16 @@
 // transition and across articles. Rendering both an inline copy and a dock copy (hidden by CSS)
 // would mount two <Agent>s against one shared session store; this picks exactly one.
 //
-// Wide → the right rail, symmetric with the tree on the left (the same column the key-wall used,
-// same width algorithm). Narrow → the floating dock in the corner; the rail has no room there.
-// The breakpoint is the rail's (1700, measured in ReaderChat.module.css), not <Agent>'s own
-// 1024 — the reader's rail needs more room than a microsite's because the tree shares the margin.
+// One layout, chosen by CSS, not JS. The same <Agent layout="inline"> is positioned by media
+// queries in ReaderChat.module.css: a right rail on a wide screen (symmetric with the tree on the
+// left), a bar pinned to the viewport bottom on a narrow one. The composer rides at the bottom of
+// that box in both — like a normal chat input.
+//
+// Why CSS and not a useWideScreen() hook (the old split): SSR has no viewport, so a JS media read
+// defaults to one branch on the server and swaps after hydration — and the server always rendered
+// the dock branch with the not-yet-resolved gate bar ("Ask anything…") inline at the TOP of the
+// page, which is what the owner kept seeing. A CSS media query is honored at SSR, so the ask bar is
+// at the bottom from the first paint, no JS round-trip, no top-flash.
 //
 // docContext —— the article the reader is on, so "this entry" is grounded (the old floating dock
 // carried it; the SDK can't read it from meta here because a reader page isn't microsite-served).
@@ -37,20 +43,13 @@ import styles from '@/components/visitor/ReaderChat.module.css';
 
 type DocCtx = { title: string; path: string; genre: string };
 
-// RAIL_MIN —— matches the @media threshold in ReaderChat.module.css: below it the rail can't fit
-// a chat column beside the body + the tree, so the dock takes over.
-const RAIL_MIN = '(min-width: 1700px)';
-
 export function ReaderChat() {
-  const wide = useWideScreen();
   const docContext = useReaderDocContext();
-  return wide
-    ? (
-      <aside className={styles['rail']} data-testid="reader-chat-rail">
-        <AgentWidget layout="inline" docContext={docContext} />
-      </aside>
-    )
-    : <AgentWidget layout="dock" docContext={docContext} />;
+  return (
+    <aside className={styles['chat']} data-testid="reader-chat">
+      <AgentWidget layout="inline" docContext={docContext} />
+    </aside>
+  );
 }
 
 // useReaderDocContext —— {title, path, genre:'wiki'} for the current /wiki/<path> entry (title from
@@ -77,18 +76,4 @@ function isEntryPath(path: string, pathname: string): boolean {
 
 function entryTitle(path: string): string {
   return pageDocContext()?.title || path;
-}
-
-// useWideScreen —— read after mount (SSR has no window); the chat itself already defers its
-// browser reads to after mount, so a first render in either branch is safe.
-function useWideScreen(): boolean {
-  const [wide, setWide] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia(RAIL_MIN);
-    setWide(mq.matches);
-    const on = (e: MediaQueryListEvent) => { setWide(e.matches); };
-    mq.addEventListener('change', on);
-    return () => { mq.removeEventListener('change', on); };
-  }, []);
-  return wide;
 }

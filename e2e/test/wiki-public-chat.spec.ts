@@ -71,7 +71,7 @@ test.describe('wiki reader · a codeless visitor chats on the public tier inline
       const reader = await (await browser.newContext({ viewport: WIDE })).newPage();
       await openReader(reader, `/wiki/${slug}`);
       await expect(reader.getByTestId('wiki-landing')).toBeVisible({ timeout: 10_000 });
-      const rail = reader.getByTestId('reader-chat-rail');
+      const rail = reader.getByTestId('reader-chat');
       await expect(rail, 'the right rail renders a chat, not a key-wall').toBeVisible({ timeout: 10_000 });
       const widget = rail.getByTestId('agent-widget');
       await expect(widget, 'codeless + public provider with quota → inline, not byok/gate')
@@ -105,7 +105,7 @@ test.describe('wiki reader · a codeless visitor chats on the public tier inline
       const reader = await (await browser.newContext({ viewport: WIDE })).newPage();
       await openReader(reader, `/wiki/${slug}`);
       await expect(reader.getByTestId('wiki-landing')).toBeVisible({ timeout: 10_000 });
-      const widget = reader.getByTestId('reader-chat-rail').getByTestId('agent-widget');
+      const widget = reader.getByTestId('reader-chat').getByTestId('agent-widget');
       await expect(widget, 'quota spent → the visitor brings a key, not inline chat on a dry tank')
         .toHaveAttribute('data-mode', 'byok', { timeout: 10_000 });
       // Here the tier really IS out, so the panel's "free quota used up" copy is the honest one.

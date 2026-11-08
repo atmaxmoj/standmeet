@@ -70,8 +70,10 @@ export default async function WikiLayout({ children }: { children: ReactNode }) 
         <aside className={styles['rail']} data-testid="wiki-toc">
           <WikiTreeView stats={stats} />
         </aside>
+        {/* pb clears the chat bar pinned to the viewport bottom on a narrow screen; on a wide one
+            the chat is the right rail (not a bottom bar), so no bottom padding is needed. */}
         <main className="flex-1 min-w-0 overflow-y-auto" data-testid="wiki-scroll">
-          <div className="mx-auto max-w-[920px] px-6">{children}</div>
+          <div className="mx-auto max-w-[920px] px-6 max-[1699px]:pb-28 min-[1700px]:pb-0">{children}</div>
         </main>
         {/* Right rail "ask the AI," symmetric with the tree on the left. The SDK <Agent>: a
             codeless reader chats on the owner's public tier inline here, and only brings their

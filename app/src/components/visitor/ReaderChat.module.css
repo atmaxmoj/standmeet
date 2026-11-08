@@ -1,50 +1,63 @@
-/* ReaderChat.module.css — the right-hand chat rail of the reader.
+/* ReaderChat.module.css — the reader's one chat box, positioned by CSS (never JS), so it is correct
+ * from SSR with no hydration flash (the old useWideScreen hook defaulted to the dock branch on the
+ * server, which rendered the unresolved "Ask anything…" gate bar at the TOP of the page).
  *
- * Width uses the same algorithm as the tree rail on the left: the 920px body is centered in the
- * viewport, the margin on each side is whatever the viewport leaves over, and the rail **is that
- * margin**. So both sides stay symmetric, and neither ever crowds the body.
- *   1536px viewport → 308px margin      1920 → 500      2560 → 820
+ * Narrow (default): a bar pinned to the viewport bottom — like a normal chat input. It grows upward
+ * as the conversation fills, capped so it never swallows the article.
+ * Wide (≥ 1700px): the right rail, symmetric with the tree on the left; same width algorithm (the
+ * 920px body is centered in the viewport and the rail is the margin it leaves). 1700 is "is there
+ * room for a chat column beside the body + tree", measured here, not in JS.
  *
- * The threshold is set by "is there room to stand", not a breakpoint: it renders only once the
- * margin is wide enough for a chat column (viewport ≥ 1700). Below that the rail doesn't appear
- * and ReaderChat renders the floating dock instead (ReaderChat.tsx reads the same 1700 through
- * matchMedia, so the two never both show).
- *
- * Vertical shape = a normal chat column: the transcript scrolls in the middle, the composer is
- * pinned at the bottom (owner 2026-10-27: "提问栏应该永远在下面 fix 住, 就像正常的聊天输入框").
- * The SDK's inline <Agent> renders transcript-then-composer in normal flow, so on a tall, mostly
- * empty rail the input floated near the top. Making the rail a full-height flex column, the inline
- * agent fill it, and the transcript (`.smc-transcript`, flex:1) take the slack pushes the composer
- * to the bottom and lets the messages scroll under it. These reach the SDK's own classes, so the
- * selectors are scoped under `.rail` — only the reader rail is restyled, not a microsite's inline
- * agent. */
+ * Vertical shape in both: a normal chat column — the transcript scrolls in the middle, the composer
+ * is pinned at the bottom (owner: "提问栏应该永远在下面 fix 住, 就像正常的聊天输入框"). The inline <Agent>
+ * renders transcript-then-composer; making the box a full-height flex column, the agent fill it, and
+ * the transcript take the slack pushes the composer to the bottom. justify-content:flex-end also
+ * pins the gate / not-yet-resolved bar (which has no transcript to take the slack) to the bottom. */
 
-.rail {
-  position: absolute;
+.chat {
+  position: fixed;
+  left: 0;
   right: 0;
-  top: 0;
   bottom: 0;
+  z-index: var(--z-dock);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  width: min(380px, calc((100vw - 920px) / 2 - 2.5rem));
-  padding-right: 1.5rem;
-  padding-left: 0.5rem;
-  padding-top: 2rem;
-  border-left: 1px solid var(--color-rule);
+  max-height: 60svh;
+  padding: 0.6rem 1rem calc(0.6rem + env(safe-area-inset-bottom, 0px));
+  background: var(--color-paper);
+  border-top: 1px solid var(--color-rule);
 }
 
-/* The inline agent fills the rail and lays its children out as a column. */
-.rail :global(.smc-agent.is-inline) {
+@media (min-width: 1700px) {
+  .chat {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    left: auto;
+    width: min(380px, calc((100vw - 920px) / 2 - 2.5rem));
+    max-height: none;
+    padding: 2rem 1.5rem 0 0.5rem;
+    background: transparent;
+    border-top: none;
+    border-left: 1px solid var(--color-rule);
+    overflow: hidden;
+  }
+}
+
+/* The inline agent fills the box and lays its children out as a column, its content sunk to the
+   bottom (so the gate bar, which has no transcript, pins to the bottom too). */
+.chat :global(.smc-agent.is-inline) {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
+  justify-content: flex-end;
 }
 
 /* The transcript takes the slack and scrolls; everything after it (progress, composer) sits at the
-   bottom. min-height:0 lets it actually shrink inside the flex column instead of overflowing. */
-.rail :global(.smc-transcript) {
+   bottom. min-height:0 lets it shrink inside the flex column instead of overflowing. */
+.chat :global(.smc-transcript) {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
