@@ -1,8 +1,8 @@
 // visitor-code-switch.spec.ts —— a visitor already in a LIVE coded chat who opens a DIFFERENT ?code=
-// must be offered the switch (the identity picker), not silently kept in the old chat. The switch
-// DECISION is unit-tested (visitor-root.test.ts: "a NEW code pending while in a session → picker"),
-// but the real browser surface was never driven end to end — the HIRING-2026 → HIRING-2026xxxx bug
-// the audit flagged shipped with only that unit ([[test-covers-block-not-face]]).
+// must SWITCH to it, not stay in the old chat (spec 2026-11-10: "presenting a second access code must
+// switch the session"). Presenting the new code auto-switches — a brief "switching" notice, then the
+// new code is the active session — carrying the same identity; it does not sit on an "access granted"
+// form while the old session stays active.
 
 import { test, expect } from '@/fixtures/test';
 import type { Playwright } from '@playwright/test';
@@ -25,20 +25,20 @@ const NAME = 'Recruiter Rhea';
 test.describe('visitor · a different ?code= while in a live chat offers the switch', () => {
   test.beforeAll(async ({ playwright }) => { await initOwner(playwright); });
 
-  test('in a live A-session, opening ?code=B shows the picker to switch — not the old chat',
+  test('in a live A-session, opening ?code=B switches to B — not kept in the old A chat',
     async ({ page }) => {
       test.setTimeout(90_000);
       // Land in a LIVE session for code A: open ?code=A → pick a name → a usable chat.
       await enterCodeSession(page, CODE_A, NAME);
       await expect(page.getByTestId('chat-input-field'), 'A is a live, usable session')
         .toBeEnabled({ timeout: 20_000 });
+      await expect(page.getByTestId('session-strip'), 'in on A').toContainText(CODE_A, { timeout: 10_000 });
 
-      // Open a DIFFERENT code while in that live session. The visitor must be offered the switch
-      // (the identity picker returns) rather than being silently left in A's chat.
+      // Open a DIFFERENT code while in that live session → it must switch to B, not keep A.
       await openReader(page, `/?code=${CODE_B}`);
-      await expect(page.getByTestId('visitor-name-overlay'),
-        'a different ?code= offers the switch (does not silently keep the old A chat)')
-        .toBeVisible({ timeout: 15_000 });
+      await expect(page.getByTestId('session-strip'), 'switched to B')
+        .toContainText(CODE_B, { timeout: 20_000 });
+      await expect(page.getByTestId('session-strip'), 'no A label remains').not.toContainText(CODE_A);
     });
 });
 

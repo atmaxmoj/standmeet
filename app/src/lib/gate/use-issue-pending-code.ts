@@ -12,14 +12,16 @@
 
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
-  issueCodeSession, persistSession, seedEphemeralStores, usePendingCodeStore, useVisitorSessionStore,
+  issueCodeSession, peekStoredSession, persistSession, seedEphemeralStores,
+  usePendingCodeStore, useVisitorSessionStore,
 } from '@standmeet/sdk';
 import { landAfterIssue, applyLanding } from '@/lib/visitor/code-landing';
 import {
-  loadMemberID, rememberMemberID, rememberVisitorName, rememberVisitorEmail,
+  loadMemberID, loadVisitorEmail, loadVisitorName,
+  rememberMemberID, rememberVisitorName, rememberVisitorEmail,
 } from '@/lib/visitor/visitor-name';
 
 // IssueOutcome —— ok: succeeded; full: name slots are full (picker shows
@@ -67,9 +69,58 @@ export async function dismissPicker(
   return issue(null, '');
 }
 
+type Issue = (name: string | null, email: string) => Promise<IssueOutcome>;
+
+// useAutoSwitch —— presenting a code while a session for a DIFFERENT code is active switches to it
+// with no manual step (spec 2026-11-10: "presenting a second access code must switch the session"):
+// issue the new code carrying the remembered identity (anonymous if the old session had no name),
+// which persists the new session and lands on its page. Returns true while that switch is in flight,
+// so the picker shows a "switching" notice instead of an "access granted" form. Fires once per
+// presented code. A closed code never reaches here (the picker renders the closed notice instead); a
+// full code is reported through onFull, which falls through to the capacity state.
+export function useAutoSwitch(code: string | null, issue: Issue, onFull: () => void): boolean {
+  // Subscribe for reactivity, but read the code synchronously (peekStoredSession, like the absorb):
+  // the zustand session hydrates a tick after mount, so relying on it alone races the picker render —
+  // the form would flash before the switch resolves. The synchronous peek makes isSwitch reliable
+  // from the first render, so a switch shows the "switching" notice, never the name form.
+  const session = useVisitorSessionStore((s) => s.session);
+  const sessionCode = session?.code ?? peekStoredSession()?.code ?? null;
+  const isSwitch = isDifferentCode(sessionCode, code);
+  const fired = useRef('');
+  useEffect(() => {
+    autoSwitchEffect(isSwitch, code, fired, issue, onFull);
+  }, [isSwitch, code, issue, onFull]);
+  return isSwitch;
+}
+
+// isDifferentCode —— there is a live session, and the presented code is a different one.
+function isDifferentCode(sessionCode: string | null, code: string | null): boolean {
+  return sessionCode !== null && code !== null && sessionCode !== code;
+}
+
+function autoSwitchEffect(
+  isSwitch: boolean, code: string | null, fired: { current: string }, issue: Issue, onFull: () => void,
+): void {
+  const go = isSwitch && fired.current !== code; // isSwitch implies code !== null
+  go && fireAutoSwitch(code ?? '', fired, issue, onFull);
+}
+
+function fireAutoSwitch(
+  code: string, fired: { current: string }, issue: Issue, onFull: () => void,
+): void {
+  fired.current = code; // once per presented code
+  void runAutoSwitch(issue, onFull);
+}
+
+async function runAutoSwitch(issue: Issue, onFull: () => void): Promise<void> {
+  const named = loadVisitorName().trim();
+  const outcome = await (named !== '' ? issue(named, loadVisitorEmail()) : issue(null, ''));
+  (outcome === 'full') && onFull();
+}
+
 interface IssuePending {
   busy: boolean;
-  issue: (name: string | null, email: string) => Promise<IssueOutcome>;
+  issue: Issue;
 }
 
 export function useIssuePendingCode(): IssuePending {

@@ -116,15 +116,21 @@ export async function enterCodeSession(
   }
 }
 
-// submitVisitorName —— the name picker: with a name, fill + submit; without one, skip.
+// submitVisitorName —— the name picker: with a name, fill + submit; without one, skip. But presenting
+// a code while already in a session for a DIFFERENT code auto-switches — no name form, just a brief
+// "switching" notice, then it navigates — so there is nothing to fill; enterCodeSession's own
+// /sessions wait catches the issued session. Fill ONLY when the name form is actually present (the
+// switching notice is transient, so keying off it races the navigation — key off the form instead).
 async function submitVisitorName(page: Page, name?: string): Promise<void> {
-  const skip = page.getByTestId('visitor-name-skip');
-  await skip.waitFor({ state: 'visible', timeout: 15_000 });
+  const input = page.getByTestId('visitor-name-input');
+  const switching = page.getByTestId('visitor-code-switching');
+  await input.or(switching).first().waitFor({ state: 'visible', timeout: 15_000 }).catch(() => {});
+  if (!(await input.isVisible().catch(() => false))) return; // a switch: no form to fill
   if (name === undefined || name === '') {
-    await skip.click();
+    await page.getByTestId('visitor-name-skip').click();
     return;
   }
-  await page.getByTestId('visitor-name-input').fill(name);
+  await input.fill(name);
   await page.getByTestId('visitor-name-submit').click();
 }
 

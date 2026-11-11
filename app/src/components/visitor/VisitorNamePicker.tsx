@@ -20,6 +20,7 @@ import type { ClosedCode, ClosedReason, CodeIntro } from '@/lib/api/public';
 import {
   dismissPicker,
   submitPickerName,
+  useAutoSwitch,
   useIssuePendingCode,
   type IssueOutcome,
 } from '@/lib/gate/use-issue-pending-code';
@@ -74,7 +75,14 @@ function Modal({ intro: codeIntro }: { intro: CodeIntro | null }) {
   const { issue, busy } = useIssuePendingCode();
   const onSubmit = () => { void settleOutcome(submitPickerName(name, email, issue), setFull); };
   const onDismiss = () => { void settleOutcome(dismissPicker(issue), setFull); };
-  return (
+  // Switching: already in a session for a DIFFERENT code. Presenting a code must SWITCH the session
+  // to it (spec 2026-11-10), not sit on an "access granted" form while the old session stays active.
+  // So issue the new code straight away, carrying the same identity (same browser = same person;
+  // anonymous if the old session had no name), and land on its page. The picker only prompts for a
+  // name for a FIRST code (no session). A closed code never reaches here — PickerOrNotice renders the
+  // closed notice instead — and a full code falls through to the capacity state below.
+  const switching = useAutoSwitch(code, issue, () => { setFull(true); });
+  return switching && !full ? <SwitchingNotice /> : (
     // Clicking outside the modal (the backdrop, not the card) = dismiss:
     // for a switch-person modal, cancel keeps the original session; for the
     // first-time modal, it's skip.
@@ -92,6 +100,23 @@ function Modal({ intro: codeIntro }: { intro: CodeIntro | null }) {
           onSubmit={onSubmit}
           onDismiss={onDismiss}
         />
+      </div>
+    </div>
+  );
+}
+
+// SwitchingNotice —— the brief state while presenting a code switches an existing session to it. It
+// makes no "access granted" claim (the spec: that verdict shows only once the new session is active):
+// the page lands on the new code the moment the switch returns.
+function SwitchingNotice() {
+  const t = useTranslations('visitor.visitorNamePicker');
+  return (
+    <div className="sm-fadein sm-visitor-name-overlay" data-testid="visitor-code-switching">
+      <div className="sm-visitor-name-card sm-rise">
+        <div className="sm-visitor-name-going sm-smallcaps" data-testid="visitor-switching">
+          {t('starting')}
+          <span className="sm-dot">·</span><span className="sm-dot">·</span><span className="sm-dot">·</span>
+        </div>
       </div>
     </div>
   );

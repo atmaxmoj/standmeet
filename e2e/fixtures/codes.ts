@@ -164,3 +164,14 @@ export async function rotateCodeStatus(
   });
   return res.status();
 }
+
+// setCodeMicrosite —— bind a code to a microsite (the admin "which page this code opens"), so
+// presenting the code lands the visitor on /p/<slug>. Mirrors use-codes.ts setMicrosite (PATCH).
+export async function setCodeMicrosite(
+  request: APIRequestContext, csrf: string, codeID: string, slug: string,
+): Promise<void> {
+  const res = await request.patch(`${BACKEND}/api/admin/codes/${codeID}/microsite`, {
+    headers: { 'X-Csrftoken': csrf }, data: { slug },
+  });
+  if (!res.ok()) throw new Error(`bind code to microsite failed: ${res.status()}`);
+}
