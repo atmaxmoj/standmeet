@@ -123,28 +123,33 @@ RUN for p in ask-visitor booker retrieval pagestore summarize mail-sender caldav
 # ~60MB download caches on its own and curl never reaches the production image.
 FROM alpine:3.21 AS geoip
 RUN apk add --no-cache curl
-# Pinned month, with fallbacks (db-ip keeps a few recent months live).
-# Bounded: with no timeout a stalled connection hung the release for 30 minutes (v0.1.73 CI, both
-# arches stuck on this step) and the fallback months were never tried. A stall now fails the
-# attempt, retries, and falls through to the next month.
-ARG GEOIP_MONTH=2026-09
-RUN mkdir -p /srv/geoip && \
-    for m in "$GEOIP_MONTH" 2026-08 2026-07; do \
+# The month is COMPUTED at build time, not pinned: db-ip keeps only the current + previous month
+# live, so any hard-coded month 404s within weeks — it did, v0.1.192 CI, the pinned 2026-09/08/07
+# were all gone (a constant derivable from data must not be hand-filled; it is always eventually
+# forgotten). Try the current month, then the previous. Bounded curl so a stalled connection fails
+# the attempt and falls through instead of hanging the release for 30 min (v0.1.73 CI).
+RUN mkdir -p /srv/geoip && sh -eu -c '\
+    y=$(date -u +%Y); m=$(date -u +%m); m=${m#0}; pm=$((m - 1)); py=$y; \
+    if [ "$pm" -lt 1 ]; then pm=12; py=$((y - 1)); fi; \
+    for mo in "$(printf %04d-%02d "$y" "$m")" "$(printf %04d-%02d "$py" "$pm")"; do \
       if curl -fsSL --connect-timeout 20 --max-time 300 --retry 3 --retry-all-errors \
-           "https://download.db-ip.com/free/dbip-city-lite-$m.mmdb.gz" -o /tmp/geo.gz; then \
-        gunzip -c /tmp/geo.gz > /srv/geoip/dbip-city-lite.mmdb && break; \
+           "https://download.db-ip.com/free/dbip-city-lite-$mo.mmdb.gz" -o /tmp/geo.gz; then \
+        gunzip -c /tmp/geo.gz > /srv/geoip/dbip-city-lite.mmdb; break; \
       fi; \
-    done && \
-    test -s /srv/geoip/dbip-city-lite.mmdb
+    done; \
+    test -s /srv/geoip/dbip-city-lite.mmdb'
 # The ASN database (db-ip ASN Lite, CC-BY): which network an address belongs to ("AS16509 Amazon"),
 # so the traffic panel can tell a data centre from a person without storing the address.
-RUN for m in "$GEOIP_MONTH" 2026-08 2026-07; do \
+RUN sh -eu -c '\
+    y=$(date -u +%Y); m=$(date -u +%m); m=${m#0}; pm=$((m - 1)); py=$y; \
+    if [ "$pm" -lt 1 ]; then pm=12; py=$((y - 1)); fi; \
+    for mo in "$(printf %04d-%02d "$y" "$m")" "$(printf %04d-%02d "$py" "$pm")"; do \
       if curl -fsSL --connect-timeout 20 --max-time 300 --retry 3 --retry-all-errors \
-           "https://download.db-ip.com/free/dbip-asn-lite-$m.mmdb.gz" -o /tmp/asn.gz; then \
-        gunzip -c /tmp/asn.gz > /srv/geoip/dbip-asn-lite.mmdb && break; \
+           "https://download.db-ip.com/free/dbip-asn-lite-$mo.mmdb.gz" -o /tmp/asn.gz; then \
+        gunzip -c /tmp/asn.gz > /srv/geoip/dbip-asn-lite.mmdb; break; \
       fi; \
-    done && \
-    test -s /srv/geoip/dbip-asn-lite.mmdb
+    done; \
+    test -s /srv/geoip/dbip-asn-lite.mmdb'
 
 # Stage 2b': the speech model for voice input (SenseVoice-Small int8: zh/en/ja/ko/yue, ~240 MB).
 # Baked in so the instance transcribes offline and an upgrade brings it with the binary.
