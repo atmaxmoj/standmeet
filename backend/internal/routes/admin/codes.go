@@ -61,6 +61,9 @@ func (h *Handlers) MountCodes(r chi.Router) {
 		h.dispatchOp(face, "codes.set_slug", bodyWithURLParam(paramCodeID), jsonOK))
 	r.Patch("/{code_id}/expiry",
 		h.dispatchOp(face, "codes.set_expiry", bodyWithURLParam(paramCodeID), jsonOK))
+	// Which model this code's cue (and chat) runs on, over its provider's own. Empty clears it.
+	r.Patch("/{code_id}/model",
+		h.dispatchOp(face, "codes.set_model", bodyWithURLParam(paramCodeID), jsonOK))
 	// Which group (bundle) of blocks this code carries, set after issue. An empty bundle
 	// unbinds, falling back to the role's grant.
 	r.Patch("/{code_id}/bundle",
