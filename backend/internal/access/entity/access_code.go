@@ -53,8 +53,13 @@ type Code struct {
 	// falls back to its role's grant, which is every code issued before bundles existed.
 	Bundle     string
 	ProviderID string
-	ID         string
-	Ghosts     []string
+	// Model —— the model-id this code pins, overriding its resolved provider's own model
+	// (empty = no override, use the provider's model). Resolves one layer in from ProviderID:
+	// code.Model wins over the provider's model, so one key can run haiku for chat and sonnet
+	// for this code's cue.
+	Model  string
+	ID     string
+	Ghosts []string
 	// Expired —— past its expiry, as the database rule access_code_expired decided it at read
 	// time (never recomputed in Go). Set on the door read and the by-id read.
 	Expired bool

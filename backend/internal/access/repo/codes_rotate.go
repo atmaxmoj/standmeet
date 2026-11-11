@@ -78,3 +78,25 @@ func (r *CodeRepo) SetSlug(ctx context.Context, ownerID, codeID, slug string) (e
 	}
 	return CodeFromRow(&row), nil
 }
+
+// SetModel —— pins (or clears with "") the model this code runs on, over its provider's own. A
+// missing/foreign row → ErrCodeInvalid; there is no uniqueness to collide on (free text column).
+func (r *CodeRepo) SetModel(
+	ctx context.Context, ownerID, codeID, model string,
+) (entity.Code, error) {
+	ownerUUID, oerr := pgstore.ParseUUID(ownerID)
+	if oerr != nil {
+		return entity.Code{}, fmt.Errorf(pgstore.ErrParseOwnerIDPrefix, oerr)
+	}
+	codeUUID, cerr := pgstore.ParseUUID(codeID)
+	if cerr != nil {
+		return entity.Code{}, fmt.Errorf(errParseCodeIDPrefix, cerr)
+	}
+	row, qerr := db.New(r.pool).SetAccessCodeModel(ctx, db.SetAccessCodeModelParams{
+		ID: codeUUID, OwnerID: ownerUUID, Model: model,
+	})
+	if qerr != nil {
+		return entity.Code{}, mapRotateCodeErr(qerr)
+	}
+	return CodeFromRow(&row), nil
+}

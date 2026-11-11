@@ -43,6 +43,15 @@ SET slug = $3
 WHERE id = $1 AND owner_id = $2
 RETURNING *;
 
+-- name: SetAccessCodeModel :one
+-- Pin (or clear) this code's model override — the model-id string its chat and cue run on, over the
+-- resolved provider's own model ('' = clear → back to the provider's model). owner-scoped. The id is
+-- validated against a real model only at the panel/op layer; here it is a free text column.
+UPDATE access_codes
+SET model = $3
+WHERE id = $1 AND owner_id = $2
+RETURNING *;
+
 -- name: GetAccessCode :one
 -- **Do not add lower() here**: the `code` column is `citext` (see schema.sql:245), so the
 -- comparison is already case-insensitive. I once assumed "?code= won't get in because the code

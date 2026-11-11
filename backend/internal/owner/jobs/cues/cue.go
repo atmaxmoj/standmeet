@@ -50,7 +50,7 @@ func (a *Assistant) Cue(
 		feedID = newFeedID()
 	}
 	named := a.effectiveNamed(ctx, log, ownerID, q, &p)
-	req := ModelRequest{System: p.System, Messages: p.messages}
+	req := ModelRequest{System: p.System, Messages: p.messages, Code: q.Code}
 	model, text, err := a.ports.Model(ctx, ownerID, p.role.ProviderID, req,
 		a.streamer(ctx, log, ownerID, feedID))
 	if err != nil {

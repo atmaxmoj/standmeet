@@ -52,6 +52,11 @@ type ResolveInput struct {
 	// default one. Which one wins (code > role > default) was already decided and frozen in
 	// when the session was sent; this just reads it back.
 	ProviderID string
+	// Model —— a per-session model override: the model-id a code pinned (access_codes.model),
+	// which wins over the resolved provider's own model. Empty = no override, use the
+	// provider's model. Lets one key run haiku for chat and sonnet for a specific code. Not
+	// honoured for byoai (the visitor's own key brings its own model).
+	Model string
 }
 
 // OwnerKeyResolver —— the Resolver impl: reads the owner row, gets back an already-unsealed
@@ -84,9 +89,15 @@ func (r *OwnerKeyResolver) Resolve(
 	if err != nil {
 		return nil, err
 	}
+	model := cred.Model
+	if in.Model != "" {
+		// A code pinned its own model (access_codes.model): it wins over the provider's
+		// default, so the same key serves a different model for this session.
+		model = in.Model
+	}
 	return validateCred(credFields{
 		Provider: cred.Provider, Key: cred.Key,
-		Endpoint: cred.Endpoint, Model: cred.Model,
+		Endpoint: cred.Endpoint, Model: model,
 	})
 }
 

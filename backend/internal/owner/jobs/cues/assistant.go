@@ -23,7 +23,12 @@ type Role struct {
 
 // ModelRequest —— one card's model call.
 type ModelRequest struct {
-	System   string
+	System string
+	// Code —— the access code this interview is bound to ("" = none). The port reads the code's
+	// pinned provider / model (access_codes.provider_id / .model, code beats role) and runs the
+	// card on them. Only the final card sets it; the classifier and rewrite stay on the role's
+	// fast model.
+	Code     string
 	Messages []Message
 }
 

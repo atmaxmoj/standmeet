@@ -22,6 +22,7 @@ type AccessCode struct {
 	MaxMembers           *int32
 	RequireGhostEvidence *bool
 	ProviderID           pgtype.UUID
+	Model                string
 	MicrositeID          pgtype.UUID
 	BundleID             pgtype.UUID
 	LimitPerPeriod       []byte

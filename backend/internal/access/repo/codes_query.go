@@ -197,6 +197,7 @@ func CodeFromRow(c *db.AccessCode) entity.Code {
 		// Empty string = not specified (that column is NULL, or the row it pointed to
 		// was deleted — ON DELETE SET NULL).
 		ProviderID:     pgstore.UUIDStrOrEmpty(c.ProviderID),
+		Model:          c.Model,
 		LimitPerPeriod: decodePeriodLimit(c.LimitPerPeriod),
 	}
 	if c.ExpiresAt.Valid {

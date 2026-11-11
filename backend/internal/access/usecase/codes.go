@@ -205,6 +205,19 @@ func SetCodeSlug(
 	return code, nil
 }
 
+// SetCodeModel — pins the model this code's cards and chat run on, over its provider's own
+// (access_codes.model), or clears it with "". The id is a free string: providers like Anthropic
+// expose no model list, so it is validated only by the inference call that uses it.
+func SetCodeModel(
+	ctx context.Context, d CodesDeps, ownerID, codeID, model string,
+) (entity.Code, error) {
+	code, err := d.Codes.SetModel(ctx, ownerID, codeID, strings.TrimSpace(model))
+	if err != nil {
+		return entity.Code{}, fmt.Errorf("set code model: %w", err)
+	}
+	return code, nil
+}
+
 // rotationCodeValid — the new code must be a single non-empty URL-safe token (rides in ?code=).
 func rotationCodeValid(s string) bool {
 	return s != "" && !strings.ContainsAny(s, " \t\n/?#&")

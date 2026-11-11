@@ -1,0 +1,11 @@
+-- 2026-11-11-access-code-model.sql — a code can pin a MODEL, not just a provider: the model-id
+-- string its chat and its screen-assistant cue run on, overriding the resolved provider's own
+-- model. Empty '' = no override → use the provider's model (today's behaviour). This lets one
+-- Anthropic key serve haiku for visitor chat and sonnet for a specific code's cue, with no duplicate
+-- provider. It mirrors provider_id's "code overrides role" resolution, one layer in (the model
+-- within a provider), so the resolution order is code.model → provider.model.
+--
+-- Upgrade path: add the column with DEFAULT '' so every existing code keeps today's behaviour
+-- (no override). IF NOT EXISTS so it's a no-op on a fresh install (schema.sql already has it) and
+-- re-runnable.
+ALTER TABLE access_codes ADD COLUMN IF NOT EXISTS model text NOT NULL DEFAULT '';

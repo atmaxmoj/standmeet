@@ -381,6 +381,10 @@ CREATE TABLE access_codes (
     -- provider_id —— 这张码用哪个 provider。NULL = 继承(role,再默认)。**码压过 role**。
     -- SET NULL:那条 provider 被删 → 这张码退回默认,码本身照常用(见 owner_providers)。
     provider_id               uuid          REFERENCES owner_providers(id) ON DELETE SET NULL,
+    -- model —— 这张码钉用哪个模型（id 字符串），压过 provider 自己的 model。'' = 不覆盖，用
+    -- provider 的 model（今天的行为）。解析顺序 code.model → provider.model，比 provider_id 再深
+    -- 一层:同一把 key 下 visitor chat 走 haiku、某张码的 cue 走 sonnet,不必复制 provider。
+    model                     text          NOT NULL DEFAULT '',
     -- microsite_id —— 这张码开哪一页。NULL = 开默认的访客对话（今天的行为）。
     -- 页面是这张码的一个**渲染**：授权、配额、身份、记账全不变，只换读者看到的样子。
     -- **一张码至多一页**，所以它是码上的一列而不是一张关系表：绑定是一个事实，
