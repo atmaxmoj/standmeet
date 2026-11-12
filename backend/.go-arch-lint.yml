@@ -49,6 +49,8 @@ components:
     in: internal/infra/sqltext                   # the one way a runtime name enters SQL text (quoted identifier); domain-less leaf
   paging:
     in: internal/infra/paging                    # the one keyset paginator every owner list uses (docs/design/paging.md); domain-less leaf
+  sse:
+    in: internal/infra/sse                        # Server-Sent Events plumbing (headers, anti-buffering pad, flush); domain-less leaf
   snowflake:
     in: internal/infra/snowflake                 # snowflake id → short base62 slug (single implementation); domain-less leaf
   mailthrottle:
@@ -933,7 +935,8 @@ deps:
       - jobsuc
       - jobs             # the fetch receipt's job ids (jobs.JobID)
       - paging           # the applications list takes ?cursor=&limit= and answers a page
-      - jobcues          # /screen-assistant/events reads the cue feed
+      - jobcues          # /screen-assistant/stream reads the cue feed
+      - sse              # the cue feed streams over Server-Sent Events
     anyVendorDeps: true
 
   # jobcues — the screen assistant's live cue feed (Redis list per owner). Leaf.
@@ -1537,6 +1540,7 @@ deps:
       - gotenberg   # GET /report/{id}/pdf — ErrNotConfigured sentinel + ReportPDFRenderer
       - stats   # #106/#7 records one usage event: UsageRow ("which tank of gas, does it count against the budget") is stats' vocabulary
       - clientaddr   # conversations.client_ip only takes the visitor's own address; leaves it blank if it can't get one
+      - sse   # the conversation live relay and the microsite store socket stream over Server-Sent Events
     anyVendorDeps: true
 
   # pubapi —— API-key facade. Reuses the visitor assembly (registry) + usecases; whitelists non-Agentic

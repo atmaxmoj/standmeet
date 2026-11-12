@@ -22,6 +22,8 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+
+	"github.com/atmaxmoj/standmeet/internal/infra/sse"
 )
 
 // storeStreamLifetime —— how long one stream lives; under the server's 30s write timeout.
@@ -40,15 +42,12 @@ func (h *MicrositeStoreHandlers) stream() http.HandlerFunc {
 			return
 		}
 		defer release()
-		w.Header().Set("Content-Type", "text/event-stream")
-		// no-transform: the app's response compression would hold these small frames.
-		w.Header().Set("Cache-Control", "no-cache, no-transform")
-		w.Header().Set("X-Accel-Buffering", "no")
+		sse.Headers(w)
 		if !ok {
-			writeAndFlush(w, []byte("event: poll\ndata: {}\n\n"))
+			sse.WriteAndFlush(w, []byte("event: poll\ndata: {}\n\n"))
 			return
 		}
-		writeAndFlush(w, streamOpening("retry: 1000\n: store\n"))
+		sse.WriteAndFlush(w, sse.Opening("retry: 1000\n: store\n"))
 		end := time.NewTimer(storeStreamLifetime)
 		defer end.Stop()
 		for storeStreamStep(w, wake, end.C, r.Context().Done()) {
@@ -62,7 +61,7 @@ func storeStreamStep(
 ) bool {
 	select {
 	case <-wake:
-		return writeAndFlush(w, []byte("event: changed\ndata: {}\n\n"))
+		return sse.WriteAndFlush(w, []byte("event: changed\ndata: {}\n\n"))
 	case <-end:
 		return false
 	case <-done:

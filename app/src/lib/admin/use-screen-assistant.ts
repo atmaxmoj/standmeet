@@ -1,12 +1,11 @@
-// use-screen-assistant —— the live feed the desktop cue app pushes over MCP (assistant.push).
-// Polls GET /screen-assistant/events?since=<last seq>. A cue streams as growing text under one
+// use-screen-assistant —— the live feed the desktop cue app pushes over MCP (assistant.push). Holds
+// one Server-Sent Events connection to GET /api/admin/screen-assistant/stream?since=<last seq>, kept
+// alive by the server's pings, and is pushed each new event. A cue streams as growing text under one
 // id, so the feed keeps one entry per id with the latest text, in first-seen order.
 
 import { useEffect, useState } from 'react';
 
 import { z } from 'zod';
-
-import { adminAPI } from '@/lib/api/admin';
 
 const EventSchema = z.object({
   seq: z.number(),
@@ -17,8 +16,9 @@ const EventSchema = z.object({
 });
 export type AssistantEvent = z.infer<typeof EventSchema>;
 
-// POLL_MS —— a streamed cue pushes every ~300 ms; one second keeps the card visibly growing.
-const POLL_MS = 1_000;
+// RETRY_MS —— EventSource does not reconnect itself after a non-2xx (a 401 when the access token
+// lapsed), so on any error we refresh and reopen after this long.
+const RETRY_MS = 1_000;
 
 export function mergeEvents(
   prev: readonly AssistantEvent[], next: readonly AssistantEvent[],
@@ -32,28 +32,46 @@ export function mergeEvents(
   return out;
 }
 
+function parseEvent(data: string): AssistantEvent | null {
+  try {
+    const parsed = EventSchema.safeParse(JSON.parse(data));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
 export function useScreenAssistant(): { events: AssistantEvent[]; error: string | null } {
   const [events, setEvents] = useState<AssistantEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     let since = 0;
     let stopped = false;
-    const tick = async () => {
-      try {
-        const next = await adminAPI.get(`/screen-assistant/events?since=${since}`, z.array(EventSchema));
-        if (stopped) return;
-        setError(null);
-        if (next.length > 0) {
-          since = next[next.length - 1]!.seq;
-          setEvents((prev) => mergeEvents(prev, next));
-        }
-      } catch (e) {
-        if (!stopped) setError(e instanceof Error ? e.message : String(e));
-      }
+    let es: EventSource | null = null;
+    let retry: ReturnType<typeof setTimeout> | undefined;
+
+    const onMessage = (ev: MessageEvent<string>) => {
+      const e = parseEvent(ev.data);
+      if (!e) return;
+      since = e.seq;
+      setError(null);
+      setEvents((prev) => mergeEvents(prev, [e]));
     };
-    void tick();
-    const timer = setInterval(() => void tick(), POLL_MS);
-    return () => { stopped = true; clearInterval(timer); };
+    const onError = () => {
+      if (stopped) return;
+      setError('reconnecting'); // signed out: the stream 401s and this stays, so /cue offers sign-in
+      es?.close();
+      // the access token may have lapsed; refresh (silent, like adminAPI's 401 path), then reopen.
+      void fetch('/api/admin/refresh', { method: 'POST', credentials: 'include' }).catch(() => {});
+      retry = setTimeout(() => { if (!stopped) open(); }, RETRY_MS);
+    };
+    function open(): void {
+      es = new EventSource(`/api/admin/screen-assistant/stream?since=${since}`, { withCredentials: true });
+      es.onmessage = onMessage;
+      es.onerror = onError;
+    }
+    open();
+    return () => { stopped = true; es?.close(); clearTimeout(retry); };
   }, []);
   return { events, error };
 }

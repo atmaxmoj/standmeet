@@ -1,7 +1,6 @@
 package jobsadmin
 
 import (
-	"encoding/json"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -20,35 +19,25 @@ const (
 
 // MountScreenAssistant hangs the screen-assistant feed routes off the given router (same auth
 // stack as Mount):
-//   - GET /screen-assistant/events?since= —— the feed the desktop cue app pushed, after the seq
-//     the page last saw. The page (and /cue) polls it.
+//   - GET /screen-assistant/stream?since= —— the feed the desktop cue app pushed, as a Server-Sent
+//     Events stream. The page (and /cue) holds it open and is pushed each new event; ?since= is the
+//     seq it last saw, so an EventSource reconnect resumes from there.
 //   - POST /screen-assistant/viewing —— the phone view (/cue) heartbeats here while on screen; it
 //     marks the owner present for a few seconds, which the desktop app reads (assistant.read's
 //     phone_present) to hand its display to the phone. Only /cue calls it, so cards open on the
 //     computer's admin page never blank the desktop app.
 func MountScreenAssistant(r chi.Router, store *cues.Store, log *slog.Logger) {
-	r.Get("/screen-assistant/events", cueEvents(store, log))
+	r.Get("/screen-assistant/stream", cueStream(store, log))
 	r.Post("/screen-assistant/viewing", cueViewing(store, log))
 }
 
-func cueEvents(store *cues.Store, log *slog.Logger) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		since, perr := strconv.ParseInt(r.URL.Query().Get("since"), sinceBase, sinceBits)
-		if perr != nil {
-			since = 0 // absent or malformed: from the start
-		}
-		events, err := store.Since(r.Context(), authmw.OwnerIDFrom(r.Context()), since)
-		if err != nil {
-			log.Error("list cues", logErrKey, err)
-			writeServerErr(log, w)
-			return
-		}
-		w.Header().Set(ctHeader, ctJSON)
-		w.WriteHeader(http.StatusOK)
-		if eerr := json.NewEncoder(w).Encode(events); eerr != nil {
-			log.Error("encode cues", logErrKey, eerr)
-		}
+// parseSince —— the ?since= cursor (a decimal seq); 0 when absent or malformed (from the start).
+func parseSince(r *http.Request) int64 {
+	since, err := strconv.ParseInt(r.URL.Query().Get("since"), sinceBase, sinceBits)
+	if err != nil {
+		return 0
 	}
+	return since
 }
 
 func cueViewing(store *cues.Store, log *slog.Logger) http.HandlerFunc {
