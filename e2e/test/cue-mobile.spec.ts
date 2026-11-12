@@ -67,6 +67,24 @@ test.describe('/cue phone view', () => {
     await expect.poll(present, { timeout: 12_000 }).toBe(false);
   });
 
+  // The sign-in journey: a phone opening /cue while signed out gets a sign-in link, and signing in
+  // RETURNS to /cue — not /admin. RED before the fix: the link was bare /login and login hard-pushed
+  // /admin, so the owner signed in and landed on the admin dashboard, never seeing the cards. This is
+  // the exact path a real phone hits on first open; the earlier tests used a pre-authed page and
+  // never walked it, which is why the dead-end shipped.
+  test('signing in from /cue returns to /cue, not /admin', async ({ page }) => {
+    await openCue(page); // signed out → the feed read 401s → Waiting shows the sign-in link
+    const signIn = page.locator('a[href="/login?next=/cue"]');
+    await expect(signIn, 'the signed-out /cue offers a sign-in link that returns here').toBeVisible({ timeout: 10_000 });
+    await signIn.click();
+    await page.getByTestId('email').fill(OWNER.email);
+    await page.getByTestId('password').fill(OWNER.password);
+    await page.getByTestId('submit').click();
+    await page.waitForURL((u) => new URL(u).pathname === '/cue', { timeout: 10_000 });
+    await expect(page.getByTestId('cue-header'), 'the authed /cue renders, not the admin dashboard')
+      .toHaveText(/screen assistant/i);
+  });
+
   test('the PWA manifest opens straight to /cue', async ({ request }) => {
     const res = await request.get('/manifest.webmanifest');
     expect(res.ok()).toBeTruthy();

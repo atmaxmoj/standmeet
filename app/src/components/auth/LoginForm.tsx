@@ -29,7 +29,7 @@ function useSubmitHandler(
   return useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     const result = await form.submit();
-    result && enterAdmin(router);
+    result && enterAfterLogin(router);
   }, [form, router]);
 }
 
@@ -127,13 +127,25 @@ function submitDisabled(busy: boolean, siteKey: string, captchaToken: string): b
   return busy || (siteKey !== '' && captchaToken === '');
 }
 
-// enterAdmin — must reset sessionStore before routing into admin after a
+// enterAfterLogin — must reset sessionStore before routing on after a
 // successful login. A prior /admin probe may have cached it as 'error'
 // (unauthorized); without the reset, AdminShell mounts and immediately
 // judges unauthed → bounces back to /login, an infinite login loop.
-function enterAdmin(router: AppRouterInstance): void {
+// Routes to ?next= when the page that sent the owner here asked to return
+// (the phone's /cue links as /login?next=/cue), otherwise to /admin.
+function enterAfterLogin(router: AppRouterInstance): void {
   sessionStore.getState().reset();
-  router.push('/admin');
+  router.push(afterLoginPath());
+}
+
+// afterLoginPath — the ?next= return path, but only an in-app path, never an
+// external URL (open-redirect guard: reject anything not starting with a single
+// slash). Defaults to /admin.
+function afterLoginPath(): string {
+  const next = new URLSearchParams(window.location.search).get('next');
+  // /^\/[^/]/ = a single leading slash then a non-slash: an in-app path, rejecting
+  // null, "/", and protocol-relative "//host" (open-redirect).
+  return next && /^\/[^/]/.test(next) ? next : '/admin';
 }
 
 function FormError({ message }: { message: string | null }) {

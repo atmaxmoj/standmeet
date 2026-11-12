@@ -37,7 +37,7 @@ function Waiting({ error }: { error: string | null }) {
       <p className="sm-empty-hint reading">{t('screenAssistant.emptyHint')}</p>
       {error && (
         <p className="mono text-[11px] text-(--color-muted) mt-3">
-          {error} · <Link href="/login" className="underline">{tAuth('confirmEmail.signInLink')}</Link>
+          {error} · <Link href="/login?next=/cue" className="underline">{tAuth('confirmEmail.signInLink')}</Link>
         </p>
       )}
     </div>
