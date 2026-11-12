@@ -68,8 +68,33 @@ type Store struct{ rdb *redis.Client }
 // New —— constructs Store.
 func New(rdb *redis.Client) *Store { return &Store{rdb: rdb} }
 
-func listKey(ownerID string) string { return "cues:" + ownerID }
-func seqKey(ownerID string) string  { return "cues:" + ownerID + ":seq" }
+func listKey(ownerID string) string   { return "cues:" + ownerID }
+func seqKey(ownerID string) string    { return "cues:" + ownerID + ":seq" }
+func viewerKey(ownerID string) string { return "cues:" + ownerID + ":viewer" }
+
+// viewerTTL —— how long a /cue heartbeat keeps the phone "present". The phone beats every ~2s; two
+// missed beats (phone locked, /cue backgrounded, out of signal) and presence lapses, so the desktop
+// takes the display back. Short enough that putting the phone down hands it back promptly.
+const viewerTTL = 5 * time.Second
+
+// MarkViewing —— the phone's /cue view is on screen now: hold presence for viewerTTL. Called on
+// each /cue heartbeat (owner-scoped). While it holds, the desktop cue app defers to the phone.
+func (s *Store) MarkViewing(ctx context.Context, ownerID string) error {
+	if err := s.rdb.Set(ctx, viewerKey(ownerID), "1", viewerTTL).Err(); err != nil {
+		return fmt.Errorf("cues mark viewing: %w", err)
+	}
+	return nil
+}
+
+// ViewerPresent —— whether a phone is viewing /cue right now (a heartbeat landed within viewerTTL).
+// The desktop reads this on assistant.read and hides its cards while it is true.
+func (s *Store) ViewerPresent(ctx context.Context, ownerID string) (bool, error) {
+	n, err := s.rdb.Exists(ctx, viewerKey(ownerID)).Result()
+	if err != nil {
+		return false, fmt.Errorf("cues viewer present: %w", err)
+	}
+	return n > 0, nil
+}
 
 // Push —— stamp Seq/At on e and append it to the owner's feed.
 func (s *Store) Push(ctx context.Context, ownerID string, e *Event) error {

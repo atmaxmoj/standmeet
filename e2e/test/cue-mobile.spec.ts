@@ -12,7 +12,7 @@ import { test, expect } from '@/fixtures/test';
 import { createAPIToken, login as loginAPI } from '@/fixtures/admin';
 import { claimFreshOwner } from '@/fixtures/seed';
 import { callTool, initMCP } from '@/fixtures/mcp';
-import { openCue } from '@/fixtures/navigate';
+import { openCue, reloadAdminSection } from '@/fixtures/navigate';
 
 const OWNER = {
   email: 'cue-mobile@example.com',
@@ -44,6 +44,24 @@ test.describe('/cue phone view', () => {
     await expect(cards, 'streamed chunks of one cue are one card').toHaveCount(1);
     await expect(adminPage.getByTestId('assistant-heard').first())
       .toContainText('How do you isolate untrusted code?');
+  });
+
+  // The handoff: while /cue is on screen it heartbeats, and the desktop app's feed read
+  // (assistant.read) reports phone_present — that is the signal the desktop uses to hide its own
+  // cards. Leaving /cue stops the heartbeat and presence lapses, so the desktop takes the display back.
+  test('opening /cue tells the desktop the phone is present; leaving hands it back', async ({ request, adminPage }) => {
+    const { csrf } = await loginAPI(request, OWNER.email, OWNER.password);
+    const token = await createAPIToken(request, csrf, 'cue-presence');
+    const sid = await initMCP(request, token);
+    const present = async () =>
+      (await callTool<{ phone_present: boolean }>(request, token, sid, 'assistant.read', {})).phone_present;
+
+    await openCue(adminPage);
+    await expect.poll(present, { timeout: 8_000 }).toBe(true);
+
+    // Leave /cue (a desktop admin page does NOT heartbeat) → presence lapses within the server's TTL.
+    await reloadAdminSection(adminPage, 'screen-assistant');
+    await expect.poll(present, { timeout: 12_000 }).toBe(false);
   });
 
   test('the PWA manifest opens straight to /cue', async ({ request }) => {

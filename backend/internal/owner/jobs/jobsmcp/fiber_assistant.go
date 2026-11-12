@@ -80,9 +80,22 @@ func (c *assistantFiber) handleRead(
 	if n := len(events); n > 0 {
 		last = events[n-1].Seq
 	}
+	// phone_present —— the owner is reading the cards on a phone (/cue) right now; the desktop app
+	// hides its own display and lets the phone show them.
 	return mcputil.MarshalResult(c.log, "assistant.read", map[string]any{
 		"events": cues.Latest(events), "last_seq": last,
+		"phone_present": c.phonePresent(ctx, ownerID),
 	})
+}
+
+// phonePresent —— whether a phone is reading /cue now. A read failure never fails the feed: it is
+// reported as not present (the desktop keeps showing its own cards), and logged.
+func (c *assistantFiber) phonePresent(ctx context.Context, ownerID string) bool {
+	present, err := c.asst.Feed.ViewerPresent(ctx, ownerID)
+	if err != nil {
+		c.log.Warn("cap assistant.read viewer", "err", err)
+	}
+	return present
 }
 
 func (c *assistantFiber) handlePush(

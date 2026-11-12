@@ -10,6 +10,7 @@ import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 
 import { CueFeed } from '@/components/CueFeed';
+import { useCueHeartbeat } from '@/lib/admin/use-cue-heartbeat';
 import { useKeepAwake } from '@/lib/admin/use-keep-awake';
 import { useScreenAssistant, type AssistantEvent } from '@/lib/admin/use-screen-assistant';
 
@@ -48,6 +49,7 @@ function Body({ events, error }: { events: readonly AssistantEvent[]; error: str
 export default function CuePage() {
   const { events, error } = useScreenAssistant();
   useKeepAwake();
+  useCueHeartbeat(); // tell the desktop app to hand its display here while this page is on screen
   return (
     <main className="min-h-dvh bg-(--color-paper) text-(--color-ink) px-4 py-4">
       <Header />
