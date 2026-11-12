@@ -19,7 +19,9 @@ function Header() {
   return (
     <header className="flex items-center gap-2 mb-5">
       <span className="inline-block w-2 h-2 rounded-full bg-(--color-accent) animate-pulse" aria-hidden />
-      <span className="mono text-[11px] tracking-wider text-(--color-muted) uppercase">{t('screen-assistant')}</span>
+      <span data-testid="cue-header" className="mono text-[11px] tracking-wider text-(--color-muted) uppercase">
+        {t('section.screen-assistant')}
+      </span>
     </header>
   );
 }

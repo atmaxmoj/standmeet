@@ -44,6 +44,9 @@ test.describe('/cue phone view', () => {
     await expect(cards, 'streamed chunks of one cue are one card').toHaveCount(1);
     await expect(adminPage.getByTestId('assistant-heard').first())
       .toContainText('How do you isolate untrusted code?');
+    // The header resolves its i18n label (regression guard: a wrong namespace path renders the raw
+    // key "adminNav…" uppercased instead of the words).
+    await expect(adminPage.getByTestId('cue-header')).toHaveText(/screen assistant/i);
   });
 
   // The handoff: while /cue is on screen it heartbeats, and the desktop app's feed read
