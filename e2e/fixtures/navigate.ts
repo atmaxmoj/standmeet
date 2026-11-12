@@ -195,3 +195,10 @@ export async function openHome(page: Page): Promise<void> {
 export async function openGate(page: Page, path = '/gate'): Promise<void> {
   await goto(page, path);
 }
+
+// openCue —— the owner opens /cue, the full-screen phone view of the live cue feed. Its entry point
+// IS its link (a page added to the home screen / opened by URL; no in-product click path to it), so
+// this navigates straight there through the confined goto, like openReader.
+export async function openCue(page: Page): Promise<void> {
+  await goto(page, '/cue');
+}
