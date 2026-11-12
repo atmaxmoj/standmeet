@@ -18,7 +18,8 @@ import (
 const askProps = `
 	"role_id":{"type":"string",
 		"description":"The interview's role (id or name, as role_list shows it): its ` +
-	`corpus_uris are the notes the card may use. Absent = every wiki note."},
+	`corpus_uris are the notes the card may use, used only when no code is bound. A bound ` +
+	`code scopes the card to what that code reads instead. Absent = every wiki note."},
 	"round":{"type":"string",
 		"enum":["general","recruiter","behavioural","manager","technical","design",
 			"executive","mentor"],
@@ -31,7 +32,9 @@ const askProps = `
 	"code":{"type":"string",
 		"description":"The access code id (as applications_list gives it) this interview ` +
 	`session is for: the card reads that application's tailored résumé for background, ` +
-	`experience and why-this-role. Absent = no application bound, the card behaves as before."},
+	`experience and why-this-role, and is scoped to the notes that code can read (its ` +
+	`assumed role's grant minus the code's denials), overriding role_id. Absent = no ` +
+	`application bound, the card behaves as before."},
 	"user_context":{"type":"string",
 		"description":"Extra words from the owner for this session."},
 	"rewrite":{"type":"boolean",
@@ -42,12 +45,16 @@ const askProps = `
 func (c *assistantFiber) cueBindings() []*registry.MCPBinding {
 	return []*registry.MCPBinding{{
 		Name: "assistant.prepare", Danger: "read",
-		Description: "Start a screen-assistant session: how many notes the role's scope holds, " +
+		Description: "Start a screen-assistant session: how many notes the session scope holds, " +
 			"the interview rounds, and the names to put in a speech recognizer's prompt " +
 			"(the owner's projects, stack and companies) so they are heard as names.",
 		InputSchema: json.RawMessage(`{"type":"object","properties":{` +
+			`"code":{"type":"string",` +
+			`"description":"The access code id (as applications_list gives it) this session is ` +
+			`for: the scope is what that code can read. Absent = the role_id's scope."},` +
 			`"role_id":{"type":"string",` +
-			`"description":"Role id or name; absent = every wiki note."}}}`),
+			`"description":"Role id or name, used only when no code is bound; absent = every ` +
+			`wiki note."}}}`),
 		Handler: c.handlePrepare,
 	}, {
 		Name: "assistant.applications", Danger: "read",
@@ -123,7 +130,7 @@ func (c *assistantFiber) handlePrepare(
 	if err := decodeArgs(raw, &in); err != nil {
 		return registry.MCPError(err.Error())
 	}
-	p, err := c.asst.Prepare(ctx, ownerID, in.RoleID)
+	p, err := c.asst.Prepare(ctx, ownerID, in.RoleID, in.Code)
 	if err != nil {
 		return c.failed("assistant.prepare", err)
 	}

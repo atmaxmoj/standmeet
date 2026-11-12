@@ -13,12 +13,16 @@ import (
 )
 
 // Role —— the interview's role: its notes' scope, what it is for, the provider it runs on.
+// A role ref grants CorpusURIs with no DeniedURIs; a bound code resolves to a Role whose CorpusURIs
+// are its assumed role's grant and whose DeniedURIs are what the code takes back (pure subtraction,
+// same shape as a visitor read's corpus admission).
 type Role struct {
 	ID          string
 	Name        string
 	Description string
 	ProviderID  string
 	CorpusURIs  []string
+	DeniedURIs  []string
 }
 
 // ModelRequest —— one card's model call.
@@ -44,8 +48,14 @@ type AppOption struct {
 // Ports —— what the assistant reads and calls. Role returns ErrNoRole for a ref no role has;
 // Notes lists the notes inside globs in corpus order; Version changes whenever any note does.
 type Ports struct {
-	Role    func(ctx context.Context, ownerID, ref string) (Role, error)
-	Notes   func(ctx context.Context, ownerID string, globs []string) ([]Note, error)
+	Role func(ctx context.Context, ownerID, ref string) (Role, error)
+	// CodeScope —— the scope a bound access code reads: its assumed role's grant as CorpusURIs and
+	// the code's corpus denials as DeniedURIs. ErrCodeNoScope when the code binds no usable scope
+	// (invalid id, or another owner's code) — the deck then falls back to the role ref, as before.
+	CodeScope func(ctx context.Context, ownerID, code string) (Role, error)
+	// Notes lists the notes a scope admits — inside granted and outside denied — in corpus order,
+	// the same admission a visitor read goes through. A role ref passes no denied.
+	Notes   func(ctx context.Context, ownerID string, granted, denied []string) ([]Note, error)
 	Version func(ctx context.Context, ownerID string) (string, error)
 	Screen  func(ctx context.Context, ownerID string) (Screen, error)
 	// Resume returns the tailored résumé of the application an access code is bound to; ErrNoResume
@@ -69,6 +79,9 @@ var (
 	// ErrNoResume —— the session's code binds no application; the card goes on without a
 	// résumé (not an asked error). The port returns it; callScreen swallows it.
 	ErrNoResume = errors.New("no résumé for this application")
+	// ErrCodeNoScope —— the bound code resolves to no usable scope (invalid id, or another owner's
+	// code); the deck falls back to the role ref. CodeScope returns it; scopeFor swallows it.
+	ErrCodeNoScope = errors.New("no scope for this code")
 )
 
 // IsAsked —— a failure the caller caused or can act on; its text is safe to show.
@@ -115,6 +128,22 @@ func (a *Assistant) roleOf(ctx context.Context, ownerID, ref string) (Role, erro
 	return a.ports.Role(ctx, ownerID, ref)
 }
 
+// scopeFor —— the scope the deck is built in: a bound code's own scope wins (owner wants the card
+// scoped to what the application's code can read, not a separately-picked role); a code that binds
+// no usable scope falls back to the role ref.
+func (a *Assistant) scopeFor(ctx context.Context, ownerID, ref, code string) (Role, error) {
+	if code != "" && a.ports.CodeScope != nil {
+		r, err := a.ports.CodeScope(ctx, ownerID, code)
+		if err == nil {
+			return r, nil
+		}
+		if !errors.Is(err, ErrCodeNoScope) {
+			return Role{}, err
+		}
+	}
+	return a.roleOf(ctx, ownerID, ref)
+}
+
 // brief —— "<name> — <description>", as the app led the context with it; "" without a role.
 func (r *Role) brief() string {
 	if r.Description == "" {
@@ -123,9 +152,10 @@ func (r *Role) brief() string {
 	return r.Name + " — " + r.Description
 }
 
-// deckFor —— the role's deck, rebuilt when the corpus or the role's scope changed.
-func (a *Assistant) deckFor(ctx context.Context, ownerID, ref string) (roleDeck, error) {
-	role, err := a.roleOf(ctx, ownerID, ref)
+// deckFor —— the scope's deck, rebuilt when the corpus or the scope changed. A bound code scopes it
+// to what that code reads; otherwise the role ref does.
+func (a *Assistant) deckFor(ctx context.Context, ownerID, ref, code string) (roleDeck, error) {
+	role, err := a.scopeFor(ctx, ownerID, ref, code)
 	if err != nil {
 		return roleDeck{}, err
 	}
@@ -133,11 +163,12 @@ func (a *Assistant) deckFor(ctx context.Context, ownerID, ref string) (roleDeck,
 	if err != nil {
 		return roleDeck{}, err
 	}
-	key := ownerID + "\x00" + strings.Join(role.CorpusURIs, "\n") + "\x00" + role.brief()
+	key := ownerID + "\x00" + strings.Join(role.CorpusURIs, "\n") +
+		"\x00" + strings.Join(role.DeniedURIs, "\n") + "\x00" + role.brief()
 	if deck := a.cached(key, version); deck != nil {
 		return roleDeck{deck: deck, role: role}, nil
 	}
-	notes, err := a.ports.Notes(ctx, ownerID, role.CorpusURIs)
+	notes, err := a.ports.Notes(ctx, ownerID, role.CorpusURIs, role.DeniedURIs)
 	if err != nil {
 		return roleDeck{}, err
 	}

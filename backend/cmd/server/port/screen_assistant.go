@@ -33,8 +33,13 @@ func ScreenAssistantPorts(d *deps.Runtime, jobs *jobsuc.JobsDeps) cues.Ports {
 		Role: func(ctx context.Context, ownerID, ref string) (cues.Role, error) {
 			return cueRole(ctx, d, ownerID, ref)
 		},
-		Notes: func(ctx context.Context, ownerID string, globs []string) ([]cues.Note, error) {
-			return cueNotes(ctx, d, ownerID, globs)
+		CodeScope: func(ctx context.Context, ownerID, code string) (cues.Role, error) {
+			return cueCodeScope(ctx, d, ownerID, code)
+		},
+		Notes: func(
+			ctx context.Context, ownerID string, granted, denied []string,
+		) ([]cues.Note, error) {
+			return cueNotes(ctx, d, ownerID, granted, denied)
 		},
 		Version: d.Corpus.Version,
 		Screen: func(ctx context.Context, ownerID string) (cues.Screen, error) {
@@ -147,21 +152,66 @@ func cueRole(ctx context.Context, d *deps.Runtime, ownerID, ref string) (cues.Ro
 	}, nil
 }
 
-// cueNotes —— every note of each genre the globs name, in corpus.list's order, kept when its
-// address is inside the scope (the same glob check visitor reads go through).
+// cueCodeScope —— the scope a bound access code reads, as the deck's scope: its assumed role's
+// grant as CorpusURIs and the code's own corpus denials as DeniedURIs (pure subtraction, the same
+// scope a session on that code gets — embedScope). A parse miss, a code that is gone, or another
+// owner's code → cues.ErrCodeNoScope (the deck then falls back to the role ref, not an error).
+func cueCodeScope(
+	ctx context.Context, d *deps.Runtime, ownerID, code string,
+) (cues.Role, error) {
+	c, err := cueCode(ctx, d, ownerID, code)
+	if err != nil {
+		return cues.Role{}, err
+	}
+	role, err := d.RoleRepo.GetByID(ctx, ownerID, c.AssumedRoleID)
+	if err != nil {
+		return cues.Role{}, fmt.Errorf("cue code scope: role: %w", err)
+	}
+	denied, err := d.CodeDenialRepo.ListCorpusURIs(ctx, c.ID)
+	if err != nil {
+		return cues.Role{}, fmt.Errorf("cue code scope: denials: %w", err)
+	}
+	return cues.Role{
+		ID: role.ID(), Name: role.Name(), Description: role.Description(),
+		ProviderID: role.ProviderID(), CorpusURIs: role.CorpusURIs(), DeniedURIs: denied,
+	}, nil
+}
+
+// cueCode —— the owner's live access code by id; cues.ErrCodeNoScope for a parse miss, a code that
+// is gone, or another owner's code (a best-effort read falls the deck back to the role ref).
+func cueCode(
+	ctx context.Context, d *deps.Runtime, ownerID, code string,
+) (access.Code, error) {
+	if _, err := pgstore.ParseUUID(code); err != nil {
+		return access.Code{}, cues.ErrCodeNoScope
+	}
+	c, err := d.CodeRepo.GetByID(ctx, code)
+	if err != nil || c.OwnerID != ownerID {
+		return access.Code{}, cues.ErrCodeNoScope
+	}
+	return c, nil
+}
+
+// cueNotes —— every note of each genre the grant names, in corpus.list's order, kept when the scope
+// admits its address: inside the grant and outside the code's denials, judged by the one predicate
+// (access.AllowsCorpusEntry) a visitor read goes through, so the card can never see what a session
+// on that code could not. A role ref passes no denials (grant-only, as before).
+// These are invited scopes (an application's code, or a picked role), never the public identity, so
+// the scope carries no PublishedOnly and each note's own publish switch is not consulted.
 func cueNotes(
-	ctx context.Context, d *deps.Runtime, ownerID string, globs []string,
+	ctx context.Context, d *deps.Runtime, ownerID string, granted, denied []string,
 ) ([]cues.Note, error) {
+	scope := access.CorpusScope{Granted: granted, Denied: denied}
 	var out []cues.Note
 	for _, genre := range cueGenres {
-		if !slices.ContainsFunc(globs, namesGenre(genre)) {
+		if !slices.ContainsFunc(granted, namesGenre(genre)) {
 			continue
 		}
 		notes, err := genreNotes(ctx, d, ownerID, genre)
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, slices.DeleteFunc(notes, outside(globs, genre))...)
+		out = append(out, slices.DeleteFunc(notes, outside(scope, genre))...)
 	}
 	return out, nil
 }
@@ -170,8 +220,10 @@ func namesGenre(genre string) func(string) bool {
 	return func(g string) bool { return strings.HasPrefix(g, genre+"://") }
 }
 
-func outside(globs []string, genre string) func(cues.Note) bool {
-	return func(n cues.Note) bool { return !access.MatchesAnyCorpusGlob(globs, genre+"://"+n.Path) }
+func outside(scope access.CorpusScope, genre string) func(cues.Note) bool {
+	return func(n cues.Note) bool {
+		return !access.AllowsCorpusEntry(scope, access.CorpusEntryRef{URI: genre + "://" + n.Path})
+	}
 }
 
 // genreNotes —— one genre, all pages.

@@ -32,9 +32,10 @@ type Prepared struct {
 	Notes int
 }
 
-// Prepare —— loads the role's deck: its note count and the names for Whisper's prompt.
-func (a *Assistant) Prepare(ctx context.Context, ownerID, ref string) (Prepared, error) {
-	rd, err := a.deckFor(ctx, ownerID, ref)
+// Prepare —— loads the session's deck: its note count and the names for Whisper's prompt. A bound
+// code scopes the deck to what that code reads; otherwise the role ref does.
+func (a *Assistant) Prepare(ctx context.Context, ownerID, ref, code string) (Prepared, error) {
+	rd, err := a.deckFor(ctx, ownerID, ref, code)
 	if err != nil {
 		return Prepared{}, err
 	}
@@ -47,7 +48,9 @@ func (a *Assistant) Prepare(ctx context.Context, ownerID, ref string) (Prepared,
 		companies = append(companies, j.Company)
 	}
 	p := Prepared{Hint: rd.deck.Hint(companies), Notes: rd.deck.Count()}
-	if ref != "" {
+	// Show which scope is active: the role ref's, or the bound code's (both carry an ID; the
+	// whole-wiki fallback does not).
+	if rd.role.ID != "" {
 		p.Role = &rd.role
 	}
 	return p, nil
@@ -100,7 +103,7 @@ func (a *Assistant) Context(ctx context.Context, ownerID string, q *Ask) (Prompt
 	if err != nil {
 		return Prompt{}, err
 	}
-	rd, err := a.deckWithNotes(ctx, ownerID, q.RoleRef)
+	rd, err := a.deckWithNotes(ctx, ownerID, q.RoleRef, q.Code)
 	if err != nil {
 		return Prompt{}, err
 	}
@@ -157,9 +160,11 @@ func compose(q *Ask, round *Round, rd *roleDeck, screen *screenPick, heard Heard
 	}
 }
 
-// deckWithNotes —— the role's deck; a scope that holds nothing is an error, not an empty card.
-func (a *Assistant) deckWithNotes(ctx context.Context, ownerID, ref string) (roleDeck, error) {
-	rd, err := a.deckFor(ctx, ownerID, ref)
+// deckWithNotes —— the session's deck; a scope that holds nothing is an error, not an empty card.
+func (a *Assistant) deckWithNotes(
+	ctx context.Context, ownerID, ref, code string,
+) (roleDeck, error) {
+	rd, err := a.deckFor(ctx, ownerID, ref, code)
 	if err == nil && rd.deck.Count() == 0 {
 		err = ErrNoNotes
 	}
