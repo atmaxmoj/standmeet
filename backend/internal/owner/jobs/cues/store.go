@@ -140,7 +140,31 @@ func Latest(events []Event) []Event {
 }
 
 // Since —— the events after seq, oldest first. A reader passes the last seq it saw.
+//
+// Reset recovery: the feed's keys expire after ttl, so the seq counter restarts
+// at 1 on the next push. A reader left open (a /cue page) only ever raises its
+// cursor, so after a reset its seq sits above the restarted feed and it would
+// poll empty forever. When the highest seq held is below the caller's cursor, the
+// feed has reset — serve everything, and the cursor falls back into range next poll.
 func (s *Store) Since(ctx context.Context, ownerID string, seq int64) ([]Event, error) {
+	events, err := s.readAll(ctx, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	if seq > maxSeq(events) {
+		seq = 0 // feed reset below the caller's cursor; hand back everything it now holds
+	}
+	out := make([]Event, 0, len(events))
+	for _, e := range events {
+		if e.Seq > seq {
+			out = append(out, e)
+		}
+	}
+	return out, nil
+}
+
+// readAll —— every event in the feed, oldest first.
+func (s *Store) readAll(ctx context.Context, ownerID string) ([]Event, error) {
 	rows, err := s.rdb.LRange(ctx, listKey(ownerID), 0, -1).Result()
 	if err != nil {
 		return nil, fmt.Errorf("cues read: %w", err)
@@ -148,10 +172,20 @@ func (s *Store) Since(ctx context.Context, ownerID string, seq int64) ([]Event, 
 	out := make([]Event, 0, len(rows))
 	for _, r := range rows {
 		var e Event
-		if json.Unmarshal([]byte(r), &e) != nil || e.Seq <= seq {
-			continue
+		if json.Unmarshal([]byte(r), &e) == nil {
+			out = append(out, e)
 		}
-		out = append(out, e)
 	}
 	return out, nil
+}
+
+// maxSeq —— the highest seq among events, or 0 if none.
+func maxSeq(events []Event) int64 {
+	var m int64
+	for _, e := range events {
+		if e.Seq > m {
+			m = e.Seq
+		}
+	}
+	return m
 }
