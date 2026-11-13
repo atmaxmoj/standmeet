@@ -33,6 +33,11 @@ func cueModelCall(d *deps.Runtime) cueModelFunc {
 		ctx context.Context, ownerID, providerID string, req cues.ModelRequest, onText func(string),
 	) (string, string, error) {
 		tgt := cueCodeModel(ctx, d, ownerID, providerID, req.Code)
+		if tgt.model == "" {
+			// No code pinned a model: fall to the screen-assistant feature's pin (the role's
+			// override of it, else its global pin). Empty → the provider's own model stands.
+			tgt.model = cueFeatureModel(ctx, d, ownerID, req.RoleID)
+		}
 		cred, err := d.ProviderResolver.Resolve(ctx, &inference.ResolveInput{
 			OwnerID: ownerID, ProviderID: tgt.provider, Model: tgt.model,
 		})
@@ -77,6 +82,21 @@ func cueCodeModel(
 		provider = c.ProviderID
 	}
 	return cueTarget{provider: provider, model: c.Model}
+}
+
+// cueFeatureModel —— the model pinned for the screen-assistant feature (owner_feature_models): the
+// session role's override of it, else its global pin, else "" (the resolved provider's own model
+// stands). A best-effort read never fails the card.
+func cueFeatureModel(ctx context.Context, d *deps.Runtime, ownerID, roleID string) string {
+	if d.OwnerRepo == nil {
+		return ""
+	}
+	m, err := d.OwnerRepo.FeatureModelFor(ctx, ownerID, roleID, cueUsageFeature)
+	if err != nil {
+		d.Log.Warn("cue feature model", "err", err)
+		return ""
+	}
+	return m
 }
 
 // cueChat —— the request: DeepSeek runs cueModel; DeepSeek and Anthropic run with thinking off

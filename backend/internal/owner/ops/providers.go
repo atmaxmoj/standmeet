@@ -71,7 +71,7 @@ func Providers(d ProvidersDeps) []fp.Op {
 			Reach:       fp.OwnerAction(),
 			Invoke:      deleteProvider(d),
 		},
-	}, providerWriteOps(d)...)
+	}, append(featureModelOps(d), providerWriteOps(d)...)...)
 }
 
 // providerWriteOps —— the two ops that carry a plaintext key, panel-only.

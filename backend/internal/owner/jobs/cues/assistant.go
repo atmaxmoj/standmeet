@@ -32,7 +32,12 @@ type ModelRequest struct {
 	// pinned provider / model (access_codes.provider_id / .model, code beats role) and runs the
 	// card on them. Only the final card sets it; the classifier and rewrite stay on the role's
 	// fast model.
-	Code     string
+	Code string
+	// RoleID —— the session's role, for the feature→model cascade: a role may override the
+	// screen-assistant feature's global model (owner_feature_models, role×feature). "" = no role
+	// (whole-wiki fallback), so only the feature's global pin applies. The port reads
+	// code.model → role×feature → feature global → provider.model, in that order.
+	RoleID   string
 	Messages []Message
 }
 

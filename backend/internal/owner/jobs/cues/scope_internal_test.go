@@ -7,6 +7,9 @@ import (
 	"context"
 	"slices"
 	"testing"
+
+	"github.com/alicebob/miniredis/v2"
+	"github.com/redis/go-redis/v9"
 )
 
 // scopePorts —— stub ports that resolve a role ref and a code to a scope, and admit a fixed note
@@ -52,7 +55,10 @@ func (s *scopePorts) ports() Ports {
 
 func prepareWith(t *testing.T, p *scopePorts, ref, code string) Prepared {
 	t.Helper()
-	a := NewAssistant(nil, p.ports())
+	// A live Feed (Prepare starts the owner's cue session on it — the per-owner singleton); a nil
+	// Feed would nil-panic in StartSession. miniredis keeps it in-process.
+	feed := New(redis.NewClient(&redis.Options{Addr: miniredis.RunT(t).Addr()}))
+	a := NewAssistant(feed, p.ports())
 	got, err := a.Prepare(context.Background(), "owner1", ref, code)
 	if err != nil {
 		t.Fatalf("Prepare(ref=%q, code=%q): %v", ref, code, err)

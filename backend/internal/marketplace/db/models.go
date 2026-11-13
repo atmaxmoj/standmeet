@@ -620,6 +620,13 @@ type Owner struct {
 	CreatedAt              pgtype.Timestamptz
 }
 
+type OwnerFeatureModel struct {
+	OwnerID pgtype.UUID
+	RoleID  string
+	Feature string
+	Model   string
+}
+
 type OwnerKeypair struct {
 	ID                pgtype.UUID
 	OwnerID           pgtype.UUID

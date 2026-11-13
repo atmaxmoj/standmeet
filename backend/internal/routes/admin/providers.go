@@ -45,5 +45,12 @@ func (h *Handlers) MountProviders(r chi.Router) {
 		r.Post("/{id}/models",
 			h.dispatchOp(face, "providers.list_models", urlParamArgs("id"), jsonOK))
 		r.Post("/models", h.dispatchOp(face, "providers.list_models", emptyArgs, jsonOK))
+		// feature→model pins: a feature (e.g. the interview cue 'screen_assistant') runs on its
+		// own model, overriding the resolved provider's while reusing its key. Clear is a POST (its
+		// body carries feature + optional role_id), not a DELETE-with-body.
+		r.Get("/feature-models", h.dispatchOp(face, "features.list_models", emptyArgs, jsonOK))
+		r.Post("/feature-models", h.dispatchOp(face, "features.set_model", bodyArgs, jsonOK))
+		r.Post("/feature-models/clear",
+			h.dispatchOp(face, "features.clear_model", bodyArgs, jsonOK))
 	})
 }

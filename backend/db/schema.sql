@@ -166,6 +166,22 @@ CREATE TABLE owner_providers (
 CREATE INDEX owner_providers_owner_idx ON owner_providers(owner_id);
 CREATE UNIQUE INDEX owner_providers_one_default ON owner_providers(owner_id) WHERE is_default;
 
+-- owner_feature_models —— a MODEL pinned per FEATURE, with an optional ROLE scope, overriding the
+-- resolved provider's own model while reusing its key (one Anthropic key: haiku for visitor chat,
+-- sonnet for the interview cue). The durable layer over access_codes.model. Resolution cascade, each
+-- overriding the one above: provider.model → feature global (role_id='') → role×feature (role_id=the
+-- role) → code.model. role_id='' is the feature's global pin; a role id overrides a given feature for
+-- that role. One table, role_id in the PK, so `role_id IN (<role>,'') ORDER BY role_id DESC LIMIT 1`
+-- reads the cascade. `feature` matches the usage ledger's Feature string (e.g. 'screen_assistant').
+-- events: none (owner configuration)
+CREATE TABLE owner_feature_models (
+    owner_id uuid NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+    role_id  text NOT NULL DEFAULT '',
+    feature  text NOT NULL,
+    model    text NOT NULL,
+    PRIMARY KEY (owner_id, role_id, feature)
+);
+
 -- Instance settings —— singleton（id=1，CHECK 强制）。
 -- fresh volume 初始化时种一行；setup token 跟 claim 状态由 boot 写。
 -- events: none (instance configuration)
