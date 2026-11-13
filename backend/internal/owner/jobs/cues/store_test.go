@@ -3,7 +3,6 @@ package cues_test
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
@@ -11,16 +10,15 @@ import (
 	"github.com/atmaxmoj/standmeet/internal/owner/jobs/cues"
 )
 
-func newStore(t *testing.T) (*miniredis.Miniredis, *cues.Store) {
+func newStore(t *testing.T) *cues.Store {
 	t.Helper()
-	mr := miniredis.RunT(t)
-	return mr, cues.New(redis.NewClient(&redis.Options{Addr: mr.Addr()}))
+	return cues.New(redis.NewClient(&redis.Options{Addr: miniredis.RunT(t).Addr()}))
 }
 
 func push(t *testing.T, st *cues.Store, owner, id, text string) {
 	t.Helper()
-	err := st.Push(context.Background(), owner, &cues.Event{ID: id, Kind: cues.KindCue, Text: text})
-	if err != nil {
+	e := &cues.Event{ID: id, Kind: cues.KindCue, Text: text}
+	if err := st.Push(context.Background(), owner, e); err != nil {
 		t.Fatalf("push %s: %v", id, err)
 	}
 }
@@ -34,36 +32,33 @@ func since(t *testing.T, st *cues.Store, owner string, seq int64) []cues.Event {
 	return got
 }
 
-// TestSinceRecoversAfterFeedReset —— the feed's Redis keys expire after 12h; the seq counter then
-// restarts at 1. A long-lived /cue page (or the admin view) holds its last-seen seq in memory and
-// only ever raises it, so after a reset its cursor sits above the restarted feed. It must still
-// receive the new low-seq events — not poll an empty feed forever. (Bug: the owner opened /cue on a
-// phone and saw nothing, because the feed had expired and restarted while the page stayed open.)
-func TestSinceRecoversAfterFeedReset(t *testing.T) {
-	t.Parallel()
-	mr, st := newStore(t)
-	const owner = "owner-1"
-	push(t, st, owner, "a1", "one")
-	push(t, st, owner, "a2", "two")
-	push(t, st, owner, "a3", "three")
-	cursor := since(t, st, owner, 0)[2].Seq // the reader's in-memory cursor: the last seq it saw
-
-	mr.FastForward(13 * time.Hour)          // both the list and the seq counter expire
-	push(t, st, owner, "b1", "after reset") // INCR on the vanished counter yields seq 1 again
-
-	got := since(t, st, owner, cursor) // the reader keeps polling with its old, higher cursor
-	if len(got) != 1 || got[0].Text != "after reset" {
-		t.Fatalf("stuck after reset: since(%d) = %+v, want [after reset]", cursor, got)
+func start(t *testing.T, st *cues.Store, owner string) {
+	t.Helper()
+	if err := st.StartSession(context.Background(), owner); err != nil {
+		t.Fatalf("start session: %v", err)
 	}
 }
 
-// TestSinceReturnsOnlyNewerInSteadyState —— the ordinary path: a caught-up reader gets nothing, a
-// reader one behind gets exactly the one it missed. Guards the reset fix from degrading into
-// "always return everything".
+// TestSinceEmptyWithoutSession —— the screen assistant is a per-owner singleton: with no interview
+// underway (no StartSession), reads return nothing even if something was pushed — /cue stays empty
+// between interviews, and a stray push never shows.
+func TestSinceEmptyWithoutSession(t *testing.T) {
+	t.Parallel()
+	st := newStore(t)
+	const owner = "o-nosession"
+	push(t, st, owner, "stray", "a push with no session") // no StartSession first
+	if got := since(t, st, owner, 0); len(got) != 0 {
+		t.Fatalf("without a session: since(0) = %+v, want empty", got)
+	}
+}
+
+// TestSinceReturnsOnlyNewerInSteadyState —— during a live session: a caught-up reader gets nothing,
+// a reader one behind gets exactly the one it missed.
 func TestSinceReturnsOnlyNewerInSteadyState(t *testing.T) {
 	t.Parallel()
-	_, st := newStore(t)
-	const owner = "owner-2"
+	st := newStore(t)
+	const owner = "o-steady"
+	start(t, st, owner)
 	push(t, st, owner, "a", "one")
 	push(t, st, owner, "b", "two")
 	push(t, st, owner, "c", "three")
@@ -73,5 +68,28 @@ func TestSinceReturnsOnlyNewerInSteadyState(t *testing.T) {
 	got := since(t, st, owner, 2)
 	if len(got) != 1 || got[0].Text != "three" {
 		t.Fatalf("one behind: since(2) = %+v, want [three]", got)
+	}
+}
+
+// TestSinceRecoversAcrossSessionRestart —— a /cue page left open across a new interview: the next
+// StartSession clears the feed and seq restarts at 1, but the page's cursor still sits at the old
+// session's last seq. Since treats a cursor above the feed's max as a reset and serves the fresh
+// cards, so the open page catches the new interview instead of polling empty.
+func TestSinceRecoversAcrossSessionRestart(t *testing.T) {
+	t.Parallel()
+	st := newStore(t)
+	const owner = "o-restart"
+	start(t, st, owner)
+	push(t, st, owner, "a1", "one")
+	push(t, st, owner, "a2", "two")
+	push(t, st, owner, "a3", "three")
+	cursor := since(t, st, owner, 0)[2].Seq // the open page's cursor = last seq it saw (3)
+
+	start(t, st, owner) // a new interview: feed cleared, seq restarts at 1
+	push(t, st, owner, "b1", "after restart")
+
+	got := since(t, st, owner, cursor) // the page keeps polling with its old, higher cursor
+	if len(got) != 1 || got[0].Text != "after restart" {
+		t.Fatalf("across restart: since(%d) = %+v, want [after restart]", cursor, got)
 	}
 }

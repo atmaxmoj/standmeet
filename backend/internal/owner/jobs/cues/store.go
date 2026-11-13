@@ -71,6 +71,13 @@ func New(rdb *redis.Client) *Store { return &Store{rdb: rdb} }
 func listKey(ownerID string) string   { return "cues:" + ownerID }
 func seqKey(ownerID string) string    { return "cues:" + ownerID + ":seq" }
 func viewerKey(ownerID string) string { return "cues:" + ownerID + ":viewer" }
+func activeKey(ownerID string) string { return "cues:" + ownerID + ":active" }
+
+// sessionTTL —— how long a cue session stays "live" after the last push. The screen assistant is a
+// per-owner singleton: assistant.prepare starts it, pushes keep it alive, and when the interview
+// stops pushing the session lapses within this window and /cue goes empty again. Long enough to
+// ride out a pause in the conversation (a long answer with no new heard/said line).
+const sessionTTL = 3 * time.Minute
 
 // viewerTTL —— how long a /cue heartbeat keeps the phone "present". The phone beats every ~2s; two
 // missed beats (phone locked, /cue backgrounded, out of signal) and presence lapses, so the desktop
@@ -96,6 +103,19 @@ func (s *Store) ViewerPresent(ctx context.Context, ownerID string) (bool, error)
 	return n > 0, nil
 }
 
+// StartSession —— begin the owner's single live cue session: clear the previous session's feed and
+// mark the session active. assistant.prepare calls it; reads return nothing until it runs, so /cue
+// is empty whenever no interview is underway and a stray push (no session) never shows.
+func (s *Store) StartSession(ctx context.Context, ownerID string) error {
+	if err := s.rdb.Del(ctx, listKey(ownerID), seqKey(ownerID)).Err(); err != nil {
+		return fmt.Errorf("cues clear: %w", err)
+	}
+	if err := s.rdb.Set(ctx, activeKey(ownerID), "1", sessionTTL).Err(); err != nil {
+		return fmt.Errorf("cues start session: %w", err)
+	}
+	return nil
+}
+
 // Push —— stamp Seq/At on e and append it to the owner's feed.
 func (s *Store) Push(ctx context.Context, ownerID string, e *Event) error {
 	if err := e.Validate(); err != nil {
@@ -115,6 +135,9 @@ func (s *Store) Push(ctx context.Context, ownerID string, e *Event) error {
 		p.LTrim(ctx, listKey(ownerID), -keepEvents, -1)
 		p.Expire(ctx, listKey(ownerID), ttl)
 		p.Expire(ctx, seqKey(ownerID), ttl)
+		// Keep the session alive while cards flow — but never create it: Expire no-ops on a missing
+		// key, so a push with no prepared session (a stray test push) stays invisible.
+		p.Expire(ctx, activeKey(ownerID), sessionTTL)
 		return nil
 	})
 	if err != nil {
@@ -139,7 +162,9 @@ func Latest(events []Event) []Event {
 	return out
 }
 
-// Since —— the events after seq, oldest first. A reader passes the last seq it saw.
+// Since —— the events after seq, oldest first, but only while a session is live (the screen
+// assistant is a per-owner singleton: no active session → nothing to show, so /cue stays empty
+// between interviews). A reader passes the last seq it saw.
 //
 // Reset recovery: the feed's keys expire after ttl, so the seq counter restarts
 // at 1 on the next push. A reader left open (a /cue page) only ever raises its
@@ -147,12 +172,36 @@ func Latest(events []Event) []Event {
 // poll empty forever. When the highest seq held is below the caller's cursor, the
 // feed has reset — serve everything, and the cursor falls back into range next poll.
 func (s *Store) Since(ctx context.Context, ownerID string, seq int64) ([]Event, error) {
+	active, err := s.sessionActive(ctx, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	if !active {
+		return []Event{}, nil
+	}
 	events, err := s.readAll(ctx, ownerID)
 	if err != nil {
 		return nil, err
 	}
+	return after(events, seq), nil
+}
+
+// sessionActive —— is an interview underway (prepare ran and pushes are still arriving within
+// sessionTTL)? Reads gate on this so /cue shows cards only while a session is live.
+func (s *Store) sessionActive(ctx context.Context, ownerID string) (bool, error) {
+	n, err := s.rdb.Exists(ctx, activeKey(ownerID)).Result()
+	if err != nil {
+		return false, fmt.Errorf("cues session active: %w", err)
+	}
+	return n > 0, nil
+}
+
+// after —— the events past seq. A cursor above the feed's highest seq means the feed reset below it
+// (a new session restarted seq at 1 under a page still holding the old cursor) — serve everything,
+// and the cursor falls back into range on the next poll.
+func after(events []Event, seq int64) []Event {
 	if seq > maxSeq(events) {
-		seq = 0 // feed reset below the caller's cursor; hand back everything it now holds
+		seq = 0
 	}
 	out := make([]Event, 0, len(events))
 	for _, e := range events {
@@ -160,7 +209,7 @@ func (s *Store) Since(ctx context.Context, ownerID string, seq int64) ([]Event, 
 			out = append(out, e)
 		}
 	}
-	return out, nil
+	return out
 }
 
 // readAll —— every event in the feed, oldest first.

@@ -1,12 +1,12 @@
 // CueFeed —— the live cue feed rendered the one way, shared by /admin/screen-assistant and the
-// full-screen /cue page so the two never drift. A conversation flow like the desktop cue app: oldest
-// first, newest at the bottom, each interviewer line (muted, accent rule) followed by the cue card it
-// drew (a cue is markdown with GFM tables; leading letters bold for faster reading); the owner's own
-// answer sits indented. The view auto-scrolls to the newest as cards stream in.
+// full-screen /cue page so the two never drift. Grouped into turns — each interviewer line (muted,
+// accent rule) with the cue card(s) it drew below it, the owner's own answer indented — with the
+// newest turn on top, so the current question and its cue are always in view without scrolling. A cue
+// is markdown (GFM tables for the choice matrix); the leading letters are bold for faster reading.
 
 'use client';
 
-import { Children, Fragment, useEffect, useRef, type ReactNode } from 'react';
+import { Children, Fragment, type ReactNode } from 'react';
 
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -19,18 +19,31 @@ import type { AssistantEvent } from '@/lib/admin/use-screen-assistant';
 const cueClass =
   'reading text-[16px] border-l-2 border-(--color-accent) pl-4 overflow-x-auto [&_table]:my-3 [&_table]:border-collapse [&_table]:text-[14px] [&_th]:mono [&_th]:text-[11px] [&_th]:text-left [&_th]:border-b [&_th]:border-(--color-rule) [&_th]:px-2 [&_th]:py-1 [&_td]:border-b [&_td]:border-(--color-rule) [&_td]:px-2 [&_td]:py-1 [&_td]:align-top';
 
+// groupTurns —— split the feed into turns: an interviewer line ('heard') starts a turn; the cue cards
+// and the owner's answers that follow attach to it (a leading card with no question yet is its own
+// turn).
+function groupTurns(events: readonly AssistantEvent[]): AssistantEvent[][] {
+  const turns: AssistantEvent[][] = [];
+  for (const e of events) addToTurns(turns, e);
+  return turns;
+}
+
+// addToTurns —— a 'heard' line opens a new turn; a cue/answer attaches to the open turn (or opens one
+// if none is open yet).
+function addToTurns(turns: AssistantEvent[][], e: AssistantEvent): void {
+  const open = turns.at(-1);
+  void (e.kind !== 'heard' && open ? open.push(e) : turns.push([e]));
+}
+
 export function CueFeed({ events }: { events: readonly AssistantEvent[] }) {
-  const endRef = useRef<HTMLDivElement>(null);
-  const latest = events[events.length - 1];
-  // Follow the newest line/card as it streams in — the interviewer is talking now, the owner wants
-  // the freshest cue in view without scrolling.
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ block: 'end' });
-  }, [events.length, latest?.text]);
+  const turns = groupTurns(events).reverse(); // newest turn first
   return (
-    <div className="flex flex-col gap-5">
-      {events.map((e) => <Turn key={`${e.kind}-${e.id}`} event={e} />)}
-      <div ref={endRef} aria-hidden />
+    <div className="flex flex-col gap-6">
+      {turns.map((turn) => (
+        <section key={`${turn[0]!.kind}-${turn[0]!.id}`} className="flex flex-col gap-3">
+          {turn.map((e) => <Turn key={`${e.kind}-${e.id}`} event={e} />)}
+        </section>
+      ))}
     </div>
   );
 }

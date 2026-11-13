@@ -35,6 +35,9 @@ test.describe('/cue phone view', () => {
 
     await openCue(adminPage);
 
+    // The feed only streams while a session is live (the per-owner singleton): the desktop starts one
+    // with assistant.prepare, so without this the pushes below stay invisible and /cue shows nothing.
+    await callTool(request, token, sid, 'assistant.prepare', {});
     await push({ id: 'h1', kind: 'heard', text: 'How do you isolate untrusted code?' });
     await push({ id: 'c1', kind: 'cue', text: 'Key: isolation' });
     await push({ id: 'c1', kind: 'cue', text: 'Key: isolation + sandbox. Every build runs in its own container.' });

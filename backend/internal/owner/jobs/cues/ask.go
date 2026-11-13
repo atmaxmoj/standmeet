@@ -39,21 +39,30 @@ func (a *Assistant) Prepare(ctx context.Context, ownerID, ref, code string) (Pre
 	if err != nil {
 		return Prepared{}, err
 	}
+	// Start the owner's single live session: clear the last interview's feed and mark it active, so
+	// /cue streams from a clean slate and shows nothing once this interview stops pushing.
+	if serr := a.Feed.StartSession(ctx, ownerID); serr != nil {
+		return Prepared{}, serr
+	}
 	screen, err := a.ports.Screen(ctx, ownerID)
 	if err != nil {
 		return Prepared{}, err
 	}
+	return preparedOf(&rd, screen), nil
+}
+
+// preparedOf —— the start-screen summary: the hint over the applied companies, the note count, and
+// the active scope's role (nil for the whole-wiki fallback; a role or a bound code carries an ID).
+func preparedOf(rd *roleDeck, screen Screen) Prepared {
 	companies := make([]string, 0, len(screen.Jobs))
 	for _, j := range screen.Jobs {
 		companies = append(companies, j.Company)
 	}
 	p := Prepared{Hint: rd.deck.Hint(companies), Notes: rd.deck.Count()}
-	// Show which scope is active: the role ref's, or the bound code's (both carry an ID; the
-	// whole-wiki fallback does not).
 	if rd.role.ID != "" {
 		p.Role = &rd.role
 	}
-	return p, nil
+	return p
 }
 
 // Applications —— the committed applications the owner can bind this session to (the start screen's
