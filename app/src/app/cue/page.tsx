@@ -53,7 +53,7 @@ export default function CuePage() {
   useKeepAwake();
   useCueHeartbeat(); // tell the desktop app to hand its display here while this page is on screen
   return (
-    <main className="min-h-dvh bg-(--color-paper) text-(--color-ink) px-4 py-4">
+    <main className="min-h-dvh bg-(--color-paper) text-(--color-ink) pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))] pl-[calc(1rem+env(safe-area-inset-left))] pr-[calc(1rem+env(safe-area-inset-right))]">
       <Header />
       <Body events={events} error={error} />
     </main>
