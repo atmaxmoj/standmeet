@@ -40,8 +40,8 @@ func mustPush(t *testing.T, store *cues.Store, id, kind, text string) {
 	}
 }
 
-// tickAlive —— run one tick and fail if it ended the stream (it should survive a normal push, a
-// quiet stretch and a session lapse alike).
+// tickAlive —— run one tick and fail if it ended the stream (it should survive a push, a quiet
+// stretch and a session lapse alike).
 func tickAlive(t *testing.T, s *cueFeedStream) {
 	t.Helper()
 	if !s.tick(context.Background(), time.Now()) {
@@ -49,119 +49,79 @@ func tickAlive(t *testing.T, s *cueFeedStream) {
 	}
 }
 
-func wantFrame(t *testing.T, frame, id, text string) {
-	t.Helper()
-	if !strings.Contains(frame, id) || !strings.Contains(frame, text) {
-		t.Fatalf("frame %q missing id %q / text %q", frame, id, text)
-	}
-}
-
-// TestTickEmitsEventsAsFrames —— a tick with new events writes one SSE frame per event, each with
-// its seq as the id (so a reconnect resumes) and its text as data, and advances the cursor.
-func TestTickEmitsEventsAsFrames(t *testing.T) {
+// TestTickSendsCurrentSet —— a tick writes one frame holding the whole current card set (every id's
+// text), so the phone mirrors what to show now.
+func TestTickSendsCurrentSet(t *testing.T) {
 	t.Parallel()
 	var frames []string
-	fx := streamWith(t, func(b []byte) bool {
-		frames = append(frames, string(b))
-		return true
-	})
+	fx := streamWith(t, func(b []byte) bool { frames = append(frames, string(b)); return true })
 	mustPush(t, fx.store, "h1", cues.KindHeard, "how do you isolate untrusted code?")
 	mustPush(t, fx.store, "c1", cues.KindCue, "key: sandbox")
 
 	tickAlive(t, fx.s)
-	if len(frames) != 2 {
-		t.Fatalf("got %d frames, want 2: %q", len(frames), frames)
+	if len(frames) != 1 {
+		t.Fatalf("got %d frames, want 1: %q", len(frames), frames)
 	}
-	wantFrame(t, frames[0], "id: 1\n", "untrusted code")
-	wantFrame(t, frames[1], "id: 2\n", "sandbox")
-	if fx.s.since != 2 {
-		t.Fatalf("cursor = %d, want 2", fx.s.since)
+	for _, want := range []string{"data: [", "untrusted code", "sandbox"} {
+		if !strings.Contains(frames[0], want) {
+			t.Fatalf("frame %q missing %q", frames[0], want)
+		}
 	}
 }
 
-// TestTickPingsAfterQuiet —— with no new events and the last write older than sse.Ping, a tick
-// sends a keep-alive comment; a fresh last sends nothing.
-func TestTickPingsAfterQuiet(t *testing.T) {
+// TestTickClearsWhenSessionLapses —— once cards have streamed, a tick that finds the session no
+// longer live (the interview stopped) sends an empty set, so the phone clears, no special signal;
+// a later unchanged tick does not resend it. Without it the phone keeps the last cards on screen.
+func TestTickClearsWhenSessionLapses(t *testing.T) {
 	t.Parallel()
 	var frames []string
-	fx := streamWith(t, func(b []byte) bool {
-		frames = append(frames, string(b))
-		return true
-	})
+	fx := streamWith(t, func(b []byte) bool { frames = append(frames, string(b)); return true })
+	mustPush(t, fx.store, "c1", cues.KindCue, "answer")
+	tickAlive(t, fx.s) // delivers the card
 
-	fx.s.last = time.Now()
-	fx.s.tick(context.Background(), time.Now())
-	if len(frames) != 0 {
-		t.Fatalf("fresh last: %q, want no frame", frames)
+	fx.mr.FastForward(4 * time.Minute) // the interview stops; the session's activeKey lapses
+	frames = nil
+	tickAlive(t, fx.s)
+	if len(frames) != 1 || !strings.Contains(frames[0], "data: []") {
+		t.Fatalf("after lapse: %q, want one empty-set frame", frames)
 	}
-	fx.s.last = time.Now().Add(-time.Minute)
-	fx.s.tick(context.Background(), time.Now())
-	if len(frames) != 1 || frames[0] != ": ping\n\n" {
-		t.Fatalf("after quiet: %q, want one ping comment", frames)
+
+	frames = nil
+	fx.s.wroteAt = time.Now()
+	tickAlive(t, fx.s)
+	if len(frames) != 0 {
+		t.Fatalf("empty set resent: %q, want none", frames)
 	}
 }
 
-// TestTickStopsWhenClientGone —— once a write fails (the phone closed it), the tick ends it.
+// TestTickPingsWhenUnchanged —— with the set unchanged since the last frame, a tick sends nothing
+// until sse.Ping of quiet, then a keep-alive comment.
+func TestTickPingsWhenUnchanged(t *testing.T) {
+	t.Parallel()
+	var frames []string
+	fx := streamWith(t, func(b []byte) bool { frames = append(frames, string(b)); return true })
+	mustPush(t, fx.store, "c1", cues.KindCue, "answer")
+	tickAlive(t, fx.s) // sends the set, records it
+
+	frames = nil
+	fx.s.wroteAt = time.Now()
+	tickAlive(t, fx.s)
+	if len(frames) != 0 {
+		t.Fatalf("fresh write: %q, want no frame", frames)
+	}
+	fx.s.wroteAt = time.Now().Add(-time.Minute)
+	tickAlive(t, fx.s)
+	if len(frames) != 1 || frames[0] != ": ping\n\n" {
+		t.Fatalf("after quiet: %q, want one ping", frames)
+	}
+}
+
+// TestTickStopsWhenClientGone —— once a write fails (the phone closed it) the tick ends the stream.
 func TestTickStopsWhenClientGone(t *testing.T) {
 	t.Parallel()
 	fx := streamWith(t, func([]byte) bool { return false })
 	mustPush(t, fx.store, "c1", cues.KindCue, "answer")
 	if fx.s.tick(context.Background(), time.Now()) {
 		t.Fatal("tick kept the stream alive after the client was gone")
-	}
-}
-
-// TestTickEmitsEndedWhenSessionLapses —— once cards have streamed, a tick that finds the session no
-// longer live (prepare's activeKey lapsed with no more pushes — the interview stopped) writes one
-// `ended` frame so the phone clears its cards, then only pings. Without it the phone keeps the last
-// cards on screen after the interview ends.
-func TestTickEmitsEndedWhenSessionLapses(t *testing.T) {
-	t.Parallel()
-	var frames []string
-	fx := streamWith(t, func(b []byte) bool {
-		frames = append(frames, string(b))
-		return true
-	})
-	mustPush(t, fx.store, "c1", cues.KindCue, "answer")
-	tickAlive(t, fx.s) // delivers the card, marks the stream active
-
-	fx.mr.FastForward(4 * time.Minute) // the interview stops; the session's activeKey lapses
-	frames = nil
-	tickAlive(t, fx.s)
-	if len(frames) != 1 || !strings.Contains(frames[0], "event: ended") {
-		t.Fatalf("after session lapse: %q, want one `ended` frame", frames)
-	}
-
-	// The clear is sent once: a later quiet tick does not repeat it.
-	frames = nil
-	fx.s.last = time.Now()
-	tickAlive(t, fx.s)
-	if len(frames) != 0 {
-		t.Fatalf("ended repeated: %q, want none", frames)
-	}
-}
-
-// TestTickClearsOnConnectWithNoLiveSession —— a page that connects (or reconnects after a restart)
-// when no interview is live may still hold the last session's cards; the first tick sends one
-// `ended` so it clears, and does not repeat it.
-func TestTickClearsOnConnectWithNoLiveSession(t *testing.T) {
-	t.Parallel()
-	var frames []string
-	fx := streamWith(t, func(b []byte) bool {
-		frames = append(frames, string(b))
-		return true
-	})
-	fx.mr.FastForward(4 * time.Minute) // no live session by the time the stream first ticks
-
-	tickAlive(t, fx.s)
-	if len(frames) != 1 || !strings.Contains(frames[0], "event: ended") {
-		t.Fatalf("connect with no session: %q, want one `ended` frame", frames)
-	}
-
-	frames = nil
-	fx.s.last = time.Now()
-	tickAlive(t, fx.s)
-	if len(frames) != 0 {
-		t.Fatalf("ended repeated: %q, want none", frames)
 	}
 }

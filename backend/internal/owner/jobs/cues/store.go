@@ -187,14 +187,31 @@ func (s *Store) Since(ctx context.Context, ownerID string, seq int64) ([]Event, 
 }
 
 // SessionActive —— is an interview underway (prepare ran and pushes are still arriving within
-// sessionTTL)? Reads gate on this so /cue shows cards only while a session is live; the SSE stream
-// also reads it, to clear the phone when a live session lapses.
+// sessionTTL)? Reads gate on this so /cue shows cards only while a session is live.
 func (s *Store) SessionActive(ctx context.Context, ownerID string) (bool, error) {
 	n, err := s.rdb.Exists(ctx, activeKey(ownerID)).Result()
 	if err != nil {
 		return false, fmt.Errorf("cues session active: %w", err)
 	}
 	return n > 0, nil
+}
+
+// Current —— the cards to show on /cue right now: the whole feed (latest text per id, in first-seen
+// order) while a session is live, or nothing between interviews. The SSE stream sends it each tick
+// and the phone mirrors it; a lapsed session's empty set clears the phone, no separate signal.
+func (s *Store) Current(ctx context.Context, ownerID string) ([]Event, error) {
+	active, err := s.SessionActive(ctx, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	if !active {
+		return []Event{}, nil
+	}
+	events, err := s.readAll(ctx, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	return Latest(events), nil
 }
 
 // after —— the events past seq. A cursor above the feed's highest seq means the feed reset below it

@@ -1,7 +1,8 @@
-// use-screen-assistant —— the live feed the desktop cue app pushes over MCP (assistant.push). Holds
-// one Server-Sent Events connection to GET /api/admin/screen-assistant/stream?since=<last seq>, kept
-// alive by the server's pings, and is pushed each new event. A cue streams as growing text under one
-// id, so the feed keeps one entry per id with the latest text, in first-seen order.
+// use-screen-assistant —— the live cue feed the desktop app pushes over MCP (assistant.push). Holds
+// one Server-Sent Events connection to GET /api/admin/screen-assistant/stream, kept alive by the
+// server's pings. Each frame is the whole current card set, so this just mirrors it: whatever the last
+// frame said is what's on screen, and an empty set (the interview ended) clears the view. No cursor,
+// no accumulation — the fact of what to show lives on the server.
 
 import { useEffect, useState } from 'react';
 
@@ -16,25 +17,15 @@ const EventSchema = z.object({
 });
 export type AssistantEvent = z.infer<typeof EventSchema>;
 
+const EventsSchema = z.array(EventSchema);
+
 // RETRY_MS —— EventSource does not reconnect itself after a non-2xx (a 401 when the access token
 // lapsed), so on any error we refresh and reopen after this long.
 const RETRY_MS = 1_000;
 
-export function mergeEvents(
-  prev: readonly AssistantEvent[], next: readonly AssistantEvent[],
-): AssistantEvent[] {
-  const out = [...prev];
-  for (const e of next) {
-    const i = out.findIndex((p) => p.id === e.id && p.kind === e.kind);
-    if (i >= 0) out[i] = e;
-    else out.push(e);
-  }
-  return out;
-}
-
-function parseEvent(data: string): AssistantEvent | null {
+function parseEvents(data: string): AssistantEvent[] | null {
   try {
-    const parsed = EventSchema.safeParse(JSON.parse(data));
+    const parsed = EventsSchema.safeParse(JSON.parse(data));
     return parsed.success ? parsed.data : null;
   } catch {
     return null;
@@ -45,24 +36,15 @@ export function useScreenAssistant(): { events: AssistantEvent[]; error: string 
   const [events, setEvents] = useState<AssistantEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    let since = 0;
     let stopped = false;
     let es: EventSource | null = null;
     let retry: ReturnType<typeof setTimeout> | undefined;
 
     const onMessage = (ev: MessageEvent<string>) => {
-      const e = parseEvent(ev.data);
-      if (!e) return;
-      since = e.seq;
+      const next = parseEvents(ev.data);
+      if (!next) return;
       setError(null);
-      setEvents((prev) => mergeEvents(prev, [e]));
-    };
-    // the server sends `ended` when the live session lapses (the interview stopped): clear the cards
-    // so the phone goes back to the empty state instead of holding the last ones on screen. The next
-    // session restarts seq at 1, so reset the cursor to read it from the top.
-    const onEnded = () => {
-      since = 0;
-      setEvents([]);
+      setEvents(next); // the frame is the whole current set — mirror it (empty = the interview ended)
     };
     const onError = () => {
       if (stopped) return;
@@ -73,9 +55,8 @@ export function useScreenAssistant(): { events: AssistantEvent[]; error: string 
       retry = setTimeout(() => { if (!stopped) open(); }, RETRY_MS);
     };
     function open(): void {
-      es = new EventSource(`/api/admin/screen-assistant/stream?since=${since}`, { withCredentials: true });
+      es = new EventSource('/api/admin/screen-assistant/stream', { withCredentials: true });
       es.onmessage = onMessage;
-      es.addEventListener('ended', onEnded);
       es.onerror = onError;
     }
     open();
