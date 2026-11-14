@@ -172,7 +172,7 @@ func Latest(events []Event) []Event {
 // poll empty forever. When the highest seq held is below the caller's cursor, the
 // feed has reset — serve everything, and the cursor falls back into range next poll.
 func (s *Store) Since(ctx context.Context, ownerID string, seq int64) ([]Event, error) {
-	active, err := s.sessionActive(ctx, ownerID)
+	active, err := s.SessionActive(ctx, ownerID)
 	if err != nil {
 		return nil, err
 	}
@@ -186,9 +186,10 @@ func (s *Store) Since(ctx context.Context, ownerID string, seq int64) ([]Event, 
 	return after(events, seq), nil
 }
 
-// sessionActive —— is an interview underway (prepare ran and pushes are still arriving within
-// sessionTTL)? Reads gate on this so /cue shows cards only while a session is live.
-func (s *Store) sessionActive(ctx context.Context, ownerID string) (bool, error) {
+// SessionActive —— is an interview underway (prepare ran and pushes are still arriving within
+// sessionTTL)? Reads gate on this so /cue shows cards only while a session is live; the SSE stream
+// also reads it, to clear the phone when a live session lapses.
+func (s *Store) SessionActive(ctx context.Context, ownerID string) (bool, error) {
 	n, err := s.rdb.Exists(ctx, activeKey(ownerID)).Result()
 	if err != nil {
 		return false, fmt.Errorf("cues session active: %w", err)

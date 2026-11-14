@@ -57,6 +57,13 @@ export function useScreenAssistant(): { events: AssistantEvent[]; error: string 
       setError(null);
       setEvents((prev) => mergeEvents(prev, [e]));
     };
+    // the server sends `ended` when the live session lapses (the interview stopped): clear the cards
+    // so the phone goes back to the empty state instead of holding the last ones on screen. The next
+    // session restarts seq at 1, so reset the cursor to read it from the top.
+    const onEnded = () => {
+      since = 0;
+      setEvents([]);
+    };
     const onError = () => {
       if (stopped) return;
       setError('reconnecting'); // signed out: the stream 401s and this stays, so /cue offers sign-in
@@ -68,6 +75,7 @@ export function useScreenAssistant(): { events: AssistantEvent[]; error: string 
     function open(): void {
       es = new EventSource(`/api/admin/screen-assistant/stream?since=${since}`, { withCredentials: true });
       es.onmessage = onMessage;
+      es.addEventListener('ended', onEnded);
       es.onerror = onError;
     }
     open();
