@@ -102,6 +102,9 @@ test.describe('reader writing 树端点:published 进树 + private 显示成 loc
   test('reader 文章页:/writings/sub-post breadcrumb 显示祖先 Essays(可点)', articleBreadcrumb);
   test('a laptop-wide window: the tree keeps its own column beside the article', treeBesideArticle);
   test('reading down the article leaves the tree where it was', treeStaysPut);
+  test('the tree column runs the full height of the window', treeColumnFullHeight);
+  test('a tree that fits shows its last entry clear of the fade', lastEntryClearOfFade);
+  test('a tree taller than the window scrolls inside its one column', treeScrollsInOneColumn);
 
   // -- admin reparent: prevents a cycle (hanging essays under its own child sub → rejected) --
   test('admin reparent 成环 → 400(essays 挂到子 sub-post 下被拒)', adminReparentCycle);
@@ -165,6 +168,65 @@ async function treeStaysPut({ page }: { page: Page }): Promise<void> {
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(500);
   const after = await page.getByTestId('writing-tree').boundingBox();
   expect(after?.y, 'the tree stays put while the article scrolls').toBe(tree.y);
+}
+
+// STRIP -- the session strip's height; the tree column starts below it.
+const STRIP = 30;
+
+// railBox -- measures the tree's scroll column on an article page: its box, how much it holds,
+// the fade's height, and where the last entry ends inside it.
+interface RailBox {
+  height: number; scrollHeight: number; clientHeight: number;
+  fade: number; lastEntryEnd: number; treeScrolls: boolean;
+}
+async function railBox(page: Page): Promise<RailBox> {
+  await expect(page.getByTestId('tree-node-essays')).toBeVisible({ timeout: 5_000 });
+  return page.getByTestId('wiki-toc').evaluate((rail) => {
+    const col = rail.firstElementChild as HTMLElement;
+    const tree = col.querySelector('[data-testid="writing-tree"]') as HTMLElement;
+    const links = tree.querySelectorAll('a');
+    const last = links[links.length - 1] as HTMLElement;
+    const top = col.getBoundingClientRect().top - col.scrollTop;
+    return {
+      height: col.getBoundingClientRect().height,
+      scrollHeight: col.scrollHeight,
+      clientHeight: col.clientHeight,
+      fade: parseFloat(getComputedStyle(col, '::after').height),
+      lastEntryEnd: last.getBoundingClientRect().bottom - top,
+      treeScrolls: tree.scrollHeight > tree.clientHeight,
+    };
+  });
+}
+
+// treeColumnFullHeight -- the column is the window's height below the strip, however short the
+// tree (prod, 2026-11-18: a 407px column in a 1112px window).
+async function treeColumnFullHeight({ page }: { page: Page }): Promise<void> {
+  await page.setViewportSize({ width: 1500, height: 900 });
+  await openReader(page, '/writings/sub-post');
+  const box = await railBox(page);
+  expect(Math.round(box.height), 'the column fills the window below the strip').toBe(900 - STRIP);
+}
+
+// lastEntryClearOfFade -- the fade marks a cut edge. A tree that fits has none, so its last
+// entry ends above the fade (prod, 2026-11-18: the fade lay over the last two entries of a
+// complete list, which read as cut off).
+async function lastEntryClearOfFade({ page }: { page: Page }): Promise<void> {
+  await page.setViewportSize({ width: 1500, height: 900 });
+  await openReader(page, '/writings/sub-post');
+  const box = await railBox(page);
+  expect(box.fade, 'the fade has a height').toBeGreaterThan(0);
+  expect(box.lastEntryEnd, 'the last entry ends above the fade')
+    .toBeLessThanOrEqual(box.scrollHeight - box.fade);
+}
+
+// treeScrollsInOneColumn -- in a window too short for the tree, the column scrolls and the tree
+// inside it does not: one scroll region, with the fade on its cut edge.
+async function treeScrollsInOneColumn({ page }: { page: Page }): Promise<void> {
+  await page.setViewportSize({ width: 1500, height: 90 });
+  await openReader(page, '/writings/sub-post');
+  const box = await railBox(page);
+  expect(box.scrollHeight, 'the column holds more than it shows').toBeGreaterThan(box.clientHeight);
+  expect(box.treeScrolls, 'the tree is not a second scroll region').toBe(false);
 }
 
 // readerSidebar -- /writings displays the writing tree: roots appear; opening

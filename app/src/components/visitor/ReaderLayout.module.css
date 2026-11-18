@@ -41,19 +41,36 @@
   /* Keeps the scrollbar from taking up layout width, and from drawing a gray groove on the
    * paper-colored background. */
   scrollbar-width: thin;
+  /* A column, so the tree can push the fade to the bottom edge (see .railInner > nav). */
+  display: flex;
+  flex-direction: column;
+}
+
+/* The rail is the one scroll region. The tree inside brings its own sticky + max-height +
+ * overflow for the /writings index, where it stands alone; here those would make a second,
+ * shorter scroller inside this one, and its cut edge would get no fade.
+ * `flex: 1 0 auto`: a short tree grows to fill the column, which puts the fade at the window's
+ * bottom edge instead of as a faint band right under the last entry. */
+.railInner > nav {
+  position: static;
+  max-height: none;
+  overflow: visible;
+  flex: 1 0 auto;
 }
 
 /* The fade at the cut edge: sticky, pinned to the scroll container's bottom edge, and stays
  * put while the content scrolls past it.
- * `margin-top: -3rem` overlaps it onto the last few lines of text instead of pushing content
- * up. */
+ * It takes its own 3rem after the last entry, with no negative margin: a tree that fits, or one
+ * scrolled to its end, shows its last entries at full strength. With `margin-top: -3rem` the
+ * fade lay over the last two entries of a tree that was not cut at all, and the complete list
+ * read as truncated (prod, 2026-11-18: 18 entries, 407px, nothing below). */
 .railInner::after {
   content: '';
   position: sticky;
   display: block;
   bottom: 0;
   height: 3rem;
-  margin-top: -3rem;
+  flex: none;
   pointer-events: none;
   background: linear-gradient(
     to bottom,

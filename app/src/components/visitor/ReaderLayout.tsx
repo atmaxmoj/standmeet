@@ -44,8 +44,9 @@ import type { ReactNode } from 'react';
 import styles from '@/components/visitor/ReaderLayout.module.css';
 
 // STICKY_TOP —— SessionStrip's height (sticky top:0). The tree pins below
-// it — don't overlap.
-const STICKY_TOP = 'top-[30px] max-h-[calc(100dvh-30px)]';
+// it — don't overlap. A height, not a max-height: the column runs the full
+// window and scrolls inside itself, whatever the tree's length.
+const STICKY_TOP = 'top-[30px] h-[calc(100dvh-30px)]';
 
 export function ReaderLayout({ aside, children, mainTestId }: {
   aside: ReactNode;
