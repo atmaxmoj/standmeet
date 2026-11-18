@@ -923,6 +923,14 @@ eval-subjectivity:
 eval-interview-integrity:
 	@cd eval-harness && go test -run TestInterviewIntegrityLive -count=1 -v ./...
 
+# eval-answer-coverage —— the agent that says too little: an answer the corpus supports and the
+# agent does not give. Six answerable kinds (direct, reworded, date arithmetic, category, join
+# across two notes, count) checked in code, and two unanswerable ones (the notes are silent; an
+# absence stated for one scope) graded by the judge. Each case runs EVAL_ROUNDS times and must
+# pass every round. **Needs a real LLM** (eval-harness/.env key).
+eval-answer-coverage:
+	@cd eval-harness && go test -run 'TestAnswerCoverageLive|TestCoverageRulesSeeTheAnswer' -count=1 -timeout 45m -v ./...
+
 # eval-interview —— actually runs a multi-turn interview (recruiter on a code session, booking
 # granted), annotating each turn by dimension as it goes: grounding / context retention /
 # honest gap / not-in-corpus / privacy / tool use. Surfaces which corpus each turn's agent read +
