@@ -197,7 +197,14 @@ func askOnce(t *testing.T, cred agentcore.Cred, p *persona, question string) str
 // askCounted —— askOnce without the precondition: the answer and how many corpus tool calls it took.
 func askCounted(t *testing.T, cred agentcore.Cred, p *persona, question string) (string, int) {
 	t.Helper()
-	driver := &EvalDriver{cred: cred, roleBody: p.roleBody, corpus: p.corpus}
+	return askDriver(t, &EvalDriver{cred: cred, roleBody: p.roleBody, corpus: p.corpus}, nil, question)
+}
+
+// askDriver —— one candidate turn on a driver the caller built (a broken search, a corpus with a
+// note missing), after the given earlier turns of the same conversation.
+func askDriver(t *testing.T, driver *EvalDriver, history []convTurn, question string) (string, int) {
+	t.Helper()
+	cred := driver.cred
 	agent := mustLaunch(t, driver, &agentcore.LaunchInput{
 		OwnerID: "owner-1", Mode: "public", ConversationID: "c-" + t.Name(),
 	})
@@ -206,6 +213,7 @@ func askCounted(t *testing.T, cred agentcore.Cred, p *persona, question string) 
 		Cred: &cred,
 		Req: &agentcore.AgentTurnRequest{
 			System: agent.SystemPrompt, Model: cred.Model, UserMessage: question,
+			History: candidateHistory(history),
 		},
 		Mode: "public", Tools: agent.Tools,
 		ProgressLabels: agent.Labels, ReturnDirectly: agent.ReturnDirectly,

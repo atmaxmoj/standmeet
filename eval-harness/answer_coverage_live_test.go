@@ -59,9 +59,10 @@ var coverageCases = []coverageCase{
 	{
 		name: "visa_sponsorship", kind: "reworded",
 		question: "Would we have to sponsor a visa for you to work in Toronto?",
-		require:  regexp.MustCompile(`(?i)canadian|citizen`),
-		good:     "No. I'm a Canadian citizen, so no sponsorship is needed.",
-		bad:      "My notes don't cover work authorization.",
+		// "Canadian" alone: "citizen" also matches "my notes don't say what my citizenship is".
+		require: regexp.MustCompile(`(?i)canadian`),
+		good:    "No. I'm a Canadian citizen, so no sponsorship is needed.",
+		bad:     "My notes don't cover work authorization.",
 	},
 	{
 		name: "years_employed", kind: "arithmetic",
@@ -144,7 +145,10 @@ func TestAnswerCoverageLive(t *testing.T) {
 	// The same role a recruiter meets: who Noor is + the product's job-application prompt.
 	p.roleBody += "\n\n" + agentcore.HiringPrompt()
 	rounds := evalRounds()
-	byKind := map[string][2]int{} // kind → {passes, rounds}
+	byKind := map[string][2]int{}         // kind → {passes, rounds}
+	byConsequence := map[string]int{}     // what a miss does to the visitor → misses
+	sessionMiss := make([]bool, rounds+1) // round i, read as one visitor asking all the questions
+	var rows []evalRow
 	for _, c := range coverageCases {
 		t.Run(c.name, func(t *testing.T) {
 			passes := 0
@@ -158,7 +162,14 @@ func TestAnswerCoverageLive(t *testing.T) {
 				}
 				if why == "" {
 					passes++
+				} else {
+					sessionMiss[i] = true
+					byConsequence[consequenceOf(c.kind)]++
 				}
+				rows = append(rows, evalRow{
+					Test: "answer-coverage", Model: cred.Model, Case: c.name, Kind: c.kind,
+					Round: i, Tools: tools, Pass: why == "", Why: why,
+				})
 				t.Logf("round %d/%d %s\nA: %s", i, rounds, orPass(why), answer)
 			}
 			got := byKind[c.kind]
@@ -168,7 +179,20 @@ func TestAnswerCoverageLive(t *testing.T) {
 			}
 		})
 	}
+	writeRows(t, rows)
 	t.Logf("model=%s, per answer (one question, one fresh conversation):\n%s", cred.Model, coverageTable(byKind))
+	// The same rounds in the unit a recruiter is: round i across every case is one visitor who
+	// asked all the questions. One miss anywhere spoils that visitor.
+	clean := 0
+	for i := 1; i <= rounds; i++ {
+		if !sessionMiss[i] {
+			clean++
+		}
+	}
+	lo, hi := wilson(clean, rounds)
+	t.Logf("per visitor (all %d questions): %d/%d with no miss, 95%% interval %.0f%%–%.0f%%",
+		len(coverageCases), clean, rounds, lo*100, hi*100)
+	t.Logf("misses by what they do to the visitor: %v", byConsequence)
 }
 
 // coverageVerdict —— "" for a pass, else the reason for the miss.

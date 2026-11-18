@@ -931,6 +931,17 @@ eval-interview-integrity:
 eval-answer-coverage:
 	@cd eval-harness && go test -run 'TestAnswerCoverageLive|TestCoverageRulesSeeTheAnswer' -count=1 -timeout 45m -v ./...
 
+# eval-answer-survival —— ONE conversation of twelve answerable questions, EVAL_ROUNDS
+# conversations: at which turn the first miss comes (a Kaplan–Meier table). **Needs a real LLM.**
+eval-answer-survival:
+	@cd eval-harness && go test -run TestAnswerSurvivalLive -count=1 -timeout 60m -v ./...
+
+# eval-answer-vulnerability —— the coverage questions under a defect the product can have (search
+# down for the turn; one note lost in a sync): the share of rounds that miss, per kind of question.
+# A table, no pass/fail. **Needs a real LLM.**
+eval-answer-vulnerability:
+	@cd eval-harness && go test -run TestAnswerVulnerabilityLive -count=1 -timeout 60m -v ./...
+
 # eval-interview —— actually runs a multi-turn interview (recruiter on a code session, booking
 # granted), annotating each turn by dimension as it goes: grounding / context retention /
 # honest gap / not-in-corpus / privacy / tool use. Surfaces which corpus each turn's agent read +
