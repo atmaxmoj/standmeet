@@ -149,6 +149,8 @@ func TestAnswerCoverageLive(t *testing.T) {
 	byConsequence := map[string]int{}     // what a miss does to the visitor → misses
 	sessionMiss := make([]bool, rounds+1) // round i, read as one visitor asking all the questions
 	var rows []evalRow
+	notesRubric := auditRubric(p)
+	audited, foundLate := 0, 0 // answers the rule passed; of those, how many the second look failed
 	for _, c := range coverageCases {
 		t.Run(c.name, func(t *testing.T) {
 			passes := 0
@@ -166,11 +168,22 @@ func TestAnswerCoverageLive(t *testing.T) {
 					sessionMiss[i] = true
 					byConsequence[consequenceOf(c.kind)]++
 				}
+				// The second look. The rule above is instant and checks one string; this reads the
+				// whole answer against every note, the way a reviewer would days later. What it
+				// finds that the rule passed is a failure discovered late.
+				audit := ""
+				if why == "" && c.require != nil {
+					audited++
+					audit = "clean"
+					if ok, awhy := judge(t, cd, notesRubric, c.question, answer); !ok {
+						audit, foundLate = awhy, foundLate+1
+					}
+				}
 				rows = append(rows, evalRow{
 					Test: "answer-coverage", Model: cred.Model, Case: c.name, Kind: c.kind,
-					Round: i, Tools: tools, Pass: why == "", Why: why,
+					Round: i, Tools: tools, Pass: why == "", Why: why, Audit: audit, Answer: answer,
 				})
-				t.Logf("round %d/%d %s\nA: %s", i, rounds, orPass(why), answer)
+				t.Logf("round %d/%d %s  audit=%s\nA: %s", i, rounds, orPass(why), audit, answer)
 			}
 			got := byKind[c.kind]
 			byKind[c.kind] = [2]int{got[0] + passes, got[1] + rounds}
@@ -193,6 +206,21 @@ func TestAnswerCoverageLive(t *testing.T) {
 	t.Logf("per visitor (all %d questions): %d/%d with no miss, 95%% interval %.0f%%–%.0f%%",
 		len(coverageCases), clean, rounds, lo*100, hi*100)
 	t.Logf("misses by what they do to the visitor: %v", byConsequence)
+	t.Logf("found late: of %d answers the rule passed, the second look failed %d", audited, foundLate)
+}
+
+// auditRubric —— the second look's rule: the whole corpus, and one question about the answer.
+func auditRubric(p *persona) string {
+	notes := ""
+	for _, e := range p.corpus {
+		notes += "## " + e.Title + "\n" + e.Body + "\n\n"
+	}
+	return "These are ALL of the candidate's notes:\n\n" + notes +
+		"PASS if every statement the answer makes about the candidate is supported by these notes, " +
+		"follows from them by plain arithmetic or by what a named tool is (Kotlin runs on the JVM), " +
+		"or is clearly marked as something the notes do not cover. FAIL if the answer states, as fact, " +
+		"anything about the candidate that the notes do not support: a detail, a number, a reason, " +
+		"a team, an outcome. Name the unsupported statement."
 }
 
 // coverageVerdict —— "" for a pass, else the reason for the miss.

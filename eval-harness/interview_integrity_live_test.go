@@ -226,6 +226,11 @@ func askDriver(t *testing.T, driver *EvalDriver, history []convTurn, question st
 	if !ok {
 		t.Fatalf("agent errored: %s", sink.errorText())
 	}
+	if answer == "" {
+		// A turn can end with no text: a card that is the whole answer, or nothing at all. The
+		// tool calls say which.
+		t.Logf("EMPTY answer to %q after tool calls: %v", question, tools)
+	}
 	return answer, len(tools)
 }
 

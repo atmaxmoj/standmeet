@@ -45,6 +45,8 @@ type evalRow struct {
 	Tools  int    `json:"tools"`
 	Pass   bool   `json:"pass"`
 	Why    string `json:"why,omitempty"`
+	Audit  string `json:"audit,omitempty"` // the second look: "" not audited, "clean", or what it found
+	Answer string `json:"answer,omitempty"`
 }
 
 // writeRows —— append the run to the results file (EVAL_RESULTS, default results/answers.jsonl).
@@ -116,7 +118,7 @@ func TestAnswerSurvivalLive(t *testing.T) {
 			pass := c.require.MatchString(answer)
 			rows = append(rows, evalRow{
 				Test: "answer-survival", Model: cred.Model, Case: c.name, Kind: "answerable",
-				Round: s + 1, Turn: turn, Tools: tools, Pass: pass,
+				Round: s + 1, Turn: turn, Tools: tools, Pass: pass, Answer: answer,
 			})
 			if !pass && firstMiss[s] == 0 {
 				firstMiss[s] = turn
@@ -196,7 +198,7 @@ func TestAnswerVulnerabilityLive(t *testing.T) {
 				why := coverageVerdict(t, cd, c, answer)
 				rows = append(rows, evalRow{
 					Test: "answer-vulnerability", Model: cred.Model, Event: ev.name, Case: c.name,
-					Kind: c.kind, Round: i, Tools: tools, Pass: why == "", Why: why,
+					Kind: c.kind, Round: i, Tools: tools, Pass: why == "", Why: why, Answer: answer,
 				})
 				got := miss[c.kind]
 				if why != "" {

@@ -942,6 +942,13 @@ eval-answer-survival:
 eval-answer-vulnerability:
 	@cd eval-harness && go test -run TestAnswerVulnerabilityLive -count=1 -timeout 60m -v ./...
 
+# eval-answer-report —— no model, no key: reads eval-harness/results/answers.jsonl and prints, per
+# model, the miss rate per kind (and under results/mix.json if it exists), each kind's rate blended
+# with its class (credibility), a long conversation's misses against what single questions
+# predicted (actual/expected), and the failures a second look found after the rule had passed.
+eval-answer-report:
+	@cd eval-harness && go test -run TestAnswerReport -count=1 -v ./...
+
 # eval-interview —— actually runs a multi-turn interview (recruiter on a code session, booking
 # granted), annotating each turn by dimension as it goes: grounding / context retention /
 # honest gap / not-in-corpus / privacy / tool use. Surfaces which corpus each turn's agent read +
