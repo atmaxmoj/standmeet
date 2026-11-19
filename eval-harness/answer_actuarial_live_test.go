@@ -233,16 +233,47 @@ func vulnerabilityLines(miss map[string][2]int) string {
 // noorOnAJobCode —— the persona the coverage evals share, under the product's job-application
 // prompt. Skips without a real key.
 func noorOnAJobCode(t *testing.T) (agentcore.Cred, *persona) {
+	return onAJobCode(t, "noor-haddad")
+}
+
+func onAJobCode(t *testing.T, name string) (agentcore.Cred, *persona) {
 	t.Helper()
 	loadDotenv()
 	cd := resolveCredDefaults()
 	if cd.Key == "" || cd.Key == "dev-llm-gateway-dummy-key" {
 		t.Skip("this live eval needs a real LLM key (EVAL_KEY / provider key); skipping")
 	}
-	p, perr := loadPersona("fixtures/personas/noor-haddad")
+	p, perr := loadPersona("fixtures/personas/" + name)
 	if perr != nil {
 		t.Fatalf("load persona: %v", perr)
 	}
 	p.roleBody += "\n\n" + agentcore.HiringPrompt()
 	return cd.cred(), p
+}
+
+// TestClassQuestionAtScaleLive —— the prompt tells the agent to open the note for every job and
+// project before it answers a question about a class of work. On nine notes that is cheap. This
+// asks the same kind of question of a persona with 54 notes, where one of three jobs was on the
+// JVM (Java and Spring at ACME Retail) and the persona's own summary says "Go, Postgres". A miss
+// is an answer that does not name that job, or no answer because the turn ran out of tool rounds.
+func TestClassQuestionAtScaleLive(t *testing.T) {
+	cred, p := onAJobCode(t, "marcus-chen")
+	rounds, hits := evalRounds(), 0
+	var rows []evalRow
+	for i := 1; i <= rounds; i++ {
+		answer, tools := askCounted(t, cred, p, "Any experience on the JVM?")
+		pass := regexp.MustCompile(`(?i)acme`).MatchString(answer)
+		if pass {
+			hits++
+		}
+		rows = append(rows, evalRow{
+			Test: "answer-class-at-scale", Model: cred.Model, Case: "jvm_experience_54_notes",
+			Kind: "category", Round: i, Tools: tools, Pass: pass, Answer: answer,
+		})
+		t.Logf("round %d/%d tools=%d pass=%v\nA: %s", i, rounds, tools, pass, answer)
+	}
+	writeRows(t, rows)
+	if hits < rounds {
+		t.Errorf("the JVM job was named in %d of %d rounds", hits, rounds)
+	}
 }
