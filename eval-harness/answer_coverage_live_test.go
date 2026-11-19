@@ -27,6 +27,7 @@ package main
 import (
 	"fmt"
 	"math"
+	"path"
 	"regexp"
 	"sort"
 	"testing"
@@ -127,6 +128,28 @@ func TestCoverageRulesSeeTheAnswer(t *testing.T) {
 		}
 		if c.require.MatchString(c.bad) {
 			t.Errorf("%s: rule /%s/ accepts the answer that misses the fact: %q", c.name, c.require, c.bad)
+		}
+	}
+}
+
+// TestPersonaLinksResolve —— every [[link]] in the persona names a note the way the product
+// resolves one: the last segment of its path. The first fixture linked by file name
+// ([[infra-ledger-events]] for wiki://infra/ledger-events), so the agent followed a link that
+// went nowhere and told the recruiter the note was missing. No model, no key.
+func TestPersonaLinksResolve(t *testing.T) {
+	p, err := loadPersona("fixtures/personas/noor-haddad")
+	if err != nil {
+		t.Fatalf("load persona: %v", err)
+	}
+	names := map[string]bool{}
+	for _, e := range p.corpus {
+		names[path.Base(e.Path)] = true
+	}
+	for _, e := range p.corpus {
+		for _, m := range regexp.MustCompile(`\[\[([^\]|]+)`).FindAllStringSubmatch(e.Body, -1) {
+			if !names[m[1]] {
+				t.Errorf("%s links to [[%s]], and no note's path ends in that", e.Path, m[1])
+			}
 		}
 	}
 }

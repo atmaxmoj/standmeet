@@ -29,7 +29,9 @@ func TestAnswerReport(t *testing.T) {
 	}
 	byModel := map[string][]evalRow{}
 	for _, r := range rows {
-		byModel[r.Model] = append(byModel[r.Model], r)
+		// One table per model and per config: a prompt variant is a different thing measured.
+		key := r.Model + " / " + r.Config
+		byModel[key] = append(byModel[key], r)
 	}
 	models := sortedKeys(byModel)
 	mix := readMix("results/mix.json")
